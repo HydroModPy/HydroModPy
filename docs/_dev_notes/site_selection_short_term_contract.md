@@ -254,8 +254,11 @@ Le contrat d'audit court terme est:
   `EvidenceRecord` dans `site_selection_evidence.jsonl`;
 - les decisions peuvent porter un `evidence_ref` quand une preuve concrete
   existe;
-- le manifest expose `strategy.effective_profile` pour classer le run meme si
-  le TOML historique n'a pas encore un `strategy.profile` explicite.
+- le manifest expose `strategy.effective_profile`; les runs hydrometriques
+  maintenus doivent maintenant declarer
+  `profile = "gauged_downstream_station"` explicitement, tandis que
+  `dem_area_light` peut encore etre classe en `area_only` par son mode
+  d'entree.
 
 ## Hors perimetre immediat
 

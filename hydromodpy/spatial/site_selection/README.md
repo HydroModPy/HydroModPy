@@ -364,10 +364,11 @@ Two profiles are treated as the supported short-term contract:
   `candidate_mode = "station_outlets"`. Optional influence layers can reject
   basins with major upstream dams or other configured major influences.
 
-Older hydrometry TOML files without an explicit profile remain valid. Reports
-and manifests expose an `effective_profile` field so those runs are still
-classified as `gauged_downstream_station` when their strategy matches the
-station-led pattern.
+Station-led hydrometry TOML files must declare
+`profile = "gauged_downstream_station"` explicitly. The manifest still exposes
+`strategy.effective_profile`, but it is no longer used to keep legacy
+hydrometry configurations without a profile alive. DEM-light runs may still be
+classified as `area_only` from `site_selection.input.mode = "dem_area_light"`.
 
 The bounded short-term contract is documented in
 `docs/_dev_notes/site_selection_short_term_contract.md`.

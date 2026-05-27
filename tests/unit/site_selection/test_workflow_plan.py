@@ -82,6 +82,7 @@ def test_site_selection_plan_can_write_manifest(tmp_path):
                 "",
                 "[site_selection.strategy]",
                 'principle = "observation_led"',
+                'profile = "gauged_downstream_station"',
                 'primary_observation_type = "flow_station"',
                 'candidate_mode = "station_outlets"',
                 "",

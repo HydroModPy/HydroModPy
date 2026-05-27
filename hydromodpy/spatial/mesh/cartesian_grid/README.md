@@ -39,8 +39,8 @@ It is used by the MODFLOW workflow in
 
 Supported bottom generation methods:
 
-- `filepath` (from `bot_path` raster file),
-- `raster` (from `bot_raster` array),
+- `filepath` (from `bottom.path` raster file),
+- `raster` (from `bottom.raster` array),
 - `constant_thickness` (from `thick`),
 - `constant_altitude` (from `zbot`).
 
@@ -53,8 +53,8 @@ Supported layering methods:
 Current limitation:
 
 - only `sgrid_type = "structured"` is supported.
-- TOML interface currently supports `genmtd_bot` in
-  `filepath|raster|constant_thickness|constant_altitude`.
+- TOML interface uses explicit nested `[sgrid.bottom]` and
+  `[sgrid.layering]` sections.
 
 Implementation note:
 
@@ -64,7 +64,7 @@ Implementation note:
 - `StructuredGridBuilder` performs only deterministic construction from validated config.
 - Solver launchers now use a narrower nested contract:
   `[...sgrid.planar]` + `[...sgrid.vertical]`, because domain surfaces are
-  already available at runtime and do not need `top_path`/`bot_path`.
+  already available at runtime and do not need `top_path`/`bottom.path`.
 
 ## FieldParam Discretization: 2D Support, 3D Evaluation
 
@@ -265,10 +265,10 @@ Notes for interpretation:
 
 Two planar modes are supported:
 
-- `raster_native`: keep the top raster native shape and resolution.
-- `shape`: resample to an explicit target shape (`ny` rows, `nx` columns).
+- `keep_native`: keep the top raster native shape and resolution.
+- `resample_to_shape`: resample to an explicit target shape (`ny` rows, `nx` columns).
 
-In `shape` mode:
+In `resample_to_shape` mode:
 
 - the modeled extent is preserved (same raster bounds),
 - cell sizes become `dx = (xmax - xmin)/nx` and `dy = (ymax - ymin)/ny`,
@@ -364,18 +364,18 @@ Behavior:
 - `genmtd_top`: top-surface method (`filepath` only for now).
 - `top_path`: path to the top DEM raster (required).
 - `crs`: optional CRS string stored in resulting grid metadata.
-- `plan_discretization_mode`: planar mode (`raster_native` or `shape`).
-- `nx`: target number of columns when `plan_discretization_mode="shape"`.
-- `ny`: target number of rows when `plan_discretization_mode="shape"`.
-- `genmtd_bot`: bottom-surface method (`filepath`, `raster`, `constant_thickness`, `constant_altitude`).
-- `bot_path`: bottom raster path when `genmtd_bot="filepath"`.
-- `bot_raster`: in-memory bottom raster when `genmtd_bot="raster"`.
-- `thick`: domain thickness when `genmtd_bot="constant_thickness"`.
-- `zbot`: uniform bottom altitude when `genmtd_bot="constant_altitude"`.
-- `genmtd_lay`: vertical-layering strategy (`constant`, `decay`, `list`).
-- `nlay`: number of layers for `constant` and `decay`.
-- `lay_decay`: decay exponent (>1) for `decay`.
-- `lay_proportions`: per-layer thickness fractions for `list` (must be positive and sum to 1).
+- `plan_discretization_mode`: planar mode (`keep_native` or `resample_to_shape`).
+- `nx`: target number of columns when `plan_discretization_mode="resample_to_shape"`.
+- `ny`: target number of rows when `plan_discretization_mode="resample_to_shape"`.
+- `bottom.kind`: bottom-surface method (`filepath`, `raster`, `constant_thickness`, `constant_altitude`).
+- `bottom.path`: bottom raster path when `bottom.kind="filepath"`.
+- `bottom.raster`: in-memory bottom raster when `bottom.kind="raster"`.
+- `bottom.thick`: domain thickness when `bottom.kind="constant_thickness"`.
+- `bottom.zbot`: uniform bottom altitude when `bottom.kind="constant_altitude"`.
+- `layering.kind`: vertical-layering strategy (`constant`, `decay`, `list`).
+- `layering.nlay`: number of layers for `constant` and `decay`.
+- `layering.lay_decay`: decay exponent (>1) for `decay`.
+- `layering.lay_proportions`: per-layer thickness fractions for `list` (must be positive and sum to 1).
 - `nodata`: no-data sentinel used for masking invalid raster cells.
 
 ### Temporal grid
@@ -408,7 +408,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SGridConfig
 cfg = SGridConfig.from_toml(
     "hydromodpy/spatial/mesh/cartesian_grid/examples/generation/run_grid_demo_config.toml"
 )
-print(cfg.genmtd_bot, cfg.genmtd_lay, cfg.nodata)
+print(cfg.bottom.kind, cfg.layering.kind, cfg.nodata)
 ```
 
 Associated files:

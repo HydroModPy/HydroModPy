@@ -385,6 +385,26 @@ def aggregate_triangle_history_to_structured_fields(
     }
 
 
+def aggregate_triangle_history_to_structured_grids(
+    model,
+    *,
+    nx: int,
+    ny: int,
+    export_initial_state: bool = False,
+) -> None:
+    """Write regular validation grid histories to the legacy postprocess files."""
+    fields = aggregate_triangle_history_to_structured_fields(
+        model,
+        nx=int(nx),
+        ny=int(ny),
+        export_initial_state=bool(export_initial_state),
+    )
+    postprocess_dir = Path(model.full_path) / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
+    np.save(postprocess_dir / "watertable_elevation.npy", fields["watertable_elevation"])
+    np.save(postprocess_dir / "watertable_depth.npy", fields["watertable_depth"])
+
+
 def run_boussinesq_uniform_strip_case(
     *,
     case_dir: Path,
@@ -514,6 +534,7 @@ def run_boussinesq_uniform_strip_case(
 
 __all__ = [
     "aggregate_triangle_history_to_structured_fields",
+    "aggregate_triangle_history_to_structured_grids",
     "build_flow_config",
     "run_boussinesq_uniform_strip_case",
     "write_uniform_strip_bundle",

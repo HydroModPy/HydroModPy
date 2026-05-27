@@ -6,10 +6,12 @@ project_root = "outputs/site_selection_manifest_mesh_testbed/base_workspace"
 
 [geographic]
 source_mode = "standard"
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 x_outlet = 131189.1
 y_outlet = 6833784.4
-crs_project = "EPSG:2154"
 snap_dist = "150 m"
 buff_area = "10%"
 

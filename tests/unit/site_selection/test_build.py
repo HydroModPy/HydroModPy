@@ -73,6 +73,7 @@ def _config(tmp_path: Path) -> SiteSelectionConfig:
             "output_root": tmp_path / "out",
             "strategy": {
                 "principle": "observation_led",
+                "profile": "gauged_downstream_station",
                 "primary_observation_type": "flow_station",
                 "candidate_mode": "station_outlets",
             },
@@ -243,6 +244,7 @@ def test_build_observed_site_selection_from_toml_resolves_dem_and_observation_ex
                 "",
                 "[site_selection.strategy]",
                 'principle = "observation_led"',
+                'profile = "gauged_downstream_station"',
                 'primary_observation_type = "flow_station"',
                 'candidate_mode = "station_outlets"',
                 "",
@@ -346,6 +348,7 @@ def test_build_observed_site_selection_from_toml_uses_station_extent_for_dem(tmp
                 "",
                 "[site_selection.strategy]",
                 'principle = "observation_led"',
+                'profile = "gauged_downstream_station"',
                 'primary_observation_type = "flow_station"',
                 'candidate_mode = "station_outlets"',
                 "",

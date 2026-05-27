@@ -55,6 +55,16 @@ project_root = "."
 
 [geographic]
 source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = false
+
+
+# ----------------------------------------------------------------------
+# Data - one entry per variable type (API sources only)
+# ----------------------------------------------------------------------
+
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 # Regional DEM used only for flow accumulation / outlet snapping. There
 # is no API alternative for this step in the current pipeline; the
@@ -64,14 +74,6 @@ x_outlet = 389285.91
 y_outlet = 6816518.749
 snap_dist = "150 m"
 buff_area = "10%"
-crs_project = "EPSG:2154"
-dem_correc_type = "breach"
-reuse_existing_outputs = false
-
-
-# ----------------------------------------------------------------------
-# Data - one entry per variable type (API sources only)
-# ----------------------------------------------------------------------
 
 [data]
 project_crs = "EPSG:2154"
@@ -107,6 +109,7 @@ types = [
 # The IGN BD ALTI WCS endpoint is currently returning HTTP 403, so the
 # DEM is the one variable kept on a local file. Uncomment the
 # `ign_geoplateforme_dem` block once IGN access is restored.
+
 [[data.dem.sources]]
 source = "custom"
 path = "../../data/dem/DEM_armorican_massif.tif"
@@ -133,6 +136,7 @@ extent = "watershed"
 # ---- Hydrography ----------------------------------------------------
 # Three independent providers for the same stream network so the
 # overview map can be regenerated against any of them.
+
 [[data.hydrography.sources]]
 source = "bdtopage"
 rasterize_field = "FID"
@@ -145,11 +149,13 @@ source = "osm"
 
 
 # ---- Hydrometry (discharge) -----------------------------------------
+
 [data.hydrometry]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
 
 # Hub'Eau station discovery via watershed bbox - daily mean discharge.
+
 [[data.hydrometry.sources]]
 source = "hubeau"
 product = "QmnJ"
@@ -159,6 +165,7 @@ fallback_search_radius_km = 20.0
 
 
 # ---- Piezometry (groundwater levels) --------------------------------
+
 [data.piezometry]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -173,6 +180,7 @@ fallback_search_radius_km = 25.0
 
 
 # ---- Intermittency (ONDE network) -----------------------------------
+
 [data.intermittency]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -183,6 +191,7 @@ extent = "watershed"
 
 
 # ---- Water quality (physico-chemistry) ------------------------------
+
 [[data.water_quality.sources]]
 source = "hubeau"
 site_type = "river"
@@ -191,6 +200,7 @@ parameters = ["Temperature", "pH", "Nitrates"]
 
 
 # ---- Precipitation (SIM2 Meteo-France) ------------------------------
+
 [data.precipitation]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -202,6 +212,7 @@ extent = "watershed"
 
 
 # ---- ETP ------------------------------------------------------------
+
 [data.etp]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -261,6 +272,7 @@ extent = "watershed"
 
 
 # ---- Recharge (SIM2 grid) -------------------------------------------
+
 [data.recharge]
 date_start = "2018-01-01"
 date_end = "2020-12-31"

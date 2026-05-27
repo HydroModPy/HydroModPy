@@ -323,60 +323,6 @@ LayeringConfig: TypeAlias = Annotated[
 """Discriminated union of vertical-layering methods."""
 
 
-_LEGACY_BOTTOM_KEYS: frozenset[str] = frozenset(
-    {"genmtd_bot", "bot_path", "bot_raster", "thick", "zbot"}
-)
-_LEGACY_LAYERING_KEYS: frozenset[str] = frozenset(
-    {"genmtd_lay", "nlay", "lay_decay", "lay_proportions"}
-)
-
-
-def _migrate_legacy_bottom(payload: dict[str, Any]) -> dict[str, Any] | None:
-    """Translate legacy flat bottom keys into nested ``bottom`` mapping."""
-    if not any(key in payload for key in _LEGACY_BOTTOM_KEYS):
-        return None
-    kind = payload.pop("genmtd_bot", None)
-    bot_path = payload.pop("bot_path", None)
-    bot_raster = payload.pop("bot_raster", None)
-    thick = payload.pop("thick", None)
-    zbot = payload.pop("zbot", None)
-    nested: dict[str, Any] = {}
-    if kind is not None:
-        nested["kind"] = kind
-    if bot_path is not None:
-        nested["path"] = bot_path
-    if bot_raster is not None:
-        nested["raster"] = bot_raster
-    if thick is not None:
-        nested["thick"] = thick
-    if zbot is not None:
-        nested["zbot"] = zbot
-    return nested
-
-
-def _migrate_legacy_layering(payload: dict[str, Any]) -> dict[str, Any] | None:
-    """Translate legacy flat layering keys into nested ``layering`` mapping."""
-    if not any(key in payload for key in _LEGACY_LAYERING_KEYS):
-        return None
-    kind = payload.pop("genmtd_lay", None)
-    nlay = payload.pop("nlay", None)
-    lay_decay = payload.pop("lay_decay", None)
-    lay_proportions = payload.pop("lay_proportions", None)
-    nested: dict[str, Any] = {}
-    if kind is not None:
-        nested["kind"] = kind
-    if nlay is not None:
-        nested["nlay"] = nlay
-    if lay_decay is not None:
-        nested["lay_decay"] = lay_decay
-    if lay_proportions is not None:
-        nested["lay_proportions"] = lay_proportions
-    if str(nested.get("kind", "")).strip().lower() == "list":
-        # nlay is derived from lay_proportions length and must not be passed.
-        nested.pop("nlay", None)
-    return nested
-
-
 class SGridConfig(HydroModelBase):
     """
     Single source of truth for structured-grid configuration validation.
@@ -443,29 +389,6 @@ class SGridConfig(HydroModelBase):
             return None
         return str(Path(value).expanduser())
 
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_legacy_payload(cls, value):
-        """Accept legacy flat payloads and remap them onto nested fields."""
-        if not isinstance(value, Mapping):
-            return value
-        payload = dict(value)
-        legacy_bottom = _migrate_legacy_bottom(payload)
-        if legacy_bottom is not None:
-            if "bottom" in payload:
-                raise ValueError(
-                    "Cannot mix legacy flat keys (genmtd_bot/...) with nested 'bottom' mapping."
-                )
-            payload["bottom"] = legacy_bottom
-        legacy_layering = _migrate_legacy_layering(payload)
-        if legacy_layering is not None:
-            if "layering" in payload:
-                raise ValueError(
-                    "Cannot mix legacy flat keys (genmtd_lay/...) with nested 'layering' mapping."
-                )
-            payload["layering"] = legacy_layering
-        return payload
-
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.plan_discretization_mode == "resample_to_shape":
@@ -487,7 +410,7 @@ class SGridConfig(HydroModelBase):
 
     @classmethod
     def from_mapping(cls, config_data: Mapping[str, Any]):
-        """Validate and build from flat mapping or top-level ``sgrid`` mapping."""
+        """Validate and build from a mapping or top-level ``sgrid`` mapping."""
         payload = dict(config_data.get("sgrid", config_data))
         return cls.model_validate(payload)
 
@@ -505,10 +428,6 @@ class SGridConfig(HydroModelBase):
         cfg = dict(payload["sgrid"])
         base = path.parent
         cfg["top_path"] = resolve_path(cfg["top_path"], base)
-        # Legacy flat ``bot_path`` (resolved before migration to nested ``bottom``).
-        if cfg.get("bot_path") is not None:
-            cfg["bot_path"] = resolve_path(cfg["bot_path"], base)
-        # Nested ``bottom.path`` (when TOML uses the new schema).
         bottom_section = cfg.get("bottom")
         if isinstance(bottom_section, Mapping) and bottom_section.get("path") is not None:
             bottom_data = dict(bottom_section)

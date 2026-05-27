@@ -1,7 +1,7 @@
-"""Characterization tests for legacy ``hydromodpy.spatial.geographic.CatchmentDelineation``.
+"""Characterization tests for the ``CatchmentDelineation`` runtime contract.
 
 Goal:
-- lock the current public contract of the legacy class before migration,
+- lock the current public contract of the catchment delineation facade,
 - avoid runtime dependency on the concrete Whitebox backend by mocking it.
 """
 
@@ -27,12 +27,14 @@ from hydromodpy.spatial.geographic.dem_metadata import _resolve_dep_code
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 GOLDEN_FILE = (
-    Path(__file__).resolve().parent / "golden" / "geographic_legacy_characterization_golden.json"
+    Path(__file__).resolve().parent
+    / "golden"
+    / "catchment_delineation_polygon_contract_golden.json"
 )
 GOLDEN_FILE_OUTLET = (
     Path(__file__).resolve().parent
     / "golden"
-    / "geographic_legacy_characterization_outlet_golden.json"
+    / "catchment_delineation_outlet_contract_golden.json"
 )
 
 
@@ -292,7 +294,7 @@ def _write_json(path: Path, payload: dict) -> None:
         stream.write("\n")
 
 
-def _build_geographic_legacy_case(
+def _build_polygon_catchment_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> CatchmentDelineation:
     import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
@@ -307,10 +309,12 @@ def _build_geographic_legacy_case(
     _write_synthetic_catchment(catchment_path)
 
     cfg = GeographicConfig(
-        catch_def="from_polyg_shp",
-        dem_init_path=dem_path,
-        polyg_shp_path=catchment_path,
-        buff_area=20.0,
+        catchment={
+            "catch_def": "from_polyg_shp",
+            "dem_init_path": dem_path,
+            "polyg_shp_path": catchment_path,
+            "buff_area": 20.0,
+        },
         crs_project="EPSG:2154",
         dem_correc_type="breach",
     )
@@ -318,7 +322,7 @@ def _build_geographic_legacy_case(
     return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
-def _build_geographic_legacy_outlet_case(
+def _build_outlet_catchment_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> CatchmentDelineation:
     import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
@@ -331,12 +335,14 @@ def _build_geographic_legacy_outlet_case(
     _write_synthetic_dem(dem_path)
 
     cfg = GeographicConfig(
-        catch_def="from_outlet_coord",
-        dem_init_path=dem_path,
-        x_outlet=450.0,
-        y_outlet=450.0,
-        snap_dist=100,
-        buff_area=20.0,
+        catchment={
+            "catch_def": "from_outlet_coord",
+            "dem_init_path": dem_path,
+            "x_outlet": 450.0,
+            "y_outlet": 450.0,
+            "snap_dist": 100,
+            "buff_area": 20.0,
+        },
         crs_project="EPSG:2154",
         dem_correc_type="breach",
     )
@@ -344,7 +350,7 @@ def _build_geographic_legacy_outlet_case(
     return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
-def _legacy_signature(geo: CatchmentDelineation) -> dict:
+def _catchment_delineation_signature(geo: CatchmentDelineation) -> dict:
     finite_box = np.isfinite(geo.dem_box_buff_data) & (geo.dem_box_buff_data != geo.nodata)
     finite_core = np.isfinite(geo.dem_data) & (geo.dem_data != geo.nodata)
 
@@ -368,9 +374,12 @@ def _legacy_signature(geo: CatchmentDelineation) -> dict:
     }
 
 
-def test_geographic_legacy_from_polygon_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Check legacy public artifacts and georeferencing contract on synthetic inputs."""
-    geo = _build_geographic_legacy_case(tmp_path, monkeypatch)
+def test_catchment_delineation_from_polygon_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Check public artifacts and georeferencing contract on synthetic inputs."""
+    geo = _build_polygon_catchment_case(tmp_path, monkeypatch)
 
     assert Path(geo.watershed_shp).exists()
     assert Path(geo.watershed_box_shp).exists()
@@ -409,14 +418,14 @@ def test_geographic_legacy_from_polygon_contract(tmp_path: Path, monkeypatch: py
     )
 
 
-def test_geographic_legacy_from_polygon_golden(
+def test_catchment_delineation_from_polygon_golden(
     update_goldens: bool,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """Freeze one deterministic legacy signature as non-regression baseline."""
-    geo = _build_geographic_legacy_case(tmp_path, monkeypatch)
-    actual = _legacy_signature(geo)
+    """Freeze one deterministic signature as non-regression baseline."""
+    geo = _build_polygon_catchment_case(tmp_path, monkeypatch)
+    actual = _catchment_delineation_signature(geo)
 
     if update_goldens:
         _write_json(GOLDEN_FILE, actual)
@@ -451,9 +460,12 @@ def test_geographic_legacy_from_polygon_golden(
         assert actual[key] == pytest.approx(expected[key], rel=0.0, abs=1e-9)
 
 
-def test_geographic_legacy_from_outlet_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Check legacy outlet mode contract on deterministic synthetic inputs."""
-    geo = _build_geographic_legacy_outlet_case(tmp_path, monkeypatch)
+def test_catchment_delineation_from_outlet_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Check outlet mode contract on deterministic synthetic inputs."""
+    geo = _build_outlet_catchment_case(tmp_path, monkeypatch)
 
     outlet_path = Path(geo.geographic_path) / "outlet.shp"
     outlet_snap_path = Path(geo.geographic_path) / "outlet_snap.shp"
@@ -467,14 +479,14 @@ def test_geographic_legacy_from_outlet_contract(tmp_path: Path, monkeypatch: pyt
     assert geo.catch_def == "from_outlet_coord"
 
 
-def test_geographic_legacy_from_outlet_golden(
+def test_catchment_delineation_from_outlet_golden(
     update_goldens: bool,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Freeze deterministic outlet-mode signature as non-regression baseline."""
-    geo = _build_geographic_legacy_outlet_case(tmp_path, monkeypatch)
-    actual = _legacy_signature(geo)
+    geo = _build_outlet_catchment_case(tmp_path, monkeypatch)
+    actual = _catchment_delineation_signature(geo)
 
     if update_goldens:
         _write_json(GOLDEN_FILE_OUTLET, actual)
@@ -513,24 +525,28 @@ def test_geographic_config_rejects_missing_outlet_fields() -> None:
     """Validate per-variant required-field guardrails for outlet catchment definition."""
     with pytest.raises(ValueError, match="from_outlet_coord"):
         GeographicConfig(
-            catch_def="from_outlet_coord",
-            dem_init_path=Path("dummy_dem.tif"),
-            snap_dist=50,
-            buff_area=20.0,
+            catchment={
+                "catch_def": "from_outlet_coord",
+                "dem_init_path": Path("dummy_dem.tif"),
+                "snap_dist": 50,
+                "buff_area": 20.0,
+            },
         )
 
 
-def test_geographic_legacy_missing_dem_file_raises(tmp_path: Path) -> None:
-    """Legacy CatchmentDelineation should fail early when input DEM does not exist."""
+def test_catchment_delineation_missing_dem_file_raises(tmp_path: Path) -> None:
+    """CatchmentDelineation should fail early when input DEM does not exist."""
     catchment_path = tmp_path / "inputs" / "catchment.shp"
     _write_synthetic_catchment(catchment_path)
     missing_dem = tmp_path / "inputs" / "missing_dem.tif"
 
     cfg = GeographicConfig(
-        catch_def="from_polyg_shp",
-        dem_init_path=missing_dem,
-        polyg_shp_path=catchment_path,
-        buff_area=20.0,
+        catchment={
+            "catch_def": "from_polyg_shp",
+            "dem_init_path": missing_dem,
+            "polyg_shp_path": catchment_path,
+            "buff_area": 20.0,
+        },
         crs_project="EPSG:2154",
         dem_correc_type="breach",
     )

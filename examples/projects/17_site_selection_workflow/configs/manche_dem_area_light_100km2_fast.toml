@@ -9,6 +9,13 @@ output_root = "../outputs/manche_dem_area_light_100km2_fast_v1"
 mode = "dem_area_light"
 region_id = "Manche"
 
+[site_selection.strategy]
+principle = "criteria_crossing"
+profile = "area_only"
+primary_axes = ["area"]
+observation_role = "report_only"
+geology_role = "report_only"
+
 [site_selection.territory]
 mode = "admin_departments"
 country = "FR"
@@ -33,6 +40,11 @@ min_area_km2 = 75.0
 max_area_km2 = 125.0
 n_basins = 10
 max_candidates_before_delineation = 30
+
+[site_selection.criteria.area]
+mode = "hard_reject"
+hard_min_area_km2 = 75.0
+hard_max_area_km2 = 125.0
 
 [site_selection.output]
 write_report_html = true

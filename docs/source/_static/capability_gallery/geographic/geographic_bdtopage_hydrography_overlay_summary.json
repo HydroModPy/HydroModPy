@@ -94,31 +94,31 @@
         "title": "Selected Parameters",
         "rows": [
           {
-            "field": "[geographic] catch_def",
+            "field": "[geographic.catchment] catch_def",
             "meaning": "Watershed extraction mode used to derive the basin from the outlet definition.",
             "value": "from_outlet_coord",
             "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
-            "field": "[geographic] x_outlet",
+            "field": "[geographic.catchment] x_outlet",
             "meaning": "Projected x coordinate of the outlet used by watershed extraction.",
             "value": "389286",
             "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
-            "field": "[geographic] y_outlet",
+            "field": "[geographic.catchment] y_outlet",
             "meaning": "Projected y coordinate of the outlet used by watershed extraction.",
             "value": "6.81652e+06",
             "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
-            "field": "[geographic] snap_dist",
+            "field": "[geographic.catchment] snap_dist",
             "meaning": "Maximum snapping distance used to align the requested outlet with the drainage network.",
             "value": "150 m",
             "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"
           },
           {
-            "field": "[geographic] buff_area",
+            "field": "[geographic.catchment] buff_area",
             "meaning": "Extra area kept around the watershed to preserve regional context in overview figures.",
             "value": "20%",
             "source": "examples/projects/05_nancon_data_overview/config_hydrography_only.toml"

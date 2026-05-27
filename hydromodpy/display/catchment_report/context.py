@@ -169,9 +169,9 @@ def _configuration_summary(
     data = _mapping(config.get("data"))
     return {
         "base_config": _rel(inputs.transient_config),
-        "dem": str(geographic.get("dem_init_path") or catchment.get("dem_init_path") or ""),
-        "x_outlet": geographic.get("x_outlet") or catchment.get("x_outlet"),
-        "y_outlet": geographic.get("y_outlet") or catchment.get("y_outlet"),
+        "dem": str(catchment.get("dem_init_path") or ""),
+        "x_outlet": catchment.get("x_outlet"),
+        "y_outlet": catchment.get("y_outlet"),
         "crs": geographic.get("crs_project"),
         "start_datetime": time.get("start_datetime"),
         "end_datetime": time.get("end_datetime"),

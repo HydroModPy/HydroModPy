@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
@@ -104,8 +104,8 @@ class OutletCatchDef(_CatchDefBase):
     )
     buff_area: Annotated[str | float, Profile.USER] = Field(
         description=(
-            "Buffer around the watershed polygon. Numeric values keep legacy behavior "
-            "(percentage of sqrt(area [km^2])). String values are interpreted as explicit "
+            "Buffer around the watershed polygon. Numeric values are interpreted as a "
+            "percentage of sqrt(area [km^2]). String values are interpreted as explicit "
             "distances (for example '500 m', '2 km')."
         ),
     )
@@ -132,8 +132,8 @@ class PolygonCatchDef(_CatchDefBase):
     )
     buff_area: Annotated[str | float, Profile.USER] = Field(
         description=(
-            "Buffer around the watershed polygon. Numeric values keep legacy behavior "
-            "(percentage of sqrt(area [km^2])). String values are interpreted as explicit "
+            "Buffer around the watershed polygon. Numeric values are interpreted as a "
+            "percentage of sqrt(area [km^2]). String values are interpreted as explicit "
             "distances (for example '500 m', '2 km')."
         ),
     )
@@ -149,53 +149,6 @@ CatchDef: TypeAlias = Annotated[
     Field(discriminator="catch_def", description="Catchment definition discriminator."),
 ]
 """Discriminated union of catchment definition variants."""
-
-
-_LEGACY_FLAT_KEYS: frozenset[str] = frozenset(
-    {
-        "catch_def",
-        "dem_init_path",
-        "cell_size",
-        "x_outlet",
-        "y_outlet",
-        "snap_dist",
-        "buff_area",
-        "polyg_shp_path",
-    }
-)
-
-
-def normalize_geographic_catchment_payload(data: Any) -> Any:
-    """Fold top-level catchment keys into the canonical ``catchment`` block.
-
-    This helper keeps the remaining flat-payload compatibility in one place
-    until committed TOML examples and fixtures have been migrated.
-    """
-    if not isinstance(data, dict):
-        return data
-
-    flat_keys = _LEGACY_FLAT_KEYS.intersection(data.keys())
-    if not flat_keys:
-        return data
-
-    new_data = dict(data)
-    nested = new_data.get("catchment")
-    if nested is None:
-        nested_payload: dict[str, Any] = {}
-    elif isinstance(nested, dict):
-        nested_payload = dict(nested)
-    else:
-        return data
-
-    for key in flat_keys:
-        value = new_data.pop(key)
-        if value is None:
-            continue
-        nested_payload.setdefault(key, value)
-
-    if nested_payload:
-        new_data["catchment"] = nested_payload
-    return new_data
 
 
 class RiverNetworkConfig(HydroModelBase):
@@ -505,12 +458,6 @@ class GeographicConfig(HydroModelBase):
         """Analytical synthetic geographic support (bypasses DEM delineation)."""
         return cls(source_mode="synthetic", **overrides)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _remap_legacy_flat_payload(cls, data: Any) -> Any:
-        """Remap flat ``catch_def`` payloads to the nested ``catchment`` form."""
-        return normalize_geographic_catchment_payload(data)
-
     @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:
         """Enforce mode-level invariants between source_mode and catchment."""
@@ -538,5 +485,4 @@ __all__ = [
     "PolygonCatchDef",
     "RiverNetworkConfig",
     "TxtCatchDef",
-    "normalize_geographic_catchment_payload",
 ]

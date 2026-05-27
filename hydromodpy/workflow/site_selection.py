@@ -1379,8 +1379,6 @@ def _path_or_none(path: Path | None) -> str | None:
 
 def _resolve_workflow_action(cfg: SiteSelectionConfig, raw: dict[str, Any]) -> str:
     mode = cfg.input.mode
-    has_hydrometry = isinstance(raw.get("hydrometry"), dict)
-    has_catchments = cfg.input.catchments_csv is not None
 
     if mode == "plan_only":
         return "plan"
@@ -1391,28 +1389,17 @@ def _resolve_workflow_action(cfg: SiteSelectionConfig, raw: dict[str, Any]) -> s
     if mode == "dem_area_light":
         return "dem_area_light"
     if mode == "hydrometry":
-        if not has_hydrometry:
+        if not isinstance(raw.get("hydrometry"), dict):
             raise ConfigMissingError(
                 "site_selection.input.mode='hydrometry' requires [hydrometry]."
             )
         return "hydrometry"
 
-    if has_hydrometry and has_catchments:
-        raise ConfigError(
-            "site_selection.input.mode must be explicit when both [hydrometry] "
-            "and site_selection.input.catchments_csv are provided."
-        )
-    if has_catchments:
-        return "delineated_catchments"
-    if has_hydrometry:
-        return "hydrometry"
-    return "plan"
+    raise ConfigError(f"Unsupported site_selection.input.mode={mode!r}.")
 
 
 def _planned_outputs(cfg: SiteSelectionConfig) -> list[str]:
     outputs: list[str] = []
-    if cfg.output.write_candidates:
-        outputs.append("candidates")
     if cfg.output.write_rejected:
         outputs.append("rejected")
     if cfg.output.write_selected:
@@ -1427,8 +1414,6 @@ def _planned_outputs(cfg: SiteSelectionConfig) -> list[str]:
         outputs.append("csv")
     if cfg.output.write_regional_lab_csv:
         outputs.append("regional_lab_csv")
-    if cfg.output.write_report_md:
-        outputs.append("report_md")
     if cfg.output.write_report_html:
         outputs.append("report_html")
     return outputs

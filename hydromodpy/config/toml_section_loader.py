@@ -158,16 +158,9 @@ def _resolve_catchment_paths(
     """Resolve relative paths inside the ``catchment`` block (in-place).
 
     Mirrors ``_resolve_section_paths`` but operates on the discriminated
-    catchment variant identified by ``catch_def``. Geographic payload shape
-    normalization is delegated to ``GeographicConfig`` helpers so the TOML
-    loader does not carry its own compatibility mapping.
+    catchment variant identified by ``catch_def``.
     """
     from hydromodpy.spatial.geographic import geographic_config as _geo_cfg
-
-    normalized = _geo_cfg.normalize_geographic_catchment_payload(payload)
-    if isinstance(normalized, dict) and normalized is not payload:
-        payload.clear()
-        payload.update(normalized)
 
     catchment = payload.get("catchment")
     if not isinstance(catchment, Mapping):

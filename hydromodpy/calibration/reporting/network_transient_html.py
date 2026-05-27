@@ -1560,8 +1560,11 @@ def _mesh_context_from_cell_geometry(truth_dir: Path) -> dict[str, Any] | None:
 def _origin_from_config_or_centroids(centroids: np.ndarray) -> tuple[float, float]:
     geographic = _read_toml(SOURCE_TRANSIENT_CONFIG).get("geographic", {})
     if isinstance(geographic, dict):
-        x = _float(geographic.get("x_outlet"))
-        y = _float(geographic.get("y_outlet"))
+        catchment = geographic.get("catchment")
+        if not isinstance(catchment, dict):
+            catchment = {}
+        x = _float(catchment.get("x_outlet"))
+        y = _float(catchment.get("y_outlet"))
         if np.isfinite(x) and np.isfinite(y):
             return float(x), float(y)
     if centroids.size:
@@ -1737,8 +1740,11 @@ def _relative_origin(run: Run, centroids: np.ndarray) -> tuple[float, float]:
         pass
     geographic = _read_toml(SOURCE_TRANSIENT_CONFIG).get("geographic", {})
     if isinstance(geographic, dict):
-        x = _float(geographic.get("x_outlet"))
-        y = _float(geographic.get("y_outlet"))
+        catchment = geographic.get("catchment")
+        if not isinstance(catchment, dict):
+            catchment = {}
+        x = _float(catchment.get("x_outlet"))
+        y = _float(catchment.get("y_outlet"))
         if np.isfinite(x) and np.isfinite(y):
             return float(x), float(y)
     if centroids.size:

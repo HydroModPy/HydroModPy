@@ -13,6 +13,17 @@ project_root = "."
 data_path = "../../../examples_legacy/example12/data"
 
 [geographic]
+
+# Target projected CRS for all outputs (e.g. 'EPSG:2154').
+# If not set, derived from the input DEM.
+crs_project = "EPSG:2154"
+
+# DEM depression correction method.
+# 'breach' (recommended) preserves natural flow paths.
+# 'fill' raises sinks to their pour point.
+dem_correc_type = "breach"
+
+[geographic.catchment]
 # Catchment definition mode.
 # 'dem' = model domain defined directly from a DEM raster (dem_init_path required).
 # 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
@@ -46,15 +57,6 @@ snap_dist = "50 m"
 # Buffer around the watershed polygon as a percentage of sqrt(area [km2]).
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 buff_area = "20%"
-
-# Target projected CRS for all outputs (e.g. 'EPSG:2154').
-# If not set, derived from the input DEM.
-crs_project = "EPSG:2154"
-
-# DEM depression correction method.
-# 'breach' (recommended) preserves natural flow paths.
-# 'fill' raises sinks to their pour point.
-dem_correc_type = "breach"
 
 [domain]
 # Ordered list of zone identifiers loaded in the domain.
@@ -95,6 +97,7 @@ cell_samples_per_axis = 8
 
 # Previous full geology dataset used brgm_1m source.
 # Current config uses a reduced/custom shapefile for domain case testing.
+
 [[data.geology.sources]]
 source = "custom"
 path = "../../../examples/data/geology/GEO1M_4x.shp"

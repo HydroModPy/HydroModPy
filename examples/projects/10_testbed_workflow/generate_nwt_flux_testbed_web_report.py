@@ -242,6 +242,7 @@ def _case_from_row(
     config = _load_toml(config_path)
     simulation = config.get("simulation", {}) if isinstance(config.get("simulation"), dict) else {}
     geographic = config.get("geographic", {}) if isinstance(config.get("geographic"), dict) else {}
+    catchment = geographic.get("catchment", {}) if isinstance(geographic.get("catchment"), dict) else {}
     display = config.get("display", {}) if isinstance(config.get("display"), dict) else {}
     workspace = config.get("workspace", {}) if isinstance(config.get("workspace"), dict) else {}
     label = (
@@ -260,8 +261,8 @@ def _case_from_row(
             row.get("name") or simulation.get("name") or simulation.get("run_id") or variant_id
         ),
         sim_id=str(row.get("sim_id") or ""),
-        x_outlet=_float(geographic.get("x_outlet") or site_row.get("x_outlet")),
-        y_outlet=_float(geographic.get("y_outlet") or site_row.get("y_outlet")),
+        x_outlet=_float(catchment.get("x_outlet") or site_row.get("x_outlet")),
+        y_outlet=_float(catchment.get("y_outlet") or site_row.get("y_outlet")),
         area_km2=_float(site_row.get("area_km2")),
         tags=tuple(
             item.strip() for item in str(site_row.get("tags", "")).split(";") if item.strip()

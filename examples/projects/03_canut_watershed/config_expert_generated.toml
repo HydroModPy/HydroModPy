@@ -29,6 +29,36 @@ project_root = "."
 # Type: Literal['standard', 'synthetic'] | one of: "standard", "synthetic" | Default: "standard"
 source_mode = "standard"
 
+# Note: cell_size only applies to catch_def="txt".
+# polyg_shp_path only applies to catch_def="from_polyg_shp".
+
+# Target projected CRS for all outputs (e.g.
+# 'EPSG:2154').
+# If not set, derived from the input DEM.
+# Type: string (optional) | Optional
+crs_project = ""
+
+# DEM depression correction method.
+# 'breach' (recommended) preserves natural flow paths.
+# 'fill' raises sinks to their pour point.
+# Type: Literal['breach', 'fill'] | one of: "breach", "fill" | Default: "breach"
+dem_correc_type = "breach"
+
+# Path to a raster representing the aquifer bottom elevation.
+# Must share the same grid as the model domain.
+# Type: path (optional) | Optional
+bottom_path = ""
+
+# Folder with pre-computed regional flow rasters.
+# When set, rasters are loaded instead of recomputed.
+# Type: path (optional) | Optional
+# reg_fold =
+
+
+# Synthetic geographic support used when source_mode='synthetic'.
+# This analytical mode bypasses watershed delineation from external DEM files.
+
+[geographic.catchment]
 # Catchment definition mode used when source_mode='standard'.
 # 'dem' = model domain defined directly from a DEM raster (dem_init_path required).
 # 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
@@ -60,35 +90,6 @@ snap_dist = "150 m"
 # Buffer around the watershed polygon.
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 buff_area = "10%"
-
-# Note: cell_size only applies to catch_def="txt".
-# polyg_shp_path only applies to catch_def="from_polyg_shp".
-
-# Target projected CRS for all outputs (e.g.
-# 'EPSG:2154').
-# If not set, derived from the input DEM.
-# Type: string (optional) | Optional
-crs_project = ""
-
-# DEM depression correction method.
-# 'breach' (recommended) preserves natural flow paths.
-# 'fill' raises sinks to their pour point.
-# Type: Literal['breach', 'fill'] | one of: "breach", "fill" | Default: "breach"
-dem_correc_type = "breach"
-
-# Path to a raster representing the aquifer bottom elevation.
-# Must share the same grid as the model domain.
-# Type: path (optional) | Optional
-bottom_path = ""
-
-# Folder with pre-computed regional flow rasters.
-# When set, rasters are loaded instead of recomputed.
-# Type: path (optional) | Optional
-# reg_fold =
-
-
-# Synthetic geographic support used when source_mode='synthetic'.
-# This analytical mode bypasses watershed delineation from external DEM files.
 
 [geographic.synthetic]
 # Identifier used by local case runners and outputs.
@@ -150,7 +151,7 @@ base_elevation = 20.0
 # Additional elevation reached on the left boundary relative to the right boundary.
 # Positive values make the surface rise from right to left.
 # Type: float | Default: 0.0
-right_to_left_amplitude = 0.0
+# right_to_left_amplitude = 0.0
 
 # Circular shoreline radius (m) used by 'radial_island'.
 # Defaults to 35% of the smallest domain length.
@@ -160,17 +161,17 @@ right_to_left_amplitude = 0.0
 # Central island elevation (m) used by 'radial_island'.
 # The land surface decays nonlinearly to sea level at the shoreline.
 # Type: float | Default: 10.0
-crest_elevation = 10.0
+# crest_elevation = 10.0
 
 # Optional x coordinate of the radial-island center.
 # Defaults to the grid midpoint.
 # Type: float (optional) | Optional
-center_x = 0.0
+# center_x = 0.0
 
 # Optional y coordinate of the radial-island center.
 # Defaults to the grid midpoint.
 # Type: float (optional) | Optional
-center_y = 0.0
+# center_y = 0.0
 
 
 # ----------------------------------------------------------------------
@@ -261,6 +262,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.hydrometry.sources]]
 # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
@@ -364,6 +366,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.piezometry.sources]]
 # Data provider.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
@@ -437,6 +440,7 @@ force_refresh = false
 # Water quality configuration (physico-chemical parameters).
 
 # At least one data source.
+
 [[data.water_quality.sources]]
 # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
@@ -524,6 +528,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.recharge.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.
 # Type: Literal['custom', 'sim2', 'synthetic'] | one of: "custom", "sim2", "synthetic" | REQUIRED
@@ -628,6 +633,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.runoff.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -697,6 +703,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.precipitation.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -770,6 +777,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.etp.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -839,6 +847,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.temperature.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -908,6 +917,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.wind.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -977,6 +987,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.humidity.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -1046,6 +1057,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.radiation.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -1119,6 +1131,7 @@ date_end = ""
 
 
 # At least one data source.
+
 [[data.soil_moisture.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -1559,6 +1572,7 @@ ipakcb = 1
 output_file_name = "mt3d_link.ftl"
 extension = "lmt8"
 output_format = "unformatted"
+
 [modflownwt.process_specific]
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 # Type: float | Default: 1.0

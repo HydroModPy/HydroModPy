@@ -8,13 +8,15 @@ mode = "simulation"
 project_root = "."
 
 [geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "../../../../../examples/data/dem/regional_dem_naizin.tif"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
 buff_area = "20%"
-crs_project = "EPSG:2154"
 
 [domain]
 
@@ -26,6 +28,7 @@ thickness = "50.0 m"
 types = []
 
 [data.oceanic]
+
 [[data.oceanic.sources]]
 source = "custom"
 path = "../../../../../examples/data/oceanic"

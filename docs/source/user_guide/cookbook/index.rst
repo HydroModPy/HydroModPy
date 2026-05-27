@@ -51,6 +51,8 @@ DEM-driven catchment delineation, no shapefile needed.
    project_root = "./my_basin"
 
    [geographic]
+
+   [geographic.catchment]
    catch_def = "from_outlet_coord"
    dem_init_path = "data/regional_dem.tif"
    x_outlet = 332100.0
@@ -74,6 +76,8 @@ When the watershed boundary is already digitized.
    mode = "simulation"
 
    [geographic]
+
+   [geographic.catchment]
    catch_def = "from_polyg_shp"
    dem_init_path = "data/regional_dem.tif"
    polyg_shp_path = "data/basin.shp"
@@ -217,6 +221,8 @@ are simulations with a single mesh process.
    project_root = "./my_basin"
 
    [geographic]
+
+   [geographic.catchment]
    catch_def = "from_polyg_shp"
    dem_init_path = "data/regional_dem.tif"
    polyg_shp_path = "data/basin.shp"

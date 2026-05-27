@@ -42,9 +42,11 @@ nx = 21
 ny = 21
 nodata = -9999
 
-genmtd_bot = "constant_thickness"
+[case.sgrid.bottom]
+kind = "constant_thickness"
 thick = 200.0
 
-genmtd_lay = "decay"
+[case.sgrid.layering]
+kind = "decay"
 nlay = 5
 lay_decay = 2.0

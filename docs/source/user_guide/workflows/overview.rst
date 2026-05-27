@@ -169,6 +169,8 @@ Minimal Shape
    project_root = "."
 
    [geographic]
+
+   [geographic.catchment]
    catch_def = "from_outlet_coord"
    dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
    x_outlet = 127348.427
@@ -205,7 +207,7 @@ Important Parameters
    * - ``[workspace]``
      - Resolves where cache and outputs live.
      - Keep one stable workspace while iterating on data choices.
-   * - ``[geographic]``
+   * - ``[geographic.catchment]``
      - Defines catchment extraction or loading.
      - ``catch_def``, outlet coordinates, DEM path, CRS, snap distance, and
        buffer are the first parameters to inspect.

@@ -86,7 +86,7 @@ name = "{site_id}_natural_{cluster_scale}_petsc_vi_shared_case"
 description = "Regional-lab natural {cluster_scale} MF6/Boussinesq PETSc vi_obstacle regression case."
 
 # Shared geographic/site definition injected from the catalog.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 # Outlet X coordinate in the project CRS.
 x_outlet = "{x_outlet}"
 # Outlet Y coordinate in the project CRS.
@@ -128,7 +128,7 @@ name = "{site_id}_natural_{cluster_scale}_petsc_vi_shared_case"
 description = "Regional-lab natural {cluster_scale} MF6/Boussinesq PETSc vi_obstacle regression case."
 
 # Shared geographic/site definition injected from the catalog.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 # Outlet X coordinate in the project CRS.
 x_outlet = "{x_outlet}"
 # Outlet Y coordinate in the project CRS.

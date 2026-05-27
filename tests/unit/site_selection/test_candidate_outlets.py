@@ -10,7 +10,6 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
     candidate_outlets_from_point_records,
-    candidate_outlets_from_rows,
     thin_candidate_outlets,
 )
 
@@ -83,21 +82,6 @@ def test_candidate_outlets_from_hubeau_records_use_lambert93_metadata_when_reque
     assert candidates[0].crs == "EPSG:2154"
     assert candidates[0].attributes["source_location_crs"] == "EPSG:4326"
     assert candidates[0].attributes["flow_station_influence_generale_site"] == "0"
-
-
-@pytest.mark.fast
-def test_candidate_outlets_from_rows_builds_imported_points():
-    candidates = candidate_outlets_from_rows(
-        [
-            {"candidate_id": "a", "x": 1.0, "y": 2.0, "priority": 3.0},
-            {"candidate_id": "b", "x": 3.0, "y": 4.0},
-        ],
-        source="manual",
-    )
-
-    assert [candidate.candidate_id for candidate in candidates] == ["manual_a", "manual_b"]
-    assert candidates[0].priority == pytest.approx(3.0)
-    assert candidates[1].crs == "EPSG:2154"
 
 
 @pytest.mark.fast

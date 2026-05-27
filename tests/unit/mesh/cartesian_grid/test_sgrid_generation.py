@@ -76,10 +76,8 @@ def test_config_raises_for_missing_top_path():
     with pytest.raises(ValueError, match="value cannot be empty"):
         _ = SGridConfig(
             top_path="",
-            genmtd_bot="constant_thickness",
-            thick=25.0,
-            genmtd_lay="constant",
-            nlay=2,
+            bottom={"kind": "constant_thickness", "thick": 25.0},
+            layering={"kind": "constant", "nlay": 2},
         )
 
 
@@ -91,10 +89,8 @@ def test_config_raises_for_unstructured_not_implemented(tmp_path: Path):
         _ = SGridConfig(
             sgrid_type="unstructured",
             top_path=str(top_path),
-            genmtd_bot="constant_altitude",
-            zbot=0.0,
-            genmtd_lay="constant",
-            nlay=2,
+            bottom={"kind": "constant_altitude", "zbot": 0.0},
+            layering={"kind": "constant", "nlay": 2},
         )
 
 
@@ -105,10 +101,8 @@ def test_config_raises_for_invalid_lay_proportions_sum(tmp_path: Path):
     with pytest.raises(ValueError, match="sum to 1.0"):
         _ = SGridConfig(
             top_path=str(top_path),
-            genmtd_bot="constant_thickness",
-            thick=100.0,
-            genmtd_lay="list",
-            lay_proportions=[0.2, 0.3],
+            bottom={"kind": "constant_thickness", "thick": 100.0},
+            layering={"kind": "list", "lay_proportions": [0.2, 0.3]},
         )
 
 
@@ -121,10 +115,8 @@ def test_config_resample_to_shape_mode_requires_nx_ny(tmp_path: Path):
             top_path=str(top_path),
             plan_discretization_mode="resample_to_shape",
             nx=4,
-            genmtd_bot="constant_altitude",
-            zbot=0.0,
-            genmtd_lay="constant",
-            nlay=2,
+            bottom={"kind": "constant_altitude", "zbot": 0.0},
+            layering={"kind": "constant", "nlay": 2},
         )
 
 
@@ -138,10 +130,8 @@ def test_config_keep_native_rejects_nx_ny(tmp_path: Path):
             plan_discretization_mode="keep_native",
             nx=4,
             ny=3,
-            genmtd_bot="constant_altitude",
-            zbot=0.0,
-            genmtd_lay="constant",
-            nlay=2,
+            bottom={"kind": "constant_altitude", "zbot": 0.0},
+            layering={"kind": "constant", "nlay": 2},
         )
 
 
@@ -155,15 +145,25 @@ def test_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
             plan_discretization_mode="shape",
             nx=4,
             ny=3,
-            genmtd_bot="constant_altitude",
-            zbot=0.0,
-            genmtd_lay="constant",
-            nlay=2,
+            bottom={"kind": "constant_altitude", "zbot": 0.0},
+            layering={"kind": "constant", "nlay": 2},
         )
     with pytest.raises(ValueError, match="keep_native"):
         _ = SGridConfig(
             top_path=str(top_path),
             plan_discretization_mode="raster_native",
+            bottom={"kind": "constant_altitude", "zbot": 0.0},
+            layering={"kind": "constant", "nlay": 2},
+        )
+
+
+def test_config_rejects_legacy_flat_bottom_layering_keys(tmp_path: Path):
+    top_path = tmp_path / "top.tif"
+    _write_tif(top_path, np.array([[10, 11], [12, 13]], dtype=float))
+
+    with pytest.raises(ValueError, match="bottom"):
+        _ = SGridConfig(
+            top_path=str(top_path),
             genmtd_bot="constant_altitude",
             zbot=0.0,
             genmtd_lay="constant",
@@ -175,16 +175,14 @@ def test_builder_with_top_and_bottom_rasters_filepath(tmp_path: Path):
     top = np.array([[20.0, 21.0], [22.0, 23.0]], dtype=float)
     bot = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     top_path = tmp_path / "top.tif"
-    bot_path = tmp_path / "bot.tif"
+    bottom_path = tmp_path / "bottom.tif"
     _write_tif(top_path, top)
-    _write_tif(bot_path, bot)
+    _write_tif(bottom_path, bot)
 
     cfg = SGridConfig(
         top_path=str(top_path),
-        genmtd_bot="filepath",
-        bot_path=str(bot_path),
-        genmtd_lay="constant",
-        nlay=2,
+        bottom={"kind": "filepath", "path": str(bottom_path)},
+        layering={"kind": "constant", "nlay": 2},
     )
     sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nlay == 2
@@ -201,10 +199,8 @@ def test_builder_with_bottom_raster_array(tmp_path: Path):
 
     cfg = SGridConfig(
         top_path=str(top_path),
-        genmtd_bot="raster",
-        bot_raster=bot,
-        genmtd_lay="constant",
-        nlay=2,
+        bottom={"kind": "raster", "raster": bot},
+        layering={"kind": "constant", "nlay": 2},
     )
     sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nlay == 2
@@ -215,19 +211,17 @@ def test_builder_resample_to_shape_mode_resamples_top_and_bottom_filepath(tmp_pa
     top = np.array([[20.0, 24.0], [22.0, 26.0]], dtype=float)
     bot = np.array([[10.0, 14.0], [12.0, 16.0]], dtype=float)
     top_path = tmp_path / "top.tif"
-    bot_path = tmp_path / "bot.tif"
+    bottom_path = tmp_path / "bottom.tif"
     _write_tif(top_path, top)
-    _write_tif(bot_path, bot)
+    _write_tif(bottom_path, bot)
 
     cfg = SGridConfig(
         top_path=str(top_path),
         plan_discretization_mode="resample_to_shape",
         nx=4,
         ny=3,
-        genmtd_bot="filepath",
-        bot_path=str(bot_path),
-        genmtd_lay="constant",
-        nlay=2,
+        bottom={"kind": "filepath", "path": str(bottom_path)},
+        layering={"kind": "constant", "nlay": 2},
     )
     sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nrow == 3
@@ -248,10 +242,8 @@ def test_build_sgrid_from_config_raises_on_bottom_raster_shape_mismatch(tmp_path
 
     cfg = SGridConfig(
         top_path=str(top_path),
-        genmtd_bot="raster",
-        bot_raster=bot,
-        genmtd_lay="constant",
-        nlay=2,
+        bottom={"kind": "raster", "raster": bot},
+        layering={"kind": "constant", "nlay": 2},
     )
     with pytest.raises(ValueError, match="shape"):
         _ = build_sgrid_from_config(cfg)
@@ -334,11 +326,15 @@ def test_config_from_toml_builds_valid_grid(tmp_path: Path):
             genmtd_top = "filepath"
             top_path = "{top_path.name}"
             crs = "EPSG:2154"
-            genmtd_bot = "constant_altitude"
-            zbot = 0.0
-            genmtd_lay = "constant"
-            nlay = 2
             nodata = -9999
+
+            [sgrid.bottom]
+            kind = "constant_altitude"
+            zbot = 0.0
+
+            [sgrid.layering]
+            kind = "constant"
+            nlay = 2
             """
         ),
         encoding="utf-8",
@@ -366,11 +362,15 @@ def test_config_from_toml_resample_to_shape_mode_builds_resampled_grid(tmp_path:
             plan_discretization_mode = "resample_to_shape"
             nx = 5
             ny = 4
-            genmtd_bot = "constant_altitude"
-            zbot = 0.0
-            genmtd_lay = "constant"
-            nlay = 2
             nodata = -9999
+
+            [sgrid.bottom]
+            kind = "constant_altitude"
+            zbot = 0.0
+
+            [sgrid.layering]
+            kind = "constant"
+            nlay = 2
             """
         ),
         encoding="utf-8",
@@ -393,10 +393,8 @@ def test_config_from_mapping_builds_valid_grid_from_nested_mapping(tmp_path: Pat
             "genmtd_top": "filepath",
             "top_path": str(top_path),
             "crs": "EPSG:2154",
-            "genmtd_bot": "constant_altitude",
-            "zbot": 0.0,
-            "genmtd_lay": "constant",
-            "nlay": 2,
+            "bottom": {"kind": "constant_altitude", "zbot": 0.0},
+            "layering": {"kind": "constant", "nlay": 2},
             "nodata": -9999,
         }
     }
@@ -414,10 +412,8 @@ def test_structured_grid_builder_builds_without_internal_cache(tmp_path: Path):
 
     cfg = SGridConfig(
         top_path=str(top_path),
-        genmtd_bot="constant_altitude",
-        zbot=0.0,
-        genmtd_lay="constant",
-        nlay=2,
+        bottom={"kind": "constant_altitude", "zbot": 0.0},
+        layering={"kind": "constant", "nlay": 2},
         nodata=-9999,
     )
     sgrid1 = build_sgrid_from_config(cfg)

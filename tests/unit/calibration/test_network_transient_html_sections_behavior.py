@@ -45,6 +45,8 @@ def _minimal_network_transient_inputs(tmp_path: Path) -> dict[str, Path]:
     source_config.write_text(
         """
 [geographic]
+
+[geographic.catchment]
 x_outlet = 10.0
 y_outlet = 20.0
 
@@ -249,7 +251,9 @@ def test_readers_and_configuration_metrics_load_csv_json_and_toml(
 
     assert report._read_json(paths["truth"] / "metadata.json")["mK_true"] == 0.65
     assert report._read_csv(paths["score_table"])[0]["candidate_id"] == "truth_identity"
-    assert report._read_toml(paths["source_config"])["geographic"]["x_outlet"] == 10.0
+    assert (
+        report._read_toml(paths["source_config"])["geographic"]["catchment"]["x_outlet"] == 10.0
+    )
     assert report._read_truth_discharge(paths["truth"] / "transient_q_total_release.csv") == [
         1.0,
         2.0,

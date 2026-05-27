@@ -23,8 +23,8 @@ class DomainRasterProducts:
 
     The fields are file paths for the box-buffer, watershed-buffer, and
     watershed-only DEM, corrected DEM, D8 direction raster, and watershed
-    contour raster. Names intentionally match the historical artifacts consumed
-    by legacy solver and post-processing code.
+    contour raster. Names intentionally match the established artifacts consumed
+    by solver and post-processing code.
     """
 
     watershed_box_buff_dem: str
@@ -66,7 +66,7 @@ def _export_reshaped_rasters(
     *,
     paths: GeographicPaths,
 ) -> None:
-    """Re-export legacy rasters on the box-buffer grid when shapes diverge."""
+    """Re-export watershed rasters on the box-buffer grid when shapes diverge."""
     jobs = [
         (paths.watershed_box_buff_dem, paths.watershed_dem, -9999),
         (paths.watershed_box_buff_fill, paths.watershed_fill, -9999),

@@ -1,6 +1,6 @@
 # Etat actuel de l'implementation - `site_selection`
 
-Date: 2026-05-26
+Date: 2026-05-27
 
 Ce document decrit ce qui existe aujourd'hui dans `site_selection`, les
 fonctionnalites disponibles et la maniere generale dont elles sont realisees.
@@ -212,8 +212,10 @@ Les configurations sont validees par les modeles `SiteSelectionConfig`. Elles
 portent le territoire, le mode d'entree, la strategie, les criteres, les options
 de sortie et les couches de contexte.
 
-Le profil expose dans les sorties est `strategy.effective_profile`. Il peut etre
-declare explicitement ou deduit pour les deux cas courts termes:
+Le profil expose dans les sorties est `strategy.effective_profile`. Dans le
+contrat courant, `gauged_downstream_station` doit etre declare explicitement
+dans le TOML. `area_only` peut etre declare explicitement ou deduit du mode
+court `site_selection.input.mode = "dem_area_light"`.
 
 - `area_only`;
 - `gauged_downstream_station`.

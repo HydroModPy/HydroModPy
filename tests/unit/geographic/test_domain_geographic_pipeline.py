@@ -53,8 +53,10 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
         )
     )
     config = GeographicConfig(
-        catch_def="dem",
-        dem_init_path=dem_path,
+        catchment={
+            "catch_def": "dem",
+            "dem_init_path": dem_path,
+        },
         crs_project="EPSG:2154",
     )
 
@@ -101,8 +103,10 @@ def test_build_geographic_derived_features_from_dem(tmp_path: Path):
         )
     )
     config = GeographicConfig(
-        catch_def="dem",
-        dem_init_path=dem_path,
+        catchment={
+            "catch_def": "dem",
+            "dem_init_path": dem_path,
+        },
         crs_project="EPSG:2154",
     )
 
@@ -171,12 +175,14 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
         stable_folder=tmp_path / "results" / ".solver_scratch/_preprocessing",
     )
     config = GeographicConfig(
-        catch_def="from_outlet_coord",
-        dem_init_path=tmp_path / "regional_dem.tif",
-        x_outlet=1000.0,
-        y_outlet=2000.0,
-        snap_dist="50 m",
-        buff_area="20%",
+        catchment={
+            "catch_def": "from_outlet_coord",
+            "dem_init_path": tmp_path / "regional_dem.tif",
+            "x_outlet": 1000.0,
+            "y_outlet": 2000.0,
+            "snap_dist": "50 m",
+            "buff_area": "20%",
+        },
         crs_project="EPSG:2154",
         dem_correc_type="breach",
         river_network={"enabled": False},

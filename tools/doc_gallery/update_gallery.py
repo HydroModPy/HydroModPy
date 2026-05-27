@@ -6767,6 +6767,7 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         return {}
 
     geographic = dict(config.get("geographic", {}))
+    catchment = dict(geographic.get("catchment", {}))
     domain = dict(config.get("domain", {}))
     depth_model = dict(domain.get("depth_model", {}))
     data_cfg = dict(config.get("data", {}))
@@ -6776,37 +6777,37 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     selected_rows: list[dict[str, Any]] = []
     _add_parameter_row(
         selected_rows,
-        field="[geographic] catch_def",
+        field="[geographic.catchment] catch_def",
         meaning="Watershed extraction mode used to derive the basin from the outlet definition.",
-        value=geographic.get("catch_def"),
+        value=catchment.get("catch_def"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] x_outlet",
+        field="[geographic.catchment] x_outlet",
         meaning="Projected x coordinate of the outlet used by watershed extraction.",
-        value=geographic.get("x_outlet"),
+        value=catchment.get("x_outlet"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] y_outlet",
+        field="[geographic.catchment] y_outlet",
         meaning="Projected y coordinate of the outlet used by watershed extraction.",
-        value=geographic.get("y_outlet"),
+        value=catchment.get("y_outlet"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] snap_dist",
+        field="[geographic.catchment] snap_dist",
         meaning="Maximum snapping distance used to align the requested outlet with the drainage network.",
-        value=geographic.get("snap_dist"),
+        value=catchment.get("snap_dist"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] buff_area",
+        field="[geographic.catchment] buff_area",
         meaning="Extra area kept around the watershed to preserve regional context in overview figures.",
-        value=geographic.get("buff_area"),
+        value=catchment.get("buff_area"),
         source=config_path or "",
     )
     _add_parameter_row(

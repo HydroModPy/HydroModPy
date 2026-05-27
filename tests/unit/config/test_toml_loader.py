@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-import hydromodpy.config.toml_section_loader as toml_section_loader
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -22,9 +21,10 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
                 f'project_root = "{tmp_path / "demo"}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[flow]",
                 'active_bc = ["ocean"]',
                 "",
@@ -86,9 +86,10 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[flow]",
                 'active_bc = ["ocean"]',
                 "",
@@ -116,12 +117,6 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     assert cfg.workspace.catch_name == "demo"
     assert str(cfg.geographic.dem_init_path) == str(dem_path.resolve())
     assert cfg.flow.active_bc == ["ocean", "drainage"]
-
-
-def test_toml_loader_delegates_geographic_payload_normalization() -> None:
-    source = Path(toml_section_loader.__file__).read_text(encoding="utf-8")
-    assert "normalize_geographic_catchment_payload" in source
-    assert "legacy_keys" not in source
 
 
 def test_from_toml_requires_workspace_project_root(tmp_path: Path) -> None:
@@ -280,9 +275,11 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "reuse_existing_outputs = true",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "reuse_existing_outputs = true",
             ]
         ),
         encoding="utf-8",
@@ -311,8 +308,9 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
                 f'data_dir = "{tmp_path / "data"}"',
                 "",
                 "[geographic]",
-                'catch_def = "dem"',
                 "",
+                "[geographic.catchment]",
+                'catch_def = "dem"',
                 "[data.dem]",
                 "",
                 "[[data.dem.sources]]",
@@ -443,7 +441,9 @@ def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
         HydroModPyConfig.from_toml(config_path)
 
 
-def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> None:
+def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
+    tmp_path: Path,
+) -> None:
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
 
@@ -451,7 +451,12 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
         {
             "workflow": {"mode": "simulation"},
             "workspace": {"root": str(tmp_path), "project_root": ""},
-            "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+            "geographic": {
+                "catchment": {
+                    "catch_def": "dem",
+                    "dem_init_path": "dem.tif",
+                }
+            },
             "flow": {
                 "param": {
                     "K": {
@@ -473,13 +478,20 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
     }
 
 
-def test_hydromodpy_config_from_json_uses_toml_normalization(tmp_path: Path) -> None:
+def test_hydromodpy_config_from_json_resolves_nested_geographic_catchment(
+    tmp_path: Path,
+) -> None:
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
     payload = {
         "workflow": {"mode": "simulation"},
         "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
-        "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+        "geographic": {
+            "catchment": {
+                "catch_def": "dem",
+                "dem_init_path": "dem.tif",
+            }
+        },
     }
 
     cfg = HydroModPyConfig.from_json(json.dumps(payload), base_dir=tmp_path)

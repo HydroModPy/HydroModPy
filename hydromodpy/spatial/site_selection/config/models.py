@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from hydromodpy.core.administrative_france import validate_french_regions
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -18,25 +18,20 @@ from hydromodpy.core.config_kit.profile import Profile
 
 SelectionPrinciple = Literal["observation_led", "criteria_crossing"]
 StrategyProfile = Literal[
-    "dem_only",
     "area_only",
-    "multicriteria",
     "gauged_downstream_station",
 ]
 CriterionMode = Literal["hard_reject", "warning", "score", "stratify", "report_only"]
 ObservationRole = Literal["primary", "bonus", "score", "stratify", "report_only", "ignore"]
 CandidateMode = Literal[
     "network_sampling",
-    "dem_area_light",
     "station_outlets",
-    "imported_points",
 ]
 OutletSnapStrategy = Literal["dem_accumulation", "bdtopage_then_dem"]
 ReferenceNetworkSource = Literal["bdtopage", "custom"]
 RouteOverlapMode = Literal["hard_reject", "warning", "score", "report_only"]
 SpatialQuotaMode = Literal["none", "grid"]
 WorkflowInputMode = Literal[
-    "auto",
     "plan_only",
     "hydrometry",
     "delineated_catchments",
@@ -50,12 +45,6 @@ InfluenceType = Literal[
     "major_regulated_reach",
 ]
 StationInfluenceUnknownPolicy = Literal["neutral", "warning"]
-
-
-def _normalize_report_mode(value: object) -> object:
-    if isinstance(value, str) and value.strip().lower() == "report":
-        return "report_only"
-    return value
 
 
 class StrategyConfig(HydroModelBase):
@@ -105,9 +94,9 @@ class StrategyConfig(HydroModelBase):
                     "observation_led requires primary_observation_type "
                     "(for example 'flow_station')."
                 )
-            if self.profile not in {None, "gauged_downstream_station"}:
+            if self.profile != "gauged_downstream_station":
                 raise ValueError(
-                    "observation_led accepts only profile='gauged_downstream_station'."
+                    "observation_led requires profile='gauged_downstream_station'."
                 )
 
         if self.profile == "gauged_downstream_station":
@@ -150,8 +139,6 @@ class TerritoryConfig(HydroModelBase):
             "admin_departments",
             "polygon_file",
             "bbox",
-            "site_catalog_extent",
-            "geoparquet_filter",
         ],
         Profile.USER,
     ] = Field(default="bbox", description="Territory resolver mode.")
@@ -452,13 +439,6 @@ class SpatialSelectionConfig(HydroModelBase):
         default="hard_reject",
         description="How overlap violations affect selection.",
     )
-    same_mainstem_policy: Annotated[
-        Literal["allow_with_warning", "reject_downstream", "keep_best"] | None,
-        Profile.USER,
-    ] = Field(
-        default=None,
-        description="Optional policy for candidates on the same mainstem.",
-    )
     spatial_quota_mode: Annotated[SpatialQuotaMode, Profile.USER] = Field(
         default="none",
         description="Optional coarse spatial quota applied after ranking.",
@@ -487,11 +467,8 @@ class SiteSelectionInputConfig(HydroModelBase):
     """Execution input selector used by the ``site_selection`` workflow."""
 
     mode: Annotated[WorkflowInputMode, Profile.USER] = Field(
-        default="auto",
-        description=(
-            "Workflow input mode. auto uses catchments_csv when present, "
-            "otherwise [hydrometry] when present, otherwise only writes a plan."
-        ),
+        default="plan_only",
+        description="Explicit workflow input mode.",
     )
     catchments_csv: Annotated[Path | None, Profile.USER] = Field(
         default=None,
@@ -600,11 +577,6 @@ class AreaCriteriaConfig(HydroModelBase):
         ),
     )
 
-    @field_validator("mode", mode="before")
-    @classmethod
-    def _normalize_mode(cls, value: object) -> object:
-        return _normalize_report_mode(value)
-
     @model_validator(mode="after")
     def _validate_area(self) -> AreaCriteriaConfig:
         if (
@@ -641,11 +613,6 @@ class FlowStationCriteriaConfig(HydroModelBase):
     )
     require_station_inside_or_at_outlet: Annotated[bool, Profile.USER] = Field(default=False)
 
-    @field_validator("mode", mode="before")
-    @classmethod
-    def _normalize_mode(cls, value: object) -> object:
-        return _normalize_report_mode(value)
-
 
 class StationInfluenceCriteriaConfig(HydroModelBase):
     """Criteria applied to station influence metadata."""
@@ -679,11 +646,6 @@ class StationInfluenceCriteriaConfig(HydroModelBase):
         ],
         description="Keywords searched in station influence comments.",
     )
-
-    @field_validator("mode", mode="before")
-    @classmethod
-    def _normalize_mode(cls, value: object) -> object:
-        return _normalize_report_mode(value)
 
 
 class PiezometerLayerConfig(HydroModelBase):
@@ -740,11 +702,6 @@ class ObservationsCriteriaConfig(HydroModelBase):
         description="Optional vector layers used to compute piezometer evidence.",
     )
 
-    @field_validator("flow_station_mode", "piezometer_mode", mode="before")
-    @classmethod
-    def _normalize_modes(cls, value: object) -> object:
-        return _normalize_report_mode(value)
-
 
 class InfluenceLayerConfig(HydroModelBase):
     """Vector layer used to compute anthropic-influence evidence."""
@@ -799,11 +756,6 @@ class InfluenceCriteriaConfig(HydroModelBase):
         description="Optional vector layers used to compute influence flags automatically.",
     )
 
-    @field_validator("mode", mode="before")
-    @classmethod
-    def _normalize_mode(cls, value: object) -> object:
-        return _normalize_report_mode(value)
-
 
 class GeologyLayerConfig(HydroModelBase):
     """Polygon layer used to compute basin geology classes."""
@@ -841,11 +793,6 @@ class GeologyCriteriaConfig(HydroModelBase):
         default_factory=list,
         description="Optional polygon layers used to compute geology evidence.",
     )
-
-    @field_validator("mode", mode="before")
-    @classmethod
-    def _normalize_mode(cls, value: object) -> object:
-        return _normalize_report_mode(value)
 
 
 class CriteriaConfig(HydroModelBase):
@@ -890,7 +837,6 @@ class CriteriaConfig(HydroModelBase):
 class OutputConfig(HydroModelBase):
     """Output artifact switches."""
 
-    write_candidates: Annotated[bool, Profile.USER] = Field(default=False)
     write_rejected: Annotated[bool, Profile.USER] = Field(default=True)
     write_selected: Annotated[bool, Profile.USER] = Field(default=True)
     write_geojson: Annotated[bool, Profile.USER] = Field(default=True)
@@ -898,7 +844,6 @@ class OutputConfig(HydroModelBase):
     write_geopackage: Annotated[bool, Profile.USER] = Field(default=False)
     write_csv: Annotated[bool, Profile.USER] = Field(default=True)
     write_regional_lab_csv: Annotated[bool, Profile.USER] = Field(default=True)
-    write_report_md: Annotated[bool, Profile.USER] = Field(default=False)
     write_report_html: Annotated[bool, Profile.USER] = Field(default=False)
 
 
@@ -985,8 +930,14 @@ class SiteSelectionConfig(HydroModelBase):
                     "in strategy or outlets."
                 )
 
-        if self.input.mode == "dem_area_light" and self.dem_area_light is None:
-            object.__setattr__(self, "dem_area_light", DemAreaLightConfig())
+        if self.input.mode == "dem_area_light":
+            if self.strategy.profile != "area_only":
+                raise ValueError(
+                    "site_selection.input.mode='dem_area_light' requires "
+                    "strategy.profile='area_only'."
+                )
+            if self.dem_area_light is None:
+                object.__setattr__(self, "dem_area_light", DemAreaLightConfig())
 
         if self.strategy.profile == "area_only":
             allowed_report_modes = {"report_only"}
@@ -1016,19 +967,10 @@ class SiteSelectionConfig(HydroModelBase):
 
     @property
     def effective_profile(self) -> str:
-        """Return the explicit profile or the short-term profile inferred from the config."""
+        """Return the explicit selection profile."""
 
         if self.strategy.profile:
             return self.strategy.profile
-        mode = self.strategy.candidate_mode or self.outlets.candidate_mode
-        if (
-            self.strategy.principle == "observation_led"
-            and self.strategy.primary_observation_type == "flow_station"
-            and mode == "station_outlets"
-        ):
-            return "gauged_downstream_station"
-        if self.input.mode == "dem_area_light":
-            return "area_only"
         return "custom"
 
 
