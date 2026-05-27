@@ -3,6 +3,11 @@
 Date: 2026-05-12
 Mise a jour: 2026-05-26
 
+Archive: ce plan long a ete deplace sous `docs/_dev_notes/legacy/` le
+2026-05-27. Il conserve l'historique de conception, mais le contrat courant est
+defini par `docs/_dev_notes/site_selection_short_term_contract.md` et
+`docs/_dev_notes/site_selection_current_implementation_report.md`.
+
 Statut: document de conception et de planification. Ce fichier detaille une
 brique specifique: un outil independant de selection de sites, place en amont
 des testbeds, regional labs, comparaisons et campagnes de calibration. La mise

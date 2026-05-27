@@ -21,6 +21,7 @@ from hydromodpy.spatial.site_selection.outputs.writer import (
     write_observation_points_geojson,
     write_selection_result,
 )
+from tests.unit.site_selection._geojson import write_point_geojson, write_polygon_geojson
 
 
 @pytest.mark.fast
@@ -117,24 +118,7 @@ def test_write_selection_result_outputs_core_files(tmp_path):
 @pytest.mark.fast
 def test_write_selection_result_exports_snapped_outlet_geometry(tmp_path):
     snap_path = tmp_path / "outlet_snap.geojson"
-    snap_path.write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [350030.0, 6810040.0],
-                        },
-                        "properties": {},
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
+    write_point_geojson(snap_path, coordinates=[350030.0, 6810040.0])
     catchment = DelineatedCatchment(
         site_id="site_001",
         outlet=CandidateOutlet("cand_001", 350000.0, 6810000.0, "EPSG:2154", "test"),
@@ -213,31 +197,15 @@ def test_write_selection_result_honors_tabular_output_switches(tmp_path):
 def test_write_selection_result_exports_available_basin_contours(tmp_path):
     pytest.importorskip("geopandas")
     basin_path = tmp_path / "basin.geojson"
-    basin_path.write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [
-                                [
-                                    [0.0, 0.0],
-                                    [10.0, 0.0],
-                                    [10.0, 8.0],
-                                    [0.0, 8.0],
-                                    [0.0, 0.0],
-                                ]
-                            ],
-                        },
-                        "properties": {},
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
+    write_polygon_geojson(
+        basin_path,
+        coordinates=[
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [10.0, 8.0],
+            [0.0, 8.0],
+            [0.0, 0.0],
+        ],
     )
     catchment = DelineatedCatchment(
         site_id="site_001",

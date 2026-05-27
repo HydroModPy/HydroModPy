@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pandas as pd
 import pytest
 
-from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 from hydromodpy.workflow.site_selection_data import (
@@ -15,20 +12,7 @@ from hydromodpy.workflow.site_selection_data import (
     load_dem_path,
     load_hydrometry_records,
 )
-
-
-def _record() -> PointRecord:
-    return PointRecord(
-        station_id="J123456701",
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame({"datetime": ["2020-01-01"], "value": [1.0]}),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 1),
-        location=StationLocation("J123456701", 0.0, 0.0, "EPSG:2154"),
-    )
+from tests.unit.site_selection._records import make_point_record
 
 
 @pytest.mark.fast
@@ -37,7 +21,7 @@ def test_load_hydrometry_records_passes_period_from_config_to_loader():
 
     def fake_loader(**kwargs):
         calls.update(kwargs)
-        return [_record()]
+        return [make_point_record()]
 
     cfg = HydrometryConfig(
         date_start="2020-01-01",
@@ -59,7 +43,7 @@ def test_load_hydrometry_records_prefers_explicit_project_period():
 
     def fake_loader(**kwargs):
         calls.update(kwargs)
-        return [_record()]
+        return [make_point_record()]
 
     cfg = HydrometryConfig(
         date_start="2020-01-01",

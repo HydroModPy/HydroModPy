@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 import pytest
 from shapely.geometry import box
 
@@ -13,6 +11,7 @@ from hydromodpy.spatial.site_selection.config import (
 )
 from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
 from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
+from tests.unit.site_selection._geojson import write_point_geojson
 
 
 def _catchment(
@@ -175,24 +174,7 @@ def test_select_delineated_catchments_uses_snapped_outlet_for_flow_station_dista
     tmp_path,
 ):
     snap_path = tmp_path / "outlet_snap.geojson"
-    snap_path.write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [3000.0, 0.0],
-                        },
-                        "properties": {},
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
+    write_point_geojson(snap_path, coordinates=[3000.0, 0.0])
     catchment = DelineatedCatchment(
         site_id="station_far_after_snap",
         outlet=CandidateOutlet(

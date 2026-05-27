@@ -10616,7 +10616,7 @@
               "type": "number"
             }
           ],
-          "description": "Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').",
+          "description": "Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').",
           "title": "Buff Area",
           "x-hmp-profile": "user"
         }
@@ -11665,7 +11665,7 @@
               "type": "number"
             }
           ],
-          "description": "Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').",
+          "description": "Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').",
           "title": "Buff Area",
           "x-hmp-profile": "user"
         }
@@ -14393,10 +14393,9 @@
       "description": "Execution input selector used by the ``site_selection`` workflow.",
       "properties": {
         "mode": {
-          "default": "auto",
-          "description": "Workflow input mode. auto uses catchments_csv when present, otherwise [hydrometry] when present, otherwise only writes a plan.",
+          "default": "plan_only",
+          "description": "Explicit workflow input mode.",
           "enum": [
-            "auto",
             "plan_only",
             "hydrometry",
             "delineated_catchments",
@@ -14404,7 +14403,7 @@
             "dem_area_light"
           ],
           "examples": [
-            "auto"
+            "plan_only"
           ],
           "title": "Mode",
           "type": "string",

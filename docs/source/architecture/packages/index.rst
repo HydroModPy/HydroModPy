@@ -95,7 +95,8 @@ Subpackages
       :link: display
       :link-type: doc
 
-      33 named figures registered through a single catalog.
+      33 named figures registered through a single catalog, plus
+      shared static HTML block primitives.
 
    .. grid-item-card:: analysis
       :link: analysis
@@ -109,7 +110,8 @@ Subpackages
       :link-type: doc
 
       HTML composites: calibration session report, comparison web
-      report, streamlit configurator.
+      report, streamlit configurator, and guidance for block-based
+      workflow reports.
 
    .. grid-item-card:: workflow
       :link: workflow

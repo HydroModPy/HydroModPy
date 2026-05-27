@@ -243,8 +243,8 @@ def test_persist_geographic_to_store_writes_generated_network_canonical_name(tmp
 
     persist_geographic_to_store(geographic, store, sim_id="sim-2")
 
-    assert "river_network" in store.feature_names
     assert HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME in store.feature_names
+    assert "river_network" not in store.feature_names
 
 
 def test_persist_geographic_to_store_restores_generated_network_crs(tmp_path: Path):
@@ -277,8 +277,8 @@ def test_persist_geographic_to_store_restores_generated_network_crs(tmp_path: Pa
 
     persist_geographic_to_store(geographic, store, sim_id="sim-3")
 
-    assert store.feature_crs["river_network"] == "EPSG:2154"
     assert store.feature_crs[HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME] == "EPSG:2154"
+    assert "river_network" not in store.feature_crs
 
 
 def test_persist_geographic_to_store_uses_geographic_crs_for_generated_network(
@@ -313,5 +313,5 @@ def test_persist_geographic_to_store_uses_geographic_crs_for_generated_network(
 
     persist_geographic_to_store(geographic, store, sim_id="sim-4")
 
-    assert store.feature_crs["river_network"] == "EPSG:2154"
     assert store.feature_crs[HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME] == "EPSG:2154"
+    assert "river_network" not in store.feature_crs

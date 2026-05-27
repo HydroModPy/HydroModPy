@@ -21,9 +21,34 @@ Sub-modules
   CRS-aware axes, scalebar, north arrow).
 - ``display/overview/`` -- composed overview report rendering used
   by the ``[overview]`` workflow.
+- ``display/report_blocks/`` -- shared static HTML block primitives
+  used by block-based reports. It owns the generic dataclasses,
+  renderer, level navigation, per-block level switches, relative
+  artifact links, and missing-figure placeholders.
+- ``display/catchment_report/`` -- generic watershed report pipeline
+  driven by ``hmp report catchment`` and rendered through
+  ``display/report_blocks``.
 - ``display/config.py`` -- ``DisplayConfig`` Pydantic model for
   the ``[display]`` TOML section.
 - ``display/theme.py`` -- shared style / colormap selection.
+
+Block HTML Reports
+------------------
+
+``display/report_blocks`` is the common renderer for static reports
+composed from reusable blocks. The key contract is that workflow code
+builds ``ReportBlock`` objects, while the shared renderer writes the
+HTML page. Domain-specific report modules should keep their scientific
+logic in their own ``blocks.py`` files and call:
+
+- ``write_report_page(...)`` for one static page;
+- ``write_report_page_with_block_variants(...)`` for a page where
+  each block can switch between ``compact``, ``standard`` and
+  ``audit`` detail.
+
+The renderer is currently used by overview reporting, site-selection
+review reports, the catchment report pipeline, and the
+network/transient calibration diagnostic page.
 
 Figure inventory (33 today)
 ---------------------------
@@ -83,6 +108,10 @@ Key public symbols
 - ``hydromodpy.display.catalog.register``
 - ``hydromodpy.display.theme.plot_params``
 - ``hydromodpy.display.config.DisplayConfig``
+- ``hydromodpy.display.report_blocks.{ReportBlock, ReportMetric,
+  ReportFigure, ReportTable, ReportLink}``
+- ``hydromodpy.display.report_blocks.{write_report_page,
+  write_report_page_with_block_variants}``
 
 Recommended reading path
 ------------------------
@@ -94,6 +123,11 @@ Recommended reading path
    ``hydromodpy/display/figures/hydrograph.py``.
 5. One spatial figure such as
    ``hydromodpy/display/figures/piezometric_map.py``.
+6. ``hydromodpy/display/report_blocks/model.py`` and
+   ``hydromodpy/display/report_blocks/html.py`` for the static HTML
+   block contract.
+7. ``hydromodpy/display/catchment_report/builder.py`` for a complete
+   block-based report producer.
 
 Layer-matrix neighbours
 -----------------------
@@ -110,4 +144,6 @@ See also
 
 - :doc:`/user_guide/figures` -- user-facing figure catalog.
 - :doc:`/architecture/how-to/add-a-figure` -- step-by-step recipe.
+- :doc:`/architecture/how-to/add-a-block-html-report` -- recipe for
+  adding a block-based static HTML report.
 - :doc:`results` for the ``Run`` API the figures consume.

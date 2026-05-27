@@ -174,8 +174,6 @@ def run_reference_river_network_nancon_from_toml(
         "watershed_box_buff_dem": str(geographic.watershed_box_buff_dem),
         "hydrographic_network_generated_shp": str(network_shp),
         "hydrographic_network_generated_summary_json": str(summary_json),
-        "river_network_shp": str(network_shp),
-        "river_network_summary_json": str(summary_json),
         "segment_count": int(summary["segment_count"]),
         "network_total_length_m": float(summary["network_total_length_m"]),
         "figure": None if fig_path is None else str(fig_path),
@@ -222,8 +220,6 @@ def main(argv: list[str] | None = None) -> int:
         "hydrographic_network_generated_summary_json="
         f"{payload['hydrographic_network_generated_summary_json']}"
     )
-    print(f"river_network_shp={payload['river_network_shp']}")
-    print(f"river_network_summary_json={payload['river_network_summary_json']}")
     print(f"segment_count={payload['segment_count']}")
     print(f"network_total_length_m={payload['network_total_length_m']:.3f}")
     print(f"figure={payload['figure']}")

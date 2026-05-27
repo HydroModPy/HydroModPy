@@ -175,7 +175,9 @@ outputs before running hydrometry loading or DEM-based delineation.
 
 DEM/network-generated runs use `site_selection.input.mode =
 "generated_candidates"` with `site_selection.outlets.candidate_mode =
-"network_sampling"`. They write the normal selection outputs plus:
+"network_sampling"`. This mode is experimental and remains outside the
+short-term stable business contract, but it is kept as a tested capability.
+It writes the normal selection outputs plus:
 
 - `candidate_generation.jsonl`
 - `candidate_outlets.geojson` when `write_geojson = true`

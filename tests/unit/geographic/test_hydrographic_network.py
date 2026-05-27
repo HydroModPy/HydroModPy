@@ -18,7 +18,6 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 )
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     HydrographicNetwork,
@@ -26,7 +25,6 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     canonical_feature_name_for_role,
     default_vector_filename_for_role,
     hydrographic_network_naming_contract,
-    legacy_feature_name_for_role,
 )
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
@@ -244,10 +242,6 @@ def test_canonical_feature_names_are_role_specific():
         canonical_feature_name_for_role("generated") == HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME
     )
     assert canonical_feature_name_for_role("mesh_constraint") is None
-    assert (
-        legacy_feature_name_for_role("generated")
-        == HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME
-    )
     assert default_vector_filename_for_role("reference") == "streams.shp"
     assert default_vector_filename_for_role("generated") == "river_network.shp"
     contract = hydrographic_network_naming_contract("reference")

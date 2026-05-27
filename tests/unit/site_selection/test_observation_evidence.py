@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
-
-import pandas as pd
 import pytest
 
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.spatial.site_selection.domain.observations import (
     ObservationEvidence,
     ObservationSpatialMatch,
@@ -15,37 +10,24 @@ from hydromodpy.spatial.site_selection.evidence.observations import (
     build_observation_evidence,
     build_observation_evidence_from_attributes,
 )
+from tests.unit.site_selection._records import make_point_record
 
 
 @pytest.mark.fast
 def test_observation_evidence_from_hubeau_point_record_separates_provider_and_spatial_fields():
-    record = PointRecord(
-        station_id="J123456701",
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame(
-            {
-                "datetime": pd.date_range("2020-01-01", "2020-01-10", freq="D"),
-                "value": [1.0] * 10,
-            }
-        ),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 10),
-        location=StationLocation(
-            id="J123456701",
-            x=-1.5,
-            y=48.1,
-            crs="EPSG:4326",
-            metadata={
-                "station_name": "La Riviere a Exemple",
-                "city": "Exemple",
-                "department": "Ille-et-Vilaine",
-                "influence_generale_site": "1",
-                "commentaire_influence_generale_site": "Retenue en amont.",
-            },
-        ),
+    record = make_point_record(
+        "J123456701",
+        x=-1.5,
+        y=48.1,
+        crs="EPSG:4326",
+        n_values=10,
+        metadata={
+            "station_name": "La Riviere a Exemple",
+            "city": "Exemple",
+            "department": "Ille-et-Vilaine",
+            "influence_generale_site": "1",
+            "commentaire_influence_generale_site": "Retenue en amont.",
+        },
     )
     match = ObservationSpatialMatch(
         distance_to_outlet_km=0.25,
@@ -82,16 +64,7 @@ def test_observation_evidence_from_hubeau_point_record_separates_provider_and_sp
 
 @pytest.mark.fast
 def test_build_observation_evidence_uses_station_spatial_match():
-    record = PointRecord(
-        station_id="A000000101",
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame({"datetime": ["2020-01-01"], "value": [1.0]}),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 1),
-    )
+    record = make_point_record("A000000101", with_location=False)
 
     rows = build_observation_evidence(
         site_id="site_002",

@@ -58,7 +58,8 @@ examples/
 
 docs/
   _dev_notes/
-    site_selection_tool_implementation_plan.md
+    legacy/
+      site_selection_tool_implementation_plan.md
     site_selection_file_inventory.md
     boussinesq_stationary_site_inventory.md
 ```

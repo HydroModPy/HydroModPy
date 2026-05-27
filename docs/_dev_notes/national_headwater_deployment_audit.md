@@ -6,7 +6,7 @@ Statut: note de reflexion preparatoire. Ce document ne decrit pas une recette
 operationnelle stabilisee. Il sert a cadrer le chantier avant d'engager du
 developpement ou une campagne de calcul massive.
 
-Document associe: `docs/_dev_notes/site_selection_tool_implementation_plan.md`
+Document associe: `docs/_dev_notes/legacy/site_selection_tool_implementation_plan.md`
 detaille le plan d'implementation specifique pour l'outil independant de
 selection de sites en amont des regional labs et testbeds.
 

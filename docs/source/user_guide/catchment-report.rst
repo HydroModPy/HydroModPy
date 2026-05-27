@@ -75,9 +75,19 @@ The command prints the generated paths, for example:
 
    context_summary=.../outputs/selune_context/context/selune_catchment_context_summary.json
    html_report=.../outputs/selune_catchment_report/web/index.html
+   postflight_report=.../outputs/selune_catchment_report/block_report_postflight.json
 
 Generated outputs
 -----------------
+
+The printed ``html_report`` path points to the standard report page:
+``<output_dir>/web/index.html``. The same run also writes review variants under
+``<output_dir>/web_review``:
+
+- ``compact/index.html`` for a fast plausibility read;
+- ``standard/index.html`` for the default scientific review;
+- ``audit/index.html`` for provenance, detailed tables, and artifact links;
+- ``by_block/index.html`` to choose the detail level block by block.
 
 Report outputs are build products, not the source of truth. Example TOMLs are
 kept under version control; generated context summaries, HTML pages, copied

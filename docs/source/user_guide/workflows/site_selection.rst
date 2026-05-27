@@ -91,7 +91,7 @@ multi-criteria extensions.
      - The goal is to find DEM-delineated catchments around a target drainage
        area, without using observations as selection evidence.
      - ``principle = "criteria_crossing"``, ``primary_axes = ["area"]``, and a
-       candidate source such as ``candidate_mode = "dem_area_light"``.
+       DEM-driven input such as ``site_selection.input.mode = "dem_area_light"``.
    * - ``gauged_downstream_station``
      - The goal is to select gauged catchments whose outlet is represented by a
        downstream flow station.
@@ -159,7 +159,9 @@ treated as hard-reject evidence.
 Input modes
 -----------
 
-``site_selection`` has three practical input modes.
+``site_selection`` has five explicit input modes. The first three are the
+stable day-to-day modes; the generated DEM modes are useful for area-driven or
+network-driven candidate discovery.
 
 .. list-table::
    :header-rows: 1
@@ -180,6 +182,17 @@ Input modes
      - Stations should be loaded directly through HydroModPy data managers,
        usually Hub'Eau hydrometry over a territory or explicit station list.
      - ``[hydrometry]`` plus ``[data.dem]``.
+   * - ``dem_area_light``
+     - The campaign should discover DEM-derived outlets around a target basin
+       area, with a bounded number of delineations for fast review.
+     - ``strategy.profile = "area_only"``, ``primary_axes = ["area"]``,
+       ``[site_selection.dem_area_light]`` and ``[data.dem]``.
+   * - ``generated_candidates``
+     - The campaign should sample high-accumulation DEM/network cells before
+       normal delineation and selection. This mode is experimental compared
+       with the two short-term supported profiles.
+     - ``outlets.candidate_mode = "network_sampling"`` plus ``[data.dem]`` or
+       a custom DEM.
 
 DEM and observations
 --------------------
@@ -229,25 +242,42 @@ station points, final outlets, and station-to-outlet displacement links.
 Outputs
 -------
 
-Every executed run writes:
+Every executed selection run writes the audit core:
 
 - ``criteria_components.jsonl``;
 - ``site_selection_decisions.csv``;
 - ``site_selection_decisions.jsonl``;
 - ``site_selection_evidence.jsonl`` when normalized evidence exists;
-- ``site_selection_manifest.json``;
-- ``selected_sites.csv`` and ``rejected_sites.csv``;
-- ``regional_lab_sites.csv``;
-- selected/rejected outlet and basin GeoJSON files.
+- ``site_selection_manifest.json``.
+
+Additional outputs follow the configured switches:
+
+- ``selected_sites.csv`` when ``write_csv`` and ``write_selected`` are true;
+- ``rejected_sites.csv`` when ``write_csv`` and ``write_rejected`` are true;
+- ``regional_lab_sites.csv`` when ``write_regional_lab_csv`` is true;
+- selected/rejected outlet and basin GeoJSON files when ``write_geojson`` is
+  true;
+- GeoPackage and GeoParquet layers when their corresponding switches are true.
+
+Generated DEM modes also write ``candidate_generation.jsonl``. When
+``write_geojson`` is true, they write ``candidate_outlets.geojson`` and
+``generated_dem_network.geojson`` as review artifacts.
 
 When HTML reporting is enabled, the run also writes:
 
-- ``review/index.html``;
+- ``review/index.html`` as the main review entry point, with a
+  per-block detail selector;
+- ``review/compact/index.html``;
+- ``review/standard/index.html``;
+- ``review/audit/index.html``;
 - ``review/site_selection_map.png``.
 
 The manifest is the hand-off contract. The HTML report is derived from the
 manifest and its declared artifacts, so validation should target the manifest
-first.
+first. ``compact`` is a fast plausibility read, ``standard`` is the default
+scientific review, and ``audit`` exposes provenance, detailed criteria tables,
+and artifact links. The main ``review/index.html`` page lets each block choose
+its own level.
 
 Examples
 --------

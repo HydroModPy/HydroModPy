@@ -197,7 +197,7 @@ Fields
 
                :bdg-primary:`str | float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L105>`__
 
-                  Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').
+                  Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').
 
 
 
@@ -246,7 +246,7 @@ Fields
 
                :bdg-primary:`str | float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L133>`__
 
-                  Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').
+                  Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').
 
 
 

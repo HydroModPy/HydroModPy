@@ -132,7 +132,7 @@ def _collect_case_signature(
 ) -> dict[str, bool | str | float | int | None]:
     summary = case_summary.get("river_network_summary")
     if not isinstance(summary, dict):
-        summary_path = case_summary.get("river_network_summary_json")
+        summary_path = case_summary.get("hydrographic_network_generated_summary_json")
         raise AssertionError(f"Missing river network summary payload: {summary_path}")
 
     return {

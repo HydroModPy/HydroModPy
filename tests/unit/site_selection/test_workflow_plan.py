@@ -17,6 +17,7 @@ from hydromodpy.workflow.site_selection import (
     run_site_selection_workflow,
     select_delineated_catchments_from_csv,
 )
+from tests.unit.site_selection._geojson import write_square_geojson
 
 
 @pytest.mark.fast
@@ -266,7 +267,7 @@ def test_select_delineated_catchments_from_csv_can_delineate_from_outlets(tmp_pa
     def fake_delineation_builder(**kwargs):
         output_dir = Path(kwargs["output_dir"])
         watershed = output_dir / "watershed.geojson"
-        _write_square_geojson(watershed)
+        write_square_geojson(watershed)
         return CatchmentFromPointProducts(
             outlet_shp=str(output_dir / "outlet.shp"),
             outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
@@ -355,7 +356,7 @@ def test_select_delineated_catchments_from_csv_can_use_custom_reference_network(
         calls.update(kwargs)
         output_dir = Path(kwargs["output_dir"])
         watershed = output_dir / "watershed.geojson"
-        _write_square_geojson(watershed)
+        write_square_geojson(watershed)
         return CatchmentFromPointProducts(
             outlet_shp=str(output_dir / "outlet.shp"),
             outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
@@ -457,7 +458,7 @@ def test_select_delineated_catchments_from_csv_can_resolve_dem_from_data_section
     def fake_delineation_builder(**kwargs):
         output_dir = Path(kwargs["output_dir"])
         watershed = output_dir / "watershed.geojson"
-        _write_square_geojson(watershed)
+        write_square_geojson(watershed)
         return CatchmentFromPointProducts(
             outlet_shp=str(output_dir / "outlet.shp"),
             outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
@@ -641,26 +642,3 @@ def test_run_site_selection_workflow_writes_manifest_without_html_by_default(tmp
     assert not (tmp_path / "out" / "review" / "index.html").exists()
     assert summary["site_selection_report_html"] == ""
 
-
-def _write_square_geojson(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {},
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [
-                                [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]
-                            ],
-                        },
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )

@@ -39,7 +39,6 @@ ScalarMetric = float | int | bool | str | None
 HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME = "hydrographic_network_reference"
 HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME = "hydrographic_network_generated"
 HYDROGRAPHIC_NETWORK_SIMULATED_ACTIVE_FEATURE_NAME = "hydrographic_network_simulated_active"
-HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME = "river_network"
 HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME = "streams.shp"
 HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME = "streams.tif"
 HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME = "river_network.shp"
@@ -50,10 +49,6 @@ _ROLE_TO_FEATURE_NAME: dict[str, str] = {
     "reference": HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
     "generated": HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     "simulated_active": HYDROGRAPHIC_NETWORK_SIMULATED_ACTIVE_FEATURE_NAME,
-}
-
-_ROLE_TO_LEGACY_FEATURE_NAME: dict[str, str] = {
-    "generated": HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME,
 }
 
 _ROLE_TO_VECTOR_FILENAME: dict[str, str] = {
@@ -274,25 +269,19 @@ def canonical_feature_name_for_role(role: HydrographicNetworkRole | str) -> str 
     return _ROLE_TO_FEATURE_NAME.get(str(role).strip())
 
 
-def legacy_feature_name_for_role(role: HydrographicNetworkRole | str) -> str | None:
-    """Return the historical persisted feature alias for one role, if any."""
-    return _ROLE_TO_LEGACY_FEATURE_NAME.get(str(role).strip())
-
-
 def default_vector_filename_for_role(role: HydrographicNetworkRole | str) -> str | None:
-    """Return the historical on-disk vector filename for one role."""
+    """Return the established on-disk vector filename for one role."""
     return _ROLE_TO_VECTOR_FILENAME.get(str(role).strip())
 
 
 def hydrographic_network_naming_contract(
     role: HydrographicNetworkRole | str,
 ) -> dict[str, str | None]:
-    """Return canonical and legacy naming hints for one hydrographic-network role."""
+    """Return canonical naming hints for one hydrographic-network role."""
     role_token = str(role).strip()
     return {
         "role": role_token,
         "canonical_feature_name": canonical_feature_name_for_role(role_token),
-        "legacy_feature_name": legacy_feature_name_for_role(role_token),
         "default_vector_filename": default_vector_filename_for_role(role_token),
         "reference_raster_forcing_name": (
             HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME
@@ -481,7 +470,6 @@ __all__ = [
     "HydrographicNetworks",
     "HydrographicNetworkRole",
     "HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME",
-    "HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME",
     "HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME",
     "HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME",
     "HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME",
@@ -492,7 +480,6 @@ __all__ = [
     "canonical_feature_name_for_role",
     "default_vector_filename_for_role",
     "hydrographic_network_naming_contract",
-    "legacy_feature_name_for_role",
     "measure_linework_length_m",
     "measure_polygon_area_m2",
     "project_gdf_for_metric_operations",

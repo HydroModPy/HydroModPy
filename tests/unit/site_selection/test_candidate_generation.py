@@ -30,6 +30,7 @@ from hydromodpy.workflow.site_selection import (
     build_dem_area_light_site_selection_from_toml,
     build_generated_site_selection_from_toml,
 )
+from tests.unit.site_selection._geojson import write_square_geojson
 
 
 @pytest.mark.fast
@@ -247,7 +248,7 @@ def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
         calls.append(kwargs)
         output_dir = Path(kwargs["output_dir"])
         watershed = output_dir / "watershed.geojson"
-        _write_square_geojson(watershed)
+        write_square_geojson(watershed, size=20.0)
         return CatchmentFromPointProducts(
             outlet_shp=str(output_dir / "outlet.shp"),
             outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
@@ -343,7 +344,7 @@ def test_dem_area_light_workflow_writes_outputs_and_diagnostics(tmp_path):
         calls.append(kwargs)
         output_dir = Path(kwargs["output_dir"])
         watershed = output_dir / "watershed.geojson"
-        _write_square_geojson(watershed)
+        write_square_geojson(watershed, size=20.0)
         return CatchmentFromPointProducts(
             outlet_shp=str(output_dir / "outlet.shp"),
             outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
@@ -512,36 +513,6 @@ def _write_accumulation_raster(
     ) as dst:
         dst.write(values, 1)
     return path
-
-
-def _write_square_geojson(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {},
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [
-                                [
-                                    [0.0, 0.0],
-                                    [20.0, 0.0],
-                                    [20.0, 20.0],
-                                    [0.0, 20.0],
-                                    [0.0, 0.0],
-                                ]
-                            ],
-                        },
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
 
 
 def _feature_points(geometry: dict) -> list[list[float]]:

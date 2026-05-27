@@ -2,9 +2,9 @@
 
 Date: 2026-05-26
 
-Ce document fixe le contrat court terme de `site_selection`. Il ne remplace pas
-le plan long `site_selection_tool_implementation_plan.md`: il borne ce qui doit
-etre considere comme utilisable et maintenu maintenant.
+Ce document fixe le contrat court terme de `site_selection`. Il remplace le
+plan long historique `legacy/site_selection_tool_implementation_plan.md` pour
+definir ce qui doit etre considere comme utilisable et maintenu maintenant.
 
 La doctrine metier finale associee est documentee dans
 `docs/_dev_notes/site_selection_final_business_doctrine.md`.

@@ -326,8 +326,9 @@ Les piezometres dans le bassin, ou proches de l'exutoire si
 `piezometer_evidence.jsonl`, `observation_evidence.jsonl` et
 `observation_points.geojson`.
 
-Un mode autonome de generation de candidats existe pour les campagnes sans CSV
-de bassins et sans stations comme entrees:
+Un mode experimental de generation de candidats existe pour les campagnes sans
+CSV de bassins et sans stations comme entrees. Il reste teste, mais il n'est
+pas dans le contrat metier court terme stabilise:
 
 ```toml
 [site_selection.input]
