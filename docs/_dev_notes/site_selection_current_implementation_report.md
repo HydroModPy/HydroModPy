@@ -413,3 +413,23 @@ Les points suivants ne font pas partie de l'implementation stabilisee:
 Ces sujets doivent rester des evolutions separees. Le socle actuel est le
 workflow de selection, ses deux profils courts termes, son manifest, ses
 catalogues et son dossier d'audit.
+
+## Points actifs extraits du plan archive
+
+Le plan long `docs/_dev_notes/legacy/site_selection_tool_implementation_plan.md`
+reste une archive de conception. Il ne doit plus etre utilise comme backlog
+ligne par ligne. Les seuls sujets encore actionnables qui en ressortent sont
+classes ici, avec leur document de rattachement courant.
+
+| Sujet | Statut courant | Suite a ouvrir |
+| --- | --- | --- |
+| Export aval `regional_lab` | `regional_lab_sites.csv` est produit et reste le pont maintenu vers les workflows aval. | Ajouter seulement des tests de relecture aval si un nouveau consommateur apparait. |
+| Candidats generes depuis DEM | `dem_area_light` est stabilise pour `area_only`; `generated_candidates` reste une capacite de controle. | Ouvrir un chantier separe avant toute promesse produit sur confluences, sous-bassins ou ordre de Strahler. |
+| Donnees d'influence | `station_influence` exploite les champs Hub'Eau hydrometriques explicites; les couches vectorielles locales peuvent deja fournir des preuves. | Provider ROE/obstacles et BNPE/prelevements a traiter comme providers de donnees separes. |
+| Observations piezometriques et assecs | Les preuves piezometriques fichier sont supportees; ADES complet et ONDE ne sont pas branches. | Definir un contrat de preuve avant d'ajouter des clients fournisseurs. |
+| Geologie et hydrogeologie | Les couches configurees peuvent alimenter les preuves et le rapport; pas de nomenclature publique finale. | Ouvrir un lot BRGM/BDLISA si la selection doit stratifier par typologie nationale. |
+| Rapport de revue | Rapport HTML statique et carte PNG maintenus. | Carte interactive a garder hors contrat court terme. |
+| DEM IGN | `site_selection` utilise le provider public `ign_geoplateforme_dem`. | Les residuels Geoplateforme/RGE ALTI sont suivis dans `docs/_dev_notes/dem_ign_legacy_cleanup_report.md`. |
+
+Toute idee du plan archive qui n'entre pas dans ces lignes doit etre traitee
+comme historique jusqu'a creation d'une note courte dediee.

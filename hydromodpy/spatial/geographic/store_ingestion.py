@@ -153,8 +153,6 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
         products = getattr(geographic, "_river_network_products", None)
         if products is not None:
             path = getattr(products, "hydrographic_network_generated_shp", None)
-            if path is None:
-                path = getattr(products, "network_shp", None)
             generated_network_crs = getattr(products, "network_crs", None)
     features = getattr(geographic, "get_geographic_derived_features", None)
     if callable(features):
@@ -169,10 +167,7 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
                         generated_network, "crs", None
                     )
                 if path is None and derived.rivers is not None:
-                    path = (
-                        derived.rivers.hydrographic_network_generated_shp
-                        or derived.rivers.network_shp
-                    )
+                    path = derived.rivers.hydrographic_network_generated_shp
                 if derived.rivers is not None:
                     generated_network_crs = generated_network_crs or getattr(
                         derived.rivers, "network_crs", None

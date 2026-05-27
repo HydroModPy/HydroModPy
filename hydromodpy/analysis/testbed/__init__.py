@@ -1,6 +1,8 @@
 """Method-testbed orchestration layer."""
 
 from hydromodpy.analysis.testbed.config import (
+    TestbedCaseConfig,
+    TestbedCatalogCaseConfig,
     TestbedCatalogConfig,
     TestbedCatalogVariantConfig,
     TestbedConfig,
@@ -30,6 +32,8 @@ __all__ = [
     "RegionalLabSelectionConfig",
     "RegionalLabTestbedCase",
     "SUPPORTED_TESTBED_PROFILES",
+    "TestbedCaseConfig",
+    "TestbedCatalogCaseConfig",
     "TestbedCatalogConfig",
     "TestbedCatalogVariantConfig",
     "TestbedConfig",

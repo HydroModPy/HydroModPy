@@ -215,7 +215,7 @@ def _site_catalog_by_id() -> dict[str, dict[str, str]]:
 def _metrics_by_variant() -> dict[str, dict[str, str]]:
     result: dict[str, dict[str, str]] = {}
     for row in _load_csv(OUTPUT_ROOT / "testbed_metrics.csv"):
-        variant = str(row.get("variant_id", "")).strip()
+        variant = str(row.get("case_id") or row.get("variant_id") or "").strip()
         if variant:
             result[variant] = row
     return result
@@ -235,7 +235,7 @@ def _case_from_row(
     site_catalog: dict[str, dict[str, str]],
     metrics_by_variant: dict[str, dict[str, str]],
 ) -> SiteCase:
-    variant_id = str(row.get("variant_id", "")).strip()
+    variant_id = str(row.get("case_id") or row.get("variant_id") or "").strip()
     site_id = variant_id.removeprefix("site_") if variant_id else ""
     site_row = site_catalog.get(site_id, {})
     config_path = _resolve_path(row.get("config_path"), base_dir=OUTPUT_ROOT)
@@ -247,6 +247,7 @@ def _case_from_row(
     workspace = config.get("workspace", {}) if isinstance(config.get("workspace"), dict) else {}
     label = (
         str(site_row.get("site_label") or "").strip()
+        or str(row.get("case_label") or "").strip()
         or str(row.get("variant_label") or "").strip()
         or variant_id
     )

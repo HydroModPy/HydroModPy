@@ -281,7 +281,11 @@ court terme:
   Strahler ou sous-bassins.
 
 Ces sujets doivent etre ouverts comme chantiers separes apres stabilisation des
-deux profils ci-dessus.
+deux profils ci-dessus. Le plan long archive
+`docs/_dev_notes/legacy/site_selection_tool_implementation_plan.md` peut encore
+citer ces capacites ou d'anciens noms de configuration; il ne fait plus foi
+comme backlog executable. Les points encore actifs extraits de ce plan sont
+classes dans `docs/_dev_notes/site_selection_current_implementation_report.md`.
 
 ## Validation de fin de chantier
 

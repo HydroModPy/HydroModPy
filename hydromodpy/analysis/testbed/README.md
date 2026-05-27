@@ -4,7 +4,7 @@ This package implements `[workflow].mode = "testbed"`: an orchestration and evid
 layer for controlled method experiments.
 
 The testbed package does not implement mesh generation, flow solving, or
-transport solving. It expands variants, writes self-contained child TOML files,
+transport solving. It expands cases, writes self-contained child TOML files,
 delegates those children to existing runners, then persists the evidence needed
 to audit the experiment.
 
@@ -13,7 +13,7 @@ to audit the experiment.
 | File | Responsibility |
 | --- | --- |
 | `config.py` | Validates the `[testbed]` TOML contract and resolves paths. |
-| `catalog_variants.py` | Expands optional catalog rows into concrete testbed variants. |
+| `catalog_variants.py` | Expands optional catalog rows into concrete testbed cases. |
 | `contracts.py` | Registers workflow adapters and delegates child execution. |
 | `profiles.py` | Resolves `[testbed].profile` and routes specialized profiles. |
 | `regional_lab_adapter.py` | Projects regional site x recipe cases onto testbed cases. |
@@ -33,10 +33,10 @@ The CLI entry point lives outside this package:
 The workflow is intentionally small and explicit.
 
 1. A testbed owns an experimental matrix, not physics.
-2. Every enabled variant becomes one child TOML under
+2. Every enabled case becomes one child TOML under
    `<output_root>/_generated_configs/`.
-3. Variants may be explicit `[[testbed.variant]]` blocks or generated from a
-   CSV/JSONL `[testbed.catalog]` plus `[[testbed.variant_from_catalog]]`
+3. Cases may be explicit `[[testbed.case]]` blocks or generated from a
+   CSV/JSONL `[testbed.catalog]` plus `[[testbed.case_from_catalog]]`
    overlay templates. A catalog may be addressed directly with `path` or
    through `from_site_selection_manifest`.
 4. Generated children are ordinary workflow files:
@@ -85,11 +85,11 @@ execute = false
 type = "simulation"
 no_display = true
 
-[[testbed.variant]]
+[[testbed.case]]
 id = "low_k"
 axis = "hydraulic_conductivity"
 
-[testbed.variant.overlay.flow.param.K.field]
+[testbed.case.overlay.flow.param.K.field]
 value = "5e-6 m/s"
 
 [[testbed.metric]]
@@ -98,13 +98,17 @@ source = "flow_metrics.head_range_m"
 required = true
 ```
 
+`[[testbed.variant]]` and `[[testbed.variant_from_catalog]]` remain accepted as
+legacy spellings during the migration, but new public TOML should use
+`[[testbed.case]]` and `[[testbed.case_from_catalog]]`.
+
 For `subject = "flow"`, `testbed.base_config` is mandatory when the runner is
 `simulation`, `comparison` or `calibration`. Keep `[testbed]` outside the base
 child TOML so the base remains reusable by normal simulation, comparison or
 calibration runs.
 
 With `runner.type = "comparison"`, the base config is a normal
-`[workflow].mode = "comparison"` TOML. A catalog-backed variant typically renders
+`[workflow].mode = "comparison"` TOML. A catalog-backed case typically renders
 `comparison.comparison_id`, `comparison.output_root`, and
 `comparison.base_simulation_overlay`. The comparison launcher then applies that
 shared base overlay to every generated child simulation before applying each
@@ -118,7 +122,7 @@ a campaign needs a non-default metric set.
 
 With `runner.type = "calibration"`, the base config is a normal
 `[workflow].mode = "calibration"` TOML. The testbed materializes one
-calibration child per variant and delegates execution through the registered
+calibration child per case and delegates execution through the registered
 workflow adapter. Declare explicit `[[testbed.metric]]` blocks for the
 calibration summary fields that should be promoted to `testbed_metrics.csv`.
 
@@ -167,8 +171,8 @@ The resolved catalog path and source manifest provenance are written into
 2. Load the base TOML with `load_toml_with_base_config`.
 3. Remove `[testbed]` from the child payload.
 4. Absolutize path-like values before writing generated children.
-5. Merge each variant overlay.
-6. Write one generated child TOML per enabled variant.
+5. Merge each case overlay.
+6. Write one generated child TOML per enabled case.
 7. Persist `testbed_plan.json`, `testbed_cases.csv`, `testbed_metrics.csv`,
    `testbed_manifest.json`, and `testbed_report.md`.
 8. If `execute = true`, run children sequentially through the registered
@@ -205,8 +209,8 @@ starter case.
 
 | File | Use |
 | --- | --- |
-| `testbed_plan.json` | Planned variants and generated child config paths. |
-| `testbed_cases.csv` | One row per variant with status, runner, child config, and child artifacts. |
+| `testbed_plan.json` | Planned cases and generated child config paths. |
+| `testbed_cases.csv` | One row per case with status, runner, child config, and child artifacts. |
 | `testbed_metrics.csv` | Declared metrics or flattened numeric child summaries. |
 | `testbed_manifest.json` | Machine-readable contract for the whole testbed run. |
 | `testbed_report.md` | Compact human summary. |

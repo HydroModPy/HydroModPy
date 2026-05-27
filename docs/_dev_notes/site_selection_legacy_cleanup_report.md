@@ -140,6 +140,21 @@ Decision de perimetre 2026-05-27: `generated_candidates` est conserve comme
 capacite experimentale testee. Il ne fait pas partie du contrat metier court
 terme stabilise, mais il n'est pas supprime comme legacy morte.
 
+## Lot 5 - extraction du plan long archive
+
+Le plan long `docs/_dev_notes/legacy/site_selection_tool_implementation_plan.md`
+n'est plus nettoye ligne par ligne. Il reste une archive de conception. Les
+points encore actionnables ont ete extraits vers
+`docs/_dev_notes/site_selection_current_implementation_report.md`, section
+`Points actifs extraits du plan archive`.
+
+Regle de maintenance:
+
+- les notes courtes actuelles font foi sur le contrat et les suites;
+- le plan archive peut conserver les anciens noms et options retires;
+- toute nouvelle reprise d'un sujet du plan long doit commencer par une note
+  courte dediee, pas par une modification massive de l'archive.
+
 Validation associee:
 
 ```powershell

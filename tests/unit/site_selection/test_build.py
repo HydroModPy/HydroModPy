@@ -105,6 +105,115 @@ def test_build_site_selection_from_point_records_chains_candidates_delineation_s
 
 
 @pytest.mark.fast
+def test_build_site_selection_from_point_records_removes_intermediate_rasters_by_default(
+    tmp_path,
+):
+    cfg = _config(tmp_path)
+    cfg = cfg.model_copy(
+        update={"output": cfg.output.model_copy(update={"write_geojson": False})}
+    )
+    created: dict[str, list[Path] | Path] = {}
+
+    def fake_flow_builder(**kwargs):
+        output_dir = Path(kwargs["dem_out_dir_path"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        rasters = [
+            output_dir / "dem_fill.tif",
+            output_dir / "dem_direc.tif",
+            output_dir / "dem_acc.tif",
+        ]
+        for raster in rasters:
+            raster.write_text("raster", encoding="utf-8")
+        created["flow"] = rasters
+        return FlowProducts(
+            correc=str(rasters[0]),
+            direc=str(rasters[1]),
+            acc=str(rasters[2]),
+        )
+
+    def fake_delineation_builder(**kwargs):
+        output_dir = Path(kwargs["output_dir"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        watershed_tif = output_dir / "watershed.tif"
+        watershed_tif.write_text("raster", encoding="utf-8")
+        created["watershed"] = watershed_tif
+        return CatchmentFromPointProducts(
+            outlet_shp=str(output_dir / "outlet.shp"),
+            outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
+            watershed_tif=str(watershed_tif),
+            watershed_shp=str(output_dir / "watershed.shp"),
+        )
+
+    build_site_selection_from_point_records(
+        config=cfg,
+        point_records=[_record("J123456701")],
+        flow_products_builder=fake_flow_builder,
+        delineation_builder=fake_delineation_builder,
+        area_reader=lambda _path: 100.0,
+    )
+
+    assert all(not path.exists() for path in created["flow"])
+    assert not created["watershed"].exists()
+
+
+@pytest.mark.fast
+def test_build_site_selection_from_point_records_can_keep_intermediate_rasters(tmp_path):
+    cfg = _config(tmp_path)
+    cfg = cfg.model_copy(
+        update={
+            "output": cfg.output.model_copy(
+                update={
+                    "write_geojson": False,
+                    "keep_intermediate_rasters": True,
+                }
+            )
+        }
+    )
+    created: dict[str, list[Path] | Path] = {}
+
+    def fake_flow_builder(**kwargs):
+        output_dir = Path(kwargs["dem_out_dir_path"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        rasters = [
+            output_dir / "dem_fill.tif",
+            output_dir / "dem_direc.tif",
+            output_dir / "dem_acc.tif",
+        ]
+        for raster in rasters:
+            raster.write_text("raster", encoding="utf-8")
+        created["flow"] = rasters
+        return FlowProducts(
+            correc=str(rasters[0]),
+            direc=str(rasters[1]),
+            acc=str(rasters[2]),
+        )
+
+    def fake_delineation_builder(**kwargs):
+        output_dir = Path(kwargs["output_dir"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        watershed_tif = output_dir / "watershed.tif"
+        watershed_tif.write_text("raster", encoding="utf-8")
+        created["watershed"] = watershed_tif
+        return CatchmentFromPointProducts(
+            outlet_shp=str(output_dir / "outlet.shp"),
+            outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
+            watershed_tif=str(watershed_tif),
+            watershed_shp=str(output_dir / "watershed.shp"),
+        )
+
+    build_site_selection_from_point_records(
+        config=cfg,
+        point_records=[_record("J123456701")],
+        flow_products_builder=fake_flow_builder,
+        delineation_builder=fake_delineation_builder,
+        area_reader=lambda _path: 100.0,
+    )
+
+    assert all(path.exists() for path in created["flow"])
+    assert created["watershed"].exists()
+
+
+@pytest.mark.fast
 def test_build_site_selection_from_point_records_reprojects_station_locations(tmp_path):
     delineation_calls = []
 

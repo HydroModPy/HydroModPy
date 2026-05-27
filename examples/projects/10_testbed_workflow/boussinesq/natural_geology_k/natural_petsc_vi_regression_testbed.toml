@@ -59,7 +59,7 @@ required_fields = [
 tags = ["petsc_vi_regression", "comparison"]
 
 # Rule for the 10 km2 sites. It uses the 10 km2 defaults declared in the base comparison.
-[[testbed.variant_from_catalog]]
+[[testbed.case_from_catalog]]
 # Template for the generated variant id.
 id_template = "{site_id}"
 # Template for the generated variant label.
@@ -72,28 +72,28 @@ required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
 tags = ["n1_10km2"]
 
 # Comparison-level overlay rendered for each 10 km2 catalog row.
-[testbed.variant_from_catalog.overlay.comparison]
+[testbed.case_from_catalog.overlay.comparison]
 # Generated comparison id for the current site.
 comparison_id = "{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
 # Generated comparison output folder for the current site.
 output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed/comparisons/{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
 
 # Shared simulation metadata injected before solver-specific overlays.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
 # Shared simulation name for the site, before child solver suffixes are added.
 name = "{site_id}_natural_{cluster_scale}_petsc_vi_shared_case"
 # Shared simulation description displayed in generated child TOMLs.
 description = "Regional-lab natural {cluster_scale} MF6/Boussinesq PETSc vi_obstacle regression case."
 
 # Shared geographic/site definition injected from the catalog.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 # Outlet X coordinate in the project CRS.
 x_outlet = "{x_outlet}"
 # Outlet Y coordinate in the project CRS.
 y_outlet = "{y_outlet}"
 
 # Rule for the 100 km2 sites. It overrides scale-sensitive geographic, mesh and raster settings.
-[[testbed.variant_from_catalog]]
+[[testbed.case_from_catalog]]
 # Template for the generated variant id.
 id_template = "{site_id}"
 # Template for the generated variant label.
@@ -106,7 +106,7 @@ required_fields = ["x_outlet", "y_outlet", "cluster_scale", "mesh_bundle_dir"]
 tags = ["n2_100km2"]
 
 # Comparison-level overlay rendered for each 100 km2 catalog row.
-[testbed.variant_from_catalog.overlay.comparison]
+[testbed.case_from_catalog.overlay.comparison]
 # Generated comparison id for the current site.
 comparison_id = "{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
 # Simulation base that reuses precomputed mesh-gallery bundles instead of
@@ -116,19 +116,19 @@ base_simulation_config = "base_site_01_mf6_bouss_transient_mesh_input.toml"
 output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed/comparisons/{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
 
 # Larger natural supports need a longer per-child timeout.
-[testbed.variant_from_catalog.overlay.comparison.execution]
+[testbed.case_from_catalog.overlay.comparison.execution]
 # Per-child timeout in seconds.
 timeout_seconds = 7200
 
 # Shared simulation metadata injected before solver-specific overlays.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
 # Shared simulation name for the site, before child solver suffixes are added.
 name = "{site_id}_natural_{cluster_scale}_petsc_vi_shared_case"
 # Shared simulation description displayed in generated child TOMLs.
 description = "Regional-lab natural {cluster_scale} MF6/Boussinesq PETSc vi_obstacle regression case."
 
 # Shared geographic/site definition injected from the catalog.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 # Outlet X coordinate in the project CRS.
 x_outlet = "{x_outlet}"
 # Outlet Y coordinate in the project CRS.
@@ -139,31 +139,31 @@ snap_dist = "300.0 m"
 buff_area = "1800.0 m"
 
 # Use the committed mesh-gallery bundles prepared by the regional-lab mesh scan.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay]
 mesh_catchment__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
 bundle_dir = "{mesh_bundle_dir}"
 
 # The mesh bundle already carries river constraints, so the 100 km2 replay does
 # not need to reload clipped hydrography or regenerate stream vectors.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.data]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.data]
 types = ["dem", "geology", "recharge"]
 
 # DEM-derived river-network extraction settings for 100 km2 sites.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 # Stream vectors are supplied by the precomputed mesh bundle for these cases.
 enabled = false
 
 # Common raster support for 100 km2 map comparisons.
-[testbed.variant_from_catalog.overlay.comparison.fine_raster]
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
 # Raster resolution in metres, scaled with the larger natural supports.
 resolution = 160.0
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 mesh_label = "precomputed mesh-gallery geology-river bundle"
 mesh_mode = "mesh_input"
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 mesh_label = "precomputed mesh-gallery geology-river bundle"
 mesh_mode = "mesh_input"

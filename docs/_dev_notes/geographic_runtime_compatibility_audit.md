@@ -29,6 +29,10 @@ Etat du premier audit:
 - Alias supprimes dans ce lot: la feature store `river_network` pour le reseau
   hydrographique genere et la cle d'alias du contrat de nommage public. Les
   nouvelles surfaces persistees utilisent `hydrographic_network_generated`.
+- Alias internes supprimes ensuite: `RiverNetworkProducts.network_shp` et
+  `RiverNetworkProducts.summary_json`. Le bundle technique expose maintenant
+  directement `hydrographic_network_generated_shp` et
+  `hydrographic_network_generated_summary_json`.
 
 ## Classification
 
@@ -63,7 +67,7 @@ Elements:
   `GeographicPaths.hydrographic_network_generated_summary_json`.
 - Attributs runtime `hydrographic_network_generated_shp` et
   `hydrographic_network_generated_summary_json`.
-- Proprietes equivalentes sur `RiverNetworkProducts`.
+- Champs canoniques equivalents sur `RiverNetworkProducts`.
 
 Consommateurs constates:
 
@@ -76,7 +80,8 @@ Consommateurs constates:
 
 Decision: alias de champs supprime. Les noms de fichiers `river_network.shp` et
 `river_network_summary.json` restent des sorties etablies. Les champs et
-payloads publics utilisent maintenant `hydrographic_network_generated_*`.
+payloads publics utilisent maintenant `hydrographic_network_generated_*`, y
+compris dans `RiverNetworkProducts`.
 
 ### 3. `DomainGeographicContext.river_mesh_trace`
 

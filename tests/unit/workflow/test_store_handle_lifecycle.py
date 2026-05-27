@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -173,3 +174,63 @@ def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: P
 
     with pytest.raises(ExportError, match="Could not remove solver scratch directory"):
         export_module.step_cleanup_scratch(ctx)
+
+
+def test_step_cleanup_scratch_retries_after_releasing_handles(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    scratch.mkdir()
+    (scratch / "locked.txt").write_text("temporary", encoding="utf-8")
+    ctx = SimpleNamespace(
+        setup=SimpleNamespace(
+            workspace=SimpleNamespace(solver_scratch_folder=scratch),
+        )
+    )
+    real_rmtree = export_module.shutil.rmtree
+    calls = 0
+    releases = 0
+
+    def fake_release(_ctx) -> None:
+        nonlocal releases
+        releases += 1
+
+    def flaky_rmtree(path: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OSError("locked")
+        real_rmtree(path)
+
+    monkeypatch.setattr(export_module, "_SCRATCH_CLEANUP_RETRY_DELAYS", (0.01,))
+    monkeypatch.setattr(export_module.time, "sleep", lambda _delay: None)
+    monkeypatch.setattr(export_module, "_release_cleanup_handles", fake_release)
+    monkeypatch.setattr(export_module.shutil, "rmtree", flaky_rmtree)
+
+    export_module.step_cleanup_scratch(ctx)
+
+    assert calls == 2
+    assert releases == 2
+    assert not scratch.exists()
+
+
+@dataclass
+class _LoadedForcings:
+    recharge: object | None = None
+
+
+def test_step_persist_forcings_closes_zarr_when_no_forcings() -> None:
+    from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_forcings
+
+    fake_zarr = _FakeZarr()
+    ctx = SimpleNamespace(
+        store=SimpleNamespace(open_zarr=lambda _sim_id: fake_zarr),
+        sim_id="sim-123",
+        loaded_data=_LoadedForcings(),
+    )
+
+    step_persist_forcings(ctx)
+
+    assert fake_zarr.close_calls == 1

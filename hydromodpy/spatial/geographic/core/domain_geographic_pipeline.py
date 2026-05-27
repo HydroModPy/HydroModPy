@@ -284,10 +284,14 @@ def build_geographic_derived_features(
             streams_pruned_tif=generated_hydrographic_network_products.streams_pruned_tif,
             stream_order_strahler_tif=generated_hydrographic_network_products.stream_order_strahler_tif,
             stream_link_id_tif=generated_hydrographic_network_products.stream_link_id_tif,
-            network_shp=generated_hydrographic_network_products.network_shp,
+            hydrographic_network_generated_shp=(
+                generated_hydrographic_network_products.hydrographic_network_generated_shp
+            ),
             network_crs=generated_hydrographic_network_products.network_crs,
             river_mesh_trace=generated_hydrographic_network_products.river_mesh_trace,
-            summary_json=generated_hydrographic_network_products.summary_json,
+            hydrographic_network_generated_summary_json=(
+                generated_hydrographic_network_products.hydrographic_network_generated_summary_json
+            ),
         ),
         catchment_area_km2=float(catchment_area_km2),
         catch_def=str(config.catch_def),
