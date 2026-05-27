@@ -33,6 +33,15 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Deprecated
+- The generic testbed vocabulary now treats `case` as the public canonical
+  execution unit. Legacy input spellings `[[testbed.variant]]`,
+  `[[testbed.variant_from_catalog]]`, `TestbedConfig(variants=...)`, and
+  `TestbedConfig(catalog_variants=...)` remain accepted for compatibility but
+  emit `DeprecationWarning`. New configs should use `[[testbed.case]]`,
+  `[[testbed.case_from_catalog]]`, `TestbedConfig(case=...)`, and
+  `TestbedConfig(case_from_catalog=...)`.
+
 ### Removed
 - Removed the application-level config compatibility aliases under
   `hydromodpy.core`. Use `hydromodpy.config.HydroModPyConfig` and

@@ -680,7 +680,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules">
               <code class="hmp-field-name">cluster_rules</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">[analysis.batch.cluster_rules]</code>
+              <code class="hmp-field-toml">[[analysis.batch.cluster_rules]]</code>
             </div>
 
          :bdg-primary:`tuple[RegionalLabClusterRuleConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L623>`__
@@ -1020,7 +1020,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="analysis.batch.recipes">
               <code class="hmp-field-name">recipes</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">[analysis.batch.recipes]</code>
+              <code class="hmp-field-toml">[[analysis.batch.recipes]]</code>
             </div>
 
          :bdg-primary:`tuple[RegionalLabRecipeConfig, ...]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L627>`__

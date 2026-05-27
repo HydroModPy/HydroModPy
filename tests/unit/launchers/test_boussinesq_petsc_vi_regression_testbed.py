@@ -62,7 +62,7 @@ def test_petsc_vi_regression_testbed_materializes_multi_scale_comparisons(
 ) -> None:
     summary = MethodTestbedLauncher(_isolated_testbed_config(tmp_path)).run()
 
-    assert summary["variant_count"] == 6
+    assert summary["case_count"] == 6
     assert summary["executed_count"] == 0
 
     generated_dir = Path(summary["generated_configs_dir"])

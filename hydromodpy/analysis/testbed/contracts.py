@@ -106,7 +106,7 @@ def get_testbed_runner_provider() -> TestbedRunnerProvider:
         raise RuntimeError(
             "TestbedRunnerProvider is not registered. "
             "Import 'hydromodpy' (or call hydromodpy.bootstrap()) before "
-            "executing testbed variants."
+            "executing testbed cases."
         )
     return _provider
 

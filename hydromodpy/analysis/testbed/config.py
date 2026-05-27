@@ -7,11 +7,12 @@ delegates to a runner, and gathers evidence artifacts.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from hydromodpy.analysis.catalog import SUPPORTED_CATALOG_FORMATS
 from hydromodpy.analysis.config_helpers import (
@@ -54,7 +55,7 @@ class TestbedRunnerConfig(HydroModelBase):
     """Child-runner selection for one testbed."""
 
     type: Annotated[str, Profile.USER] = Field(
-        description="Runner identifier dispatched for every variant (comparison, simulation)."
+        description="Runner identifier dispatched for every case (comparison, simulation)."
     )
     no_display: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -62,7 +63,7 @@ class TestbedRunnerConfig(HydroModelBase):
     )
 
 
-class TestbedVariantConfig(HydroModelBase):
+class TestbedCaseConfig(HydroModelBase):
     """One concrete executable testbed case."""
 
     id: Annotated[str, Profile.USER] = Field(description="Stable case identifier.")
@@ -90,7 +91,7 @@ class TestbedMetricConfig(HydroModelBase):
     )
     required: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="When true, a missing metric fails the variant.",
+        description="When true, a missing metric fails the case.",
     )
 
 
@@ -105,12 +106,12 @@ class TestbedCatalogConfig(HydroModelBase):
         description="Catalog format. 'auto' infers from the file suffix.",
     )
     id_field: Annotated[str, Profile.USER] = Field(
-        default="variant_id",
-        description="Column carrying the variant identifier.",
+        default="case_id",
+        description="Column carrying the case identifier.",
     )
     label_field: Annotated[str | None, Profile.USER] = Field(
-        default="variant_label",
-        description="Column carrying a human-readable variant label.",
+        default="case_label",
+        description="Column carrying a human-readable case label.",
     )
     axis_field: Annotated[str | None, Profile.USER] = Field(
         default="axis",
@@ -166,7 +167,7 @@ class TestbedCatalogConfig(HydroModelBase):
     )
 
 
-class TestbedCatalogVariantConfig(HydroModelBase):
+class TestbedCatalogCaseConfig(HydroModelBase):
     """One case-generation rule applied to rows from a testbed catalog."""
 
     id_template: Annotated[str | None, Profile.USER] = Field(
@@ -211,8 +212,23 @@ class TestbedCatalogVariantConfig(HydroModelBase):
     )
 
 
-TestbedCaseConfig = TestbedVariantConfig
-TestbedCatalogCaseConfig = TestbedCatalogVariantConfig
+TestbedVariantConfig = TestbedCaseConfig
+TestbedCatalogVariantConfig = TestbedCatalogCaseConfig
+
+
+def _warn_legacy_case_spelling(
+    *,
+    legacy_label: str,
+    canonical_label: str,
+    stacklevel: int,
+) -> None:
+    warnings.warn(
+        f"{legacy_label} is deprecated; use {canonical_label}. "
+        "The legacy variant spelling will be removed in a future "
+        "compatibility-breaking release.",
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
 
 
 def _select_case_items(
@@ -232,6 +248,12 @@ def _select_case_items(
         )
     if canonical_value is not None:
         return canonical_value, canonical_label
+    if legacy_value is not None:
+        _warn_legacy_case_spelling(
+            legacy_label=legacy_label,
+            canonical_label=canonical_label,
+            stacklevel=3,
+        )
     return legacy_value, legacy_label
 
 
@@ -265,22 +287,22 @@ class TestbedConfig(HydroModelBase):
     )
     base_config_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
-        description="Optional child workflow TOML used as the variant base config.",
+        description="Optional child workflow TOML used as the case base config.",
     )
     runner: Annotated[TestbedRunnerConfig, Profile.USER] = Field(
-        description="Child-runner selection for every variant."
+        description="Child-runner selection for every case."
     )
-    variants: Annotated[tuple[TestbedVariantConfig, ...], Profile.USER] = Field(
+    case: Annotated[tuple[TestbedCaseConfig, ...], Profile.USER] = Field(
         default=(),
-        description="Explicit variants declared in the TOML.",
+        description="Explicit executable cases declared in the TOML.",
     )
     catalog: Annotated[TestbedCatalogConfig | None, Profile.USER] = Field(
         default=None,
-        description="Optional catalog source used to expand variants from rows.",
+        description="Optional catalog source used to expand cases from rows.",
     )
-    catalog_variants: Annotated[tuple[TestbedCatalogVariantConfig, ...], Profile.USER] = Field(
+    case_from_catalog: Annotated[tuple[TestbedCatalogCaseConfig, ...], Profile.USER] = Field(
         default=(),
-        description="Variant-generation rules applied to catalog rows.",
+        description="Case-generation rules applied to catalog rows.",
     )
     metrics: Annotated[tuple[TestbedMetricConfig, ...], Profile.USER] = Field(
         default=(),
@@ -288,14 +310,51 @@ class TestbedConfig(HydroModelBase):
     )
 
     @property
-    def cases(self) -> tuple[TestbedVariantConfig, ...]:
+    def cases(self) -> tuple[TestbedCaseConfig, ...]:
         """Canonical public alias for explicit executable cases."""
-        return self.variants
+        return self.case
 
     @property
-    def catalog_cases(self) -> tuple[TestbedCatalogVariantConfig, ...]:
+    def catalog_cases(self) -> tuple[TestbedCatalogCaseConfig, ...]:
         """Canonical public alias for catalog-backed case generation rules."""
-        return self.catalog_variants
+        return self.case_from_catalog
+
+    @property
+    def variants(self) -> tuple[TestbedCaseConfig, ...]:
+        """Legacy Python alias for explicit executable cases."""
+        return self.case
+
+    @property
+    def catalog_variants(self) -> tuple[TestbedCatalogCaseConfig, ...]:
+        """Legacy Python alias for catalog-backed case generation rules."""
+        return self.case_from_catalog
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_variant_field_names(cls, data: Any) -> Any:
+        """Accept direct Python construction with legacy field names."""
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        legacy_pairs = (
+            ("variants", "case"),
+            ("catalog_variants", "case_from_catalog"),
+        )
+        for legacy_key, canonical_key in legacy_pairs:
+            if legacy_key not in payload:
+                continue
+            if canonical_key in payload:
+                raise ValueError(
+                    f"Use only {canonical_key}; {legacy_key} is a legacy Python "
+                    "field name and cannot be combined with the canonical case field."
+                )
+            _warn_legacy_case_spelling(
+                legacy_label=f"TestbedConfig.{legacy_key}",
+                canonical_label=f"TestbedConfig.{canonical_key}",
+                stacklevel=3,
+            )
+            payload[canonical_key] = payload.pop(legacy_key)
+        return payload
 
     @classmethod
     def from_toml(
@@ -370,10 +429,10 @@ class TestbedConfig(HydroModelBase):
                 path=catalog_source.path,
                 format=catalog_format,
                 id_field=require_text(
-                    catalog_mapping.get("id_field", "variant_id"),
+                    catalog_mapping.get("id_field", "case_id"),
                     label="testbed.catalog.id_field",
                 ),
-                label_field=optional_text(catalog_mapping.get("label_field", "variant_label")),
+                label_field=optional_text(catalog_mapping.get("label_field", "case_label")),
                 axis_field=optional_text(catalog_mapping.get("axis_field", "axis")),
                 enabled_field=optional_text(catalog_mapping.get("enabled_field", "enabled")),
                 tags_field=optional_text(catalog_mapping.get("tags_field", "tags")),
@@ -432,7 +491,7 @@ class TestbedConfig(HydroModelBase):
         if raw_catalog_variants and catalog is None:
             raise ValueError(f"{catalog_variant_label} requires a [testbed.catalog] section")
 
-        variants: list[TestbedVariantConfig] = []
+        variants: list[TestbedCaseConfig] = []
         seen_variant_ids: set[str] = set()
         for index, raw_variant in enumerate(raw_variants):
             variant_mapping = require_mapping(
@@ -448,7 +507,7 @@ class TestbedConfig(HydroModelBase):
                 raise ValueError(f"Duplicate testbed.case id '{variant_id}'")
             seen_variant_ids.add(normalized_id)
             variants.append(
-                TestbedVariantConfig(
+                TestbedCaseConfig(
                     id=variant_id,
                     label=optional_text(variant_mapping.get("label")) or variant_id,
                     axis=optional_text(variant_mapping.get("axis")),
@@ -460,14 +519,14 @@ class TestbedConfig(HydroModelBase):
                 )
             )
 
-        catalog_variants: list[TestbedCatalogVariantConfig] = []
+        catalog_variants: list[TestbedCatalogCaseConfig] = []
         for index, raw_catalog_variant in enumerate(raw_catalog_variants):
             catalog_variant_mapping = require_mapping(
                 raw_catalog_variant,
                 label=f"{catalog_variant_label}[{index}]",
             )
             catalog_variants.append(
-                TestbedCatalogVariantConfig(
+                TestbedCatalogCaseConfig(
                     id_template=optional_text(catalog_variant_mapping.get("id_template")),
                     label_template=optional_text(catalog_variant_mapping.get("label_template")),
                     axis_template=optional_text(catalog_variant_mapping.get("axis_template")),
@@ -543,9 +602,9 @@ class TestbedConfig(HydroModelBase):
                 type=runner_type,
                 no_display=bool(runner_section.get("no_display", True)),
             ),
-            variants=tuple(variants),
+            case=tuple(variants),
             catalog=catalog,
-            catalog_variants=tuple(catalog_variants),
+            case_from_catalog=tuple(catalog_variants),
             metrics=tuple(metrics),
         )
 

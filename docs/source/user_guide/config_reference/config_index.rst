@@ -7105,313 +7105,313 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `testbed <testbed.html#testbed-config-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L241>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L263>`__
    * - ``testbed.base_dir``
      - ``Path``
      - user
      - -
      - `testbed <testbed.html#testbed-base-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L244>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L266>`__
    * - ``testbed.id``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L247>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L269>`__
    * - ``testbed.profile``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-profile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L248>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L270>`__
    * - ``testbed.subject``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-subject>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L249>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L271>`__
    * - ``testbed.purpose``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-purpose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L252>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L274>`__
    * - ``testbed.output_root``
      - ``Path``
      - user
      - -
      - `testbed <testbed.html#testbed-output-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L255>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L277>`__
    * - ``testbed.execute``
      - ``bool``
      - user
      - -
      - `testbed <testbed.html#testbed-execute>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L258>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L280>`__
    * - ``testbed.continue_on_error``
      - ``bool``
      - user
      - -
      - `testbed <testbed.html#testbed-continue-on-error>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L262>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L284>`__
    * - ``testbed.base_config_path``
      - ``Path | None``
      - user
      - -
      - `testbed <testbed.html#testbed-base-config-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L266>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L288>`__
    * - ``testbed.runner``
      - ``TestbedRunnerConfig``
      - user
      - -
      - `testbed <testbed.html#testbed-runner>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L270>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L292>`__
    * - ``testbed.runner.type``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-runner-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L56>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L57>`__
    * - ``testbed.runner.no_display``
      - ``bool``
      - user
      - -
      - `testbed <testbed.html#testbed-runner-no-display>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L59>`__
-   * - ``testbed.variants``
-     - ``tuple[TestbedVariantConfig, ...]``
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L60>`__
+   * - ``testbed.case``
+     - ``tuple[TestbedCaseConfig, ...]``
      - user
      - -
-     - `testbed <testbed.html#testbed-variants>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L273>`__
-   * - ``testbed.variants.id``
+     - `testbed <testbed.html#testbed-case>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L295>`__
+   * - ``testbed.case.id``
      - ``str``
      - user
      - -
-     - `testbed <testbed.html#testbed-variants-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L68>`__
-   * - ``testbed.variants.label``
-     - ``str``
-     - user
-     - -
-     - `testbed <testbed.html#testbed-variants-label>`__
+     - `testbed <testbed.html#testbed-case-id>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L69>`__
-   * - ``testbed.variants.axis``
+   * - ``testbed.case.label``
+     - ``str``
+     - user
+     - -
+     - `testbed <testbed.html#testbed-case-label>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L70>`__
+   * - ``testbed.case.axis``
      - ``str | None``
      - user
      - -
-     - `testbed <testbed.html#testbed-variants-axis>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L70>`__
-   * - ``testbed.variants.enabled``
+     - `testbed <testbed.html#testbed-case-axis>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L71>`__
+   * - ``testbed.case.enabled``
      - ``bool``
      - user
      - -
-     - `testbed <testbed.html#testbed-variants-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L74>`__
-   * - ``testbed.variants.overlay``
+     - `testbed <testbed.html#testbed-case-enabled>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L75>`__
+   * - ``testbed.case.overlay``
      - ``dict[str, Any]``
      - user
      - -
-     - `testbed <testbed.html#testbed-variants-overlay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L78>`__
+     - `testbed <testbed.html#testbed-case-overlay>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L79>`__
    * - ``testbed.catalog``
      - ``TestbedCatalogConfig | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L277>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L299>`__
    * - ``testbed.catalog.path``
      - ``Path``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L101>`__
    * - ``testbed.catalog.format``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-format>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L103>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L104>`__
    * - ``testbed.catalog.id_field``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-id-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L107>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L108>`__
    * - ``testbed.catalog.label_field``
      - ``str | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-label-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L111>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L112>`__
    * - ``testbed.catalog.axis_field``
      - ``str | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-axis-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L116>`__
    * - ``testbed.catalog.enabled_field``
      - ``str | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-enabled-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L119>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L120>`__
    * - ``testbed.catalog.tags_field``
      - ``str | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-tags-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L123>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L124>`__
    * - ``testbed.catalog.required_fields``
      - ``tuple[str, ...]``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-required-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L127>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L128>`__
    * - ``testbed.catalog.path_fields``
      - ``tuple[str, ...]``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-path-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L131>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L132>`__
    * - ``testbed.catalog.tag_separator``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-tag-separator>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L135>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L136>`__
    * - ``testbed.catalog.field_equals``
      - ``tuple[tuple[str, str], ...]``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-field-equals>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L139>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L140>`__
    * - ``testbed.catalog.tags``
      - ``tuple[str, ...]``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L144>`__
    * - ``testbed.catalog.exclude_tags``
      - ``tuple[str, ...]``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-exclude-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L147>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L148>`__
    * - ``testbed.catalog.include_disabled``
      - ``bool``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-include-disabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L151>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L152>`__
    * - ``testbed.catalog.limit``
      - ``int | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-limit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L155>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L156>`__
    * - ``testbed.catalog.source_manifest_path``
      - ``Path | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-source-manifest-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L159>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L160>`__
    * - ``testbed.catalog.source_manifest_output_key``
      - ``str | None``
      - user
      - -
      - `testbed <testbed.html#testbed-catalog-source-manifest-output-key>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L163>`__
-   * - ``testbed.catalog_variants``
-     - ``tuple[TestbedCatalogVariantConfig, ...]``
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L164>`__
+   * - ``testbed.case_from_catalog``
+     - ``tuple[TestbedCatalogCaseConfig, ...]``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L281>`__
-   * - ``testbed.catalog_variants.id_template``
+     - `testbed <testbed.html#testbed-case-from-catalog>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L303>`__
+   * - ``testbed.case_from_catalog.id_template``
      - ``str | None``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-id-template>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L172>`__
-   * - ``testbed.catalog_variants.label_template``
+     - `testbed <testbed.html#testbed-case-from-catalog-id-template>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L173>`__
+   * - ``testbed.case_from_catalog.label_template``
      - ``str | None``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-label-template>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L176>`__
-   * - ``testbed.catalog_variants.axis_template``
+     - `testbed <testbed.html#testbed-case-from-catalog-label-template>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L177>`__
+   * - ``testbed.case_from_catalog.axis_template``
      - ``str | None``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-axis-template>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L180>`__
-   * - ``testbed.catalog_variants.enabled``
+     - `testbed <testbed.html#testbed-case-from-catalog-axis-template>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L181>`__
+   * - ``testbed.case_from_catalog.enabled``
      - ``bool``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L184>`__
-   * - ``testbed.catalog_variants.overlay``
+     - `testbed <testbed.html#testbed-case-from-catalog-enabled>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L185>`__
+   * - ``testbed.case_from_catalog.overlay``
      - ``dict[str, Any]``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-overlay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L188>`__
-   * - ``testbed.catalog_variants.required_fields``
+     - `testbed <testbed.html#testbed-case-from-catalog-overlay>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L189>`__
+   * - ``testbed.case_from_catalog.required_fields``
      - ``tuple[str, ...]``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-required-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L192>`__
-   * - ``testbed.catalog_variants.field_equals``
+     - `testbed <testbed.html#testbed-case-from-catalog-required-fields>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L193>`__
+   * - ``testbed.case_from_catalog.field_equals``
      - ``tuple[tuple[str, str], ...]``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-field-equals>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L196>`__
-   * - ``testbed.catalog_variants.tags``
+     - `testbed <testbed.html#testbed-case-from-catalog-field-equals>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L197>`__
+   * - ``testbed.case_from_catalog.tags``
      - ``tuple[str, ...]``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L200>`__
-   * - ``testbed.catalog_variants.exclude_tags``
+     - `testbed <testbed.html#testbed-case-from-catalog-tags>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L201>`__
+   * - ``testbed.case_from_catalog.exclude_tags``
      - ``tuple[str, ...]``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-exclude-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L204>`__
-   * - ``testbed.catalog_variants.limit``
+     - `testbed <testbed.html#testbed-case-from-catalog-exclude-tags>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L205>`__
+   * - ``testbed.case_from_catalog.limit``
      - ``int | None``
      - user
      - -
-     - `testbed <testbed.html#testbed-catalog-variants-limit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L208>`__
+     - `testbed <testbed.html#testbed-case-from-catalog-limit>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L209>`__
    * - ``testbed.metrics``
      - ``tuple[TestbedMetricConfig, ...]``
      - user
      - -
      - `testbed <testbed.html#testbed-metrics>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L285>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L307>`__
    * - ``testbed.metrics.name``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-metrics-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L87>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L88>`__
    * - ``testbed.metrics.source``
      - ``str``
      - user
      - -
      - `testbed <testbed.html#testbed-metrics-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L88>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L89>`__
    * - ``testbed.metrics.required``
      - ``bool``
      - user
      - -
      - `testbed <testbed.html#testbed-metrics-required>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L91>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L92>`__
    * - ``site_selection.selection_id``
      - ``str``
      - user

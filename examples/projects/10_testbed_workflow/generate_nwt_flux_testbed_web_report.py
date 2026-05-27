@@ -86,7 +86,7 @@ INDEX_SCATTER_FIGURES = (
 
 @dataclass(frozen=True)
 class SiteCase:
-    variant_id: str
+    case_id: str
     site_id: str
     label: str
     status: str
@@ -212,12 +212,12 @@ def _site_catalog_by_id() -> dict[str, dict[str, str]]:
     }
 
 
-def _metrics_by_variant() -> dict[str, dict[str, str]]:
+def _metrics_by_case() -> dict[str, dict[str, str]]:
     result: dict[str, dict[str, str]] = {}
     for row in _load_csv(OUTPUT_ROOT / "testbed_metrics.csv"):
-        variant = str(row.get("case_id") or row.get("variant_id") or "").strip()
-        if variant:
-            result[variant] = row
+        case_id = str(row.get("case_id") or "").strip()
+        if case_id:
+            result[case_id] = row
     return result
 
 
@@ -233,10 +233,10 @@ def _case_from_row(
     row: dict[str, str],
     *,
     site_catalog: dict[str, dict[str, str]],
-    metrics_by_variant: dict[str, dict[str, str]],
+    metrics_by_case: dict[str, dict[str, str]],
 ) -> SiteCase:
-    variant_id = str(row.get("case_id") or row.get("variant_id") or "").strip()
-    site_id = variant_id.removeprefix("site_") if variant_id else ""
+    case_id = str(row.get("case_id") or "").strip()
+    site_id = case_id.removeprefix("site_") if case_id else ""
     site_row = site_catalog.get(site_id, {})
     config_path = _resolve_path(row.get("config_path"), base_dir=OUTPUT_ROOT)
     config = _load_toml(config_path)
@@ -248,18 +248,17 @@ def _case_from_row(
     label = (
         str(site_row.get("site_label") or "").strip()
         or str(row.get("case_label") or "").strip()
-        or str(row.get("variant_label") or "").strip()
-        or variant_id
+        or case_id
     )
     return SiteCase(
-        variant_id=variant_id,
+        case_id=case_id,
         site_id=site_id,
         label=label,
         status=str(row.get("status", "")).strip(),
         duration_seconds=_float(row.get("duration_seconds")),
         config_path=config_path,
         run_name=str(
-            row.get("name") or simulation.get("name") or simulation.get("run_id") or variant_id
+            row.get("name") or simulation.get("name") or simulation.get("run_id") or case_id
         ),
         sim_id=str(row.get("sim_id") or ""),
         x_outlet=_float(catchment.get("x_outlet") or site_row.get("x_outlet")),
@@ -270,15 +269,15 @@ def _case_from_row(
         ),
         display_output_dir=_resolve_path(display.get("output_dir"), base_dir=ROOT),
         workspace_root=_resolve_path(workspace.get("project_root"), base_dir=ROOT),
-        metrics=metrics_by_variant.get(variant_id, {}),
+        metrics=metrics_by_case.get(case_id, {}),
     )
 
 
 def _load_cases() -> list[SiteCase]:
     site_catalog = _site_catalog_by_id()
-    metrics = _metrics_by_variant()
+    metrics = _metrics_by_case()
     return [
-        _case_from_row(row, site_catalog=site_catalog, metrics_by_variant=metrics)
+        _case_from_row(row, site_catalog=site_catalog, metrics_by_case=metrics)
         for row in _case_rows()
     ]
 
@@ -332,7 +331,7 @@ def _generate_diagnostic_figures(cases: list[SiteCase]) -> None:
 
 
 def _site_short_label(case: SiteCase) -> str:
-    token = case.site_id or case.variant_id.rsplit("_", 1)[-1]
+    token = case.site_id or case.case_id.rsplit("_", 1)[-1]
     return token.zfill(2) if token.isdigit() else token
 
 
@@ -762,7 +761,7 @@ def _render_regional_location_map(
         other_cases = [
             case
             for case in valid_cases
-            if current_case is None or case.variant_id != current_case.variant_id
+            if current_case is None or case.case_id != current_case.case_id
         ]
         other_xs = [float(case.x_outlet) for case in other_cases]
         other_ys = [float(case.y_outlet) for case in other_cases]
@@ -1184,7 +1183,7 @@ def _budget_component_series(budget: Any, *, component: str, column: str, time_i
 
 
 def _compute_site_diagnostics(cases: list[SiteCase]) -> dict[str, SiteDiagnostics]:
-    return {case.variant_id: _compute_one_site_diagnostics(case) for case in cases}
+    return {case.case_id: _compute_one_site_diagnostics(case) for case in cases}
 
 
 def _compute_one_site_diagnostics(case: SiteCase) -> SiteDiagnostics:
@@ -1526,7 +1525,7 @@ def _metric(case: SiteCase, key: str) -> str:
 def _summary_cards(cases: list[SiteCase]) -> str:
     cards = []
     for case in cases:
-        page = f"{_safe_id(case.variant_id)}.html"
+        page = f"{_safe_id(case.case_id)}.html"
         cards.append(
             f"""
             <article class="site-card">
@@ -1611,7 +1610,7 @@ def _site_comparison_table(cases: list[SiteCase], diagnostics: dict[str, SiteDia
     )
     rows = []
     for case in cases:
-        diag = diagnostics.get(case.variant_id)
+        diag = diagnostics.get(case.case_id)
         cells = []
         for key, label in columns:
             if key == "label":
@@ -1736,10 +1735,10 @@ def _preview_gallery(cases: list[SiteCase]) -> str:
         )
         sections.append(
             f"""
-            <section class="site-preview" id="{_safe_id(case.variant_id)}">
+            <section class="site-preview" id="{_safe_id(case.case_id)}">
               <div class="section-head">
                 <h3>{_safe_text(case.label)}</h3>
-                <a href="{_safe_text(_safe_id(case.variant_id))}.html">Page detail</a>
+                <a href="{_safe_text(_safe_id(case.case_id))}.html">Page detail</a>
               </div>
               <div class="figure-grid preview">{figures}</div>
             </section>
@@ -1776,7 +1775,7 @@ def _site_page(case: SiteCase) -> str:
             <h2>Controle rapide</h2>
             <div class="two-col">
               <dl class="facts">
-                <div><dt>Variant</dt><dd>{_safe_text(case.variant_id)}</dd></div>
+                <div><dt>Case</dt><dd>{_safe_text(case.case_id)}</dd></div>
                 <div><dt>Statut</dt><dd><span class="status {_status_class(case.status)}">{_safe_text(case.status or "unknown")}</span></dd></div>
                 <div><dt>Indicateur</dt><dd>{_safe_text(_status_label(case.status))}</dd></div>
                 <div><dt>Temps calcul</dt><dd>{_format_duration(case.duration_seconds)}</dd></div>
@@ -1918,7 +1917,7 @@ def build() -> list[Path]:
     index_path.write_text(_index_page(cases, diagnostics), encoding="utf-8")
     written.append(index_path)
     for case in cases:
-        path = WEB_DIR / f"{_safe_id(case.variant_id)}.html"
+        path = WEB_DIR / f"{_safe_id(case.case_id)}.html"
         path.write_text(_site_page(case), encoding="utf-8")
         written.append(path)
     return written

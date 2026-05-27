@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.analysis.testbed.catalog_variants import expand_catalog_variants
+from hydromodpy.analysis.testbed.catalog_variants import expand_catalog_cases
 from hydromodpy.analysis.testbed.config import TestbedConfig as MethodTestbedConfig
 from hydromodpy.analysis.testbed.regional_lab_catalog import load_site_catalog
 from hydromodpy.analysis.testbed.regional_lab_config import (
@@ -22,9 +22,9 @@ def test_site_selection_manifest_testbed_example_expands_catalog() -> None:
     config_path = EXAMPLE_ROOT / "site_selection_catalog_testbed.toml"
 
     cfg = MethodTestbedConfig.from_file(config_path)
-    variants = expand_catalog_variants(
+    cases = expand_catalog_cases(
         catalog=cfg.catalog,
-        rules=cfg.catalog_variants,
+        rules=cfg.catalog_cases,
     )
 
     assert cfg.catalog is not None
@@ -32,8 +32,8 @@ def test_site_selection_manifest_testbed_example_expands_catalog() -> None:
         EXAMPLE_ROOT / "fixtures" / "site_selection_manifest.json"
     ).resolve()
     assert cfg.catalog.path == (EXAMPLE_ROOT / "fixtures" / "regional_lab_sites.csv").resolve()
-    assert [variant.id for variant in variants] == ["demo_site_01", "demo_site_02"]
-    assert variants[0].overlay["geographic"]["catchment"]["x_outlet"] == 131189.1
+    assert [case.id for case in cases] == ["demo_site_01", "demo_site_02"]
+    assert cases[0].overlay["geographic"]["catchment"]["x_outlet"] == 131189.1
 
 
 def test_site_selection_manifest_regional_lab_example_builds_plan() -> None:

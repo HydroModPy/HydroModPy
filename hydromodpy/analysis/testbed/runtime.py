@@ -7,10 +7,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.testbed.catalog_variants import expand_catalog_variants
+from hydromodpy.analysis.testbed.catalog_variants import expand_catalog_cases
 from hydromodpy.analysis.testbed.config import (
+    TestbedCaseConfig,
     TestbedConfig,
-    TestbedVariantConfig,
 )
 from hydromodpy.analysis.testbed.contracts import (
     run_testbed_child_workflow,
@@ -29,7 +29,7 @@ from hydromodpy.analysis.testbed.pipeline import (
     TestbedPlannedCase,
     _build_report,
     _catalog_manifest_payload,
-    _catalog_variant_manifest_payload,
+    _catalog_case_manifest_payload,
     _configured_metric_row,
     _ensure_mesh_process_payload,
     _extract_simulation_catalog_summary,
@@ -78,50 +78,50 @@ class TestbedLauncher:
             _ensure_mesh_process_payload(payload)
         return payload
 
-    def _materialize_child_config(self, variant: TestbedVariantConfig) -> Path:
+    def _materialize_child_config(self, case_config: TestbedCaseConfig) -> Path:
         overlay = _absolutize_relative_path_values(
-            variant.overlay,
+            case_config.overlay,
             source_dir=self.cfg.base_dir,
         )
         payload = merge_toml_payloads(self._base_child_payload(), overlay)
         payload["workflow"] = self._child_workflow()
         if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
             _ensure_mesh_process_payload(payload)
-        path = self.generated_configs_dir / f"{_slugify(variant.id)}.toml"
+        path = self.generated_configs_dir / f"{_slugify(case_config.id)}.toml"
         _write_toml_payload(path, payload)
         return path
 
-    def _expanded_variants(self) -> tuple[TestbedVariantConfig, ...]:
-        variants = (
-            *self.cfg.variants,
-            *expand_catalog_variants(
+    def _expanded_cases(self) -> tuple[TestbedCaseConfig, ...]:
+        cases = (
+            *self.cfg.cases,
+            *expand_catalog_cases(
                 catalog=self.cfg.catalog,
-                rules=self.cfg.catalog_variants,
+                rules=self.cfg.catalog_cases,
             ),
         )
-        if not variants:
+        if not cases:
             raise ValueError("testbed did not expand any case")
         seen: set[str] = set()
-        for variant in variants:
-            normalized = variant.id.lower()
+        for case_config in cases:
+            normalized = case_config.id.lower()
             if normalized in seen:
-                raise ValueError(f"Duplicate testbed.case id '{variant.id}'")
+                raise ValueError(f"Duplicate testbed.case id '{case_config.id}'")
             seen.add(normalized)
-        return variants
+        return cases
 
     def build_plan(self) -> list[TestbedPlannedCase]:
         """Materialize child configs and return planned cases."""
         cases: list[TestbedPlannedCase] = []
-        for variant in self._expanded_variants():
-            if not variant.enabled:
+        for case_config in self._expanded_cases():
+            if not case_config.enabled:
                 cases.append(
-                    TestbedPlannedCase(variant=variant, config_path=None, status="disabled")
+                    TestbedPlannedCase(variant=case_config, config_path=None, status="disabled")
                 )
                 continue
             cases.append(
                 TestbedPlannedCase(
-                    variant=variant,
-                    config_path=self._materialize_child_config(variant),
+                    variant=case_config,
+                    config_path=self._materialize_child_config(case_config),
                     status="planned",
                 )
             )
@@ -168,15 +168,14 @@ class TestbedLauncher:
                 "runner": self.cfg.runner.type,
                 "base_config": str(self._base_config_path()),
                 "catalog": _catalog_manifest_payload(self.cfg),
-                "case_from_catalog": _catalog_variant_manifest_payload(self.cfg),
-                "variant_from_catalog": _catalog_variant_manifest_payload(self.cfg),
+                "case_from_catalog": _catalog_case_manifest_payload(self.cfg),
                 "cases": [case.to_mapping() for case in cases],
             },
         )
         case_rows: list[dict[str, Any]] = []
-        execution_by_variant = {item.case.variant.id: item for item in executions}
+        execution_by_case = {item.case.variant.id: item for item in executions}
         for case in cases:
-            execution = execution_by_variant.get(case.variant.id)
+            execution = execution_by_case.get(case.variant.id)
             if execution is None:
                 row = case.to_mapping()
                 row["runner"] = self.cfg.runner.type
@@ -211,10 +210,8 @@ class TestbedLauncher:
                     None if self.cfg.catalog is None else str(self.cfg.catalog.path)
                 ),
                 "catalog": _catalog_manifest_payload(self.cfg),
-                "case_from_catalog": _catalog_variant_manifest_payload(self.cfg),
-                "variant_from_catalog": _catalog_variant_manifest_payload(self.cfg),
+                "case_from_catalog": _catalog_case_manifest_payload(self.cfg),
                 "case_count": len(cases),
-                "variant_count": len(cases),
                 "executed_count": len(executions),
                 "successful_count": len([item for item in executions if item.status == "ok"]),
                 "failed_count": len([item for item in executions if item.status == "failed"]),
@@ -289,7 +286,6 @@ class TestbedLauncher:
             "runner": self.cfg.runner.type,
             "output_root": str(self.cfg.output_root),
             "case_count": len(cases),
-            "variant_count": len(cases),
             "executed_count": len(executions),
             "successful_count": successful_count,
             "failed_count": failed_count,
