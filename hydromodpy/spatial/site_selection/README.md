@@ -367,8 +367,8 @@ Two profiles are treated as the supported short-term contract:
 Station-led hydrometry TOML files must declare
 `profile = "gauged_downstream_station"` explicitly. The manifest still exposes
 `strategy.effective_profile`, but it is no longer used to keep legacy
-hydrometry configurations without a profile alive. DEM-light runs may still be
-classified as `area_only` from `site_selection.input.mode = "dem_area_light"`.
+hydrometry configurations without a profile alive. DEM-light runs must likewise
+declare `profile = "area_only"` explicitly.
 
 The bounded short-term contract is documented in
 `docs/_dev_notes/site_selection_short_term_contract.md`.
