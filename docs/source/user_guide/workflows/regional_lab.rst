@@ -23,9 +23,9 @@ coverage gaps, and recipes, while delegating execution to the same child-runner
 contract used by ``testbed``. Internally, the catalog-loading primitives are
 shared with ``testbed`` so CSV/JSONL parsing, required fields, path fields,
 tags, and basic row filters follow one contract. A planned ``site x recipe``
-case is also projected onto the testbed case vocabulary: ``case_id`` becomes
-``variant_id``, ``recipe.id`` becomes the variant axis, and ``recipe.launcher``
-becomes the per-case runner.
+case is also projected onto the testbed case vocabulary: ``case_id`` remains
+the executable case identifier, ``recipe.id`` becomes the case axis, and
+``recipe.launcher`` becomes the per-case runner.
 
 The launcher performs this type of expansion:
 

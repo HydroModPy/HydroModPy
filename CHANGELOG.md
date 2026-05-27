@@ -43,6 +43,10 @@ Each release section includes the following standard categories:
   `TestbedConfig(case_from_catalog=...)`.
 
 ### Removed
+- Generic testbed outputs no longer write the legacy compatibility keys
+  `variant_id`, `variant_label`, `variant_count`, or `variant_from_catalog`.
+  Read `case_id`, `case_label`, `case_count`, and `case_from_catalog`
+  instead.
 - Removed the application-level config compatibility aliases under
   `hydromodpy.core`. Use `hydromodpy.config.HydroModPyConfig` and
   `hydromodpy.config.schema_export` instead.
