@@ -7799,7 +7799,7 @@
           "source": {
             "const": "ign_geoplateforme_dem",
             "default": "ign_geoplateforme_dem",
-            "description": "Discriminator tag selecting the dynamic IGN Geoplateforme DEM provider.",
+            "description": "Discriminator tag selecting the IGN Geoplateforme DEM provider.",
             "examples": [
               "ign_geoplateforme_dem"
             ],
@@ -18431,7 +18431,7 @@
           "sources": {
             "description": "At least one DEM data source.",
             "items": {
-              "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for dynamic IGN DEM discovery.",
+              "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for assembled BD ALTI DEM retrieval.",
               "discriminator": {
                 "mapping": {
                   "custom": "#/$defs/CustomDemSource",
