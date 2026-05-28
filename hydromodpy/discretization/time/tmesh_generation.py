@@ -392,14 +392,6 @@ class TmeshGenerator:
         self._set_config_value("itmuni", value)
 
     @property
-    def flow_regime(self):
-        return self._config.flow_regime
-
-    @flow_regime.setter
-    def flow_regime(self, value):
-        self._set_config_value("flow_regime", value)
-
-    @property
     def genmtd(self):
         return self._config.genmtd
 
@@ -470,14 +462,6 @@ class TmeshGenerator:
     @end_datetime.setter
     def end_datetime(self, value):
         self._set_config_value("end_datetime", value)
-
-    @property
-    def firstpersteady(self):
-        return self._config.firstpersteady
-
-    @firstpersteady.setter
-    def firstpersteady(self, value):
-        self._set_config_value("firstpersteady", bool(value))
 
     @property
     def tsmult(self):

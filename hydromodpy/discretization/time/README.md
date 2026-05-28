@@ -29,8 +29,7 @@ at the same level.
 3. Solver temporal mesh: `[modflownwt.tgrid]` / `[modflow6.tgrid]`
 - Defines stress-period structure (`nper`, `perlen`, `nstp`, `tsmult`).
 - In launcher mode, this section is mirrored from `[simulation.time]`.
-- Legacy `flow_regime` and `firstpersteady` keys may still be parsed for old
-  files, but they are ignored by temporal mesh generation.
+- Steady/transient flags are not accepted here; use `[flow]`.
 - Generation method:
   - `genmtd="synthetic_regular"`: regular periods from `nper` + `lenper`.
   - `genmtd="from_chron"`: variable periods from chronicle timestamp deltas.

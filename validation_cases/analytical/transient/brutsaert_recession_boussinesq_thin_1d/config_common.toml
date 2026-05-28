@@ -43,6 +43,7 @@ thickness = "5.0 m"
 
 [flow]
 flow_regime = "transient"
+first_period_steady = true
 active_sinks_sources = ["recharge"]
 active_bc = ["east_side"]
 param_list = ["K", "Ss", "Sy"]

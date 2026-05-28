@@ -16,8 +16,6 @@ vka = 1.0
 nlay = 1
 
 [modflow6.tgrid]
-firstpersteady = false
-
 [mesh_input]
 mesh_path = "../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10/mesh_2d.msh"
 bundle_dir = "../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10"

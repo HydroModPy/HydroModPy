@@ -833,12 +833,6 @@
           "meaning": "Number of vertical layers used by MODFLOW-NWT.",
           "value": "1",
           "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
-        },
-        {
-          "field": "modflownwt.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW-NWT.",
-          "value": "true",
-          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
         }
       ],
       "modflow6": [
@@ -889,12 +883,6 @@
           "meaning": "Number of vertical layers used by MODFLOW 6.",
           "value": "1",
           "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
-        },
-        {
-          "field": "modflow6.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
-          "value": "true",
-          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
         }
       ],
       "modflow6_irregular_tri": [
@@ -920,12 +908,6 @@
           "field": "modflow6.sgrid.vertical.nlay",
           "meaning": "Number of vertical layers used by MODFLOW 6.",
           "value": "1",
-          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
-          "value": "true",
           "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6_irregular_tri.toml"
         },
         {

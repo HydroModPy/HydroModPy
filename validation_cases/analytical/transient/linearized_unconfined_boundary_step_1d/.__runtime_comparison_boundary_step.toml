@@ -65,8 +65,6 @@ resampling = "nearest"
 nlay = 1
 
 [comparison.simulation.overlay.modflow6.tgrid]
-firstpersteady = false
-
 [[comparison.observable]]
 name = "head_west_response"
 variable = "watertable_elevation"

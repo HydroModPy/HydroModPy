@@ -259,7 +259,6 @@ def run_pre_processing(  # noqa: PLR0915
         flow_regime=model.flow_regime,
         first_period_steady=resolve_first_period_steady(
             flow=getattr(model, "flow", None),
-            legacy_tgrid=getattr(model.modflow_config, "tgrid", None),
         ),
     )
     model.perlen = temporal.perlen

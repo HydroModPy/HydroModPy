@@ -98,7 +98,6 @@ def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
         "[[case.scenarios]]\n"
         'id = "chron_case"\n'
         'genmtd = "from_chron"\n'
-        'flow_regime = "transient"\n'
         'chron_path = "chron.csv"\n'
         'chron_dateformat = "%d/%m/%Y"\n'
         'chron_colsep = "\\t"\n'
@@ -131,13 +130,11 @@ def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Pa
         'output_figures_dir = "outputs/figures"\n'
         "[[case.scenarios]]\n"
         'id = "steady_synth"\n'
-        'flow_regime = "steady"\n'
         'genmtd = "synthetic_regular"\n'
         "nper = 3\n"
         "lenper = 2\n"
         "[[case.scenarios]]\n"
         'id = "chron_trans"\n'
-        'flow_regime = "transient"\n'
         'genmtd = "from_chron"\n'
         'chron_path = "chron.csv"\n'
         'chron_dateformat = "%d/%m/%Y"\n'

@@ -47,7 +47,7 @@ def test_solver_helpers_treat_steady_as_steady() -> None:
     temporal = build_temporal_discretization_from_time_grid(
         time_grid=_TimeGrid(),
         flow_regime="steady",
-        firstpersteady=False,
+        first_period_steady=False,
     )
     assert np.all(temporal.steady)
 

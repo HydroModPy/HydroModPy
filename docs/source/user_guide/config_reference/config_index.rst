@@ -4586,90 +4586,78 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-itmuni>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25>`__
-   * - ``modflownwt.tgrid.flow_regime``
-     - ``Optional[str]``
-     - dev
-     - -
-     - `modflownwt <modflownwt.html#modflownwt-tgrid-flow-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
    * - ``modflownwt.tgrid.genmtd``
      - ``Literal['synthetic_regular', 'from_chron']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-genmtd>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
    * - ``modflownwt.tgrid.nper``
      - ``int``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-nper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39>`__
    * - ``modflownwt.tgrid.lenper``
      - ``float | int | list[int] | list[float] | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-lenper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L53>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46>`__
    * - ``modflownwt.tgrid.chron_path``
      - ``str | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L55>`__
    * - ``modflownwt.tgrid.chron_dateformat``
      - ``str``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-dateformat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L69>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62>`__
    * - ``modflownwt.tgrid.chron_colsep``
      - ``str``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-colsep>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L73>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L66>`__
    * - ``modflownwt.tgrid.chron_time_col``
      - ``str``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-time-col>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L77>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L70>`__
    * - ``modflownwt.tgrid.start_datetime``
      - ``Any | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-start-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L74>`__
    * - ``modflownwt.tgrid.end_datetime``
      - ``Any | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-end-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88>`__
-   * - ``modflownwt.tgrid.firstpersteady``
-     - ``bool | None``
-     - dev
-     - -
-     - `modflownwt <modflownwt.html#modflownwt-tgrid-firstpersteady>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81>`__
    * - ``modflownwt.tgrid.tsmult``
      - ``int | float | list[int] | list[float]``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-tsmult>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88>`__
    * - ``modflownwt.tgrid.ntsp``
      - ``int | list[int]``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-ntsp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L109>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95>`__
    * - ``modflownwt.tgrid.temporal_nodata``
      - ``float``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-temporal-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L116>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102>`__
    * - ``modflow6.runtime``
      - ``Modflow6RuntimeConfig``
      - expert
@@ -4868,90 +4856,78 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-itmuni>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25>`__
-   * - ``modflow6.tgrid.flow_regime``
-     - ``Optional[str]``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-flow-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
    * - ``modflow6.tgrid.genmtd``
      - ``Literal['synthetic_regular', 'from_chron']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-genmtd>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
    * - ``modflow6.tgrid.nper``
      - ``int``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-nper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39>`__
    * - ``modflow6.tgrid.lenper``
      - ``float | int | list[int] | list[float] | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-lenper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L53>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46>`__
    * - ``modflow6.tgrid.chron_path``
      - ``str | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L55>`__
    * - ``modflow6.tgrid.chron_dateformat``
      - ``str``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-dateformat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L69>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62>`__
    * - ``modflow6.tgrid.chron_colsep``
      - ``str``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-colsep>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L73>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L66>`__
    * - ``modflow6.tgrid.chron_time_col``
      - ``str``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-time-col>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L77>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L70>`__
    * - ``modflow6.tgrid.start_datetime``
      - ``Any | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-start-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L74>`__
    * - ``modflow6.tgrid.end_datetime``
      - ``Any | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-end-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88>`__
-   * - ``modflow6.tgrid.firstpersteady``
-     - ``bool | None``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-firstpersteady>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81>`__
    * - ``modflow6.tgrid.tsmult``
      - ``int | float | list[int] | list[float]``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-tsmult>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88>`__
    * - ``modflow6.tgrid.ntsp``
      - ``int | list[int]``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-ntsp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L109>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95>`__
    * - ``modflow6.tgrid.temporal_nodata``
      - ``float``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-temporal-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L116>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102>`__
    * - ``display.enabled``
      - ``bool``
      - user

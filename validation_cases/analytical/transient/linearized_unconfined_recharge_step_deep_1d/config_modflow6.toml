@@ -15,4 +15,3 @@ resampling = "nearest"
 nlay = 1
 
 [modflow6.tgrid]
-firstpersteady = false

@@ -49,31 +49,12 @@ def _coerce_itmuni(value: object, default_itmuni: int) -> int:
         ) from exc
 
 
-_MISSING = object()
-
-
-def _field_was_set(model: object, field: str) -> bool:
-    fields_set = getattr(model, "model_fields_set", None)
-    if fields_set is None:
-        return False
-    return field in set(fields_set)
-
-
 def _coerce_first_period_steady(
     *,
     first_period_steady: bool | None,
-    firstpersteady: bool | None,
 ) -> bool:
-    if first_period_steady is not None and firstpersteady is not None:
-        if bool(first_period_steady) != bool(firstpersteady):
-            raise ValueError(
-                "first_period_steady conflicts with deprecated firstpersteady."
-            )
-        return bool(first_period_steady)
     if first_period_steady is not None:
         return bool(first_period_steady)
-    if firstpersteady is not None:
-        return bool(firstpersteady)
     return True
 
 
@@ -95,31 +76,14 @@ def _build_solver_steady_array(
 def resolve_first_period_steady(
     *,
     flow: object | None = None,
-    legacy_tgrid: object | None = None,
     default: bool = True,
 ) -> bool:
-    """Resolve the first-period steady policy from [flow], with legacy fallback."""
+    """Resolve the first-period steady policy from [flow]."""
     flow_config = getattr(flow, "config", None) if flow is not None else None
-    flow_value = _MISSING
-    if flow_config is not None and _field_was_set(flow_config, "first_period_steady"):
-        flow_value = getattr(flow_config, "first_period_steady")
-    elif flow_config is None and flow is not None and hasattr(flow, "first_period_steady"):
-        flow_value = getattr(flow, "first_period_steady")
-
-    legacy_value = _MISSING
-    if legacy_tgrid is not None and hasattr(legacy_tgrid, "firstpersteady"):
-        legacy_value = getattr(legacy_tgrid, "firstpersteady")
-
-    if flow_value is not _MISSING and legacy_value is not _MISSING:
-        if bool(flow_value) != bool(legacy_value):
-            raise ValueError(
-                "flow.first_period_steady conflicts with legacy tgrid.firstpersteady."
-            )
-        return bool(flow_value)
-    if flow_value is not _MISSING:
-        return bool(flow_value)
-    if legacy_value is not _MISSING:
-        return bool(legacy_value)
+    if flow_config is not None and hasattr(flow_config, "first_period_steady"):
+        return bool(getattr(flow_config, "first_period_steady"))
+    if flow is not None and hasattr(flow, "first_period_steady"):
+        return bool(getattr(flow, "first_period_steady"))
     return bool(default)
 
 
@@ -128,7 +92,6 @@ def build_temporal_discretization_from_time_grid(
     time_grid: object,
     flow_regime: str,
     first_period_steady: bool | None = None,
-    firstpersteady: bool | None = None,
 ) -> TemporalDiscretizationResult:
     """Build solver temporal arrays directly from canonical launcher time-grid."""
     if time_grid is None:
@@ -148,7 +111,6 @@ def build_temporal_discretization_from_time_grid(
     nstp = np.full((nper,), nstp_per_period, dtype=int)
     first_period_steady_value = _coerce_first_period_steady(
         first_period_steady=first_period_steady,
-        firstpersteady=firstpersteady,
     )
     steady = _build_solver_steady_array(
         nper=nper,
@@ -194,7 +156,6 @@ def build_temporal_discretization(
     dis_nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
     first_period_steady_value = _coerce_first_period_steady(
         first_period_steady=first_period_steady,
-        firstpersteady=getattr(tgrid_config, "firstpersteady", None),
     )
     dis_steady = _build_solver_steady_array(
         nper=dis_nper,

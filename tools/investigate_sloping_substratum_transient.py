@@ -268,6 +268,9 @@ def _build_structured_solver_payload(*, solver_name: str, run_variant: str) -> d
     }
     geographic["synthetic"] = synthetic
     payload["geographic"] = geographic
+    flow = dict(payload.get("flow", {}))
+    flow["first_period_steady"] = False
+    payload["flow"] = flow
     solver_section = dict(payload.get(solver_name, {}))
     solver_sgrid = dict(solver_section.get("sgrid", {}))
     solver_sgrid["planar"] = {
@@ -278,7 +281,6 @@ def _build_structured_solver_payload(*, solver_name: str, run_variant: str) -> d
     }
     solver_sgrid["vertical"] = {"nlay": 1}
     solver_section["sgrid"] = solver_sgrid
-    solver_section["tgrid"] = {"firstpersteady": False}
     payload[solver_name] = solver_section
     return payload
 
