@@ -7,7 +7,7 @@ Walks the chain a new user would follow:
    sub-verb writes a deterministic placeholder + sidecar).
 4. Seed a minimal simulation via the public Python API so the catalog
    carries a real Zarr field. This stands in for a full solver run on the
-   ``launcher_simulation`` fixture, which is exercised by the regression
+   ``simulation_regression`` fixture, which is exercised by the regression
    tier with the same CLI entry point.
 5. Open the catalog via ``hmp.open`` and read a field via ``hmp.read``.
 6. Export the field to NetCDF and check the ACDD / CF attrs are carried.
@@ -148,7 +148,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
 
     # ----- Step 5: seed a minimal simulation via the Python API -------------
     # We do not invoke the solver here. A real ``hmp run`` on
-    # ``tests/regression/fixtures/projects/launcher_simulation/`` is covered
+    # ``tests/regression/fixtures/projects/simulation_regression/`` is covered
     # by the regression tier; this step only checks that the catalog,
     # Zarr field and Parquet artefacts that ``hmp run`` is supposed to
     # produce can be queried back via the user-facing API.
@@ -228,8 +228,8 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
 
 
 @pytest.mark.e2e
-def test_workflow_from_scratch_run_launcher_fixture(tmp_path: Path) -> None:
-    """Best-effort: drive ``hmp run`` on the launcher_simulation fixture.
+def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path) -> None:
+    """Best-effort: drive ``hmp run`` on the simulation_regression fixture.
 
     Skipped automatically when the required solver binaries are unavailable
     or when the fixture toml carries data sources that need network access.
@@ -239,11 +239,11 @@ def test_workflow_from_scratch_run_launcher_fixture(tmp_path: Path) -> None:
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
     )
     run_toml = fixture_dir / "run_fast_nwt.toml"
     if not run_toml.is_file():
-        pytest.skip(f"launcher_simulation fixture not found at {run_toml}")
+        pytest.skip(f"simulation_regression fixture not found at {run_toml}")
 
     # Solver binary gate: skip rather than fail when binaries are missing.
     from hydromodpy.core.workspace.workspace import resolve_bin_path
@@ -281,7 +281,7 @@ def test_workflow_from_scratch_run_launcher_fixture(tmp_path: Path) -> None:
     )
     if completed.returncode != 0:
         pytest.skip(
-            "hmp run on launcher_simulation fixture did not complete (likely needs network "
+            "hmp run on simulation_regression fixture did not complete (likely needs network "
             f"data or extra binaries). Stderr tail:\n{completed.stderr[-2000:]}"
         )
 

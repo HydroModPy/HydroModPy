@@ -677,48 +677,57 @@ def extract_observable_rows(
     return rows
 
 
-def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
-    """Persist long-format comparison observables."""
-    fieldnames = [
-        "comparison_id",
-        "simulation_id",
-        "simulation_label",
-        "solver",
-        "mesh_label",
-        "mesh_mode",
-        "observable",
-        "variable",
-        "resolved_variable",
-        "support",
-        "time",
-        "time_index",
-        "elapsed_seconds",
-        "time_role",
-        "requested_time",
-        "requested_time_reducer",
-        "selection_time_order",
-        "non_initial_time_order",
-        "is_initial_state",
-        "comparison_time_key",
-        "match_fallback_key",
-        "value_index",
-        "value",
-        "is_nodata",
-        "unit",
-        "configured_unit",
-        "native_unit",
-        "derived_from_variable",
-        "conversion_applied",
-        "cell_area_m2",
-        "surface_top_m",
-        "surface_bottom_m",
-        "source_path",
-        "run_folder",
-        "selection",
-        "allow_domain_proxy",
-        "selected_cell_index",
-        "selected_cell_indices",
-    ]
+OBSERVABLE_CSV_FIELDNAMES = (
+    "comparison_id",
+    "simulation_id",
+    "simulation_label",
+    "solver",
+    "mesh_label",
+    "mesh_mode",
+    "observable",
+    "variable",
+    "resolved_variable",
+    "support",
+    "time",
+    "time_index",
+    "elapsed_seconds",
+    "time_role",
+    "requested_time",
+    "requested_time_reducer",
+    "selection_time_order",
+    "non_initial_time_order",
+    "is_initial_state",
+    "comparison_time_key",
+    "match_fallback_key",
+    "value_index",
+    "value",
+    "is_nodata",
+    "unit",
+    "configured_unit",
+    "native_unit",
+    "derived_from_variable",
+    "conversion_applied",
+    "cell_area_m2",
+    "surface_top_m",
+    "surface_bottom_m",
+    "source_path",
+    "run_folder",
+    "selection",
+    "allow_domain_proxy",
+    "selected_cell_index",
+    "selected_cell_indices",
+)
+PUBLIC_OBSERVABLE_CSV_FIELDNAMES = tuple(
+    name for name in OBSERVABLE_CSV_FIELDNAMES if name not in {"source_path", "run_folder"}
+)
+
+
+def _write_observables_csv(
+    path: Path,
+    rows: list[dict[str, Any]],
+    *,
+    fieldnames: tuple[str, ...],
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -727,9 +736,22 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             writer.writerow({name: row.get(name, "") for name in fieldnames})
 
 
+def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    """Persist long-format comparison observables for local runtime/reporting use."""
+    _write_observables_csv(path, rows, fieldnames=OBSERVABLE_CSV_FIELDNAMES)
+
+
+def write_public_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    """Persist publication-safe observables without workspace-local paths."""
+    _write_observables_csv(path, rows, fieldnames=PUBLIC_OBSERVABLE_CSV_FIELDNAMES)
+
+
 __all__ = (
+    "OBSERVABLE_CSV_FIELDNAMES",
+    "PUBLIC_OBSERVABLE_CSV_FIELDNAMES",
     "extract_observable_rows",
     "normalize_observable_value",
     "select_time_slices",
     "write_observables_csv",
+    "write_public_observables_csv",
 )

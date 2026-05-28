@@ -44,6 +44,7 @@ from .mesh_case_registry import (
 from .mesh_case_registry import (
     scale_label as mesh_scale_label,
 )
+from .public_artifacts import sanitize_public_comparison_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_SOURCE_DIR = REPO_ROOT / "docs" / "source"
@@ -544,9 +545,20 @@ def _copy_summary_artifacts_from_baseline(
         destination_path = source_root / relative_path
         if not source_path.exists() or not source_path.is_file():
             continue
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        if (
+            relative_path.endswith("_comparison_manifest.json")
+            and "capability_gallery/simulation_comparison/" in relative_path
+        ):
+            _write_json(
+                destination_path,
+                sanitize_public_comparison_manifest(
+                    json.loads(source_path.read_text(encoding="utf-8"))
+                ),
+            )
+            continue
         if source_path.resolve() == destination_path.resolve():
             continue
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
         _copy_file(source_path, destination_path)
 
 
@@ -1184,6 +1196,21 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 "copied_to": _repo_docs_artifact_path(spec.category, asset.filename),
             }
         )
+
+    if spec.category == "simulation_comparison":
+        for source_path in spec.source_paths:
+            source_text = str(source_path)
+            if not source_text.endswith("_comparison_manifest.json"):
+                continue
+            source_manifest_path = _repo_path(source_text)
+            destination = source_root / _source_relative_from_repo_path(source_text)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            _write_json(
+                destination,
+                sanitize_public_comparison_manifest(
+                    json.loads(source_manifest_path.read_text(encoding="utf-8"))
+                ),
+            )
 
     metrics_override = None
     static_summary_path = str(spec.metadata.get("static_summary_path", "")).strip()
@@ -4362,7 +4389,9 @@ def _generate_simulation_comparison_case(
         SUMMARY_METRIC_FIELDS,
         write_metrics_csv,
     )
-    from hydromodpy.analysis.comparison.runtime.observables import write_observables_csv
+    from hydromodpy.analysis.comparison.runtime.observables import (
+        write_public_observables_csv,
+    )
 
     config_path_relative = str(spec.metadata["comparison_config_path"])
     config_path = _repo_path(config_path_relative)
@@ -4450,7 +4479,7 @@ def _generate_simulation_comparison_case(
     observables_path = static_dir / f"{spec.slug}_observables.csv"
     summary_csv_path = static_dir / f"{spec.slug}_summary_metrics.csv"
     differences_csv_path = static_dir / f"{spec.slug}_difference_metrics.csv"
-    _write_json(manifest_path, manifest)
+    _write_json(manifest_path, sanitize_public_comparison_manifest(manifest))
     write_metrics_csv(summary_csv_path, focus_summary_rows, fieldnames=SUMMARY_METRIC_FIELDS)
     extra_repo_paths = [
         _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_manifest.json"),
@@ -4458,7 +4487,7 @@ def _generate_simulation_comparison_case(
     ]
     if publish_full_artifacts:
         _write_json(metrics_path, metrics_payload)
-        write_observables_csv(observables_path, all_rows)
+        write_public_observables_csv(observables_path, all_rows)
         write_metrics_csv(differences_csv_path, focus_detail_rows, fieldnames=DETAIL_METRIC_FIELDS)
         extra_repo_paths.extend(
             [

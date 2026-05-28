@@ -18,7 +18,7 @@ def test_resolve_tiered_results_dir_retries_transient_permission_error(
 ) -> None:
     """Transient Windows locks should not fail regression output cleanup."""
 
-    run_name = "launcher_simulation_outputs"
+    run_name = "simulation_regression_outputs"
     out_dir = tmp_path / "extensive" / run_name
     out_dir.mkdir(parents=True)
     (out_dir / "stale.txt").write_text("stale", encoding="utf-8")
@@ -129,7 +129,7 @@ def test_resolve_tiered_results_dir_retries_when_rmtree_onerror_hits_locked_file
 ) -> None:
     """Windows onerror callbacks should defer locked files to the retry loop."""
 
-    run_name = "launcher_simulation_outputs"
+    run_name = "simulation_regression_outputs"
     out_dir = tmp_path / "extensive" / run_name
     out_dir.mkdir(parents=True)
     locked_file = out_dir / "stale.txt"

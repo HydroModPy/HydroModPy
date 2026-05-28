@@ -48,7 +48,7 @@ Case Setup
 
 - Base config: `project.toml` loads the offline Nancon basin data bundle, activates `recharge`, `etp`, and top `drainage`, and defines the default display contract.
 - Overlay config: `run_transient_nwt.toml` selects the monthly 2000-2002 transient window, the `modflow_nwt` backend, the homogeneous K/Sy/Ss values, and the stable capability-gallery publication block.
-- Execution chain: observed-basin setup -> transient MODFLOW-NWT flow -> catalog-backed figure rendering -> stable publication into `examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/`.
+- Execution chain: observed-basin setup -> transient MODFLOW-NWT flow -> catalog-backed figure rendering -> stable publication into `examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/`.
 
 What It Shows
 -------------
@@ -143,7 +143,7 @@ Source Pointers
 - ``examples/projects/02_nancon_watershed/project.toml``
 - ``examples/projects/02_nancon_watershed/run_transient_nwt.toml``
 - ``examples/projects/02_nancon_watershed/README.md``
-- ``examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/manifest.json``
+- ``examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 - ``hydromodpy/display/figures/simulated_active_network.py``
 - ``hydromodpy/display/figures/hydrographic_network_comparison.py``

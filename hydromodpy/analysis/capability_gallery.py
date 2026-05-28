@@ -64,7 +64,7 @@ class CapabilityGalleryConfig(HydroModelBase):
         ),
     )
     case_slug: Annotated[str, Profile.USER] = Field(
-        default="launcher_simulation_flow_case",
+        default="simulation_regression_flow_case",
         description="Stable identifier used in the gallery manifest.",
     )
     assets: Annotated[tuple[str, ...], Profile.USER] = Field(

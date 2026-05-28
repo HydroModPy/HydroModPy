@@ -1,4 +1,4 @@
-"""Shared helpers for launcher_simulation regression tests."""
+"""Shared helpers for simulation_regression regression tests."""
 
 from __future__ import annotations
 
@@ -30,8 +30,8 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
     write_piecewise_strip_launcher_config,
 )
 
-LAUNCHER_SIMULATION_CONFIG_DIR = (
-    REPO_ROOT / "tests" / "regression" / "fixtures" / "projects" / "launcher_simulation"
+SIMULATION_REGRESSION_CONFIG_DIR = (
+    REPO_ROOT / "tests" / "regression" / "fixtures" / "projects" / "simulation_regression"
 )
 
 MODFLOW_OUTPUT_NAMES = [
@@ -168,7 +168,7 @@ def _ensure_custom_format_files(oceanic_dir: Path, source_csv: Path) -> None:
         shutil.copy2(source_csv, chronicle_path)
 
 
-def run_launcher_simulation_regression(
+def run_simulation_regression(
     *,
     test_file: str | Path,
     config_name: str,
@@ -183,7 +183,7 @@ def run_launcher_simulation_regression(
     timeout: int = 3600,
     extra_env: dict[str, str] | None = None,
 ) -> None:
-    """Run one launcher_simulation regression case and compare its signatures."""
+    """Run one simulation_regression regression case and compare its signatures."""
     assert_required_executables(
         require_modflow=require_modflow,
         require_modflow6=require_modflow6,
@@ -201,7 +201,7 @@ def run_launcher_simulation_regression(
         env.update(extra_env)
 
     run_hmp_cli(
-        config_path=LAUNCHER_SIMULATION_CONFIG_DIR / config_name,
+        config_path=SIMULATION_REGRESSION_CONFIG_DIR / config_name,
         out_path=out_path,
         extra_env=env,
         timeout=timeout,
@@ -249,7 +249,7 @@ def run_launcher_simulation_regression(
     )
 
 
-def run_launcher_simulation_boussinesq_regression(
+def run_simulation_regression_boussinesq(
     *,
     test_file: str | Path,
     golden_filename: str,
@@ -257,16 +257,16 @@ def run_launcher_simulation_boussinesq_regression(
     update_goldens: bool,
     timeout: int = 1800,
     config_stem: str = "run_fast_boussinesq",
-    launcher_run_id: str = "launcher_simulation_fast_boussinesq",
+    simulation_run_id: str = "simulation_regression_fast_boussinesq",
     process_id: str = "flow_main",
-    simulation_name: str = "Launcher fast Boussinesq regression",
+    simulation_name: str = "Simulation regression fast Boussinesq",
     simulation_description: str = "Fast steady Boussinesq regression on a precomputed strip bundle",
     initial_head_m: float = 6.0,
     west_head_m: float | None = 5.0,
     east_head_m: float | None = 5.0,
     recharge_mm_day: float | None = 3.0,
 ) -> None:
-    """Run one self-contained fast launcher regression for flow/boussinesq."""
+    """Run one self-contained fast simulation regression for flow/boussinesq."""
     out_path = resolve_tiered_results_dir(
         test_file=test_file,
         run_name=run_name,
@@ -274,7 +274,7 @@ def run_launcher_simulation_boussinesq_regression(
     bundle_dir = write_piecewise_strip_bundle(out_path / "mesh_bundle")
     config_path = write_piecewise_strip_launcher_config(
         out_path / f"{config_stem}.toml",
-        run_id=launcher_run_id,
+        run_id=simulation_run_id,
         process_id=process_id,
         simulation_name=simulation_name,
         simulation_description=simulation_description,

@@ -94,7 +94,7 @@ def test_headwater_real_case_petsc_variants_converge_on_committed_mesh(
     _require_linux_petsc4py()
 
     repo_root = Path(__file__).resolve().parents[4]
-    base_config = repo_root / "examples" / "projects" / "launcher_simulation" / config_name
+    base_config = repo_root / "examples" / "projects" / "simulation_regression" / config_name
     if not base_config.exists():
         pytest.skip(
             f"Fixture {base_config.relative_to(repo_root)} is missing. "

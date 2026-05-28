@@ -124,6 +124,7 @@ def test_import_simulation_comparison_publishes_bundle(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    legacy_project_name = "_".join(("launcher", "simulation"))
     source_root = tmp_path / "comparison"
     source_root.mkdir()
     (source_root / "comparison_manifest.json").write_text(
@@ -133,7 +134,14 @@ def test_import_simulation_comparison_publishes_bundle(
                 "reference_simulation": "mf6_ref",
                 "simulations": [
                     {"id": "mf6_ref"},
-                    {"id": "bouss_candidate"},
+                    {
+                        "id": "bouss_candidate",
+                        "run_folder": (
+                            f"examples/projects/{legacy_project_name}/"
+                            "results_reused_real_meshes/site_03/"
+                            "results_simulations/bouss_candidate"
+                        ),
+                    },
                 ],
             }
         ),
@@ -158,6 +166,17 @@ def test_import_simulation_comparison_publishes_bundle(
         ),
         encoding="utf-8",
     )
+    (source_root / "source_manifest.json").write_text(
+        json.dumps(
+            {
+                "config_path": (
+                    f"examples/projects/{legacy_project_name}/"
+                    "run_simulation_comparison_site_03.toml"
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
     published_root = tmp_path / "published"
     monkeypatch.setattr(import_simulation_comparison, "PUBLISHED_ROOT", published_root)
 
@@ -171,6 +190,15 @@ def test_import_simulation_comparison_publishes_bundle(
     assert destination == published_root / "natural_site_03_mf6_bouss"
     assert (destination / "comparison_manifest.json").exists()
     assert (destination / "summary_metrics.csv").exists()
+    published_manifest_text = (destination / "comparison_manifest.json").read_text(
+        encoding="utf-8"
+    )
+    assert legacy_project_name not in published_manifest_text
+    assert "simulation_regression" not in published_manifest_text
+    assert "run_folder" not in published_manifest_text
+    assert legacy_project_name not in (destination / "source_manifest.json").read_text(
+        encoding="utf-8"
+    )
     assert not (destination / "comparison_metrics.json").exists()
     assert not (destination / "observables.csv").exists()
     case_payload = json.loads((destination / "case.json").read_text(encoding="utf-8"))
@@ -330,6 +358,26 @@ def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
         path.endswith("example12_map_simulation_comparison_comparison_metrics.json")
         for path in summary["artifacts"]["extra_repo_paths"]
     )
+    public_observables = (
+        tmp_path
+        / "_static"
+        / "capability_gallery"
+        / "simulation_comparison"
+        / "example12_map_simulation_comparison_observables.csv"
+    )
+    header = public_observables.read_text(encoding="utf-8").splitlines()[0].split(",")
+    assert "source_path" not in header
+    assert "run_folder" not in header
+    public_manifest = (
+        tmp_path
+        / "_static"
+        / "capability_gallery"
+        / "simulation_comparison"
+        / "example12_map_simulation_comparison_comparison_manifest.json"
+    ).read_text(encoding="utf-8")
+    assert "run_folder" not in public_manifest
+    assert "config_path" not in public_manifest
+    assert ":\\\\" not in public_manifest
     assert (
         tmp_path
         / "_static"

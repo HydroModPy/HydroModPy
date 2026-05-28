@@ -32,7 +32,7 @@ coverage_policy = "warn"
 [analysis.capability_gallery]
 enabled = true
 case_slug = "modflow6_gmsh_mesh_catchment"
-output_dir = "../../capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment"
+output_dir = "../../capability_gallery/simulation_regression/modflow6_gmsh_mesh_catchment"
 assets = [
   "flow_state_triptych.png",
   "recharge_discharge_cumulative.png",

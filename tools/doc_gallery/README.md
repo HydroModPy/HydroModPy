@@ -228,12 +228,22 @@ Published simulation-comparison cases can be staged under
 - `tools/doc_gallery/import_simulation_comparison.py` copies a reviewed
   `comparison_manifest.json` and `comparison_metrics.json` bundle into that
   versioned tree as `comparison_manifest.json` plus compact `summary_metrics.csv`.
+  Published text artifacts are normalized to the current `simulation_regression`
+  path vocabulary during import.
   It can publish one comparison root or
   discover every comparison under a testbed output root, including the Nançon
   hydrographic-network benchmark's `comparison/` directory.
 - `tools/doc_gallery/gallery_simulation_comparison_specs.py` discovers every
   published `<slug>/case.json` and regenerates the doc page from committed
   artifacts only.
+- generated `*_observables.csv` files under
+  `docs/source/_static/capability_gallery/simulation_comparison/` are public
+  snapshots and intentionally omit workspace-local `source_path` and
+  `run_folder` columns.
+- generated `*_comparison_manifest.json` files are also publication-safe:
+  gallery generation and bundle import remove workspace-local path fields,
+  generated config pointers, and captured stdout/stderr tails before writing
+  them under `docs/source/_static/capability_gallery/simulation_comparison/`.
 - this keeps Sphinx and `python -m tools.doc_gallery --check` free of heavy
   solver execution; stale bundles should be refreshed by an explicit comparison
   regeneration step before the docs are rebuilt.

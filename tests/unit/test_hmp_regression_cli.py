@@ -50,6 +50,21 @@ def test_hmp_regression_fast_mf6_builds_fast_tier_selection(monkeypatch) -> None
     assert args[marker_index + 1] == "fast and mf6"
 
 
+def test_regression_discovery_keeps_embedded_regression_vocab(tmp_path: Path) -> None:
+    module = _load_module()
+    fast_dir = tmp_path / "fast"
+    fast_dir.mkdir()
+    (fast_dir / "test_simulation_regression_fast_mf6_regression.py").write_text(
+        "def test_placeholder():\n    pass\n",
+        encoding="utf-8",
+    )
+
+    discovered = module._discover_regression_tests(tmp_path, selected_tiers=["fast"])
+
+    assert "simulation_regression_fast_mf6" in discovered
+    assert "simulation" not in discovered
+
+
 def test_hmp_regression_fast_intercomparison_builds_marker_selection(monkeypatch) -> None:
     args, _ = _capture_pytest_invocation(
         monkeypatch,

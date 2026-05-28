@@ -89,7 +89,7 @@ CASE_DIR = (
     / "linearized_unconfined_hillslope_drainage_1d"
 )
 LAUNCHER_SCRIPT = (
-    REPO_ROOT / "examples" / "projects" / "launcher_simulation" / "launcher_simulation.py"
+    REPO_ROOT / "examples" / "projects" / "simulation_regression" / "simulation_regression.py"
 )
 SOLVER_ORDER = (
     "modflownwt",
