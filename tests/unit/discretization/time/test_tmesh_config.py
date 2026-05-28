@@ -29,11 +29,9 @@ def test_from_mapping_accepts_valid_synthetic_payload():
         {
             "tmesh": {
                 "itmuni": "d",
-                "flow_regime": "transient",
                 "genmtd": "synthetic_regular",
                 "nper": 3,
                 "lenper": 2,
-                "firstpersteady": True,
                 "ntsp": [1, 2, 1],
                 "tsmult": 1.2,
             }
@@ -42,8 +40,6 @@ def test_from_mapping_accepts_valid_synthetic_payload():
 
     payload = cfg.to_builder_kwargs()
     assert payload["genmtd"] == "synthetic_regular"
-    assert "flow_regime" not in payload
-    assert "firstpersteady" not in payload
     assert payload["nper"] == 3
     assert payload["lenper"] == 2.0
     assert payload["ntsp"] == [1, 2, 1]
@@ -58,7 +54,7 @@ def test_from_toml_resolves_relative_chron_path(tmp_path: Path):
 
     toml_path = tmp_path / "config.toml"
     toml_path.write_text(
-        '[tmesh]\ngenmtd = "from_chron"\nflow_regime = "transient"\nchron_path = "chron.csv"\n',
+        '[tmesh]\ngenmtd = "from_chron"\nchron_path = "chron.csv"\n',
         encoding="utf-8",
     )
 
@@ -118,7 +114,6 @@ def test_load_tmesh_toml_returns_normalized_dict(tmp_path: Path):
     toml_path.write_text(
         "[tmesh]\n"
         'itmuni = "d"\n'
-        'flow_regime = "steady"\n'
         'genmtd = "synthetic_regular"\n'
         "nper = 4\n"
         "lenper = 1\n",
@@ -126,10 +121,26 @@ def test_load_tmesh_toml_returns_normalized_dict(tmp_path: Path):
     )
 
     payload = mod.load_tmesh_toml(toml_path)
-    assert "flow_regime" not in payload
     assert payload["genmtd"] == "synthetic_regular"
     assert payload["nper"] == 4
     assert payload["lenper"] == 1.0
+
+
+def test_legacy_flow_policy_keys_are_rejected():
+    mod = _load_tmesh_config_module()
+
+    with pytest.raises(ValueError):
+        _ = mod.TMeshConfig.from_mapping(
+            {
+                "tmesh": {
+                    "flow_regime": "transient",
+                    "firstpersteady": True,
+                    "genmtd": "synthetic_regular",
+                    "nper": 1,
+                    "lenper": 1,
+                }
+            }
+        )
 
 
 def test_legacy_sim_state_key_is_rejected():

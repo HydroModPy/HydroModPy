@@ -25,7 +25,7 @@ class TMeshCaseScenarioConfig(TMeshConfig):
     def to_builder_kwargs(self) -> dict[str, Any]:
         payload = self.model_dump(
             mode="python",
-            exclude={"id", "description", "flow_regime", "firstpersteady"},
+            exclude={"id", "description"},
             exclude_none=True,
         )
         return dict(payload)

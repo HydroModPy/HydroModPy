@@ -29,13 +29,6 @@ class TMeshConfig(HydroModelBase):
             "come from [simulation.time], so this field is mirrored only for compatibility."
         ),
     )
-    flow_regime: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
-        default=None,
-        description=(
-            "Deprecated compatibility field. Temporal mesh generation no longer derives "
-            "steady/transient solver flags from tmesh; use [flow].flow_regime instead."
-        ),
-    )
     genmtd: Annotated[Literal["synthetic_regular", "from_chron"], Profile.USER] = Field(
         default="synthetic_regular",
         description=(
@@ -90,13 +83,6 @@ class TMeshConfig(HydroModelBase):
         description=(
             "Upper datetime bound used by the temporal mesh. In launcher mode this field is "
             "mirrored from [simulation.time] and is not the authoritative source."
-        ),
-    )
-    firstpersteady: Annotated[bool | None, Profile.DEV] = Field(
-        default=None,
-        description=(
-            "Deprecated compatibility field. Use [flow].first_period_steady to control "
-            "solver steady-state flags."
         ),
     )
     tsmult: Annotated[int | float | list[int] | list[float], Profile.DEV] = Field(
@@ -231,15 +217,11 @@ class TMeshConfig(HydroModelBase):
 
         Notes
         -----
-        Deprecated solver-policy fields are intentionally excluded because
-        temporal mesh generation only produces period lengths and time-step
-        arrays. Steady/transient policy is assembled by solver adapters.
+        Temporal mesh generation only produces period lengths and time-step
+        arrays. Steady/transient policy is assembled by solver adapters from
+        the flow configuration.
         """
-        return self.model_dump(
-            mode="python",
-            exclude={"flow_regime", "firstpersteady"},
-            exclude_none=True,
-        )
+        return self.model_dump(mode="python", exclude_none=True)
 
     @classmethod
     def from_mapping(cls, config_data: Mapping[str, Any]):

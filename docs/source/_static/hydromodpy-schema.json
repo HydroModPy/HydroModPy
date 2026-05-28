@@ -15304,20 +15304,6 @@
           "type": "string",
           "x-hmp-profile": "dev"
         },
-        "flow_regime": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Deprecated compatibility field. Temporal mesh generation no longer derives steady/transient solver flags from tmesh; use [flow].flow_regime instead.",
-          "title": "Flow Regime",
-          "x-hmp-profile": "dev"
-        },
         "genmtd": {
           "default": "synthetic_regular",
           "description": "Temporal generation method. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility.",
@@ -15442,20 +15428,6 @@
           "description": "Upper datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source.",
           "title": "End Datetime",
           "x-hmp-profile": "user"
-        },
-        "firstpersteady": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Deprecated compatibility field. Use [flow].first_period_steady to control solver steady-state flags.",
-          "title": "Firstpersteady",
-          "x-hmp-profile": "dev"
         },
         "tsmult": {
           "anyOf": [

@@ -254,7 +254,6 @@ class ModflowNwt:
             flow_regime=self.flow_regime,
             first_period_steady=resolve_first_period_steady(
                 flow=getattr(self, "flow", None),
-                legacy_tgrid=self.tgrid_config,
             ),
         )
 

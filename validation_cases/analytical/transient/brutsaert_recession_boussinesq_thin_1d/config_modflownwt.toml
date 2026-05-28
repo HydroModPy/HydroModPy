@@ -11,4 +11,3 @@ resampling = "nearest"
 nlay = 1
 
 [modflownwt.tgrid]
-firstpersteady = true

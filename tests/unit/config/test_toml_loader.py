@@ -246,7 +246,7 @@ def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert payload["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert payload["simulation"]["process"][1]["solvers"] == ["modflow6"]
     assert payload["simulation"]["time"]["step_value"] == "10 day"
-    assert payload["modflow6"]["tgrid"]["firstpersteady"] is False
+    assert payload["flow"]["first_period_steady"] is False
     assert payload["flow"]["ic"]["type"] == "top"
     assert payload["flow"]["param"]["K"]["field"]["value"] == "1e-5 m/s"
     assert payload["flow"]["param"]["Sy"]["field"]["value"] == "0.12 -"

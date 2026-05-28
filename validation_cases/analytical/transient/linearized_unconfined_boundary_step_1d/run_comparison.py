@@ -27,6 +27,7 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
             "output_root": str(workspace_root),
         },
         "flow": {
+            "first_period_steady": False,
             "bc": {
                 "dirichlet": {
                     "west_side": {
@@ -78,7 +79,6 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
                                 },
                                 "vertical": {"nlay": 1},
                             },
-                            "tgrid": {"firstpersteady": False},
                         },
                     },
                 },

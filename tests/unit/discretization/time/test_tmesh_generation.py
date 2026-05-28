@@ -173,14 +173,10 @@ def test_invalid_genmtd_raises():
         _ = mod.TmeshGenerator(config=mod.TMeshConfig(genmtd="unknown"))
 
 
-def test_legacy_flow_regime_is_accepted_but_ignored():
+def test_legacy_flow_policy_fields_are_rejected():
     mod = _load_tmesh_module()
-    builder = mod.TmeshGenerator(
-        config=mod.TMeshConfig(flow_regime="unknown", firstpersteady=True, nper=2, lenper=1)
-    )
-
-    assert builder.flow_regime == "unknown"
-    assert np.array_equal(builder.run().steady_state, np.array([False, False]))
+    with pytest.raises(ValueError):
+        _ = mod.TMeshConfig(flow_regime="unknown", firstpersteady=True, nper=2, lenper=1)
 
 
 def test_invalid_nper_raises():
