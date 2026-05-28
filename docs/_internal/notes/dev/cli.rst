@@ -128,10 +128,10 @@ Un test spécifique :
 
 .. code-block:: bash
 
-   hmp test regression launcher_simulation_fast_nwt --fast --nwt
-   hmp test regression launcher_simulation_fast_mf6 --fast --mf6
-   hmp test regression launcher_simulation_extensive_nwt --extensive --nwt
-   hmp test regression launcher_simulation_extensive_mf6 --extensive --mf6
+   hmp test regression simulation_regression_fast_nwt --fast --nwt
+   hmp test regression simulation_regression_fast_mf6 --fast --mf6
+   hmp test regression simulation_regression_extensive_nwt --extensive --nwt
+   hmp test regression simulation_regression_extensive_mf6 --extensive --mf6
 
 Liste les tests disponibles :
 
@@ -146,14 +146,14 @@ Parallélisation (requiert ``pytest-xdist``) :
    hmp test regression -j auto
    hmp test regression --fast -j 4
    hmp test unit -j auto
-   hmp test regression launcher_simulation_extensive_nwt -j 1
+   hmp test regression simulation_regression_extensive_nwt -j 1
 
 Mise à jour des goldens :
 
 .. code-block:: bash
 
    hmp test regression --update-goldens
-   hmp test regression launcher_simulation_fast_mf6 --update-goldens
+   hmp test regression simulation_regression_fast_mf6 --update-goldens
 
 Validation
 ~~~~~~~~~~

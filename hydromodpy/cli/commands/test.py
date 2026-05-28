@@ -20,8 +20,8 @@ HELP: str = "Run unit, regression, or validation tests"
 
 _RE_REGRESSION = re.compile(
     r"^test_"
-    r"(?P<base>.+?)"
-    r"(?:s_short(?:_new)?)?_"
+    r"(?P<base>.+)"
+    r"_"
     r"(?:npy_)?regression"
     r"(?:_\w+)?"
     r"\.py$"
@@ -316,6 +316,10 @@ def _discover_regression_tests(
             continue
         base = m.group("base")
         is_short = "s_short" in p.name
+        if base.endswith("_s_short_new"):
+            base = base[: -len("_s_short_new")]
+        elif base.endswith("_s_short"):
+            base = base[: -len("_s_short")]
         variant = "short" if is_short else "full"
         tests.setdefault(base, {"full": [], "short": []})
         tests[base][variant].append(p)

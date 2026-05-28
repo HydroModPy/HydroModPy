@@ -38,13 +38,13 @@
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
     "examples/projects/09_capability_gallery/README.md",
-    "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
+    "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
     "hydromodpy/analysis/capability_gallery.py"
   ],
   "source_hashes": {
-    "examples/projects/09_capability_gallery/README.md": "b876daec8dcd95f259dd5d915975024fd548a6297f93fd8850ce20743259d874",
-    "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "b69756e136c8b1c94cee0af1259384ea817fbcf189790e83041e6eed6fbfee40",
-    "hydromodpy/analysis/capability_gallery.py": "d4c536bb55217e483551d7688f6da6c7628dc206aa7e169f768aba8f60d1deec"
+    "examples/projects/09_capability_gallery/README.md": "cf5f30e485ff368221469369f5ef68970388f1f2b3a79a8c194601de08d94509",
+    "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "f790f179ca99861a080dd32de44329d0a3706376f9153df6fc81615449016162",
+    "hydromodpy/analysis/capability_gallery.py": "a2c984de26e8ec8dfa704c8521323215919777fdc3e99f36069b664ebf34ef98"
   },
   "docname": "cases/headwater_100km2_outlet_2_mf6_transient_reference",
   "images": [
@@ -53,35 +53,35 @@
       "caption": "Topography, hydraulic head, and water-table depth on the committed 100 km2 outlet-2 support.",
       "alt_text": "Flow-state triptych for the committed 100 km2 outlet-2 mesh",
       "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png"
     },
     {
       "filename": "headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
       "caption": "Three-year cumulative recharge and discharge curves for the committed-mesh MF6 replay.",
       "alt_text": "Cumulative recharge and discharge on the committed 100 km2 outlet-2 replay",
       "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png"
     },
     {
       "filename": "headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
       "caption": "Water-table elevation map from the reference transient replay.",
       "alt_text": "Water-table elevation map for the committed 100 km2 outlet-2 replay",
       "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png"
     },
     {
       "filename": "headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
       "caption": "Water-table depth map from the reference transient replay.",
       "alt_text": "Water-table depth map for the committed 100 km2 outlet-2 replay",
       "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png"
     },
     {
       "filename": "headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png",
       "caption": "Support overview confirming the committed mesh bundle, top/bottom sampling, and active support labels used by the transient replay.",
       "alt_text": "Support overview for the committed 100 km2 outlet-2 replay",
       "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
     }
   ],
   "metrics": [],
@@ -112,36 +112,36 @@
     ],
     "copied_assets": [
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_state_triptych.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png"
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/flow_state_triptych.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/recharge_discharge_cumulative.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png"
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/recharge_discharge_cumulative.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_elevation.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png"
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/watertable_elevation.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_depth.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png"
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/watertable_depth.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_support_overview.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/flow_support_overview.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
-      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
+      "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
+      "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
+      "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
+      "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
+      "docs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
     ]
   }
 }

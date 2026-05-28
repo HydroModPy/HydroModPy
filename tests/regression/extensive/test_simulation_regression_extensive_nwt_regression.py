@@ -1,10 +1,10 @@
-"""Extensive regression test for launcher_simulation with MODFLOW-NWT."""
+"""Extensive regression test for simulation_regression with MODFLOW-NWT."""
 
 from __future__ import annotations
 
 import pytest
 
-from tests.regression.launcher_simulation_helpers import run_launcher_simulation_regression
+from tests.regression.simulation_regression_helpers import run_simulation_regression
 
 
 @pytest.mark.regression
@@ -12,12 +12,12 @@ from tests.regression.launcher_simulation_helpers import run_launcher_simulation
 @pytest.mark.slow
 @pytest.mark.coverage
 @pytest.mark.nwt
-def test_launcher_simulation_extensive_nwt_regression(update_goldens) -> None:
-    run_launcher_simulation_regression(
+def test_simulation_regression_extensive_nwt_regression(update_goldens) -> None:
+    run_simulation_regression(
         test_file=__file__,
         config_name="run_extensive_nwt.toml",
-        golden_filename="launcher_simulation_extensive_nwt_npy_signatures.json",
-        run_name="launcher_simulation_extensive_nwt_outputs",
+        golden_filename="simulation_regression_extensive_nwt_npy_signatures.json",
+        run_name="simulation_regression_extensive_nwt_outputs",
         require_modflow=True,
         require_modflow6=False,
         require_modpath=True,

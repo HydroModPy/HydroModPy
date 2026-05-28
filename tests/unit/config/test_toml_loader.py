@@ -179,14 +179,14 @@ def test_workspace_rejects_filename_safe_windows_path_tokens() -> None:
         )
 
 
-def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
+def test_simulation_regression_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
         / "run_fast_mf6.toml"
     )
 
@@ -199,7 +199,7 @@ def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data
     assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"
 
 
-def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh(
+def test_simulation_regression_mf6_precomputed_mesh_input_config_uses_runtime_mesh(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -209,7 +209,7 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
         / "run_fast_mf6_precomputed_mesh_input.toml"
     )
 
@@ -225,7 +225,7 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
     assert list(cfg.simulation.process[0].solvers) == ["modflow6"]
 
 
-def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
+def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -235,7 +235,7 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
         / "run_fast_mf6_mesh_catchment.toml"
     )
 

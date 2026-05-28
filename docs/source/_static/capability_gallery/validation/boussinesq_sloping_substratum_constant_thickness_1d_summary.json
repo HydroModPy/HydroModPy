@@ -181,7 +181,7 @@
           "category": "analytical",
           "regime": "steady",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
           "config_files": {
@@ -254,7 +254,7 @@
           "category": "analytical",
           "regime": "steady",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
           "config_files": {
@@ -327,7 +327,7 @@
           "category": "analytical",
           "regime": "steady",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
           "config_files": {
@@ -400,7 +400,7 @@
           "category": "analytical",
           "regime": "steady",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
           "config_files": {

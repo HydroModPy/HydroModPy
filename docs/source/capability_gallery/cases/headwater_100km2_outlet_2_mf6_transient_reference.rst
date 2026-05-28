@@ -97,7 +97,7 @@ Source Pointers
 ---------------
 
 - ``examples/projects/09_capability_gallery/README.md``
-- ``examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json``
+- ``examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 
 Artifacts
