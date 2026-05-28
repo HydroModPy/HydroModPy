@@ -14,6 +14,7 @@ from .discretization_temporal import (
     TemporalDiscretizationResult,
     build_temporal_discretization,
     build_temporal_discretization_from_time_grid,
+    resolve_first_period_steady,
 )
 from .grid_context import SolverGridContext, grid_reference_from_solver_mesh
 from .grid_mapping import (
@@ -37,5 +38,6 @@ __all__ = [
     "describe_grid",
     "grid_reference_from_solver_mesh",
     "project_surfaces_to_planar_grid",
+    "resolve_first_period_steady",
     "resolve_domain_surfaces",
 ]

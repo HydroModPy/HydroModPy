@@ -519,7 +519,7 @@ Fields
 
    :bdg-primary:`TMeshConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L121>`__
 
-      Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
+      Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
 
    .. dropdown:: Fields of ``TMeshConfig``
       :icon: list-unordered
@@ -536,12 +536,12 @@ Fields
               <code class="hmp-field-name">itmuni</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "d"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L26>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "d"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25>`__
 
             Time unit used to interpret lenper values. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility.
 
 
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-dev
          :name: modflow6-tgrid-flow-regime
 
          .. raw:: html
@@ -550,9 +550,9 @@ Fields
               <code class="hmp-field-name">flow_regime</code>
             </div>
 
-         :bdg-primary:`Literal['steady', 'transient']` :bdg-secondary:`default = "transient"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L33>`__
+         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
 
-            Flow regime used to derive the steady/transient stress-period flags. In launcher mode this field is generally derived from [flow].flow_regime.
+            Deprecated compatibility field. Temporal mesh generation no longer derives steady/transient solver flags from tmesh; use [flow].flow_regime instead.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -564,7 +564,7 @@ Fields
               <code class="hmp-field-name">genmtd</code>
             </div>
 
-         :bdg-primary:`Literal['synthetic_regular', 'from_chron']` :bdg-secondary:`default = "synthetic_regular"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L40>`__
+         :bdg-primary:`Literal['synthetic_regular', 'from_chron']` :bdg-secondary:`default = "synthetic_regular"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39>`__
 
             Temporal generation method. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility.
 
@@ -578,7 +578,7 @@ Fields
               <code class="hmp-field-name">nper</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L47>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46>`__
 
             Stress-period count. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source.
 
@@ -592,7 +592,7 @@ Fields
               <code class="hmp-field-name">lenper</code>
             </div>
 
-         :bdg-primary:`float | int | list[int] | list[float] | None` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L54>`__
+         :bdg-primary:`float | int | list[int] | list[float] | None` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L53>`__
 
             Stress-period length(s) interpreted with itmuni. Scalar means one regular step length repeated nper times; list means one explicit value per stress period. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source.
 
@@ -606,7 +606,7 @@ Fields
               <code class="hmp-field-name">chron_path</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L63>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62>`__
 
             Chronicle file path used when genmtd='from_chron'. In launcher mode this field is generally not used.
 
@@ -620,7 +620,7 @@ Fields
               <code class="hmp-field-name">chron_dateformat</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "%Y-%m-%d %H:%M:%S"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L70>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "%Y-%m-%d %H:%M:%S"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L69>`__
 
             Date format string used to parse the chronicle file.
 
@@ -634,7 +634,7 @@ Fields
               <code class="hmp-field-name">chron_colsep</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "	"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L74>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "	"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L73>`__
 
             Column separator used in the chronicle file.
 
@@ -648,7 +648,7 @@ Fields
               <code class="hmp-field-name">chron_time_col</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "Date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L78>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "Date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L77>`__
 
             Name of the time/date column in the chronicle file.
 
@@ -662,7 +662,7 @@ Fields
               <code class="hmp-field-name">start_datetime</code>
             </div>
 
-         :bdg-primary:`Any | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L82>`__
+         :bdg-primary:`Any | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81>`__
 
             Lower datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source.
 
@@ -676,12 +676,12 @@ Fields
               <code class="hmp-field-name">end_datetime</code>
             </div>
 
-         :bdg-primary:`Any | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L89>`__
+         :bdg-primary:`Any | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88>`__
 
             Upper datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source.
 
 
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-dev
          :name: modflow6-tgrid-firstpersteady
 
          .. raw:: html
@@ -690,9 +690,9 @@ Fields
               <code class="hmp-field-name">firstpersteady</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L96>`__
+         :bdg-primary:`bool | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95>`__
 
-            Whether the first stress period is treated as steady-state.
+            Deprecated compatibility field. Use [flow].first_period_steady to control solver steady-state flags.
 
 
       .. container:: hmp-field hmp-field-level-dev
@@ -704,7 +704,7 @@ Fields
               <code class="hmp-field-name">tsmult</code>
             </div>
 
-         :bdg-primary:`int | float | list[int] | list[float]` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L100>`__
+         :bdg-primary:`int | float | list[int] | list[float]` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102>`__
 
             Time-step multiplier per stress period (scalar or list). In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing.
 
@@ -718,7 +718,7 @@ Fields
               <code class="hmp-field-name">ntsp</code>
             </div>
 
-         :bdg-primary:`int | list[int]` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L107>`__
+         :bdg-primary:`int | list[int]` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L109>`__
 
             Number of time steps per stress period (scalar or list). In launcher mode this field is currently forced to 1 and generally not intended for manual editing.
 
@@ -732,7 +732,7 @@ Fields
               <code class="hmp-field-name">temporal_nodata</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L114>`__
+         :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L116>`__
 
             No-data sentinel value for temporal data.
 
@@ -759,14 +759,12 @@ Starter TOML snippet
       # vertical = ...  # factory default
 
       [modflow6.tgrid]
-      # flow_regime = "transient"
       # genmtd = "synthetic_regular"
       # nper = 1
       # lenper = 1
       # chron_path = ...  # default = None
       # start_datetime = ...  # default = None
       # end_datetime = ...  # default = None
-      # firstpersteady = true
 
 Cases using this section
 ------------------------

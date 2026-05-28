@@ -16,11 +16,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.time.tmesh_config import TMeshConfig
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.core.units import factor_to_seconds, to_pandas_timedelta_unit
-from hydromodpy.physics.flow.regime import normalize_flow_regime
 
-_VALID_FLOW_REGIMES = {"steady", "transient"}
 _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
 
 
@@ -94,11 +92,6 @@ def _inclusive_end_candidate(
 def _validate_config(config: TMeshConfig) -> None:
     if str(config.itmuni).strip() == "":
         raise ValueError("itmuni cannot be empty.")
-    flow_regime = normalize_flow_regime(config.flow_regime)
-    if flow_regime not in _VALID_FLOW_REGIMES:
-        raise ValueError(
-            f"Invalid flow_regime={config.flow_regime!r}. Expected one of: {_VALID_FLOW_REGIMES}."
-        )
     if config.genmtd not in _VALID_GEN_METHODS:
         raise ValueError(
             f"Invalid genmtd={config.genmtd!r}. Expected one of: {_VALID_GEN_METHODS}."
@@ -265,18 +258,8 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
     return start_datetime, str(config.itmuni), perlen
 
 
-def _build_steady_state(config: TMeshConfig, perlen: np.ndarray) -> np.ndarray:
-    flow_regime = normalize_flow_regime(config.flow_regime)
-    if flow_regime == "steady":
-        return np.ones(len(perlen), dtype=bool)
-    if flow_regime == "transient":
-        steady_state = np.zeros(len(perlen), dtype=bool)
-        if bool(config.firstpersteady):
-            steady_state[0] = True
-        return steady_state
-    raise ValueError(
-        f"Invalid flow_regime={config.flow_regime!r}. Expected one of: {_VALID_FLOW_REGIMES}."
-    )
+def _build_steady_state(perlen: np.ndarray) -> np.ndarray:
+    return np.zeros(len(perlen), dtype=bool)
 
 
 def _expand_ntsp(value: int | list[int] | np.ndarray, nper: int) -> np.ndarray:
@@ -540,4 +523,4 @@ class TmeshGenerator:
         return _build_period_lengths(self._config)
 
     def _get_steady_state_array(self, perlen):
-        return _build_steady_state(self._config, np.asarray(perlen, dtype=float))
+        return _build_steady_state(np.asarray(perlen, dtype=float))

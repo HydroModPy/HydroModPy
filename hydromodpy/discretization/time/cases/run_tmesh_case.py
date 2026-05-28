@@ -1,7 +1,7 @@
 """Run temporal-mesh demo scenarios from a TOML configuration.
 
 Run with:
-    python -m hydromodpy.core.time.cases.run_tmesh_case
+    python -m hydromodpy.discretization.time.cases.run_tmesh_case
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.time.cases.run_tmesh_config import (
+from hydromodpy.discretization.time.cases.run_tmesh_config import (
     load_tmesh_cases_toml,
 )
-from hydromodpy.core.time.tmesh_generation import TmeshGenerator
+from hydromodpy.discretization.time.tmesh_generation import TmeshGenerator
 
 
 def _as_serializable(value: Any):

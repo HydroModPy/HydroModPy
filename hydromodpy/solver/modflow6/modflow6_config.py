@@ -11,7 +11,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
-from hydromodpy.core.time.tmesh_config import TMeshConfig
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 
@@ -123,8 +123,8 @@ class Modflow6Config(HydroModelBase):
         description=(
             "Optional temporal discretization payload as TMeshConfig. In "
             "launcher mode, stress periods are driven by [simulation.time]; "
-            "this section is mirrored for compatibility and mainly keeps "
-            "`firstpersteady`."
+            "steady/transient policy is driven by [flow].flow_regime and "
+            "[flow].first_period_steady."
         ),
     )
 

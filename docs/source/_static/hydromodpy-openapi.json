@@ -5188,6 +5188,21 @@
             "unit": "-",
             "widget_type": "select",
             "x-hmp-profile": "user"
+          },
+          "first_period_steady": {
+            "default": true,
+            "description": "For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.",
+            "display_name_fr": "Premiere periode stationnaire",
+            "examples": [
+              true,
+              false
+            ],
+            "help_text_fr": "En regime transitoire, force la premiere periode de calcul en stationnaire. En regime stationnaire, toutes les periodes restent stationnaires.",
+            "title": "First Period Steady",
+            "type": "boolean",
+            "unit": "-",
+            "widget_type": "checkbox",
+            "x-hmp-profile": "user"
           }
         },
         "title": "FlowConfig",
@@ -9509,7 +9524,7 @@
               }
             ],
             "default": null,
-            "description": "Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.",
+            "description": "Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.",
             "x-hmp-profile": "user"
           }
         },
@@ -10009,7 +10024,7 @@
               }
             ],
             "default": null,
-            "description": "Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.",
+            "description": "Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.",
             "x-hmp-profile": "user"
           }
         },
@@ -15489,18 +15504,18 @@
             "x-hmp-profile": "dev"
           },
           "flow_regime": {
-            "default": "transient",
-            "description": "Flow regime used to derive the steady/transient stress-period flags. In launcher mode this field is generally derived from [flow].flow_regime.",
-            "enum": [
-              "steady",
-              "transient"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "examples": [
-              "steady"
-            ],
+            "default": null,
+            "description": "Deprecated compatibility field. Temporal mesh generation no longer derives steady/transient solver flags from tmesh; use [flow].flow_regime instead.",
             "title": "Flow Regime",
-            "type": "string",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "genmtd": {
             "default": "synthetic_regular",
@@ -15628,14 +15643,18 @@
             "x-hmp-profile": "user"
           },
           "firstpersteady": {
-            "default": true,
-            "description": "Whether the first stress period is treated as steady-state.",
-            "examples": [
-              true
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
             ],
+            "default": null,
+            "description": "Deprecated compatibility field. Use [flow].first_period_steady to control solver steady-state flags.",
             "title": "Firstpersteady",
-            "type": "boolean",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "tsmult": {
             "anyOf": [
