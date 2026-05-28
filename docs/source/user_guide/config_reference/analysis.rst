@@ -1356,7 +1356,7 @@ Fields
               <code class="hmp-field-name">case_slug</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "launcher_simulation_flow_case"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/capability_gallery.py#L66>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "simulation_regression_flow_case"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/capability_gallery.py#L66>`__
 
             Stable identifier used in the gallery manifest.
 
@@ -2158,7 +2158,7 @@ Starter TOML snippet
       [analysis.capability_gallery]
       # enabled = false
       # output_dir = ...  # default = None
-      # case_slug = "launcher_simulation_flow_case"
+      # case_slug = "simulation_regression_flow_case"
       # assets = ["piezometric_map.png", "seepage_map.png", "hydrograph.png", "water_budget.png", "watershed_id_card.png"]
 
       [analysis.comparison]

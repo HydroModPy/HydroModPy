@@ -142,6 +142,22 @@ def load_data_dem_config_for_site_selection(path: str | Path) -> DataDemConfig |
     return data_cfg.dem
 
 
+def _data_dem_config_for_site_selection(
+    *,
+    config: SiteSelectionConfig,
+    config_path: str | Path | None,
+) -> DataDemConfig | None:
+    """Return the explicit ``[data.dem]`` config or the source shorthand fallback."""
+
+    if config_path is not None:
+        data_dem_config = load_data_dem_config_for_site_selection(config_path)
+        if data_dem_config is not None:
+            return data_dem_config
+    if config.dem.source == "ign_geoplateforme_dem":
+        return DataDemConfig.ign_geoplateforme_dem(force_refresh=config.dem.force_refresh)
+    return None
+
+
 def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
     """Validate a site-selection config and return a reproducible plan summary."""
 
@@ -480,13 +496,10 @@ def _maybe_resolve_map_dem_for_review(
             "dem_source": config.dem.source,
             "dem_usage": "review_map_background",
         }
-    data_dem_config: DataDemConfig | None = None
-    if config_path is not None:
-        data_dem_config = load_data_dem_config_for_site_selection(config_path)
-    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
-        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
-            force_refresh=config.dem.force_refresh
-        )
+    data_dem_config = _data_dem_config_for_site_selection(
+        config=config,
+        config_path=config_path,
+    )
     if data_dem_config is None:
         return {}
     map_dem_path = load_dem_path(
@@ -517,14 +530,10 @@ def _resolve_dem_path_for_delineation(
     if config.dem.path is not None:
         return Path(config.dem.path).expanduser().resolve()
 
-    data_dem_config: DataDemConfig | None = None
-    if config_path is not None:
-        data_dem_config = load_data_dem_config_for_site_selection(config_path)
-
-    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
-        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
-            force_refresh=config.dem.force_refresh
-        )
+    data_dem_config = _data_dem_config_for_site_selection(
+        config=config,
+        config_path=config_path,
+    )
 
     if data_dem_config is None:
         raise ConfigMissingError(
@@ -559,14 +568,10 @@ def _resolve_dem_path_for_observed_selection(
     if config.dem.path is not None:
         return Path(config.dem.path).expanduser().resolve()
 
-    data_dem_config: DataDemConfig | None = None
-    if config_path is not None:
-        data_dem_config = load_data_dem_config_for_site_selection(config_path)
-
-    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
-        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
-            force_refresh=config.dem.force_refresh
-        )
+    data_dem_config = _data_dem_config_for_site_selection(
+        config=config,
+        config_path=config_path,
+    )
 
     if data_dem_config is None:
         raise ConfigMissingError(
@@ -603,14 +608,10 @@ def _resolve_dem_path_for_generated_selection(
     if config.dem.path is not None:
         return Path(config.dem.path).expanduser().resolve()
 
-    data_dem_config: DataDemConfig | None = None
-    if config_path is not None:
-        data_dem_config = load_data_dem_config_for_site_selection(config_path)
-
-    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
-        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
-            force_refresh=config.dem.force_refresh
-        )
+    data_dem_config = _data_dem_config_for_site_selection(
+        config=config,
+        config_path=config_path,
+    )
 
     if data_dem_config is None:
         raise ConfigMissingError(
@@ -648,13 +649,10 @@ def _resolve_map_dem_path_for_review(
     if mode == "delineation":
         return delineation_dem_path
 
-    data_dem_config: DataDemConfig | None = None
-    if config_path is not None:
-        data_dem_config = load_data_dem_config_for_site_selection(config_path)
-    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
-        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
-            force_refresh=config.dem.force_refresh
-        )
+    data_dem_config = _data_dem_config_for_site_selection(
+        config=config,
+        config_path=config_path,
+    )
     if data_dem_config is None:
         return delineation_dem_path
 

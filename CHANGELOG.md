@@ -33,21 +33,17 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
-### Deprecated
-- The generic testbed vocabulary now treats `case` as the public canonical
-  execution unit. Legacy input spellings `[[testbed.variant]]`,
-  `[[testbed.variant_from_catalog]]`, `TestbedConfig(variants=...)`, and
-  `TestbedConfig(catalog_variants=...)` remain accepted for compatibility but
-  emit `DeprecationWarning`. New configs should use `[[testbed.case]]`,
-  `[[testbed.case_from_catalog]]`, `TestbedConfig(case=...)`, and
-  `TestbedConfig(case_from_catalog=...)`.
-
 ### Removed
 - `DomainGeographicContext.river_mesh_trace` and the direct
   `CatchmentDelineation.river_mesh_trace` runtime attribute were removed.
   Mesh river constraints now read `GeographicDerivedFeatures.rivers.river_mesh_trace`
   or an explicit `river_trace`; the in-memory mesh config source is now
   `rivers.source = "geographic_features"` instead of `"domain_geographic"`.
+- Generic testbed input spellings `[[testbed.variant]]`,
+  `[[testbed.variant_from_catalog]]`, `TestbedConfig(variants=...)`, and
+  `TestbedConfig(catalog_variants=...)` are no longer supported. Use
+  `[[testbed.case]]`, `[[testbed.case_from_catalog]]`,
+  `TestbedConfig(case=...)`, and `TestbedConfig(case_from_catalog=...)`.
 - Generic testbed outputs no longer write the legacy compatibility keys
   `variant_id`, `variant_label`, `variant_count`, or `variant_from_catalog`.
   Read `case_id`, `case_label`, `case_count`, and `case_from_catalog`

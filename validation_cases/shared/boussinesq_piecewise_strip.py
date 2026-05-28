@@ -12,13 +12,8 @@ import numpy as np
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
 )
-from validation_cases.shared.runtime import (
-    REPO_ROOT,
-    ValidationRunResult,
-    resolve_model_workspace,
-    resolve_validation_results_dir,
-    run_example_script,
-)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 PIECEWISE_STRIP_NX = 40
 PIECEWISE_STRIP_NY = 3
@@ -524,6 +519,12 @@ def run_piecewise_strip_boussinesq_launcher_case(
     apply_runtime_defaults: bool = True,
 ) -> ValidationRunResult:
     """Run one steady Boussinesq piecewise-strip case through ``hmp run``."""
+    from validation_cases.shared.runtime import (
+        ValidationRunResult,
+        resolve_model_workspace,
+        resolve_validation_results_dir,
+    )
+
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
         run_name=f"{case_id}_boussinesq",

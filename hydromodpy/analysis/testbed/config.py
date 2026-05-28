@@ -6,8 +6,6 @@ delegates to a runner, and gathers evidence artifacts.
 """
 
 from __future__ import annotations
-
-import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any
@@ -216,21 +214,6 @@ TestbedVariantConfig = TestbedCaseConfig
 TestbedCatalogVariantConfig = TestbedCatalogCaseConfig
 
 
-def _warn_legacy_case_spelling(
-    *,
-    legacy_label: str,
-    canonical_label: str,
-    stacklevel: int,
-) -> None:
-    warnings.warn(
-        f"{legacy_label} is deprecated; use {canonical_label}. "
-        "The legacy variant spelling will be removed in a future "
-        "compatibility-breaking release.",
-        DeprecationWarning,
-        stacklevel=stacklevel,
-    )
-
-
 def _select_case_items(
     section: Mapping[str, Any],
     *,
@@ -241,20 +224,13 @@ def _select_case_items(
     legacy_value = section.get(legacy_key)
     canonical_label = f"testbed.{canonical_key}"
     legacy_label = f"testbed.{legacy_key}"
-    if canonical_value is not None and legacy_value is not None:
+    if legacy_value is not None:
         raise ValueError(
-            f"Use only {canonical_label}; {legacy_label} is a legacy spelling and "
-            "cannot be combined with the canonical case spelling."
+            f"{legacy_label} is no longer supported; use {canonical_label}."
         )
     if canonical_value is not None:
         return canonical_value, canonical_label
-    if legacy_value is not None:
-        _warn_legacy_case_spelling(
-            legacy_label=legacy_label,
-            canonical_label=canonical_label,
-            stacklevel=3,
-        )
-    return legacy_value, legacy_label
+    return None, canonical_label
 
 
 class TestbedConfig(HydroModelBase):
@@ -319,20 +295,10 @@ class TestbedConfig(HydroModelBase):
         """Canonical public alias for catalog-backed case generation rules."""
         return self.case_from_catalog
 
-    @property
-    def variants(self) -> tuple[TestbedCaseConfig, ...]:
-        """Legacy Python alias for explicit executable cases."""
-        return self.case
-
-    @property
-    def catalog_variants(self) -> tuple[TestbedCatalogCaseConfig, ...]:
-        """Legacy Python alias for catalog-backed case generation rules."""
-        return self.case_from_catalog
-
     @model_validator(mode="before")
     @classmethod
-    def _accept_legacy_variant_field_names(cls, data: Any) -> Any:
-        """Accept direct Python construction with legacy field names."""
+    def _reject_legacy_variant_field_names(cls, data: Any) -> Any:
+        """Reject direct Python construction with legacy field names."""
         if not isinstance(data, Mapping):
             return data
         payload = dict(data)
@@ -343,17 +309,10 @@ class TestbedConfig(HydroModelBase):
         for legacy_key, canonical_key in legacy_pairs:
             if legacy_key not in payload:
                 continue
-            if canonical_key in payload:
-                raise ValueError(
-                    f"Use only {canonical_key}; {legacy_key} is a legacy Python "
-                    "field name and cannot be combined with the canonical case field."
-                )
-            _warn_legacy_case_spelling(
-                legacy_label=f"TestbedConfig.{legacy_key}",
-                canonical_label=f"TestbedConfig.{canonical_key}",
-                stacklevel=3,
+            raise ValueError(
+                f"TestbedConfig.{legacy_key} is no longer supported; "
+                f"use TestbedConfig.{canonical_key}."
             )
-            payload[canonical_key] = payload.pop(legacy_key)
         return payload
 
     @classmethod

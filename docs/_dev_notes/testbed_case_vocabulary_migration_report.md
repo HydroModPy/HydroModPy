@@ -33,14 +33,13 @@ Le parser accepte maintenant les spellings canoniques:
 - `[[testbed.case]]`;
 - `[[testbed.case_from_catalog]]`.
 
-Les spellings historiques restent acceptes temporairement:
+Dans cette premiere phase, les spellings historiques restaient acceptes
+temporairement:
 
 - `[[testbed.variant]]`;
 - `[[testbed.variant_from_catalog]]`.
 
-Un TOML qui melange la forme canonique `case` et la forme historique `variant`
-dans la meme section est rejete. Cela evite une matrice ambigue dans laquelle
-deux vocabulaires decrivent les memes executions.
+Cette compatibilite d'entree a ete retiree au lot 10.
 
 ### Lot 3 - sorties compatibles mais orientees `case`
 
@@ -51,15 +50,15 @@ Les artefacts generiques ecrivent maintenant les champs canoniques:
 - `case_count`;
 - `case_from_catalog`.
 
-Les champs historiques restent presents pour compatibilite aval:
+Dans cette premiere phase, les champs historiques restaient presents pour
+compatibilite aval:
 
 - `variant_id`;
 - `variant_label`;
 - `variant_count`;
 - `variant_from_catalog`.
 
-Les rapports testbed lisent prioritairement `case_*` puis retombent sur
-`variant_*` pour les runs existants.
+Cette compatibilite de sortie a ete retiree au lot 9.
 
 ### Lot 4 - migration des exemples TOML et des tests inline
 
@@ -70,14 +69,14 @@ canonique:
 - `examples/projects/18_site_selection_to_testbed/**/*.toml`.
 
 Les TOML inline de `tests/unit/launchers/test_testbed_launcher.py` utilisent
-maintenant `[[testbed.case]]` et `[[testbed.case_from_catalog]]`, sauf les tests
-dedies a la compatibilite legacy:
+maintenant `[[testbed.case]]` et `[[testbed.case_from_catalog]]`. Les tests
+dedies au legacy verifient le rejet de:
 
-- acceptation temporaire de `[[testbed.variant]]`;
-- acceptation temporaire de `[[testbed.variant_from_catalog]]`;
-- rejet des alias retires `[[testbed.variants]]` et
+- `[[testbed.variant]]`;
+- `[[testbed.variant_from_catalog]]`;
+- `[[testbed.variants]]` et
   `[[testbed.catalog_variant]]`;
-- rejet d'un TOML qui melange `case` et `variant`.
+- un TOML qui melange `case` et `variant`.
 
 ### Lot 5 - reference de configuration generee
 
@@ -86,16 +85,14 @@ Les champs Pydantic publics du `TestbedConfig` ont ete renommes:
 - `variants` -> `case`;
 - `catalog_variants` -> `case_from_catalog`.
 
-Les proprietes Python de compatibilite restent disponibles:
+Les proprietes Python canoniques restent disponibles:
 
 - `cases`;
 - `catalog_cases`;
-- `variants`;
-- `catalog_variants`.
 
-Le validateur Pydantic accepte encore une construction Python directe avec les
-anciens noms `variants` et `catalog_variants`, mais les normalise vers les
-champs canoniques. La reference generee expose donc maintenant:
+Le validateur Pydantic rejette une construction Python directe avec les anciens
+noms `variants` et `catalog_variants`. La reference generee expose donc
+maintenant:
 
 - `testbed.case`;
 - `testbed.case_from_catalog`.
@@ -108,7 +105,7 @@ avec un seul crochet dans la reference.
 
 ### Lot 6 - politique de deprecation runtime
 
-Les spellings historiques encore supportes emettent maintenant un
+Pendant la phase de transition, les spellings historiques emettaient un
 `DeprecationWarning` lorsqu'ils sont utilises comme entree:
 
 - `[[testbed.variant]]` -> `[[testbed.case]]`;
@@ -117,29 +114,19 @@ Les spellings historiques encore supportes emettent maintenant un
 - `TestbedConfig(catalog_variants=...)` ->
   `TestbedConfig(case_from_catalog=...)`.
 
-Les alias de lecture Python (`cfg.variants`, `cfg.catalog_variants`) restent
-silencieux pour ne pas casser les consommateurs existants. Les colonnes et cles
-de sortie `variant_*` restent egalement silencieuses: ce sont des sorties de
-compatibilite, pas le canal recommande pour les nouveaux consommateurs.
-
-Politique retenue: conserver ces entrees legacy jusqu'a une prochaine phase de
-compatibilite cassante explicitement annoncee dans une note de release ou un
-changelog. Les nouveaux TOML, la reference de configuration et les nouveaux
-consommateurs doivent utiliser `case`.
+Cette politique a ete remplacee par le retrait effectif du lot 10.
 
 ### Lot 7 - publication de la deprecation
 
 La deprecation est maintenant visible dans les surfaces publiques:
 
-- `CHANGELOG.md` ajoute une entree `Deprecated` dans `[Unreleased]`;
+- `CHANGELOG.md` a d'abord ajoute une entree `Deprecated` dans `[Unreleased]`;
 - `docs/source/user_guide/workflows/testbed.rst` utilise `case` dans les
   exemples et documente la compatibilite legacy `variant`;
 - la page workflow renvoie les nouveaux TOML vers `[[testbed.case]]` et
   `[[testbed.case_from_catalog]]`.
 
-Le jalon de suppression reste exprime comme une future release cassante, sans
-numero de version fixe. C'est volontaire tant que la ligne de release cible
-n'est pas decidee.
+Cette publication a ete transformee en entree `Removed` au lot 10.
 
 ### Lot 8 - nettoyage interne borne
 
@@ -169,6 +156,51 @@ Enfin, les champs de catalogue par defaut sont maintenant `case_id` et
 presente lorsque les nouveaux champs par defaut ne sont pas trouves, afin de ne
 pas casser les catalogues historiques sans `id_field` explicite.
 
+### Lot 9 - retrait des sorties `variant_*`
+
+Les artefacts generiques testbed n'ecrivent plus les cles de compatibilite:
+
+- `variant_id`;
+- `variant_label`;
+- `variant_count`;
+- `variant_from_catalog`.
+
+Les sorties canoniques restantes sont:
+
+- `case_id`;
+- `case_label`;
+- `case_count`;
+- `case_from_catalog`.
+
+Les consommateurs aval cibles ont ete migres:
+
+- tests launcher et regional-lab;
+- rapport HTML testbed generique;
+- rapport HTML NWT flux testbed;
+- changelog `[Unreleased]`.
+
+Les spellings d'entree legacy restaient separes de cette decision jusqu'au
+lot 10.
+
+### Lot 10 - retrait des entrees legacy
+
+Le parser generique rejette maintenant les entrees historiques:
+
+- `[[testbed.variant]]`;
+- `[[testbed.variant_from_catalog]]`.
+
+La construction Python directe rejette aussi:
+
+- `TestbedConfig(variants=...)`;
+- `TestbedConfig(catalog_variants=...)`.
+
+Les proprietes legacy `cfg.variants` et `cfg.catalog_variants` ont ete
+retirees. Les consommateurs Python doivent utiliser `cfg.cases`,
+`cfg.catalog_cases`, `cfg.case` ou `cfg.case_from_catalog`.
+
+Le changelog `[Unreleased]` decrit maintenant ces retraits dans la section
+`Removed`.
+
 ## Fichiers principaux touches
 
 - `CHANGELOG.md`
@@ -181,6 +213,7 @@ pas casser les catalogues historiques sans `id_field` explicite.
 - `hydromodpy/analysis/testbed/README.md`
 - `tools/doc_config/generate.py`
 - `docs/source/architecture/simulation/testbed-workflow-architecture.rst`
+- `docs/source/user_guide/workflows/regional_lab.rst`
 - `docs/source/user_guide/workflows/testbed.rst`
 - `docs/source/user_guide/config_reference/testbed.rst`
 - `docs/source/user_guide/config_reference/config_index.rst`
@@ -188,7 +221,10 @@ pas casser les catalogues historiques sans `id_field` explicite.
 - `docs/source/_static/hmp-config-search.json`
 - `docs/source/_static/hydromodpy-schema.json`
 - `docs/source/_static/hydromodpy-openapi.json`
+- `tests/unit/analysis/test_testbed_web_report.py`
 - `tests/unit/launchers/test_testbed_launcher.py`
+- `tests/unit/launchers/test_boussinesq_petsc_vi_regression_testbed.py`
+- `tests/unit/launchers/test_regional_lab_launcher.py`
 - `examples/projects/10_testbed_workflow/**/*.toml`
 - `examples/projects/18_site_selection_to_testbed/**/*.toml`
 - `examples/projects/10_testbed_workflow/reporting/generate_testbed_web_report.py`
@@ -272,6 +308,32 @@ Resultats:
 - `30 passed` pour launcher testbed, bridge site-selection et regression PETSc;
 - `39 passed` pour les tests config/schema cibles et globaux.
 
+Validation apres lot 9:
+
+```powershell
+python -m pytest tests\unit\launchers\test_testbed_launcher.py tests\unit\launchers\test_site_selection_bridge_examples.py tests\unit\launchers\test_boussinesq_petsc_vi_regression_testbed.py tests\unit\launchers\test_regional_lab_launcher.py
+python -m pytest tests\unit\analysis\test_testbed_web_report.py
+```
+
+Resultats:
+
+- `53 passed` pour launcher testbed, bridge site-selection, regression PETSc et
+  regional-lab;
+- `1 passed` pour le rapport web testbed.
+
+Validation apres lot 10:
+
+```powershell
+python -m pytest tests\unit\launchers\test_testbed_launcher.py tests\unit\launchers\test_site_selection_bridge_examples.py tests\unit\launchers\test_boussinesq_petsc_vi_regression_testbed.py tests\unit\launchers\test_regional_lab_launcher.py
+python -m pytest tests\unit\analysis\test_testbed_web_report.py
+```
+
+Resultats:
+
+- `53 passed` pour launcher testbed, bridge site-selection, regression PETSc et
+  regional-lab;
+- `1 passed` pour le rapport web testbed.
+
 ## Etat courant
 
 Le contrat public prefere est:
@@ -288,30 +350,29 @@ value = "5e-6 m/s"
 id_template = "{case_id}"
 ```
 
-Le contrat historique reste supporte mais emet un `DeprecationWarning`:
+Le contrat historique n'est plus supporte:
 
 ```toml
 [[testbed.variant]]
 id = "low_k"
 
 [[testbed.variant_from_catalog]]
-id_template = "{variant_id}"
+id_template = "{case_id}"
 ```
 
-Les sorties CSV/JSON sont volontairement redondantes pendant la migration. Les
-nouveaux consommateurs doivent lire `case_id` / `case_label`; les anciens
-consommateurs peuvent continuer a lire `variant_id` / `variant_label`.
+Les sorties CSV/JSON ne sont plus redondantes: les consommateurs doivent lire
+`case_id` / `case_label` et `case_count` / `case_from_catalog`.
 
 ## Dette restante
 
 1. Quelques noms internes Python restent centres sur `variant` pour
    compatibilite ou dette locale: `catalog_variants.py`, le champ interne
    `TestbedPlannedCase.variant`, et l'alias `expand_catalog_variants`.
-2. Certains scripts et rapports aval conservent des variables locales
-   `variant_id` meme lorsqu'ils lisent maintenant `case_id`.
-3. Le jalon exact de retrait doit encore etre rattache a une version. La
-   deprecation est publiee, mais le calendrier de suppression reste volontairement
-   generique.
+2. Certains scripts de demonstration hors runtime generique conservent
+   `variant` lorsqu'il designe un vrai axe scientifique ou une famille de cas.
+3. Les aliases Python de type `TestbedVariantConfig` et
+   `TestbedCatalogVariantConfig` restent disponibles pour compatibilite
+   d'import, meme si la reference publique expose les noms `Case`.
 4. Les documents generes ou historiques hors perimetre peuvent encore citer
    `variant`; ces occurrences doivent etre traitees par familles, pas par
    remplacement global.
@@ -320,32 +381,31 @@ consommateurs peuvent continuer a lire `variant_id` / `variant_label`.
 
 - Renommer les modeles Pydantic directement risque de modifier la reference de
   configuration generee et des imports publics.
-- Supprimer trop vite `variant_id` casserait les rapports existants et certains
-  artefacts deja produits.
+- Les artefacts historiques qui contiennent seulement `variant_*` doivent etre
+  regeneres ou convertis avant lecture par les nouveaux rapports.
 - `variant` peut rester legitime dans d'autres domaines du depot, notamment
   les sensibilites scientifiques, les solveurs et la galerie. Le nettoyage doit
   rester borne au contrat testbed generique.
 
 ## Prochaine etape recommandee
 
-Lot 9: auditer les consommateurs aval et les sorties legacy.
+Lot 11: isoler les derniers noms internes legacy.
 
-Objectif: decider si les champs de sortie `variant_*` et les variables locales
-aval restent des alias de compatibilite longue duree ou deviennent une dette a
-supprimer au prochain jalon cassant.
+Objectif: reduire la dette interne sans toucher aux vrais variants
+scientifiques hors testbed generique.
 
 Actions proposees:
 
-1. Auditer les scripts de reporting qui lisent encore `variant_id` /
-   `variant_label`.
-2. Distinguer les vrais variants scientifiques (par exemple low/high K) des
-   identifiants d'unite executable testbed.
-3. Fixer si `variant_*` reste dans les CSV/JSON au-dela du prochain jalon
-   cassant.
-4. Eventuellement isoler le module `catalog_variants.py` derriere un nouveau
-   module `catalog_cases.py`, avec import legacy.
+1. Ajouter un module canonique `catalog_cases.py` et garder
+   `catalog_variants.py` comme shim d'import.
+2. Renommer le champ interne `TestbedPlannedCase.variant` en `case_config` si
+   le churn reste local.
+3. Decider si les aliases de type `TestbedVariantConfig` et
+   `TestbedCatalogVariantConfig` restent exports ou passent par un shim.
+4. Laisser `variant` intact dans les exemples ou rapports ou il designe un vrai
+   axe scientifique.
 
-Validation minimale attendue apres lot 9:
+Validation minimale attendue apres lot 11:
 
 ```powershell
 python -m pytest tests\unit\launchers\test_testbed_launcher.py

@@ -157,7 +157,7 @@ Operational checks
 Cache layout
 """"""""""""
 
-The dynamic source separates raw archives, extracted archive contents, and
+The Geoplateforme source separates raw archives, extracted archive contents, and
 processed GeoTIFFs:
 
 .. code-block:: text
@@ -244,6 +244,7 @@ The helper stores raw archives by dataset, resolution, and department:
          D029/
            BDALTIV2_...D029....7z
 
-For regional ``site_selection`` review maps, BD ALTI 25 m is the recommended
-default. RGE ALTI 5 m or 1 m should be reserved for smaller local extents
-unless the storage and processing cost has been accepted explicitly.
+For regional ``site_selection`` review maps, BD ALTI 25 m is the assembled DEM
+source exposed by the data manager. RGE ALTI 5 m or 1 m is available only as
+raw archive inspection/download through the helper until storage and assembly
+guardrails are defined explicitly.

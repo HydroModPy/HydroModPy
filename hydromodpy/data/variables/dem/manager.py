@@ -227,6 +227,4 @@ def _resolution_for_ign_geoplateforme(source_cfg: Any) -> float:
     dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
     if dataset == "bd-alti":
         return 25.0
-    if dataset == "rge-alti":
-        return 5.0
-    raise ValueError(f"Unsupported IGN DEM dataset: {dataset!r}")
+    raise ValueError(f"Unsupported assembled IGN DEM dataset: {dataset!r}")

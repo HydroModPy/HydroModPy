@@ -10,8 +10,8 @@ is left empty.
 Resolution order for a single source:
 
 - ``source = "custom"`` resolves ``path`` against the TOML directory.
-- ``source = "ign_geoplateforme_dem"`` uses the dynamic IGN Geoplateforme DEM
-  client with an outlet-buffer bootstrap bbox.
+- ``source = "ign_geoplateforme_dem"`` uses the IGN Geoplateforme DEM client
+  with an outlet-buffer bootstrap bbox.
 
 The first source that yields a usable path wins.
 """

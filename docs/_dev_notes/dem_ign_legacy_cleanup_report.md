@@ -25,14 +25,14 @@ tests anti-retour ajoutes explicitement et les notes `_dev_notes` historiques.
 - Suppression de l'export lazy `IgnBdaltiDemSource`.
 - Suppression du dispatch `DemManager._fetch_ign_bdalti`.
 - Suppression du bootstrap resolver `ign_bdalti`.
-- Migration des metadonnees statiques BD ALTI vers
-  `hydromodpy/data/variables/dem/apis/bdalti_static.py`.
-- Conservation des helpers `_BDALTI_ARCHIVES`, `_extract_7z`,
+- Migration de l'index d'archives BD ALTI vers
+  `hydromodpy/data/variables/dem/apis/_bdalti_archive_index.py`.
+- Conservation des helpers `BDALTI_25M_ASC_ARCHIVES`, `_extract_7z`,
   `_find_asc_files` et `_request_hash_str` comme details internes utilises par
   `ign_dem_fr`.
-- Retrait de `bdalti_static` de l'export paresseux du package
-  `hydromodpy.data.variables.dem.apis`; le module reste importable directement
-  par les tests et le client interne qui en ont besoin.
+- Retrait de l'index BD ALTI de l'export paresseux du package
+  `hydromodpy.data.variables.dem.apis`; il reste un detail interne importe
+  directement par le client et ses tests.
 - `site_selection` et `site_selection_data` construisent maintenant
   `DataDemConfig.ign_geoplateforme_dem(...)` quand une source DEM publique IGN
   est declaree.
@@ -57,11 +57,27 @@ tests anti-retour ajoutes explicitement et les notes `_dev_notes` historiques.
 
 - Ajout de tests explicites qui rejettent `source = "ign_bdalti"` au niveau
   `DemSourceConfig` et `DemConfig`.
-- Retrait de `bdalti_static` de `hydromodpy.data.variables.dem.apis.__all__`;
-  le module reste un detail importable directement par `ign_dem_fr` et ses
-  tests.
+- Retrait de l'index BD ALTI interne de `hydromodpy.data.variables.dem.apis.__all__`.
 - Scan strict hors `_dev_notes`: les seules occurrences restantes de
   `ign_bdalti` sont les tests de rejet.
+
+## Lot complementaire - clarification de cloture
+
+- Le provider public `ign_geoplateforme_dem` n'expose plus que
+  `dataset = "bd-alti"` dans le schema utilisateur. Le chemin d'assemblage
+  raster supporte explicitement BD ALTI 25 m ASC.
+- RGE ALTI reste disponible uniquement dans le helper de telechargement brut
+  (`tools/download_dem_fr`) et dans les fonctions de discovery/download bas
+  niveau. Il n'est pas expose comme raster assemble par le data manager V1.
+- Le fallback sur l'index interne des archives BD ALTI est documente comme
+  resilience interne du client Geoplateforme, pas comme provider legacy.
+- Le module interne a ete renomme en `_bdalti_archive_index.py` et le flag de
+  metadonnees du cache adopte s'appelle maintenant `adopted_unversioned_cache`.
+- La resolution DEM des workflows `site_selection` a ete factorisee pour
+  eviter de dupliquer le fallback `DataDemConfig.ign_geoplateforme_dem(...)`.
+- La reference de configuration, le schema JSON, l'OpenAPI wrapper, l'index de
+  recherche config et les diagrammes ont ete regeneres apres resserrement du
+  schema.
 
 ## Validations
 
@@ -74,18 +90,24 @@ tests anti-retour ajoutes explicitement et les notes `_dev_notes` historiques.
 - Scan final runtime/docs publics:
   `rg "ign_bdalti|IgnBdalti|fetch_bdalti" hydromodpy examples tools docs/source`
   ne retourne plus de reference.
+- Validation du lot de clarification:
+  `python -m ruff check` sur les fichiers DEM/site-selection/tests touches: OK.
+- `python -m pytest -q tests/unit/config/test_discriminated_unions.py tests/unit/data_managers/test_variable_managers_smoke.py tests/unit/data_managers/test_dem_manager.py tests/unit/data_managers/test_geoplateforme_dem_downloader.py -o addopts=""`: 137 passed.
+- `python -m pytest -q tests/unit/test_docs_config_consistency.py tests/unit/tools/test_verify_docs_refresh_outputs.py -o addopts=""`: 29 passed.
+- `python -m pytest -q tests/unit/site_selection -o addopts=""`: 153 passed.
 
-## Residuel avant cloture complete
+## Etat de cloture
 
-1. Ajouter un vrai test reseau/CLI Geoplateforme sur une petite emprise ou un
-   departement unique, a lancer seulement quand l'environnement reseau est
-   explicitement active.
-2. Durcir le client Geoplateforme: retry HTTP, messages d'erreur sur URL
-   manquante, nettoyage d'archives partielles et verification cache plus
-   explicite.
-3. Decider le niveau de support RGE ALTI: discovery seulement, assemblage
-   borne par garde-fous, ou report explicite apres V1.
-4. Ajouter `erdantic` dans l'environnement docs si les diagrammes ER doivent
-   rester publies et regenerables.
-5. Nettoyer optionnellement les notes `_dev_notes` historiques si l'objectif
+Le chantier legacy `ign_bdalti` peut etre cloture.
+
+Les points suivants ne bloquent pas la cloture; ils relevent d'un suivi
+Geoplateforme/RGE ALTI separe:
+
+1. Valider periodiquement un vrai test reseau/download/assembly Geoplateforme
+   avec les variables d'environnement explicites.
+2. Suivre l'evolution de la discovery Geoplateforme BD ALTI; le fallback interne
+   pourra etre retire si le service devient suffisamment stable et complet.
+3. Ouvrir un chantier dedie si RGE ALTI doit devenir un raster assemble par le
+   data manager, avec garde-fous de volume, fragments d'archives et cache.
+4. Nettoyer optionnellement les notes `_dev_notes` historiques si l'objectif
    devient un grep strict sans aucune mention de `ign_bdalti` dans tout le repo.

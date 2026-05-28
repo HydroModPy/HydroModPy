@@ -128,10 +128,8 @@ Compatibility Note
 ~~~~~~~~~~~~~~~~~~
 
 ``case`` is the canonical testbed vocabulary. The historical TOML spellings
-``[[testbed.variant]]`` and ``[[testbed.variant_from_catalog]]`` are still
-accepted for compatibility, but they emit ``DeprecationWarning`` and will be
-removed in a future compatibility-breaking release. New configs should use
-``[[testbed.case]]`` and ``[[testbed.case_from_catalog]]``.
+``[[testbed.variant]]`` and ``[[testbed.variant_from_catalog]]`` are no longer
+accepted. Use ``[[testbed.case]]`` and ``[[testbed.case_from_catalog]]``.
 
 Catalog-Backed Cases
 --------------------

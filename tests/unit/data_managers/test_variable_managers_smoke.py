@@ -118,6 +118,10 @@ class TestDemConfig:
         with pytest.raises(ValueError):
             DemConfig(sources=[{"source": "ign_bdalti", "resolution_m": 25.0}])
 
+    def test_rge_alti_dataset_rejected_for_assembled_geoplateforme_source(self):
+        with pytest.raises(ValueError):
+            IgnGeoplateformeDemSource(dataset="rge-alti")
+
     def test_top_level_config(self, tmp_path):
         cfg = DemConfig(sources=[CustomDemSource(path=tmp_path)])
         assert len(cfg.sources) == 1

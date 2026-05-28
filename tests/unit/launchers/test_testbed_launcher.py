@@ -175,8 +175,8 @@ def test_testbed_config_parses_mesh_cases(tmp_path: Path) -> None:
     assert cfg.base_config_path == base_config.resolve()
     assert cfg.output_root == (tmp_path / "outputs/testbed").resolve()
     assert cfg.execute is False
-    assert cfg.cases is cfg.variants
-    assert cfg.variants[0].overlay["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+    assert cfg.cases is cfg.case
+    assert cfg.cases[0].overlay["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
     assert cfg.metrics[0].source == "n_cells"
 
 
@@ -234,11 +234,11 @@ def test_testbed_config_rejects_mixed_case_and_variant_spellings(tmp_path: Path)
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Use only testbed.case"):
+    with pytest.raises(ValueError, match="testbed.variant is no longer supported"):
         MethodTestbedConfig.from_file(config_path)
 
 
-def test_testbed_config_accepts_legacy_variant_spelling(tmp_path: Path) -> None:
+def test_testbed_config_rejects_legacy_variant_spelling(tmp_path: Path) -> None:
     base_config = tmp_path / "mesh_base.toml"
     _write_mesh_base(base_config)
     config_path = tmp_path / "testbed.toml"
@@ -263,19 +263,13 @@ def test_testbed_config_accepts_legacy_variant_spelling(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.warns(
-        DeprecationWarning,
-        match=r"testbed\.variant is deprecated; use testbed\.case",
-    ):
-        cfg = MethodTestbedConfig.from_file(config_path)
-
-    assert cfg.variants[0].id == "coarse"
-    assert cfg.variants[0].overlay["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+    with pytest.raises(ValueError, match="testbed.variant is no longer supported"):
+        MethodTestbedConfig.from_file(config_path)
 
 
-def test_testbed_config_accepts_legacy_python_variant_field_names(tmp_path: Path) -> None:
-    with pytest.warns(DeprecationWarning) as warning_records:
-        cfg = MethodTestbedConfig(
+def test_testbed_config_rejects_legacy_python_variant_field_names(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="TestbedConfig.variants is no longer supported"):
+        MethodTestbedConfig(
             config_path=tmp_path / "testbed.toml",
             base_dir=tmp_path,
             id="direct_config",
@@ -285,19 +279,23 @@ def test_testbed_config_accepts_legacy_python_variant_field_names(tmp_path: Path
             output_root=tmp_path / "outputs",
             runner={"type": "simulation"},
             variants=[{"id": "coarse", "label": "Coarse"}],
-            catalog_variants=[{"id_template": "{case_id}"}],
         )
 
-    assert cfg.case[0].id == "coarse"
-    assert cfg.case_from_catalog[0].id_template == "{case_id}"
-    assert cfg.variants is cfg.case
-    assert cfg.catalog_variants is cfg.case_from_catalog
-    warning_messages = [str(record.message) for record in warning_records]
-    assert any("TestbedConfig.variants is deprecated" in message for message in warning_messages)
-    assert any(
-        "TestbedConfig.catalog_variants is deprecated" in message
-        for message in warning_messages
-    )
+    with pytest.raises(
+        ValueError,
+        match="TestbedConfig.catalog_variants is no longer supported",
+    ):
+        MethodTestbedConfig(
+            config_path=tmp_path / "testbed.toml",
+            base_dir=tmp_path,
+            id="direct_config",
+            profile="generic",
+            subject="mesh",
+            purpose="robustness",
+            output_root=tmp_path / "outputs",
+            runner={"type": "simulation"},
+            catalog_variants=[{"id_template": "{case_id}"}],
+        )
 
 
 def test_testbed_config_rejects_removed_mesh_catchment_runner(tmp_path: Path) -> None:
@@ -389,7 +387,7 @@ def test_testbed_config_parses_flow_cases(tmp_path: Path) -> None:
     assert cfg.runner.type == "simulation"
     assert cfg.runner.no_display is True
     assert cfg.base_config_path == base_config.resolve()
-    assert cfg.variants[0].overlay["flow"]["param"]["K"]["field"]["value"] == "5e-6 m/s"
+    assert cfg.cases[0].overlay["flow"]["param"]["K"]["field"]["value"] == "5e-6 m/s"
 
 
 def test_flow_testbed_requires_separate_base_config(tmp_path: Path) -> None:
@@ -667,7 +665,7 @@ def test_testbed_config_rejects_legacy_catalog_variant_alias(tmp_path: Path) -> 
         MethodTestbedConfig.from_file(config_path)
 
 
-def test_testbed_config_accepts_legacy_variant_from_catalog_spelling(tmp_path: Path) -> None:
+def test_testbed_config_rejects_legacy_variant_from_catalog_spelling(tmp_path: Path) -> None:
     base_config = tmp_path / "mesh_base.toml"
     _write_mesh_base(base_config)
     catalog_path = tmp_path / "case_catalog.csv"
@@ -709,18 +707,11 @@ def test_testbed_config_accepts_legacy_variant_from_catalog_spelling(tmp_path: P
         encoding="utf-8",
     )
 
-    with pytest.warns(
-        DeprecationWarning,
-        match=(
-            r"testbed\.variant_from_catalog is deprecated; "
-            r"use testbed\.case_from_catalog"
-        ),
+    with pytest.raises(
+        ValueError,
+        match="testbed.variant_from_catalog is no longer supported",
     ):
-        cfg = MethodTestbedConfig.from_file(config_path)
-        summary = MethodTestbedLauncher(config_path).run()
-
-    assert cfg.catalog_variants
-    assert summary["case_count"] == 1
+        MethodTestbedConfig.from_file(config_path)
 
 
 def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> None:

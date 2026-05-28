@@ -53,7 +53,12 @@ def discover_ign_dem_files(
     rate_limiter: RateLimiter | None = None,
     allow_static_bdalti_fallback: bool = True,
 ) -> list[DownloadFile]:
-    """Discover downloadable IGN DEM archives for departments."""
+    """Discover downloadable IGN DEM archives for departments.
+
+    Geoplateforme discovery is attempted first. For BD ALTI 25 m ASC only, the
+    optional fallback uses HydroModPy's internal archive index to keep the
+    assembled raster path usable while provider-side discovery is incomplete.
+    """
 
     resource_name = _resource_name(dataset)
     files: list[DownloadFile] = []
@@ -81,7 +86,7 @@ def discover_ign_dem_files(
             except GeoPlateformeDownloadError:
                 discovery_failed = True
         if not department_files and allow_static_bdalti_fallback and dataset == "bd-alti":
-            department_files = _static_bdalti_files(
+            department_files = _bdalti_archive_index_fallback_files(
                 department=department,
                 resolution_m=resolution_m,
                 file_format=file_format,
@@ -188,7 +193,7 @@ def fetch_ign_dem(
         department_code_to_padded,
         find_departments_in_bbox,
     )
-    from hydromodpy.data.variables.dem.apis.bdalti_static import (
+    from hydromodpy.data.variables.dem.apis._bdalti_archive_index import (
         _extract_7z,
         _find_asc_files,
         _request_hash_str,
@@ -348,20 +353,27 @@ def _discover_department_files(
     return discovered
 
 
-def _static_bdalti_files(
+def _bdalti_archive_index_fallback_files(
     *,
     department: str,
     resolution_m: float | None,
     file_format: str,
 ) -> list[DownloadFile]:
+    """Return BD ALTI files from the internal archive index.
+
+    This is an internal resilience path for the Geoplateforme client, not a
+    separate legacy user-facing source.
+    """
     if resolution_m is not None and float(resolution_m) != 25.0:
         return []
     if file_format.upper() != "ASC":
         return []
-    from hydromodpy.data.variables.dem.apis.bdalti_static import _BDALTI_ARCHIVES
+    from hydromodpy.data.variables.dem.apis._bdalti_archive_index import (
+        BDALTI_25M_ASC_ARCHIVES,
+    )
 
     padded = department[1:] if department.startswith("D") else department
-    archive_name = _BDALTI_ARCHIVES.get(padded)
+    archive_name = BDALTI_25M_ASC_ARCHIVES.get(padded)
     if archive_name is None:
         return []
     file_name = f"{archive_name}.7z"
@@ -539,7 +551,7 @@ def _processed_cache_is_usable(
         request=request,
         raster_path=raster_path,
         archive_paths=[],
-        adopted_legacy_cache=True,
+        adopted_unversioned_cache=True,
     )
     return True
 
@@ -584,7 +596,7 @@ def _write_processed_cache_metadata(
     request: dict[str, object],
     raster_path: Path,
     archive_paths: Sequence[Path],
-    adopted_legacy_cache: bool = False,
+    adopted_unversioned_cache: bool = False,
 ) -> None:
     metadata = {
         "request": request,
@@ -599,7 +611,7 @@ def _write_processed_cache_metadata(
             }
             for path in archive_paths
         ],
-        "adopted_legacy_cache": adopted_legacy_cache,
+        "adopted_unversioned_cache": adopted_unversioned_cache,
         "created_at_utc": datetime.now(UTC).isoformat(),
     }
     metadata_path.write_text(

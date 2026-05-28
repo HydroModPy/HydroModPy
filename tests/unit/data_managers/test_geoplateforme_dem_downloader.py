@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.data.variables.dem.apis.bdalti_static import _request_hash_str
+from hydromodpy.data.variables.dem.apis._bdalti_archive_index import _request_hash_str
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DownloadFile,
     GeoPlateformeDownloadError,
@@ -460,7 +460,7 @@ def test_fetch_ign_dem_assembles_small_asc_fixture(tmp_path, monkeypatch):
         fake_download,
     )
     monkeypatch.setattr(
-        "hydromodpy.data.variables.dem.apis.bdalti_static._extract_7z",
+        "hydromodpy.data.variables.dem.apis._bdalti_archive_index._extract_7z",
         fake_extract_7z,
     )
 
