@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse, logging, sys
-from hydromodpy.validity_frame.auto_capture import RuntimeAutoCapture, ExecutionContext
 
 class ListHandler(logging.Handler):
     def __init__(self, lst):
@@ -11,6 +10,7 @@ class ListHandler(logging.Handler):
         self.lst.append(self.format(record))
 
 def main():
+    from hydromodpy.validity_frame.auto_capture import RuntimeAutoCapture, ExecutionContext
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-toml", type=str)
     parser.add_argument("--callable", type=str)

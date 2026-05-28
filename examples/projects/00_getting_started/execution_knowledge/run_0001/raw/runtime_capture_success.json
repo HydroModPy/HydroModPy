@@ -1,0 +1,52 @@
+{
+  "execution": {
+    "run_id": "run_0001",
+    "solver": null,
+    "iteration": null,
+    "workspace": "/home/imene/Bureau/HydromodPyHackathon/HydromodPyGitHub/HydroModPy/examples/projects/00_getting_started",
+    "started_at": "2026-05-26T13:50:53.166130+00:00",
+    "metadata": {}
+  },
+  "system": {
+    "os_name": "Linux",
+    "os_release": "6.17.0-23-generic",
+    "os_version": "#23~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue Apr 14 16:11:48 UTC 2",
+    "machine": "x86_64",
+    "python_version": "3.13.13"
+  },
+  "hardware": {
+    "cpu_count": 24,
+    "cpu_usage": null,
+    "cpu_usage_percent": 8.1,
+    "ram_total_mb": 31773.344,
+    "ram_used_mb": 22417.953,
+    "ram_percent": 70.6,
+    "gpu_name": null,
+    "gpu_memory_total_mb": null,
+    "gpu_memory_used_mb": null,
+    "gpu_utilization_percent": null
+  },
+  "runtime": {
+    "pid": 330825,
+    "ppid": null,
+    "process_name": null,
+    "command_line": [],
+    "working_directory": null,
+    "environment": {},
+    "uptime_seconds": null,
+    "elapsed_seconds": 5.699106693267822,
+    "logs": [],
+    "exception_type": null,
+    "exception_message": null,
+    "exception_traceback": null
+  },
+  "solver": {
+    "solver_name": null,
+    "iterations": null,
+    "converged": null,
+    "solver_status": null
+  },
+  "status": "completed",
+  "logs": [],
+  "exception": null
+}
