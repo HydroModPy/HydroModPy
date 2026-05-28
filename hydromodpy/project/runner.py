@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Any, cast
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.prepared_run import DEFAULT_RUN_NAME_TEMPLATE, ProjectPreparedRun
-from hydromodpy.validity_frame.auto_capture import ExecutionContext, RuntimeAutoCapture
 if TYPE_CHECKING:
     from hydromodpy.project.facade import Project
     from hydromodpy.results.run import Run
