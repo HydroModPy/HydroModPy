@@ -16,8 +16,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.core.units import factor_to_seconds, to_pandas_timedelta_unit
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 
 _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
 

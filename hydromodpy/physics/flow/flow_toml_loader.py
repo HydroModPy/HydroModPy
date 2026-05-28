@@ -53,6 +53,7 @@ def from_toml_section(
     return flow_config_cls.model_validate(
         {
             "flow_regime": flow_section.get("flow_regime", "transient"),
+            "first_period_steady": flow_section.get("first_period_steady", True),
             "runtime_backend": flow_section.get("runtime_backend", "local"),
             "surface_interaction_model": flow_section.get("surface_interaction_model", "auto"),
             "runtime_max_iterations": flow_section.get("runtime_max_iterations"),

@@ -40,6 +40,8 @@ small number of cross-cutting documents kept for historical reasons.
   the same short-term scope.
 - `site_selection_current_implementation_report.md`: current implementation
   snapshot and available commands.
+- `tmesh_core_time_cleanup_report.md`: closure note for the TMesh move from
+  `hydromodpy.core.time` to `hydromodpy.discretization.time`.
 
 ## Current diagnostics
 

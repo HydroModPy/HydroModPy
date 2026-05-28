@@ -258,6 +258,7 @@ def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
     monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)
     assert cfg.mesh_catchment is not None
+    assert cfg.flow.first_period_steady is False
 
 
 def test_data_overview_example_declares_overview_workflow_and_report_section() -> None:
