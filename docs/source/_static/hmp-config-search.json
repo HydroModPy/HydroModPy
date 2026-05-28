@@ -5377,7 +5377,7 @@
     "section": "flow",
     "anchor": "flow-param-list",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L96",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L113",
     "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
     "examples": [
       "[\"K\", \"Sy\", \"Ss\"]"
@@ -5392,7 +5392,7 @@
     "section": "flow",
     "anchor": "flow-param",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L104",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L121",
     "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads."
   },
   {
@@ -5656,7 +5656,7 @@
     "section": "flow",
     "anchor": "flow-ic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L142",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L159",
     "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
   },
   {
@@ -6016,7 +6016,7 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L125",
     "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``"
   },
   {
@@ -6472,7 +6472,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L149",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L166",
     "description": "Typed sinks/sources payload (for example pumping wells)."
   },
   {
@@ -7024,7 +7024,7 @@
     "section": "flow",
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L153",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L170",
     "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
@@ -7041,7 +7041,7 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L163",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L180",
     "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An em",
     "examples": [
       "[\"ocean\"]",
@@ -7062,6 +7062,22 @@
     "examples": [
       "\"steady\"",
       "\"transient\""
+    ]
+  },
+  {
+    "path": "flow.first_period_steady",
+    "name": "first_period_steady",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-first-period-steady",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L96",
+    "description": "For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.",
+    "examples": [
+      "true",
+      "false"
     ]
   },
   {
@@ -9235,7 +9251,7 @@
     "anchor": "modflownwt-tgrid",
     "page": "modflownwt.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L237",
-    "description": "Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`."
+    "description": "Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady."
   },
   {
     "path": "modflownwt.tgrid.itmuni",
@@ -9246,20 +9262,20 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-itmuni",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L26",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25",
     "description": "Time unit used to interpret lenper values. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
     "path": "modflownwt.tgrid.flow_regime",
     "name": "flow_regime",
-    "type": "Literal['steady', 'transient']",
-    "profile": "user",
+    "type": "Optional[str]",
+    "profile": "dev",
     "stability": "stable",
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-flow-regime",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L33",
-    "description": "Flow regime used to derive the steady/transient stress-period flags. In launcher mode this field is generally derived from [flow].flow_regime."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32",
+    "description": "Deprecated compatibility field. Temporal mesh generation no longer derives steady/transient solver flags from tmesh; use [flow].flow_regime instead."
   },
   {
     "path": "modflownwt.tgrid.genmtd",
@@ -9270,7 +9286,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-genmtd",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39",
     "description": "Temporal generation method. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
@@ -9282,7 +9298,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-nper",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L47",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46",
     "description": "Stress-period count. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -9294,7 +9310,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-lenper",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L53",
     "description": "Stress-period length(s) interpreted with itmuni. Scalar means one regular step length repeated nper times; list means one explicit value per stress period. In launcher mode this is mirrored from [simulation.time] and is not the authoritativ"
   },
   {
@@ -9306,7 +9322,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-path",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L63",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62",
     "description": "Chronicle file path used when genmtd='from_chron'. In launcher mode this field is generally not used."
   },
   {
@@ -9318,7 +9334,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-dateformat",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L69",
     "description": "Date format string used to parse the chronicle file."
   },
   {
@@ -9330,7 +9346,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-colsep",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L73",
     "description": "Column separator used in the chronicle file."
   },
   {
@@ -9342,7 +9358,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-time-col",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L77",
     "description": "Name of the time/date column in the chronicle file."
   },
   {
@@ -9354,7 +9370,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-start-datetime",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L82",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81",
     "description": "Lower datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -9366,20 +9382,20 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-end-datetime",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88",
     "description": "Upper datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
     "path": "modflownwt.tgrid.firstpersteady",
     "name": "firstpersteady",
-    "type": "bool",
-    "profile": "user",
+    "type": "bool | None",
+    "profile": "dev",
     "stability": "stable",
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-firstpersteady",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L96",
-    "description": "Whether the first stress period is treated as steady-state."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95",
+    "description": "Deprecated compatibility field. Use [flow].first_period_steady to control solver steady-state flags."
   },
   {
     "path": "modflownwt.tgrid.tsmult",
@@ -9390,7 +9406,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-tsmult",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102",
     "description": "Time-step multiplier per stress period (scalar or list). In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing."
   },
   {
@@ -9402,7 +9418,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-ntsp",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L109",
     "description": "Number of time steps per stress period (scalar or list). In launcher mode this field is currently forced to 1 and generally not intended for manual editing."
   },
   {
@@ -9414,7 +9430,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-temporal-nodata",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L114",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L116",
     "description": "No-data sentinel value for temporal data."
   },
   {
@@ -9799,7 +9815,7 @@
     "anchor": "modflow6-tgrid",
     "page": "modflow6.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L121",
-    "description": "Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`."
+    "description": "Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady."
   },
   {
     "path": "modflow6.tgrid.itmuni",
@@ -9810,20 +9826,20 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-itmuni",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L26",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25",
     "description": "Time unit used to interpret lenper values. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
     "path": "modflow6.tgrid.flow_regime",
     "name": "flow_regime",
-    "type": "Literal['steady', 'transient']",
-    "profile": "user",
+    "type": "Optional[str]",
+    "profile": "dev",
     "stability": "stable",
     "section": "modflow6",
     "anchor": "modflow6-tgrid-flow-regime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L33",
-    "description": "Flow regime used to derive the steady/transient stress-period flags. In launcher mode this field is generally derived from [flow].flow_regime."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32",
+    "description": "Deprecated compatibility field. Temporal mesh generation no longer derives steady/transient solver flags from tmesh; use [flow].flow_regime instead."
   },
   {
     "path": "modflow6.tgrid.genmtd",
@@ -9834,7 +9850,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-genmtd",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39",
     "description": "Temporal generation method. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
@@ -9846,7 +9862,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-nper",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L47",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46",
     "description": "Stress-period count. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -9858,7 +9874,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-lenper",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L53",
     "description": "Stress-period length(s) interpreted with itmuni. Scalar means one regular step length repeated nper times; list means one explicit value per stress period. In launcher mode this is mirrored from [simulation.time] and is not the authoritativ"
   },
   {
@@ -9870,7 +9886,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-path",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L63",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62",
     "description": "Chronicle file path used when genmtd='from_chron'. In launcher mode this field is generally not used."
   },
   {
@@ -9882,7 +9898,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-dateformat",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L69",
     "description": "Date format string used to parse the chronicle file."
   },
   {
@@ -9894,7 +9910,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-colsep",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L73",
     "description": "Column separator used in the chronicle file."
   },
   {
@@ -9906,7 +9922,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-time-col",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L77",
     "description": "Name of the time/date column in the chronicle file."
   },
   {
@@ -9918,7 +9934,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-start-datetime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L82",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81",
     "description": "Lower datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -9930,20 +9946,20 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-end-datetime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88",
     "description": "Upper datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
     "path": "modflow6.tgrid.firstpersteady",
     "name": "firstpersteady",
-    "type": "bool",
-    "profile": "user",
+    "type": "bool | None",
+    "profile": "dev",
     "stability": "stable",
     "section": "modflow6",
     "anchor": "modflow6-tgrid-firstpersteady",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L96",
-    "description": "Whether the first stress period is treated as steady-state."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95",
+    "description": "Deprecated compatibility field. Use [flow].first_period_steady to control solver steady-state flags."
   },
   {
     "path": "modflow6.tgrid.tsmult",
@@ -9954,7 +9970,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-tsmult",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102",
     "description": "Time-step multiplier per stress period (scalar or list). In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing."
   },
   {
@@ -9966,7 +9982,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-ntsp",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L109",
     "description": "Number of time steps per stress period (scalar or list). In launcher mode this field is currently forced to 1 and generally not intended for manual editing."
   },
   {
@@ -9978,7 +9994,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-temporal-nodata",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/time/tmesh_config.py#L114",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L116",
     "description": "No-data sentinel value for temporal data."
   },
   {

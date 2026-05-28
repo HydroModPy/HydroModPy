@@ -33,8 +33,6 @@ class _FakeTMeshGeneration:
 
     def run(self):
         genmtd = str(self.kwargs.get("genmtd", "synthetic_regular"))
-        flow_regime = str(self.kwargs.get("flow_regime", "transient"))
-        firstpersteady = bool(self.kwargs.get("firstpersteady", True))
 
         if genmtd == "from_chron":
             df = pd.read_csv(
@@ -74,12 +72,7 @@ class _FakeTMeshGeneration:
         totim = np.cumsum(perlen).astype(float)
         datetimes = [start_datetime + pd.to_timedelta(float(t), unit="D") for t in totim]
 
-        if flow_regime == "steady":
-            steady = np.ones(nper_actual, dtype=bool)
-        else:
-            steady = np.zeros(nper_actual, dtype=bool)
-            if firstpersteady and nper_actual > 0:
-                steady[0] = True
+        steady = np.zeros(nper_actual, dtype=bool)
 
         return types.SimpleNamespace(
             perlen=perlen,
@@ -93,7 +86,7 @@ class _FakeTMeshGeneration:
 
 
 def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
-    cfg_module = _load_module("hydromodpy/core/time/cases/run_tmesh_config.py")
+    cfg_module = _load_module("hydromodpy/discretization/time/cases/run_tmesh_config.py")
 
     chron = tmp_path / "chron.csv"
     chron.write_text("date\tvalue\n01/01/2020\t1\n02/01/2020\t2\n", encoding="utf-8")
@@ -122,7 +115,7 @@ def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
 
 
 def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Path):
-    run_module = _load_module("hydromodpy/core/time/cases/run_tmesh_case.py")
+    run_module = _load_module("hydromodpy/discretization/time/cases/run_tmesh_case.py")
     run_module.TmeshGenerator = _FakeTMeshGeneration
 
     chron = tmp_path / "chron.csv"
@@ -159,14 +152,14 @@ def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Pa
     steady = summaries["steady_synth"]
     assert steady["nper"] == 3
     assert steady["perlen_days"] == [2.0, 2.0, 2.0]
-    assert steady["steady_state"] == [True, True, True]
+    assert steady["steady_state"] == [False, False, False]
     assert steady["datetime_vector_size"] == 3
     assert steady["figure"] is not None
 
     chron_summary = summaries["chron_trans"]
     assert chron_summary["nper"] == 2
     assert chron_summary["perlen_days"] == [2.0, 3.0]
-    assert chron_summary["steady_state"] == [True, False]
+    assert chron_summary["steady_state"] == [False, False]
     assert chron_summary["datetime_vector_size"] == 2
     assert chron_summary["figure"] is not None
 

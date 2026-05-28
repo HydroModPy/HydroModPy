@@ -2,9 +2,7 @@ core
 ====
 
 ``hydromodpy.core`` is the kernel leaf. Every other layer may import
-from it. The current YAML has one documented tolerance from ``core`` to
-``physics`` for time-mesh flow-regime validation. This is a narrow
-exception, not a general sibling dependency.
+from it, and ``core`` itself must not import sibling layers.
 
 Sub-modules
 -----------
@@ -45,8 +43,9 @@ Sub-modules
        ``LoadedDataContext``, ``SetupContext``. Generic types so the
        kernel does not depend on sibling layers.
    * - ``core/time/``
-     - Calendar and timestep helpers reused by physics and solver
-       layers.
+     - Calendar and simulation time-window helpers reused by physics and
+        solver layers. Neutral time-grid generation lives in
+        ``discretization/time``.
    * - ``core/toml_io/``
      - TOML readers and writers used by ``HydroModPyConfig.from_toml``.
    * - ``core/tracking/``
@@ -127,8 +126,6 @@ Layer-matrix neighbours
 -----------------------
 
 - Allowed targets: ``core`` only.
-- Documented tolerance: ``core`` -> ``physics`` for flow-regime
-  validation in time helpers.
 - Allowed sources: every other layer.
 - Any new sibling edge is a regression unless the YAML is updated with
   an explicit rationale.

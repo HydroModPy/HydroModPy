@@ -206,6 +206,10 @@ Sub-models are linked back to their per-section page.
       # example: flow_regime = "steady"
       # example: flow_regime = "transient"
       flow_regime = "transient"
+      # For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.
+      # example: first_period_steady = true
+      # example: first_period_steady = false
+      first_period_steady = true
 
 .. dropdown:: ``[transport]`` (TransportConfig)
    :icon: gear
@@ -291,7 +295,7 @@ Sub-models are linked back to their per-section page.
       # process_specific = ...  # uses factory default
       # Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
       # sgrid = ...  # uses factory default
-      # Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
+      # Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
       # tgrid = ...  # default = None
 
 .. dropdown:: ``[modflow6]`` (Modflow6Config)
@@ -308,7 +312,7 @@ Sub-models are linked back to their per-section page.
       # process_specific = ...  # uses factory default
       # Solver-grid payload split into planar and vertical sections.
       # sgrid = ...  # uses factory default
-      # Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
+      # Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
       # tgrid = ...  # default = None
 
 .. dropdown:: ``[display]`` (DisplayConfig)

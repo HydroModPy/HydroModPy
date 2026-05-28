@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.time.tmesh_config import TMeshConfig
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,

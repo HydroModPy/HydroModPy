@@ -14,7 +14,7 @@ import pytest
 
 def _load_tmesh_module():
     repo_root = Path(__file__).resolve().parents[4]
-    module_path = repo_root / "hydromodpy" / "core" / "time" / "tmesh_generation.py"
+    module_path = repo_root / "hydromodpy" / "discretization" / "time" / "tmesh_generation.py"
     module_name = f"_test_tmesh_generation_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec is not None and spec.loader is not None
@@ -29,10 +29,8 @@ def test_synthetic_regular_builds_expected_arrays():
 
     cfg = mod.TMeshConfig(
         genmtd="synthetic_regular",
-        flow_regime="transient",
         nper=3,
         lenper=2,
-        firstpersteady=True,
         ntsp=2,
         tsmult=1.5,
     )
@@ -42,7 +40,7 @@ def test_synthetic_regular_builds_expected_arrays():
     assert np.allclose(tmesh.perlen, np.array([2.0, 2.0, 2.0]))
     assert np.array_equal(tmesh.nstp, np.array([2, 2, 2]))
     assert np.allclose(tmesh.tsmult, np.array([1.5, 1.5, 1.5]))
-    assert np.array_equal(tmesh.steady_state, np.array([True, False, False]))
+    assert np.array_equal(tmesh.steady_state, np.array([False, False, False]))
     assert builder._tmesh_created is True
 
 
@@ -52,7 +50,6 @@ def test_synthetic_regular_with_seconds_itmuni_keeps_second_lengths():
     cfg = mod.TMeshConfig(
         itmuni="seconds",
         genmtd="synthetic_regular",
-        flow_regime="transient",
         nper=2,
         lenper=3600,
         ntsp=1,
@@ -77,14 +74,13 @@ def test_from_chron_parses_dates_and_computes_perlen(tmp_path: Path):
         config=mod.TMeshConfig(
             genmtd="from_chron",
             chron_path=str(chron_path),
-            flow_regime="steady",
         )
     )
     tmesh = builder.run()
 
     assert np.allclose(tmesh.perlen, np.array([2.0, 3.0]))
     assert pd.Timestamp(tmesh.start_datetime) == pd.Timestamp("2020-01-01 00:00:00")
-    assert np.array_equal(tmesh.steady_state, np.array([True, True]))
+    assert np.array_equal(tmesh.steady_state, np.array([False, False]))
 
 
 def test_synthetic_regular_checks_start_end_window_consistency():
@@ -93,7 +89,6 @@ def test_synthetic_regular_checks_start_end_window_consistency():
     builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="synthetic_regular",
-            flow_regime="transient",
             nper=3,
             lenper=2,
             start_datetime="2020-01-01 00:00:00",
@@ -112,7 +107,6 @@ def test_synthetic_regular_rejects_inconsistent_end_datetime():
     builder = mod.TmeshGenerator(
         config=mod.TMeshConfig(
             genmtd="synthetic_regular",
-            flow_regime="transient",
             nper=3,
             lenper=2,
             start_datetime="2020-01-01 00:00:00",
@@ -179,10 +173,14 @@ def test_invalid_genmtd_raises():
         _ = mod.TmeshGenerator(config=mod.TMeshConfig(genmtd="unknown"))
 
 
-def test_invalid_flow_regime_raises():
+def test_legacy_flow_regime_is_accepted_but_ignored():
     mod = _load_tmesh_module()
-    with pytest.raises(ValueError, match="steady.*transient"):
-        _ = mod.TmeshGenerator(config=mod.TMeshConfig(flow_regime="unknown"))
+    builder = mod.TmeshGenerator(
+        config=mod.TMeshConfig(flow_regime="unknown", firstpersteady=True, nper=2, lenper=1)
+    )
+
+    assert builder.flow_regime == "unknown"
+    assert np.array_equal(builder.run().steady_state, np.array([False, False]))
 
 
 def test_invalid_nper_raises():
@@ -286,10 +284,8 @@ def test_run_returns_native_time_grid_with_derived_vectors():
     mod = _load_tmesh_module()
     cfg = mod.TMeshConfig(
         genmtd="synthetic_regular",
-        flow_regime="transient",
         nper=3,
         lenper=2,
-        firstpersteady=False,
         ntsp=1,
         tsmult=1.0,
         start_datetime="2020-01-01 00:00:00",

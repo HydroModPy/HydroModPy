@@ -5,7 +5,7 @@ solver
 plus three concrete backends: MODFLOW 6, MODFLOW-NWT, and Boussinesq.
 It also hosts shared helpers (``modflow_common``, ``modflow_grid``)
 that stay backend-agnostic. Time-grid primitives now live in
-``hydromodpy.core.time``.
+``hydromodpy.discretization.time``.
 
 GR4J is not a fourth ``hydromodpy.solver`` backend in V1. It is a
 calibration-side lumped catchment model under
@@ -39,7 +39,7 @@ Sub-modules
   ``SolverMesh``, ``SolverGridContext``, ``DisDescriptor``,
   ``DisvDescriptor``, ``build_spatial_discretization``,
   ``build_temporal_discretization``.
-- ``core/time/`` (was ``solver/utils/temporal/``) -- ``TimeGrid``,
+- ``discretization/time/`` -- ``TimeGrid``,
   ``TmeshGenerator``, ``TMeshConfig`` for stress-period generation.
 
 Adapter contract
@@ -96,7 +96,7 @@ Key public symbols
 - ``hydromodpy.solver.modflow_grid.{SolverMesh, SolverGridContext,
   DisDescriptor, DisvDescriptor, build_spatial_discretization,
   build_temporal_discretization}``
-- ``hydromodpy.core.time.{TimeGrid, TmeshGenerator, TMeshConfig,
+- ``hydromodpy.discretization.time.{TimeGrid, TmeshGenerator, TMeshConfig,
   load_tmesh_toml, validate_tmesh_config_data}``
 - ``hydromodpy.solver.modflow_common.{flow_adapter_helpers,
   calibration_extractors, flow_translator, binaries,
@@ -119,7 +119,7 @@ Layer-matrix neighbours
 -----------------------
 
 - Allowed targets: ``core``, ``schema``, ``physics``, ``spatial``,
-  ``solver``, ``simulation``.
+  ``discretization``, ``solver``, ``simulation``.
 - Allowed sources: ``config``, ``calibration``, ``workflow``,
   ``project`` and ``cli``.
 - Each backend folder is independent: ``solver/modflow6/`` cannot

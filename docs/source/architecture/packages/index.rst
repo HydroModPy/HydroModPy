@@ -57,6 +57,13 @@ Subpackages
       Delineation, geographic context, domain, mesh (Cartesian and
       Gmsh), field abstractions, ``HydroMesh`` pivot.
 
+   .. grid-item-card:: discretization
+      :link: discretization
+      :link-type: doc
+
+      Neutral numerical discretization primitives, currently temporal
+      grids and time-mesh configuration.
+
    .. grid-item-card:: solver
       :link: solver
       :link-type: doc
@@ -155,6 +162,7 @@ Subpackages
    physics
    data
    spatial
+   discretization
    solver
    simulation
    calibration

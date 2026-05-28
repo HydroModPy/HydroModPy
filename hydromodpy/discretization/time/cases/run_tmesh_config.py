@@ -12,7 +12,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr
-from hydromodpy.core.time.tmesh_config import TMeshConfig
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
 
 
@@ -25,7 +25,7 @@ class TMeshCaseScenarioConfig(TMeshConfig):
     def to_builder_kwargs(self) -> dict[str, Any]:
         payload = self.model_dump(
             mode="python",
-            exclude={"id", "description"},
+            exclude={"id", "description", "flow_regime", "firstpersteady"},
             exclude_none=True,
         )
         return dict(payload)

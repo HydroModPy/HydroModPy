@@ -52,6 +52,7 @@ from hydromodpy.solver.modflow_common import (
 from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
     build_temporal_discretization_from_time_grid,
+    resolve_first_period_steady,
 )
 
 logger = get_logger(__name__)
@@ -256,8 +257,9 @@ def run_pre_processing(  # noqa: PLR0915
     temporal = build_temporal_discretization_from_time_grid(
         time_grid=launcher_time_grid,
         flow_regime=model.flow_regime,
-        firstpersteady=bool(
-            getattr(getattr(model.modflow_config, "tgrid", None), "firstpersteady", True)
+        first_period_steady=resolve_first_period_steady(
+            flow=getattr(model, "flow", None),
+            legacy_tgrid=getattr(model.modflow_config, "tgrid", None),
         ),
     )
     model.perlen = temporal.perlen

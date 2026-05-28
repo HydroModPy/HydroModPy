@@ -13,7 +13,6 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt
 from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
-from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 
 
 class TMeshConfig(HydroModelBase):
@@ -30,11 +29,11 @@ class TMeshConfig(HydroModelBase):
             "come from [simulation.time], so this field is mirrored only for compatibility."
         ),
     )
-    flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
-        default="transient",
+    flow_regime: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
+        default=None,
         description=(
-            "Flow regime used to derive the steady/transient stress-period flags. "
-            "In launcher mode this field is generally derived from [flow].flow_regime."
+            "Deprecated compatibility field. Temporal mesh generation no longer derives "
+            "steady/transient solver flags from tmesh; use [flow].flow_regime instead."
         ),
     )
     genmtd: Annotated[Literal["synthetic_regular", "from_chron"], Profile.USER] = Field(
@@ -93,9 +92,12 @@ class TMeshConfig(HydroModelBase):
             "mirrored from [simulation.time] and is not the authoritative source."
         ),
     )
-    firstpersteady: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Whether the first stress period is treated as steady-state.",
+    firstpersteady: Annotated[bool | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Deprecated compatibility field. Use [flow].first_period_steady to control "
+            "solver steady-state flags."
+        ),
     )
     tsmult: Annotated[int | float | list[int] | list[float], Profile.DEV] = Field(
         default=1,
@@ -115,11 +117,6 @@ class TMeshConfig(HydroModelBase):
         default=-9999.0,
         description="No-data sentinel value for temporal data.",
     )
-
-    @field_validator("flow_regime", mode="before")
-    @classmethod
-    def _validate_flow_regime(cls, value):
-        return normalize_flow_regime(value)
 
     @field_validator("chron_colsep")
     @classmethod
@@ -234,10 +231,15 @@ class TMeshConfig(HydroModelBase):
 
         Notes
         -----
-        Runtime-only overrides (for example ``flow_regime``) are intentionally
-        injected by the caller after this conversion.
+        Deprecated solver-policy fields are intentionally excluded because
+        temporal mesh generation only produces period lengths and time-step
+        arrays. Steady/transient policy is assembled by solver adapters.
         """
-        return self.model_dump(mode="python", exclude_none=True)
+        return self.model_dump(
+            mode="python",
+            exclude={"flow_regime", "firstpersteady"},
+            exclude_none=True,
+        )
 
     @classmethod
     def from_mapping(cls, config_data: Mapping[str, Any]):
@@ -273,7 +275,7 @@ def validate_tmesh_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]
         raise ValueError(str(exc)) from exc
     except ValueError as exc:
         raise ValueError(str(exc)) from exc
-    return parsed.model_dump(mode="python", exclude_none=True)
+    return parsed.to_builder_kwargs()
 
 
 def load_tmesh_toml(
@@ -289,4 +291,4 @@ def load_tmesh_toml(
         raise ValueError(f"Invalid tmesh configuration in {path}: {exc}") from exc
     except (ValueError, KeyError) as exc:
         raise ValueError(f"Invalid tmesh configuration in {path}: {exc}") from exc
-    return parsed.model_dump(mode="python", exclude_none=True)
+    return parsed.to_builder_kwargs()

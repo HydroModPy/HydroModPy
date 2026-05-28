@@ -190,6 +190,7 @@ class Flow(ProcessSpatial):
             raise TypeError("config must be a FlowConfig instance")
         self.config: FlowConfig
         self.flow_regime: str
+        self.first_period_steady: bool
         self.runtime_backend: str
         self.surface_interaction_model: str
         self.runtime_max_iterations: int | None
@@ -241,6 +242,7 @@ class Flow(ProcessSpatial):
 
         self.config = config
         self.flow_regime = config.flow_regime
+        self.first_period_steady = config.first_period_steady
         self.runtime_backend = config.runtime_backend
         self.surface_interaction_model = config.surface_interaction_model
         self.runtime_max_iterations = config.runtime_max_iterations

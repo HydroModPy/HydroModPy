@@ -12,7 +12,7 @@ import pytest
 
 def _load_tmesh_config_module():
     repo_root = Path(__file__).resolve().parents[4]
-    module_path = repo_root / "hydromodpy" / "core" / "time" / "tmesh_config.py"
+    module_path = repo_root / "hydromodpy" / "discretization" / "time" / "tmesh_config.py"
     module_name = f"_test_tmesh_config_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec is not None and spec.loader is not None
@@ -42,7 +42,8 @@ def test_from_mapping_accepts_valid_synthetic_payload():
 
     payload = cfg.to_builder_kwargs()
     assert payload["genmtd"] == "synthetic_regular"
-    assert payload["flow_regime"] == "transient"
+    assert "flow_regime" not in payload
+    assert "firstpersteady" not in payload
     assert payload["nper"] == 3
     assert payload["lenper"] == 2.0
     assert payload["ntsp"] == [1, 2, 1]
@@ -82,7 +83,6 @@ def test_from_mapping_raises_when_from_chron_without_path():
         _ = mod.TMeshConfig.from_mapping(
             {
                 "genmtd": "from_chron",
-                "flow_regime": "transient",
             }
         )
 
@@ -94,7 +94,6 @@ def test_validate_lists_require_positive_values():
         _ = mod.TMeshConfig.from_mapping(
             {
                 "genmtd": "synthetic_regular",
-                "flow_regime": "steady",
                 "nper": 2,
                 "lenper": 1,
                 "ntsp": [1, 0],
@@ -105,7 +104,6 @@ def test_validate_lists_require_positive_values():
         _ = mod.TMeshConfig.from_mapping(
             {
                 "genmtd": "synthetic_regular",
-                "flow_regime": "steady",
                 "nper": 2,
                 "lenper": 1,
                 "tsmult": [1.0, -0.5],
@@ -128,7 +126,7 @@ def test_load_tmesh_toml_returns_normalized_dict(tmp_path: Path):
     )
 
     payload = mod.load_tmesh_toml(toml_path)
-    assert payload["flow_regime"] == "steady"
+    assert "flow_regime" not in payload
     assert payload["genmtd"] == "synthetic_regular"
     assert payload["nper"] == 4
     assert payload["lenper"] == 1.0
@@ -158,7 +156,6 @@ def test_end_datetime_must_be_after_start_datetime():
             {
                 "tmesh": {
                     "genmtd": "synthetic_regular",
-                    "flow_regime": "transient",
                     "nper": 1,
                     "lenper": 1,
                     "start_datetime": "2020-01-02 00:00:00",
