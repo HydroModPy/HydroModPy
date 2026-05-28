@@ -98,9 +98,9 @@ source = "flow_metrics.head_range_m"
 required = true
 ```
 
-`[[testbed.variant]]` and `[[testbed.variant_from_catalog]]` remain accepted as
-legacy spellings during the migration, but new public TOML should use
-`[[testbed.case]]` and `[[testbed.case_from_catalog]]`.
+`[[testbed.variant]]` and `[[testbed.variant_from_catalog]]` are no longer
+accepted. Public TOML must use `[[testbed.case]]` and
+`[[testbed.case_from_catalog]]`.
 
 For `subject = "flow"`, `testbed.base_config` is mandatory when the runner is
 `simulation`, `comparison` or `calibration`. Keep `[testbed]` outside the base

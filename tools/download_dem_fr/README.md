@@ -107,7 +107,7 @@ decouverte Geoplateforme.
 
 Le client tente d'abord la decouverte Geoplateforme. Si l'API est
 temporairement indisponible, le cas `bd-alti --resolution 25 --format ASC`
-dispose d'un fallback sur la table historique HydroModPy des archives BD ALTI.
+dispose d'un fallback sur l'index interne HydroModPy des archives BD ALTI.
 
 RGE ALTI est pris en charge ici comme telechargement brut. L'assemblage raster
 automatique dans `DemManager` reste volontairement limite a BD ALTI 25 m ASC

@@ -79,15 +79,19 @@ class _FrenchAdministrativeDemSource(_DemSourceBase):
 
 
 class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
-    """Recommended dynamic IGN DEM source discovered through Geoplateforme."""
+    """Recommended IGN DEM source assembled from Geoplateforme archives."""
 
     source: Annotated[Literal["ign_geoplateforme_dem"], Profile.USER] = Field(
         default="ign_geoplateforme_dem",
-        description="Discriminator tag selecting the dynamic IGN Geoplateforme DEM provider.",
+        description="Discriminator tag selecting the IGN Geoplateforme DEM provider.",
     )
-    dataset: Annotated[Literal["bd-alti", "rge-alti"], Profile.USER] = Field(
+    dataset: Annotated[Literal["bd-alti"], Profile.USER] = Field(
         default="bd-alti",
-        description="IGN DEM product to request from Geoplateforme.",
+        description=(
+            "IGN DEM product assembled by the data manager. Only BD ALTI 25 m "
+            "is currently exposed as an assembled raster source; use the "
+            "download_dem_fr helper to inspect raw RGE ALTI archives."
+        ),
     )
     resolution_m: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -113,7 +117,7 @@ DemSourceConfig: TypeAlias = Annotated[
         description=(
             "Discriminated union of DEM data sources tagged by the 'source' provider key. "
             "Use 'custom' for a user file (TIF/ASC/NC) and "
-            "'ign_geoplateforme_dem' for dynamic IGN DEM discovery."
+            "'ign_geoplateforme_dem' for assembled BD ALTI DEM retrieval."
         ),
     ),
 ]
@@ -153,5 +157,5 @@ class DemConfig(HydroModelBase):
 
     @classmethod
     def ign_geoplateforme_dem(cls, **overrides) -> DemConfig:
-        """DemConfig pulling an IGN DEM through dynamic Geoplateforme discovery."""
+        """DemConfig pulling an assembled IGN DEM through Geoplateforme."""
         return cls(sources=[IgnGeoplateformeDemSource(**overrides)])

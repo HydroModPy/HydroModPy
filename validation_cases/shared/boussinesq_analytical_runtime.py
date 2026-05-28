@@ -5,16 +5,21 @@ from __future__ import annotations
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-
 ANALYTICAL_STEADY_SURFACE_MODEL = "vi_obstacle"
 ANALYTICAL_TRANSIENT_SURFACE_MODEL = "ts_vi_obstacle"
 ANALYTICAL_RUNTIME_BACKEND = "petsc"
 
 
+def _normalize_flow_regime(value: object) -> str:
+    text = str(value).strip().lower()
+    if text in {"steady", "transient"}:
+        return text
+    raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
+
+
 def analytical_boussinesq_runtime_overrides(flow_regime: str | None) -> dict[str, object]:
     """Return the PETSc runtime knobs used by default analytical Boussinesq runs."""
-    regime = normalize_flow_regime(flow_regime or "steady")
+    regime = _normalize_flow_regime(flow_regime or "steady")
     if regime == "transient":
         return {
             "runtime_backend": ANALYTICAL_RUNTIME_BACKEND,

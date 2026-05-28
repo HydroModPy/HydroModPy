@@ -1,4 +1,9 @@
-"""Shared BD ALTI 25 m static archive metadata and extraction helpers."""
+"""Internal BD ALTI 25 m archive index and extraction helpers.
+
+This module is not a public DEM provider. It supports the Geoplateforme DEM
+client when live resource discovery is incomplete and keeps extraction helpers
+close to the only assembled raster product that still needs them.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +15,7 @@ from pathlib import Path
 # Mapping of department code (BRGM 3-char) to archive name (without .7z).
 # Mainland France uses LAMB93-IGN69, Corsica uses LAMB93-IGN78C,
 # overseas territories use their respective local CRS.
-_BDALTI_ARCHIVES: dict[str, str] = {
+BDALTI_25M_ASC_ARCHIVES: dict[str, str] = {
     # --- Mainland France (EPSG:2154 / Lambert-93, IGN69 altimetry) ---
     "001": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D001_2023-08-08",
     "002": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D002_2020-09-04",
@@ -173,7 +178,7 @@ def _find_asc_files(directory: Path) -> list[Path]:
 
 
 __all__ = [
-    "_BDALTI_ARCHIVES",
+    "BDALTI_25M_ASC_ARCHIVES",
     "_extract_7z",
     "_find_asc_files",
     "_request_hash_str",

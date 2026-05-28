@@ -1109,7 +1109,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L143",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L147",
     "description": "At least one DEM data source."
   },
   {
@@ -1259,7 +1259,7 @@
   {
     "path": "data.dem.sources.ign_geoplateforme_dem.dataset",
     "name": "dataset",
-    "type": "Literal['bd-alti', 'rge-alti']",
+    "type": "Literal['bd-alti']",
     "profile": "user",
     "stability": "stable",
     "section": "data",
@@ -1277,7 +1277,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-resolution-m",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L92",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L96",
     "description": ""
   },
   {
@@ -1289,7 +1289,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-file-format",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L103",
     "description": ""
   },
   {
@@ -1301,7 +1301,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L103",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L107",
     "description": ""
   },
   {
@@ -14298,7 +14298,7 @@
     "section": "testbed",
     "anchor": "testbed-config-path",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L263",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L239",
     "description": "Resolved path of the TOML file that produced this config."
   },
   {
@@ -14310,7 +14310,7 @@
     "section": "testbed",
     "anchor": "testbed-base-dir",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L266",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L242",
     "description": "Directory used to resolve relative paths."
   },
   {
@@ -14322,7 +14322,7 @@
     "section": "testbed",
     "anchor": "testbed-id",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L269",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L245",
     "description": "Stable testbed identifier."
   },
   {
@@ -14334,7 +14334,7 @@
     "section": "testbed",
     "anchor": "testbed-profile",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L270",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L246",
     "description": "Selected testbed profile."
   },
   {
@@ -14346,7 +14346,7 @@
     "section": "testbed",
     "anchor": "testbed-subject",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L247",
     "description": "High-level subject covered by the testbed (flow, mesh, transport)."
   },
   {
@@ -14358,7 +14358,7 @@
     "section": "testbed",
     "anchor": "testbed-purpose",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L250",
     "description": "Stated purpose of the testbed (robustness, sensitivity, ...)."
   },
   {
@@ -14370,7 +14370,7 @@
     "section": "testbed",
     "anchor": "testbed-output-root",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L277",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L253",
     "description": "Directory where testbed artifacts are written."
   },
   {
@@ -14382,7 +14382,7 @@
     "section": "testbed",
     "anchor": "testbed-execute",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L280",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L256",
     "description": "When false, child configs are materialized but not executed."
   },
   {
@@ -14394,7 +14394,7 @@
     "section": "testbed",
     "anchor": "testbed-continue-on-error",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L284",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L260",
     "description": "When false, the first failure aborts the testbed."
   },
   {
@@ -14406,7 +14406,7 @@
     "section": "testbed",
     "anchor": "testbed-base-config-path",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L288",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L264",
     "description": "Optional child workflow TOML used as the case base config."
   },
   {
@@ -14418,7 +14418,7 @@
     "section": "testbed",
     "anchor": "testbed-runner",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L292",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L268",
     "description": "Child-runner selection for every case."
   },
   {
@@ -14430,7 +14430,7 @@
     "section": "testbed",
     "anchor": "testbed-runner-type",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L55",
     "description": "Runner identifier dispatched for every case (comparison, simulation)."
   },
   {
@@ -14442,7 +14442,7 @@
     "section": "testbed",
     "anchor": "testbed-runner-no-display",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L58",
     "description": "Disable interactive display in child runners."
   },
   {
@@ -14454,7 +14454,7 @@
     "section": "testbed",
     "anchor": "testbed-case",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L295",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L271",
     "description": "Explicit executable cases declared in the TOML."
   },
   {
@@ -14466,7 +14466,7 @@
     "section": "testbed",
     "anchor": "testbed-case-id",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L69",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L67",
     "description": "Stable case identifier."
   },
   {
@@ -14478,7 +14478,7 @@
     "section": "testbed",
     "anchor": "testbed-case-label",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L68",
     "description": "Human-readable case label."
   },
   {
@@ -14490,7 +14490,7 @@
     "section": "testbed",
     "anchor": "testbed-case-axis",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L69",
     "description": "Optional axis tag used to group cases in reports."
   },
   {
@@ -14502,7 +14502,7 @@
     "section": "testbed",
     "anchor": "testbed-case-enabled",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L73",
     "description": "Toggle to skip a case without removing it from the config."
   },
   {
@@ -14514,7 +14514,7 @@
     "section": "testbed",
     "anchor": "testbed-case-overlay",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L77",
     "description": "TOML overlay merged into the child-runner base config."
   },
   {
@@ -14526,7 +14526,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L299",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L275",
     "description": "Optional catalog source used to expand cases from rows."
   },
   {
@@ -14538,7 +14538,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-path",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L101",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L99",
     "description": "Resolved path to the case catalog (CSV or JSONL)."
   },
   {
@@ -14550,7 +14550,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-format",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L104",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L102",
     "description": "Catalog format. 'auto' infers from the file suffix."
   },
   {
@@ -14562,7 +14562,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-id-field",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L106",
     "description": "Column carrying the case identifier."
   },
   {
@@ -14574,7 +14574,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-label-field",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L112",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L110",
     "description": "Column carrying a human-readable case label."
   },
   {
@@ -14586,7 +14586,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-axis-field",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L114",
     "description": "Column carrying the optional axis tag."
   },
   {
@@ -14598,7 +14598,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-enabled-field",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L120",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L118",
     "description": "Column flagging whether a row is active."
   },
   {
@@ -14610,7 +14610,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-tags-field",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L122",
     "description": "Column carrying free-form tags joined by tag_separator."
   },
   {
@@ -14622,7 +14622,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-required-fields",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L128",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L126",
     "description": "Columns that must be present and non-empty per row."
   },
   {
@@ -14634,7 +14634,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-path-fields",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L130",
     "description": "Columns whose values are resolved as filesystem paths."
   },
   {
@@ -14646,7 +14646,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-tag-separator",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L134",
     "description": "Separator splitting the tags column into individual tags."
   },
   {
@@ -14658,7 +14658,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-field-equals",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L138",
     "description": "Per-field equality filters applied during catalog selection."
   },
   {
@@ -14670,7 +14670,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-tags",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L144",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L142",
     "description": "Whitelist of tags. Empty disables the filter."
   },
   {
@@ -14682,7 +14682,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-exclude-tags",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L148",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L146",
     "description": "Blacklist of tags applied after the whitelist."
   },
   {
@@ -14694,7 +14694,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-include-disabled",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L152",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L150",
     "description": "When true, rows flagged as disabled are kept."
   },
   {
@@ -14706,7 +14706,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-limit",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L156",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L154",
     "description": "Optional cap on the number of selected rows."
   },
   {
@@ -14718,7 +14718,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-source-manifest-path",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L158",
     "description": "Optional site-selection manifest used to resolve the catalog path."
   },
   {
@@ -14730,7 +14730,7 @@
     "section": "testbed",
     "anchor": "testbed-catalog-source-manifest-output-key",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L164",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L162",
     "description": "Output key read from the site-selection manifest."
   },
   {
@@ -14742,7 +14742,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L303",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L279",
     "description": "Case-generation rules applied to catalog rows."
   },
   {
@@ -14754,7 +14754,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-id-template",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L173",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L171",
     "description": "Format string evaluated against catalog row fields to derive the case id."
   },
   {
@@ -14766,7 +14766,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-label-template",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L177",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L175",
     "description": "Format string used to derive the case label."
   },
   {
@@ -14778,7 +14778,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-axis-template",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L181",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L179",
     "description": "Format string used to derive the optional axis tag."
   },
   {
@@ -14790,7 +14790,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-enabled",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L185",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L183",
     "description": "Toggle to skip the rule without removing it from the config."
   },
   {
@@ -14802,7 +14802,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-overlay",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L189",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L187",
     "description": "TOML overlay rendered against each catalog row."
   },
   {
@@ -14814,7 +14814,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-required-fields",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L193",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L191",
     "description": "Catalog columns that must be present and non-empty per row."
   },
   {
@@ -14826,7 +14826,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-field-equals",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L195",
     "description": "Per-field equality filters applied while expanding rows."
   },
   {
@@ -14838,7 +14838,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-tags",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L201",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L199",
     "description": "Whitelist of tags applied during rule expansion."
   },
   {
@@ -14850,7 +14850,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-exclude-tags",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L205",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L203",
     "description": "Blacklist of tags applied during rule expansion."
   },
   {
@@ -14862,7 +14862,7 @@
     "section": "testbed",
     "anchor": "testbed-case-from-catalog-limit",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L209",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L207",
     "description": "Optional cap on the number of cases generated by the rule."
   },
   {
@@ -14874,7 +14874,7 @@
     "section": "testbed",
     "anchor": "testbed-metrics",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L307",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L283",
     "description": "Metrics extracted from each child-runner summary."
   },
   {
@@ -14886,7 +14886,7 @@
     "section": "testbed",
     "anchor": "testbed-metrics-name",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L88",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L86",
     "description": "Metric column name."
   },
   {
@@ -14898,7 +14898,7 @@
     "section": "testbed",
     "anchor": "testbed-metrics-source",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L87",
     "description": "Dotted path into the child-runner summary."
   },
   {
@@ -14910,7 +14910,7 @@
     "section": "testbed",
     "anchor": "testbed-metrics-required",
     "page": "testbed.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L92",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L90",
     "description": "When true, a missing metric fails the case."
   },
   {

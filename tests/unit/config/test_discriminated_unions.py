@@ -75,6 +75,11 @@ class TestDataSourceUnion:
         with pytest.raises(ValidationError):
             ta.validate_python({"source": "ign_bdalti", "resolution_m": 25.0})
 
+    def test_dem_geoplateforme_rge_alti_dataset_rejected(self) -> None:
+        ta = TypeAdapter(DemSourceConfig)
+        with pytest.raises(ValidationError):
+            ta.validate_python({"source": "ign_geoplateforme_dem", "dataset": "rge-alti"})
+
     def test_dem_custom_requires_path(self) -> None:
         with pytest.raises(ValidationError):
             CustomDemSource()
