@@ -100,6 +100,19 @@ tests anti-retour ajoutes explicitement et les notes `_dev_notes` historiques.
 
 Le chantier legacy `ign_bdalti` peut etre cloture.
 
+Nettoyage de cloture 2026-05-28:
+
+- Le plan d'implementation Geoplateforme est marque comme archive historique
+  et ne sert plus de backlog courant.
+- L'audit national ne presente plus `ign_bdalti` comme source DEM active.
+- Le grep actif reste borne aux tests anti-retour et aux details internes
+  BD ALTI du provider Geoplateforme.
+- Validations ciblees relancees:
+  Ruff sur les perimetres DEM/TMesh et tests cibles: OK;
+  discriminated-unions + smoke managers: 114 passed;
+  `test_dem_manager.py`: 2 passed;
+  `test_geoplateforme_dem_downloader.py`: 21 passed.
+
 Les points suivants ne bloquent pas la cloture; ils relevent d'un suivi
 Geoplateforme/RGE ALTI separe:
 

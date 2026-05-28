@@ -39,6 +39,8 @@ def _run_hmp(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
         cwd=str(cwd) if cwd else None,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
         timeout=600,
     )
@@ -277,6 +279,8 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
         env=merged,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=900,
     )
     if completed.returncode != 0:

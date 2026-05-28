@@ -7,6 +7,10 @@ au profit de `ign_geoplateforme_dem`. Les sections ci-dessous conservent
 l'historique du chantier; l'etat courant et les validations du lot de
 suppression sont dans `docs/_dev_notes/dem_ign_legacy_cleanup_report.md`.
 
+Statut 2026-05-28: document archive. Il ne doit plus etre utilise comme
+backlog courant; les points encore actionnables sont rattaches au suivi
+Geoplateforme/RGE ALTI du rapport de cloture DEM.
+
 ## Objectif
 
 Mettre en place un outil robuste pour telecharger automatiquement les MNT/DEM
@@ -130,7 +134,11 @@ Etat au 2026-05-24.
   - page workflow `docs/source/user_guide/workflows/site_selection.rst`;
   - entree `site_selection` dans l'index des workflows.
 
-### Reste a developper
+### Reste a developper au 2026-05-24 (archive)
+
+Ce bloc de backlog est conserve pour trace historique. Les decisions de
+cloture prises les 2026-05-27 et 2026-05-28 priment sur les formulations
+ci-dessous, notamment toute mention de compatibilite publique `ign_bdalti`.
 
 - Decision court terme sur `ign_bdalti`: le conserver comme chemin historique
   compatible. Les nouveaux workflows regionaux doivent preferer

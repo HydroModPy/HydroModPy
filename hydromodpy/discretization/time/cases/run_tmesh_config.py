@@ -12,8 +12,8 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr
-from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 
 
 class TMeshCaseScenarioConfig(TMeshConfig):
