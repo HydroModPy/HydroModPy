@@ -70,10 +70,11 @@ Internal conversion:
 Class: ``RiverMeshTrace``
 (``hydromodpy/spatial/geographic/core/river_mesh_trace.py``).
 
-Exposed as the attribute
-``DomainGeographicContext.river_mesh_trace``. The trace is already
-reprojected into the domain CRS and clipped to the catchment. No disk
-re-read happens during meshing.
+Exposed through
+``GeographicDerivedFeatures.rivers.river_mesh_trace`` or passed as an
+explicit ``river_trace`` to the meshing case. The trace is already reprojected
+into the domain CRS and clipped to the catchment. No disk re-read happens
+during meshing unless ``rivers.source = "file"`` is selected.
 
 Fields:
 

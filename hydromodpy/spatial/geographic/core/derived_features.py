@@ -7,8 +7,9 @@ are neither raw data-managers nor domain zones:
 - boundary/support polygons used by the domain and meshing workflows,
 - optional river-network products derived from the DEM workflow.
 
-`DomainGeographicContext` remains available as a narrower compatibility view,
-but the long-term orchestration contract should prefer `GeographicDerivedFeatures`.
+`DomainGeographicContext` remains available as a narrower domain view, but
+orchestration code should prefer `GeographicDerivedFeatures` whenever it needs
+the complete geographic product bundle.
 """
 
 from __future__ import annotations
@@ -51,7 +52,7 @@ class GeographicDerivedFeatures:
     hydrographic_networks: HydrographicNetworks = field(default_factory=HydrographicNetworks)
 
     def to_domain_geographic_context(self):
-        """Return the historical compatibility view used by domain consumers."""
+        """Return the narrow domain view used by domain consumers."""
         from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
             DomainGeographicContext,
         )
@@ -71,8 +72,6 @@ class GeographicDerivedFeatures:
             ),
             box_buff_shp=str(self.boundaries.box_buff_shp),
             zone_kind=str(self.zone_kind),
-            # Compatibility alias: the canonical owner is now `features.rivers`.
-            river_mesh_trace=self.rivers.river_mesh_trace,
             regional_dem_path=(
                 None if self.regional_dem_path is None else str(self.regional_dem_path)
             ),
@@ -93,8 +92,7 @@ class GeographicDerivedFeatures:
         cls,
         context: object,
     ) -> GeographicDerivedFeatures:
-        """Lift one historical domain-geographic payload into the new bundle."""
-        river_mesh_trace = getattr(context, "river_mesh_trace", None)
+        """Lift one domain-geographic payload into the broader feature bundle."""
         return cls(
             surface_topo=context.surface_topo,
             boundaries=GeographicBoundaryFeatures(
@@ -107,8 +105,7 @@ class GeographicDerivedFeatures:
                 box_buff_shp=str(getattr(context, "box_buff_shp", "")),
             ),
             rivers=RiverNetworkProducts(
-                enabled=bool(river_mesh_trace is not None),
-                river_mesh_trace=river_mesh_trace,
+                enabled=False,
             ),
             catchment_area_km2=float(getattr(context, "catchment_area_km2", 0.0) or 0.0),
             catch_def=str(getattr(context, "catch_def", "")),
@@ -183,16 +180,13 @@ def attach_reference_hydrographic_network(
 def resolve_river_mesh_trace(
     *,
     geographic_features: GeographicDerivedFeatures | None = None,
-    domain_geographic: object | None = None,
 ) -> object | None:
     """Return the canonical in-memory river mesh trace when available."""
     if geographic_features is not None and geographic_features.rivers is not None:
         river_trace = geographic_features.rivers.river_mesh_trace
         if river_trace is not None:
             return river_trace
-    if domain_geographic is None:
-        return None
-    return getattr(domain_geographic, "river_mesh_trace", None)
+    return None
 
 
 __all__ = [

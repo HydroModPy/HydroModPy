@@ -67,7 +67,7 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
 
     assert context.catch_def == "dem"
     assert context.zone_kind == "uniform"
-    assert context.river_mesh_trace is None
+    assert not hasattr(context, "river_mesh_trace")
     assert context.x_outlet is None
     assert context.y_outlet is None
     assert Path(context.watershed_box_buff_dem).exists()
@@ -123,7 +123,7 @@ def test_build_geographic_derived_features_from_dem(tmp_path: Path):
     assert Path(features.boundaries.box_buff_shp).exists()
     roundtrip = features.to_domain_geographic_context()
     assert roundtrip.zone_kind == "uniform"
-    assert roundtrip.river_mesh_trace is None
+    assert not hasattr(roundtrip, "river_mesh_trace")
 
 
 def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
@@ -159,7 +159,7 @@ def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
 
     assert context.catch_def == "synthetic"
     assert context.zone_kind == "uniform"
-    assert context.river_mesh_trace is None
+    assert not hasattr(context, "river_mesh_trace")
     assert context.catchment_area_km2 == pytest.approx(0.01)
     assert Path(context.watershed_box_buff_dem).exists()
     assert Path(context.watershed_shp).exists()

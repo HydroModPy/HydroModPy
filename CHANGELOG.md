@@ -43,6 +43,11 @@ Each release section includes the following standard categories:
   `TestbedConfig(case_from_catalog=...)`.
 
 ### Removed
+- `DomainGeographicContext.river_mesh_trace` and the direct
+  `CatchmentDelineation.river_mesh_trace` runtime attribute were removed.
+  Mesh river constraints now read `GeographicDerivedFeatures.rivers.river_mesh_trace`
+  or an explicit `river_trace`; the in-memory mesh config source is now
+  `rivers.source = "geographic_features"` instead of `"domain_geographic"`.
 - Generic testbed outputs no longer write the legacy compatibility keys
   `variant_id`, `variant_label`, `variant_count`, or `variant_from_catalog`.
   Read `case_id`, `case_label`, `case_count`, and `case_from_catalog`

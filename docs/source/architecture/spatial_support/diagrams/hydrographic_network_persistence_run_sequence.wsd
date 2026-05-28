@@ -21,7 +21,6 @@ end
 alt generated geographic network exists
   Ctx -> StoreIngestion : _ingest_river_network(...)
   StoreIngestion -> Catalog : write_geographic_feature(\n\"hydrographic_network_generated\", gdf)
-  StoreIngestion -> Catalog : write_geographic_feature(\n\"river_network\", gdf)  # legacy alias
 else no generated geographic network
   StoreIngestion --> Ctx : skip generated persistence
 end

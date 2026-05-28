@@ -22,8 +22,7 @@ Etat du premier audit:
 - Renommage doc-only applique: references obsoletes a un ancien
   `Geographic`/`geographic.py` remplacees par le runtime actuel
   `CatchmentDelineation`/`catchment_delineation.py`.
-- Alias actifs a conserver pour l'instant: `box_buff`,
-  `DomainGeographicContext.river_mesh_trace`, les attributs runtime `dem_res`,
+- Alias actifs a conserver pour l'instant: `box_buff`, les attributs runtime `dem_res`,
   `dem_box_buff_data`, `dem_data`, `depressions_data`, `catch_area`, et les
   derivees `SyntheticGridConfig.dx` / `dy`.
 - Alias supprimes dans ce lot: la feature store `river_network` pour le reseau
@@ -96,9 +95,13 @@ Consommateurs constates:
 - Cas mesh `reference_2d_geology_conformal`.
 - Tests launchers mesh-catchment, tests mesh et tests geographic.
 
-Decision: vivant. Garder jusqu'a ce que les consommateurs mesh acceptent tous
-`GeographicDerivedFeatures` directement et que la projection
-`DomainGeographicContext` redevienne strictement domaine.
+Decision initiale: vivant au premier audit. Lot applique ensuite: les
+consommateurs mesh ne lisent plus la trace riviere depuis
+`DomainGeographicContext`; ils recoivent maintenant une `river_trace` explicite
+ou le bundle canonique `GeographicDerivedFeatures`.
+
+Decision courante: alias supprime de `DomainGeographicContext`. La trace reste
+portee par `GeographicDerivedFeatures.rivers.river_mesh_trace`.
 
 ### 4. `box_buff` et `box_buff_shp`
 
@@ -178,7 +181,142 @@ rg -n "class Geographic\b|\bGeographic\b" hydromodpy/spatial/geographic hydromod
 
 ## Suite recommandee
 
-1. Migrer les consommateurs mesh vers `GeographicDerivedFeatures` lorsque
-   possible, puis reevaluer `DomainGeographicContext.river_mesh_trace`.
-2. Repasser un scan cible sur les descriptions `historical` et `compatibility`
-   pour ne garder que les mentions contractuelles.
+1. Relancer un build Sphinx ou la generation PlantUML si les SVG derives des
+   sources `.wsd` doivent etre rafraichis dans le meme lot.
+
+## Lot applique: suppression `DomainGeographicContext.river_mesh_trace`
+
+Date: 2026-05-27
+
+Objectif: retirer l'alias qui faisait porter un produit hydrographique/mesh par
+la vue domaine `DomainGeographicContext`.
+
+Changements:
+
+- `DomainGeographicContext` ne declare plus `river_mesh_trace`.
+- `GeographicDerivedFeatures.to_domain_geographic_context()` ne projette plus
+  la trace riviere vers la vue domaine.
+- `GeographicDerivedFeatures.from_domain_geographic_context()` reconstruit un
+  bundle sans produits riviere quand la seule entree disponible est la vue
+  domaine.
+- `resolve_river_mesh_trace(...)` ne lit plus que
+  `GeographicDerivedFeatures.rivers.river_mesh_trace`.
+- Le runtime `mesh_catchment` transmet maintenant `geographic_features` au cas
+  conformal en plus de la `river_trace` deja resolue.
+- Le cas `reference_2d_geology_conformal` resout la trace riviere depuis
+  `geographic_features` ou depuis une `river_trace` explicite, plus depuis
+  `domain_geographic`.
+- La source config in-memory des rivieres est renommee de
+  `domain_geographic` vers `geographic_features`; `file` reste l'autre mode
+  supporte.
+
+Validation:
+
+- `python -m pytest tests/unit/geographic/test_domain_geographic_pipeline.py
+  tests/unit/launchers/test_mesh_catchment_config.py
+  tests/unit/mesh/gmsh_grid/test_reference_2d_geology_conformal_case.py
+  tests/unit/launchers/test_mesh_catchment_launcher.py
+  tests/unit/launchers/test_launcher_run_id.py
+  tests/unit/simulation/test_boussinesq_flow_adapter.py -q -o addopts=""`:
+  97 passed.
+- `python -m ruff check ...` sur les fichiers source/tests touches: OK.
+- `python -m tools.doc_config`: 49 fichiers config/docs regeneres, dont
+  `mesh_catchment.rst`, `hydromodpy-schema.json`,
+  `hydromodpy-openapi.json` et `hmp-config-search.json`.
+- `python -m pytest tests/unit/test_docs_config_consistency.py
+  tests/unit/config/test_schema_export.py
+  tests/unit/cli/test_dev_config_command.py -q -o addopts=""`: 37 passed.
+- `git diff --check`: pas d'erreur de whitespace; seulement les avertissements
+  CRLF deja emis par Git sur le workspace Windows.
+
+Scan de controle:
+
+```powershell
+git grep -n 'domain_geographic.*river_mesh_trace\|river_mesh_trace.*domain_geographic\|source = "domain_geographic"\|source="domain_geographic"\|rivers.source == "domain_geographic"' -- hydromodpy/spatial hydromodpy/solver tests/unit
+```
+
+Resultat attendu: aucune dependance fonctionnelle restante; les seules
+occurrences `domain_geographic` encore presentes cote mesh concernent le support
+de domaine (`watershed_shp`, `box_buff_shp`, `surface_topo`, figures, bundle).
+
+## Lot applique: retrait de `CatchmentDelineation.river_mesh_trace`
+
+Date: 2026-05-28
+
+Objectif: eviter une seconde surface runtime pour la trace riviere apres le
+retrait de `DomainGeographicContext.river_mesh_trace`.
+
+Changements:
+
+- `GeographicRuntimeArtifacts.runtime_attributes()` n'expose plus
+  `river_mesh_trace` comme attribut direct du runtime geographic.
+- `SyntheticGeographic` n'hydrate plus `river_mesh_trace = None`.
+- `CatchmentDelineation.get_geographic_derived_features()` continue de lire le
+  bundle technique `_river_network_products` quand il existe. Son fallback ne
+  reconstruit plus une trace depuis un attribut public legacy; il expose
+  seulement les chemins de reseau generes disponibles.
+
+Decision: `_river_network_products` reste conserve comme detail technique
+interne d'hydratation vers `GeographicDerivedFeatures.rivers`. La surface
+canonique cross-layer reste `GeographicDerivedFeatures.rivers.river_mesh_trace`.
+
+Validation:
+
+- Scan cible sur `self.river_mesh_trace`, l'attribut runtime
+  `"river_mesh_trace"` et `getattr(self, "river_mesh_trace", ...)`: aucun
+  resultat dans `hydromodpy` et `tests`.
+- `python -m pytest tests/unit/geographic/test_domain_geographic_pipeline.py
+  tests/unit/geographic/test_catchment_delineation_contract.py
+  tests/unit/geographic/test_hydrographic_network.py
+  tests/unit/geographic/test_river_network_products.py
+  tests/unit/geographic_synthethic/test_synthetic_geographic.py -q -o
+  addopts=""`: 28 passed.
+- `python -m pytest tests/unit/mesh/gmsh_grid/test_reference_2d_geology_conformal_case.py
+  tests/unit/launchers/test_mesh_catchment_config.py
+  tests/unit/launchers/test_mesh_catchment_launcher.py
+  tests/unit/launchers/test_launcher_run_id.py
+  tests/unit/simulation/test_boussinesq_flow_adapter.py -q -o addopts=""`:
+  93 passed.
+- `python -m ruff check ...` sur les fichiers source/tests touches: OK.
+
+## Scan final `historical` / `compatibility` / `legacy`
+
+Date: 2026-05-28
+
+Commande:
+
+```powershell
+rg -n "historical|compatibility|compatibilit|legacy|deprecated|alias" hydromodpy/spatial/geographic hydromodpy/spatial/mesh docs/source/architecture -g "*.py" -g "*.rst" -g "*.md" -g "*.wsd"
+```
+
+Corrections appliquees:
+
+- Retrait des mentions d'alias persiste `river_network` dans les notes
+  d'architecture hydrographique. Le store n'ecrit plus que
+  `hydrographic_network_generated`; `river_network.shp` et
+  `river_network_summary.json` restent seulement des noms de fichiers.
+- Mise a jour des diagrammes sequence/persistence hydrographiques pour retirer
+  l'ecriture de l'alias `river_network`.
+- Rewording de `DomainGeographicContext` comme vue domaine courante plutot que
+  payload de compatibilite historique.
+
+Resultat apres correction: les occurrences restantes sont contractuelles ou hors
+scope de cette suppression:
+
+- noms de fichiers historiques conserves (`river_network.shp`,
+  `river_network_summary.json`, rasters/domain rasters);
+- aliases documentes et encore actifs (`SyntheticGridConfig.dx` / `dy`,
+  `CellType` text aliases, unit aliases, aliases cartesian-grid);
+- compatibilites d'autres sous-systemes (`modflow_nwt`, simulation time,
+  solver compatibility, result catalog migration);
+- docs de politique generale qui expliquent comment traiter les shims et
+  aliases.
+
+Scan anti-regression specifique:
+
+```powershell
+git grep -n 'legacy generated-feature alias\|legacy alias river_network\|+ legacy alias river_network\|mirrored under the legacy alias\|source = "domain_geographic"\|DomainGeographicContext.river_mesh_trace' -- hydromodpy tests docs ':!docs/source/_static/**'
+```
+
+Resultat: seules les entrees historiques du present rapport mentionnent encore
+`DomainGeographicContext.river_mesh_trace`.
