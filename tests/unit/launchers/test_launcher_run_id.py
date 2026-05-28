@@ -451,7 +451,14 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
             self.workspace = workspace
 
         def get_domain_geographic_context(self):
-            return SimpleNamespace(surface_topo=object(), river_mesh_trace="river-trace")
+            return SimpleNamespace(surface_topo=object())
+
+        def get_geographic_derived_features(self):
+            return SimpleNamespace(
+                surface_topo=object(),
+                rivers=SimpleNamespace(river_mesh_trace="river-trace"),
+                to_domain_geographic_context=self.get_domain_geographic_context,
+            )
 
     class _DummyRunDomain:
         def __init__(self, config, surface_topo) -> None:

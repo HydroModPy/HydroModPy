@@ -12492,14 +12492,14 @@
   {
     "path": "mesh_catchment.rivers.source",
     "name": "source",
-    "type": "Literal['domain_geographic', 'file']",
+    "type": "Literal['geographic_features', 'file']",
     "profile": "user",
     "stability": "stable",
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-rivers-source",
     "page": "mesh_catchment.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/rivers.py#L18",
-    "description": "Origin of the river constraints used to force mesh edges along the river network. Use 'domain_geographic' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk."
+    "description": "Origin of the river constraints used to force mesh edges along the river network. Use 'geographic_features' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk."
   },
   {
     "path": "mesh_catchment.rivers.path",

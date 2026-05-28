@@ -215,7 +215,6 @@ class SyntheticGeographic:
         self.watershed_box_buff_dem = str(self.paths.watershed_box_buff_dem)
         self.watershed_contour_tif = str(self.paths.watershed_contour_tif)
         self._river_network_products = RiverNetworkProducts(enabled=False)
-        self.river_mesh_trace = None
 
     def _hydrate_workspace_paths(self) -> None:
         """Expose workspace-derived paths expected by post-processors."""

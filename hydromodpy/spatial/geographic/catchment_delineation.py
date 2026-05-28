@@ -201,10 +201,9 @@ class CatchmentDelineation:
                 getattr(self, "hydrographic_network_generated_summary_json", None)
             )
             river_products = RiverNetworkProducts(
-                enabled=bool(getattr(self, "river_mesh_trace", None) is not None),
+                enabled=bool(generated_network_shp is not None),
                 hydrographic_network_generated_shp=generated_network_shp,
                 hydrographic_network_generated_summary_json=generated_summary_json,
-                river_mesh_trace=getattr(self, "river_mesh_trace", None),
             )
         generated_network = HydrographicNetwork.from_river_network_products(
             river_products,
@@ -243,7 +242,6 @@ class CatchmentDelineation:
             - ``x_outlet`` and ``y_outlet``: outlet coordinates when available.
             - ``watershed_box_buff_dem``: DEM on the buffered rectangular support.
             - ``zone_kind``: ``"catchment"`` or ``"uniform"`` zone semantics.
-            - ``river_mesh_trace``: optional river-to-mesh trace.
             - ``regional_dem_path``: regional DEM path for map context.
 
         See Also

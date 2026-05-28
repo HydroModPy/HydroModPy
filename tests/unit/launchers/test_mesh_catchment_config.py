@@ -21,7 +21,7 @@ def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg.constraints_mode == "rivers_only"
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.geographic_outputs_mode == "keep"
-    assert cfg.rivers.source == "domain_geographic"
+    assert cfg.rivers.source == "geographic_features"
     assert cfg.watershed_boundary.enabled is False
     assert cfg.figures_enabled is True
     assert cfg.export_exchange_bundle is True

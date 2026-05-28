@@ -33,7 +33,7 @@ alt generated network is enabled
   Workflow -> Factory : from_river_network_products(...)
   Factory --> Workflow : HydrographicNetwork(role=\"generated\")
   Workflow -> Features : attach generated role
-  Workflow -> Catalog : persist hydrographic_network_generated\n(+ legacy alias river_network)
+  Workflow -> Catalog : persist hydrographic_network_generated
 else geographic.river_network disabled or empty
   Workflow -> Features : keep generated = None
 end

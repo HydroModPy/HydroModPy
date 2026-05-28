@@ -93,7 +93,6 @@ class GeographicRuntimeContext:
                 "_paths": self.paths,
                 "_dem_metadata": self.dem_metadata,
                 "_river_network_products": self.river_network_products,
-                "river_mesh_trace": self.river_network_products.river_mesh_trace,
             }
         )
         attrs.update(self.dem_metadata.runtime_attributes())
@@ -396,8 +395,8 @@ def build_geographic_runtime_context(
 ) -> GeographicRuntimeContext:
     """Build the full geographic runtime context from config and workspace.
 
-    This is the compatibility-oriented counterpart to
-    ``build_domain_geographic_context``.
+    This is the full runtime counterpart to
+    ``build_geographic_derived_features``.
 
     The function prepares regional flow rasters, standard or direct DEM domain
     polygons, clipped domain rasters, DEM metadata, and optional river-network

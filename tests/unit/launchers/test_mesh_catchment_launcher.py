@@ -34,8 +34,7 @@ class _DummyBatchWorkspace:
 
 
 class _DummyDomainGeographic:
-    def __init__(self, river_mesh_trace=object()) -> None:
-        self.river_mesh_trace = river_mesh_trace
+    pass
 
 
 class _DummyGeographicFeatures:
@@ -43,7 +42,7 @@ class _DummyGeographicFeatures:
         self.rivers = SimpleNamespace(river_mesh_trace=river_mesh_trace)
 
     def to_domain_geographic_context(self) -> _DummyDomainGeographic:
-        return _DummyDomainGeographic(river_mesh_trace=self.rivers.river_mesh_trace)
+        return _DummyDomainGeographic()
 
 
 def _patch_dummy_geographic_builders(
@@ -195,7 +194,8 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["output_figure_regional"] is None
     assert kwargs["section_data_override"]["domain"]["kind"] == "geographic_box_buffer"
     assert kwargs["section_data_override"]["watershed_boundary"]["enabled"] is False
-    assert kwargs["domain_geographic"].river_mesh_trace is not None
+    assert kwargs["geographic_features"].rivers.river_mesh_trace is not None
+    assert not hasattr(kwargs["domain_geographic"], "river_mesh_trace")
 
 
 def test_mesh_runtime_require_mesh_section_returns_typed_model() -> None:
@@ -719,6 +719,7 @@ def test_mesh_runtime_can_skip_exchange_bundle_export(
         domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(kind="constant_thickness")),
         constraints_mode="rivers_only",
         workspace=local_workspace,
+        geographic_features=_DummyGeographicFeatures(),
         domain_geographic=_DummyDomainGeographic(),
     )
 
@@ -768,6 +769,7 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
         domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(kind="constant_thickness")),
         constraints_mode="rivers_only",
         workspace=local_workspace,
+        geographic_features=_DummyGeographicFeatures(),
         domain_geographic=_DummyDomainGeographic(),
     )
 
@@ -816,7 +818,8 @@ def test_mesh_runtime_accepts_external_geographic_features(
 
     assert summary["summary_schema_version"] == "zone_conformal_sidecar_v1"
     assert captured["kwargs"]["river_trace"] == "trace-1"
-    assert captured["kwargs"]["domain_geographic"].river_mesh_trace == "trace-1"
+    assert captured["kwargs"]["geographic_features"].rivers.river_mesh_trace == "trace-1"
+    assert not hasattr(captured["kwargs"]["domain_geographic"], "river_mesh_trace")
 
 
 def test_mesh_catchment_launcher_requires_mesh_section(monkeypatch, tmp_path: Path) -> None:

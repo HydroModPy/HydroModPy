@@ -8842,14 +8842,14 @@
         "description": "River-trace inputs consumed by the conformal mesher.",
         "properties": {
           "source": {
-            "default": "domain_geographic",
-            "description": "Origin of the river constraints used to force mesh edges along the river network. Use 'domain_geographic' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.",
+            "default": "geographic_features",
+            "description": "Origin of the river constraints used to force mesh edges along the river network. Use 'geographic_features' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.",
             "enum": [
-              "domain_geographic",
+              "geographic_features",
               "file"
             ],
             "examples": [
-              "domain_geographic"
+              "geographic_features"
             ],
             "title": "Source",
             "type": "string",

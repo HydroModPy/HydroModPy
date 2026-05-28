@@ -63,6 +63,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
     output_figure: str | Path | None = None,
     output_figure_regional: str | Path | None = None,
     river_trace: object | None = None,
+    geographic_features: object | None = None,
     domain_geographic: object | None = None,
     show_plot: bool = False,
     return_runtime_artifacts: bool = False,
@@ -93,6 +94,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
         cfg=cfg,
         config_path=config_path,
         river_trace=river_trace,
+        geographic_features=geographic_features,
         domain_geographic=domain_geographic,
     )
     trace_mesh_stage(
