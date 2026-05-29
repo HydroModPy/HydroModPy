@@ -4,3 +4,6 @@
 # This placeholder keeps the metadata inventory explicit so:
 # - `validation_cases.run_cases --solver boussinesq` can discover the case,
 # - the case directory documents that a `boussinesq` variant exists.
+
+[workflow]
+mode = "simulation"

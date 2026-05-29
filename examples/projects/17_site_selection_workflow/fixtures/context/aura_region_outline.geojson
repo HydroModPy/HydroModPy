@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "name": "aura_fixture_outline",
+  "hydromodpy_coordinate_crs": "EPSG:2154",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "AURA fixture extent"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[830000, 6492000], [932000, 6492000], [932000, 6560000], [830000, 6560000], [830000, 6492000]]]
+      }
+    }
+  ]
+}

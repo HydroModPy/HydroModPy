@@ -53,8 +53,10 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
         )
     )
     config = GeographicConfig(
-        catch_def="dem",
-        dem_init_path=dem_path,
+        catchment={
+            "catch_def": "dem",
+            "dem_init_path": dem_path,
+        },
         crs_project="EPSG:2154",
     )
 
@@ -65,7 +67,7 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
 
     assert context.catch_def == "dem"
     assert context.zone_kind == "uniform"
-    assert context.river_mesh_trace is None
+    assert not hasattr(context, "river_mesh_trace")
     assert context.x_outlet is None
     assert context.y_outlet is None
     assert Path(context.watershed_box_buff_dem).exists()
@@ -101,8 +103,10 @@ def test_build_geographic_derived_features_from_dem(tmp_path: Path):
         )
     )
     config = GeographicConfig(
-        catch_def="dem",
-        dem_init_path=dem_path,
+        catchment={
+            "catch_def": "dem",
+            "dem_init_path": dem_path,
+        },
         crs_project="EPSG:2154",
     )
 
@@ -119,7 +123,7 @@ def test_build_geographic_derived_features_from_dem(tmp_path: Path):
     assert Path(features.boundaries.box_buff_shp).exists()
     roundtrip = features.to_domain_geographic_context()
     assert roundtrip.zone_kind == "uniform"
-    assert roundtrip.river_mesh_trace is None
+    assert not hasattr(roundtrip, "river_mesh_trace")
 
 
 def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
@@ -155,7 +159,7 @@ def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
 
     assert context.catch_def == "synthetic"
     assert context.zone_kind == "uniform"
-    assert context.river_mesh_trace is None
+    assert not hasattr(context, "river_mesh_trace")
     assert context.catchment_area_km2 == pytest.approx(0.01)
     assert Path(context.watershed_box_buff_dem).exists()
     assert Path(context.watershed_shp).exists()
@@ -171,12 +175,14 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
         stable_folder=tmp_path / "results" / ".solver_scratch/_preprocessing",
     )
     config = GeographicConfig(
-        catch_def="from_outlet_coord",
-        dem_init_path=tmp_path / "regional_dem.tif",
-        x_outlet=1000.0,
-        y_outlet=2000.0,
-        snap_dist="50 m",
-        buff_area="20%",
+        catchment={
+            "catch_def": "from_outlet_coord",
+            "dem_init_path": tmp_path / "regional_dem.tif",
+            "x_outlet": 1000.0,
+            "y_outlet": 2000.0,
+            "snap_dist": "50 m",
+            "buff_area": "20%",
+        },
         crs_project="EPSG:2154",
         dem_correc_type="breach",
         river_network={"enabled": False},
@@ -247,20 +253,6 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
                 / ".solver_scratch/_preprocessing"
                 / "geographic"
                 / "river_stream_link_id.tif"
-            ),
-            river_network_shp=str(
-                tmp_path
-                / "results"
-                / ".solver_scratch/_preprocessing"
-                / "geographic"
-                / "river_network.shp"
-            ),
-            river_network_summary_json=str(
-                tmp_path
-                / "results"
-                / ".solver_scratch/_preprocessing"
-                / "geographic"
-                / "river_network_summary.json"
             ),
             hydrographic_network_generated_shp=str(
                 tmp_path

@@ -192,7 +192,6 @@ def _load_scalar_series(
     observable_name: str,
 ) -> tuple[np.ndarray, np.ndarray]:
     period_indices, raw_values = load_time_series_fields(
-        postprocess_dir=result.postprocess_dir,
         store=result.store,
         sim_id=result.sim_id,
         observable_name=observable_name,
@@ -314,7 +313,6 @@ def build_brutsaert_recession_comparison(
             if nx > 0 and ny > 0:
                 expected_head_shape = (ny, nx)
         _, heads_all = load_time_series_fields(
-            postprocess_dir=result.postprocess_dir,
             store=result.store,
             sim_id=result.sim_id,
             observable_name=head_observable_name,

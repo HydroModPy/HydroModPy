@@ -19,10 +19,10 @@ Accepted sources
    * - ``custom``
      - A local raster is authoritative.
      - ``custom``
-   * - ``ign_bdalti``
-     - The project should retrieve IGN BD ALTI coverage from the configured
-       spatial window.
-     - ``ign-bdalti``
+   * - ``ign_geoplateforme_dem``
+     - A regional French workflow should discover, download, assemble, and
+       cache public IGN DEM archives through Geoplateforme.
+     - ``ign-geoplateforme-dem``
 
 Minimal example
 ---------------
@@ -33,8 +33,13 @@ Minimal example
    types = ["dem"]
 
    [[data.dem.sources]]
-   source = "ign_bdalti"
+   source = "ign_geoplateforme_dem"
+   dataset = "bd-alti"
+   resolution_m = 25.0
+   file_format = "ASC"
    extent = "watershed"
+   # Optional for regional workflows:
+   # regions = ["Bretagne"]
 
 Loaded shape
 ------------
@@ -106,33 +111,140 @@ Open the DEM overview panel from the family page and confirm that local terrain
 and watershed support agree. A custom DEM should not require solver-side
 compensation.
 
+DEM Source: ign_geoplateforme_dem
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-DEM Source: ign_bdalti
-^^^^^^^^^^^^^^^^^^^^^^
+Use ``source = "ign_geoplateforme_dem"`` when a workflow should resolve French
+administrative regions or departments, discover matching IGN archives through
+Geoplateforme, assemble the DEM, and cache the processed GeoTIFF.
 
-Use ``source = "ign_bdalti"`` when the project should retrieve public IGN BD
-ALTI elevation data from the configured spatial support.
+This source lives in the data layer. Workflows such as ``site_selection`` only
+declare their DEM need through ``[data.dem]``; they do not call IGN services
+directly.
 
 Minimal example
 """""""""""""""
 
 .. code-block:: toml
 
+   [data]
+   types = ["dem"]
+
    [[data.dem.sources]]
-   source = "ign_bdalti"
-   extent = "watershed"
+   source = "ign_geoplateforme_dem"
+   dataset = "bd-alti"
+   resolution_m = 25.0
+   file_format = "ASC"
+   regions = ["Auvergne-Rhone-Alpes"]
 
 Operational checks
 """"""""""""""""""
 
-- ``extent`` should match the support needed by the workflow:
-  ``watershed`` for basin runs, ``study_area`` for broader preprocessing.
-- API-backed files should be visible in the workspace data cache when a
-  workspace is active.
-- Rebuild or refresh only when the configured extent or data policy changes.
+- ``regions`` are canonical French region names such as ``Bretagne``,
+  ``Corse`` or ``Auvergne-Rhone-Alpes``. HydroModPy resolves the corresponding
+  departments before download.
+- ``departments`` can be used instead when the required support is known
+  explicitly.
+- The assembled product is currently BD ALTI 25 m ASC written as a clipped
+  GeoTIFF in ``data/dem/processed``.
+- The processed cache is keyed by bbox and departments and accompanied by a
+  JSON metadata sidecar. Compatible processed rasters are reused without
+  re-downloading raw archives.
+- RGE ALTI discovery/download is available for inspection through the helper,
+  but assembled RGE ALTI rasters are intentionally not enabled yet. Large 1 m
+  or 5 m regional requests need explicit storage and processing guardrails.
 
-Expected figure
-"""""""""""""""
+Cache layout
+""""""""""""
 
-The expected visual result is the same DEM support panel used by custom DEMs:
-terrain, watershed boundary, and outlet context must be spatially coherent.
+The Geoplateforme source separates raw archives, extracted archive contents, and
+processed GeoTIFFs:
+
+.. code-block:: text
+
+   <workspace>/data/dem/
+     raw_ign/
+       bd-alti/25m/D029/*.7z
+     extracted_ign/
+       D029_<hash>/
+     processed/
+       dem_ign_geoplateforme_bdalti_25m_<hash>.tif
+       dem_ign_geoplateforme_bdalti_25m_<hash>.json
+
+For ``site_selection`` review maps, use BD ALTI 25 m as the default regional
+background. Reference hydrography such as BD Topage may be used to constrain
+outlet snapping, but it should not be displayed as a cartographic proof of the
+selected basin network unless that is the explicit review objective.
+
+
+French IGN archive helper
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``tools/download_dem_fr`` is a standalone helper for preparing or diagnosing
+French IGN DEM archives outside a full HydroModPy run. It is useful when a
+regional workflow needs many departments, for example before producing a
+regional review map.
+
+The helper is intentionally separate from ``site_selection``. Workflows should
+still request DEM data through ``[data.dem]``; the helper only manages raw
+archive discovery/download.
+
+By default, the helper writes raw IGN archives outside the source repository:
+``HYDROMODPY_WORKSPACE/data/dem/raw_ign`` when ``HYDROMODPY_WORKSPACE`` is
+defined, otherwise ``~/hydromodpy/data/dem/raw_ign``. Use ``--output-dir`` only
+when an explicit data cache location is needed.
+
+Examples
+""""""""
+
+Dry-run BD ALTI 25 m for one department:
+
+.. code-block:: bash
+
+   python tools/download_dem_fr/download_dem_fr.py \
+     --departements 29 \
+     --dataset bd-alti \
+     --resolution 25 \
+     --format ASC \
+     --dry-run
+
+Dry-run the Auvergne-Rhone-Alpes departments:
+
+.. code-block:: bash
+
+   python tools/download_dem_fr/download_dem_fr.py \
+     --regions Auvergne-Rhone-Alpes \
+     --dataset bd-alti \
+     --resolution 25 \
+     --format ASC \
+     --dry-run
+
+Show provider checksums in a dry-run when Geoplateforme exposes them:
+
+.. code-block:: bash
+
+   python tools/download_dem_fr/download_dem_fr.py \
+     --departements 29 \
+     --dataset bd-alti \
+     --resolution 25 \
+     --format ASC \
+     --dry-run \
+     --include-md5
+
+Cache layout
+""""""""""""
+
+The helper stores raw archives by dataset, resolution, and department:
+
+.. code-block:: text
+
+   ~/hydromodpy/data/dem/raw_ign/
+     bd-alti/
+       25m/
+         D029/
+           BDALTIV2_...D029....7z
+
+For regional ``site_selection`` review maps, BD ALTI 25 m is the assembled DEM
+source exposed by the data manager. RGE ALTI 5 m or 1 m is available only as
+raw archive inspection/download through the helper until storage and assembly
+guardrails are defined explicitly.

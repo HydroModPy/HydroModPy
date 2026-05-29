@@ -32,13 +32,6 @@ EXIT_BACKUP_FAILED = 18
 EXIT_MIGRATION_FAILED = 19
 EXIT_SIGINT = 130
 
-# Legacy aliases kept for backwards compatibility with existing call sites
-# that have not been migrated to the typed scheme yet. New code should use
-# the named ``EXIT_*`` constants above.
-EXIT_RUN_FAILED = EXIT_GENERIC
-EXIT_USER_ABORT = EXIT_SIGINT
-EXIT_DATA_ERROR = EXIT_VALIDATION
-
 
 def exit_code_for(exc: BaseException) -> int:
     """Map an exception instance to the matching typed exit code.
@@ -113,7 +106,7 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
     root = Path(workspace_arg).expanduser().resolve() if workspace_arg else DEFAULT_ROOT
     if not root.is_dir():
         print(
-            f"Workspace {root} does not exist. Run 'hmp init' first.",
+            f"Workspace {root} does not exist. Run 'hmp workspace init' first.",
             file=sys.stderr,
         )
         sys.exit(EXIT_NOT_FOUND)
@@ -230,9 +223,6 @@ __all__ = (
     "EXIT_BACKUP_FAILED",
     "EXIT_MIGRATION_FAILED",
     "EXIT_SIGINT",
-    "EXIT_RUN_FAILED",
-    "EXIT_USER_ABORT",
-    "EXIT_DATA_ERROR",
     "exit_code_for",
     "find_project_root",
     "find_catalog_root",

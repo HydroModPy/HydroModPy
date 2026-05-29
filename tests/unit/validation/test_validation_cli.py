@@ -99,3 +99,4 @@ def test_run_case_main_applies_output_root_override(
         plot_comparison=lambda comparison, *, output_png, show_plot, dpi: output_png,
         build_metric_lines=lambda comparison: (),
     )
+    assert "HMP_OUT_PATH" not in os.environ

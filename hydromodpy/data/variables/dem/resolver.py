@@ -1,18 +1,17 @@
-"""Bridge between [[data.dem.sources]] and [geographic].dem_init_path.
+"""Bridge between ``[[data.dem.sources]]`` and ``[geographic].dem_init_path``.
 
-The geographic delineation pipeline needs a concrete DEM file path before
-any data manager runs. Historically users had to provide it via
-``[geographic].dem_init_path`` even when their DEM was already declared
-under ``[[data.dem.sources]]``. This resolver removes that duplication
-by populating ``dem_init_path`` from the data-manager declaration when
-the geographic field is left empty.
+The geographic delineation pipeline needs a concrete DEM file path before any
+data manager runs. Historically users had to provide it via
+``[geographic].dem_init_path`` even when their DEM was already declared under
+``[[data.dem.sources]]``. This resolver removes that duplication by populating
+``dem_init_path`` from the data-manager declaration when the geographic field
+is left empty.
 
 Resolution order for a single source:
 
-- ``source = "custom"`` → resolve ``path`` against the TOML directory.
-- ``source = "ign_bdalti"`` → download the bbox via ``fetch_bdalti``,
-  using outlet coordinates + a generous buffer (same logic the overview
-  pipeline already used).
+- ``source = "custom"`` resolves ``path`` against the TOML directory.
+- ``source = "ign_geoplateforme_dem"`` uses the IGN Geoplateforme DEM client
+  with an outlet-buffer bootstrap bbox.
 
 The first source that yields a usable path wins.
 """
@@ -24,7 +23,7 @@ from typing import Any
 
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 
-_API_SOURCES = {"ign_bdalti"}
+_API_SOURCES = {"ign_geoplateforme_dem"}
 _BOOTSTRAP_BUFFER_M = 30_000
 
 
@@ -34,22 +33,8 @@ def resolve_dem_path_from_data_sources(
     config_path: Path,
     cache_dir: Path | None = None,
 ) -> Path | None:
-    """Return a concrete DEM path derived from ``[[data.dem.sources]]``.
+    """Return a concrete DEM path derived from ``[[data.dem.sources]]``."""
 
-    Returns ``None`` when no usable source is declared. Raises when an API
-    source is declared but the outlet coordinates required to build the
-    download bbox are missing.
-
-    Parameters
-    ----------
-    cfg
-        Validated ``HydroModPyConfig`` instance.
-    config_path
-        Absolute path to the TOML file (used to resolve relative paths).
-    cache_dir
-        Directory where API downloads are cached. Falls back to
-        ``~/.cache/hydromodpy/dem`` when not provided.
-    """
     data_cfg = getattr(cfg, "data", None)
     if data_cfg is None:
         return None
@@ -112,8 +97,18 @@ def _bootstrap_api_source(
         y_out + _BOOTSTRAP_BUFFER_M,
     )
 
-    from hydromodpy.data.variables.dem.apis.ign_bdalti import fetch_bdalti
-
     output_dir = cache_dir or (_hmp_cache_dir() / "dem")
     output_dir.mkdir(parents=True, exist_ok=True)
-    return fetch_bdalti(output_dir=output_dir, bbox=bbox)
+
+    from hydromodpy.data.variables.dem.apis.ign_dem_fr import fetch_ign_dem
+
+    return fetch_ign_dem(
+        output_dir=output_dir,
+        bbox=bbox,
+        departments=getattr(source_cfg, "departments", None) or None,
+        dataset=getattr(source_cfg, "dataset", "bd-alti"),
+        resolution_m=getattr(source_cfg, "resolution_m", None),
+        file_format=getattr(source_cfg, "file_format", "ASC"),
+        crs=getattr(source_cfg, "crs", None),
+        force_refresh=bool(getattr(source_cfg, "force_refresh", False)),
+    )

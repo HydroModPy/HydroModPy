@@ -139,7 +139,7 @@ Regression pattern
 
 .. code-block:: python
 
-   # tests/regression/fast/test_launcher_simulation_fast_mf6.py
+   # tests/regression/fast/test_simulation_regression_fast_mf6.py
    import pytest
 
    from tests.support.golden import assert_golden
@@ -148,9 +148,9 @@ Regression pattern
    @pytest.mark.regression
    @pytest.mark.mf6
    @pytest.mark.fast
-   def test_launcher_simulation_fast_mf6(catalog_with_data):
+   def test_simulation_regression_fast_mf6(catalog_with_data):
        result = run_workflow(catalog_with_data, ...)
-       assert_golden(result, "fixtures/launcher_simulation_fast_mf6.json")
+       assert_golden(result, "fixtures/simulation_regression_fast_mf6.json")
 
 Update the golden manually with ``hmp test regression
 --update-goldens``; review the diff before committing.

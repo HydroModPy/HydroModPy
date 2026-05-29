@@ -33,6 +33,8 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.state.paths import CATALOG_FILENAME, PROJECT_TOML_FILENAME
 
 ResolutionSource = Literal["explicit", "env", "scaffold", "project"]
+_SAFE_FILENAME_WINDOWS_DRIVE = "\uf03a"
+_SAFE_FILENAME_WINDOWS_SEPARATOR = "\uf05c"
 
 
 class WorkspaceConfig(HydroModelBase):
@@ -120,6 +122,16 @@ class WorkspaceConfig(HydroModelBase):
     @model_validator(mode="after")
     def _resolve(self) -> WorkspaceConfig:
         """Resolve to absolute paths using the strict binary contract."""
+        for field_name in (
+            "project_root",
+            "root",
+            "catalog_path",
+            "data_dir",
+            "simulations_dir",
+            "output_root",
+        ):
+            _reject_safe_filename_path(field_name, getattr(self, field_name))
+
         project_root = Path(self.project_root).expanduser().resolve()
         _set_if_changed(self, "project_root", project_root)
 
@@ -192,6 +204,22 @@ def _finalize(value: Path | None, default: Path) -> Path:
     return path.resolve()
 
 
+def _reject_safe_filename_path(name: str, value: object | None) -> None:
+    """Reject paths that were already encoded for filename-safe storage."""
+    if value is None:
+        return
+    text = str(value)
+    if (
+        _SAFE_FILENAME_WINDOWS_DRIVE in text
+        or _SAFE_FILENAME_WINDOWS_SEPARATOR in text
+    ):
+        raise ValueError(
+            f"workspace.{name} contains private-use characters that look like a "
+            "Windows path encoded as a safe filename. Pass a real path, such as "
+            r"'C:\path\to\workspace', or a project-relative path."
+        )
+
+
 def _set_if_changed(model: WorkspaceConfig, name: str, value: Path) -> None:
     if getattr(model, name) != value:
         setattr(model, name, value)
@@ -234,7 +262,7 @@ def _format_hint(project_root: Path) -> str:
     return (
         f"Cannot locate a HydroModPy workspace for project at {project_root}.\n"
         "Pick one of:\n"
-        "  (a) scaffold: run `hmp init <workspace-dir>` then place\n"
+        "  (a) scaffold: run `hmp workspace init <workspace-dir>` then place\n"
         f"      this TOML at <workspace>/projects/<name>/{PROJECT_TOML_FILENAME}\n"
         "  (b) env var:  export HMP_WORKSPACE=/path/to/workspace\n"
         "  (c) explicit: add to [workspace]:\n"

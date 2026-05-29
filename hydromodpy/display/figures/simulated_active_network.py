@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figures.hydrographic_network import _project_gdf_for_metric_operations
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
+from hydromodpy.display.map_axes import (
+    RELATIVE_MAP_LEGEND_SIZE,
+    overlay_watershed_contour,
+    style_map_axes,
+    style_relative_km_axes,
+)
 from hydromodpy.display.ugrid import render_face_field
 from hydromodpy.results import views
 from hydromodpy.results.views import CellFieldActiveMode
@@ -156,7 +161,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             zorder=6,
         )
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.65)
-        style_map_axes(ax)
+        style_relative_km_axes(ax)
         mode_label = views.cell_field_active_mode_label(
             sim,
             mode=mode,
@@ -205,9 +210,10 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
                     alpha=active_alpha,
                     label="simulated active",
                 ),
-                Line2D([0], [0], color=reference_color, lw=1.5, label="reference"),
+                Line2D([0], [0], color=reference_color, lw=1.5, label="BD Topage"),
             ],
             loc="lower right",
+            fontsize=RELATIVE_MAP_LEGEND_SIZE,
             framealpha=0.9,
         )
         return ax

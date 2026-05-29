@@ -65,8 +65,9 @@ def run_flow_post_processing(
     model.tifs_file = os.path.join(model.save_file, "_rasters")
     filesystem.create_folder(model.tifs_file)
 
-    head_path = os.path.join(model.full_path, f"{model.model_name}.hds")
-    cbc_path = os.path.join(model.full_path, f"{model.model_name}.cbc")
+    output_name = str(getattr(model, "model_output_name", model.model_name))
+    head_path = os.path.join(model.full_path, f"{output_name}.hds")
+    cbc_path = os.path.join(model.full_path, f"{output_name}.cbc")
     head_fpu = bf.HeadFile(head_path)
     cbb = open_budget_file(cbc_path)
 

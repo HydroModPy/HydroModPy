@@ -85,6 +85,46 @@ def test_modflow6_prt_upstream_nonriver_release_excludes_stream_cells() -> None:
     assert prt._select_release_cells().tolist() == [3]
 
 
+def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
+    transport = Transport(
+        {
+            "modflow6prt": {
+                "parameters": {
+                    "release_zone": "domain_nonriver",
+                    "max_particles": 3,
+                }
+            }
+        }
+    )
+    flow_model = SimpleNamespace(
+        solver_mesh=SimpleNamespace(
+            top=np.ones(7, dtype=float),
+            inactive_mask=np.array([[False, False, False, False, False, False, False]]),
+            cell_centroids=lambda: np.array(
+                [
+                    [0.0, 0.0],
+                    [1.0, 0.0],
+                    [2.0, 0.0],
+                    [3.0, 0.0],
+                    [4.0, 0.0],
+                    [5.0, 0.0],
+                    [6.0, 0.0],
+                ]
+            ),
+        ),
+        ncpl=7,
+        _stream_support_mask=np.array([False, True, False, False, True, False, False]),
+    )
+
+    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model)
+    selected = prt._select_release_cells()
+
+    assert selected.size == 3
+    assert not np.any(flow_model._stream_support_mask[selected])
+    assert 0 in selected
+    assert 6 in selected
+
+
 def test_modflow6_prt_extractor_writes_vectorized_particles(tmp_path: Path) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()

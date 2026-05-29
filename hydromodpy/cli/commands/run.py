@@ -2,7 +2,7 @@
 
 Single CLI entry point. The TOML must carry a top-level
 ``[workflow] mode = "..."`` field (one of ``simulation``, ``calibration``,
-``overview``, ``comparison``, ``testbed``). Absence
+``overview``, ``comparison``, ``testbed``, ``site_selection``). Absence
 raises ``WorkflowMissingError``.
 
 Overrides are merged as defaults < base_config < --overlay < --set < env.
@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
-    EXIT_USER_ABORT,
+    EXIT_SIGINT,
     auto_scan_workspace,
 )
 
@@ -263,7 +263,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             summary = hmp.run(run_path)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
-        sys.exit(EXIT_USER_ABORT)
+        sys.exit(EXIT_SIGINT)
     except ValidationError as exc:
         print(f"Config invalid: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
@@ -590,6 +590,8 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
         return "comparison"
     if "testbed" in raw_toml:
         return "testbed"
+    if "site_selection" in raw_toml:
+        return "site_selection"
     return "simulation"
 
 

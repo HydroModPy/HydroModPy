@@ -34,6 +34,20 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Removed
+- `DomainGeographicContext.river_mesh_trace` and the direct
+  `CatchmentDelineation.river_mesh_trace` runtime attribute were removed.
+  Mesh river constraints now read `GeographicDerivedFeatures.rivers.river_mesh_trace`
+  or an explicit `river_trace`; the in-memory mesh config source is now
+  `rivers.source = "geographic_features"` instead of `"domain_geographic"`.
+- Generic testbed input spellings `[[testbed.variant]]`,
+  `[[testbed.variant_from_catalog]]`, `TestbedConfig(variants=...)`, and
+  `TestbedConfig(catalog_variants=...)` are no longer supported. Use
+  `[[testbed.case]]`, `[[testbed.case_from_catalog]]`,
+  `TestbedConfig(case=...)`, and `TestbedConfig(case_from_catalog=...)`.
+- Generic testbed outputs no longer write the legacy compatibility keys
+  `variant_id`, `variant_label`, `variant_count`, or `variant_from_catalog`.
+  Read `case_id`, `case_label`, `case_count`, and `case_from_catalog`
+  instead.
 - Removed the application-level config compatibility aliases under
   `hydromodpy.core`. Use `hydromodpy.config.HydroModPyConfig` and
   `hydromodpy.config.schema_export` instead.

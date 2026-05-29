@@ -18,7 +18,7 @@ def triangle_mesh() -> HydroMesh:
 
 
 def test_vtu_roundtrip(tmp_path, triangle_mesh) -> None:
-    import meshio  # noqa: F401
+    pytest.importorskip("meshio")
 
     from hydromodpy.spatial.mesh.io import read_vtu, write_vtu
 

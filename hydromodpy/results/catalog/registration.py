@@ -10,9 +10,12 @@ when mesh dimensions are known. The rest of the write surface
 
 from __future__ import annotations
 
+import gc
 import hashlib
 import json
+import os
 import shutil
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -36,6 +39,9 @@ logger = get_logger(__name__)
 
 OnCollisionMode = Literal["replace", "fail", "version"]
 
+STAGED_ZARR_RENAME_ATTEMPTS = 8
+STAGED_ZARR_RENAME_BASE_DELAY_SECONDS = 0.05
+
 
 def _short_id(sim_id: str | UUID) -> str:
     return str(sim_id)[:8]
@@ -48,6 +54,32 @@ def _coerce_timestamp(value: Any) -> Any:
     if hasattr(value, "isoformat"):
         return value
     return str(value)
+
+
+def _is_retryable_staged_zarr_rename_error(exc: BaseException) -> bool:
+    """Return True for transient Windows directory promotion failures."""
+    if os.name != "nt" or not isinstance(exc, PermissionError):
+        return False
+    winerror = getattr(exc, "winerror", None)
+    return winerror in (None, 5, 32)
+
+
+def _promote_staged_zarr(source: Path, target: Path) -> None:
+    """Atomically promote a staged Zarr directory to its final location."""
+    source_io = _windows_long_path(source)
+    target_io = _windows_long_path(target)
+    for attempt in range(STAGED_ZARR_RENAME_ATTEMPTS):
+        try:
+            source_io.rename(target_io)
+            return
+        except PermissionError as exc:
+            if (
+                not _is_retryable_staged_zarr_rename_error(exc)
+                or attempt == STAGED_ZARR_RENAME_ATTEMPTS - 1
+            ):
+                raise
+            gc.collect()
+            time.sleep(STAGED_ZARR_RENAME_BASE_DELAY_SECONDS * (attempt + 1))
 
 
 def _next_available_version(
@@ -261,7 +293,7 @@ class RegistrationMixin:
                         geographic_fingerprint=geographic_fingerprint,
                     )
                     staged.close()
-                    _windows_long_path(zarr_tmp).rename(_windows_long_path(zarr_final))
+                    _promote_staged_zarr(zarr_tmp, zarr_final)
 
                 self._backend.execute(
                     """INSERT INTO simulations

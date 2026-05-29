@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 import sys
@@ -14,12 +13,12 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
 )
 from validation_cases.shared.runtime import (
-    REPO_ROOT,
     ValidationRunResult,
     resolve_model_workspace,
     resolve_validation_results_dir,
-    run_example_script,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 PIECEWISE_STRIP_NX = 40
 PIECEWISE_STRIP_NY = 3
@@ -334,14 +333,14 @@ def _aggregate_triangle_history(
     return watertable_elevation, watertable_depth
 
 
-def aggregate_triangle_history_to_structured_grids(
+def aggregate_triangle_history_to_structured_fields(
     model,
     *,
     nx: int = PIECEWISE_STRIP_NX,
     ny: int = PIECEWISE_STRIP_NY,
     export_initial_state: bool = True,
-) -> None:
-    """Overwrite vector postprocess outputs with one regular structured grid."""
+) -> dict[str, dict[int, np.ndarray]]:
+    """Return triangle-cell history aggregated on the structured validation grid."""
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq validation case requires a solved model state.")
 
@@ -364,103 +363,10 @@ def aggregate_triangle_history_to_structured_grids(
         nx=int(nx),
         ny=int(ny),
     )
-    postprocess_dir = Path(model.full_path) / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
-
-
-def _load_piecewise_strip_bundle_geometry(
-    bundle_dir: Path,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
-    cells_path = Path(bundle_dir) / "cells.csv"
-    nodes_path = Path(bundle_dir) / "nodes.csv"
-
-    with cells_path.open("r", encoding="utf-8", newline="") as stream:
-        cell_rows = list(csv.DictReader(stream))
-    with nodes_path.open("r", encoding="utf-8", newline="") as stream:
-        node_rows = list(csv.DictReader(stream))
-
-    if not cell_rows or not node_rows:
-        raise AssertionError(f"Piecewise-strip bundle is incomplete: {bundle_dir}")
-
-    centroid_x_m = np.asarray([float(row["centroid_x"]) for row in cell_rows], dtype=float)
-    centroid_y_m = np.asarray([float(row["centroid_y"]) for row in cell_rows], dtype=float)
-    z_top_m = np.asarray([float(row["z_top_centroid"]) for row in cell_rows], dtype=float)
-    node_x = np.asarray([float(row["x"]) for row in node_rows], dtype=float)
-    node_y = np.asarray([float(row["y"]) for row in node_rows], dtype=float)
-    return (
-        centroid_x_m,
-        centroid_y_m,
-        z_top_m,
-        float(np.min(node_x)),
-        float(np.max(node_x)),
-        float(np.min(node_y)),
-        float(np.max(node_y)),
-    )
-
-
-def aggregate_piecewise_strip_postprocess(
-    postprocess_dir: Path,
-    *,
-    bundle_dir: Path,
-    nx: int = PIECEWISE_STRIP_NX,
-    ny: int = PIECEWISE_STRIP_NY,
-) -> None:
-    """Rewrite launcher-produced vector `.npy` outputs to `(ny, nx)` grids."""
-    head_payload = np.load(
-        Path(postprocess_dir) / "watertable_elevation.npy",
-        allow_pickle=True,
-    ).item()
-    if not head_payload:
-        raise AssertionError("watertable_elevation.npy is empty.")
-
-    ordered_items = sorted(
-        (int(key), np.asarray(value, dtype=float)) for key, value in dict(head_payload).items()
-    )
-    if all(
-        array.ndim == 2 and tuple(array.shape) == (int(ny), int(nx)) for _, array in ordered_items
-    ):
-        return
-
-    head_arrays = [array.reshape(-1) for _, array in ordered_items]
-    n_cells = head_arrays[0].size
-    if any(array.ndim != 1 for array in head_arrays):
-        raise AssertionError(
-            "Piecewise-strip launcher aggregation expects one cell vector per timestep."
-        )
-    if any(array.size != n_cells for array in head_arrays):
-        raise AssertionError("All piecewise-strip timesteps must share the same vector length.")
-
-    (
-        centroid_x_m,
-        centroid_y_m,
-        z_top_m,
-        x_min_m,
-        x_max_m,
-        y_min_m,
-        y_max_m,
-    ) = _load_piecewise_strip_bundle_geometry(Path(bundle_dir))
-    if centroid_x_m.size != n_cells:
-        raise AssertionError(
-            "Bundle cell count does not match launcher Boussinesq postprocess length."
-        )
-
-    watertable_elevation, watertable_depth = _aggregate_triangle_history(
-        head_history=np.stack(head_arrays, axis=0),
-        time_keys=[key for key, _ in ordered_items],
-        cell_centroid_x_m=centroid_x_m,
-        cell_centroid_y_m=centroid_y_m,
-        z_top_m=z_top_m,
-        x_min_m=x_min_m,
-        x_max_m=x_max_m,
-        y_min_m=y_min_m,
-        y_max_m=y_max_m,
-        nx=int(nx),
-        ny=int(ny),
-    )
-    np.save(Path(postprocess_dir) / "watertable_elevation.npy", watertable_elevation)
-    np.save(Path(postprocess_dir) / "watertable_depth.npy", watertable_depth)
+    return {
+        "watertable_elevation": watertable_elevation,
+        "watertable_depth": watertable_depth,
+    }
 
 
 def write_piecewise_strip_launcher_config(
@@ -492,8 +398,9 @@ def write_piecewise_strip_launcher_config(
     runtime_flow = {
         "flow_regime": "steady",
         "runtime_backend": runtime_backend,
-        "surface_interaction_model": surface_interaction_model or "auto",
     }
+    if surface_interaction_model is not None:
+        runtime_flow["surface_interaction_model"] = surface_interaction_model
     if apply_runtime_defaults:
         runtime_flow = apply_analytical_boussinesq_runtime_defaults(
             runtime_flow,
@@ -651,6 +558,8 @@ def run_piecewise_strip_boussinesq_launcher_case(
         cwd=str(REPO_ROOT),
         env=env,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
     )
@@ -665,6 +574,10 @@ def run_piecewise_strip_boussinesq_launcher_case(
     from validation_cases.shared.runtime import _discover_result_store
 
     store, sim_id = _discover_result_store(out_path)
+    if store is None or sim_id is None:
+        raise AssertionError(
+            f"hmp run did not produce a SimulationCatalog result for {case_id} in {out_path}"
+        )
 
     try:
         model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
@@ -672,17 +585,10 @@ def run_piecewise_strip_boussinesq_launcher_case(
             results_folder_name="results_simulations",
             model_name=f"{process_id}__boussinesq",
         )
-        aggregate_piecewise_strip_postprocess(
-            postprocess_dir,
-            bundle_dir=bundle_dir,
-        )
     except AssertionError:
-        if store is not None and sim_id is not None:
-            model_ws = out_path
-            postprocess_dir = out_path
-            particles_dir = out_path
-        else:
-            raise
+        model_ws = out_path
+        postprocess_dir = out_path
+        particles_dir = out_path
 
     return ValidationRunResult(
         case_dir=Path(case_dir),
@@ -709,8 +615,7 @@ __all__ = [
     "PIECEWISE_STRIP_X_ZONE_BREAKS_M",
     "PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE",
     "PIECEWISE_STRIP_STORAGE_COEFFICIENT",
-    "aggregate_piecewise_strip_postprocess",
-    "aggregate_triangle_history_to_structured_grids",
+    "aggregate_triangle_history_to_structured_fields",
     "run_piecewise_strip_boussinesq_launcher_case",
     "write_piecewise_strip_bundle",
     "write_piecewise_strip_launcher_config",

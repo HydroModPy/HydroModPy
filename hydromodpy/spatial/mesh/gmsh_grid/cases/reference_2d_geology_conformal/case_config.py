@@ -81,10 +81,10 @@ def _validate_rivers_case_config(
     if not isinstance(config_data, Mapping):
         raise ValueError(f"[{section}.rivers] configuration must be a mapping")
     raw = dict(config_data)
-    source = str(raw.get("source", "domain_geographic")).strip().lower()
-    if source not in {"domain_geographic", "file"}:
+    source = str(raw.get("source", "geographic_features")).strip().lower()
+    if source not in {"geographic_features", "file"}:
         raise ValueError(
-            f"[{section}.rivers].source must be 'domain_geographic' or 'file', got '{source}'."
+            f"[{section}.rivers].source must be 'geographic_features' or 'file', got '{source}'."
         )
 
     path_value = raw.get("path")

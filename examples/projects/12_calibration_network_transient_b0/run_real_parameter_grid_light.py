@@ -201,8 +201,8 @@ def main(argv: list[str] | None = None) -> int:
         choices=["steady", "transient_last", "transient_mean"],
         default=NETWORK_MAP_SOURCE,
         help=(
-            "Drainage map used for the spatial objective. 'steady' preserves the "
-            "original B0 behavior; transient_* uses the candidate transient outflow stack."
+            "Drainage map used for the spatial objective. The canonical B0 contract uses "
+            "'steady'; transient_* is retained only for exploratory diagnostics."
         ),
     )
     parser.add_argument(
@@ -757,7 +757,11 @@ def _score_pair(
         "Sy": float(sy),
         "lightweight": True,
         "network_map_source": NETWORK_MAP_SOURCE,
-        "steady_drain_npz": _relative_or_abs(_steady_artifact(mk)).as_posix(),
+        "steady_drain_npz": (
+            _relative_or_abs(_steady_artifact(mk)).as_posix()
+            if NETWORK_MAP_SOURCE == "steady"
+            else ""
+        ),
         "transient_network_npz": _relative_or_abs(_transient_network_artifact(mk, sy)).as_posix(),
         "transient_q_csv": _relative_or_abs(_transient_q_artifact(mk, sy)).as_posix(),
     }

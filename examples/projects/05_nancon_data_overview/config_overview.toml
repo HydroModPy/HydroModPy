@@ -45,6 +45,28 @@ output_root = ""
 # Type: Literal['standard', 'synthetic'] | one of: "standard", "synthetic" | Default: "standard"
 source_mode = "standard"
 
+# Target projected CRS for all outputs (e.g.
+# 'EPSG:2154').
+# If not set, derived from the input DEM.
+# Type: string (optional) | Optional
+crs_project = "EPSG:2154"
+
+# DEM depression correction method.
+# 'breach' (recommended) preserves natural flow paths.
+# 'fill' raises sinks to their pour point.
+# Type: Literal['breach', 'fill'] | one of: "breach", "fill" | Default: "breach"
+dem_correc_type = "breach"
+
+# Path to a raster representing the aquifer bottom elevation.
+# Must share the same grid as the model domain.
+# Type: path (optional) | Optional
+bottom_path = ""
+
+
+# Synthetic geographic support used when source_mode='synthetic'.
+# This analytical mode bypasses watershed delineation from external DEM files.
+
+[geographic.catchment]
 # Catchment definition mode used when source_mode='standard'.
 # 'dem' = model domain defined directly from a DEM raster (dem_init_path required).
 # 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
@@ -81,7 +103,7 @@ y_outlet = 6816518.749
 snap_dist = 150
 
 # Buffer around the watershed polygon.
-# Numeric values keep legacy behavior (percentage of sqrt(area [km^2])).
+# Numeric values are interpreted as a percentage of sqrt(area [km^2]).
 # String values are interpreted as explicit distances (for example '500 m', '2 km').
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 # Type: Union[float, str, NoneType] | Optional
@@ -91,27 +113,6 @@ buff_area = 20.0
 # Required for 'from_polyg_shp' mode.
 # Type: path (optional) | Optional
 polyg_shp_path = ""
-
-# Target projected CRS for all outputs (e.g.
-# 'EPSG:2154').
-# If not set, derived from the input DEM.
-# Type: string (optional) | Optional
-crs_project = "EPSG:2154"
-
-# DEM depression correction method.
-# 'breach' (recommended) preserves natural flow paths.
-# 'fill' raises sinks to their pour point.
-# Type: Literal['breach', 'fill'] | one of: "breach", "fill" | Default: "breach"
-dem_correc_type = "breach"
-
-# Path to a raster representing the aquifer bottom elevation.
-# Must share the same grid as the model domain.
-# Type: path (optional) | Optional
-bottom_path = ""
-
-
-# Synthetic geographic support used when source_mode='synthetic'.
-# This analytical mode bypasses watershed delineation from external DEM files.
 
 [geographic.synthetic]
 # Identifier used by local case runners and outputs.
@@ -173,27 +174,27 @@ base_elevation = 20.0
 # Additional elevation reached on the left boundary relative to the right boundary.
 # Positive values make the surface rise from right to left.
 # Type: float | Default: 0.0
-right_to_left_amplitude = 0.0
+# right_to_left_amplitude = 0.0
 
 # Circular shoreline radius (m) used by 'radial_island'.
 # Defaults to 35% of the smallest domain length.
 # Type: float (optional) | Optional
-island_radius = 0.0
+# island_radius = 0.0
 
 # Central island elevation (m) used by 'radial_island'.
 # The land surface decays nonlinearly to sea level at the shoreline.
 # Type: float | Default: 10.0
-crest_elevation = 10.0
+# crest_elevation = 10.0
 
 # Optional x coordinate of the radial-island center.
 # Defaults to the grid midpoint.
 # Type: float (optional) | Optional
-center_x = 0.0
+# center_x = 0.0
 
 # Optional y coordinate of the radial-island center.
 # Defaults to the grid midpoint.
 # Type: float (optional) | Optional
-center_y = 0.0
+# center_y = 0.0
 
 
 # Optional DEM-derived river-network extraction settings.
@@ -272,10 +273,13 @@ types = [
 # DEM configuration used when 'dem' is listed in data.types.
 
 # At least one DEM data source.
+
 [[data.dem.sources]]
-# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_bdalti' for the IGN BD ALTI 25 m MNT.
-# Type: Literal['custom', 'ign_bdalti'] | one of: "custom", "ign_bdalti" | REQUIRED
-source = "ign_bdalti"
+# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for IGN DEM discovery.
+# Type: Literal['custom', 'ign_geoplateforme_dem'] | one of: "custom", "ign_geoplateforme_dem" | REQUIRED
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0
 
 # Path to custom DEM file or directory (TIF, ASC, NC).
 # Type: path (optional) | Optional
@@ -300,6 +304,7 @@ extent = "watershed"
 
 # At least one geology data source.
 # Defaults to BRGM 1:1M.
+
 [[data.geology.sources]]
 # Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), 'brgm_1m' for the 1:1M national geological map, 'brgm_50k' for the 1:50K departmental geological maps.
 # Type: Literal['custom', 'brgm_1m', 'brgm_50k'] | one of: "custom", "brgm_1m", "brgm_50k" | REQUIRED
@@ -332,6 +337,7 @@ extent = "watershed"
 # Hydrography configuration (stream network vector data).
 
 # At least one hydrography data source.
+
 [[data.hydrography.sources]]
 # Data provider.
 # Type: Literal['custom', 'osm', 'bdtopage', 'euhydro'] | one of: "custom", "osm", "bdtopage", "euhydro" | REQUIRED
@@ -361,6 +367,7 @@ source = "bdtopage"
 
 
 # At least one data source.
+
 [[data.hydrometry.sources]]
 # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
@@ -403,6 +410,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.intermittency.sources]]
 # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
@@ -485,6 +493,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.piezometry.sources]]
 # Data provider.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
@@ -516,6 +525,7 @@ nearest = true
 # Water quality configuration (physico-chemical parameters).
 
 # At least one data source.
+
 [[data.water_quality.sources]]
 # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
@@ -563,6 +573,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.recharge.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.
 # Type: Literal['custom', 'sim2', 'synthetic'] | one of: "custom", "sim2", "synthetic" | REQUIRED
@@ -610,6 +621,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.runoff.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -647,6 +659,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.precipitation.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -688,6 +701,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.etp.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -725,6 +739,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.temperature.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -762,6 +777,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.wind.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -799,6 +815,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.humidity.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -836,6 +853,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.radiation.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -877,6 +895,7 @@ extent = "watershed"
 
 
 # At least one data source.
+
 [[data.soil_moisture.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
 # Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
@@ -907,7 +926,7 @@ extent = "watershed"
 # Watershed name displayed on report panels.
 # Defaults to workspace catch_name.
 # Type: string | Default: ""
-name = "Canut"
+name = "Nancon"
 
 # Global start date (YYYY-MM-DD).
 # Injected into data sections without explicit dates.
@@ -918,6 +937,9 @@ date_start = "2000-01-01"
 # Injected into data sections without explicit dates.
 # Type: string (optional) | Optional
 date_end = "2025-12-31"
+
+# Label used for the regional location figure.
+regional_context_label = "Situation dans le Massif Armoricain"
 
 
 # Toggle individual report panels.

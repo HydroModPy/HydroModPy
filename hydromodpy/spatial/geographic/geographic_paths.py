@@ -13,7 +13,7 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
 
 @dataclass(frozen=True)
 class GeographicPaths:
-    """Canonical set of output paths produced by `Geographic.processing()`."""
+    """Canonical set of output paths produced by `CatchmentDelineation.processing()`."""
 
     stable_folder: str
     simulations_folder: str
@@ -38,18 +38,8 @@ class GeographicPaths:
     river_streams_pruned_tif: str
     river_stream_order_strahler_tif: str
     river_stream_link_id_tif: str
-    river_network_shp: str
-    river_network_summary_json: str
-
-    @property
-    def hydrographic_network_generated_shp(self) -> str:
-        """Canonical alias of the generated hydrographic-network vector path."""
-        return self.river_network_shp
-
-    @property
-    def hydrographic_network_generated_summary_json(self) -> str:
-        """Canonical alias of the generated hydrographic-network summary path."""
-        return self.river_network_summary_json
+    hydrographic_network_generated_shp: str
+    hydrographic_network_generated_summary_json: str
 
 
 def build_geographic_paths(
@@ -92,8 +82,10 @@ def build_geographic_paths(
         river_streams_pruned_tif=str(geographic_path / "river_streams_pruned.tif"),
         river_stream_order_strahler_tif=str(geographic_path / "river_stream_order_strahler.tif"),
         river_stream_link_id_tif=str(geographic_path / "river_stream_link_id.tif"),
-        river_network_shp=str(geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME),
-        river_network_summary_json=str(
+        hydrographic_network_generated_shp=str(
+            geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME
+        ),
+        hydrographic_network_generated_summary_json=str(
             geographic_path / HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME
         ),
     )

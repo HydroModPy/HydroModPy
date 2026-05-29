@@ -78,7 +78,7 @@ hydromodpy/data/
 ├── plan.py                     # DataLoadPlan (frozen dataclass)
 ├── loader.py                   # DataManagersRuntimeLoader (dispatch)
 ├── store.py                    # DataStore (facade utilisateur)
-├── scaffold.py                 # Initialisation workspace (hmp init)
+├── scaffold.py                 # Initialisation workspace (hmp workspace init)
 ├── _dispatch.py                # Registre {variable -> Manager}
 ├── base_manager_variable.py    # BaseVariableManager (donnees ponctuelles)
 ├── base_manager_field.py       # BaseFieldManager (donnees grille)
@@ -365,7 +365,7 @@ recherche par bbox, masque, rayon de repli, tri haversine par centroide.
 
 | Variable | Sources | Sortie |
 |----------|---------|--------|
-| dem | ign_bdalti, custom | FieldRecord (TIF/NC) |
+| dem | ign_geoplateforme_dem, custom | FieldRecord (TIF/NC) |
 | geology | brgm_1m, brgm_50k, custom | FieldRecord (GPKG/TIF) |
 | hydrography | bdtopage, euhydro, osm, custom | LoadResult |
 
@@ -586,7 +586,7 @@ hydrometry_hubeau_J7214001_20200101_20251231_D.csv
 hydrometry_hubeau_LOC.csv
 precipitation_sim2_a3f2b1c_20200101_20251231.nc
 geology_brgm_1m.gpkg
-dem_ign_bdalti.tif
+dem_ign_geoplateforme_bdalti_25m.tif
 hydrography_bdtopage_coursdeau.shp
 oceanic_shom_185_20200101_20251231_D.csv
 recharge_custom_synthetic_20200101_20251231_D.csv

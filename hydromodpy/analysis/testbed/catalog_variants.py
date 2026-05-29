@@ -1,4 +1,4 @@
-"""Catalog-backed variant expansion for method testbeds."""
+"""Catalog-backed case expansion for method testbeds."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from hydromodpy.analysis.catalog import (
     select_catalog_rows,
 )
 from hydromodpy.analysis.testbed.config import (
+    TestbedCaseConfig,
+    TestbedCatalogCaseConfig,
     TestbedCatalogConfig,
-    TestbedCatalogVariantConfig,
-    TestbedVariantConfig,
 )
 
 _SINGLE_FIELD_TEMPLATE = re.compile(r"^\{([^{}]+)\}$")
@@ -56,7 +56,7 @@ def _catalog_selector(catalog: TestbedCatalogConfig) -> CatalogRowSelector:
     )
 
 
-def _template_selector(rule: TestbedCatalogVariantConfig) -> CatalogRowSelector:
+def _template_selector(rule: TestbedCatalogCaseConfig) -> CatalogRowSelector:
     return CatalogRowSelector(
         field_equals=rule.field_equals,
         tags=rule.tags,
@@ -102,18 +102,22 @@ def _catalog_field_value(
     row: CatalogRow,
     *,
     field_name: str | None,
+    fallback_field_name: str | None = None,
 ) -> str | None:
     if field_name is None:
         return None
-    return normalize_text(row.raw.get(field_name))
+    value = normalize_text(row.raw.get(field_name))
+    if value is None and fallback_field_name is not None:
+        return normalize_text(row.raw.get(fallback_field_name))
+    return value
 
 
-def _variant_from_row(
+def _case_from_row(
     row: CatalogRow,
     *,
     catalog: TestbedCatalogConfig,
-    rule: TestbedCatalogVariantConfig,
-) -> TestbedVariantConfig:
+    rule: TestbedCatalogCaseConfig,
+) -> TestbedCaseConfig:
     context = row.build_template_context(tag_separator=catalog.tag_separator)
     missing_fields = normalize_required_field_names(
         context,
@@ -121,21 +125,25 @@ def _variant_from_row(
     )
     if missing_fields:
         raise ValueError(
-            "testbed.variant_from_catalog row is missing required field(s): "
+            "testbed.case_from_catalog row is missing required field(s): "
             + ", ".join(missing_fields)
         )
 
     if rule.id_template is not None:
-        variant_id = _format_template(
+        case_id = _format_template(
             rule.id_template,
             context,
-            label="testbed.variant_from_catalog.id_template",
+            label="testbed.case_from_catalog.id_template",
         )
     else:
-        variant_id = _catalog_field_value(row, field_name=catalog.id_field)
-    if variant_id is None:
+        case_id = _catalog_field_value(
+            row,
+            field_name=catalog.id_field,
+            fallback_field_name="variant_id" if catalog.id_field == "case_id" else None,
+        )
+    if case_id is None:
         raise ValueError(
-            "testbed catalog row is missing the configured variant identifier field "
+            "testbed catalog row is missing the configured case identifier field "
             f"'{catalog.id_field}'"
         )
 
@@ -143,16 +151,25 @@ def _variant_from_row(
         label = _format_template(
             rule.label_template,
             context,
-            label=f"testbed.variant_from_catalog[{variant_id}].label_template",
+            label=f"testbed.case_from_catalog[{case_id}].label_template",
         )
     else:
-        label = _catalog_field_value(row, field_name=catalog.label_field) or variant_id
+        label = (
+            _catalog_field_value(
+                row,
+                field_name=catalog.label_field,
+                fallback_field_name=(
+                    "variant_label" if catalog.label_field == "case_label" else None
+                ),
+            )
+            or case_id
+        )
 
     if rule.axis_template is not None:
         axis = _format_template(
             rule.axis_template,
             context,
-            label=f"testbed.variant_from_catalog[{variant_id}].axis_template",
+            label=f"testbed.case_from_catalog[{case_id}].axis_template",
         )
     else:
         axis = _catalog_field_value(row, field_name=catalog.axis_field)
@@ -160,14 +177,12 @@ def _variant_from_row(
     overlay = _render_template_value(
         rule.overlay,
         context,
-        label=f"testbed.variant_from_catalog[{variant_id}].overlay",
+        label=f"testbed.case_from_catalog[{case_id}].overlay",
     )
     if not isinstance(overlay, dict):
-        raise ValueError(
-            f"testbed.variant_from_catalog[{variant_id}].overlay must render to a mapping"
-        )
-    return TestbedVariantConfig(
-        id=variant_id,
+        raise ValueError(f"testbed.case_from_catalog[{case_id}].overlay must render to a mapping")
+    return TestbedCaseConfig(
+        id=case_id,
         label=label,
         axis=axis,
         enabled=True,
@@ -175,12 +190,12 @@ def _variant_from_row(
     )
 
 
-def expand_catalog_variants(
+def expand_catalog_cases(
     *,
     catalog: TestbedCatalogConfig | None,
-    rules: Sequence[TestbedCatalogVariantConfig],
-) -> tuple[TestbedVariantConfig, ...]:
-    """Expand configured catalog rows into concrete testbed variants."""
+    rules: Sequence[TestbedCatalogCaseConfig],
+) -> tuple[TestbedCaseConfig, ...]:
+    """Expand configured catalog rows into concrete testbed cases."""
     if catalog is None or not rules:
         return ()
 
@@ -199,10 +214,13 @@ def expand_catalog_variants(
     )
     rows = select_catalog_rows(rows, selector=_catalog_selector(catalog))
 
-    variants: list[TestbedVariantConfig] = []
+    cases: list[TestbedCaseConfig] = []
     for rule in rules:
         if not rule.enabled:
             continue
         for row in select_catalog_rows(rows, selector=_template_selector(rule)):
-            variants.append(_variant_from_row(row, catalog=catalog, rule=rule))
-    return tuple(variants)
+            cases.append(_case_from_row(row, catalog=catalog, rule=rule))
+    return tuple(cases)
+
+
+expand_catalog_variants = expand_catalog_cases

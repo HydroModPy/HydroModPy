@@ -12,14 +12,16 @@ root = "../../"
 
 [geographic]
 source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
 buff_area = "20%"
-crs_project = "EPSG:2154"
-dem_correc_type = "breach"
 
 [data]
 types = ["hydrography"]
@@ -31,7 +33,8 @@ page_size = 1000
 rasterize_field = "FID"
 
 [overview]
-name = "Canut"
+name = "Nancon"
+regional_context_label = "Situation dans le Massif Armoricain"
 
 [overview.panels]
 map_dem = false

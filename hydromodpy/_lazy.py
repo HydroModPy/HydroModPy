@@ -60,7 +60,7 @@ LAZY_IMPORTS: dict[str, str] = {
     "DataManagersConfig": "hydromodpy.data.data_managers_config",
     "DemConfig": "hydromodpy.data.variables.dem.config",
     "CustomDemSource": "hydromodpy.data.variables.dem.config",
-    "IgnBdaltiDemSource": "hydromodpy.data.variables.dem.config",
+    "IgnGeoplateformeDemSource": "hydromodpy.data.variables.dem.config",
     "GeologyConfig": "hydromodpy.data.variables.geology.config",
     "CustomGeologySource": "hydromodpy.data.variables.geology.config",
     "BrgmGeology1mSource": "hydromodpy.data.variables.geology.config",

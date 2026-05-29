@@ -34,6 +34,7 @@ class HydrometryManager(BaseVariableManager):
                 date_end=end,
                 require_observations=source_cfg.require_observations,
                 fallback_search_radius_km=source_cfg.fallback_search_radius_km,
+                max_stations=source_cfg.max_stations,
             )
 
         return fetch_with_smart_cache(

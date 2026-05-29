@@ -41,6 +41,23 @@ project_root = "."
 # domain (academic toy cases). We rely on a real DEM here.
 source_mode = "standard"
 
+# Project CRS. Lambert-93 (EPSG:2154) is the official French metric CRS.
+crs_project = "EPSG:2154"
+
+# Sink handling. `breach` carves the DEM along natural flow paths,
+# which preserves the river network better than `fill`.
+dem_correc_type = "breach"
+
+# Reuse cached geographic outputs when nothing changed (DEM/outlet).
+# Speeds up reruns of the same project. Safe to keep on.
+reuse_existing_outputs = false
+
+
+# ----------------------------------------------------------------------
+# Domain - vertical discretization
+# ----------------------------------------------------------------------
+
+[geographic.catchment]
 # Catchment built from an outlet point. The DEM is used for flow
 # accumulation; the outlet is snapped to the nearest stream cell.
 catch_def = "from_outlet_coord"
@@ -63,22 +80,6 @@ snap_dist = "150 m"
 # catchment area; large enough to keep boundary cells but small enough
 # to avoid wasting cells outside the basin.
 buff_area = "10%"
-
-# Project CRS. Lambert-93 (EPSG:2154) is the official French metric CRS.
-crs_project = "EPSG:2154"
-
-# Sink handling. `breach` carves the DEM along natural flow paths,
-# which preserves the river network better than `fill`.
-dem_correc_type = "breach"
-
-# Reuse cached geographic outputs when nothing changed (DEM/outlet).
-# Speeds up reruns of the same project. Safe to keep on.
-reuse_existing_outputs = false
-
-
-# ----------------------------------------------------------------------
-# Domain - vertical discretization
-# ----------------------------------------------------------------------
 
 [domain]
 # Geology is the only zonation we use. It feeds the spatial-support
@@ -123,6 +124,7 @@ types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "e
 # bare filename below is auto-resolved against `<workspace>/data/dem/`,
 # i.e. `examples/data/dem/` for this project. Absolute or
 # `../`-prefixed paths still work and override the lookup.
+
 [[data.dem.sources]]
 source = "custom"
 path = "DEM_armorican_massif.tif"
@@ -130,17 +132,20 @@ path = "DEM_armorican_massif.tif"
 
 # Geology source. BRGM 1:1M is the national French geological map.
 # Good first-pass zonation, no extra files needed.
+
 [[data.geology.sources]]
 source = "brgm_1m"
 
 
 # Stream network for figures. BD TOPAGE is the official French dataset.
+
 [[data.hydrography.sources]]
 source = "bdtopage"
 rasterize_field = "FID"
 
 
 # Observed discharge time-series.
+
 [data.hydrometry]
 # Window we will simulate. Other dates in the source files are ignored.
 date_start = "2000-01-01"
@@ -156,6 +161,7 @@ station_ids = []
 
 
 # Recharge time-series.
+
 [data.recharge]
 date_start = "2000-01-01"
 date_end = "2002-12-31"
@@ -172,6 +178,7 @@ station_ids = ["EX04"]
 # calibration metric to add the surface component to the simulated
 # DRN baseflow (`discharge = DRN + runoff`). Skipping this block emits
 # a runtime warning and falls back to baseflow-only comparison.
+
 [data.runoff]
 date_start = "2000-01-01"
 date_end = "2002-12-31"
@@ -187,6 +194,7 @@ station_ids = ["EX04"]
 # example SIM2 NetCDF shipped with the repo so the runs stay offline.
 # Consumed by the catalog AND fed into the MODFLOW-NWT EVT package
 # (legacy behaviour) when 'etp' is listed in flow.active_sinks_sources.
+
 [data.etp]
 date_start = "2000-01-01"
 date_end = "2002-12-31"
@@ -195,6 +203,9 @@ date_end = "2002-12-31"
 source = "custom"
 # Bare filename resolved under `<workspace>/data/etp/`.
 path = "etp_sim2_5347fa22_20000101_20251231.nc"
+# The shipped NetCDF exposes Lambert-93 x/y coordinates but no CRS/nodata attrs.
+crs = "EPSG:2154"
+nodata = -9999.0
 
 
 # ----------------------------------------------------------------------
@@ -228,6 +239,7 @@ description = "Watertable initialised at the topographic surface."
 
 
 # K (hydraulic conductivity).
+
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
@@ -256,6 +268,7 @@ value = 0.0
 
 # Diffuse recharge payload. The actual values come from
 # [data.recharge]; this block only declares the slot.
+
 [flow.sinks_sources.recharge]
 values = 0.0
 
@@ -283,6 +296,7 @@ step_value = "1 month"
 
 
 # One process: groundwater flow, solved by MODFLOW-NWT.
+
 [[simulation.process]]
 id = "flow_main"
 type = "flow"

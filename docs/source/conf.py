@@ -629,12 +629,22 @@ def _regenerate_figures_inventory(app) -> None:
         app.warn(f"Figures inventory regeneration failed: {exc}")
 
 
+def _ensure_doctree_dir_for_late_extension_caches(app, exception) -> None:
+    """Keep late build-finished cache writers from failing on a missing doctreedir."""
+    if exception is not None:
+        return
+    doctreedir = getattr(app, "doctreedir", None)
+    if doctreedir:
+        Path(doctreedir).mkdir(parents=True, exist_ok=True)
+
+
 def setup(app):
     if _PLANTUML_COMMAND is None:
         app.add_directive("uml", _MissingPlantUMLDirective, override=True)
         app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
     app.connect("builder-inited", _regenerate_config_reference)
     app.connect("builder-inited", _regenerate_figures_inventory)
+    app.connect("build-finished", _ensure_doctree_dir_for_late_extension_caches, priority=0)
     return {
         "parallel_read_safe": True,
         "parallel_write_safe": True,

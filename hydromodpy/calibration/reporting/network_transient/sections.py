@@ -259,21 +259,29 @@ def truth_label(truth_dir: Path | None) -> str:
 def artifact_contract_summary(report: NetworkTransientHtmlArtifactReport) -> str:
     required = len(report.required_missing)
     optional = len(report.optional_missing)
+    warnings = len(report.contract_warnings)
     status = "complet" if report.ok else "incomplet"
     cells = [
         f'<div class="metric"><span>contrat artefacts</span><strong>{status}</strong></div>',
         f'<div class="metric"><span>manquants requis</span><strong>{required}</strong></div>',
         f'<div class="metric"><span>manquants optionnels</span><strong>{optional}</strong></div>',
+        f'<div class="metric"><span>alertes contrat</span><strong>{warnings}</strong></div>',
     ]
-    details = ""
+    details: list[str] = []
     if report.required_missing or report.optional_missing:
         missing = list(report.required_missing) + list(report.optional_missing)
-        details = (
+        details.append(
             '<p class="note">Artefacts absents ou non exploitables: '
             f"<code>{safe_html(', '.join(missing[:8]))}</code>"
             f"{' ...' if len(missing) > 8 else ''}</p>"
         )
-    return f'<div class="metric-row">{"".join(cells)}</div>{details}'
+    if report.contract_warnings:
+        details.append(
+            '<p class="note">Alertes non bloquantes du contrat B0: '
+            f"<code>{safe_html(', '.join(report.contract_warnings[:8]))}</code>"
+            f"{' ...' if len(report.contract_warnings) > 8 else ''}</p>"
+        )
+    return f'<div class="metric-row">{"".join(cells)}</div>{"".join(details)}'
 
 
 def best_candidate_summary(score_rows: list[dict[str, str]], truth_dir: Path | None) -> str:

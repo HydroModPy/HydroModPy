@@ -26,7 +26,7 @@ The current validation suite focuses on analytical groundwater-flow benchmarks:
 At the moment:
 
 - validation cases are analytical,
-- launcher-backed cases run through `tests/regression/fixtures/launcher_simulation`,
+- launcher-backed cases run through the production `hydromodpy run` CLI,
 - current scientific coverage is shared across `modflow_nwt`, `modflow6`,
   `modflow6_irregular_tri`, and the local `boussinesq` backend where the
   benchmark physics remains comparable,
@@ -55,7 +55,7 @@ A typical validation test follows this sequence:
 2. check required external executables with
    `tests.regression.golden_utils.assert_required_executables(...)`,
 3. run the deterministic launcher configuration for that case,
-4. locate the generated `_postprocess` outputs,
+4. locate the generated result workspace,
 5. load the relevant arrays,
 6. compare them to the analytical reference,
 7. assert that selected metrics remain below thresholds from

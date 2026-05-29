@@ -6,8 +6,20 @@ import argparse
 import csv
 import json
 from pathlib import Path
-from shutil import copy2
 from typing import Any
+
+try:
+    from .public_artifacts import (
+        normalize_public_path_text,
+        normalize_public_payload,
+        sanitize_public_comparison_manifest,
+    )
+except ImportError:  # pragma: no cover - supports direct script execution.
+    from public_artifacts import (  # type: ignore[no-redef]
+        normalize_public_path_text,
+        normalize_public_payload,
+        sanitize_public_comparison_manifest,
+    )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PUBLISHED_ROOT = (
@@ -84,6 +96,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    normalized_payload = normalize_public_payload(payload)
+    path.write_text(
+        json.dumps(normalized_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _copy_text_artifact(source: Path, destination: Path) -> None:
+    destination.write_text(
+        normalize_public_path_text(source.read_text(encoding="utf-8")),
+        encoding="utf-8",
+    )
 
 
 def _title_from_slug(slug: str) -> str:
@@ -213,7 +240,10 @@ def publish_comparison(
         ):
             (destination / name).unlink(missing_ok=True)
 
-    copy2(source_root / "comparison_manifest.json", destination / "comparison_manifest.json")
+    _write_json(
+        destination / "comparison_manifest.json",
+        sanitize_public_comparison_manifest(manifest),
+    )
     _write_summary_metrics(
         source_root / "comparison_metrics.json",
         destination / "summary_metrics.csv",
@@ -222,7 +252,7 @@ def publish_comparison(
     for name in OPTIONAL_ARTIFACTS:
         source = source_root / name
         if source.exists():
-            copy2(source, destination / name)
+            _copy_text_artifact(source, destination / name)
 
     resolved_title = str(title or _title_from_slug(resolved_slug))
     resolved_focus_simulation_id = str(focus_simulation_id or _infer_focus_simulation_id(manifest))
@@ -236,10 +266,7 @@ def publish_comparison(
         family_label=family_label,
         manifest=manifest,
     )
-    (destination / "case.json").write_text(
-        json.dumps(case_payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    _write_json(destination / "case.json", case_payload)
     return destination
 
 

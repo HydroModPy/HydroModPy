@@ -27,8 +27,8 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
 from validation_cases.shared.gmsh_irregular_strip import write_gmsh22_triangle_mesh_from_bundle_csv
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -318,8 +318,11 @@ def _write_circular_island_bundle(
     return bundle_dir, tuple(ocean_cell_specs)
 
 
-def _aggregate_triangle_history_to_reference_grid(model, reference_cfg: dict) -> None:
-    """Project cellwise Boussinesq heads back to the structured validation grid."""
+def _aggregate_triangle_history_to_reference_fields(
+    model,
+    reference_cfg: dict,
+) -> dict[str, dict[int, np.ndarray]]:
+    """Project cellwise Boussinesq heads back to structured validation fields."""
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq validation case requires a solved model state.")
 
@@ -359,10 +362,10 @@ def _aggregate_triangle_history_to_reference_grid(model, reference_cfg: dict) ->
             np.asarray(dem, dtype=float) - head_grid, 0.0
         )
 
-    postprocess_dir = Path(model.full_path) / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+    return {
+        "watertable_elevation": watertable_elevation,
+        "watertable_depth": watertable_depth,
+    }
 
 
 def run_boussinesq_circular_island_piecewise_k_case(
@@ -407,7 +410,6 @@ def run_boussinesq_circular_island_piecewise_k_case(
                     apply_analytical_boussinesq_runtime_defaults(
                         {
                             "flow_regime": "steady",
-                            "runtime_backend": "local",
                             "ic": {"type": "custom", "value": 1.0},
                             "active_sinks_sources": ["recharge", "wells"],
                             "active_bc": ["ocean"],
@@ -455,14 +457,14 @@ def run_boussinesq_circular_island_piecewise_k_case(
 
     result = BoussinesqFlowAdapter().execute(ctx)
     model = result.primary_model
-    _aggregate_triangle_history_to_reference_grid(model, reference_cfg)
+    field_series = _aggregate_triangle_history_to_reference_fields(model, reference_cfg)
 
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
+        fields=field_series,
         solver_name="boussinesq",
     )
     return ValidationRunResult(

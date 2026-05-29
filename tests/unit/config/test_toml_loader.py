@@ -21,9 +21,10 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
                 f'project_root = "{tmp_path / "demo"}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[flow]",
                 'active_bc = ["ocean"]',
                 "",
@@ -85,9 +86,10 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[flow]",
                 'active_bc = ["ocean"]',
                 "",
@@ -159,14 +161,32 @@ def test_from_dict_keeps_api_workspace_default(tmp_path: Path) -> None:
     assert cfg.workspace.project_root == tmp_path.resolve()
 
 
-def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
+def test_workspace_rejects_filename_safe_windows_path_tokens() -> None:
+    drive_token = chr(0xF03A)
+    separator_token = chr(0xF05C)
+    encoded_path = (
+        f"C{drive_token}{separator_token}codes{separator_token}"
+        f"HydroModPy{separator_token}outputs"
+    )
+
+    with pytest.raises(ValueError, match="encoded as a safe filename"):
+        HydroModPyConfig.from_dict(
+            {
+                "workflow": {"mode": "simulation"},
+                "workspace": {"project_root": encoded_path},
+                "geographic": {"source_mode": "synthetic"},
+            }
+        )
+
+
+def test_simulation_regression_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
         / "tests"
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
         / "run_fast_mf6.toml"
     )
 
@@ -179,7 +199,7 @@ def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data
     assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"
 
 
-def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh(
+def test_simulation_regression_mf6_precomputed_mesh_input_config_uses_runtime_mesh(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -189,7 +209,7 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
         / "run_fast_mf6_precomputed_mesh_input.toml"
     )
 
@@ -205,7 +225,7 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
     assert list(cfg.simulation.process[0].solvers) == ["modflow6"]
 
 
-def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
+def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -215,7 +235,7 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
         / "run_fast_mf6_mesh_catchment.toml"
     )
 
@@ -226,7 +246,7 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert payload["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert payload["simulation"]["process"][1]["solvers"] == ["modflow6"]
     assert payload["simulation"]["time"]["step_value"] == "10 day"
-    assert payload["modflow6"]["tgrid"]["firstpersteady"] is False
+    assert payload["flow"]["first_period_steady"] is False
     assert payload["flow"]["ic"]["type"] == "top"
     assert payload["flow"]["param"]["K"]["field"]["value"] == "1e-5 m/s"
     assert payload["flow"]["param"]["Sy"]["field"]["value"] == "0.12 -"
@@ -238,6 +258,7 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)
     assert cfg.mesh_catchment is not None
+    assert cfg.flow.first_period_steady is False
 
 
 def test_data_overview_example_declares_overview_workflow_and_report_section() -> None:
@@ -273,9 +294,11 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "reuse_existing_outputs = true",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "reuse_existing_outputs = true",
             ]
         ),
         encoding="utf-8",
@@ -304,8 +327,9 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
                 f'data_dir = "{tmp_path / "data"}"',
                 "",
                 "[geographic]",
-                'catch_def = "dem"',
                 "",
+                "[geographic.catchment]",
+                'catch_def = "dem"',
                 "[data.dem]",
                 "",
                 "[[data.dem.sources]]",
@@ -386,6 +410,32 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
     assert cfg.calibration is None
 
 
+def test_hydromodpy_config_ignores_empty_site_selection_placeholder(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "empty_site_selection.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "simulation"',
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+                "",
+                "[site_selection]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.site_selection is None
+
+
 def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
     config_path = tmp_path / "unknown_flow.toml"
     config_path.write_text(
@@ -410,7 +460,9 @@ def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
         HydroModPyConfig.from_toml(config_path)
 
 
-def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> None:
+def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
+    tmp_path: Path,
+) -> None:
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
 
@@ -418,7 +470,12 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
         {
             "workflow": {"mode": "simulation"},
             "workspace": {"root": str(tmp_path), "project_root": ""},
-            "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+            "geographic": {
+                "catchment": {
+                    "catch_def": "dem",
+                    "dem_init_path": "dem.tif",
+                }
+            },
             "flow": {
                 "param": {
                     "K": {
@@ -440,13 +497,20 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
     }
 
 
-def test_hydromodpy_config_from_json_uses_toml_normalization(tmp_path: Path) -> None:
+def test_hydromodpy_config_from_json_resolves_nested_geographic_catchment(
+    tmp_path: Path,
+) -> None:
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
     payload = {
         "workflow": {"mode": "simulation"},
         "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
-        "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+        "geographic": {
+            "catchment": {
+                "catch_def": "dem",
+                "dem_init_path": "dem.tif",
+            }
+        },
     }
 
     cfg = HydroModPyConfig.from_json(json.dumps(payload), base_dir=tmp_path)

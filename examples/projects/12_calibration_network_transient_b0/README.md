@@ -55,6 +55,39 @@ examples/projects/12_calibration_network_transient_b0/
 
 The `truth/` files are generated artifacts and are not committed by default.
 
+## Current B0 Reference Baseline
+
+The canonical B0 observable for the spatial term is the steady/permanent
+`outflow_drain` network. The current real-run baseline that respects this
+contract is the dense lightweight MF6 grid on `site_01`:
+
+```text
+truth package = outputs/real_runs/site_01_truth_package_mK_0p65
+score table   = outputs/real_runs/site_01_parameter_grid_light_scores_mK_0p65.csv
+HTML report   = outputs/real_runs/web/index.html
+target        = mK=0.65, Sy=0.050
+grid          = 25 mK values x 20 Sy values
+status        = 460 completed / 500 attempted
+network map   = steady_drain_npz, one permanent map per mK
+```
+
+The target row is included in the score table as an identity control; report
+summaries therefore distinguish the global optimum from the best non-target
+candidate. The `headwater_100km2_outlet_2_fine_10x8` outputs are useful
+exploratory diagnostics, but they are not the canonical B0 baseline while their
+spatial objective is built from `network_map_source = transient_last`.
+
+Each HTML build also writes `outputs/real_runs/b0_reference_manifest.json`. This
+small manifest records the selected truth package, score table, contract version,
+normalization constants, grid status counts, best global candidate, best
+non-target candidate, and file hashes for the reference artifacts.
+
+Failure semantics are deliberately explicit: failed or pruned grid points remain
+in the score table with their `status`, `error`, and a missing/NaN objective, but
+they are excluded from ranking. Future optimizer-facing code should keep that
+distinction by returning a separate `failed`/`pruned` status or an explicit finite
+penalty, rather than silently mixing failed runs into the report ranking path.
+
 ## Synthetic Smoke Test
 
 Before launching MODFLOW 6 grids, the full B0 scoring contract can be exercised

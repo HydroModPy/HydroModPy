@@ -8,7 +8,7 @@ from pydantic import TypeAdapter, ValidationError
 from hydromodpy.data.variables.dem.config import (
     CustomDemSource,
     DemSourceConfig,
-    IgnBdaltiDemSource,
+    IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.geology.config import (
     BrgmGeology1mSource,
@@ -45,11 +45,18 @@ class TestDataSourceUnion:
         assert isinstance(instance, CustomDemSource)
         assert instance.source == "custom"
 
-    def test_dem_ign_variant_dispatch(self) -> None:
+    def test_dem_ign_geoplateforme_variant_dispatch(self) -> None:
         ta = TypeAdapter(DemSourceConfig)
-        instance = ta.validate_python({"source": "ign_bdalti"})
-        assert isinstance(instance, IgnBdaltiDemSource)
-        assert instance.source == "ign_bdalti"
+        instance = ta.validate_python(
+            {
+                "source": "ign_geoplateforme_dem",
+                "dataset": "bd-alti",
+                "resolution_m": 25.0,
+            }
+        )
+        assert isinstance(instance, IgnGeoplateformeDemSource)
+        assert instance.source == "ign_geoplateforme_dem"
+        assert instance.dataset == "bd-alti"
 
     def test_geology_brgm_variant_dispatch(self) -> None:
         ta = TypeAdapter(GeologySourceConfig)
@@ -62,6 +69,16 @@ class TestDataSourceUnion:
         ta = TypeAdapter(DemSourceConfig)
         with pytest.raises(ValidationError):
             ta.validate_python({"source": "missing"})
+
+    def test_dem_ign_bdalti_source_rejected(self) -> None:
+        ta = TypeAdapter(DemSourceConfig)
+        with pytest.raises(ValidationError):
+            ta.validate_python({"source": "ign_bdalti", "resolution_m": 25.0})
+
+    def test_dem_geoplateforme_rge_alti_dataset_rejected(self) -> None:
+        ta = TypeAdapter(DemSourceConfig)
+        with pytest.raises(ValidationError):
+            ta.validate_python({"source": "ign_geoplateforme_dem", "dataset": "rge-alti"})
 
     def test_dem_custom_requires_path(self) -> None:
         with pytest.raises(ValidationError):

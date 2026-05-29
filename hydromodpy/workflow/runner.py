@@ -270,7 +270,7 @@ class Pipeline:
 
         previous_hashes: list[str] = []
         config_sha256 = _config_sha256_from_manifest(manifest)
-        heartbeat_ctx = self._heartbeat_for(journal, state, heartbeat_cls, events=events)
+        heartbeat_ctx = self._heartbeat_for(state, heartbeat_cls, events=events)
 
         executor = (
             ThreadPoolCohortExecutor() if getattr(self, "_parallel", True) else SequentialExecutor()
@@ -556,22 +556,20 @@ class Pipeline:
 
     def _heartbeat_for(
         self,
-        journal: WorkflowJournal | None,
         state: PipelineState,
         heartbeat_cls: type,
         *,
         events: object | None = None,
     ):
-        if journal is None:
+        if events is None:
             return nullcontext()
         sim_id = _state_sim_id(state)
         if not sim_id:
             return nullcontext()
         return heartbeat_cls(
-            journal,
             sim_id,
             events=events,
-            run_id=state.run_id,
+            run_id=sim_id,
             step_name="pipeline",
         )
 

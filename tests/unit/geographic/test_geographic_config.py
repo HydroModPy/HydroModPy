@@ -9,20 +9,41 @@ from hydromodpy.spatial.geographic import GeographicConfig
 def test_geographic_config_txt_accepts_cell_size_with_unit_string():
     cfg = GeographicConfig.model_validate(
         {
-            "catch_def": "txt",
-            "dem_init_path": "dem.xyz",
-            "cell_size": "150.0 m",
+            "catchment": {
+                "catch_def": "txt",
+                "dem_init_path": "dem.xyz",
+                "cell_size": "150.0 m",
+            },
         }
     )
     assert float(cfg.cell_size) == pytest.approx(150.0)
 
 
+def test_geographic_config_rejects_flat_catchment_payload() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Extra inputs are not permitted",
+    ):
+        GeographicConfig.model_validate(
+            {
+                "catch_def": "from_outlet_coord",
+                "dem_init_path": "dem.tif",
+                "x_outlet": 1.0,
+                "y_outlet": 2.0,
+                "snap_dist": "50 m",
+                "buff_area": "10%",
+            }
+        )
+
+
 def test_geographic_config_txt_accepts_cell_size_with_km_unit():
     cfg = GeographicConfig.model_validate(
         {
-            "catch_def": "txt",
-            "dem_init_path": "dem.xyz",
-            "cell_size": "0.15 km",
+            "catchment": {
+                "catch_def": "txt",
+                "dem_init_path": "dem.xyz",
+                "cell_size": "0.15 km",
+            },
         }
     )
     assert float(cfg.cell_size) == pytest.approx(150.0)

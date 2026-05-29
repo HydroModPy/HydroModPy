@@ -156,7 +156,7 @@ regenerates the golden from the current output:
 pytest tests/regression/ -q -n auto --update-goldens
 
 # Refresh the goldens of a single test module
-pytest tests/regression/fast/test_launcher_simulation_fast_mf6_regression.py \
+pytest tests/regression/fast/test_simulation_regression_fast_mf6_regression.py \
     -q --update-goldens
 ```
 

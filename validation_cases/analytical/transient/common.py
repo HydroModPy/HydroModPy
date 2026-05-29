@@ -166,7 +166,6 @@ def load_transient_profile_outputs(
         solver_name=solver_name,
     )
     period_indices, heads = load_time_series_fields(
-        postprocess_dir=result.postprocess_dir,
         store=result.store,
         sim_id=result.sim_id,
         observable_name=observable_name,

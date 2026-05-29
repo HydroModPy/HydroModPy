@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.testbed.config import TestbedVariantConfig
+from hydromodpy.analysis.testbed.config import TestbedCaseConfig
 from hydromodpy.analysis.testbed.contracts import run_testbed_child_workflow
 from hydromodpy.analysis.testbed.regional_lab_types import RegionalLabPlannedCase
 from hydromodpy.analysis.testbed.runtime import TestbedPlannedCase
@@ -18,8 +18,8 @@ class RegionalLabTestbedCase:
     """Testbed-style projection of one regional-lab planned case.
 
     A regional lab may mix simulation and comparison recipes in one campaign,
-    while a standalone generic testbed has one runner for all variants. The
-    projection therefore keeps both the testbed variant and the per-case runner.
+    while a standalone generic testbed has one runner for all cases. The
+    projection therefore keeps both the testbed case and the per-case runner.
     """
 
     case: TestbedPlannedCase
@@ -34,9 +34,14 @@ class RegionalLabTestbedCase:
         return self.case.config_path
 
     @property
-    def variant_id(self) -> str:
-        """Return the testbed variant identifier."""
+    def case_id(self) -> str:
+        """Return the testbed case identifier."""
         return self.case.variant.id
+
+    @property
+    def variant_id(self) -> str:
+        """Return the legacy testbed variant identifier."""
+        return self.case_id
 
     def to_mapping(self) -> dict[str, Any]:
         """Serialize the projection with testbed field names."""
@@ -57,7 +62,7 @@ def regional_case_to_testbed_case(case: RegionalLabPlannedCase) -> RegionalLabTe
     site_label = case.site.site_label or case.site.site_id
     return RegionalLabTestbedCase(
         case=TestbedPlannedCase(
-            variant=TestbedVariantConfig(
+            variant=TestbedCaseConfig(
                 id=case.case_id,
                 label=f"{case.recipe_label} / {site_label}",
                 axis=case.recipe_id,

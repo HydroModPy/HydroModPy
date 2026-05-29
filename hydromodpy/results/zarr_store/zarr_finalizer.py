@@ -21,6 +21,7 @@ from filelock import FileLock, Timeout
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
+from hydromodpy.results.zarr_store.zarr_schema import windows_long_path
 
 if TYPE_CHECKING:
     from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
@@ -95,31 +96,34 @@ def pack_to_zip(store_obj: SimulationZarr) -> Path:
 
     zip_path = store_obj._path.with_suffix(ZARR_ZIP_SUFFIX)
     tmp_path = zip_path.with_name(f"{zip_path.name}.tmp")
-    if tmp_path.exists():
-        tmp_path.unlink()
+    tmp_path_io = windows_long_path(tmp_path)
+    zip_path_io = windows_long_path(zip_path)
+    store_path_io = windows_long_path(store_obj._path)
+    if tmp_path_io.exists():
+        tmp_path_io.unlink()
 
     # Skip the lock file (transient, not part of the artifact).
-    with zipfile.ZipFile(str(tmp_path), "w", compression=zipfile.ZIP_STORED) as zf:
-        for fpath in sorted(store_obj._path.rglob("*")):
+    with zipfile.ZipFile(str(tmp_path_io), "w", compression=zipfile.ZIP_STORED) as zf:
+        for fpath in sorted(store_path_io.rglob("*")):
             if not fpath.is_file():
                 continue
             if fpath.name == LOCK_FILE_NAME:
                 continue
-            arcname = str(fpath.relative_to(store_obj._path))
+            arcname = fpath.relative_to(store_path_io).as_posix()
             zf.write(str(fpath), arcname)
 
-    with zipfile.ZipFile(str(tmp_path), "r") as zf:
+    with zipfile.ZipFile(str(tmp_path_io), "r") as zf:
         corrupt = zf.testzip()
         if corrupt is not None:
-            tmp_path.unlink(missing_ok=True)
+            tmp_path_io.unlink(missing_ok=True)
             raise RuntimeError(f"Corrupt Zarr zip member: {corrupt}")
 
-    replace(tmp_path, zip_path)
+    replace(tmp_path_io, zip_path_io)
     check = SimulationZarr(zip_path)
     check.close()
 
     try:
-        shutil.rmtree(store_obj._path)
+        shutil.rmtree(store_path_io)
     except FileNotFoundError:
         pass
     except OSError:
@@ -144,6 +148,7 @@ def close(store_obj: SimulationZarr) -> None:
         if hasattr(store_obj._store, "close"):
             store_obj._store.close()
         store_obj._store = None
+    store_obj._root = None
     if store_obj._on_close is not None:
         callback = store_obj._on_close
         store_obj._on_close = None

@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "name": "bretagne_fixture_outline",
+  "hydromodpy_coordinate_crs": "EPSG:2154",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Bretagne fixture extent"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[250000, 6800000], [330000, 6800000], [330000, 6860000], [250000, 6860000], [250000, 6800000]]]
+      }
+    }
+  ]
+}

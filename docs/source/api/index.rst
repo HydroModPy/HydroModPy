@@ -71,6 +71,7 @@ to a module to read its direct members.
    hydromodpy.analysis
    hydromodpy.core
    hydromodpy.data
+   hydromodpy.discretization
    hydromodpy.physics
    hydromodpy.reporting
    hydromodpy.schema

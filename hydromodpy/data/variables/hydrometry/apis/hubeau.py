@@ -35,6 +35,13 @@ COVERAGE = {
 _DISCHARGE_VARS = {"QmnJ", "QmM", "QINM", "QINnJ", "QixM", "QIXnJ"}
 _HEIGHT_VARS = {"HIXM", "HIXnJ"}
 MAX_DAYS_PER_CHUNK = 20_000
+_STATION_INFLUENCE_FIELDS = (
+    "influence_generale_site",
+    "commentaire_influence_generale_site",
+    "influence_locale_station",
+    "commentaire_influence_locale_station",
+    "commentaire_station",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +74,7 @@ def fetch(
     date_end: datetime,
     require_observations: bool = True,
     fallback_search_radius_km: float | None = None,
+    max_stations: int | None = None,
 ) -> list[PointRecord]:
     """Fetch hydrometry data from Hub'Eau and return ``PointRecord`` list.
 
@@ -79,6 +87,7 @@ def fetch(
     # Resolve station list
     if station_ids:
         ids = [_normalize_station_id(s) for s in station_ids]
+        ids = _limit_station_ids(ids, max_stations=max_stations)
     elif bbox is not None:
         ids = _discover_stations_in_bbox(
             bbox,
@@ -86,6 +95,7 @@ def fetch(
             date_end=date_end,
             require_observations=require_observations,
         )
+        ids = _limit_station_ids(ids, max_stations=max_stations)
         if not ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
 
@@ -99,6 +109,7 @@ def fetch(
                 date_end=date_end,
                 require_observations=require_observations,
             )
+            ids = _limit_station_ids(ids, max_stations=max_stations)
     else:
         raise ValueError("Either bbox or station_ids must be provided.")
 
@@ -135,6 +146,12 @@ def fetch(
 
     log_step(f"Hub'Eau: {len(records)} station records loaded")
     return records
+
+
+def _limit_station_ids(ids: list[str], *, max_stations: int | None) -> list[str]:
+    if max_stations is None:
+        return ids
+    return ids[:max_stations]
 
 
 # ---------------------------------------------------------------------------
@@ -227,21 +244,30 @@ def _fetch_station_location(station_id: str) -> StationLocation | None:
     if lon is None or lat is None:
         return None
 
+    metadata = {
+        "station_name": info.get("libelle_station"),
+        "x_l93": info.get("coordonnee_x_station"),
+        "y_l93": info.get("coordonnee_y_station"),
+        "city": info.get("libelle_commune"),
+        "department": info.get("libelle_departement"),
+        "altitude": info.get("altitude_ref_alti_station"),
+        "start_date": info.get("date_ouverture_station"),
+        "end_date": info.get("date_fermeture_station"),
+    }
+    metadata.update(
+        {
+            key: info.get(key)
+            for key in _STATION_INFLUENCE_FIELDS
+            if info.get(key) not in (None, "")
+        }
+    )
+
     return StationLocation(
         id=station_id,
         x=float(lon),
         y=float(lat),
         crs="EPSG:4326",
-        metadata={
-            "station_name": info.get("libelle_station"),
-            "x_l93": info.get("coordonnee_x_station"),
-            "y_l93": info.get("coordonnee_y_station"),
-            "city": info.get("libelle_commune"),
-            "department": info.get("libelle_departement"),
-            "altitude": info.get("altitude_ref_alti_station"),
-            "start_date": info.get("date_ouverture_station"),
-            "end_date": info.get("date_fermeture_station"),
-        },
+        metadata=metadata,
     )
 
 

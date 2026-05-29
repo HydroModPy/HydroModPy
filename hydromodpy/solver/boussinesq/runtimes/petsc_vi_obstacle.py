@@ -39,6 +39,9 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
     clip_head_to_bounds as _clip_head_to_bounds,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
+    free_residual_norm as _free_residual_norm,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
     obstacle_tolerance as _obstacle_tolerance,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
@@ -55,6 +58,9 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
     configure_vi_snes as _configure_vi_snes,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
+    _snes_reason_label,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
     attempt_diagnostic_record as _attempt_diagnostic_record,
@@ -73,6 +79,9 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
     solve_transient_vi_substep as _solve_transient_vi_substep,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    solver_diagnostics as _solver_diagnostics,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
     solve_vi_obstacle_problem as _solve_vi_obstacle_problem,
@@ -271,9 +280,12 @@ __all__ = [
     "_accept_failed_snes_by_projected_tolerance",
     "_clip_head_to_bounds",
     "_configure_vi_snes",
+    "_free_residual_norm",
     "_obstacle_tolerance",
     "_projected_vi_residual",
     "_reconstruct_obstacle_reactions",
+    "_snes_reason_label",
+    "_solver_diagnostics",
     "_variable_bounds",
     "solve_steady_problem",
     "solve_transient_step",

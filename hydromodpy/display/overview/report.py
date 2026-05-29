@@ -1,11 +1,12 @@
-"""Orchestrate PNG generation for the data-overview report.
+"""Orchestrate artifact generation for the data-overview report.
 
-Each enabled panel in ``[overview.panels]`` produces one standalone PNG in
-the workspace ``figures/overview/`` directory.
+The report produces canonical block figures, legacy panel PNGs and a static
+HTML page under the workspace output root.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,12 +19,17 @@ from hydromodpy.display.overview.panels import (
     render_geology_map,
     render_hydrography_map,
     render_intermittency,
+    render_regional_context_map,
     render_station_inventory,
     render_stats_card,
     render_timeseries_multi,
     render_water_quality,
 )
 from hydromodpy.display.overview.summary import compute_overview_summary
+from hydromodpy.display.overview.web import (
+    write_overview_review_web_reports,
+    write_overview_web_report,
+)
 
 logger = get_logger(__name__)
 
@@ -32,7 +38,7 @@ if TYPE_CHECKING:
 
 
 def generate_overview_report(state: DataOverviewState) -> list[Path]:
-    """Generate one PNG per enabled panel and return their paths."""
+    """Generate overview report artifacts and return their paths."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -52,12 +58,31 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     dem_path = getattr(dg, "watershed_box_buff_dem", None) if dg else None
     watershed_shp = getattr(dg, "watershed_shp", None) if dg else None
     streams_gdf = _load_streams_gdf(ld.hydrography)
-    title = summary.watershed_name or "Watershed"
+    title = summary.watershed_name or "Bassin"
     overview_cfg = state.cfg.overview
+    regional_dem_path = _regional_dem_path(state, dg, fallback=dem_path)
+    regional_title = _regional_context_title(
+        regional_dem_path,
+        label=getattr(overview_cfg, "regional_context_label", None),
+    )
     date_start = getattr(overview_cfg, "date_start", None)
     date_end = getattr(overview_cfg, "date_end", None)
 
     paths: list[Path] = []
+
+    if regional_dem_path and watershed_shp:
+        paths.append(
+            _render_panel(
+                output_dir / "map_regional_context.png",
+                figsize=(8, 6.4),
+                render_fn=render_regional_context_map,
+                regional_dem_path=str(regional_dem_path),
+                watershed_shp=str(watershed_shp),
+                streams_gdf=None,
+                outlet_xy=_outlet_xy(dg),
+                title=regional_title,
+            )
+        )
 
     if panels_cfg.map_dem and dem_path:
         station_points = _build_station_points(ld)
@@ -70,7 +95,24 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 station_points=station_points,
-                title=f"{title} - DEM",
+                outlet_xy=_outlet_xy(dg),
+                title=f"{title} - MNT",
+            )
+        )
+
+    if dem_path:
+        paths.append(
+            _render_panel(
+                output_dir / "map_dem_context.png",
+                figsize=(7, 6),
+                render_fn=render_dem_map,
+                dem_path=str(dem_path),
+                watershed_shp=str(watershed_shp) if watershed_shp else None,
+                streams_gdf=None,
+                station_points=None,
+                outlet_xy=_outlet_xy(dg),
+                relative_ticks=True,
+                title="DEM, bassin versant et exutoire",
             )
         )
 
@@ -84,7 +126,23 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 geology_gdf=geology_gdf,
-                title=f"{title} - Geology",
+                relative_ticks=True,
+                title="Geologie du bassin",
+            )
+        )
+
+    if dem_path and ld.geology is not None:
+        geology_gdf = _load_geology_gdf(ld.geology)
+        paths.append(
+            _render_panel(
+                output_dir / "map_geology_context.png",
+                figsize=(9, 6),
+                render_fn=render_geology_map,
+                dem_path=str(dem_path),
+                watershed_shp=str(watershed_shp) if watershed_shp else None,
+                geology_gdf=geology_gdf,
+                relative_ticks=True,
+                title="Contexte geologique du bassin",
             )
         )
 
@@ -101,7 +159,26 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 outlet_xy=outlet_xy,
-                title=f"{title} - Hydrography",
+                relative_ticks=True,
+                stream_label="BD Topage",
+                title="Reseau hydrographique BD Topage",
+            )
+        )
+
+    if dem_path and streams_gdf is not None and not streams_gdf.empty:
+        paths.append(
+            _render_panel(
+                output_dir / "map_hydrography_data.png",
+                figsize=(7, 6),
+                render_fn=render_dem_map,
+                dem_path=str(dem_path),
+                watershed_shp=str(watershed_shp) if watershed_shp else None,
+                streams_gdf=streams_gdf,
+                station_points=None,
+                outlet_xy=_outlet_xy(dg),
+                relative_ticks=True,
+                stream_label="BD Topage",
+                title="Reseau hydrographique BD Topage",
             )
         )
 
@@ -207,7 +284,11 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
             )
         )
 
-    logger.info("[overview] Generated %d panel(s) in %s", len(paths), output_dir)
+    write_overview_web_report(state, figure_paths=paths)
+    if _write_review_pages_enabled():
+        write_overview_review_web_reports(state, figure_paths=paths)
+
+    logger.info("[overview] Generated %d panel artifact(s) in %s", len(paths), output_dir)
     return paths
 
 
@@ -236,6 +317,45 @@ def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, *
     finally:
         plt.close(fig)
     return save_path
+
+
+def _outlet_xy(dg) -> tuple[float, float] | None:
+    if dg and dg.x_outlet is not None and dg.y_outlet is not None:
+        return (float(dg.x_outlet), float(dg.y_outlet))
+    return None
+
+
+def _regional_dem_path(state: DataOverviewState, dg, *, fallback) -> Path | None:
+    candidates = [
+        getattr(dg, "regional_dem_path", None) if dg else None,
+        getattr(getattr(state.cfg, "geographic", None), "dem_init_path", None),
+        fallback,
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        if path.exists():
+            return path
+    return None
+
+
+def _regional_context_title(regional_dem_path: Path | None, *, label: str | None = None) -> str:
+    if label:
+        return label
+    if regional_dem_path is None:
+        return "Situation regionale"
+    name = regional_dem_path.stem.lower()
+    if "armorican" in name or "armoricain" in name:
+        return "Situation dans le Massif Armoricain"
+    if "bretagne" in name or "brittany" in name:
+        return "Situation en Bretagne"
+    return "Situation regionale"
+
+
+def _write_review_pages_enabled() -> bool:
+    value = os.environ.get("HMP_OVERVIEW_HTML_REVIEW_LEVELS", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 # ---------------------------------------------------------------------------

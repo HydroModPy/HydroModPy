@@ -9,16 +9,12 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.physics.flow import Flow
-from hydromodpy.physics.flow.history_contract import (
-    build_transient_time_axes,
-    write_time_series_npy,
-)
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
-    aggregate_triangle_history_to_structured_grids,
+    aggregate_triangle_history_to_structured_fields,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
@@ -29,8 +25,8 @@ from validation_cases.shared.boussinesq_uniform_strip import (
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 
@@ -66,27 +62,6 @@ def _east_outlet_discharge_m3_s(model, internal_edge_flux_m3_s: np.ndarray) -> f
         else:
             outward_flux_m3_s += flux
     return float(max(outward_flux_m3_s, 0.0))
-
-
-def _save_scalar_series_npy(
-    *,
-    postprocess_dir: Path,
-    observable_name: str,
-    values: np.ndarray,
-    start_index: int = 0,
-    elapsed_seconds: np.ndarray | None = None,
-) -> None:
-    time_keys = np.arange(
-        int(start_index),
-        int(start_index) + int(np.asarray(values, dtype=float).size),
-        dtype=int,
-    )
-    write_time_series_npy(
-        postprocess_dir / f"{observable_name}.npy",
-        np.asarray(values, dtype=float),
-        time_keys=time_keys,
-        elapsed_seconds=elapsed_seconds,
-    )
 
 
 def run_boussinesq_brutsaert_recession_case(
@@ -224,7 +199,7 @@ def run_boussinesq_brutsaert_recession_case(
     transient_model.has_numerical_solution = True
     transient_model.solve_stage = "solved"
     transient_model.post_processing()
-    aggregate_triangle_history_to_structured_grids(
+    field_series = aggregate_triangle_history_to_structured_fields(
         transient_model,
         nx=int(nx),
         ny=int(ny),
@@ -248,23 +223,17 @@ def run_boussinesq_brutsaert_recession_case(
 
     model_ws = Path(transient_model.full_path)
     postprocess_dir = model_ws / "_postprocess"
-    step_elapsed_seconds = build_transient_time_axes(
-        period_lengths_seconds
-    ).step_end_elapsed_seconds
-    _save_scalar_series_npy(
-        postprocess_dir=postprocess_dir,
-        observable_name="outlet_discharge_m3_s",
-        values=outlet_history_m3_s[1:],
-        start_index=1,
-        elapsed_seconds=step_elapsed_seconds,
-    )
-    _save_scalar_series_npy(
-        postprocess_dir=postprocess_dir,
-        observable_name="outlet_discharge_east_side_m3_s",
-        values=outlet_history_m3_s[1:],
-        start_index=1,
-        elapsed_seconds=step_elapsed_seconds,
-    )
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
+    discharge_series = {
+        int(time_key): np.asarray([float(value)], dtype=float)
+        for time_key, value in zip(
+            range(1, int(outlet_history_m3_s[1:].size) + 1),
+            np.asarray(outlet_history_m3_s[1:], dtype=float),
+            strict=True,
+        )
+    }
+    field_series["outlet_discharge_m3_s"] = discharge_series
+    field_series["outlet_discharge_east_side_m3_s"] = dict(discharge_series)
     context_payload = {
         "initial_outlet_discharge_m3_s": float(initial_outlet_discharge_m3_s),
         "steady_residual_norm_inf": float(steady_residual),
@@ -290,17 +259,11 @@ def run_boussinesq_brutsaert_recession_case(
     )
 
     particles_dir = postprocess_dir / "_particles"
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
+        fields=field_series,
         solver_name="boussinesq",
         flow_regime="transient",
-        variables=(
-            "watertable_elevation",
-            "watertable_depth",
-            "outlet_discharge_m3_s",
-            "outlet_discharge_east_side_m3_s",
-        ),
     )
     return ValidationRunResult(
         case_dir=case_dir,

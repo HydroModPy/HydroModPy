@@ -5,6 +5,7 @@ dependencies:
   - contextily
   - flopy
   - geopandas
+  - graphviz
   - h5py
   - imageio
   - ipykernel
@@ -13,12 +14,14 @@ dependencies:
   - netcdf4
   - numpy>=2.0
   - pandas<3.0
+  - pandera>=0.31.1,<1
   - dask
   - pint
   - pydantic
   - pydantic-pint
   - pytest
   - pytest-xdist
+  - pygraphviz
   - sphinx
   - plotly
   - pyproj

@@ -46,10 +46,9 @@ def run_geographic_case_from_toml(config_toml: str | Path):
 
 def _load_river_network_summary(geographic) -> tuple[str | None, dict[str, Any] | None]:
     """Return the river-network summary path and decoded payload when available."""
-    summary_path_raw = (
-        str(getattr(geographic, "hydrographic_network_generated_summary_json", "")).strip()
-        or str(getattr(geographic, "river_network_summary_json", "")).strip()
-    )
+    summary_path_raw = str(
+        getattr(geographic, "hydrographic_network_generated_summary_json", "")
+    ).strip()
     if summary_path_raw == "":
         return None, None
 
@@ -244,9 +243,7 @@ def run_geographic_cases_from_toml(
         metrics = compute_catchment_metrics(geographic)
         river_network_summary_path, river_network_summary = _load_river_network_summary(geographic)
         generated_network_shp = (
-            str(getattr(geographic, "hydrographic_network_generated_shp", "")).strip()
-            or str(getattr(geographic, "river_network_shp", "")).strip()
-            or None
+            str(getattr(geographic, "hydrographic_network_generated_shp", "")).strip() or None
         )
         fig_path = None
         if write_plot:

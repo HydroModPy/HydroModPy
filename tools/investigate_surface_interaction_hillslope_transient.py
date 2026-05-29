@@ -89,7 +89,7 @@ CASE_DIR = (
     / "linearized_unconfined_hillslope_drainage_1d"
 )
 LAUNCHER_SCRIPT = (
-    REPO_ROOT / "examples" / "projects" / "launcher_simulation" / "launcher_simulation.py"
+    REPO_ROOT / "examples" / "projects" / "simulation_regression" / "simulation_regression.py"
 )
 SOLVER_ORDER = (
     "modflownwt",
@@ -400,6 +400,7 @@ def _apply_transient_payload(
     payload["simulation"] = simulation
     payload["geographic"] = geographic
     payload["domain"] = domain
+    flow["first_period_steady"] = False
     payload["flow"] = flow
     payload["data"] = data
 
@@ -413,7 +414,6 @@ def _apply_transient_payload(
     }
     solver_sgrid["vertical"] = {"nlay": 1}
     solver_section["sgrid"] = solver_sgrid
-    solver_section["tgrid"] = {"firstpersteady": False}
     payload[solver] = solver_section
     return payload
 

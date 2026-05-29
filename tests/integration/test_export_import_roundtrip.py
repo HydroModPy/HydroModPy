@@ -7,7 +7,7 @@ Covers the pair of operations a user runs when sharing a simulation:
 
 Two corner cases are exercised:
 - A fresh, minimal source workspace (Zarr field + Parquet timeseries).
-- The reusable ``launcher_simulation`` fixture pattern. The CLI export
+- The reusable ``simulation_regression`` fixture pattern. The CLI export
   verb does not exist yet (no ``hmp export-package`` subcommand), so we
   drive the export through ``catalog.export_package`` which is the same
   underlying entry point a future CLI verb would call. This is recorded

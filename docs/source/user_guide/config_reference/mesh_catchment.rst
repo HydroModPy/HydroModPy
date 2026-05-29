@@ -225,9 +225,9 @@ Fields
               <code class="hmp-field-name">source</code>
             </div>
 
-         :bdg-primary:`Literal['domain_geographic', 'file']` :bdg-secondary:`default = "domain_geographic"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/rivers.py#L18>`__
+         :bdg-primary:`Literal['geographic_features', 'file']` :bdg-secondary:`default = "geographic_features"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/rivers.py#L18>`__
 
-            Origin of the river constraints used to force mesh edges along the river network. Use 'domain_geographic' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.
+            Origin of the river constraints used to force mesh edges along the river network. Use 'geographic_features' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1504,7 +1504,7 @@ Starter TOML snippet
       # [mesh_catchment.geology.<id>]
 
       [mesh_catchment.rivers]
-      # source = "domain_geographic"
+      # source = "geographic_features"
       # path = ...  # default = None
       # clip_to_domain = true
       # min_segment_length = 0.0

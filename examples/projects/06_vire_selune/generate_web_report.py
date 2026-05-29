@@ -105,7 +105,7 @@ def _mesh_context(case: CatchmentCase) -> dict[str, Path]:
         "mesh_summary": root / "mesh" / "mesh_catchment_summary.json",
         "watershed_shp": root / "geographic" / "watershed.shp",
         "watershed_box_buff_dem": root / "geographic" / "watershed_box_buff_dem.tif",
-        "river_network_shp": root / "geographic" / "river_network.shp",
+        "hydrographic_network_generated_shp": root / "geographic" / "river_network.shp",
         "outlet_shp": root / "geographic" / "outlet.shp",
     }
 
@@ -179,7 +179,7 @@ def _render_mesh_regional(case: CatchmentCase) -> str:
     ctx = _mesh_context(case)
     _, polygons, _, geology_values, river_lines, _ = _poly_and_line_data(ctx["bundle_dir"])
     watershed = gpd.read_file(ctx["watershed_shp"])
-    rivers = gpd.read_file(ctx["river_network_shp"])
+    rivers = gpd.read_file(ctx["hydrographic_network_generated_shp"])
     outlet = gpd.read_file(ctx["outlet_shp"])
 
     fig, ax = plt.subplots(figsize=(12.5, 8.5), constrained_layout=True)

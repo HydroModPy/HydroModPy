@@ -50,8 +50,10 @@ nx = 48
 ny = 48
 nodata = -9999
 
-genmtd_bot = "constant_thickness"
+[case.sgrid.bottom]
+kind = "constant_thickness"
 thick = 180.0
 
-genmtd_lay = "constant"
+[case.sgrid.layering]
+kind = "constant"
 nlay = 24

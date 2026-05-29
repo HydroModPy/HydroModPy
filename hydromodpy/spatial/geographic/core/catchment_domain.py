@@ -13,7 +13,7 @@ Produced supports
 
 Buffer semantics
 ----------------
-- numeric ``buff_area``: legacy percentage-based scaling,
+- numeric ``buff_area``: percentage-based scaling from catchment area,
 - string ``buff_area``: explicit distance (for example ``"200 m"``).
 """
 
@@ -79,7 +79,7 @@ def _compute_buffer_distance(
             raise ValueError("buff_area distance must be > 0")
         return dist
 
-    # Numeric mode: legacy percent-based scaling from sqrt(area_km2).
+    # Numeric mode: percent-based scaling from sqrt(area_km2).
     buff_raw = (np.sqrt(float(catchment_area_km2))) * (float(buff_area) / 100.0) * 1000.0
     if buff_raw <= 0.0:
         raise ValueError("buff_area percentage must produce a distance > 0")
@@ -87,7 +87,7 @@ def _compute_buffer_distance(
     if dem_resolution is None:
         return float(buff_raw)
 
-    # Match legacy Geographic tie-breaking: snap to the closest DEM multiple,
+    # Match the established Geographic tie-breaking: snap to the closest DEM multiple,
     # and when equidistant choose the lower multiple.
     lower = np.floor(buff_raw / dem_resolution) * dem_resolution
     upper = np.ceil(buff_raw / dem_resolution) * dem_resolution
@@ -121,7 +121,7 @@ def derive_catchment_domain(
         Directory where output shapefiles are written.
     buff_area:
         Buffer control:
-        - numeric value => percentage-based distance (legacy Geographic behavior),
+        - numeric value => percentage-based distance from catchment area,
         - string value => direct distance in meters.
     dem_init_path, dem_resolution:
         Used to derive/supply DEM resolution for distance snapping.

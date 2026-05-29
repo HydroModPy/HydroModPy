@@ -1,0 +1,43 @@
+{
+  "type": "FeatureCollection",
+  "name": "aura_area_50_150_10",
+  "hydromodpy_coordinate_crs": "EPSG:2154",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "aura_area_50_150_10",
+      "properties": {
+        "site_id": "aura_area_50_150_10",
+        "area_km2": 99.0,
+        "source": "fixture_area_grid"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              915025.0628144669,
+              6513025.062814467
+            ],
+            [
+              924974.9371855331,
+              6513025.062814467
+            ],
+            [
+              924974.9371855331,
+              6522974.937185533
+            ],
+            [
+              915025.0628144669,
+              6522974.937185533
+            ],
+            [
+              915025.0628144669,
+              6513025.062814467
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

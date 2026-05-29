@@ -593,10 +593,9 @@ class WritesMixinDuckDB:
                 encoded = _encode_workspace_path(self._workspace, canonical)
             except ValueError:
                 # Tracked file lives outside workspace/cache/state anchors.
-                # Persist absolute canonical path and downgrade portability so
-                # cross-machine consumers know the record cannot be replayed.
+                # Keep the absolute source path so the .hmp exporter can still
+                # bundle InputFile(portable=True) entries from user data dirs.
                 encoded = str(canonical)
-                portable = False
             self._backend.execute(
                 """INSERT INTO tracked_files
                    (sim_id, role, category, original_path, canonical_path,

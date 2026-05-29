@@ -1,6 +1,0 @@
-simulation_id,reference_simulation,observable,unit,n_pairs,bias,mae,rmse,max_abs_error,mean_relative_error
-modflownwt,modflow6,depth_map_last,m,250,0.0,0.0,0.0,0.0,0.0
-modflownwt,modflow6,head_east_response,m,40,0.0,0.0,0.0,0.0,0.0
-modflownwt,modflow6,head_map_last,m,250,0.0,0.0,0.0,0.0,0.0
-modflownwt,modflow6,head_mid_response,m,40,0.0,0.0,0.0,0.0,0.0
-modflownwt,modflow6,head_west_response,m,40,0.0,0.0,0.0,0.0,0.0

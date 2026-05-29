@@ -52,6 +52,7 @@ from hydromodpy.solver.modflow_common import (
 from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
     build_temporal_discretization_from_time_grid,
+    resolve_first_period_steady,
 )
 
 logger = get_logger(__name__)
@@ -67,6 +68,17 @@ def mf6_safe_name(name: str, max_len: int = 16) -> str:
     digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:6]
     prefix_len = max_len - 7
     return f"{text[:prefix_len]}_{digest}"
+
+
+def mf6_output_name(model, extension: str = ".cbc") -> str:
+    """Return an output file stem that keeps MF6 paths usable on Windows."""
+    requested = str(getattr(model, "model_name", "") or "model")
+    if os.name != "nt":
+        return requested
+    candidate = os.path.join(str(model.full_path), f"{requested}{extension}")
+    if len(os.path.abspath(candidate)) < 240:
+        return requested
+    return str(getattr(model, "model_name_mf6", "") or mf6_safe_name(requested))
 
 
 def xt3d_requested(model) -> bool | None:
@@ -245,8 +257,8 @@ def run_pre_processing(  # noqa: PLR0915
     temporal = build_temporal_discretization_from_time_grid(
         time_grid=launcher_time_grid,
         flow_regime=model.flow_regime,
-        firstpersteady=bool(
-            getattr(getattr(model.modflow_config, "tgrid", None), "firstpersteady", True)
+        first_period_steady=resolve_first_period_steady(
+            flow=getattr(model, "flow", None),
         ),
     )
     model.perlen = temporal.perlen
@@ -449,10 +461,11 @@ def run_pre_processing(  # noqa: PLR0915
     if any(len(v) > 0 for v in wel_spd.values()):
         model.wel = flopy.mf6.ModflowGwfwel(model.gwf, stress_period_data=wel_spd, save_flows=True)
 
+    model.model_output_name = mf6_output_name(model)
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
-        head_filerecord=f"{model.model_name}.hds",
-        budget_filerecord=f"{model.model_name}.cbc",
+        head_filerecord=f"{model.model_output_name}.hds",
+        budget_filerecord=f"{model.model_output_name}.cbc",
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("HEAD", "LAST")],
     )

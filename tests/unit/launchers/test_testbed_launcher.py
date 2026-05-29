@@ -8,7 +8,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.analysis.testbed.config import TestbedConfig as MethodTestbedConfig
+from hydromodpy.analysis.testbed.config import (
+    TestbedCaseConfig as _TestbedCaseConfig,
+    TestbedCatalogCaseConfig as _TestbedCatalogCaseConfig,
+    TestbedCatalogVariantConfig as _TestbedCatalogVariantConfig,
+    TestbedConfig as MethodTestbedConfig,
+    TestbedVariantConfig as _TestbedVariantConfig,
+)
 from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
 from hydromodpy.analysis.testbed.runtime import TestbedLauncher as MethodTestbedLauncher
 from hydromodpy.core.toml_io import load_toml_with_base_config
@@ -104,7 +110,29 @@ def _write_comparison_base(path: Path) -> None:
     )
 
 
-def test_testbed_config_parses_mesh_variants(tmp_path: Path) -> None:
+def _write_calibration_base(path: Path) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "calibration"',
+                "",
+                "[calibration]",
+                'campaign_id = "calibration_base"',
+                'output_root = "calibration_outputs/base"',
+                'objective = "nse"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_testbed_case_config_names_are_canonical_with_legacy_aliases() -> None:
+    assert _TestbedVariantConfig is _TestbedCaseConfig
+    assert _TestbedCatalogVariantConfig is _TestbedCatalogCaseConfig
+
+
+def test_testbed_config_parses_mesh_cases(tmp_path: Path) -> None:
     base_config = tmp_path / "mesh_base.toml"
     _write_mesh_base(base_config)
     config_path = tmp_path / "testbed.toml"
@@ -124,11 +152,11 @@ def test_testbed_config_parses_mesh_variants(tmp_path: Path) -> None:
                 "[testbed.runner]",
                 'type = "simulation"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "coarse"',
                 'axis = "resolution"',
                 "",
-                "[testbed.variant.overlay.mesh_catchment.zone_meshing]",
+                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
                 "global_size = 400.0",
                 "",
                 "[[testbed.metric]]",
@@ -147,8 +175,127 @@ def test_testbed_config_parses_mesh_variants(tmp_path: Path) -> None:
     assert cfg.base_config_path == base_config.resolve()
     assert cfg.output_root == (tmp_path / "outputs/testbed").resolve()
     assert cfg.execute is False
-    assert cfg.variants[0].overlay["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+    assert cfg.cases is cfg.case
+    assert cfg.cases[0].overlay["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
     assert cfg.metrics[0].source == "n_cells"
+
+
+def test_testbed_config_rejects_legacy_variants_alias(tmp_path: Path) -> None:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    config_path = tmp_path / "testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "mesh_resolution"',
+                'subject = "mesh"',
+                'base_config = "mesh_base.toml"',
+                "",
+                "[[testbed.variants]]",
+                'id = "coarse"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="testbed.case or testbed.case_from_catalog must contain at least one item",
+    ):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def test_testbed_config_rejects_mixed_case_and_variant_spellings(tmp_path: Path) -> None:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    config_path = tmp_path / "testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "mesh_resolution"',
+                'subject = "mesh"',
+                'base_config = "mesh_base.toml"',
+                "",
+                "[[testbed.case]]",
+                'id = "coarse"',
+                "",
+                "[[testbed.variant]]",
+                'id = "fine"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="testbed.variant is no longer supported"):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def test_testbed_config_rejects_legacy_variant_spelling(tmp_path: Path) -> None:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    config_path = tmp_path / "testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "mesh_resolution"',
+                'subject = "mesh"',
+                'base_config = "mesh_base.toml"',
+                "",
+                "[[testbed.variant]]",
+                'id = "coarse"',
+                "",
+                "[testbed.variant.overlay.mesh_catchment.zone_meshing]",
+                "global_size = 400.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="testbed.variant is no longer supported"):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def test_testbed_config_rejects_legacy_python_variant_field_names(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="TestbedConfig.variants is no longer supported"):
+        MethodTestbedConfig(
+            config_path=tmp_path / "testbed.toml",
+            base_dir=tmp_path,
+            id="direct_config",
+            profile="generic",
+            subject="mesh",
+            purpose="robustness",
+            output_root=tmp_path / "outputs",
+            runner={"type": "simulation"},
+            variants=[{"id": "coarse", "label": "Coarse"}],
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="TestbedConfig.catalog_variants is no longer supported",
+    ):
+        MethodTestbedConfig(
+            config_path=tmp_path / "testbed.toml",
+            base_dir=tmp_path,
+            id="direct_config",
+            profile="generic",
+            subject="mesh",
+            purpose="robustness",
+            output_root=tmp_path / "outputs",
+            runner={"type": "simulation"},
+            catalog_variants=[{"id_template": "{case_id}"}],
+        )
 
 
 def test_testbed_config_rejects_removed_mesh_catchment_runner(tmp_path: Path) -> None:
@@ -168,7 +315,7 @@ def test_testbed_config_rejects_removed_mesh_catchment_runner(tmp_path: Path) ->
                 "[testbed.runner]",
                 'type = "mesh_catchment"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "coarse"',
             ]
         )
@@ -199,7 +346,7 @@ def test_generic_testbed_config_rejects_profile_launcher_config(tmp_path: Path) 
         MethodTestbedConfig.from_file(config_path)
 
 
-def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
+def test_testbed_config_parses_flow_cases(tmp_path: Path) -> None:
     base_config = tmp_path / "flow_base.toml"
     _write_flow_base(base_config)
     config_path = tmp_path / "flow_testbed.toml"
@@ -218,11 +365,11 @@ def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
                 "[testbed.runner]",
                 'type = "simulation"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "low_k"',
                 'axis = "hydraulic_conductivity"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field]",
+                "[testbed.case.overlay.flow.param.K.field]",
                 'value = "5e-6 m/s"',
                 "",
                 "[[testbed.metric]]",
@@ -240,7 +387,7 @@ def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
     assert cfg.runner.type == "simulation"
     assert cfg.runner.no_display is True
     assert cfg.base_config_path == base_config.resolve()
-    assert cfg.variants[0].overlay["flow"]["param"]["K"]["field"]["value"] == "5e-6 m/s"
+    assert cfg.cases[0].overlay["flow"]["param"]["K"]["field"]["value"] == "5e-6 m/s"
 
 
 def test_flow_testbed_requires_separate_base_config(tmp_path: Path) -> None:
@@ -256,7 +403,7 @@ def test_flow_testbed_requires_separate_base_config(tmp_path: Path) -> None:
                 "[testbed.runner]",
                 'type = "simulation"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "baseline"',
             ]
         )
@@ -284,11 +431,11 @@ def test_testbed_launcher_materializes_child_configs_without_executing(
                 'base_config = "mesh_base.toml"',
                 "execute = false",
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "coarse"',
                 'axis = "resolution"',
                 "",
-                "[testbed.variant.overlay.mesh_catchment.zone_meshing]",
+                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
                 "global_size = 400.0",
             ]
         )
@@ -334,14 +481,14 @@ def test_testbed_launcher_materializes_flow_child_configs_without_executing(
                 "[testbed.runner]",
                 'type = "simulation"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "low_k"',
                 'axis = "hydraulic_conductivity"',
                 "",
-                "[testbed.variant.overlay.simulation]",
+                "[testbed.case.overlay.simulation]",
                 'name = "flow_low_k"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field]",
+                "[testbed.case.overlay.flow.param.K.field]",
                 'value = "5e-6 m/s"',
             ]
         )
@@ -360,7 +507,7 @@ def test_testbed_launcher_materializes_flow_child_configs_without_executing(
     assert summary["executed_count"] == 0
 
 
-def test_testbed_launcher_expands_catalog_variants_without_execution(
+def test_testbed_launcher_expands_catalog_cases_without_execution(
     tmp_path: Path,
 ) -> None:
     base_config = tmp_path / "mesh_base.toml"
@@ -429,13 +576,13 @@ def test_testbed_launcher_expands_catalog_variants_without_execution(
                 'field_equals = { tier = "smoke" }',
                 'tags = ["mesh_ready"]',
                 "",
-                "[[testbed.variant_from_catalog]]",
+                "[[testbed.case_from_catalog]]",
                 'required_fields = ["workspace_root", "global_size"]',
                 "",
-                "[testbed.variant_from_catalog.overlay.workspace]",
+                "[testbed.case_from_catalog.overlay.workspace]",
                 'project_root = "{workspace_root}"',
                 "",
-                "[testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]",
+                "[testbed.case_from_catalog.overlay.mesh_catchment.zone_meshing]",
                 'global_size = "{global_size}"',
             ]
         )
@@ -445,7 +592,7 @@ def test_testbed_launcher_expands_catalog_variants_without_execution(
 
     summary = MethodTestbedLauncher(config_path).run()
 
-    assert summary["variant_count"] == 1
+    assert summary["case_count"] == 1
     generated = Path(summary["generated_configs_dir"]) / "catalog_coarse.toml"
     child_payload = load_toml_with_base_config(generated)
     assert child_payload["workflow"] == "simulation"
@@ -460,14 +607,253 @@ def test_testbed_launcher_expands_catalog_variants_without_execution(
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
     assert rows[0]["status"] == "planned"
+    assert rows[0]["case_id"] == "catalog_coarse"
     assert summary["executed_count"] == 0
     assert child_payload["workspace"]["project_root"].endswith("workspaces/catalog_coarse")
     assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
-    assert rows[0]["variant_id"] == "catalog_coarse"
-    assert rows[0]["variant_label"] == "Catalog coarse"
+    assert "variant_id" not in rows[0]
+    assert "variant_label" not in rows[0]
+    assert rows[0]["case_label"] == "Catalog coarse"
     assert rows[0]["axis"] == "resolution"
+
+
+def test_testbed_config_rejects_legacy_catalog_variant_alias(tmp_path: Path) -> None:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    catalog_path = tmp_path / "variant_catalog.csv"
+    catalog_path.write_text(
+        "\n".join(
+            [
+                "case_id,title",
+                "catalog_coarse,Catalog coarse",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "catalog_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "catalog_mesh_resolution"',
+                'subject = "mesh"',
+                'base_config = "mesh_base.toml"',
+                "execute = false",
+                "",
+                "[testbed.catalog]",
+                'path = "variant_catalog.csv"',
+                'id_field = "case_id"',
+                'label_field = "title"',
+                "",
+                "[[testbed.catalog_variant]]",
+                'id_template = "{case_id}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="testbed.case or testbed.case_from_catalog must contain at least one item",
+    ):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def test_testbed_config_rejects_legacy_variant_from_catalog_spelling(tmp_path: Path) -> None:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    catalog_path = tmp_path / "case_catalog.csv"
+    catalog_path.write_text(
+        "\n".join(
+            [
+                "case_id,title,global_size",
+                "catalog_coarse,Catalog coarse,400.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "catalog_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "catalog_mesh_resolution"',
+                'subject = "mesh"',
+                'base_config = "mesh_base.toml"',
+                "execute = false",
+                "",
+                "[testbed.catalog]",
+                'path = "case_catalog.csv"',
+                'id_field = "case_id"',
+                'label_field = "title"',
+                "",
+                "[[testbed.variant_from_catalog]]",
+                'required_fields = ["global_size"]',
+                "",
+                "[testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]",
+                'global_size = "{global_size}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="testbed.variant_from_catalog is no longer supported",
+    ):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> None:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    selection_root = tmp_path / "site_selection_outputs"
+    selection_root.mkdir()
+    catalog_path = selection_root / "regional_lab_sites.csv"
+    catalog_path.write_text(
+        "\n".join(
+            [
+                "site_id,site_label,region_id,x_outlet,y_outlet,area_km2,tags,enabled",
+                "site_01,Site 01,aura,131189.1,6833784.4,45.5,selected;comparison,true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = selection_root / "site_selection_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "site_selection_manifest_v1",
+                "selection_id": "aura_area_only_v1",
+                "output_root": str(selection_root),
+                "outputs": {
+                    "regional_lab_sites_csv": "regional_lab_sites.csv",
+                    "selected_sites_csv": "selected_sites.csv",
+                },
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "catalog_from_selection_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "site_selection_catalog"',
+                'subject = "mesh"',
+                'base_config = "mesh_base.toml"',
+                'output_root = "outputs/testbed"',
+                "execute = false",
+                "",
+                "[testbed.catalog]",
+                'from_site_selection_manifest = "site_selection_outputs/site_selection_manifest.json"',
+                'output = "regional_lab_sites_csv"',
+                'id_field = "site_id"',
+                'label_field = "site_label"',
+                'axis_field = "region_id"',
+                'tags_field = "tags"',
+                'tags = ["comparison"]',
+                "",
+                "[[testbed.case_from_catalog]]",
+                'required_fields = ["x_outlet", "y_outlet", "area_km2"]',
+                'id_template = "{site_id}"',
+                'label_template = "{site_label}"',
+                'axis_template = "{region_id}"',
+                "",
+                "[testbed.case_from_catalog.overlay.workspace]",
+                'project_root = "workspaces/{site_id}"',
+                "",
+                "[testbed.case_from_catalog.overlay.geographic.catchment]",
+                'x_outlet = "{x_outlet}"',
+                'y_outlet = "{y_outlet}"',
+                'buff_area = "10%"',
+                "",
+                "[testbed.case_from_catalog.overlay.mesh_catchment.zone_meshing]",
+                'global_size = "{area_km2}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = MethodTestbedConfig.from_file(config_path)
+    assert cfg.catalog is not None
+    assert cfg.catalog.path == catalog_path.resolve()
+    assert cfg.catalog.source_manifest_path == manifest_path.resolve()
+    assert cfg.catalog.source_manifest_output_key == "regional_lab_sites_csv"
+
+    summary = MethodTestbedLauncher(config_path).run()
+
+    assert summary["case_count"] == 1
+    generated = Path(summary["generated_configs_dir"]) / "site_01.toml"
+    child_payload = load_toml_with_base_config(generated)
+    assert child_payload["workspace"]["project_root"].endswith("workspaces/site_01")
+    assert child_payload["geographic"]["catchment"]["x_outlet"] == 131189.1
+    assert child_payload["geographic"]["catchment"]["y_outlet"] == 6833784.4
+    assert child_payload["geographic"]["catchment"]["buff_area"] == "10%"
+    assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 45.5
+    manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
+    assert manifest["site_catalog_path"] == str(catalog_path.resolve())
+    assert manifest["catalog"]["path"] == str(catalog_path.resolve())
+    assert manifest["catalog"]["source_manifest_path"] == str(manifest_path.resolve())
+    assert manifest["catalog"]["source_manifest_output_key"] == "regional_lab_sites_csv"
+
+
+def test_testbed_catalog_manifest_source_requires_requested_output(tmp_path: Path) -> None:
+    selection_root = tmp_path / "site_selection_outputs"
+    selection_root.mkdir()
+    manifest_path = selection_root / "site_selection_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "site_selection_manifest_v1",
+                "selection_id": "aura_area_only_v1",
+                "output_root": str(selection_root),
+                "outputs": {"selected_sites_csv": "selected_sites.csv"},
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "catalog_from_selection_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "site_selection_catalog"',
+                "execute = false",
+                "",
+                "[testbed.catalog]",
+                'from_site_selection_manifest = "site_selection_outputs/site_selection_manifest.json"',
+                "",
+                "[[testbed.case_from_catalog]]",
+                'id_template = "{site_id}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="does not contain output 'regional_lab_sites_csv'"):
+        MethodTestbedConfig.from_file(config_path)
 
 
 def test_testbed_launcher_materializes_comparison_child_configs_without_executing(
@@ -491,11 +877,11 @@ def test_testbed_launcher_materializes_comparison_child_configs_without_executin
                 "[testbed.runner]",
                 'type = "comparison"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "mf6_vs_bouss"',
                 'axis = "method_pair"',
                 "",
-                "[testbed.variant.overlay.comparison]",
+                "[testbed.case.overlay.comparison]",
                 'comparison_id = "mf6_vs_bouss"',
                 'output_root = "comparison_outputs/mf6_vs_bouss"',
             ]
@@ -515,7 +901,7 @@ def test_testbed_launcher_materializes_comparison_child_configs_without_executin
     assert summary["executed_count"] == 0
 
 
-def test_testbed_launcher_runs_comparison_variants_and_collects_metrics(
+def test_testbed_launcher_runs_comparison_cases_and_collects_metrics(
     tmp_path: Path,
 ) -> None:
     base_config = tmp_path / "comparison_base.toml"
@@ -535,11 +921,11 @@ def test_testbed_launcher_runs_comparison_variants_and_collects_metrics(
                 "[testbed.runner]",
                 'type = "comparison"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "candidate"',
                 'axis = "method_pair"',
                 "",
-                "[testbed.variant.overlay.comparison]",
+                "[testbed.case.overlay.comparison]",
                 'comparison_id = "candidate_comparison"',
                 "",
                 "[[testbed.metric]]",
@@ -574,11 +960,96 @@ def test_testbed_launcher_runs_comparison_variants_and_collects_metrics(
     assert len(calls) == 1
     assert summary["successful_count"] == 1
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
-    assert "variant_id,variant_label,axis,status,comparison_id,n_metric_rows" in metrics_text
-    assert "candidate,candidate,method_pair,ok,candidate_comparison,3" in metrics_text
+    assert (
+        "case_id,case_label,axis,status,comparison_id,n_metric_rows"
+        in metrics_text
+    )
+    assert (
+        "candidate,candidate,method_pair,ok,candidate_comparison,3"
+        in metrics_text
+    )
 
 
-def test_testbed_launcher_runs_catalog_backed_comparison_variants(
+def test_testbed_launcher_runs_calibration_cases_and_collects_metrics(
+    tmp_path: Path,
+) -> None:
+    base_config = tmp_path / "calibration_base.toml"
+    _write_calibration_base(base_config)
+    config_path = tmp_path / "calibration_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "calibration_campaign"',
+                'subject = "flow"',
+                'base_config = "calibration_base.toml"',
+                'output_root = "outputs/testbed"',
+                "",
+                "[testbed.runner]",
+                'type = "calibration"',
+                "",
+                "[[testbed.case]]",
+                'id = "site_01"',
+                'axis = "site"',
+                "",
+                "[testbed.case.overlay.calibration]",
+                'campaign_id = "site_01_calibration"',
+                'output_root = "calibration_outputs/site_01"',
+                "",
+                "[[testbed.metric]]",
+                'name = "calibration_id"',
+                "",
+                "[[testbed.metric]]",
+                'name = "best_score"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    calls: list[Path] = []
+
+    class _FakeProvider:
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            raise AssertionError("simulation runner should not be used")
+
+        def run_comparison(self, child_config: Path) -> dict[str, object]:
+            raise AssertionError("comparison runner should not be used")
+
+        def run_calibration(self, child_config: Path) -> dict[str, object]:
+            calls.append(child_config)
+            payload = load_toml_with_base_config(child_config)
+            assert payload["workflow"] == "calibration"
+            return {
+                "calibration_id": payload["calibration"]["campaign_id"],
+                "best_score": 0.92,
+                "manifest_path": str(child_config.with_suffix(".json")),
+            }
+
+    register_testbed_runner_provider(_FakeProvider())
+
+    summary = MethodTestbedLauncher(config_path).run()
+
+    assert len(calls) == 1
+    assert summary["successful_count"] == 1
+    generated = Path(summary["generated_configs_dir"]) / "site_01.toml"
+    child_payload = load_toml_with_base_config(generated)
+    assert child_payload["workflow"] == "calibration"
+    assert child_payload["calibration"]["campaign_id"] == "site_01_calibration"
+    assert child_payload["calibration"]["output_root"].endswith("calibration_outputs/site_01")
+    metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
+    assert (
+        "case_id,case_label,axis,status,calibration_id,best_score"
+        in metrics_text
+    )
+    assert (
+        "site_01,site_01,site,ok,site_01_calibration,0.92"
+        in metrics_text
+    )
+
+
+def test_testbed_launcher_runs_catalog_backed_comparison_cases(
     tmp_path: Path,
 ) -> None:
     flow_base = tmp_path / "flow_base.toml"
@@ -645,19 +1116,21 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
                 'tags_field = "tags"',
                 'tags = ["natural", "comparison"]',
                 "",
-                "[[testbed.variant_from_catalog]]",
+                "[[testbed.case_from_catalog]]",
                 'required_fields = ["x_outlet", "y_outlet", "target_area_km2"]',
                 'id_template = "{site_id}"',
                 'label_template = "{site_label}"',
                 'axis_template = "{area_class}"',
                 "",
-                "[testbed.variant_from_catalog.overlay.comparison]",
+                "[testbed.case_from_catalog.overlay.comparison]",
                 'comparison_id = "{site_id}_mf6_bouss"',
                 'output_root = "outputs/comparisons/{site_id}"',
                 "",
-                "[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]",
+                "[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]",
                 'x_outlet = "{x_outlet}"',
                 'y_outlet = "{y_outlet}"',
+                "",
+                "[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic]",
                 'target_area_km2 = "{target_area_km2}"',
             ]
         )
@@ -696,8 +1169,8 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
     assert child_payload["comparison"]["comparison_id"] == "site_01_mf6_bouss"
     assert child_payload["comparison"]["base_simulation_config"] == flow_base.resolve().as_posix()
     geographic = child_payload["comparison"]["base_simulation_overlay"]["geographic"]
-    assert geographic["x_outlet"] == 131189.1
-    assert geographic["y_outlet"] == 6833784.4
+    assert geographic["catchment"]["x_outlet"] == 131189.1
+    assert geographic["catchment"]["y_outlet"] == 6833784.4
     assert geographic["target_area_km2"] == 10.0
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
@@ -705,13 +1178,16 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
     assert rows[0]["comparison_web_report"].endswith("site_01.html")
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert (
-        "variant_id,variant_label,axis,status,comparison_id,audit_status,"
+        "case_id,case_label,axis,status,comparison_id,audit_status,"
         "n_metric_rows,n_difference_rows"
     ) in metrics_text
-    assert "site_01,Site 01,10km2,ok,site_01_mf6_bouss,pass,3," in metrics_text
+    assert (
+        "site_01,Site 01,10km2,ok,site_01_mf6_bouss,pass,3,"
+        in metrics_text
+    )
 
 
-def test_testbed_launcher_runs_mesh_variants_and_collects_metrics(
+def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "testbed.toml"
@@ -730,18 +1206,18 @@ def test_testbed_launcher_runs_mesh_variants_and_collects_metrics(
                 'id = "mesh_resolution"',
                 'output_root = "outputs/testbed"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "coarse"',
                 'axis = "resolution"',
                 "",
-                "[testbed.variant.overlay.mesh_catchment.zone_meshing]",
+                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
                 "global_size = 400.0",
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "fine"',
                 'axis = "resolution"',
                 "",
-                "[testbed.variant.overlay.mesh_catchment.zone_meshing]",
+                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
                 "global_size = 100.0",
                 "",
                 "[[testbed.metric]]",
@@ -775,7 +1251,7 @@ def test_testbed_launcher_runs_mesh_variants_and_collects_metrics(
     assert len(calls) == 2
     assert summary["successful_count"] == 2
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
-    assert "variant_id,variant_label,axis,status,n_cells" in metrics_text
+    assert "case_id,case_label,axis,status,n_cells" in metrics_text
     assert "coarse,coarse,resolution,ok,10" in metrics_text
     assert "fine,fine,resolution,ok,40" in metrics_text
     manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
@@ -783,7 +1259,7 @@ def test_testbed_launcher_runs_mesh_variants_and_collects_metrics(
     assert manifest["successful_count"] == 2
 
 
-def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
+def test_testbed_launcher_runs_flow_cases_and_collects_metrics(
     tmp_path: Path,
 ) -> None:
     base_config = tmp_path / "flow_base.toml"
@@ -803,24 +1279,24 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
                 "[testbed.runner]",
                 'type = "simulation"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "low_k"',
                 'axis = "hydraulic_conductivity"',
                 "",
-                "[testbed.variant.overlay.simulation]",
+                "[testbed.case.overlay.simulation]",
                 'name = "flow_low_k"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field]",
+                "[testbed.case.overlay.flow.param.K.field]",
                 'value = "5e-6 m/s"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "high_k"',
                 'axis = "hydraulic_conductivity"',
                 "",
-                "[testbed.variant.overlay.simulation]",
+                "[testbed.case.overlay.simulation]",
                 'name = "flow_high_k"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field]",
+                "[testbed.case.overlay.flow.param.K.field]",
                 'value = "2e-5 m/s"',
                 "",
                 "[[testbed.metric]]",
@@ -856,9 +1332,16 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
     assert all(no_display for _, no_display in calls)
     assert summary["successful_count"] == 2
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
-    assert "variant_id,variant_label,axis,status,sim_id,k_value" in metrics_text
-    assert "low_k,low_k,hydraulic_conductivity,ok,sim_flow_low_k,5e-6 m/s" in metrics_text
-    assert "high_k,high_k,hydraulic_conductivity,ok,sim_flow_high_k,2e-5 m/s" in metrics_text
+    assert "case_id,case_label,axis,status,sim_id,k_value" in metrics_text
+    assert (
+        "low_k,low_k,hydraulic_conductivity,ok,sim_flow_low_k,5e-6 m/s"
+        in metrics_text
+    )
+    assert (
+        "high_k,high_k,hydraulic_conductivity,ok,"
+        "sim_flow_high_k,2e-5 m/s"
+        in metrics_text
+    )
     cases_text = Path(summary["cases_csv"]).read_text(encoding="utf-8")
     assert "flow_low_k" in cases_text
     assert "sim_flow_high_k" in cases_text
@@ -885,11 +1368,11 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
                 "[testbed.runner]",
                 'type = "simulation"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "reference"',
                 'axis = "catalog"',
                 "",
-                "[testbed.variant.overlay.simulation]",
+                "[testbed.case.overlay.simulation]",
                 'name = "flow_reference"',
                 "",
                 "[[testbed.metric]]",
@@ -1008,10 +1491,13 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
     assert summary["successful_count"] == 1
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert (
-        "variant_id,variant_label,axis,status,duration_s,param_K,"
+        "case_id,case_label,axis,status,duration_s,param_K,"
         "max_abs_balance_error,head_range_m,prescribed_head_out"
     ) in metrics_text
-    assert "reference,reference,catalog,ok,12.5,1e-05,0.25,4.0,3.0" in metrics_text
+    assert (
+        "reference,reference,catalog,ok,12.5,1e-05,0.25,4.0,3.0"
+        in metrics_text
+    )
     manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
     case = manifest["cases"][0]
     assert case["flow_metrics"]["n_cells"] == 4
@@ -1040,11 +1526,11 @@ def test_testbed_required_metric_failure_is_persisted(
                 "[testbed.runner]",
                 'type = "simulation"',
                 "",
-                "[[testbed.variant]]",
+                "[[testbed.case]]",
                 'id = "reference"',
                 'axis = "catalog"',
                 "",
-                "[testbed.variant.overlay.simulation]",
+                "[testbed.case.overlay.simulation]",
                 'name = "flow_reference"',
                 "",
                 "[[testbed.metric]]",

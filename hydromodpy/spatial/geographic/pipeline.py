@@ -93,7 +93,6 @@ class GeographicRuntimeContext:
                 "_paths": self.paths,
                 "_dem_metadata": self.dem_metadata,
                 "_river_network_products": self.river_network_products,
-                "river_mesh_trace": self.river_network_products.river_mesh_trace,
             }
         )
         attrs.update(self.dem_metadata.runtime_attributes())
@@ -173,7 +172,7 @@ def _flow_products_from_paths(paths: GeographicPaths, dem_correc_type: str) -> F
 
 
 def _raster_products_from_paths(paths: GeographicPaths) -> DomainRasterProducts:
-    """Reconstruct the legacy raster-products view from canonical cache paths."""
+    """Reconstruct the raster-products view from canonical cache paths."""
     return DomainRasterProducts(
         watershed_box_buff_dem=paths.watershed_box_buff_dem,
         watershed_box_buff_fill=paths.watershed_box_buff_fill,
@@ -204,10 +203,10 @@ def _river_products_from_cache(
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
     network_path = Path(paths.hydrographic_network_generated_shp)
-    network_shp = str(network_path) if _vector_artifact_exists(network_path) else None
+    generated_network_shp = str(network_path) if _vector_artifact_exists(network_path) else None
     network_gdf = None
-    if network_shp is not None:
-        network_gdf = gpd.read_file(network_shp)
+    if generated_network_shp is not None:
+        network_gdf = gpd.read_file(generated_network_shp)
     river_mesh_trace = (
         None
         if network_gdf is None
@@ -244,10 +243,12 @@ def _river_products_from_cache(
             if bool(config.river_network.compute_stream_links)
             else None
         ),
-        network_shp=network_shp,
+        hydrographic_network_generated_shp=generated_network_shp,
         network_crs=crs_project,
         river_mesh_trace=river_mesh_trace,
-        summary_json=paths.hydrographic_network_generated_summary_json,
+        hydrographic_network_generated_summary_json=(
+            paths.hydrographic_network_generated_summary_json
+        ),
     )
 
 
@@ -340,7 +341,7 @@ def _load_cached_geographic_products(
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
             if (
                 int(summary.get("segment_count", 0) or 0) > 0
-                and river_network_products.network_shp is None
+                and river_network_products.hydrographic_network_generated_shp is None
             ):
                 return None
 
@@ -394,8 +395,8 @@ def build_geographic_runtime_context(
 ) -> GeographicRuntimeContext:
     """Build the full geographic runtime context from config and workspace.
 
-    This is the compatibility-oriented counterpart to
-    ``build_domain_geographic_context``.
+    This is the full runtime counterpart to
+    ``build_geographic_derived_features``.
 
     The function prepares regional flow rasters, standard or direct DEM domain
     polygons, clipped domain rasters, DEM metadata, and optional river-network

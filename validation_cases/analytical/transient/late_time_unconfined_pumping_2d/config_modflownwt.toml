@@ -43,6 +43,7 @@ kind = "constant_thickness"
 thickness = "40.0 m"
 
 [flow]
+first_period_steady = false
 flow_regime = "transient"
 active_sinks_sources = ["wells"]
 active_bc = ["west_side", "east_side", "north_side", "south_side"]
@@ -105,7 +106,5 @@ resampling = "nearest"
 nlay = 1
 
 [modflownwt.tgrid]
-firstpersteady = false
-
 [display]
 enabled = false

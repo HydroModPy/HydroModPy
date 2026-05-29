@@ -41,12 +41,6 @@ project_root = "."
 
 [geographic]
 source_mode = "standard"
-catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
-x_outlet = 389285.91
-y_outlet = 6816518.749
-snap_dist = "150 m"
-buff_area = "10%"
 crs_project = "EPSG:2154"
 dem_correc_type = "breach"
 reuse_existing_outputs = false
@@ -55,6 +49,14 @@ reuse_existing_outputs = false
 # ----------------------------------------------------------------------
 # Data - one entry per variable type. Mix of local + remote sources.
 # ----------------------------------------------------------------------
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
 
 [data]
 project_crs = "EPSG:2154"
@@ -80,23 +82,28 @@ types = [
 
 
 # ---- DEM (custom local raster) --------------------------------------
+
 [[data.dem.sources]]
 source = "custom"
 path = "../../data/dem/DEM_armorican_massif.tif"
 
 # Uncomment once IGN BD ALTI access is restored:
 # [[data.dem.sources]]
-# source = "ign_bdalti"
+# source = "ign_geoplateforme_dem"
+# dataset = "bd-alti"
+# resolution_m = 25.0
 # extent = "watershed"
 
 
 # ---- Geology (BRGM 1:50K via WFS) -----------------------------------
+
 [[data.geology.sources]]
 source = "brgm_50k"
 extent = "watershed"
 
 
 # ---- Hydrography (three providers shown side by side) ---------------
+
 [[data.hydrography.sources]]
 source = "bdtopage"
 rasterize_field = "FID"
@@ -109,6 +116,7 @@ source = "osm"
 
 
 # ---- Hydrometry via Hub'Eau ------------------------------------------
+
 [data.hydrometry]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -123,6 +131,7 @@ fallback_search_radius_km = 20.0
 
 
 # ---- Piezometry via Hub'Eau -----------------------------------------
+
 [data.piezometry]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -137,6 +146,7 @@ fallback_search_radius_km = 25.0
 
 
 # ---- Intermittency (ONDE network) -----------------------------------
+
 [data.intermittency]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -147,6 +157,7 @@ extent = "watershed"
 
 
 # ---- Water quality --------------------------------------------------
+
 [[data.water_quality.sources]]
 source = "hubeau"
 site_type = "river"
@@ -155,6 +166,7 @@ parameters = ["Temperature", "pH", "Nitrates"]
 
 
 # ---- Precipitation (SIM2 Meteo-France) -------------------------------
+
 [data.precipitation]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -166,6 +178,7 @@ extent = "watershed"
 
 
 # ---- ETP ------------------------------------------------------------
+
 [data.etp]
 date_start = "2018-01-01"
 date_end = "2020-12-31"
@@ -176,6 +189,7 @@ extent = "watershed"
 
 
 # ---- Recharge (SIM2 grid) -------------------------------------------
+
 [data.recharge]
 date_start = "2018-01-01"
 date_end = "2020-12-31"

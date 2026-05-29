@@ -22,6 +22,7 @@ import re
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 from filelock import FileLock
@@ -102,10 +103,46 @@ def _prune_old_backups(db_path: Path, *, keep: int = MAX_BACKUPS) -> None:
             logger.warning("Could not prune stale backup %s: %s", stale, exc)
 
 
-def _copy_backup(db_path: Path, backup: Path) -> None:
-    """Atomically duplicate ``db_path`` to ``backup`` via ``copy2``."""
+def _sql_string(value: Path) -> str:
+    """Return ``value`` as a single-quoted DuckDB string literal."""
+    return "'" + value.as_posix().replace("'", "''") + "'"
+
+
+def _copy_backup_from_connection(
+    connection: duckdb.DuckDBPyConnection,
+    backup: Path,
+) -> None:
+    """Duplicate an open DuckDB database into ``backup``."""
+    if backup.exists():
+        backup.unlink()
+    with TemporaryDirectory(prefix="hmp_duckdb_backup_") as export_root:
+        export_dir = Path(export_root)
+        connection.execute(f"EXPORT DATABASE {_sql_string(export_dir)}")
+
+        import duckdb as duckdb_module
+
+        backup_connection = duckdb_module.connect(str(backup))
+        try:
+            backup_connection.execute(f"IMPORT DATABASE {_sql_string(export_dir)}")
+            backup_connection.execute("CHECKPOINT")
+        finally:
+            backup_connection.close()
+
+
+def _copy_backup(
+    db_path: Path,
+    backup: Path,
+    *,
+    connection: duckdb.DuckDBPyConnection | None = None,
+) -> None:
+    """Atomically duplicate ``db_path`` to ``backup``."""
     backup.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(db_path, backup)
+    try:
+        shutil.copy2(db_path, backup)
+    except PermissionError:
+        if connection is None:
+            raise
+        _copy_backup_from_connection(connection, backup)
 
 
 def restore_backup(db_path: Path, backup: Path) -> None:
@@ -187,7 +224,7 @@ def ensure_schema_safe(
         backup: Path | None = None
         if db_path.is_file():
             backup = backup_path_for(db_path)
-            _copy_backup(db_path, backup)
+            _copy_backup(db_path, backup, connection=connection)
             logger.info("Pre-migration backup written: %s", backup)
 
         try:

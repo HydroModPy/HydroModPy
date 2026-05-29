@@ -83,13 +83,11 @@ The package has a deliberately narrow goal:
   then project it either to the canonical cell-based runtime view or to the
   edge-based support view used by diagnostics.
 - `export_payload.py`
-  The export layer for `_postprocess` arrays and state-history
-  payloads.
+  The export layer for state-history payloads consumed by the result
+  extractor and diagnostics.
 - `history_contract.py`
   The explicit transient time contract. It defines the canonical distinction
-  between snapshot histories (`t0..tN`) and step histories (`dt1..dtN`), plus
-  the helper used to write `.npy` time-series sidecars carrying explicit
-  `elapsed_seconds`.
+  between snapshot histories (`t0..tN`) and step histories (`dt1..dtN`).
 - `jacobian/`
   Jacobian helpers grouped by responsibility:
   - `fd.py` for dense and sparse-oriented finite differences;
@@ -288,18 +286,14 @@ For transient runs, the canonical rule is now:
 
 - state-like histories are snapshot histories on `t0..tN`;
 - flux-like histories are step histories on `dt1..dtN`;
-- `_postprocess/*.npy` time-series written by Boussinesq helpers may carry one
-  sibling sidecar named `__time_axis.npy` storing explicit
-  `{time_keys, elapsed_seconds}`.
+- solver output is persisted through `_boussinesq_state_history.npz`; catalog
+  fields such as `watertable_elevation` and `watertable_depth` are extracted or
+  derived from that state history.
 
-The sidecar exists to prevent downstream code from silently reconstructing the
-time axis from dictionary keys alone, especially when one workflow hides the
-initial snapshot for plotting convenience.
-
-The canonical disk payload now always keeps the full snapshot history,
-including `t0`. Step-based comparisons that need `N` rows instead of `N+1`
-must trim the leading snapshot at load time, using the explicit elapsed-time
-axis rather than inferring semantics from integer dictionary keys.
+The canonical disk payload keeps the full snapshot history, including `t0`.
+Step-based comparisons that need `N` rows instead of `N+1` must trim the
+leading snapshot at load time, using the explicit elapsed-time arrays in the
+state-history payload rather than inferring semantics from integer keys.
 
 ## Extra Mathematical Documentation
 

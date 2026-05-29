@@ -289,123 +289,128 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
     loaded = ctx.loaded_data
     written = 0
 
-    for f in dataclasses.fields(loaded):
-        obj = getattr(loaded, f.name, None)
-        if obj is None:
-            continue
+    try:
+        for f in dataclasses.fields(loaded):
+            obj = getattr(loaded, f.name, None)
+            if obj is None:
+                continue
 
-        if hasattr(obj, "encoded_codes") and hasattr(obj, "encoded_to_zone"):
-            try:
-                codes = np.asarray(obj.encoded_codes)
-                sz.write_forcing_field(
-                    "geology_codes",
-                    codes,
-                    unit="",
-                    source=getattr(obj, "source_kind", "raster"),
-                )
-                forcing = sz.root.require_group("forcing")
-                geo_grp = forcing.require_group("geology_meta")
-                geo_grp.attrs["zone_mapping"] = json.dumps(
-                    {str(k): str(v) for k, v in obj.encoded_to_zone.items()}
-                )
-                geo_grp.attrs["zone_keys"] = list(obj.zone_keys)
-                transform = getattr(obj, "transform", None)
-                if transform is not None:
-                    geo_grp.attrs["transform"] = list(float(v) for v in transform)[:6]
-                if obj.crs is not None:
-                    geo_grp.attrs["crs"] = str(obj.crs)
-                geo_grp.attrs["cell_samples_per_axis"] = int(
-                    getattr(obj, "default_cell_samples_per_axis", 8)
-                )
-                geo_grp.attrs["source_kind"] = str(getattr(obj, "source_kind", "raster"))
+            if hasattr(obj, "encoded_codes") and hasattr(obj, "encoded_to_zone"):
+                try:
+                    codes = np.asarray(obj.encoded_codes)
+                    sz.write_forcing_field(
+                        "geology_codes",
+                        codes,
+                        unit="",
+                        source=getattr(obj, "source_kind", "raster"),
+                    )
+                    forcing = sz.root.require_group("forcing")
+                    geo_grp = forcing.require_group("geology_meta")
+                    geo_grp.attrs["zone_mapping"] = json.dumps(
+                        {str(k): str(v) for k, v in obj.encoded_to_zone.items()}
+                    )
+                    geo_grp.attrs["zone_keys"] = list(obj.zone_keys)
+                    transform = getattr(obj, "transform", None)
+                    if transform is not None:
+                        geo_grp.attrs["transform"] = list(float(v) for v in transform)[:6]
+                    if obj.crs is not None:
+                        geo_grp.attrs["crs"] = str(obj.crs)
+                    geo_grp.attrs["cell_samples_per_axis"] = int(
+                        getattr(obj, "default_cell_samples_per_axis", 8)
+                    )
+                    geo_grp.attrs["source_kind"] = str(getattr(obj, "source_kind", "raster"))
 
-                mesh = getattr(ctx, "setup", None)
-                mesh_planar = getattr(mesh, "mesh_planar", None) if mesh else None
-                if mesh_planar is not None:
-                    try:
-                        disc = obj.on_mesh(mesh_planar)
-                        fractions = getattr(disc, "fractions_by_zone", {})
-                        for zone_key, frac_array in fractions.items():
-                            safe_key = zone_key.replace("/", "_").replace(" ", "_")
-                            sz.write_forcing_field(
-                                f"geology_frac_{safe_key}",
-                                np.asarray(frac_array, dtype="float64"),
-                                unit="fraction",
-                                source=f"geology:{zone_key}",
+                    mesh = getattr(ctx, "setup", None)
+                    mesh_planar = getattr(mesh, "mesh_planar", None) if mesh else None
+                    if mesh_planar is not None:
+                        try:
+                            disc = obj.on_mesh(mesh_planar)
+                            fractions = getattr(disc, "fractions_by_zone", {})
+                            for zone_key, frac_array in fractions.items():
+                                safe_key = zone_key.replace("/", "_").replace(" ", "_")
+                                sz.write_forcing_field(
+                                    f"geology_frac_{safe_key}",
+                                    np.asarray(frac_array, dtype="float64"),
+                                    unit="fraction",
+                                    source=f"geology:{zone_key}",
+                                )
+                            written += 1
+                        except Exception:
+                            logger.debug("Failed to persist geology zone fractions")
+
+                    written += 1
+                except Exception:
+                    logger.debug("Failed to persist geology forcing")
+                continue
+
+            if f.name == "hydrography":
+                try:
+                    record = _hydrography_field_record(obj)
+                    if record is not None:
+                        arr = _field_data_array(record)
+                        if arr is not None and arr.size > 0:
+                            from hydromodpy.spatial.geographic.core.hydrographic_network import (
+                                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
                             )
+
+                            sz.write_forcing_field(
+                                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                                arr,
+                                unit=getattr(record, "unit", ""),
+                                source=getattr(record, "source", ""),
+                            )
+                            written += 1
+                        _persist_reference_hydrographic_feature(ctx, obj)
+                except Exception:
+                    logger.debug("Failed to persist hydrography forcing")
+                continue
+
+            points = getattr(obj, "points", None)
+            if points:
+                for rec in points:
+                    try:
+                        df = rec.data
+                        timestamps = pd.to_datetime(df["datetime"]).values
+                        values = df["value"].values.astype("float64")
+                        station = getattr(rec, "station_id", None) or f.name
+                        sz.write_forcing_timeseries(
+                            f.name,
+                            station,
+                            timestamps,
+                            values,
+                            unit=getattr(rec, "unit", ""),
+                            source=getattr(rec, "source", ""),
+                        )
                         written += 1
                     except Exception:
-                        logger.debug("Failed to persist geology zone fractions")
-
-                written += 1
-            except Exception:
-                logger.debug("Failed to persist geology forcing")
-            continue
-
-        if f.name == "hydrography":
-            try:
-                record = _hydrography_field_record(obj)
-                if record is not None:
-                    arr = _field_data_array(record)
-                    if arr is not None and arr.size > 0:
-                        from hydromodpy.spatial.geographic.core.hydrographic_network import (
-                            HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                        logger.debug(
+                            "Failed to persist forcing %s:%s",
+                            f.name,
+                            getattr(rec, "station_id", "?"),
                         )
 
+            fields_list = getattr(obj, "fields", None)
+            if fields_list:
+                for rec in fields_list:
+                    try:
+                        arr = _field_data_array(rec)
+                        if arr is None:
+                            continue
                         sz.write_forcing_field(
-                            HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                            f"{f.name}_{rec.variable}",
                             arr,
-                            unit=getattr(record, "unit", ""),
-                            source=getattr(record, "source", ""),
+                            unit=getattr(rec, "unit", ""),
+                            source=getattr(rec, "source", ""),
                         )
                         written += 1
-                    _persist_reference_hydrographic_feature(ctx, obj)
-            except Exception:
-                logger.debug("Failed to persist hydrography forcing")
-            continue
-
-        points = getattr(obj, "points", None)
-        if points:
-            for rec in points:
-                try:
-                    df = rec.data
-                    timestamps = pd.to_datetime(df["datetime"]).values
-                    values = df["value"].values.astype("float64")
-                    station = getattr(rec, "station_id", None) or f.name
-                    sz.write_forcing_timeseries(
-                        f.name,
-                        station,
-                        timestamps,
-                        values,
-                        unit=getattr(rec, "unit", ""),
-                        source=getattr(rec, "source", ""),
-                    )
-                    written += 1
-                except Exception:
-                    logger.debug(
-                        "Failed to persist forcing %s:%s", f.name, getattr(rec, "station_id", "?")
-                    )
-
-        fields_list = getattr(obj, "fields", None)
-        if fields_list:
-            for rec in fields_list:
-                try:
-                    arr = _field_data_array(rec)
-                    if arr is None:
-                        continue
-                    sz.write_forcing_field(
-                        f"{f.name}_{rec.variable}",
-                        arr,
-                        unit=getattr(rec, "unit", ""),
-                        source=getattr(rec, "source", ""),
-                    )
-                    written += 1
-                except Exception:
-                    logger.debug(
-                        "Failed to persist forcing field %s:%s",
-                        f.name,
-                        getattr(rec, "variable", "?"),
-                    )
+                    except Exception:
+                        logger.debug(
+                            "Failed to persist forcing field %s:%s",
+                            f.name,
+                            getattr(rec, "variable", "?"),
+                        )
+    finally:
+        sz.close()
 
     if written:
         logger.info("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)

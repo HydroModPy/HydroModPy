@@ -16,6 +16,7 @@ import numpy as np
 import zarr
 
 from hydromodpy.results.zarr_store.constants import BLOSC_ZSTD
+from hydromodpy.results.zarr_store.zarr_schema import local_store
 
 STATUS_INCOMPLETE = "incomplete"
 STATUS_COMPLETE = "complete"
@@ -43,7 +44,7 @@ def atomic_write_array(
     final_path = parent_dir / name
 
     try:
-        store = zarr.storage.LocalStore(str(tmp_path))
+        store = local_store(tmp_path)
         root = zarr.open_group(store, mode="w")
         root.attrs["_status"] = STATUS_INCOMPLETE
         arr = root.create_array(

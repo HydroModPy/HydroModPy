@@ -10,6 +10,7 @@ of the import DAG.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.state.data import LoadedDataContext
@@ -28,6 +29,7 @@ class DataOverviewState:
     """
 
     cfg: Any
+    config_path: Path | None = None
     workspace: Workspace | None = None
     geographic: Any = None
     geographic_features: Any = None

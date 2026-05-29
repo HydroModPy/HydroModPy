@@ -106,7 +106,10 @@ def _build_steady_flow(base_flow: Flow, *, ic_value_m: float, recharge_value_m_s
 
 def _build_transient_flow(base_flow: Flow, *, recharge_value_m_s: float = 0.0) -> Flow:
     """Clone the case flow config and force a pure recession transient run."""
-    flow_cfg = base_flow.config.model_copy(deep=True, update={"flow_regime": "transient"})
+    flow_cfg = base_flow.config.model_copy(
+        deep=True,
+        update={"flow_regime": "transient", "first_period_steady": False},
+    )
     flow = Flow(flow_cfg)
     flow.set_recharge(
         copy.deepcopy(base_flow.sinks_sources["recharge"]).model_copy(
@@ -116,12 +119,11 @@ def _build_transient_flow(base_flow: Flow, *, recharge_value_m_s: float = 0.0) -
     return flow
 
 
-def _load_outlet_series(model_ws: Path) -> tuple[float, ...]:
-    """Return the saved east-side outlet discharge series as plain scalars."""
-    payload = np.load(
-        model_ws / "_postprocess" / f"{OUTLET_OBSERVABLE}.npy",
-        allow_pickle=True,
-    ).item()
+def _load_outlet_series(model) -> tuple[float, ...]:
+    """Return the computed east-side outlet discharge series as plain scalars."""
+    payload = getattr(model, f"dict_{OUTLET_OBSERVABLE}", None)
+    if not payload:
+        return ()
     ordered = sorted((int(key), np.asarray(value, dtype=float)) for key, value in payload.items())
     return tuple(float(np.asarray(value, dtype=float).reshape(-1)[0]) for _, value in ordered)
 
@@ -209,7 +211,7 @@ def _run_probe(
             )
         )
         model_ws = Path(model.full_path)
-        outlet_series = _load_outlet_series(model_ws)
+        outlet_series = _load_outlet_series(model)
         final_head = _load_restart_head(model_ws, model.model_name)
     else:
         model_ws = Path(model.full_path)
@@ -334,7 +336,6 @@ def main() -> None:
     results: list[ProbeResult] = []
 
     steady_flat_cfg = base_modflow_cfg.model_copy(deep=True)
-    steady_flat_cfg.tgrid = steady_flat_cfg.tgrid.model_copy(update={"firstpersteady": False})
     steady_flat_result, _ = _run_probe(
         probe_id=f"{CASE_ID}_steady_flat_ic",
         stage="steady",
@@ -354,7 +355,6 @@ def main() -> None:
     results.append(steady_flat_result)
 
     steady_nudged_cfg = base_modflow_cfg.model_copy(deep=True)
-    steady_nudged_cfg.tgrid = steady_nudged_cfg.tgrid.model_copy(update={"firstpersteady": False})
     steady_nudged_result, steady_restart_head = _run_probe(
         probe_id=f"{CASE_ID}_steady_nudged_ic",
         stage="steady",
@@ -376,9 +376,6 @@ def main() -> None:
         raise RuntimeError("The nudged steady probe did not produce a restart head field.")
 
     transient_simple_cfg = base_modflow_cfg.model_copy(deep=True)
-    transient_simple_cfg.tgrid = transient_simple_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     transient_simple_result, _ = _run_probe(
         probe_id=f"{CASE_ID}_transient_restart_simple",
         stage="transient",
@@ -395,9 +392,6 @@ def main() -> None:
     results.append(transient_simple_result)
 
     transient_complex_cfg = base_modflow_cfg.model_copy(deep=True)
-    transient_complex_cfg.tgrid = transient_complex_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     transient_complex_cfg.runtime.nwt = transient_complex_cfg.runtime.nwt.model_copy(
         update={"options": "COMPLEX", "maxiterout": 2000}
     )

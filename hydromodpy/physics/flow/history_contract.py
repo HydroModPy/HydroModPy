@@ -17,7 +17,6 @@ first backend to need it, but MODFLOW-family runtimes share the same shape.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -140,54 +139,6 @@ def elapsed_seconds_for_time_keys(
     return np.asarray(axis[keys], dtype=float)
 
 
-def time_axis_sidecar_path(path: str | Path) -> Path:
-    """Return the sidecar path storing explicit elapsed seconds for one `.npy` payload."""
-    payload_path = Path(path)
-    return payload_path.with_name(f"{payload_path.stem}__time_axis.npy")
-
-
-def write_time_series_npy(
-    path: str | Path,
-    values: np.ndarray | Any,
-    *,
-    time_keys: np.ndarray | list[int] | tuple[int, ...],
-    elapsed_seconds: np.ndarray | Any | None = None,
-) -> None:
-    """Write one `.npy` time-series mapping plus an optional elapsed-time sidecar."""
-    array = np.asarray(values, dtype=float)
-    if array.ndim == 0:
-        raise ValueError(f"{path} must expose at least one time dimension.")
-    if array.ndim == 1:
-        rows = [np.asarray([float(value)], dtype=float) for value in array.tolist()]
-    else:
-        rows = [np.asarray(array[index], dtype=float) for index in range(array.shape[0])]
-    keys = np.asarray(time_keys, dtype=int).reshape(-1)
-    if len(rows) != keys.size:
-        raise ValueError(f"{path} received {len(rows)} value rows but {keys.size} time keys.")
-
-    payload = {int(time_key): rows[index] for index, time_key in enumerate(keys.tolist())}
-    np.save(Path(path), payload)
-
-    sidecar_path = time_axis_sidecar_path(path)
-    if elapsed_seconds is None:
-        if sidecar_path.exists():
-            sidecar_path.unlink()
-        return
-
-    elapsed = np.asarray(elapsed_seconds, dtype=float).reshape(-1)
-    if elapsed.size != keys.size:
-        raise ValueError(
-            f"{path} received {elapsed.size} elapsed-time values for {keys.size} time keys."
-        )
-    np.save(
-        sidecar_path,
-        {
-            "time_keys": np.asarray(keys, dtype=int),
-            "elapsed_seconds": np.asarray(elapsed, dtype=float),
-        },
-    )
-
-
 def _payload_array(
     payload: dict[str, Any] | Any,
     key: str,
@@ -254,6 +205,4 @@ __all__ = [
     "snapshot_elapsed_seconds_from_payload",
     "step_end_elapsed_seconds_from_payload",
     "step_history_from_history",
-    "time_axis_sidecar_path",
-    "write_time_series_npy",
 ]

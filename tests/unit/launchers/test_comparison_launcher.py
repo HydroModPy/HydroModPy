@@ -711,9 +711,11 @@ def test_materialize_simulation_config_applies_shared_base_overlay_and_default_w
                 'comparison_id = "site_01_compare"',
                 'base_simulation_config = "run_flow_common.toml"',
                 'output_root = "comparison_outputs/site_01"',
-                "[comparison.base_simulation_overlay.geographic]",
+                "[comparison.base_simulation_overlay.geographic.catchment]",
                 "x_outlet = 131189.1",
                 "y_outlet = 6833784.4",
+                "",
+                "[comparison.base_simulation_overlay.geographic]",
                 "target_area_km2 = 10.0",
                 "",
                 "[comparison.base_simulation_overlay.flow.param.K.field_homogeneous]",
@@ -748,7 +750,7 @@ def test_materialize_simulation_config_applies_shared_base_overlay_and_default_w
     assert "# Human-readable simulation name." in generated_text
     assert "# X coordinate of the watershed outlet" in generated_text
     raw = load_toml_with_base_config(generated)
-    assert raw["geographic"]["x_outlet"] == 131189.1
+    assert raw["geographic"]["catchment"]["x_outlet"] == 131189.1
     assert raw["geographic"]["target_area_km2"] == 10.0
     assert raw["flow"]["param"]["K"]["field_homogeneous"]["value"] == "2e-5 m/s"
     assert raw["workspace"]["root"].endswith("comparison_outputs/site_01/workspaces/mf6_demo")

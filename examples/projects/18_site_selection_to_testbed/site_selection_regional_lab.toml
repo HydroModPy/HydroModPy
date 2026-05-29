@@ -1,0 +1,49 @@
+[workflow]
+mode = "testbed"
+
+[testbed]
+profile = "regional_lab"
+
+[regional_lab]
+lab_id = "site_selection_manifest_regional_lab"
+output_root = "outputs/site_selection_manifest_regional_lab"
+execute = false
+continue_on_error = true
+validate_config_paths = false
+resume_from_report = true
+skip_completed_cases = true
+
+[regional_lab.catalog]
+from_site_selection_manifest = "fixtures/site_selection_manifest.json"
+output = "regional_lab_sites_csv"
+format = "csv"
+site_id_field = "site_id"
+site_label_field = "site_label"
+region_field = "region_id"
+source_selection_field = "source_selection_id"
+status_field = "site_status"
+maturity_field = "maturity"
+x_field = "x"
+y_field = "y"
+area_km2_field = "area_km2"
+tags_field = "tags"
+enabled_field = "enabled"
+required_fields = ["site_id", "site_label", "x_outlet", "y_outlet"]
+tag_separator = ";"
+
+[regional_lab.selection]
+tags = ["selected"]
+
+[[regional_lab.recipe]]
+id = "mesh_plan"
+label = "Mesh child plan from selected sites"
+launcher = "simulation"
+tags = ["simulation"]
+config_path_template = "generated_child_configs/{site_id}_mesh.toml"
+
+[[regional_lab.recipe]]
+id = "comparison_plan"
+label = "Comparison child plan from selected sites"
+launcher = "comparison"
+tags = ["comparison"]
+config_path_template = "generated_child_configs/{site_id}_comparison.toml"

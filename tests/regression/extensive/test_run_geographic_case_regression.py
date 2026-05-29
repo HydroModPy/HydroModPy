@@ -87,15 +87,16 @@ def _write_tmp_config(tmp_path: Path) -> Path:
                 f'root = "{out_path}"',
                 "",
                 "[geographic]",
+                'crs_project = "EPSG:2154"',
+                'dem_correc_type = "breach"',
+                "",
+                "[geographic.catchment]",
                 'catch_def = "from_outlet_coord"',
                 f'dem_init_path = "{dem_path}"',
                 "x_outlet = 265611.933",
                 "y_outlet = 6784182.776",
                 "snap_dist = 50",
                 "buff_area = 20.0",
-                'crs_project = "EPSG:2154"',
-                'dem_correc_type = "breach"',
-                "",
                 "[geographic.river_network]",
                 "enabled = true",
                 'threshold_mode = "area_km2"',
@@ -131,7 +132,7 @@ def _collect_case_signature(
 ) -> dict[str, bool | str | float | int | None]:
     summary = case_summary.get("river_network_summary")
     if not isinstance(summary, dict):
-        summary_path = case_summary.get("river_network_summary_json")
+        summary_path = case_summary.get("hydrographic_network_generated_summary_json")
         raise AssertionError(f"Missing river network summary payload: {summary_path}")
 
     return {

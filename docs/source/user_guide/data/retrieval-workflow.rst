@@ -20,7 +20,9 @@ small enough to read in one pass:
    types = ["dem", "geology", "hydrography", "hydrometry", "piezometry", "recharge"]
 
    [[data.dem.sources]]
-   source = "ign_bdalti"
+   source = "ign_geoplateforme_dem"
+   dataset = "bd-alti"
+   resolution_m = 25.0
    extent = "watershed"
 
    [[data.geology.sources]]

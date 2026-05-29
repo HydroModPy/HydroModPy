@@ -360,7 +360,7 @@ def iter_chronicle_files(custom_dir: Path) -> Iterable[Path]:
     """Yield chronicle CSV paths under ``<custom_dir>/chronicles/``.
 
     Files named ``EXAMPLE.csv`` or starting with ``_`` are skipped so
-    the example template shipped by ``hmp init`` does not get ingested.
+    the example template shipped by ``hmp workspace init`` does not get ingested.
     """
     chronicles = Path(custom_dir) / "chronicles"
     if not chronicles.is_dir():

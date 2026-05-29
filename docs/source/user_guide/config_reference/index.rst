@@ -38,7 +38,7 @@ Sections
 
       **[workflow]**
       ^^^
-      Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'overview', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.
+      Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'overview', 'comparison', 'testbed', 'site_selection'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.
 
    .. grid-item-card::
       :link: workspace
@@ -202,6 +202,24 @@ Sections
       ^^^
       Optional method-testbed settings loaded from the [testbed] section. Drives the orchestration layer over child runners (comparison or simulation) and is dispatched when workflow.mode='testbed'.
 
+   .. grid-item-card::
+      :link: site_selection
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[site_selection]**
+      ^^^
+      Optional upstream basin site-selection workflow configuration.
+
+   .. grid-item-card::
+      :link: hydrometry
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[hydrometry]**
+      ^^^
+      Optional hydrometric observations used by data and site-selection workflows.
+
 .. toctree::
    :hidden:
 
@@ -228,3 +246,5 @@ Sections
    mesh_input
    calibration
    testbed
+   site_selection
+   hydrometry

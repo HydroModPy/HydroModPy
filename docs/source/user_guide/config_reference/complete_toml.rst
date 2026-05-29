@@ -206,6 +206,10 @@ Sub-models are linked back to their per-section page.
       # example: flow_regime = "steady"
       # example: flow_regime = "transient"
       flow_regime = "transient"
+      # For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.
+      # example: first_period_steady = true
+      # example: first_period_steady = false
+      first_period_steady = true
 
 .. dropdown:: ``[transport]`` (TransportConfig)
    :icon: gear
@@ -291,7 +295,7 @@ Sub-models are linked back to their per-section page.
       # process_specific = ...  # uses factory default
       # Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
       # sgrid = ...  # uses factory default
-      # Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
+      # Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
       # tgrid = ...  # default = None
 
 .. dropdown:: ``[modflow6]`` (Modflow6Config)
@@ -308,7 +312,7 @@ Sub-models are linked back to their per-section page.
       # process_specific = ...  # uses factory default
       # Solver-grid payload split into planar and vertical sections.
       # sgrid = ...  # uses factory default
-      # Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
+      # Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
       # tgrid = ...  # default = None
 
 .. dropdown:: ``[display]`` (DisplayConfig)
@@ -396,6 +400,8 @@ Sub-models are linked back to their per-section page.
       # date_start = ...  # default = None
       # Global end date (YYYY-MM-DD).
       # date_end = ...  # default = None
+      # Label used for the regional location figure.
+      # regional_context_label = ...  # default = None
       # Panel toggles.
       # panels = ...  # uses factory default
 
@@ -534,15 +540,69 @@ Sub-models are linked back to their per-section page.
       execute = true
       # When false, the first failure aborts the testbed.
       continue_on_error = true
-      # Optional child workflow TOML used as the variant base config.
+      # Optional child workflow TOML used as the case base config.
       # base_config_path = ...  # default = None
-      # Child-runner selection for every variant.
+      # Child-runner selection for every case.
       # runner = ""  # REQUIRED
-      # Explicit variants declared in the TOML.
-      variants = []
-      # Optional catalog source used to expand variants from rows.
+      # Explicit executable cases declared in the TOML.
+      case = []
+      # Optional catalog source used to expand cases from rows.
       # catalog = ...  # default = None
-      # Variant-generation rules applied to catalog rows.
-      catalog_variants = []
+      # Case-generation rules applied to catalog rows.
+      case_from_catalog = []
       # Metrics extracted from each child-runner summary.
       metrics = []
+
+.. dropdown:: ``[site_selection]`` (SiteSelectionConfig)
+   :icon: gear
+
+   See :doc:`site_selection` for the full description.
+
+   .. code-block:: toml
+
+      [site_selection]
+      # Stable identifier for this selection campaign.
+      # selection_id = ""  # REQUIRED
+      # Output directory for all site-selection artifacts.
+      # output_root = ""  # REQUIRED
+      # Optional seed used by stochastic candidate thinning.
+      # random_seed = ...  # default = None
+      # no description
+      # strategy = ...  # uses factory default
+      # Territory where candidate basins are searched.
+      # territory = ""  # REQUIRED
+      # no description
+      # dem = ...  # uses factory default
+      # no description
+      # hydrology = ...  # uses factory default
+      # Compact settings for DEM-only automatic small-basin selection.
+      # dem_area_light = ...  # default = None
+      # no description
+      # input = ...  # uses factory default
+      # no description
+      # outlets = ...  # uses factory default
+      # no description
+      # spatial_selection = ...  # uses factory default
+      # no description
+      # criteria = ...  # uses factory default
+      # no description
+      # output = ...  # uses factory default
+      # no description
+      # map_context = ...  # uses factory default
+
+.. dropdown:: ``[hydrometry]`` (HydrometryConfig)
+   :icon: gear
+
+   See :doc:`hydrometry` for the full description.
+
+   .. code-block:: toml
+
+      [hydrometry]
+      # Project start date (ISO format, e.g. '2019-01-01').
+      # example: date_start = "2019-01-01"
+      # date_start = ...  # default = None
+      # Project end date (ISO format, e.g. '2025-12-31').
+      # example: date_end = "2025-12-31"
+      # date_end = ...  # default = None
+      # At least one data source.
+      # sources = []  # REQUIRED

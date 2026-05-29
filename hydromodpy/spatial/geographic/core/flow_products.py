@@ -116,7 +116,7 @@ def build_regional_flow_products(
         # D8 direction: each cell points to one of its 8 neighbors (steepest descent).
         direc_data = tool.flow.d8_pointer_raster(correc_data, esri_pntr=False)
         # D8 accumulation: upstream contributing area proxy used for outlet snapping.
-        # `log=True` keeps values in a compact range and matches legacy behavior.
+        # `log=True` keeps values in a compact range and matches established behavior.
         acc_data = tool.flow.d8_flow_accumulation_raster(correc_data, log=True)
         tool.raster.write_raster(correc_data, correc)
         tool.raster.write_raster(direc_data, direc)

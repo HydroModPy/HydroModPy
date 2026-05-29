@@ -300,9 +300,11 @@ class TestAdvancedDiscovery:
             product="QmnJ",
             require_observations=False,
             fallback_search_radius_km=50.0,
+            max_stations=7,
         )
         assert cfg.require_observations is False
         assert cfg.fallback_search_radius_km == 50.0
+        assert cfg.max_stations == 7
 
     def test_config_discovery_defaults(self):
         from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
@@ -310,6 +312,7 @@ class TestAdvancedDiscovery:
         cfg = HydrometrySourceConfig(source="hubeau", product="QmnJ")
         assert cfg.require_observations is True
         assert cfg.fallback_search_radius_km is None
+        assert cfg.max_stations is None
 
 
 # =========================================================================

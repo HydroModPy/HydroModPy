@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.executable,
         "-m",
         "pytest",
-        "tests/unit/geographic/test_geographic_legacy_characterization.py",
+        "tests/unit/geographic/test_catchment_delineation_contract.py",
         "tests/unit/geographic/test_run_geographic_case_golden.py",
         "tests/unit/geographic/test_run_geographic_dem_processing_golden.py",
         "-q",

@@ -158,34 +158,9 @@ def _resolve_catchment_paths(
     """Resolve relative paths inside the ``catchment`` block (in-place).
 
     Mirrors ``_resolve_section_paths`` but operates on the discriminated
-    catchment variant identified by ``catch_def``. Legacy flat payloads
-    where ``catch_def``/``dem_init_path`` live at the top of the geographic
-    section are first folded into a ``catchment`` mapping so the same path
-    resolution path applies in both cases.
+    catchment variant identified by ``catch_def``.
     """
     from hydromodpy.spatial.geographic import geographic_config as _geo_cfg
-
-    legacy_keys = {
-        "catch_def",
-        "dem_init_path",
-        "cell_size",
-        "x_outlet",
-        "y_outlet",
-        "snap_dist",
-        "buff_area",
-        "polyg_shp_path",
-    }
-    legacy_present = legacy_keys.intersection(payload.keys())
-    if legacy_present:
-        nested = payload.get("catchment")
-        merged: dict[str, Any] = dict(nested) if isinstance(nested, Mapping) else {}
-        for key in legacy_present:
-            value = payload.pop(key)
-            if value is None:
-                continue
-            merged.setdefault(key, value)
-        if merged:
-            payload["catchment"] = merged
 
     catchment = payload.get("catchment")
     if not isinstance(catchment, Mapping):

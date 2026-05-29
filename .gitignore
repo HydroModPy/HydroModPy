@@ -112,6 +112,7 @@ docs/source/_generated/
 # ──────────────────────────────────────────────
 # HydroModPy workspace outputs
 # ──────────────────────────────────────────────
+_workspace/
 out/
 **/simulations/
 **/exports/
@@ -125,25 +126,62 @@ out/
 **/.solver_scratch/
 examples/results/
 catalog.db
+examples/projects/**/catalog.duckdb
+examples/projects/**/catalog.duckdb.bak-*
 hydromodpy.duckdb
 hydromodpy_debug.log
 hydromodpy/data/variables/*/cases/outputs/**
 hydromodpy/data/variables/*/outputs/**
 hydromodpy/spatial/**/cases/outputs/**
 hydromodpy/spatial/**/outputs/**
+!hydromodpy/spatial/site_selection/outputs/
+!hydromodpy/spatial/site_selection/outputs/**
+hydromodpy/spatial/site_selection/outputs/__pycache__/
+hydromodpy/spatial/site_selection/outputs/**/*.pyc
 hydromodpy/solver/**/cases/outputs/**
 **/.ipynb_checkpoints/
 examples/*.duckdb
 examples/data/cache.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 
+# Large local provider data generated while preparing examples.
+examples/data/dem/dem_bdalti_*.tif
+examples/data/dem/departments_bdalti/
+examples/data/geology/departments_50k/
+examples/data/geology/geology_brgm_50k_*.gpkg
+examples/data/hydrography/bdtopage_*.gpkg
+examples/data/hydrography/euhydro_*.gpkg
+examples/data/hydrography/osm_*.gpkg
+examples/data/hydrometry/hydrometry_hubeau_*.csv
+examples/data/intermittency/intermittency_hubeau_*.csv
+examples/data/piezometry/piezometry_hubeau_*.csv
+examples/data/water_quality/waterquality_hubeau_*.csv
+examples/data/**/*.csv.json
+examples/data/**/*.gpkg.json
+examples/data/**/*.nc.json
+examples/data/**/*.tif.json
+examples/data/etp/etp_sim2_*.nc
+examples/data/precipitation/precipitation_*_sim2_*.nc
+examples/data/recharge/recharge_sim2_*.nc
+examples/projects/**/data/cache.duckdb*
+
+# Generated reports and run outputs from example workflows.
+# Documentation galleries and named fixtures live outside outputs/ and remain
+# versioned intentionally.
+examples/projects/**/web/
+examples/projects/**/web_review/
+examples/projects/**/outputs/**
+!examples/projects/**/outputs/.gitignore
+
 # Lockfiles emitted by validation and regression test runs (``hmp run`` writes
 # ``hydromodpy.lock`` next to the project config; tests should opt out via
 # ``--no-lock`` but this is a safety net).
+examples/projects/**/hydromodpy.lock
 validation_cases/**/hydromodpy.lock
 tests/regression/**/hydromodpy.lock
 
 # Large generated comparison payloads kept out of Git.
+validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support/
 examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json
 examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv
 docs/_dev_notes/diagnostics/boussinesq_*/
@@ -203,6 +241,10 @@ hmp_wbw_*/
 # Reports & profiling
 # ──────────────────────────────────────────────
 reports*/
+!hydromodpy/spatial/site_selection/reports/
+!hydromodpy/spatial/site_selection/reports/**
+hydromodpy/spatial/site_selection/reports/__pycache__/
+hydromodpy/spatial/site_selection/reports/**/*.pyc
 timing_reports/
 _profile_launcher_*/
 _profiling_out/
@@ -319,5 +361,6 @@ examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runt
 examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runtime_capture.jsonl
 execution_knowledge/myrun1/raw/runtime_capture_success.json
 execution_knowledge/myrun1/raw/runtime_capture.jsonl
+tests/regression/fixtures/projects/simulation_regression/execution_knowledge/myrun1/raw/runtime_capture_failure.json
 tests/regression/fixtures/projects/launcher_simulation/execution_knowledge/myrun1/raw/runtime_capture_failure.json
 examples/projects/00_getting_started/catalog.duckdb.bak-20260522T115059Z

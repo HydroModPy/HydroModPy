@@ -1305,7 +1305,7 @@ La migration se fait en trois phases sans casser l'existant.
 | `analysis/display/figures/` | Inchange | Recoit pd.Series, source = ResultStore |
 | `analysis/display/export_vtuvtk.py` | `simulation/results/exporters/vtu.py` | Via meshio (deja present) |
 | `results_{model}.pkl` (pickle legacy) | Supprime | Config dans DuckDB, maillage dans Zarr |
-| Dossier `_postprocess/` avec .npy | Supprime | Tout est dans le ResultStore |
+| Dossier `_postprocess/` avec .npy comme contrat de lecture | Supprime | Les champs lus par les workflows passent par le ResultStore |
 
 ### Phases de migration
 
@@ -1323,10 +1323,6 @@ Les fonctions de display et de calibration sont modifiees pour lire depuis
 le ResultStore au lieu des fichiers .npy / CSV / NetCDF :
 
 ```python
-# Avant (analysis/display)
-data = np.load("_postprocess/watertable_depth.npy")
-
-# Apres (via ResultStore)
 data = store.query_field(sim_id, "watertable_depth", timestep=180)
 ```
 
@@ -1341,7 +1337,7 @@ Suppression de :
 - `analysis/postprocess/netcdf/` (remplace par les exporters)
 - `analysis/postprocess/timeseries/` (remplace par les exporters)
 - Pickle legacy `results_{model_name}.pkl`
-- Dossier `_postprocess/` dans le workspace
+- Contrats de lecture directs depuis les anciens fichiers NumPy de post-traitement
 
 ---
 

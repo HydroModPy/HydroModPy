@@ -10,7 +10,7 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.time.tmesh_config import TMeshConfig
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.core.units import LengthMeters
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
@@ -239,8 +239,8 @@ class ModflowConfig(HydroModelBase):
         description=(
             "Optional temporal discretization payload as one validated "
             "`TMeshConfig` model. In launcher mode, stress periods are "
-            "driven by [simulation.time]; this section is mirrored for "
-            "compatibility and mainly keeps `firstpersteady`."
+            "driven by [simulation.time]; steady/transient policy is driven "
+            "by [flow].flow_regime and [flow].first_period_steady."
         ),
     )
 

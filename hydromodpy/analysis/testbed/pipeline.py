@@ -11,13 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.testbed.config import (
+    TestbedCaseConfig,
     TestbedConfig,
     TestbedMetricConfig,
-    TestbedVariantConfig,
 )
 from hydromodpy.analysis.testbed.io import _jsonable
 
 RUNNER_WORKFLOWS = {
+    "calibration": "calibration",
     "comparison": "comparison",
     "simulation": "simulation",
 }
@@ -54,7 +55,7 @@ DEFAULT_RUNNER_METRICS = {
 def _slugify(value: str) -> str:
     text = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value).strip())
     text = text.strip("._-")
-    return text or "variant"
+    return text or "case"
 
 
 def _lookup_metric_source(summary: Mapping[str, Any], source: str) -> Any:
@@ -384,14 +385,14 @@ def _extract_simulation_catalog_summary(
 class TestbedPlannedCase:
     """One materialized child configuration."""
 
-    variant: TestbedVariantConfig
+    variant: TestbedCaseConfig
     config_path: Path | None
     status: str
 
     def to_mapping(self) -> dict[str, Any]:
         return {
-            "variant_id": self.variant.id,
-            "variant_label": self.variant.label,
+            "case_id": self.variant.id,
+            "case_label": self.variant.label,
             "axis": self.variant.axis or "",
             "enabled": self.variant.enabled,
             "status": self.status,
@@ -401,7 +402,7 @@ class TestbedPlannedCase:
 
 @dataclass(frozen=True)
 class TestbedExecution:
-    """Execution outcome for one testbed variant."""
+    """Execution outcome for one testbed case."""
 
     case: TestbedPlannedCase
     status: str
@@ -477,11 +478,17 @@ def _catalog_manifest_payload(cfg: TestbedConfig) -> dict[str, Any] | None:
         "exclude_tags": list(cfg.catalog.exclude_tags),
         "include_disabled": cfg.catalog.include_disabled,
         "limit": cfg.catalog.limit,
+        "source_manifest_path": (
+            None
+            if cfg.catalog.source_manifest_path is None
+            else str(cfg.catalog.source_manifest_path)
+        ),
+        "source_manifest_output_key": cfg.catalog.source_manifest_output_key,
     }
 
 
-def _catalog_variant_manifest_payload(cfg: TestbedConfig) -> list[dict[str, Any]]:
-    """Return JSON-ready catalog-variant generation rules."""
+def _catalog_case_manifest_payload(cfg: TestbedConfig) -> list[dict[str, Any]]:
+    """Return JSON-ready catalog case-generation rules."""
     return [
         {
             "id_template": rule.id_template,
@@ -495,7 +502,7 @@ def _catalog_variant_manifest_payload(cfg: TestbedConfig) -> list[dict[str, Any]
             "limit": rule.limit,
             "overlay": _jsonable(rule.overlay),
         }
-        for rule in cfg.catalog_variants
+        for rule in cfg.catalog_cases
     ]
 
 
@@ -527,8 +534,8 @@ def _metric_row_for_execution(
     runner_type: str,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
-        "variant_id": execution.case.variant.id,
-        "variant_label": execution.case.variant.label,
+        "case_id": execution.case.variant.id,
+        "case_label": execution.case.variant.label,
         "axis": execution.case.variant.axis or "",
         "status": execution.status,
     }
@@ -550,14 +557,14 @@ def _build_report(
     cases: Sequence[TestbedPlannedCase],
     executions: Sequence[TestbedExecution],
 ) -> str:
-    execution_by_variant = {item.case.variant.id: item for item in executions}
+    execution_by_case = {item.case.variant.id: item for item in executions}
     ok_count = len([item for item in executions if item.status == "ok"])
     failed_count = len([item for item in executions if item.status == "failed"])
     pending_count = len(
         [
             case
             for case in cases
-            if case.variant.enabled and case.variant.id not in execution_by_variant
+            if case.variant.enabled and case.variant.id not in execution_by_case
         ]
     )
     lines = [
@@ -567,18 +574,18 @@ def _build_report(
         f"- Purpose: `{cfg.purpose}`",
         f"- Runner: `{cfg.runner.type}`",
         f"- Execute: {bool(cfg.execute)}",
-        f"- Variants: {len(cases)}",
+        f"- Cases: {len(cases)}",
         f"- Successful: {ok_count}",
         f"- Failed: {failed_count}",
         f"- Pending: {pending_count}",
         "",
-        "## Variants",
+        "## Cases",
         "",
-        "| Variant | Axis | Status | Duration (s) |",
+        "| Case | Axis | Status | Duration (s) |",
         "| --- | --- | --- | ---: |",
     ]
     for case in cases:
-        execution = execution_by_variant.get(case.variant.id)
+        execution = execution_by_case.get(case.variant.id)
         status = case.status if execution is None else execution.status
         duration = (
             ""

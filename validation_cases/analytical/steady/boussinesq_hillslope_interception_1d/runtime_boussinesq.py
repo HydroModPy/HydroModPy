@@ -14,7 +14,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
-    _aggregate_triangle_history_to_structured_grids,
+    _aggregate_triangle_history_to_structured_fields,
     _build_flow_config,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
@@ -23,8 +23,8 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 from .reference import expected_boussinesq_hillslope_profile_at_x
@@ -302,14 +302,14 @@ def run_boussinesq_hillslope_interception_case(
     model.has_numerical_solution = True
     model.solve_stage = "solved"
     model.post_processing()
-    _aggregate_triangle_history_to_structured_grids(model)
+    field_series = _aggregate_triangle_history_to_structured_fields(model)
 
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
+        fields=field_series,
         solver_name="boussinesq",
     )
     return ValidationRunResult(

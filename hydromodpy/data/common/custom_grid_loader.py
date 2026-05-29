@@ -18,6 +18,8 @@ def load_custom_nc(
     variable: str,
     unit: str,
     source_unit: str | None = None,
+    crs: str | None = None,
+    nodata: float | int | str | None = None,
     project_period: tuple[datetime, datetime] | None = None,
 ) -> list[FieldRecord]:
     """Load a custom NetCDF file as FieldRecord(s) converted to ``unit``."""
@@ -38,11 +40,13 @@ def load_custom_nc(
         target_unit=unit,
     )
 
-    bbox, crs = _extract_bbox_and_crs(ds, data_var=data_var)
-    nodata = _extract_nodata_from_attrs(ds[data_var].attrs)
-    if nodata is None:
+    bbox, crs = _extract_bbox_and_crs(ds, data_var=data_var, fallback_crs=crs)
+    nodata_resolved = _extract_nodata_from_attrs(ds[data_var].attrs)
+    if nodata_resolved is None:
+        nodata_resolved = nodata
+    if nodata_resolved is None:
         raise ValueError(f"Custom grid dataset {path} must declare nodata metadata.")
-    ds[data_var].attrs["nodata"] = nodata
+    ds[data_var].attrs["nodata"] = nodata_resolved
 
     time_dim = _find_time_dim(ds)
     if time_dim is not None and time_dim in ds.dims:
@@ -134,7 +138,12 @@ def load_custom_tif(
     ]
 
 
-def _extract_bbox_and_crs(ds, *, data_var: str) -> tuple[tuple, str]:
+def _extract_bbox_and_crs(
+    ds,
+    *,
+    data_var: str,
+    fallback_crs: str | None = None,
+) -> tuple[tuple, str]:
     """Extract bounding box and CRS from an xarray Dataset."""
     try:
         import rioxarray  # noqa: F401
@@ -146,6 +155,8 @@ def _extract_bbox_and_crs(ds, *, data_var: str) -> tuple[tuple, str]:
         pass
 
     crs = _extract_crs_from_attrs(ds, data_var)
+    if crs is None and fallback_crs is not None and str(fallback_crs).strip():
+        crs = str(fallback_crs).strip()
     if crs is None:
         raise ValueError("Custom grid dataset must declare CRS metadata.")
 

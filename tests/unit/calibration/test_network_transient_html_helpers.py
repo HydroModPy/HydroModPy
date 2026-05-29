@@ -278,7 +278,10 @@ def test_mesh_context_from_truth_package_uses_bundle_and_outlet_origin(
 ) -> None:
     monkeypatch.setattr(report, "PATH_BASE", tmp_path)
     config = tmp_path / "source.toml"
-    config.write_text("[geographic]\nx_outlet = 10.0\ny_outlet = 20.0\n", encoding="utf-8")
+    config.write_text(
+        "[geographic]\n\n[geographic.catchment]\nx_outlet = 10.0\ny_outlet = 20.0\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(report, "SOURCE_TRANSIENT_CONFIG", config)
     truth = tmp_path / "truth"
     mesh = tmp_path / "mesh"

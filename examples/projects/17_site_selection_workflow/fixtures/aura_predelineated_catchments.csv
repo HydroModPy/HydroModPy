@@ -1,0 +1,5 @@
+site_id,candidate_id,x,y,outlet_crs,area_km2,status,site_label,source,source_feature_id,watershed_shp,geology_class,piezometer_count
+aura_area_001,aura_area_001,847000,6512000,EPSG:2154,98.4,delineated,Fixture AURA 98 km2,fixture,aura_area_001,basins/aura_area_001.geojson,volcanic_basement,1
+aura_area_002,aura_area_002,866000,6504000,EPSG:2154,71.2,delineated,Fixture AURA 71 km2,fixture,aura_area_002,basins/aura_area_002.geojson,sedimentary_cover,0
+aura_area_003,aura_area_003,890000,6531000,EPSG:2154,131.7,delineated,Fixture AURA 132 km2,fixture,aura_area_003,basins/aura_area_003.geojson,alluvial_plain,2
+aura_area_004,aura_area_004,914000,6540000,EPSG:2154,112.5,delineated,Fixture AURA 113 km2,fixture,aura_area_004,basins/aura_area_004.geojson,crystalline_basement,1

@@ -10,6 +10,7 @@ view from one process without copying any data.
 
 from __future__ import annotations
 
+import os
 import re
 import uuid
 from datetime import datetime
@@ -540,6 +541,14 @@ def _generate_workspace_id() -> str:
     return str(uuid.uuid4())
 
 
+def _auto_register_enabled() -> bool:
+    """Return False when workspace auto-registration is explicitly disabled."""
+    raw = os.environ.get("HMP_AUTO_REGISTER_WORKSPACE")
+    if raw is None:
+        return True
+    return str(raw).strip().lower() not in {"0", "false", "no", "off"}
+
+
 def auto_register_workspace(
     workspace_root: Path | str,
     *,
@@ -567,6 +576,9 @@ def auto_register_workspace(
         the URI already existed or when the index could not be opened.
     """
     uri = str(Path(workspace_root))
+    if not _auto_register_enabled():
+        logger.debug("Workspace auto-registration disabled by HMP_AUTO_REGISTER_WORKSPACE=0")
+        return None
     try:
         with GlobalIndex() as index:
             if index.read_only:

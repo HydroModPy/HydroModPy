@@ -9,6 +9,10 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.analysis.config_helpers import validate_optional_positive_int
+from hydromodpy.analysis.testbed.site_selection_catalog import (
+    SITE_SELECTION_CATALOG_CONTROL_KEYS,
+    resolve_catalog_source,
+)
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
@@ -222,6 +226,33 @@ class RegionalLabCatalogConfig(HydroModelBase):
         default=";",
         description="Separator splitting the tags column into individual tags.",
     )
+    source_manifest_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="Optional site-selection manifest used to resolve the site catalog.",
+    )
+    source_manifest_output_key: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Output key read from the site-selection manifest.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _bootstrap_catalog(cls, data: Any, info: ValidationInfo) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        catalog_source = resolve_catalog_source(
+            base_dir=_context_base_dir(info),
+            mapping=payload,
+            catalog_label="regional_lab.catalog",
+        )
+        for key in SITE_SELECTION_CATALOG_CONTROL_KEYS:
+            payload.pop(key, None)
+        payload["path"] = catalog_source.path
+        if catalog_source.source_manifest_path is not None:
+            payload["source_manifest_path"] = catalog_source.source_manifest_path
+            payload["source_manifest_output_key"] = catalog_source.source_manifest_output_key
+        return payload
 
     @field_validator("path", mode="before")
     @classmethod

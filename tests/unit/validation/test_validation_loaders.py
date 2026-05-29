@@ -4,30 +4,31 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
-from validation_cases.shared.loaders import load_npy_dict
+from validation_cases.shared.loaders import (
+    load_field,
+    load_field_on_expected_grid,
+    load_time_series_fields,
+)
 
 
-def test_legacy_npy_loading_requires_explicit_env_flag(tmp_path: Path) -> None:
-    """Archived ``.npy`` payloads are opt-in outside the result store path."""
-    path = tmp_path / "watertable_elevation.npy"
-    np.save(path, {0: np.array([1.0, 2.0], dtype=float)})
-
-    with pytest.raises(RuntimeError, match="Legacy validation .npy loading is disabled"):
-        load_npy_dict(path)
+def test_load_field_requires_store_context() -> None:
+    with pytest.raises(ValueError, match="no store/sim_id provided"):
+        load_field(observable_name="watertable_elevation")
 
 
-def test_legacy_npy_loading_reads_when_explicitly_enabled(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The opt-in flag keeps archived pre-v1 artifacts readable."""
-    path = tmp_path / "watertable_elevation.npy"
-    np.save(path, {0: np.array([1.0, 2.0], dtype=float)})
+def test_load_time_series_fields_requires_store_context() -> None:
+    with pytest.raises(ValueError, match="no store/sim_id provided"):
+        load_time_series_fields(observable_name="watertable_elevation")
 
-    monkeypatch.setenv("HMP_ALLOW_LEGACY_NPY_VALIDATION", "1")
-    payload = load_npy_dict(path)
 
-    np.testing.assert_array_equal(payload[0], np.array([1.0, 2.0], dtype=float))
+def test_load_field_on_expected_grid_requires_store_context(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="no store/sim_id provided"):
+        load_field_on_expected_grid(
+            observable_name="watertable_elevation",
+            case_dir=tmp_path,
+            metadata={},
+            solver="boussinesq",
+            expected_shape=(1, 1),
+        )

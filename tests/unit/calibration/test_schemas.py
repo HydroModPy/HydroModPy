@@ -188,6 +188,10 @@ class TestCalibParameterDeclDefaults:
 
 
 class TestCalibOutputDeclSelectors:
+    def test_output_support_tag_is_required(self):
+        with pytest.raises(ValidationError, match="support"):
+            validate_calib_output({"variable": "head", "x": 10.0, "y": 20.0})
+
     def test_point_accepts_geojson_geometry(self):
         decl = validate_calib_output(
             {

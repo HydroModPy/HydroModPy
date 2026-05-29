@@ -8,7 +8,7 @@ and diagnostics.
 Current scope
 -------------
 Only catchment area (km2) is exposed here, with compatibility logic that
-preserves legacy behavior when an ``AREA`` attribute exists.
+preserves authored shapefile area metadata when an ``AREA`` attribute exists.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def compute_catchment_area_km2(watershed_shp: str | Path) -> float:
     """Return catchment area in km2 from watershed polygon.
 
     Compatibility policy:
-    - prefer legacy ``AREA`` attribute when present,
+    - prefer existing ``AREA`` attribute when present,
     - otherwise compute area directly from geometry.
     """
     shp = Path(watershed_shp)

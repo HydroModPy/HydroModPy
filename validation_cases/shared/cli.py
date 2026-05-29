@@ -119,33 +119,40 @@ def run_case_main(
     """Run one analytical validation case, plot it, and print a short summary."""
     parser = build_run_case_parser(description=description)
     args = parser.parse_args(argv)
-    apply_output_root_override(args.output_root)
-    run_signature = inspect.signature(run_comparison)
-    supports_solver = "solver" in run_signature.parameters
-    if args.solver is not None and not supports_solver:
-        parser.error("--solver is not supported by this validation case.")
+    previous_out_path = os.environ.get("HMP_OUT_PATH")
+    try:
+        apply_output_root_override(args.output_root)
+        run_signature = inspect.signature(run_comparison)
+        supports_solver = "solver" in run_signature.parameters
+        if args.solver is not None and not supports_solver:
+            parser.error("--solver is not supported by this validation case.")
 
-    run_kwargs = {
-        "caller_file": caller_file,
-        "timeout": int(args.timeout),
-    }
-    if supports_solver and args.solver is not None:
-        run_kwargs["solver"] = str(args.solver)
+        run_kwargs = {
+            "caller_file": caller_file,
+            "timeout": int(args.timeout),
+        }
+        if supports_solver and args.solver is not None:
+            run_kwargs["solver"] = str(args.solver)
 
-    comparison = run_comparison(**run_kwargs)
-    output_png = resolve_output_png(
-        args.output_png,
-        default_dir=comparison.result.out_path,
-        default_filename=default_figure_name,
-    )
-    saved_png = plot_comparison(
-        comparison,
-        output_png=output_png,
-        show_plot=bool(args.show_plot),
-        dpi=int(args.dpi),
-    )
-    print_run_case_summary(
-        saved_png=saved_png,
-        comparison=comparison,
-        metric_lines=build_metric_lines(comparison),
-    )
+        comparison = run_comparison(**run_kwargs)
+        output_png = resolve_output_png(
+            args.output_png,
+            default_dir=comparison.result.out_path,
+            default_filename=default_figure_name,
+        )
+        saved_png = plot_comparison(
+            comparison,
+            output_png=output_png,
+            show_plot=bool(args.show_plot),
+            dpi=int(args.dpi),
+        )
+        print_run_case_summary(
+            saved_png=saved_png,
+            comparison=comparison,
+            metric_lines=build_metric_lines(comparison),
+        )
+    finally:
+        if previous_out_path is None:
+            os.environ.pop("HMP_OUT_PATH", None)
+        else:
+            os.environ["HMP_OUT_PATH"] = previous_out_path

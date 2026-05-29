@@ -167,12 +167,15 @@ The canonical persisted names are now:
 - ``hydrographic_network_generated`` for the network derived from
   ``geographic.river_network``
 
-Older names are still present as compatibility aliases, but they should not be
-used as the conceptual center anymore:
+The feature-store contract keeps only the canonical names. Historical filenames
+may still exist on disk, but they are not feature aliases:
 
-- ``river_network`` is the legacy generated-feature alias
-- ``streams.shp`` is the legacy reference vector filename
-- ``hydrography_streams`` is the canonical reference forcing-raster name
+- ``river_network.shp`` remains the generated-network vector filename.
+- ``river_network_summary.json`` remains the generated-network summary
+  filename.
+- ``streams.shp`` remains the reference vector filename produced by some
+  hydrography inputs.
+- ``hydrography_streams`` is the canonical reference forcing-raster name.
 
 This split is intentional. A manager may still write a historical filename on
 disk, while the runtime and comparison layers rely on the canonical feature
@@ -209,7 +212,7 @@ networks. It keeps:
 - one class for the canonical concept,
 - one class for the role bundle,
 - one class for the comparison result,
-- one legacy-compatible class for the low-level generated artifacts.
+- one technical class for the low-level generated artifacts.
 
 The display layer stays separate. Figures consume the canonical networks and
 comparison payloads, but rendering is not embedded in the data classes

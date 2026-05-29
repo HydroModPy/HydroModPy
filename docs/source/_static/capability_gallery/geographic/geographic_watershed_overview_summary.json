@@ -11,8 +11,8 @@
     "Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
   ],
   "key_parameters": [
-    "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
-    "`[geographic] buff_area` controls how much regional context stays visible around the basin in the overview figures.",
+    "`[geographic.catchment] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
+    "`[geographic.catchment] buff_area` controls how much regional context stays visible around the basin in the overview figures.",
     "`[domain] zone_ids` and `[domain.depth_model]` define the spatial support that later workflows would reuse.",
     "`[data] types` selects which thematic layers are loaded and therefore which overlays can appear on the basin.",
     "Date windows in `[data.hydrometry]`, `[data.intermittency]`, and `[data.oceanic]` change the queried observation horizon without changing the basin geometry."
@@ -110,31 +110,31 @@
         "title": "Selected Parameters",
         "rows": [
           {
-            "field": "[geographic] catch_def",
+            "field": "[geographic.catchment] catch_def",
             "meaning": "Watershed extraction mode used to derive the basin from the outlet definition.",
             "value": "from_outlet_coord",
             "source": "examples/projects/04_data_overview/project.toml"
           },
           {
-            "field": "[geographic] x_outlet",
+            "field": "[geographic.catchment] x_outlet",
             "meaning": "Projected x coordinate of the outlet used by watershed extraction.",
             "value": "127348",
             "source": "examples/projects/04_data_overview/project.toml"
           },
           {
-            "field": "[geographic] y_outlet",
+            "field": "[geographic.catchment] y_outlet",
             "meaning": "Projected y coordinate of the outlet used by watershed extraction.",
             "value": "6.8358e+06",
             "source": "examples/projects/04_data_overview/project.toml"
           },
           {
-            "field": "[geographic] snap_dist",
+            "field": "[geographic.catchment] snap_dist",
             "meaning": "Maximum snapping distance used to align the requested outlet with the drainage network.",
             "value": "150 m",
             "source": "examples/projects/04_data_overview/project.toml"
           },
           {
-            "field": "[geographic] buff_area",
+            "field": "[geographic.catchment] buff_area",
             "meaning": "Extra area kept around the watershed to preserve regional context in overview figures.",
             "value": "20%",
             "source": "examples/projects/04_data_overview/project.toml"

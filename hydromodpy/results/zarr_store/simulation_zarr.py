@@ -38,7 +38,7 @@ from hydromodpy.results.zarr_store.zarr_schema import (
 from hydromodpy.results.zarr_store.zarr_schema import (
     initialise_root,
     is_zip_store_path,
-    local_store_path_arg,
+    local_store,
     open_root_strict,
 )
 from hydromodpy.results.zarr_store.zarr_schema import (
@@ -52,6 +52,11 @@ from hydromodpy.results.zarr_store.zarr_schema import (
 )
 
 
+def _file_lock_for_store(path: Path) -> FileLock:
+    """Build the store lock using extended-length paths on Windows."""
+    return FileLock(str(_windows_long_path(path / LOCK_FILE_NAME)))
+
+
 class SimulationZarr:
     """Per-simulation Zarr v2 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
 
@@ -61,12 +66,12 @@ class SimulationZarr:
         self._on_close: Callable[[SimulationZarr], None] | None = None
         if is_zip_store_path(self._path):
             self._store: Any = zarr.storage.ZipStore(str(self._path), mode="r")
-            self._root: zarr.Group = self._open_root_strict(read_only=True)
+            self._root: zarr.Group | None = self._open_root_strict(read_only=True)
             self._lock: FileLock | _DummyLock = _DummyLock()
         else:
-            self._store = zarr.storage.LocalStore(local_store_path_arg(self._path))
+            self._store = local_store(self._path)
             self._root = self._open_root_strict(read_only=False)
-            self._lock = FileLock(str(self._path / LOCK_FILE_NAME))
+            self._lock = _file_lock_for_store(self._path)
 
     # -- Construction --------------------------------------------------------
 
@@ -94,7 +99,7 @@ class SimulationZarr:
         instance._root = root
         instance._balanced = bool(balanced)
         instance._on_close = None
-        instance._lock = FileLock(str(path / LOCK_FILE_NAME))
+        instance._lock = _file_lock_for_store(path)
         return instance
 
     def _open_root_strict(self, *, read_only: bool) -> zarr.Group:
@@ -105,6 +110,8 @@ class SimulationZarr:
 
     @property
     def root(self) -> zarr.Group:
+        if self._root is None:
+            raise RuntimeError("SimulationZarr handle is closed")
         return self._root
 
     @property

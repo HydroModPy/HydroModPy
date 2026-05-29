@@ -146,10 +146,8 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
         dtype=float,
     )
     geographic_features = getattr(setup_state, "geographic_features", None)
-    domain_geographic = getattr(setup_state, "domain_geographic", None)
     river_trace = resolve_river_mesh_trace(
         geographic_features=geographic_features,
-        domain_geographic=domain_geographic,
     )
     if _flow_uses_stream_bc(flow) and river_trace is None:
         return None

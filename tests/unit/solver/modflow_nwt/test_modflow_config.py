@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.time.tmesh_config import TMeshConfig
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
@@ -61,9 +61,10 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[solver]",
                 'backend = { backend = "modflow_nwt" }',
                 "",
@@ -87,11 +88,9 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 "",
                 "[modflownwt.tgrid]",
                 'itmuni = "d"',
-                'flow_regime = "transient"',
                 'genmtd = "synthetic_regular"',
                 "nper = 4",
                 "lenper = 2.0",
-                "firstpersteady = true",
                 "ntsp = [1, 2, 2, 3]",
                 "tsmult = [1.0, 1.1, 1.1, 1.2]",
             ]
@@ -114,7 +113,6 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.sgrid.vertical.nlay == 3
     assert cfg.modflownwt.sgrid.vertical.lay_decay == 1.8
     assert isinstance(cfg.modflownwt.tgrid, TMeshConfig)
-    assert cfg.modflownwt.tgrid.flow_regime == "transient"
     assert cfg.modflownwt.tgrid.nper == 4
     assert cfg.modflownwt.tgrid.ntsp == [1, 2, 2, 3]
 
@@ -133,9 +131,10 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[solver]",
                 'backend = { backend = "modflow_nwt" }',
                 "",
@@ -166,9 +165,10 @@ def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[solver]",
                 'backend = { backend = "modflow_nwt" }',
                 "",
@@ -203,9 +203,10 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[solver]",
                 'backend = { backend = "modflow_nwt" }',
                 "",
@@ -232,9 +233,10 @@ def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[modflow]",
                 "vka = 2.5",
                 "exdp = 3.0",
@@ -262,9 +264,10 @@ def test_hydromodpy_config_rejects_unknown_top_level_sections(tmp_path: Path):
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[unexpected]",
                 "enabled = true",
             ]
@@ -290,9 +293,10 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[geographic.catchment]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
-                "",
                 "[solver]",
                 'backend = { backend = "modflow6" }',
                 "",

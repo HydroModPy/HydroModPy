@@ -52,6 +52,33 @@ project_root = "."
 # Type: Literal['standard', 'synthetic'] | one of: "standard", "synthetic" | Default: "standard"
 source_mode = "standard"
 
+# Path to the watershed polygon shapefile.
+# Required for 'from_polyg_shp' mode.
+# Type: path (optional) | Optional
+# polyg_shp_path = ""
+
+# Target projected CRS for all outputs (e.g.
+# 'EPSG:2154').
+# If not set, derived from the input DEM.
+# Type: string (optional) | Optional
+crs_project = "EPSG:2154"
+
+# DEM depression correction method.
+# 'breach' (recommended) preserves natural flow paths.
+# 'fill' raises sinks to their pour point.
+# Type: Literal['breach', 'fill'] | one of: "breach", "fill" | Default: "breach"
+dem_correc_type = "breach"
+
+# Path to a raster representing the aquifer bottom elevation.
+# Must share the same grid as the model domain.
+# Type: path (optional) | Optional
+# bottom_path = ""
+
+
+# Synthetic geographic support used when source_mode='synthetic'.
+# This analytical mode bypasses watershed delineation from external DEM files.
+
+[geographic.catchment]
 # Catchment definition mode used when source_mode='standard'.
 # 'dem' = model domain defined directly from a DEM raster (dem_init_path required).
 # 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
@@ -88,37 +115,11 @@ y_outlet = 6777886.67
 snap_dist = "150 m"
 
 # Buffer around the watershed polygon.
-# Numeric values keep legacy behavior (percentage of sqrt(area [km^2])).
+# Numeric values are interpreted as a percentage of sqrt(area [km^2]).
 # String values are interpreted as explicit distances (for example '500 m', '2 km').
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 # Type: UnionType[str, float, NoneType] | Optional
 buff_area = "10%"
-
-# Path to the watershed polygon shapefile.
-# Required for 'from_polyg_shp' mode.
-# Type: path (optional) | Optional
-# polyg_shp_path = ""
-
-# Target projected CRS for all outputs (e.g.
-# 'EPSG:2154').
-# If not set, derived from the input DEM.
-# Type: string (optional) | Optional
-crs_project = "EPSG:2154"
-
-# DEM depression correction method.
-# 'breach' (recommended) preserves natural flow paths.
-# 'fill' raises sinks to their pour point.
-# Type: Literal['breach', 'fill'] | one of: "breach", "fill" | Default: "breach"
-dem_correc_type = "breach"
-
-# Path to a raster representing the aquifer bottom elevation.
-# Must share the same grid as the model domain.
-# Type: path (optional) | Optional
-# bottom_path = ""
-
-
-# Synthetic geographic support used when source_mode='synthetic'.
-# This analytical mode bypasses watershed delineation from external DEM files.
 
 [geographic.synthetic]
 # Identifier used by local case runners and outputs.
@@ -467,6 +468,7 @@ ipakcb = 1
 output_file_name = "mt3d_link.ftl"
 extension = "lmt8"
 output_format = "unformatted"
+
 [modflownwt.process_specific]
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 # Type: float | Default: 1.0

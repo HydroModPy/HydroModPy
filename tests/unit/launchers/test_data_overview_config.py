@@ -26,6 +26,7 @@ project_root = "."
 root = "{tmp_path}"
 
 [geographic]
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "dem.tif"
 x_outlet = 1.0

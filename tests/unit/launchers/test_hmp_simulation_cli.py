@@ -13,7 +13,7 @@ import pytest
 
 from hydromodpy.cli import main
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
-from hydromodpy.project.dispatch import workflow as workflow_dispatch
+from hydromodpy.project.dispatch import workflow as project_workflow
 
 
 def _write_toml(path: Path, content: str) -> Path:
@@ -36,7 +36,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -62,7 +62,7 @@ def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--no-display"])
 
     main()
@@ -103,7 +103,7 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
         return {"name": "test", "sim_id": "abc"}
 
     monkeypatch.setenv("HMP_SET_simulation__run_id", "env_run")
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -138,7 +138,7 @@ def test_hmp_run_resume_forwards_run_id(monkeypatch, tmp_path) -> None:
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--resume", "run-1"])
 
     main()
@@ -160,7 +160,7 @@ def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_
         captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         ["hmp", "run", str(config), "--from", "setup", "--until", "solve", "--no-parallel"],
@@ -187,7 +187,7 @@ def test_hmp_run_rejects_step_controls_for_non_simulation_workflow(monkeypatch, 
         called = True
         return {"mode": "calibration"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "calibration", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "calibration", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--from", "setup"])
 
     with pytest.raises(SystemExit) as exc_info:
@@ -211,7 +211,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "data_overview"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "overview", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "overview", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -250,7 +250,7 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "calibration"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "calibration", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "calibration", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -300,7 +300,7 @@ def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "comparison"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "comparison", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "comparison", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -337,7 +337,33 @@ def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return {"mode": "testbed"}
 
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "testbed", fake_run)
+    monkeypatch.setitem(project_workflow.DISPATCH, "testbed", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["run_called"] is True
+
+
+def test_hmp_run_dispatches_site_selection_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` with workflow=site_selection dispatches to run_site_selection."""
+    config = _write_toml(
+        tmp_path / "site_selection.toml",
+        '[workflow]\nmode = "site_selection"\n'
+        "[site_selection]\n"
+        'selection_id = "demo"\n'
+        'output_root = "out"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path):
+        captured["config_path"] = Path(config_path)
+        captured["run_called"] = True
+        return {"mode": "site_selection"}
+
+    monkeypatch.setitem(project_workflow.DISPATCH, "site_selection", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()

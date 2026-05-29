@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -136,35 +136,8 @@ def test_invalidate_from_cascades(journal: WorkflowJournal) -> None:
     assert all(r.error_message == "forced" for r in rows if r.status == "aborted")
 
 
-def test_update_heartbeat_updates_simulations(
-    catalog: SimulationCatalog, journal: WorkflowJournal
-) -> None:
-    sim_id = "11111111-1111-1111-1111-111111111111"
-    catalog.connection.execute(
-        """
-        INSERT INTO simulations
-            (sim_id, project, solver_id, status_id,
-             zarr_path, storage_basename, last_heartbeat)
-        VALUES (?, ?,
-                (SELECT id FROM solvers WHERE code = 'modflow6'),
-                (SELECT id FROM statuses WHERE code = 'running'),
-                ?, ?, NULL)
-        """,
-        [sim_id, "p1", "simulations/x.zarr", "x"],
-    )
-    journal.update_heartbeat(sim_id)
-    row = catalog.connection.execute(
-        "SELECT last_heartbeat FROM simulations WHERE sim_id = ?",
-        [sim_id],
-    ).fetchone()
-    assert row is not None
-    last_hb = row[0]
-    assert isinstance(last_hb, datetime)
-    now = datetime.now(UTC)
-    if last_hb.tzinfo is None:
-        last_hb = last_hb.replace(tzinfo=UTC)
-    delta = (now - last_hb).total_seconds()
-    assert -5.0 <= delta <= 5.0
+def test_legacy_simulation_heartbeat_writer_removed() -> None:
+    assert not hasattr(WorkflowJournal, "update_heartbeat")
 
 
 def test_compute_inputs_hash_is_deterministic_and_sensitive() -> None:

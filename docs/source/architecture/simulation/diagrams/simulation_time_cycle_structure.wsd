@@ -40,5 +40,5 @@ ForcingSeries --> CoverageGuard : recharge coverage check
 CoverageGuard --> Project : pass/warn/error
 
 RuntimeState --> FlowSolvers : preprocess options.time_grid
-FlowSolvers --> SolverTgrid : read mirrored firstpersteady only
+FlowSolvers --> FlowConfig : read flow_regime / first_period_steady
 @enduml

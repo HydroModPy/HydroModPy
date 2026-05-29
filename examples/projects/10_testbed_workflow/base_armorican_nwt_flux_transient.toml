@@ -8,15 +8,17 @@ data_dir = "outputs/nwt_small_catchment_flux/data_cache"
 
 [geographic]
 source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = false
+
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 127348.427
 y_outlet = 6835802.564
 snap_dist = "150 m"
 buff_area = "10%"
-crs_project = "EPSG:2154"
-dem_correc_type = "breach"
-reuse_existing_outputs = false
 
 [geographic.river_network]
 enabled = true

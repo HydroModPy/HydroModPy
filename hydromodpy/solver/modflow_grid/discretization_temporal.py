@@ -49,11 +49,49 @@ def _coerce_itmuni(value: object, default_itmuni: int) -> int:
         ) from exc
 
 
+def _coerce_first_period_steady(
+    *,
+    first_period_steady: bool | None,
+) -> bool:
+    if first_period_steady is not None:
+        return bool(first_period_steady)
+    return True
+
+
+def _build_solver_steady_array(
+    *,
+    nper: int,
+    flow_regime: str,
+    first_period_steady: bool,
+) -> np.ndarray:
+    flow_regime_text = normalize_flow_regime(flow_regime)
+    if flow_regime_text == "steady":
+        return np.ones((nper,), dtype=bool)
+    steady = np.zeros((nper,), dtype=bool)
+    if first_period_steady and nper > 0:
+        steady[0] = True
+    return steady
+
+
+def resolve_first_period_steady(
+    *,
+    flow: object | None = None,
+    default: bool = True,
+) -> bool:
+    """Resolve the first-period steady policy from [flow]."""
+    flow_config = getattr(flow, "config", None) if flow is not None else None
+    if flow_config is not None and hasattr(flow_config, "first_period_steady"):
+        return bool(getattr(flow_config, "first_period_steady"))
+    if flow is not None and hasattr(flow, "first_period_steady"):
+        return bool(getattr(flow, "first_period_steady"))
+    return bool(default)
+
+
 def build_temporal_discretization_from_time_grid(
     *,
     time_grid: object,
     flow_regime: str,
-    firstpersteady: bool,
+    first_period_steady: bool | None = None,
 ) -> TemporalDiscretizationResult:
     """Build solver temporal arrays directly from canonical launcher time-grid."""
     if time_grid is None:
@@ -71,13 +109,14 @@ def build_temporal_discretization_from_time_grid(
     if nstp_per_period <= 0:
         raise ValueError("simulation.time.substeps_per_period must be a positive integer.")
     nstp = np.full((nper,), nstp_per_period, dtype=int)
-    flow_regime_text = normalize_flow_regime(flow_regime)
-    if flow_regime_text == "steady":
-        steady = np.ones((nper,), dtype=bool)
-    else:
-        steady = np.zeros((nper,), dtype=bool)
-        if firstpersteady:
-            steady[0] = True
+    first_period_steady_value = _coerce_first_period_steady(
+        first_period_steady=first_period_steady,
+    )
+    steady = _build_solver_steady_array(
+        nper=nper,
+        flow_regime=flow_regime,
+        first_period_steady=first_period_steady_value,
+    )
 
     window = getattr(time_grid, "window", None)
     start_datetime = getattr(window, "start", None)
@@ -99,12 +138,12 @@ def build_temporal_discretization(
     tgrid_config: object,
     flow_regime: str,
     default_itmuni: int,
+    first_period_steady: bool | None = None,
 ) -> TemporalDiscretizationResult:
     """Build normalized temporal discretization from typed ``tgrid`` config."""
-    from hydromodpy.core.time.tmesh_generation import TmeshGenerator
+    from hydromodpy.discretization.time.tmesh_generation import TmeshGenerator
 
     builder_kwargs = tgrid_config.to_builder_kwargs()
-    builder_kwargs["flow_regime"] = flow_regime
     builder = TmeshGenerator(**builder_kwargs)
     tgrid = builder.run()
 
@@ -115,7 +154,14 @@ def build_temporal_discretization(
     dis_perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
     dis_nper = int(dis_perlen.size)
     dis_nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
-    dis_steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
+    first_period_steady_value = _coerce_first_period_steady(
+        first_period_steady=first_period_steady,
+    )
+    dis_steady = _build_solver_steady_array(
+        nper=dis_nper,
+        flow_regime=flow_regime,
+        first_period_steady=first_period_steady_value,
+    )
     dis_start_datetime = getattr(tgrid, "start_datetime", None)
     if dis_nper == 0:
         raise ValueError("modflownwt.tgrid produced an empty perlen vector.")
@@ -134,4 +180,5 @@ __all__ = [
     "TemporalDiscretizationResult",
     "build_temporal_discretization",
     "build_temporal_discretization_from_time_grid",
+    "resolve_first_period_steady",
 ]

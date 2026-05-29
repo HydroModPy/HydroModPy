@@ -1,4 +1,4 @@
-"""Tests for hmp init / hmp new scaffolding."""
+"""Tests for workspace and project scaffolding."""
 
 from pathlib import Path
 

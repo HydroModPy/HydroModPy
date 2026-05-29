@@ -25,6 +25,10 @@ from validation_cases.shared.loaders import load_case_metadata
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+_WINDOWS_VALIDATION_PATH_LIMIT = 240
+_VALIDATION_GENERATED_PATH_HEADROOM = 96
+_VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
+
 _NWT_VALIDATION_PROFILE_SIMPLE = """[modflownwt.runtime.nwt]
 version = "mfnwt"
 listunit = 2
@@ -364,38 +368,118 @@ def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
     return f"{text[:keep]}_{digest}"
 
 
+def _resolve_path_best_effort(path: Path) -> Path:
+    """Resolve *path* without failing only because the target is not creatable yet."""
+    try:
+        return path.expanduser().resolve()
+    except OSError:
+        return path.expanduser().absolute()
+
+
+def _default_validation_results_root() -> Path:
+    return Path(tempfile.gettempdir()) / "hydromodpy_validation_outputs"
+
+
+def _fallback_validation_results_root(base_out_path: str) -> Path:
+    digest = hashlib.sha1(str(base_out_path).encode("utf-8")).hexdigest()[:10]
+    return Path(tempfile.gettempdir()) / f"hydromodpy_validation_outputs_{digest}"
+
+
+def _windows_path_budget_exceeded(path: Path, *, headroom: int = 0) -> bool:
+    """Return True when *path* is likely to exceed Windows path limits."""
+    if os.name != "nt":
+        return False
+    return len(str(path)) + int(headroom) >= _WINDOWS_VALIDATION_PATH_LIMIT
+
+
+def _candidate_validation_results_dir(
+    *,
+    results_root: Path,
+    test_file: str | Path,
+    run_name: str,
+    component_length: int,
+) -> Path:
+    test_stem = _short_validation_name(
+        Path(test_file).resolve().stem,
+        max_length=component_length,
+    )
+    safe_run_name = _short_validation_name(run_name, max_length=component_length)
+    return results_root / test_stem / safe_run_name
+
+
+def _resolve_budgeted_validation_results_dir(
+    *,
+    results_root: Path,
+    test_file: str | Path,
+    run_name: str,
+) -> Path:
+    last_candidate: Path | None = None
+    for component_length in _VALIDATION_COMPONENT_LENGTHS:
+        candidate = _candidate_validation_results_dir(
+            results_root=results_root,
+            test_file=test_file,
+            run_name=run_name,
+            component_length=component_length,
+        )
+        last_candidate = candidate
+        if not _windows_path_budget_exceeded(
+            candidate,
+            headroom=_VALIDATION_GENERATED_PATH_HEADROOM,
+        ):
+            return candidate
+    assert last_candidate is not None
+    return last_candidate
+
+
 def resolve_validation_results_dir(*, test_file: str | Path, run_name: str) -> Path:
     """Create one deterministic output directory for a validation run."""
     base_out_path = os.environ.get("HMP_OUT_PATH")
     if base_out_path:
-        results_root = Path(base_out_path).expanduser().resolve() / "validation"
+        results_root = _resolve_path_best_effort(Path(base_out_path)) / "validation"
         probe_dir = results_root / f".__probe_{os.getpid()}_{time.time_ns()}"
         try:
             results_root.mkdir(parents=True, exist_ok=True)
             probe_dir.mkdir()
         except OSError:
-            results_root = Path(tempfile.gettempdir()) / "hydromodpy_validation_outputs"
+            results_root = _fallback_validation_results_root(base_out_path)
         else:
             probe_dir.rmdir()
     else:
-        results_root = Path(tempfile.gettempdir()) / "hydromodpy_validation_outputs"
+        results_root = _default_validation_results_root()
 
-    test_stem = _short_validation_name(Path(test_file).resolve().stem)
-    safe_run_name = _short_validation_name(run_name)
-    parent_dir = results_root / test_stem
-    out_dir = parent_dir / safe_run_name
+    out_dir = _resolve_budgeted_validation_results_dir(
+        results_root=results_root,
+        test_file=test_file,
+        run_name=run_name,
+    )
+    if (
+        base_out_path
+        and _windows_path_budget_exceeded(
+            out_dir,
+            headroom=_VALIDATION_GENERATED_PATH_HEADROOM,
+        )
+    ):
+        results_root = _fallback_validation_results_root(base_out_path)
+        out_dir = _resolve_budgeted_validation_results_dir(
+            results_root=results_root,
+            test_file=test_file,
+            run_name=run_name,
+        )
+
+    parent_dir = out_dir.parent
+    safe_run_name = out_dir.name
     if parent_dir.is_dir():
-        legacy_prefix = f"{safe_run_name}_"
+        stale_prefix = f"{safe_run_name}_"
         for sibling in parent_dir.iterdir():
             if (
                 sibling == out_dir
                 or not sibling.is_dir()
-                or not sibling.name.startswith(legacy_prefix)
+                or not sibling.name.startswith(stale_prefix)
             ):
                 continue
-            legacy_suffix = sibling.name[len(legacy_prefix) :]
-            if len(legacy_suffix) == 8 and all(
-                char in "0123456789abcdef" for char in legacy_suffix.lower()
+            stale_suffix = sibling.name[len(stale_prefix) :]
+            if len(stale_suffix) == 8 and all(
+                char in "0123456789abcdef" for char in stale_suffix.lower()
             ):
                 remove_tree_with_retry(sibling)
     if out_dir.exists():
@@ -470,34 +554,45 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
     return store, sim_id
 
 
-def materialize_postprocess_fields_to_store(
+def _normalize_validation_field_series(
+    fields: Mapping[str, Any],
+) -> dict[str, list[tuple[int, np.ndarray]]]:
+    """Normalize validation field payloads to sorted timestep series."""
+    payloads: dict[str, list[tuple[int, np.ndarray]]] = {}
+    for variable, raw_series in fields.items():
+        if isinstance(raw_series, Mapping):
+            raw_items = raw_series.items()
+        else:
+            raw_items = raw_series
+        series = [
+            (int(time_key), np.asarray(values, dtype="float64"))
+            for time_key, values in raw_items
+        ]
+        if not series:
+            continue
+        payloads[str(variable)] = sorted(series, key=lambda item: item[0])
+    return payloads
+
+
+def write_validation_fields_to_store(
     *,
     out_path: Path,
-    postprocess_dir: Path,
+    fields: Mapping[str, Any],
     solver_name: str,
     flow_regime: str = "steady",
-    variables: tuple[str, ...] = ("watertable_elevation", "watertable_depth"),
 ) -> tuple[Any, str | None]:
-    """Write validation postprocess fields to a SimulationCatalog."""
-    payloads: dict[str, list[tuple[int, np.ndarray]]] = {}
-    for variable in variables:
-        field_path = Path(postprocess_dir) / f"{variable}.npy"
-        if not field_path.exists():
-            continue
-        raw = np.load(field_path, allow_pickle=True).item()
-        if not isinstance(raw, Mapping) or not raw:
-            continue
-        payloads[variable] = [
-            (int(key), np.asarray(value, dtype="float64")) for key, value in sorted(raw.items())
-        ]
-
+    """Write in-memory validation field series to a SimulationCatalog."""
+    payloads = _normalize_validation_field_series(fields)
     if not payloads:
         return None, None
 
-    first_series = next(iter(payloads.values()))
-    first_values = first_series[0][1]
-    n_cells = int(first_values.size)
-    n_timesteps = len(first_series)
+    first_values_by_variable = [series[0][1] for series in payloads.values()]
+    shape_reference = next(
+        (values for values in first_values_by_variable if values.ndim == 2),
+        first_values_by_variable[0],
+    )
+    n_cells = int(shape_reference.size)
+    n_timesteps = max(len(series) for series in payloads.values())
     sim_id = str(uuid.uuid4())
 
     from hydromodpy.results.catalog import SimulationCatalog
@@ -517,8 +612,8 @@ def materialize_postprocess_fields_to_store(
     if registration.zarr is not None:
         registration.zarr.close()
 
-    if first_values.ndim == 2:
-        nrow, ncol = first_values.shape
+    if shape_reference.ndim == 2:
+        nrow, ncol = shape_reference.shape
         store.write_geographic_metadata(
             sim_id,
             {
@@ -560,6 +655,7 @@ def run_example_script(
     env[out_env_var] = str(out_path)
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
+    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -577,6 +673,8 @@ def run_example_script(
         cwd=str(cwd),
         env=env,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
     )
@@ -611,9 +709,8 @@ def _build_validation_launcher_config(
 ) -> Path:
     """Materialize one temporary launcher config with validation-only overrides.
 
-    Always materializes a temp file so ``hmp run`` sees the mandatory
-    ``workflow`` field and a workspace-resolvable ``[workspace]`` block,
-    even when the source TOML has neither.
+    Always materializes a temp file so ``hmp run`` sees validation-only
+    runtime overrides without mutating the source TOML.
     """
     metadata = load_case_metadata(case_dir)
     base_config_name = str(metadata.get("base_config", "")).strip()
@@ -644,9 +741,10 @@ def _build_validation_launcher_config(
     if not sim_section.get("run_id"):
         sim_section["run_id"] = stable_run_id
 
-    # hmp run requires an explicit top-level workflow field; validation
-    # TOMLs that predate this contract need the default here.
-    merged_payload.setdefault("workflow", "simulation")
+    if "workflow" not in merged_payload:
+        raise ValueError(
+            f"{config_path} must define [workflow] or inherit it from base_config."
+        )
 
     tmp_name = f".__validation_runtime_{config_path.stem}_{solver_name}_{os.getpid()}.toml"
     tmp_path = case_dir / tmp_name
@@ -718,8 +816,7 @@ def run_launcher_validation_case(
 ) -> ValidationRunResult:
     """Run one launcher-based validation case and resolve its output workspace.
 
-    Uses ``python -m hydromodpy run`` (the production CLI entry point)
-    instead of the removed ``launcher_simulation.py`` script.
+    Uses ``python -m hydromodpy run`` through the production CLI entry point.
     """
     metadata = load_case_metadata(case_dir)
     solver_name, config_file = _resolve_validation_solver_config(metadata, solver=solver)
@@ -740,6 +837,7 @@ def run_launcher_validation_case(
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
+    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
 
     # Validation runs never persist ``hydromodpy.lock``: the lockfile would
@@ -761,6 +859,8 @@ def run_launcher_validation_case(
             cwd=str(REPO_ROOT),
             env=env,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             timeout=timeout,
         )

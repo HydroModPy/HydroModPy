@@ -58,7 +58,7 @@ def _assert_windows_copy_uses_extended_path_fallback(
         if len(calls) == 1:
             raise _path_too_long_error()
 
-    monkeypatch.setattr(module.os, "name", "nt")
+    monkeypatch.setattr(module, "_is_windows", lambda: True)
     monkeypatch.setattr(module.shutil, "copy2", fake_copy2)
     monkeypatch.setattr(
         module,

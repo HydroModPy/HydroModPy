@@ -2,9 +2,9 @@
 
 Purpose
 -------
-Centralize reusable setup/build steps so both compact and compatibility
-pipelines call the same primitives (paths, DEM metadata, catchment extraction,
-domain support polygons).
+Centralize reusable setup/build steps so both compact feature builders and
+runtime pipelines call the same primitives (paths, DEM metadata, catchment
+extraction, domain support polygons).
 
 Why this module matters
 -----------------------

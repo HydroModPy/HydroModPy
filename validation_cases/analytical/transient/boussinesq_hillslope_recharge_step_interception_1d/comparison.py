@@ -71,7 +71,6 @@ def _load_outputs(
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     expected_spatial_shape = tuple(output_cfg.get("expected_spatial_shape", ())) or None
     period_indices, heads = load_time_series_fields(
-        postprocess_dir=result.postprocess_dir,
         store=result.store,
         sim_id=result.sim_id,
         observable_name=observable_name,

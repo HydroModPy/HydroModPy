@@ -26,7 +26,7 @@ class DemMetadata:
     The dataclass stores the clipped DEM arrays, geotransform, pixel size,
     projected bounds, centroid, optional WGS84 corner coordinates, and optional
     French department code. ``CatchmentDelineation`` uses it to expose the
-    legacy runtime attributes expected by domain and solver code.
+    runtime attributes expected by domain and solver code.
     """
 
     crs: str | None

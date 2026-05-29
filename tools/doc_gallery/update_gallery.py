@@ -44,6 +44,7 @@ from .mesh_case_registry import (
 from .mesh_case_registry import (
     scale_label as mesh_scale_label,
 )
+from .public_artifacts import sanitize_public_comparison_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_SOURCE_DIR = REPO_ROOT / "docs" / "source"
@@ -114,6 +115,10 @@ CATEGORY_GROUP_SPECS = (
 )
 
 
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
 def _gallery_temp_root() -> Path:
     """Return the temp root used by doc-gallery helpers and checks."""
 
@@ -151,7 +156,7 @@ def _windows_extended_length_path(path: Path) -> str:
 
 
 def _filesystem_path(path: Path) -> Path | str:
-    if os.name != "nt":
+    if not _is_windows():
         return path
     return _windows_extended_length_path(path)
 
@@ -162,7 +167,7 @@ def _copy_file(source_path: Path, destination_path: Path) -> None:
     try:
         shutil.copy2(source_path, destination_path)
     except OSError as exc:
-        if os.name == "nt" and getattr(exc, "winerror", None) in {3, 206}:
+        if _is_windows() and getattr(exc, "winerror", None) in _WINDOWS_EXTENDED_PATH_FALLBACK_WINERRORS:
             shutil.copy2(
                 _windows_extended_length_path(source_path),
                 _windows_extended_length_path(destination_path),
@@ -540,9 +545,20 @@ def _copy_summary_artifacts_from_baseline(
         destination_path = source_root / relative_path
         if not source_path.exists() or not source_path.is_file():
             continue
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        if (
+            relative_path.endswith("_comparison_manifest.json")
+            and "capability_gallery/simulation_comparison/" in relative_path
+        ):
+            _write_json(
+                destination_path,
+                sanitize_public_comparison_manifest(
+                    json.loads(source_path.read_text(encoding="utf-8"))
+                ),
+            )
+            continue
         if source_path.resolve() == destination_path.resolve():
             continue
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
         _copy_file(source_path, destination_path)
 
 
@@ -1180,6 +1196,21 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 "copied_to": _repo_docs_artifact_path(spec.category, asset.filename),
             }
         )
+
+    if spec.category == "simulation_comparison":
+        for source_path in spec.source_paths:
+            source_text = str(source_path)
+            if not source_text.endswith("_comparison_manifest.json"):
+                continue
+            source_manifest_path = _repo_path(source_text)
+            destination = source_root / _source_relative_from_repo_path(source_text)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            _write_json(
+                destination,
+                sanitize_public_comparison_manifest(
+                    json.loads(source_manifest_path.read_text(encoding="utf-8"))
+                ),
+            )
 
     metrics_override = None
     static_summary_path = str(spec.metadata.get("static_summary_path", "")).strip()
@@ -4358,7 +4389,9 @@ def _generate_simulation_comparison_case(
         SUMMARY_METRIC_FIELDS,
         write_metrics_csv,
     )
-    from hydromodpy.analysis.comparison.runtime.observables import write_observables_csv
+    from hydromodpy.analysis.comparison.runtime.observables import (
+        write_public_observables_csv,
+    )
 
     config_path_relative = str(spec.metadata["comparison_config_path"])
     config_path = _repo_path(config_path_relative)
@@ -4446,7 +4479,7 @@ def _generate_simulation_comparison_case(
     observables_path = static_dir / f"{spec.slug}_observables.csv"
     summary_csv_path = static_dir / f"{spec.slug}_summary_metrics.csv"
     differences_csv_path = static_dir / f"{spec.slug}_difference_metrics.csv"
-    _write_json(manifest_path, manifest)
+    _write_json(manifest_path, sanitize_public_comparison_manifest(manifest))
     write_metrics_csv(summary_csv_path, focus_summary_rows, fieldnames=SUMMARY_METRIC_FIELDS)
     extra_repo_paths = [
         _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_manifest.json"),
@@ -4454,7 +4487,7 @@ def _generate_simulation_comparison_case(
     ]
     if publish_full_artifacts:
         _write_json(metrics_path, metrics_payload)
-        write_observables_csv(observables_path, all_rows)
+        write_public_observables_csv(observables_path, all_rows)
         write_metrics_csv(differences_csv_path, focus_detail_rows, fieldnames=DETAIL_METRIC_FIELDS)
         extra_repo_paths.extend(
             [
@@ -6763,6 +6796,7 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         return {}
 
     geographic = dict(config.get("geographic", {}))
+    catchment = dict(geographic.get("catchment", {}))
     domain = dict(config.get("domain", {}))
     depth_model = dict(domain.get("depth_model", {}))
     data_cfg = dict(config.get("data", {}))
@@ -6772,37 +6806,37 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     selected_rows: list[dict[str, Any]] = []
     _add_parameter_row(
         selected_rows,
-        field="[geographic] catch_def",
+        field="[geographic.catchment] catch_def",
         meaning="Watershed extraction mode used to derive the basin from the outlet definition.",
-        value=geographic.get("catch_def"),
+        value=catchment.get("catch_def"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] x_outlet",
+        field="[geographic.catchment] x_outlet",
         meaning="Projected x coordinate of the outlet used by watershed extraction.",
-        value=geographic.get("x_outlet"),
+        value=catchment.get("x_outlet"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] y_outlet",
+        field="[geographic.catchment] y_outlet",
         meaning="Projected y coordinate of the outlet used by watershed extraction.",
-        value=geographic.get("y_outlet"),
+        value=catchment.get("y_outlet"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] snap_dist",
+        field="[geographic.catchment] snap_dist",
         meaning="Maximum snapping distance used to align the requested outlet with the drainage network.",
-        value=geographic.get("snap_dist"),
+        value=catchment.get("snap_dist"),
         source=config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[geographic] buff_area",
+        field="[geographic.catchment] buff_area",
         meaning="Extra area kept around the watershed to preserve regional context in overview figures.",
-        value=geographic.get("buff_area"),
+        value=catchment.get("buff_area"),
         source=config_path or "",
     )
     _add_parameter_row(

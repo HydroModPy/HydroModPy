@@ -31,4 +31,6 @@ def load_custom(
         station_ids=config.station_ids,
         default_unit="mm/day",
         source_unit=config.source_unit,
+        grid_crs=config.crs,
+        grid_nodata=config.nodata,
     )
