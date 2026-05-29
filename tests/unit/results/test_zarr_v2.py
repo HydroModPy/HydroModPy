@@ -7,6 +7,8 @@ mapping, schema version checks, and the topography/particles renames.
 
 from __future__ import annotations
 
+import os
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +27,7 @@ from hydromodpy.results.zarr_store import (
     compute_balanced_chunks_2d,
     should_use_sharding,
 )
+import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
 
 
 @pytest.fixture
@@ -123,6 +126,28 @@ def test_cf_fillvalue_attached_to_head(fresh_store: SimulationZarr) -> None:
     assert head.attrs.get("long_name", "").startswith("Groundwater head")
 
 
+def test_local_store_retries_transient_chunk_write_permission_error(
+    fresh_store: SimulationZarr,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_set = zarr_schema.RetryingLocalStore._set
+    calls = {"failures": 0}
+
+    async def flaky_set(self, key, value, exclusive=False):
+        if "/c/" in key and calls["failures"] == 0:
+            calls["failures"] += 1
+            raise PermissionError(5, "Access denied", str(self.root / key))
+        return await original_set(self, key, value, exclusive=exclusive)
+
+    monkeypatch.setattr(zarr_schema.RetryingLocalStore, "_set", flaky_set)
+
+    values = np.arange(8, dtype="float64").reshape(2, 4)
+    fresh_store.write_field("head", 0, values, n_timesteps=1)
+
+    assert calls["failures"] == 1
+    np.testing.assert_allclose(fresh_store.root["head"][0], values)
+
+
 def test_balanced_chunking_default(fresh_store: SimulationZarr) -> None:
     fresh_store.write_field("head", 0, np.arange(100, dtype="float64"), n_timesteps=2000)
     head = fresh_store.root["head"]
@@ -161,6 +186,58 @@ def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
         assert "head" in sz2.root
     finally:
         sz2.close()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows long-path regression")
+def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
+    long_dir = tmp_path
+    idx = 0
+    while (
+        len(
+            str(
+                (
+                    long_dir
+                    / "sim.zarr"
+                    / "derived"
+                    / "watertable_elevation"
+                    / "c"
+                    / "0"
+                    / "0"
+                ).resolve()
+            )
+        )
+        < 280
+    ):
+        long_dir = long_dir / f"nested_{idx}_{'x' * 36}"
+        idx += 1
+
+    values = np.array([220.0, 221.0, 222.0, 223.0], dtype="float64")
+    sz = SimulationZarr.create(long_dir / "sim.zarr", n_cells=4, n_layers=1)
+    try:
+        sz.write_field(
+            "watertable_elevation",
+            0,
+            values,
+            n_timesteps=1,
+            subgroup="derived",
+        )
+        zip_path = sz.pack_to_zip()
+    finally:
+        sz.close()
+
+    with zipfile.ZipFile(str(zip_path), "r") as zf:
+        names = set(zf.namelist())
+    assert "derived/watertable_elevation/zarr.json" in names
+    assert any(name.startswith("derived/watertable_elevation/c/") for name in names)
+
+    reopened = SimulationZarr(zip_path)
+    try:
+        np.testing.assert_allclose(
+            reopened.root["derived"]["watertable_elevation"][0],
+            values,
+        )
+    finally:
+        reopened.close()
 
 
 def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:

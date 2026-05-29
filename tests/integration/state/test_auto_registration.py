@@ -128,6 +128,23 @@ def test_auto_register_workspace_swallows_errors(
     assert result is None
 
 
+def test_auto_register_workspace_respects_env_opt_out(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Validation subprocesses can disable machine-wide index writes."""
+    monkeypatch.setenv("HMP_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("HMP_AUTO_REGISTER_WORKSPACE", "0")
+
+    workspace_root = tmp_path / "ws_disabled"
+    workspace_root.mkdir()
+
+    result = auto_register_workspace(workspace_root, label="disabled")
+    assert result is None
+
+    with GlobalIndex() as index:
+        assert index.list_workspaces() == []
+
+
 def test_step_setup_registers_workspace_in_global_index(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

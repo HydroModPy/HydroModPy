@@ -137,7 +137,10 @@ def _build_steady_flow(base_flow: Flow, *, ic_value_m: float, recharge_value_m_s
 
 def _build_transient_flow(base_flow: Flow, *, recharge_value_m_s: float = 0.0) -> Flow:
     """Clone the case flow config and force a pure recession transient run."""
-    flow_cfg = base_flow.config.model_copy(deep=True, update={"flow_regime": "transient"})
+    flow_cfg = base_flow.config.model_copy(
+        deep=True,
+        update={"flow_regime": "transient", "first_period_steady": False},
+    )
     flow = Flow(flow_cfg)
     flow.set_recharge(
         copy.deepcopy(base_flow.sinks_sources["recharge"]).model_copy(
@@ -154,12 +157,11 @@ def _clone_flow(base_flow: Flow) -> Flow:
     return flow
 
 
-def _load_outlet_series(model_ws: Path) -> tuple[float, ...]:
-    """Return the saved east-side outlet discharge series as plain scalars."""
-    payload = np.load(
-        model_ws / "_postprocess" / f"{OUTLET_OBSERVABLE}.npy",
-        allow_pickle=True,
-    ).item()
+def _load_outlet_series(model) -> tuple[float, ...]:
+    """Return the computed east-side outlet discharge series as plain scalars."""
+    payload = getattr(model, f"dict_{OUTLET_OBSERVABLE}", None)
+    if not payload:
+        return ()
     ordered = sorted((int(key), np.asarray(value, dtype=float)) for key, value in payload.items())
     return tuple(float(np.asarray(value, dtype=float).reshape(-1)[0]) for _, value in ordered)
 
@@ -361,7 +363,7 @@ def _run_nwt_probe(
             )
         )
         model_ws = Path(model.full_path)
-        outlet_series = _load_outlet_series(model_ws)
+        outlet_series = _load_outlet_series(model)
         final_head = _load_restart_head(model_ws, model.model_name)
     else:
         model_ws = Path(model.full_path)
@@ -456,7 +458,7 @@ def _run_mf6_probe(
             )
         )
         model_ws = Path(model.full_path)
-        outlet_series = _load_outlet_series(model_ws)
+        outlet_series = _load_outlet_series(model)
         final_head = _load_restart_head(model_ws, model.model_name)
     else:
         model_ws = Path(model.full_path)
@@ -912,9 +914,6 @@ def main() -> None:
     results: list[ProbeResult] = []
 
     nwt_steady_flat_cfg = nwt_cfg.model_copy(deep=True)
-    nwt_steady_flat_cfg.tgrid = nwt_steady_flat_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     nwt_steady_flat_result, _ = _run_nwt_probe(
         probe_id=PROBE_IDS["nwt_steady_flat"],
         stage="steady",
@@ -934,9 +933,6 @@ def main() -> None:
     results.append(nwt_steady_flat_result)
 
     nwt_steady_nudged_cfg = nwt_cfg.model_copy(deep=True)
-    nwt_steady_nudged_cfg.tgrid = nwt_steady_nudged_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     nwt_steady_nudged_result, nwt_steady_head = _run_nwt_probe(
         probe_id=PROBE_IDS["nwt_steady_nudged"],
         stage="steady",
@@ -958,9 +954,6 @@ def main() -> None:
         raise RuntimeError("The NWT nudged steady probe did not produce a restart head field.")
 
     nwt_transient_simple_cfg = nwt_cfg.model_copy(deep=True)
-    nwt_transient_simple_cfg.tgrid = nwt_transient_simple_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     nwt_transient_simple_result, _ = _run_nwt_probe(
         probe_id=PROBE_IDS["nwt_transient_simple"],
         stage="transient",
@@ -977,9 +970,6 @@ def main() -> None:
     results.append(nwt_transient_simple_result)
 
     nwt_transient_complex_cfg = nwt_cfg.model_copy(deep=True)
-    nwt_transient_complex_cfg.tgrid = nwt_transient_complex_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     nwt_transient_complex_cfg.runtime.nwt = nwt_transient_complex_cfg.runtime.nwt.model_copy(
         update={"options": "COMPLEX", "maxiterout": 2000}
     )
@@ -999,9 +989,6 @@ def main() -> None:
     results.append(nwt_transient_complex_result)
 
     mf6_steady_flat_cfg = mf6_cfg.model_copy(deep=True)
-    mf6_steady_flat_cfg.tgrid = mf6_steady_flat_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     mf6_steady_flat_result, _ = _run_mf6_probe(
         probe_id=PROBE_IDS["mf6_steady_flat"],
         stage="steady",
@@ -1021,9 +1008,6 @@ def main() -> None:
     results.append(mf6_steady_flat_result)
 
     mf6_steady_nudged_cfg = mf6_cfg.model_copy(deep=True)
-    mf6_steady_nudged_cfg.tgrid = mf6_steady_nudged_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     mf6_steady_nudged_result, mf6_steady_head = _run_mf6_probe(
         probe_id=PROBE_IDS["mf6_steady_nudged"],
         stage="steady",
@@ -1045,9 +1029,6 @@ def main() -> None:
         raise RuntimeError("The MF6 nudged steady probe did not produce a restart head field.")
 
     nwt_transient_from_mf6_head_cfg = nwt_cfg.model_copy(deep=True)
-    nwt_transient_from_mf6_head_cfg.tgrid = nwt_transient_from_mf6_head_cfg.tgrid.model_copy(
-        update={"firstpersteady": False}
-    )
     nwt_transient_from_mf6_head_result, _ = _run_nwt_probe(
         probe_id=PROBE_IDS["nwt_transient_from_mf6_head"],
         stage="transient",
@@ -1093,7 +1074,6 @@ def main() -> None:
     results.append(nwt_one_shot_confined_result)
 
     mf6_transient_cfg = mf6_cfg.model_copy(deep=True)
-    mf6_transient_cfg.tgrid = mf6_transient_cfg.tgrid.model_copy(update={"firstpersteady": False})
     mf6_transient_result, _ = _run_mf6_probe(
         probe_id=PROBE_IDS["mf6_transient"],
         stage="transient",

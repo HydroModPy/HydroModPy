@@ -17,7 +17,7 @@ end_datetime = "2020-12-31 00:00:00"
 step_value = "1 month"
 coverage_policy = "warn"
 
-[geographic]
+[geographic.catchment]
 x_outlet = 400866.1983
 y_outlet = 6923974.693
 
@@ -70,6 +70,7 @@ ipakcb = 1
 output_file_name = "mt3d_link.ftl"
 extension = "lmt8"
 output_format = "unformatted"
+
 [modflownwt.sgrid.planar]
 mode = "resample_to_shape"
 nx = 80

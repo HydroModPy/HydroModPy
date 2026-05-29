@@ -45,7 +45,6 @@ from hydromodpy.spatial.surface import Surface
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.workspace import Workspace
-    from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 
@@ -59,7 +58,7 @@ class DomainGeographicContext:
     The context is the compact object returned by
     ``CatchmentDelineation.get_domain_geographic_context()``. It contains the
     topographic surface, domain polygons, area, outlet metadata, zone mode, and
-    optional river trace needed to build a domain without passing the full
+    metadata needed to build a domain without passing the full
     ``CatchmentDelineation`` runtime object.
 
     Attributes
@@ -83,10 +82,6 @@ class DomainGeographicContext:
     zone_kind
         ``"catchment"`` for the historical 3-zone raster, ``"uniform"`` for
         direct-DEM domains with no catchment/buffer notion.
-    river_mesh_trace
-        Compatibility alias of ``GeographicDerivedFeatures.rivers.river_mesh_trace``.
-        New orchestration code should prefer the richer geographic-features
-        bundle instead of attaching river products directly to the domain view.
     regional_dem_path
         Full-resolution regional DEM used to contextualize the catchment on
         a broader map when needed.
@@ -102,7 +97,6 @@ class DomainGeographicContext:
     watershed_box_shp: str | None
     box_buff_shp: str
     zone_kind: str
-    river_mesh_trace: RiverMeshTrace | None = None
     regional_dem_path: str | None = None
 
 
@@ -119,7 +113,7 @@ def build_domain_geographic_context(
     config: GeographicConfig,
     workspace: Workspace,
 ) -> DomainGeographicContext:
-    """Compute the historical domain-geographic compatibility payload."""
+    """Compute the narrow geographic payload consumed by domain binders."""
     return build_geographic_derived_features(
         config=config,
         workspace=workspace,
@@ -135,7 +129,7 @@ def build_geographic_derived_features(
 
     The sequence depends on the selected mode:
     - ``synthetic``: build one analytical support and reuse its exported
-      compatibility artifacts;
+      support artifacts;
     - ``dem``: derive domain footprint directly from the DEM and build one
       uniform zone support;
     - catchment modes: generate flow rasters, build catchment polygons,
@@ -284,10 +278,14 @@ def build_geographic_derived_features(
             streams_pruned_tif=generated_hydrographic_network_products.streams_pruned_tif,
             stream_order_strahler_tif=generated_hydrographic_network_products.stream_order_strahler_tif,
             stream_link_id_tif=generated_hydrographic_network_products.stream_link_id_tif,
-            network_shp=generated_hydrographic_network_products.network_shp,
+            hydrographic_network_generated_shp=(
+                generated_hydrographic_network_products.hydrographic_network_generated_shp
+            ),
             network_crs=generated_hydrographic_network_products.network_crs,
             river_mesh_trace=generated_hydrographic_network_products.river_mesh_trace,
-            summary_json=generated_hydrographic_network_products.summary_json,
+            hydrographic_network_generated_summary_json=(
+                generated_hydrographic_network_products.hydrographic_network_generated_summary_json
+            ),
         ),
         catchment_area_km2=float(catchment_area_km2),
         catch_def=str(config.catch_def),

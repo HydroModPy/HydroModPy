@@ -127,8 +127,8 @@ class Modflow6PrtParametersConfig(HydroModelBase):
     release_zone: Annotated[str, Profile.DEV] = Field(
         default="domain",
         description=(
-            "Particle release selector: 'domain', 'upstream', 'upstream_nonriver', "
-            "'river', 'outlet', or 'custom'."
+            "Particle release selector: 'domain', 'domain_nonriver', 'upstream', "
+            "'upstream_nonriver', 'river', 'outlet', or 'custom'."
         ),
     )
     upstream_top_quantile: Annotated[float, Profile.DEV] = Field(

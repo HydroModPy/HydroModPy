@@ -258,13 +258,7 @@ _CALIB_OUTPUT_ADAPTER: TypeAdapter[CalibOutputDecl] = TypeAdapter(CalibOutputDec
 
 
 def validate_calib_output(payload: Any) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell:
-    """Validate one output mapping and return the concrete variant instance.
-
-    A missing ``support`` key defaults to ``'point'`` so legacy TOMLs that
-    relied on the previous default keep validating cleanly.
-    """
-    if isinstance(payload, dict) and "support" not in payload:
-        payload = {"support": "point", **payload}
+    """Validate one output mapping and return the concrete variant instance."""
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
 
 
@@ -451,35 +445,6 @@ class CalibrationConfig(HydroModelBase):
         if isinstance(value, Path):
             return PurePosixPath(value.as_posix())
         return PurePosixPath(str(value).replace("\\", "/"))
-
-    @field_validator("outputs", mode="before")
-    @classmethod
-    def _default_output_support(cls, value: Any) -> Any:
-        """Default missing 'support' to 'point' so legacy TOMLs validate.
-
-        The discriminated union requires an explicit ``support`` tag. Older
-        TOMLs that relied on the previous ``support='point'`` default get a
-        seamless upgrade by injecting the tag here, with a warning so authors
-        notice the silent default before it bites their boundary/cell intent.
-        """
-        if not isinstance(value, dict):
-            return value
-        out: dict[str, Any] = {}
-        for key, entry in value.items():
-            if isinstance(entry, dict) and "support" not in entry:
-                import warnings
-
-                warnings.warn(
-                    f"calibration.outputs.{key} omits 'support'; defaulting to "
-                    "'point'. Declare support='point'|'boundary'|'cell' to silence "
-                    "this warning.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-                out[key] = {"support": "point", **entry}
-            else:
-                out[key] = entry
-        return out
 
     @model_validator(mode="after")
     def _ensure_implicit_objective_block(self) -> CalibrationConfig:

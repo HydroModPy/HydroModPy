@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import Polygon
 
 from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.geoparquet_io import read_geoparquet, write_geoparquet_atomic
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -226,4 +227,23 @@ def test_geographic_feature_uses_parquet_geometry_payload(catalog):
     assert len(loaded) == 1
     # GeoParquet 1.1 OGC stores the CRS as PROJJSON inside the file metadata.
     # Use pyproj to round-trip back to EPSG so the test stays format-agnostic.
+    assert loaded.crs.to_epsg() == 2154
+
+
+def test_geoparquet_atomic_writer_handles_long_windows_paths(tmp_path):
+    long_dir = tmp_path
+    for idx in range(6):
+        long_dir = long_dir / f"nested_{idx}_{'x' * 40}"
+    target = long_dir / "feature.parquet"
+    assert len(str(target)) > 260
+    gdf = gpd.GeoDataFrame(
+        {"name": ["domain"]},
+        geometry=[Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)])],
+        crs="EPSG:2154",
+    )
+
+    write_geoparquet_atomic(gdf, target)
+
+    loaded = read_geoparquet(target)
+    assert len(loaded) == 1
     assert loaded.crs.to_epsg() == 2154

@@ -336,7 +336,7 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
                 "name": "workspace",
                 "status": "WARN",
                 "detail": f"{ws} does not exist",
-                "hint": "Run 'hmp init <workspace>' to scaffold one",
+                "hint": "Run 'hmp workspace init <workspace>' to scaffold one",
             }
         ]
     cache = ws / "data" / "cache.duckdb"

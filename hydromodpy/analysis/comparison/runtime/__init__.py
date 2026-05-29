@@ -19,10 +19,12 @@ from .metadata import (
     read_simulation_run_metrics,
 )
 from .observables import (
+    PUBLIC_OBSERVABLE_CSV_FIELDNAMES,
     extract_observable_rows,
     normalize_observable_value,
     select_time_slices,
     write_observables_csv,
+    write_public_observables_csv,
 )
 from .physics import is_nodata_value
 from .series import (
@@ -37,6 +39,7 @@ __all__ = (
     "TimeSlice",
     "VariableSeries",
     "_resolve_recorded_output_path",
+    "PUBLIC_OBSERVABLE_CSV_FIELDNAMES",
     "compact_run_metrics",
     "discover_result_store",
     "extract_observable_rows",
@@ -54,5 +57,6 @@ __all__ = (
     "resolve_structured_shape_from_run_folder",
     "select_time_slices",
     "write_observables_csv",
+    "write_public_observables_csv",
     "write_toml_payload",
 )

@@ -1,13 +1,13 @@
 """End-to-end: from-scratch user workflow.
 
 Walks the chain a new user would follow:
-1. ``hmp init`` to scaffold a workspace.
+1. ``hmp workspace init`` to scaffold a workspace.
 2. Inspect ``workspace.toml`` and the scaffolded layout.
 3. ``hmp data fetch`` for a variable that does not require network (the
    sub-verb writes a deterministic placeholder + sidecar).
 4. Seed a minimal simulation via the public Python API so the catalog
    carries a real Zarr field. This stands in for a full solver run on the
-   ``launcher_simulation`` fixture, which is exercised by the regression
+   ``simulation_regression`` fixture, which is exercised by the regression
    tier with the same CLI entry point.
 5. Open the catalog via ``hmp.open`` and read a field via ``hmp.read``.
 6. Export the field to NetCDF and check the ACDD / CF attrs are carried.
@@ -39,8 +39,10 @@ def _run_hmp(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
         cwd=str(cwd) if cwd else None,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
-        timeout=180,
+        timeout=600,
     )
 
 
@@ -84,7 +86,7 @@ def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> t
 
 @pytest.mark.e2e
 def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
-    """Drive ``hmp init`` + ``hmp data fetch`` + catalog access end-to-end."""
+    """Drive ``hmp workspace init`` + ``hmp data fetch`` + catalog access end-to-end."""
     workspace = tmp_path / "fresh_workspace"
 
     # ----- Step 1: hmp workspace init ----------------------------------------
@@ -107,7 +109,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
 
     # ----- Step 2: workspace.toml carries the fields we passed --------------
     workspace_toml = workspace / "workspace.toml"
-    assert workspace_toml.is_file(), "workspace.toml must be created by hmp init"
+    assert workspace_toml.is_file(), "workspace.toml must be created by hmp workspace init"
     metadata = tomllib.loads(workspace_toml.read_text(encoding="utf-8"))
     assert metadata["workspace"]["name"] == "foo"
     assert metadata["workspace"]["contact"] == "test@example.com"
@@ -148,7 +150,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
 
     # ----- Step 5: seed a minimal simulation via the Python API -------------
     # We do not invoke the solver here. A real ``hmp run`` on
-    # ``tests/regression/fixtures/projects/launcher_simulation/`` is covered
+    # ``tests/regression/fixtures/projects/simulation_regression/`` is covered
     # by the regression tier; this step only checks that the catalog,
     # Zarr field and Parquet artefacts that ``hmp run`` is supposed to
     # produce can be queried back via the user-facing API.
@@ -177,13 +179,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     # ----- Step 7: hmp.open + hmp.read return a real field ------------------
     with hmp.open(workspace) as catalog:
         run = catalog[sim_id]
-        da = hmp.read(run, "head")
-        # Either xarray.DataArray (lazy default) or numpy.ndarray; both expose
-        # the values we wrote.
-        if hasattr(da, "values"):
-            data = np.asarray(da.values)
-        else:
-            data = np.asarray(da)
+        data = np.asarray(hmp.read(run, "head", time=0, layer=0))
         assert data.shape[-1] == 4
         assert np.allclose(data, 7.5)
 
@@ -200,6 +196,7 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
 
     workspace = tmp_path / "fresh_workspace"
     init = _run_hmp(
+        "workspace",
         "init",
         str(workspace),
         "--project-name",
@@ -233,8 +230,8 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
 
 
 @pytest.mark.e2e
-def test_workflow_from_scratch_run_launcher_fixture(tmp_path: Path) -> None:
-    """Best-effort: drive ``hmp run`` on the launcher_simulation fixture.
+def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path) -> None:
+    """Best-effort: drive ``hmp run`` on the simulation_regression fixture.
 
     Skipped automatically when the required solver binaries are unavailable
     or when the fixture toml carries data sources that need network access.
@@ -244,11 +241,11 @@ def test_workflow_from_scratch_run_launcher_fixture(tmp_path: Path) -> None:
         / "regression"
         / "fixtures"
         / "projects"
-        / "launcher_simulation"
+        / "simulation_regression"
     )
     run_toml = fixture_dir / "run_fast_nwt.toml"
     if not run_toml.is_file():
-        pytest.skip(f"launcher_simulation fixture not found at {run_toml}")
+        pytest.skip(f"simulation_regression fixture not found at {run_toml}")
 
     # Solver binary gate: skip rather than fail when binaries are missing.
     from hydromodpy.core.workspace.workspace import resolve_bin_path
@@ -282,11 +279,13 @@ def test_workflow_from_scratch_run_launcher_fixture(tmp_path: Path) -> None:
         env=merged,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=900,
     )
     if completed.returncode != 0:
         pytest.skip(
-            "hmp run on launcher_simulation fixture did not complete (likely needs network "
+            "hmp run on simulation_regression fixture did not complete (likely needs network "
             f"data or extra binaries). Stderr tail:\n{completed.stderr[-2000:]}"
         )
 

@@ -26,7 +26,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
             reproduction_command="python -m tools.doc_gallery",
             source_paths=(
                 "examples/projects/09_capability_gallery/README.md",
-                "examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
+                "examples/projects/09_capability_gallery/simulation_regression/modflow6_gmsh_mesh_catchment/manifest.json",
                 "hydromodpy/analysis/capability_gallery.py",
             ),
             generator="copy_assets",
@@ -39,7 +39,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     ),
                     alt_text="Triptych showing topography, hydraulic head, and water-table depth on a Gmsh mesh",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "modflow6_gmsh_mesh_catchment/flow_state_triptych.png"
                     ),
                 ),
@@ -48,7 +48,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     caption="Cumulative recharge and discharge curves from the same launcher run.",
                     alt_text="Cumulative recharge and discharge curves",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "modflow6_gmsh_mesh_catchment/recharge_discharge_cumulative.png"
                     ),
                 ),
@@ -60,7 +60,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     ),
                     alt_text="Runtime Gmsh support overview used by MODFLOW 6",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "modflow6_gmsh_mesh_catchment/flow_support_overview.png"
                     ),
                 ),
@@ -131,7 +131,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
             reproduction_command="python -m tools.doc_gallery",
             source_paths=(
                 "examples/projects/09_capability_gallery/README.md",
-                "examples/projects/09_capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
+                "examples/projects/09_capability_gallery/simulation_regression/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
                 "hydromodpy/analysis/capability_gallery.py",
             ),
             generator="copy_assets",
@@ -144,7 +144,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     ),
                     alt_text="Flow-state triptych for the committed 100 km2 outlet-2 mesh",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "headwater_100km2_outlet_2_mf6_transient_reference/flow_state_triptych.png"
                     ),
                 ),
@@ -153,7 +153,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     caption="Three-year cumulative recharge and discharge curves for the committed-mesh MF6 replay.",
                     alt_text="Cumulative recharge and discharge on the committed 100 km2 outlet-2 replay",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "headwater_100km2_outlet_2_mf6_transient_reference/recharge_discharge_cumulative.png"
                     ),
                 ),
@@ -162,7 +162,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     caption="Water-table elevation map from the reference transient replay.",
                     alt_text="Water-table elevation map for the committed 100 km2 outlet-2 replay",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "headwater_100km2_outlet_2_mf6_transient_reference/watertable_elevation.png"
                     ),
                 ),
@@ -171,7 +171,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     caption="Water-table depth map from the reference transient replay.",
                     alt_text="Water-table depth map for the committed 100 km2 outlet-2 replay",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "headwater_100km2_outlet_2_mf6_transient_reference/watertable_depth.png"
                     ),
                 ),
@@ -183,7 +183,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                     ),
                     alt_text="Support overview for the committed 100 km2 outlet-2 replay",
                     source_path=(
-                        "examples/projects/09_capability_gallery/launcher_simulation/"
+                        "examples/projects/09_capability_gallery/simulation_regression/"
                         "headwater_100km2_outlet_2_mf6_transient_reference/flow_support_overview.png"
                     ),
                 ),

@@ -180,6 +180,41 @@ class Modflow6Prt:
         cutoff = np.nanpercentile(top[valid], percentile)
         return active & (top >= cutoff)
 
+    def _spatially_sample_release_cells(self, selected: np.ndarray, max_count: int) -> np.ndarray:
+        """Select a deterministic, spatially spread subset of release cells."""
+
+        if selected.size <= max_count:
+            return selected
+        centroids = np.asarray(
+            self.model_modflow.solver_mesh.cell_centroids(), dtype=float
+        ).reshape(int(self.model_modflow.ncpl), 2)
+        coords = centroids[selected]
+        finite = np.all(np.isfinite(coords), axis=1)
+        if np.count_nonzero(finite) < max_count:
+            keep = np.linspace(0, selected.size - 1, max_count, dtype=int)
+            return selected[keep]
+
+        finite_positions = np.flatnonzero(finite)
+        finite_coords = coords[finite_positions]
+        center = np.nanmean(finite_coords, axis=0)
+        first = int(np.argmin(np.sum((finite_coords - center) ** 2, axis=1)))
+        chosen_positions = [int(finite_positions[first])]
+        min_dist2 = np.sum((coords - coords[chosen_positions[0]]) ** 2, axis=1)
+
+        while len(chosen_positions) < max_count:
+            min_dist2[chosen_positions] = -np.inf
+            next_pos = int(np.nanargmax(min_dist2))
+            if not np.isfinite(min_dist2[next_pos]):
+                break
+            chosen_positions.append(next_pos)
+            candidate_dist2 = np.sum((coords - coords[next_pos]) ** 2, axis=1)
+            min_dist2 = np.minimum(min_dist2, candidate_dist2)
+
+        if len(chosen_positions) < max_count:
+            remaining = [idx for idx in range(selected.size) if idx not in set(chosen_positions)]
+            chosen_positions.extend(remaining[: max_count - len(chosen_positions)])
+        return selected[np.asarray(chosen_positions[:max_count], dtype=int)]
+
     def _select_release_cells(self) -> np.ndarray:
         solver_mesh = self.model_modflow.solver_mesh
         ncpl = int(self.model_modflow.ncpl)
@@ -199,6 +234,8 @@ class Modflow6Prt:
             selected = np.flatnonzero(
                 self._upstream_planar_mask(active) & ~self._stream_support_mask()
             )
+        elif zone in {"domain_nonriver", "domain_non_river", "nonriver", "land"}:
+            selected = np.flatnonzero(active & ~self._stream_support_mask())
         elif zone == "outlet":
             top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
             river_mask = self._stream_support_mask()
@@ -214,8 +251,8 @@ class Modflow6Prt:
         else:
             raise ValueError(
                 "Unsupported modflow6prt release_zone "
-                f"{self.release_zone!r}; expected domain, upstream, upstream_nonriver, "
-                "river, outlet, or custom."
+                f"{self.release_zone!r}; expected domain, domain_nonriver, upstream, "
+                "upstream_nonriver, river, outlet, or custom."
             )
 
         selected = np.asarray(selected, dtype=int)
@@ -224,8 +261,7 @@ class Modflow6Prt:
         if self.sel_slice is not None:
             selected = selected[:: int(self.sel_slice)]
         if self.max_particles is not None and selected.size > int(self.max_particles):
-            keep = np.linspace(0, selected.size - 1, int(self.max_particles), dtype=int)
-            selected = selected[keep]
+            selected = self._spatially_sample_release_cells(selected, int(self.max_particles))
         if selected.size == 0:
             raise ValueError(f"MODFLOW 6 PRT release zone {self.release_zone!r} selected no cells.")
         return selected

@@ -8,7 +8,7 @@
   "case_setup": [
     "Base config: `project.toml` loads the offline Nancon basin data bundle, activates `recharge`, `etp`, and top `drainage`, and defines the default display contract.",
     "Overlay config: `run_transient_nwt.toml` selects the monthly 2000-2002 transient window, the `modflow_nwt` backend, the homogeneous K/Sy/Ss values, and the stable capability-gallery publication block.",
-    "Execution chain: observed-basin setup -> transient MODFLOW-NWT flow -> catalog-backed figure rendering -> stable publication into `examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/`."
+    "Execution chain: observed-basin setup -> transient MODFLOW-NWT flow -> catalog-backed figure rendering -> stable publication into `examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/`."
   ],
   "key_parameters": [
     "`[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly window used by the hydrograph and budget figures.",
@@ -42,7 +42,7 @@
     "examples/projects/02_nancon_watershed/project.toml",
     "examples/projects/02_nancon_watershed/run_transient_nwt.toml",
     "examples/projects/02_nancon_watershed/README.md",
-    "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/manifest.json",
+    "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/manifest.json",
     "hydromodpy/analysis/capability_gallery.py",
     "hydromodpy/display/figures/simulated_active_network.py",
     "hydromodpy/display/figures/hydrographic_network_comparison.py"
@@ -51,7 +51,7 @@
     "examples/projects/02_nancon_watershed/project.toml": "26f86f66ca5940539d952303c044223a68db4144e9d04d0f8e9b4a61cb73946d",
     "examples/projects/02_nancon_watershed/run_transient_nwt.toml": "4155097fcb3c9bdfd6bb1f6b991f4ff2b61f3d094b3e0b5a60b98046d868b72f",
     "examples/projects/02_nancon_watershed/README.md": "431d2cdc25bdb5697eb3620e4133032633c344fc10d3bd24e3fca33990518959",
-    "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/manifest.json": "d4546ac40b783f3cc619c29d96d69cfc74ef8f994de2656cae4d32bf2ab53328",
+    "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/manifest.json": "d4546ac40b783f3cc619c29d96d69cfc74ef8f994de2656cae4d32bf2ab53328",
     "hydromodpy/analysis/capability_gallery.py": "38f3ad0d3b9b9ef635a9cc9e333222d42e52b481a4173918d21db8db475c84fa",
     "hydromodpy/display/figures/simulated_active_network.py": "26bfcb921b8c0b58475882bb4d676ff67d713111333ec5de25ee40380e1558f3",
     "hydromodpy/display/figures/hydrographic_network_comparison.py": "23eb14f17c9ae975d9fe75bc6491a0104a567309c3e5a27fb2a159a7e0848a67"
@@ -123,23 +123,23 @@
     ],
     "copied_assets": [
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/hydrographic_network_comparison.png",
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrographic_network_comparison.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/simulated_active_network_reference_overlay.png",
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/simulated_active_network_reference_overlay.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/piezometric_map.png",
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/piezometric_map.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/hydrograph.png",
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/hydrograph.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png"
       },
       {
-        "source_path": "examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/water_budget.png",
+        "source_path": "examples/projects/09_capability_gallery/simulation_regression/nancon_transient_nwt/water_budget.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png"
       }
     ]

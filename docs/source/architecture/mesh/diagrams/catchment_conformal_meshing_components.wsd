@@ -13,14 +13,15 @@ package "Shared Mesh Runtime" {
 
 package "Geographic Context Layer" {
   component "Workspace" as Workspace
-  component "build_domain_geographic_context(...)" as DomainPipeline
-  component "DomainGeographicContext\ncatchment / DEM / river_mesh_trace" as DomainContext
+  component "build_geographic_derived_features(...)" as GeographicPipeline
+  component "GeographicDerivedFeatures\nsurface / boundaries / rivers" as GeographicFeatures
+  component "DomainGeographicContext\ncatchment / DEM support" as DomainContext
 }
 
 package "Constraint Source Layer" {
   component "load_zone_meshing_domain_payload(...)\n(domain support)" as DomainSupport
   component "load_vector_geology_dataframe(...)\n(optional geology zones)" as GeologySource
-  component "river_trace\nin-memory or file-backed source" as RiverTrace
+  component "river_trace\nfrom geographic_features.rivers\nor file-backed source" as RiverTrace
 }
 
 package "Meshing Case Layer" {
@@ -44,14 +45,16 @@ MeshFacade --> Runtime
 SimulationPhase --> Runtime
 
 Runtime --> Workspace
-Runtime --> DomainPipeline
-DomainPipeline --> DomainContext
+Runtime --> GeographicPipeline
+GeographicPipeline --> GeographicFeatures
+GeographicFeatures --> DomainContext
 
 Runtime --> Case
 Runtime --> BundleExporter
 
 Case --> DomainSupport
 Case --> GeologySource
+Case --> GeographicFeatures
 Case --> RiverTrace
 Case --> Inputs
 Inputs --> GmshCore

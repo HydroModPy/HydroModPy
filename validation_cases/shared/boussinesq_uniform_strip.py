@@ -25,8 +25,8 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 ScalarOrProfile = float | list[float] | tuple[float, ...] | np.ndarray | Callable[[float], float]
@@ -316,14 +316,14 @@ def write_uniform_strip_bundle(
     return bundle_dir
 
 
-def aggregate_triangle_history_to_structured_grids(
+def aggregate_triangle_history_to_structured_fields(
     model,
     *,
     nx: int,
     ny: int,
     export_initial_state: bool = False,
-) -> None:
-    """Overwrite the default cell-vector postprocess with a regular profile grid."""
+) -> dict[str, dict[int, np.ndarray]]:
+    """Aggregate triangle-cell history into regular validation field grids."""
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq validation case requires a solved model state.")
 
@@ -379,10 +379,30 @@ def aggregate_triangle_history_to_structured_grids(
         watertable_elevation[int(time_index)] = head_grid
         watertable_depth[int(time_index)] = np.maximum(top_grid - head_grid, 0.0)
 
+    return {
+        "watertable_elevation": watertable_elevation,
+        "watertable_depth": watertable_depth,
+    }
+
+
+def aggregate_triangle_history_to_structured_grids(
+    model,
+    *,
+    nx: int,
+    ny: int,
+    export_initial_state: bool = False,
+) -> None:
+    """Write regular validation grid histories to the legacy postprocess files."""
+    fields = aggregate_triangle_history_to_structured_fields(
+        model,
+        nx=int(nx),
+        ny=int(ny),
+        export_initial_state=bool(export_initial_state),
+    )
     postprocess_dir = Path(model.full_path) / "_postprocess"
     postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+    np.save(postprocess_dir / "watertable_elevation.npy", fields["watertable_elevation"])
+    np.save(postprocess_dir / "watertable_depth.npy", fields["watertable_depth"])
 
 
 def run_boussinesq_uniform_strip_case(
@@ -481,7 +501,7 @@ def run_boussinesq_uniform_strip_case(
 
     result = BoussinesqFlowAdapter().execute(ctx)
     model = result.primary_model
-    aggregate_triangle_history_to_structured_grids(
+    field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=int(nx),
         ny=int(ny),
@@ -491,10 +511,11 @@ def run_boussinesq_uniform_strip_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
+        fields=field_series,
         solver_name="boussinesq",
+        flow_regime=normalized_regime,
     )
     return ValidationRunResult(
         case_dir=case_dir,
@@ -512,6 +533,7 @@ def run_boussinesq_uniform_strip_case(
 
 
 __all__ = [
+    "aggregate_triangle_history_to_structured_fields",
     "aggregate_triangle_history_to_structured_grids",
     "build_flow_config",
     "run_boussinesq_uniform_strip_case",

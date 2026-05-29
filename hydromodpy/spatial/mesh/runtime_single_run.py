@@ -237,7 +237,6 @@ def _resolve_river_trace(
     )
     river_trace = resolve_river_mesh_trace(
         geographic_features=features,
-        domain_geographic=domain_geographic,
     )
     if not constraints_mode_requires_river_trace(constraints_mode):
         return river_trace
@@ -471,6 +470,7 @@ def run_single_mesh_catchment_workflow_typed(
         "output_figure": resolved_outputs.output_figure,
         "output_figure_regional": resolved_outputs.output_figure_regional,
         "river_trace": river_trace,
+        "geographic_features": prepared_runtime.geographic_features,
         "domain_geographic": prepared_runtime.domain_geographic,
         "show_plot": resolved_outputs.show_plot,
     }

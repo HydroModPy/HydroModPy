@@ -88,7 +88,7 @@ Source Pointers
 ---------------
 
 - ``examples/projects/09_capability_gallery/README.md``
-- ``examples/projects/09_capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json``
+- ``examples/projects/09_capability_gallery/simulation_regression/modflow6_gmsh_mesh_catchment/manifest.json``
 - ``hydromodpy/analysis/capability_gallery.py``
 
 Artifacts

@@ -187,6 +187,16 @@ Capability and API-oriented guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: catchment-report
+      :link-type: doc
+
+      **Catchment HTML reports**
+      ^^^
+      The ``catchment_report.toml`` contract and the standard
+      ``hmp report catchment`` commands for building watershed report pages.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: project-api
       :link-type: doc
 
@@ -229,6 +239,7 @@ Use these pages once you have generated or opened result pages:
    results-and-exports
    catalog
    figures
+   catchment-report
    project-api
    solvers
    modflow6-prt

@@ -59,7 +59,7 @@ class DataOverviewLauncher:
 
     def run(self) -> dict[str, Any]:
         """Execute the full overview pipeline and return a result summary."""
-        state = DataOverviewState(cfg=self.cfg)
+        state = DataOverviewState(cfg=self.cfg, config_path=self.config_path)
 
         # Phase 1: Workspace
         self._setup_workspace(state)
@@ -73,7 +73,7 @@ class DataOverviewLauncher:
         # Phase 3: Data loading
         self._load_data(state)
 
-        # Phase 4: Report generation (PNGs)
+        # Phase 4: Report generation
         report_paths = self._generate_report(state)
 
         return {
@@ -127,7 +127,8 @@ class DataOverviewLauncher:
                 "No dem_init_path and no [data.dem] source configured. "
                 "Either set geographic.dem_init_path or add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
-                '  [[data.dem.sources]]\n  source = "ign_bdalti"\n'
+                '  [[data.dem.sources]]\n  source = "ign_geoplateforme_dem"\n'
+                '  dataset = "bd-alti"\n  resolution_m = 25.0\n'
                 "or:\n"
                 '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )

@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
+from pydantic import ValidationError
 
 from hydromodpy.spatial.geographic.synthetic import (
     FlatTopography,
@@ -146,3 +148,16 @@ def test_grid_lengths_accept_unit_strings_and_derive_cell_size() -> None:
     assert grid.nrow == 2
     assert grid.dx == 1.0
     assert grid.dy == 1.0
+
+
+def test_topography_rejects_cross_variant_fields() -> None:
+    with pytest.raises(ValidationError, match="right_to_left_amplitude"):
+        SyntheticGeographicConfig.model_validate(
+            {
+                "topography": {
+                    "kind": "flat",
+                    "base_elevation": 20.0,
+                    "right_to_left_amplitude": 0.0,
+                }
+            }
+        )

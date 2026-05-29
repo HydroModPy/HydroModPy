@@ -36,7 +36,7 @@ mode = "strict_same_case"
 on_mismatch = "warn"
 
 # Shared geographic options used by every catalog site.
-[comparison.base_simulation_overlay.geographic]
+[comparison.base_simulation_overlay.geographic.catchment]
 # Outlet snapping distance common to the 10 km2 natural campaign.
 snap_dist = "150.0 m"
 # Watershed buffer distance around each delineated basin.

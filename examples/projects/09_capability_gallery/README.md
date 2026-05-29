@@ -6,7 +6,7 @@ runtime folders. It is intentionally not a replacement for
 
 Current sources:
 
-- `launcher_simulation/modflow6_gmsh_mesh_catchment/`: selected figures from
+- `simulation_regression/modflow6_gmsh_mesh_catchment/`: selected figures from
   the end-to-end `MODFLOW 6 + Gmsh + GWT` launcher example.
 
 To refresh one launcher-backed case, rerun its TOML. When its

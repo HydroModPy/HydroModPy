@@ -851,6 +851,8 @@ def _meaning_for_config_field(field: str) -> str:
 
     if field == "flow.flow_regime":
         return "Steady or transient flow regime used by the benchmark."
+    if field == "flow.first_period_steady":
+        return "Whether the first transient time period is treated as steady by the benchmark."
     if field == "flow.active_sinks_sources":
         return "Sink and source families activated in the benchmark."
     if field == "flow.active_bc":
@@ -966,8 +968,6 @@ def _meaning_for_config_field(field: str) -> str:
             return f"Planar support resampling mode used by {solver_name}."
         if leaf == "nlay":
             return f"Number of vertical layers used by {solver_name}."
-        if leaf == "firstpersteady":
-            return f"Whether the first time period is treated as steady by {solver_name}."
         if leaf == "runtime_backend":
             return f"Runtime backend selected for {solver_name}."
         return f"Solver-specific override applied to {solver_name}."

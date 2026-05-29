@@ -16,7 +16,8 @@ endlegend
 actor Caller
 participant "run_single_mesh_catchment_workflow(...)\n<<shared runtime>>" as Runtime
 participant "Workspace\nhydromodpy.Workspace" as Workspace
-participant "build_domain_geographic_context(...)" as DomainPipeline
+participant "build_geographic_derived_features(...)" as GeoPipeline
+participant "GeographicDerivedFeatures" as GeoFeatures
 participant "DomainGeographicContext" as DomainCtx
 participant "run_reference_2d_zone_conformal_case_from_toml(...)\n<<reference case>>" as Case
 participant "load_zone_meshing_domain_payload(...)" as DomainLoader
@@ -31,16 +32,21 @@ opt workspace not injected
   Workspace --> Runtime: workspace
 end
 
-opt domain_geographic not injected
-  Runtime -> DomainPipeline: build_domain_geographic_context(\nconfig=geographic_cfg, workspace)
-  DomainPipeline --> Runtime: DomainGeographicContext
+opt geographic_features not injected
+  Runtime -> GeoPipeline: build_geographic_derived_features(\nconfig=geographic_cfg, workspace)
+  GeoPipeline --> Runtime: GeographicDerivedFeatures
 end
 
-Runtime -> DomainCtx: read river_mesh_trace
-DomainCtx --> Runtime: in-memory context payload
+opt domain_geographic not injected
+  Runtime -> GeoFeatures: to_domain_geographic_context()
+  GeoFeatures --> Runtime: DomainGeographicContext
+end
+
+Runtime -> GeoFeatures: read rivers.river_mesh_trace
+GeoFeatures --> Runtime: in-memory river trace
 Runtime -> Runtime: resolve output paths
 
-Runtime -> Case: run_reference_2d_zone_conformal_case_from_toml(\nconfig_path, section, output_mesh,\noutput_summary_json, output_figure,\nriver_trace, domain_geographic)
+Runtime -> Case: run_reference_2d_zone_conformal_case_from_toml(\nconfig_path, section, output_mesh,\noutput_summary_json, output_figure,\nriver_trace, geographic_features,\ndomain_geographic)
 activate Case
 
 Case -> Case: _resolve_case_config(...)

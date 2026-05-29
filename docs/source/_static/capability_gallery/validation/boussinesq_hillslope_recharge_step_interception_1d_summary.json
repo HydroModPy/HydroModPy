@@ -145,7 +145,7 @@
           "category": "analytical",
           "regime": "transient",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "config_file": "config_boussinesq.toml",
           "default_solver": "boussinesq",
           "config_files": {

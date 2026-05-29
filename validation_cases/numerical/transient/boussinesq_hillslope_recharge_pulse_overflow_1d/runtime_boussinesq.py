@@ -17,7 +17,7 @@ from hydromodpy.simulation.planning.plan import (
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.boussinesq_uniform_strip import (
-    aggregate_triangle_history_to_structured_grids,
+    aggregate_triangle_history_to_structured_fields,
     build_flow_config,
     write_uniform_strip_bundle,
 )
@@ -25,6 +25,7 @@ from validation_cases.shared.loaders import load_case_metadata
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -448,7 +449,7 @@ def run_boussinesq_hillslope_overflow_case(
 
     result = BoussinesqFlowAdapter().execute(ctx)
     model = result.primary_model
-    aggregate_triangle_history_to_structured_grids(
+    field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=nx,
         ny=ny,
@@ -457,6 +458,12 @@ def run_boussinesq_hillslope_overflow_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
+    store, sim_id = write_validation_fields_to_store(
+        out_path=out_path,
+        fields=field_series,
+        solver_name="boussinesq",
+        flow_regime="transient",
+    )
     return ValidationRunResult(
         case_dir=CASE_DIR,
         solver_name=variant.solver_name,
@@ -467,6 +474,8 @@ def run_boussinesq_hillslope_overflow_case(
         run_returncode=0,
         run_stdout="",
         run_stderr="",
+        store=store,
+        sim_id=sim_id,
     )
 
 

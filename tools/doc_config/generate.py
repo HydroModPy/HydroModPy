@@ -495,7 +495,7 @@ def _toml_usage(field: FieldInfo, full_path: str, field_name: str) -> str:
     (``[parent.path]``) is rendered just above the field block. Containers
     keep the full path because they are themselves table headers.
 
-    - ``[[full_path]]`` for ``list[BaseModel]``
+    - ``[[full_path]]`` for ``list[BaseModel]`` or ``tuple[BaseModel, ...]``
     - ``[full_path.<id>]`` for ``dict[str, ...]``
     - ``[full_path]`` for ``BaseModel``
     - ``field_name = ...`` for scalars
@@ -503,7 +503,7 @@ def _toml_usage(field: FieldInfo, full_path: str, field_name: str) -> str:
     annotation = field.annotation
     inner_models = _get_inner_basemodels(annotation)
     annotation_str = _format_annotation(field).lower()
-    if "list[" in annotation_str and inner_models:
+    if ("list[" in annotation_str or "tuple[" in annotation_str) and inner_models:
         return f"[[{full_path}]]"
     if "dict[" in annotation_str:
         return f"[{full_path}.<id>]"
@@ -720,7 +720,7 @@ def _render_starter_snippet(section_name: str, model: type[BaseModel]) -> list[s
             continue
         inner_models = _get_inner_basemodels(field.annotation)
         annotation_str = _format_annotation(field).lower()
-        if "list[" in annotation_str and inner_models:
+        if ("list[" in annotation_str or "tuple[" in annotation_str) and inner_models:
             nested_subtables.append((f"[[{section_name}.{field_name}]]", inner_models[0]))
             continue
         if "dict[" in annotation_str:

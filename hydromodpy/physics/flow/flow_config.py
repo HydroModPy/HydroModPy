@@ -93,6 +93,23 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             ),
         ),
     )
+    first_period_steady: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "For transient flow, mark the first solver stress period as steady-state. "
+            "Ignored for steady flow, where all solver periods are steady."
+        ),
+        examples=[True, False],
+        json_schema_extra=field_metadata(
+            widget_type="checkbox",
+            unit="-",
+            display_name_fr="Premiere periode stationnaire",
+            help_text_fr=(
+                "En regime transitoire, force la premiere periode de calcul en stationnaire. "
+                "En regime stationnaire, toutes les periodes restent stationnaires."
+            ),
+        ),
+    )
     param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(

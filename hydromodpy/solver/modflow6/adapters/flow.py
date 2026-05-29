@@ -63,7 +63,11 @@ class Modflow6FlowAdapter:
         model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
         if output_dir is None or model is None:
             raise RuntimeError(f"No solver output recorded for run {ctx.run.id!r}")
-        model_name = getattr(model, "model_name", None) or getattr(model, "name", None)
+        model_name = (
+            getattr(model, "model_output_name", None)
+            or getattr(model, "model_name", None)
+            or getattr(model, "name", None)
+        )
         if model_name is None:
             raise RuntimeError(f"Model name is missing for run {ctx.run.id!r}")
         output_dir = Path(output_dir)

@@ -74,12 +74,12 @@ Declare the flow process first, then the PRT process:
    keep_solver_files = true
 
    [transport.modflow6prt.parameters]
-   release_zone = "upstream_nonriver"
+   release_zone = "domain_nonriver"
    upstream_top_quantile = 0.88
    track_dir = "forward"
    porosity = 0.01
    local_z = 0.5
-   max_particles = 100
+   max_particles = 300
    release_times_days = [0.0]
    track_time_step_days = 2.0
    stop_time_days = 3650.0
@@ -110,6 +110,9 @@ selectors:
      - Meaning
    * - ``domain``
      - All active cells.
+   * - ``domain_nonriver``
+     - Active cells excluding river-support cells, spread over the modeled
+       domain when ``max_particles`` is smaller than the selected zone.
    * - ``upstream``
      - Active cells above the configured top-elevation quantile.
    * - ``upstream_nonriver``

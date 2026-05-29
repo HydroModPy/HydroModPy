@@ -75,3 +75,25 @@ def test_editable_conda_environments_install_docs_extra() -> None:
         "Editable conda environments should install the repository docs extra "
         f"so local Sphinx builds include notebook extensions. Missing: {missing_docs_extra}"
     )
+
+
+def test_editable_conda_environments_preinstall_graphviz_stack() -> None:
+    missing_packages: dict[str, list[str]] = {}
+    required_packages = {"graphviz", "pygraphviz"}
+
+    for environment_path in EDITABLE_ENVIRONMENT_PATHS:
+        text = environment_path.read_text(encoding="utf-8")
+        environment_packages = {
+            line.strip().removeprefix("-").strip().split("=", 1)[0].lower()
+            for line in text.splitlines()
+            if line.strip().startswith("- ")
+        }
+        missing = sorted(required_packages - environment_packages)
+        if missing:
+            missing_packages[environment_path.name] = missing
+
+    assert not missing_packages, (
+        "Editable conda environments install the docs extra, which pulls erdantic. "
+        "On Windows, erdantic's pygraphviz dependency must come from conda-forge "
+        f"instead of a pip source build. Missing: {missing_packages}"
+    )

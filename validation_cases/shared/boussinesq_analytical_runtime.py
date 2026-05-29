@@ -5,18 +5,21 @@ from __future__ import annotations
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
-from hydromodpy.physics.flow.regime import normalize_flow_regime
-
 ANALYTICAL_STEADY_SURFACE_MODEL = "vi_obstacle"
 ANALYTICAL_TRANSIENT_SURFACE_MODEL = "ts_vi_obstacle"
 ANALYTICAL_RUNTIME_BACKEND = "petsc"
-LEGACY_RUNTIME_BACKENDS = {"", "local", "scipy", "scipy_sparse"}
-LEGACY_SURFACE_MODELS = {"", "auto", "regularized_partition"}
+
+
+def _normalize_flow_regime(value: object) -> str:
+    text = str(value).strip().lower()
+    if text in {"steady", "transient"}:
+        return text
+    raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
 
 
 def analytical_boussinesq_runtime_overrides(flow_regime: str | None) -> dict[str, object]:
     """Return the PETSc runtime knobs used by default analytical Boussinesq runs."""
-    regime = normalize_flow_regime(flow_regime or "steady")
+    regime = _normalize_flow_regime(flow_regime or "steady")
     if regime == "transient":
         return {
             "runtime_backend": ANALYTICAL_RUNTIME_BACKEND,
@@ -40,20 +43,19 @@ def apply_analytical_boussinesq_runtime_defaults(
 ) -> dict[str, Any]:
     """Return ``flow_section`` with the analytical PETSc runtime default applied.
 
-    The validation modules historically hard-coded ``scipy_sparse`` and the
-    regularized partition closure. Those values now mean "legacy default" and
-    are upgraded unless the caller explicitly requested a non-legacy PETSc
-    surface model, or ``force`` is true.
+    Missing runtime keys are filled with the analytical PETSc VI/TS-VI defaults.
+    Explicit caller-provided values are kept unless ``force`` is true.
     """
     normalized = dict(flow_section)
     regime = str(flow_regime or normalized.get("flow_regime") or "steady")
-    backend = str(normalized.get("runtime_backend", "") or "").strip().lower()
-    surface_model = str(normalized.get("surface_interaction_model", "") or "").strip().lower()
-    should_upgrade = force or (
-        backend in LEGACY_RUNTIME_BACKENDS and surface_model in LEGACY_SURFACE_MODELS
-    )
-    if should_upgrade:
-        normalized.update(analytical_boussinesq_runtime_overrides(regime))
+    defaults = analytical_boussinesq_runtime_overrides(regime)
+    if force:
+        normalized.update(defaults)
+        return normalized
+    for key, value in defaults.items():
+        current = normalized.get(key)
+        if current is None or (isinstance(current, str) and not current.strip()):
+            normalized[key] = value
     return normalized
 
 

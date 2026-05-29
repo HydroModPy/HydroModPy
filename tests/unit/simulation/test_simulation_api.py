@@ -297,7 +297,12 @@ class TestSimulationData:
             generated_contract["canonical_feature_name"]
             == HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME
         )
-        assert generated_contract["legacy_feature_name"] == "river_network"
+        assert set(generated_contract) == {
+            "role",
+            "canonical_feature_name",
+            "default_vector_filename",
+            "reference_raster_forcing_name",
+        }
 
     def test_hydrographic_network_comparison_requires_both_roles(self, catalog):
         sid = _register(catalog)

@@ -6,6 +6,10 @@ mode = "simulation"
 project_root = "."
 
 [geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 # Default outlet coordinates point to the Selune gauging station.
@@ -14,8 +18,6 @@ x_outlet = 379541.3716
 y_outlet = 6845659.878
 snap_dist = "150 m"
 buff_area = "10%"
-crs_project = "EPSG:2154"
-dem_correc_type = "breach"
 
 [domain]
 zone_ids = ["geology"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from argparse import Namespace
 from collections.abc import Iterable
@@ -13,8 +14,8 @@ from hydromodpy.calibration.network_transient_truth import (
     q_total_release_from_drain_by_cell,
 )
 from hydromodpy.calibration.reporting.network_transient import args as _nt_args
+from hydromodpy.calibration.reporting.network_transient import blocks as _blocks
 from hydromodpy.calibration.reporting.network_transient import io as _nt_io
-from hydromodpy.calibration.reporting.network_transient import sections as _sections
 from hydromodpy.calibration.reporting.network_transient import state as _state
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.run import Run
@@ -117,6 +118,12 @@ def build_network_transient_html_from_args(args: Namespace) -> Path:
         encoding="utf-8",
     )
     out.write_text(html_text, encoding="utf-8")
+    _write_reference_manifest(
+        out,
+        artifact_report=artifact_report,
+        normalization=normalization,
+        score_rows=score_rows,
+    )
     return out
 
 
@@ -197,6 +204,228 @@ _fmt = _nt_io.fmt_float
 _as_int_str = _nt_io.as_int_str
 
 
+def _write_reference_manifest(
+    html_report: Path,
+    *,
+    artifact_report: NetworkTransientHtmlArtifactReport,
+    normalization: dict[str, Any],
+    score_rows: list[dict[str, str]],
+) -> Path:
+    manifest = _reference_manifest_payload(
+        html_report,
+        artifact_report=artifact_report,
+        normalization=normalization,
+        score_rows=score_rows,
+    )
+    path = REAL_ROOT / "b0_reference_manifest.json"
+    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _reference_manifest_payload(
+    html_report: Path,
+    *,
+    artifact_report: NetworkTransientHtmlArtifactReport,
+    normalization: dict[str, Any],
+    score_rows: list[dict[str, str]],
+) -> dict[str, Any]:
+    truth_dir = artifact_report.truth_dir
+    score_table = artifact_report.score_table
+    metadata = _read_json(truth_dir / "metadata.json") if truth_dir is not None else {}
+    completed = [row for row in score_rows if row.get("status") == "completed"]
+    failed = [row for row in score_rows if row.get("status") != "completed"]
+    best_global = (
+        min(completed, key=lambda row: _float(row.get("J"), float("inf")))
+        if completed
+        else None
+    )
+    non_target = [row for row in completed if not _candidate_is_truth(row)]
+    best_non_target = (
+        min(non_target, key=lambda row: _float(row.get("J"), float("inf")))
+        if non_target
+        else None
+    )
+    status_counts: dict[str, int] = {}
+    for row in score_rows:
+        status = str(row.get("status", "") or "").strip() or "unknown"
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    truth_files = {
+        "metadata_json": truth_dir / "metadata.json" if truth_dir is not None else None,
+        "normalization_json": truth_dir / "normalization.json" if truth_dir is not None else None,
+        "steady_network_drain_by_cell_npz": (
+            truth_dir / "steady_network_drain_by_cell.npz" if truth_dir is not None else None
+        ),
+        "steady_network_active_mask_npz": (
+            truth_dir / "steady_network_active_mask.npz" if truth_dir is not None else None
+        ),
+        "transient_q_total_release_csv": (
+            truth_dir / "transient_q_total_release.csv" if truth_dir is not None else None
+        ),
+    }
+    contract_version = str(
+        normalization.get("contract_version") or "b0_network_steady_discharge_transient.v1"
+    )
+
+    return {
+        "schema": "hydromodpy.calibration.b0_reference_manifest.v1",
+        "contract_version": contract_version,
+        "contract": _manifest_contract(
+            contract_version,
+            normalization=normalization,
+            metadata=metadata,
+        ),
+        "paths": {
+            "truth_dir": None if truth_dir is None else str(truth_dir),
+            "score_table": None if score_table is None else str(score_table),
+            "html_report": str(html_report),
+        },
+        "truth": {
+            "site_id": metadata.get("site_id"),
+            "mK_true": metadata.get("mK_true"),
+            "Sy_true": metadata.get("Sy_true"),
+            "n_cells": metadata.get("n_cells"),
+            "n_timesteps": metadata.get("n_timesteps"),
+        },
+        "score_window": {
+            "warmup_periods": normalization.get("warmup_periods"),
+            "score_start_index": normalization.get("score_start_index"),
+            "score_stop_index": normalization.get("score_stop_index"),
+            "scored_periods": normalization.get("scored_periods"),
+        },
+        "normalization": _manifest_normalization(contract_version, normalization),
+        "grid": {
+            "rows_total": len(score_rows),
+            "completed": len(completed),
+            "failed": len(failed),
+            "status_counts": status_counts,
+        },
+        "best_global": _manifest_score_row(best_global),
+        "best_non_target": _manifest_score_row(best_non_target),
+        "contract_warnings": list(artifact_report.contract_warnings),
+        "hashes": {
+            "score_table": _sha256_file(score_table),
+            **{f"truth.{name}": _sha256_file(path) for name, path in truth_files.items()},
+        },
+    }
+
+
+def _manifest_score_row(row: dict[str, str] | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    keys = (
+        "candidate_id",
+        "mK",
+        "Sy",
+        "status",
+        "J",
+        "C_reseau_phys",
+        "C_debit_phys",
+        "C_reseau_naturel",
+        "C_debit_obs",
+        "network_map_source",
+        "error",
+    )
+    out: dict[str, Any] = {}
+    for key in keys:
+        value = row.get(key)
+        if key in {
+            "mK",
+            "Sy",
+            "J",
+            "C_reseau_phys",
+            "C_debit_phys",
+            "C_reseau_naturel",
+            "C_debit_obs",
+        }:
+            numeric = _float(value)
+            out[key] = numeric if np.isfinite(numeric) else None
+        elif value not in (None, ""):
+            out[key] = value
+    return out
+
+
+def _manifest_normalization(
+    contract_version: str,
+    normalization: dict[str, Any],
+) -> dict[str, Any]:
+    if contract_version.startswith("natural_"):
+        keys = (
+            "Q_ref_steady",
+            "Qbar_ref",
+            "L_ref",
+            "d_tol",
+            "tau_network",
+            "eta_dist",
+            "network_distance_metric",
+            "discharge_metric",
+            "alpha_Q",
+            "nse_log_epsilon",
+            "w_reseau",
+            "w_debit",
+        )
+    else:
+        keys = (
+            "Q_ref_steady",
+            "Qbar_ref",
+            "L_ref",
+            "d_tol",
+            "tau_network",
+            "eta_flux",
+            "eta_dist",
+            "eta_len",
+            "network_distance_metric",
+            "discharge_metric",
+            "alpha_Q",
+            "nse_log_epsilon",
+            "w_reseau",
+            "w_debit",
+        )
+    return {key: normalization.get(key) for key in keys}
+
+
+def _manifest_contract(
+    contract_version: str,
+    *,
+    normalization: dict[str, Any],
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    w_network = _float(normalization.get("w_reseau"), 0.5)
+    w_discharge = _float(normalization.get("w_debit"), 0.5)
+    if contract_version.startswith("natural_") or metadata.get("package_type") == (
+        "natural_observation_package"
+    ):
+        objective = f"{w_network:g}*C_reseau_naturel + {w_discharge:g}*C_debit_obs"
+        network_observable = metadata.get(
+            "network_observable",
+            "observed_hydrography_presence_vs_steady_outflow_support",
+        )
+        discharge_observable = metadata.get("discharge_observable", "observed_streamflow")
+    else:
+        objective = f"{w_network:g}*C_reseau_phys + {w_discharge:g}*C_debit_phys"
+        network_observable = "steady_outflow_drain"
+        discharge_observable = "transient_Q_total_release"
+    return {
+        "network_observable": network_observable,
+        "discharge_observable": discharge_observable,
+        "objective": objective,
+        "failure_policy": {
+            "reporting": "failed candidates keep status and NaN objective; they are excluded from ranking",
+            "future_optimizer": "return pruned/failed or a finite penalty outside the report ranking path",
+        },
+    }
+
+
+def _sha256_file(path: Path | None) -> str | None:
+    if path is None or not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _generate_figures(
     *,
     truth_dir: Path | None,
@@ -252,16 +481,21 @@ def _save_watershed_id_card(root: Path, path: Path) -> None:
     import matplotlib.pyplot as plt
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    catalog, run = _open_first_run(root)
+    catalog: SimulationCatalog | None = None
+    fig = None
     try:
-        fig = _plot_watershed_id_card(run)
+        try:
+            catalog, run = _open_first_run(root)
+        except Exception:
+            fig = _plot_watershed_id_card_placeholder(root)
+        else:
+            fig = _plot_watershed_id_card(run)
         fig.savefig(path, dpi=150, bbox_inches="tight")
     finally:
-        try:
+        if fig is not None:
             plt.close(fig)
-        except Exception:
-            pass
-        catalog.close()
+        if catalog is not None:
+            catalog.close()
 
 
 def _plot_watershed_id_card(run: Run):
@@ -280,6 +514,52 @@ def _plot_watershed_id_card(run: Run):
         fontweight="bold",
         fontsize=14,
     )
+    return fig
+
+
+def _plot_watershed_id_card_placeholder(root: Path):
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+
+    fig = plt.figure(figsize=(11.5, 7.5), dpi=150, constrained_layout=True)
+    gs = GridSpec(1, 2, figure=fig, width_ratios=[3.0, 1.3])
+    ax_topo = fig.add_subplot(gs[0, 0])
+    ax_meta = fig.add_subplot(gs[0, 1])
+
+    ax_topo.set_axis_off()
+    ax_topo.text(
+        0.5,
+        0.5,
+        "reference run unavailable",
+        ha="center",
+        va="center",
+        transform=ax_topo.transAxes,
+        fontsize=10,
+        color="gray",
+    )
+    ax_topo.set_title("Topography")
+
+    ax_meta.set_axis_off()
+    rows = [
+        ("Reference", root.name or "-"),
+        ("Status", "unavailable"),
+    ]
+    table = ax_meta.table(
+        cellText=[[key, value] for key, value in rows],
+        loc="center",
+        colWidths=[0.45, 0.55],
+        cellLoc="left",
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(9)
+    table.scale(1.0, 1.4)
+    for (_row_idx, col_idx), cell in table.get_celld().items():
+        if col_idx == 0:
+            cell.set_facecolor("#f2f2f2")
+            cell.set_text_props(fontweight="bold")
+        cell.set_edgecolor("#c8c8c8")
+    ax_meta.set_title("Identity")
+    fig.suptitle("Watershed ID card", fontweight="bold", fontsize=14)
     return fig
 
 
@@ -920,24 +1200,28 @@ def _save_outflow_map_grid(
     river_network = None
 
     if REFERENCE_RUN_ROOT.is_dir():
-        catalog, run = _open_first_run(REFERENCE_RUN_ROOT)
         try:
+            catalog, run = _open_first_run(REFERENCE_RUN_ROOT)
+        except Exception:
+            catalog = None
+        if catalog is not None:
             try:
-                centroids, _ = mesh_cell_geometry(
-                    run.mesh.vertices, run.mesh.face_node_connectivity
-                )
-                origin = _relative_origin(run, centroids)
-                polygons = _relative_polygons(_mesh_polygons(run), origin)
-                cell_topography = None
-            except Exception:
-                pass
-            if origin is not None:
-                topo = _topography_context(run, origin)
-                watershed = _safe_geographic(run, "watershed")
-                watershed_contour = _safe_geographic(run, "watershed_contour")
-                river_network = _safe_geographic(run, "river_network")
-        finally:
-            catalog.close()
+                try:
+                    centroids, _ = mesh_cell_geometry(
+                        run.mesh.vertices, run.mesh.face_node_connectivity
+                    )
+                    origin = _relative_origin(run, centroids)
+                    polygons = _relative_polygons(_mesh_polygons(run), origin)
+                    cell_topography = None
+                except Exception:
+                    pass
+                if origin is not None:
+                    topo = _topography_context(run, origin)
+                    watershed = _safe_geographic(run, "watershed")
+                    watershed_contour = _safe_geographic(run, "watershed_contour")
+                    river_network = _safe_geographic(run, "hydrographic_network_generated")
+            finally:
+                catalog.close()
 
     if origin is None or polygons is None or len(polygons) != d_ref.size:
         return
@@ -1065,27 +1349,31 @@ def _save_dem_context_map(truth_dir: Path | None, reference_root: Path, path: Pa
     river_network = None
 
     if reference_root.is_dir():
-        catalog, run = _open_first_run(reference_root)
         try:
-            if origin is None:
-                try:
-                    centroids, _ = mesh_cell_geometry(
-                        run.mesh.vertices, run.mesh.face_node_connectivity
-                    )
-                    origin = _relative_origin(run, centroids)
-                    polygons = _relative_polygons(_mesh_polygons(run), origin)
-                    cell_topography = None
-                except Exception:
-                    pass
-            if origin is not None:
-                topo = _topography_context(run, origin)
-                if topo is not None:
-                    source_label = "raster DEM watershed_dem"
-                watershed = _safe_geographic(run, "watershed")
-                watershed_contour = _safe_geographic(run, "watershed_contour")
-                river_network = _safe_geographic(run, "river_network")
-        finally:
-            catalog.close()
+            catalog, run = _open_first_run(reference_root)
+        except Exception:
+            catalog = None
+        if catalog is not None:
+            try:
+                if origin is None:
+                    try:
+                        centroids, _ = mesh_cell_geometry(
+                            run.mesh.vertices, run.mesh.face_node_connectivity
+                        )
+                        origin = _relative_origin(run, centroids)
+                        polygons = _relative_polygons(_mesh_polygons(run), origin)
+                        cell_topography = None
+                    except Exception:
+                        pass
+                if origin is not None:
+                    topo = _topography_context(run, origin)
+                    if topo is not None:
+                        source_label = "raster DEM watershed_dem"
+                    watershed = _safe_geographic(run, "watershed")
+                    watershed_contour = _safe_geographic(run, "watershed_contour")
+                    river_network = _safe_geographic(run, "hydrographic_network_generated")
+            finally:
+                catalog.close()
 
     if origin is None or polygons is None:
         return
@@ -1190,11 +1478,11 @@ def _mesh_context_from_truth_package(truth_dir: Path) -> dict[str, Any] | None:
     metadata = _read_json(truth_dir / "metadata.json")
     bundle = _score_file_path(metadata.get("mesh_bundle", ""))
     if bundle is None or not bundle.is_dir():
-        return None
+        return _mesh_context_from_cell_geometry(truth_dir)
     nodes_path = bundle / "nodes.csv"
     cells_path = bundle / "cells.csv"
     if not nodes_path.is_file() or not cells_path.is_file():
-        return None
+        return _mesh_context_from_cell_geometry(truth_dir)
     try:
         node_rows = _read_csv(nodes_path)
         cell_rows = sorted(
@@ -1232,14 +1520,51 @@ def _mesh_context_from_truth_package(truth_dir: Path) -> dict[str, Any] | None:
             "cell_topography": np.asarray(topo_values, dtype=float),
         }
     except Exception:
+        return _mesh_context_from_cell_geometry(truth_dir)
+
+
+def _mesh_context_from_cell_geometry(truth_dir: Path) -> dict[str, Any] | None:
+    geometry_path = truth_dir / "cell_geometry.npz"
+    if not geometry_path.is_file():
         return None
+    try:
+        with np.load(geometry_path) as geometry:
+            centroids = np.asarray(geometry["centroids"], dtype=float)
+            areas = np.asarray(geometry["cell_area"], dtype=float).reshape(-1)
+    except Exception:
+        return None
+    if centroids.ndim != 2 or centroids.shape[1] < 2 or centroids.shape[0] != areas.size:
+        return None
+    origin = _origin_from_config_or_centroids(centroids)
+    polygons: list[np.ndarray] = []
+    for (x, y), area in zip(centroids[:, :2], areas, strict=False):
+        half_size = max(float(np.sqrt(area)) * 0.5, 1.0)
+        polygons.append(
+            np.asarray(
+                [
+                    [x - half_size, y - half_size],
+                    [x + half_size, y - half_size],
+                    [x + half_size, y + half_size],
+                    [x - half_size, y + half_size],
+                ],
+                dtype=float,
+            )
+        )
+    return {
+        "origin": origin,
+        "polygons": _relative_polygons(polygons, origin),
+        "cell_topography": np.zeros(areas.size, dtype=float),
+    }
 
 
 def _origin_from_config_or_centroids(centroids: np.ndarray) -> tuple[float, float]:
     geographic = _read_toml(SOURCE_TRANSIENT_CONFIG).get("geographic", {})
     if isinstance(geographic, dict):
-        x = _float(geographic.get("x_outlet"))
-        y = _float(geographic.get("y_outlet"))
+        catchment = geographic.get("catchment")
+        if not isinstance(catchment, dict):
+            catchment = {}
+        x = _float(catchment.get("x_outlet"))
+        y = _float(catchment.get("y_outlet"))
         if np.isfinite(x) and np.isfinite(y):
             return float(x), float(y)
     if centroids.size:
@@ -1415,8 +1740,11 @@ def _relative_origin(run: Run, centroids: np.ndarray) -> tuple[float, float]:
         pass
     geographic = _read_toml(SOURCE_TRANSIENT_CONFIG).get("geographic", {})
     if isinstance(geographic, dict):
-        x = _float(geographic.get("x_outlet"))
-        y = _float(geographic.get("y_outlet"))
+        catchment = geographic.get("catchment")
+        if not isinstance(catchment, dict):
+            catchment = {}
+        x = _float(catchment.get("x_outlet"))
+        y = _float(catchment.get("y_outlet"))
         if np.isfinite(x) and np.isfinite(y):
             return float(x), float(y)
     if centroids.size:
@@ -1488,7 +1816,7 @@ def _score_file_path(raw: Any) -> Path | None:
 
 
 def _page(**kwargs: Any) -> str:
-    return _sections.build_page(
+    return _blocks.build_page(
         **kwargs,
         page_title=PAGE_TITLE,
         web_root=WEB_ROOT,

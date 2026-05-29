@@ -14,6 +14,7 @@ WorkflowName = Literal[
     "overview",
     "comparison",
     "testbed",
+    "site_selection",
 ]
 
 KNOWN_WORKFLOWS: tuple[str, ...] = (
@@ -22,6 +23,7 @@ KNOWN_WORKFLOWS: tuple[str, ...] = (
     "overview",
     "comparison",
     "testbed",
+    "site_selection",
 )
 
 

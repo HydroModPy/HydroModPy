@@ -184,10 +184,11 @@ Canonical names used by the code:
 - ``hydrographic_network_generated`` for the network derived from the
   DEM through ``geographic.river_network``.
 
-Historical names remain readable for compatibility but should be
-treated as legacy aliases:
+The feature-store contract uses those canonical names only. Historical
+filenames may still exist on disk, but they are not feature aliases:
 
-- ``river_network`` for the legacy generated-feature alias;
+- ``river_network.shp`` for the generated network vector file;
+- ``river_network_summary.json`` for generated-network metrics;
 - ``streams.shp`` for the reference vector filename emitted by the
   manager;
 - ``hydrography_streams`` for the reference forcing-raster name.

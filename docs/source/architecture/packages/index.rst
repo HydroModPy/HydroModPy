@@ -57,6 +57,13 @@ Subpackages
       Delineation, geographic context, domain, mesh (Cartesian and
       Gmsh), field abstractions, ``HydroMesh`` pivot.
 
+   .. grid-item-card:: discretization
+      :link: discretization
+      :link-type: doc
+
+      Neutral numerical discretization primitives, currently temporal
+      grids and time-mesh configuration.
+
    .. grid-item-card:: solver
       :link: solver
       :link-type: doc
@@ -95,7 +102,8 @@ Subpackages
       :link: display
       :link-type: doc
 
-      33 named figures registered through a single catalog.
+      33 named figures registered through a single catalog, plus
+      shared static HTML block primitives.
 
    .. grid-item-card:: analysis
       :link: analysis
@@ -109,7 +117,8 @@ Subpackages
       :link-type: doc
 
       HTML composites: calibration session report, comparison web
-      report, streamlit configurator.
+      report, streamlit configurator, and guidance for block-based
+      workflow reports.
 
    .. grid-item-card:: workflow
       :link: workflow
@@ -153,6 +162,7 @@ Subpackages
    physics
    data
    spatial
+   discretization
    solver
    simulation
    calibration

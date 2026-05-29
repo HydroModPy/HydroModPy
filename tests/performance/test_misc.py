@@ -13,11 +13,11 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pytest
-import uuid_utils
 from filelock import FileLock
 from shapely.geometry import Polygon
 
 pytestmark = pytest.mark.performance
+uuid_utils = pytest.importorskip("uuid_utils")
 
 
 def _random_square(rng: np.random.Generator, side: float = 0.01) -> Polygon:

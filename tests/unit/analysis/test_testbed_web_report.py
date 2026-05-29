@@ -17,13 +17,13 @@ def test_testbed_web_report_includes_numerical_closure_metrics(tmp_path: Path) -
         output_root / "testbed_manifest.json",
         {
             "testbed_id": "closure_demo",
-            "variant_count": 1,
+            "case_count": 1,
             "successful_count": 1,
             "failed_count": 0,
             "cases": [
                 {
-                    "variant_id": "site_01",
-                    "variant_label": "Site 01",
+                    "case_id": "site_01",
+                    "case_label": "Site 01",
                     "axis": "natural",
                     "status": "failed",
                     "runner": "comparison",
@@ -36,8 +36,8 @@ def test_testbed_web_report_includes_numerical_closure_metrics(tmp_path: Path) -
         output_root / "testbed_cases.csv",
         [
             {
-                "variant_id": "site_01",
-                "variant_label": "Site 01",
+                "case_id": "site_01",
+                "case_label": "Site 01",
                 "axis": "natural",
                 "status": "failed",
                 "runner": "comparison",

@@ -1,97 +1,73 @@
 {
   "schema_version": "comparison_manifest_v1",
   "comparison_id": "example12_map_simulation_comparison",
-  "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_simulation_comparison_example12_map_existing.toml",
-  "comparison_root": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison",
-  "base_simulation_config": null,
   "run_simulations": false,
   "continue_on_error": false,
   "reference_simulation": "mf6_gmsh_existing",
-  "observables_csv": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\observables.csv",
-  "comparison_metrics_csv": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_metrics.csv",
-  "comparison_differences_csv": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_differences.csv",
-  "comparison_metrics_json": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_metrics.json",
-  "comparison_report_md": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_report.md",
-  "comparison_figures_dir": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures",
   "comparison_figures": [
     {
       "kind": "map_comparison",
-      "observable": "watertable_elevation_map",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\watertable_elevation_map__map_comparison.png"
+      "observable": "watertable_elevation_map"
     },
     {
       "kind": "difference_map",
       "observable": "watertable_elevation_map",
       "reference_simulation": "mf6_gmsh_existing",
-      "candidate_simulation": "boussinesq_reused_gmsh",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\watertable_elevation_map__difference__mf6_gmsh_existing__vs__boussinesq_reused_gmsh.png"
+      "candidate_simulation": "boussinesq_reused_gmsh"
     },
     {
       "kind": "map_comparison",
-      "observable": "watertable_depth_map",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\watertable_depth_map__map_comparison.png"
+      "observable": "watertable_depth_map"
     },
     {
       "kind": "difference_map",
       "observable": "watertable_depth_map",
       "reference_simulation": "mf6_gmsh_existing",
-      "candidate_simulation": "boussinesq_reused_gmsh",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\watertable_depth_map__difference__mf6_gmsh_existing__vs__boussinesq_reused_gmsh.png"
+      "candidate_simulation": "boussinesq_reused_gmsh"
     },
     {
       "kind": "timeseries",
       "observable": "head_mid_basin_response",
-      "unit": "m",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\head_mid_basin_response__timeseries.png"
+      "unit": "m"
     },
     {
       "kind": "timeseries",
       "observable": "head_outlet_lowland",
-      "unit": "m",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\head_outlet_lowland__timeseries.png"
+      "unit": "m"
     },
     {
       "kind": "timeseries",
       "observable": "head_upstream_ridge",
-      "unit": "m",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\head_upstream_ridge__timeseries.png"
+      "unit": "m"
     },
     {
       "kind": "point_dashboard",
-      "observable": "head_points",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\head_points_dashboard.png"
+      "observable": "head_points"
     },
     {
       "kind": "budget_diagnostics",
       "observable": "budget",
-      "simulation_id": "boussinesq_reused_gmsh",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\comparison_figures\\boussinesq_reused_gmsh__budget_diagnostics.png"
+      "simulation_id": "boussinesq_reused_gmsh"
     }
   ],
   "comparison_data_artifacts": [
     {
-      "kind": "timeseries_long_csv",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\timeseries_long.csv"
+      "kind": "timeseries_long_csv"
     },
     {
-      "kind": "timeseries_wide_csv",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\timeseries_wide.csv"
+      "kind": "timeseries_wide_csv"
     },
     {
-      "kind": "timeseries_delta_csv",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\timeseries_delta.csv"
+      "kind": "timeseries_delta_csv"
     },
     {
-      "kind": "budget_timeseries_long_csv",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\budget_timeseries_long.csv"
+      "kind": "budget_timeseries_long_csv"
     },
     {
-      "kind": "budget_timeseries_wide_csv",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\budget_timeseries_wide.csv"
+      "kind": "budget_timeseries_wide_csv"
     },
     {
-      "kind": "execution_times_csv",
-      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\simulation_comparison\\example12_map_simulation_comparison\\execution_times.csv"
+      "kind": "execution_times_csv"
     }
   ],
   "n_observable_rows": 2715,
@@ -107,8 +83,6 @@
       "solver": "modflow6",
       "mesh_label": "Naizin shared mesh",
       "mesh_mode": "mesh_catchment",
-      "config_path": null,
-      "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_simulations\\example12_fast_mf6_mesh_catchment",
       "wall_time_seconds": null,
       "metrics": {
         "wall_time_seconds": 52.05,
@@ -117,10 +91,7 @@
           "modflow6gwt"
         ],
         "success": true,
-        "mesh_constraints_mode": "geology_rivers",
-        "mesh_output_mesh": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment.msh",
-        "mesh_output_summary_json": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment_summary.json",
-        "mesh_output_exchange_bundle_dir": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment_bundle"
+        "mesh_constraints_mode": "geology_rivers"
       },
       "run_metadata": {
         "metrics": {
@@ -130,10 +101,7 @@
             "modflow6gwt"
           ],
           "success": true,
-          "mesh_constraints_mode": "geology_rivers",
-          "mesh_output_mesh": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment.msh",
-          "mesh_output_summary_json": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment_summary.json",
-          "mesh_output_exchange_bundle_dir": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment_bundle"
+          "mesh_constraints_mode": "geology_rivers"
         },
         "wall_time_seconds": 52.05,
         "solvers": [
@@ -162,8 +130,6 @@
       "solver": "boussinesq",
       "mesh_label": "Naizin shared mesh",
       "mesh_mode": "mesh_input",
-      "config_path": null,
-      "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\example12_fast\\results_simulations\\flow_main__boussinesq",
       "wall_time_seconds": null,
       "metrics": {},
       "run_metadata": {

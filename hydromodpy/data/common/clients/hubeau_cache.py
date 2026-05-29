@@ -43,13 +43,18 @@ def fetch_with_smart_cache(
     if manager.project_period is None:
         raise ValueError("project_period required for Hub'Eau.")
 
+    station_ids = list(source_cfg.station_ids or [])
+    max_stations = getattr(source_cfg, "max_stations", None)
+    if station_ids and max_stations is not None:
+        station_ids = station_ids[:max_stations]
+
     # --- Try cache for explicitly requested station_ids ---
-    if source_cfg.station_ids and not source_cfg.force_refresh:
+    if station_ids and not source_cfg.force_refresh:
         ready: list[PointRecord] = []
         missing_ids: list[str] = []
         to_persist: list[PointRecord] = []
 
-        for sid in source_cfg.station_ids:
+        for sid in station_ids:
             if manager._is_empty_sentinel(source=source_name, station_id=sid):
                 logger.debug("Hub'Eau no-data (cached): %s", sid)
                 continue
@@ -104,7 +109,7 @@ def fetch_with_smart_cache(
 
     # --- No cache for bbox-based discovery ---
     records = fetch_fn(
-        source_cfg.station_ids,
+        station_ids or None,
         manager.project_period[0],
         manager.project_period[1],
     )

@@ -1,17 +1,16 @@
 """Configuration contract for method testbeds.
 
 A testbed is an orchestration layer over child runners. It does not own the
-scientific implementation of meshing, flow, or transport. It expands variants,
+scientific implementation of meshing, flow, or transport. It expands cases,
 delegates to a runner, and gathers evidence artifacts.
 """
 
 from __future__ import annotations
-
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from hydromodpy.analysis.catalog import SUPPORTED_CATALOG_FORMATS
 from hydromodpy.analysis.config_helpers import (
@@ -22,21 +21,22 @@ from hydromodpy.analysis.config_helpers import (
     require_mapping,
     require_text,
     resolve_optional_path,
-    resolve_required_path,
     validate_optional_positive_int,
 )
+from hydromodpy.analysis.testbed.contracts import available_testbed_runner_types
 from hydromodpy.analysis.testbed.profiles import (
     GENERIC_TESTBED_PROFILE,
     resolve_testbed_profile,
 )
+from hydromodpy.analysis.testbed.site_selection_catalog import resolve_catalog_source
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io import load_toml_with_base_config
 
-SUPPORTED_RUNNERS = {"comparison", "simulation"}
+SUPPORTED_RUNNERS = {"calibration", "comparison", "simulation"}
 SUPPORTED_SUBJECTS = {"flow", "mesh", "transport"}
 SUPPORTED_SUBJECT_RUNNERS = {
-    "flow": {"comparison", "simulation"},
+    "flow": {"calibration", "comparison", "simulation"},
     "mesh": {"simulation"},
     "transport": {"comparison", "simulation"},
 }
@@ -53,7 +53,7 @@ class TestbedRunnerConfig(HydroModelBase):
     """Child-runner selection for one testbed."""
 
     type: Annotated[str, Profile.USER] = Field(
-        description="Runner identifier dispatched for every variant (comparison, simulation)."
+        description="Runner identifier dispatched for every case (comparison, simulation)."
     )
     no_display: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -61,18 +61,18 @@ class TestbedRunnerConfig(HydroModelBase):
     )
 
 
-class TestbedVariantConfig(HydroModelBase):
-    """One concrete testbed variant."""
+class TestbedCaseConfig(HydroModelBase):
+    """One concrete executable testbed case."""
 
-    id: Annotated[str, Profile.USER] = Field(description="Stable variant identifier.")
-    label: Annotated[str, Profile.USER] = Field(description="Human-readable variant label.")
+    id: Annotated[str, Profile.USER] = Field(description="Stable case identifier.")
+    label: Annotated[str, Profile.USER] = Field(description="Human-readable case label.")
     axis: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional axis tag used to group variants in reports.",
+        description="Optional axis tag used to group cases in reports.",
     )
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Toggle to skip a variant without removing it from the config.",
+        description="Toggle to skip a case without removing it from the config.",
     )
     overlay: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -89,27 +89,27 @@ class TestbedMetricConfig(HydroModelBase):
     )
     required: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="When true, a missing metric fails the variant.",
+        description="When true, a missing metric fails the case.",
     )
 
 
 class TestbedCatalogConfig(HydroModelBase):
-    """Catalog source used to generate testbed variants."""
+    """Catalog source used to generate testbed cases."""
 
     path: Annotated[Path, Profile.USER] = Field(
-        description="Resolved path to the variant catalog (CSV or JSONL)."
+        description="Resolved path to the case catalog (CSV or JSONL)."
     )
     format: Annotated[str, Profile.USER] = Field(
         default="auto",
         description="Catalog format. 'auto' infers from the file suffix.",
     )
     id_field: Annotated[str, Profile.USER] = Field(
-        default="variant_id",
-        description="Column carrying the variant identifier.",
+        default="case_id",
+        description="Column carrying the case identifier.",
     )
     label_field: Annotated[str | None, Profile.USER] = Field(
-        default="variant_label",
-        description="Column carrying a human-readable variant label.",
+        default="case_label",
+        description="Column carrying a human-readable case label.",
     )
     axis_field: Annotated[str | None, Profile.USER] = Field(
         default="axis",
@@ -155,18 +155,26 @@ class TestbedCatalogConfig(HydroModelBase):
         default=None,
         description="Optional cap on the number of selected rows.",
     )
+    source_manifest_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="Optional site-selection manifest used to resolve the catalog path.",
+    )
+    source_manifest_output_key: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Output key read from the site-selection manifest.",
+    )
 
 
-class TestbedCatalogVariantConfig(HydroModelBase):
-    """One variant-generation rule applied to rows from a testbed catalog."""
+class TestbedCatalogCaseConfig(HydroModelBase):
+    """One case-generation rule applied to rows from a testbed catalog."""
 
     id_template: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Format string evaluated against catalog row fields to derive the variant id.",
+        description="Format string evaluated against catalog row fields to derive the case id.",
     )
     label_template: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Format string used to derive the variant label.",
+        description="Format string used to derive the case label.",
     )
     axis_template: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -198,8 +206,31 @@ class TestbedCatalogVariantConfig(HydroModelBase):
     )
     limit: Annotated[int | None, Profile.USER] = Field(
         default=None,
-        description="Optional cap on the number of variants generated by the rule.",
+        description="Optional cap on the number of cases generated by the rule.",
     )
+
+
+TestbedVariantConfig = TestbedCaseConfig
+TestbedCatalogVariantConfig = TestbedCatalogCaseConfig
+
+
+def _select_case_items(
+    section: Mapping[str, Any],
+    *,
+    canonical_key: str,
+    legacy_key: str,
+) -> tuple[Any, str]:
+    canonical_value = section.get(canonical_key)
+    legacy_value = section.get(legacy_key)
+    canonical_label = f"testbed.{canonical_key}"
+    legacy_label = f"testbed.{legacy_key}"
+    if legacy_value is not None:
+        raise ValueError(
+            f"{legacy_label} is no longer supported; use {canonical_label}."
+        )
+    if canonical_value is not None:
+        return canonical_value, canonical_label
+    return None, canonical_label
 
 
 class TestbedConfig(HydroModelBase):
@@ -232,27 +263,57 @@ class TestbedConfig(HydroModelBase):
     )
     base_config_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
-        description="Optional child workflow TOML used as the variant base config.",
+        description="Optional child workflow TOML used as the case base config.",
     )
     runner: Annotated[TestbedRunnerConfig, Profile.USER] = Field(
-        description="Child-runner selection for every variant."
+        description="Child-runner selection for every case."
     )
-    variants: Annotated[tuple[TestbedVariantConfig, ...], Profile.USER] = Field(
+    case: Annotated[tuple[TestbedCaseConfig, ...], Profile.USER] = Field(
         default=(),
-        description="Explicit variants declared in the TOML.",
+        description="Explicit executable cases declared in the TOML.",
     )
     catalog: Annotated[TestbedCatalogConfig | None, Profile.USER] = Field(
         default=None,
-        description="Optional catalog source used to expand variants from rows.",
+        description="Optional catalog source used to expand cases from rows.",
     )
-    catalog_variants: Annotated[tuple[TestbedCatalogVariantConfig, ...], Profile.USER] = Field(
+    case_from_catalog: Annotated[tuple[TestbedCatalogCaseConfig, ...], Profile.USER] = Field(
         default=(),
-        description="Variant-generation rules applied to catalog rows.",
+        description="Case-generation rules applied to catalog rows.",
     )
     metrics: Annotated[tuple[TestbedMetricConfig, ...], Profile.USER] = Field(
         default=(),
         description="Metrics extracted from each child-runner summary.",
     )
+
+    @property
+    def cases(self) -> tuple[TestbedCaseConfig, ...]:
+        """Canonical public alias for explicit executable cases."""
+        return self.case
+
+    @property
+    def catalog_cases(self) -> tuple[TestbedCatalogCaseConfig, ...]:
+        """Canonical public alias for catalog-backed case generation rules."""
+        return self.case_from_catalog
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_variant_field_names(cls, data: Any) -> Any:
+        """Reject direct Python construction with legacy field names."""
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        legacy_pairs = (
+            ("variants", "case"),
+            ("catalog_variants", "case_from_catalog"),
+        )
+        for legacy_key, canonical_key in legacy_pairs:
+            if legacy_key not in payload:
+                continue
+            raise ValueError(
+                f"TestbedConfig.{legacy_key} is no longer supported; "
+                f"use TestbedConfig.{canonical_key}."
+            )
+        return payload
 
     @classmethod
     def from_toml(
@@ -288,10 +349,11 @@ class TestbedConfig(HydroModelBase):
 
         runner_section = normalize_mapping(section.get("runner"), label="testbed.runner")
         requested_runner_type = (optional_text(runner_section.get("type")) or "simulation").lower()
-        if requested_runner_type not in SUPPORTED_RUNNERS:
+        available_runner_types = set(available_testbed_runner_types())
+        if requested_runner_type not in available_runner_types:
             raise ValueError(
                 f"Unsupported testbed.runner.type '{requested_runner_type}'. "
-                f"Supported values: {', '.join(sorted(SUPPORTED_RUNNERS))}."
+                f"Supported values: {', '.join(sorted(available_runner_types))}."
             )
         runner_type = requested_runner_type
         supported_subject_runners = SUPPORTED_SUBJECT_RUNNERS[subject]
@@ -303,10 +365,8 @@ class TestbedConfig(HydroModelBase):
         if subject in {"flow", "transport"} and optional_text(section.get("base_config")) is None:
             raise ValueError(
                 f"testbed.runner.type='{runner_type}' requires testbed.base_config to "
-                "point to the delegated child workflow TOML. Use a simulation TOML for "
-                "runner.type='simulation' or a comparison TOML for "
-                "runner.type='comparison'. Keep the testbed declaration outside the "
-                "child config."
+                "point to the delegated child workflow TOML. Keep the testbed "
+                "declaration outside the child config."
             )
 
         raw_catalog = section.get("catalog")
@@ -319,18 +379,19 @@ class TestbedConfig(HydroModelBase):
             tag_separator = optional_text(catalog_mapping.get("tag_separator")) or ";"
             if tag_separator == "":
                 raise ValueError("testbed.catalog.tag_separator cannot be empty")
+            catalog_source = resolve_catalog_source(
+                base_dir=base_dir,
+                mapping=catalog_mapping,
+                catalog_label="testbed.catalog",
+            )
             catalog = TestbedCatalogConfig(
-                path=resolve_required_path(
-                    base_dir,
-                    catalog_mapping.get("path"),
-                    label="testbed.catalog.path",
-                ),
+                path=catalog_source.path,
                 format=catalog_format,
                 id_field=require_text(
-                    catalog_mapping.get("id_field", "variant_id"),
+                    catalog_mapping.get("id_field", "case_id"),
                     label="testbed.catalog.id_field",
                 ),
-                label_field=optional_text(catalog_mapping.get("label_field", "variant_label")),
+                label_field=optional_text(catalog_mapping.get("label_field", "case_label")),
                 axis_field=optional_text(catalog_mapping.get("axis_field", "axis")),
                 enabled_field=optional_text(catalog_mapping.get("enabled_field", "enabled")),
                 tags_field=optional_text(catalog_mapping.get("tags_field", "tags")),
@@ -360,91 +421,98 @@ class TestbedConfig(HydroModelBase):
                     catalog_mapping.get("limit"),
                     label="testbed.catalog.limit",
                 ),
+                source_manifest_path=catalog_source.source_manifest_path,
+                source_manifest_output_key=catalog_source.source_manifest_output_key,
             )
 
-        raw_variants = section.get("variant", section.get("variants", []))
-        raw_catalog_variants = section.get(
-            "variant_from_catalog",
-            section.get("catalog_variant", []),
+        raw_variants, variant_label = _select_case_items(
+            section,
+            canonical_key="case",
+            legacy_key="variant",
+        )
+        raw_catalog_variants, catalog_variant_label = _select_case_items(
+            section,
+            canonical_key="case_from_catalog",
+            legacy_key="variant_from_catalog",
         )
         if raw_variants is None:
             raw_variants = []
         if raw_catalog_variants is None:
             raw_catalog_variants = []
         if not isinstance(raw_variants, list):
-            raise ValueError("testbed.variant must be a list when provided")
+            raise ValueError(f"{variant_label} must be a list when provided")
         if not isinstance(raw_catalog_variants, list):
-            raise ValueError("testbed.variant_from_catalog must be a list when provided")
+            raise ValueError(f"{catalog_variant_label} must be a list when provided")
         if not raw_variants and not raw_catalog_variants:
             raise ValueError(
-                "testbed.variant or testbed.variant_from_catalog must contain at least one item"
+                "testbed.case or testbed.case_from_catalog must contain at least one item"
             )
         if raw_catalog_variants and catalog is None:
-            raise ValueError("testbed.variant_from_catalog requires a [testbed.catalog] section")
+            raise ValueError(f"{catalog_variant_label} requires a [testbed.catalog] section")
 
-        variants: list[TestbedVariantConfig] = []
+        variants: list[TestbedCaseConfig] = []
         seen_variant_ids: set[str] = set()
         for index, raw_variant in enumerate(raw_variants):
             variant_mapping = require_mapping(
                 raw_variant,
-                label=f"testbed.variant[{index}]",
+                label=f"{variant_label}[{index}]",
             )
             variant_id = require_text(
                 variant_mapping.get("id"),
-                label=f"testbed.variant[{index}].id",
+                label=f"{variant_label}[{index}].id",
             )
             normalized_id = variant_id.lower()
             if normalized_id in seen_variant_ids:
-                raise ValueError(f"Duplicate testbed.variant id '{variant_id}'")
+                raise ValueError(f"Duplicate testbed.case id '{variant_id}'")
             seen_variant_ids.add(normalized_id)
             variants.append(
-                TestbedVariantConfig(
+                TestbedCaseConfig(
                     id=variant_id,
                     label=optional_text(variant_mapping.get("label")) or variant_id,
                     axis=optional_text(variant_mapping.get("axis")),
                     enabled=bool(variant_mapping.get("enabled", True)),
                     overlay=normalize_mapping(
                         variant_mapping.get("overlay"),
-                        label=f"testbed.variant[{variant_id}].overlay",
+                        label=f"{variant_label}[{variant_id}].overlay",
                     ),
                 )
             )
 
-        catalog_variants: list[TestbedCatalogVariantConfig] = []
+        catalog_variants: list[TestbedCatalogCaseConfig] = []
         for index, raw_catalog_variant in enumerate(raw_catalog_variants):
             catalog_variant_mapping = require_mapping(
                 raw_catalog_variant,
-                label=f"testbed.variant_from_catalog[{index}]",
+                label=f"{catalog_variant_label}[{index}]",
             )
             catalog_variants.append(
-                TestbedCatalogVariantConfig(
+                TestbedCatalogCaseConfig(
                     id_template=optional_text(catalog_variant_mapping.get("id_template")),
                     label_template=optional_text(catalog_variant_mapping.get("label_template")),
                     axis_template=optional_text(catalog_variant_mapping.get("axis_template")),
                     enabled=bool(catalog_variant_mapping.get("enabled", True)),
                     overlay=normalize_mapping(
                         catalog_variant_mapping.get("overlay"),
-                        label=f"testbed.variant_from_catalog[{index}].overlay",
+                        label=f"{catalog_variant_label}[{index}].overlay",
                     ),
                     required_fields=normalize_text_list(
                         catalog_variant_mapping.get("required_fields"),
-                        label=f"testbed.variant_from_catalog[{index}].required_fields",
+                        label=f"{catalog_variant_label}[{index}].required_fields",
                     ),
                     field_equals=normalize_text_mapping(
                         catalog_variant_mapping.get("field_equals"),
-                        label=f"testbed.variant_from_catalog[{index}].field_equals",
+                        label=f"{catalog_variant_label}[{index}].field_equals",
                     ),
                     tags=normalize_text_list(
                         catalog_variant_mapping.get("tags"),
-                        label=f"testbed.variant_from_catalog[{index}].tags",
+                        label=f"{catalog_variant_label}[{index}].tags",
                     ),
                     exclude_tags=normalize_text_list(
                         catalog_variant_mapping.get("exclude_tags"),
-                        label=f"testbed.variant_from_catalog[{index}].exclude_tags",
+                        label=f"{catalog_variant_label}[{index}].exclude_tags",
                     ),
                     limit=validate_optional_positive_int(
                         catalog_variant_mapping.get("limit"),
-                        label=f"testbed.variant_from_catalog[{index}].limit",
+                        label=f"{catalog_variant_label}[{index}].limit",
                     ),
                 )
             )
@@ -493,9 +561,9 @@ class TestbedConfig(HydroModelBase):
                 type=runner_type,
                 no_display=bool(runner_section.get("no_display", True)),
             ),
-            variants=tuple(variants),
+            case=tuple(variants),
             catalog=catalog,
-            catalog_variants=tuple(catalog_variants),
+            case_from_catalog=tuple(catalog_variants),
             metrics=tuple(metrics),
         )
 

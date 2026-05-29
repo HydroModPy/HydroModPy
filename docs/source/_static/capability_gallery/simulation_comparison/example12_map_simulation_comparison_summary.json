@@ -48,11 +48,11 @@
     "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_manifest.json": "aba956c197a08cee559112f8882b17066da9389a54919b9deecb58f1de50df7d",
-    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_metrics.json": "9c94febd5fd5e0dfae3abc6ea37a87421dc119459d3326fed0cf53b73da71546",
-    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_observables.csv": "e2f51c69c71658fc584375c92e974180e2f9577d27fbf8f5a33491652e94bf26",
-    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_summary_metrics.csv": "2a9b94243f370f395c1c10cca8e43e7361aef7206a682541c66b04f916e4bed5",
-    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv": "c472046a7ea9fe3ac2947fd2fdc35d1b7d60d70cedb1f0382f78cf524f863f9d"
+    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_manifest.json": "acf0aef9aba48295b8cb67f391eb522c59c93c7a125a891b88a7c7f158a3b713",
+    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_metrics.json": "67fec76be47f370987e1998f92af10505fb1d8be987fd06d05c7e1faba2832f7",
+    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_observables.csv": "50d35d7ae1bedd79f8a938752e9529c2a41c5f6718df46ef798c3c2f94486b80",
+    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_summary_metrics.csv": "81699024350482306b57df98b1f587d9990ec8f3c66e4ef893e1344dd5f119bc",
+    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv": "5903dd0990314e6d4f770ec78b35a08df760720411d4ba276a79ebdaf115368e"
   },
   "docname": "cases/example12_map_simulation_comparison",
   "images": [

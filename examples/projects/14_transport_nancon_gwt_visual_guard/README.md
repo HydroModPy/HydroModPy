@@ -55,8 +55,8 @@ run_nancon_steady_mf6_prt_pathlines.toml
 ```
 
 This overlay runs a steady MODFLOW 6 DISV flow model on the same Nancon mesh,
-then runs the new `transport/modflow6prt` backend with 100 release points in
-upstream non-river cells. It requires a MODFLOW 6 executable recent
+then runs the new `transport/modflow6prt` backend with 300 release points spread
+over active non-river cells. It requires a MODFLOW 6 executable recent
 enough to support PRT.
 
 The PRT overlay is particle tracking, not a concentration-transport solve. The

@@ -15,7 +15,7 @@ from hydromodpy.physics.flow.history_contract import (
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
-    load_npy_time_series_arrays,
+    load_time_series_fields,
 )
 from validation_cases.shared.boussinesq_budget import (
     compute_free_control_volume_budget,
@@ -206,7 +206,12 @@ def _resolve_mean_head_profiles_m(
         )
         return np.mean(head_grid_m, axis=1)
 
-    _, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
+    _, heads = load_time_series_fields(
+        store=result.store,
+        sim_id=result.sim_id,
+        observable_name="watertable_elevation",
+        expected_spatial_shape=(int(ny), int(nx)),
+    )
     return np.mean(np.asarray(heads, dtype=float), axis=1)
 
 

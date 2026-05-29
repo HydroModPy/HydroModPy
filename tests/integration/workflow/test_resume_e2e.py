@@ -3,8 +3,8 @@
 Drives :class:`Pipeline` against a fresh workspace + catalog. A first run
 crashes on step 3, a second run consults the workflow journal to resume
 from step 3 onwards. The test also verifies that the heartbeat thread keeps
-``last_heartbeat`` fresh during the run, and that a hard-crash leaves a
-stale row visible to ``hmp catalog gc``.
+``v_workflow_heartbeats`` fresh during the run, and that a hard-crash leaves
+a stale event-stream heartbeat visible to ``hmp catalog gc``.
 """
 
 from __future__ import annotations
@@ -59,11 +59,11 @@ def _register_running_sim(catalog: SimulationCatalog, sim_id: str) -> None:
         """
         INSERT INTO simulations
             (sim_id, project, solver_id, status_id,
-             zarr_path, storage_basename, last_heartbeat)
+             zarr_path, storage_basename)
         VALUES (?, 'p1',
                 (SELECT id FROM solvers WHERE code = 'modflow6'),
                 (SELECT id FROM statuses WHERE code = 'running'),
-                ?, ?, NULL)
+                ?, ?)
         """,
         [sim_id, "simulations/x.zarr", "x"],
     )
@@ -159,7 +159,7 @@ def test_heartbeat_keeps_sim_fresh_during_run(tmp_path: Path) -> None:
     catalog = SimulationCatalog(workspace)
     try:
         row = catalog.connection.execute(
-            "SELECT last_heartbeat FROM simulations WHERE sim_id = ?",
+            "SELECT last_heartbeat FROM v_workflow_heartbeats WHERE run_id = ?",
             [SIM_ID],
         ).fetchone()
         assert row is not None and row[0] is not None
@@ -180,8 +180,11 @@ def test_simulated_hard_crash_leaves_stale_heartbeat(tmp_path: Path) -> None:
     try:
         _register_running_sim(catalog, SIM_ID)
         catalog.connection.execute(
-            "UPDATE simulations SET last_heartbeat = ? WHERE sim_id = ?",
-            [datetime.now(UTC) - timedelta(minutes=30), SIM_ID],
+            """
+            INSERT INTO workflow_events (run_id, step_name, event_type, ts)
+            VALUES (?, 'pipeline', 'heartbeat', ?)
+            """,
+            [SIM_ID, datetime.now(UTC) - timedelta(minutes=30)],
         )
     finally:
         catalog.close()
@@ -193,8 +196,9 @@ def test_simulated_hard_crash_leaves_stale_heartbeat(tmp_path: Path) -> None:
             """
             SELECT sim_id FROM simulations s
               JOIN statuses st ON s.status_id = st.id
+         LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = s.sim_id
              WHERE st.code = 'running'
-               AND (s.last_heartbeat IS NULL OR s.last_heartbeat < ?)
+               AND (wh.last_heartbeat IS NULL OR wh.last_heartbeat < ?)
             """,
             [cutoff],
         ).fetchone()

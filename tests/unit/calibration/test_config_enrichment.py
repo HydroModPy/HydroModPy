@@ -297,6 +297,19 @@ class TestCalibrationConfigEnriched:
         assert len(cfg.objective_blocks) == 1
         assert cfg.objective_blocks[0].name == "custom"
 
+    def test_output_support_tag_is_required(self):
+        payload = {
+            "outputs": {
+                "head_A": {
+                    "variable": "head",
+                    "x": 100.0,
+                    "y": 0.0,
+                }
+            }
+        }
+        with pytest.raises(ValidationError, match="support"):
+            CalibrationConfig.model_validate(payload)
+
 
 # ---------------------------------------------------------------------------
 # TOML round-trip with the enriched schema
@@ -372,6 +385,9 @@ class TestEnrichedTomlRoundTrip:
             "outputs": {
                 "head_A": {
                     "variable": "head",
+                    "support": "point",
+                    "x": 100.0,
+                    "y": 0.0,
                     "unknown_key": 1.0,
                 }
             }

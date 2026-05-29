@@ -15,11 +15,11 @@ from hydromodpy.core.units import Length
 class MeshCatchmentRiversConfig(HydroModelBase):
     """River-trace inputs consumed by the conformal mesher."""
 
-    source: Annotated[Literal["domain_geographic", "file"], StripLower, Profile.USER] = Field(
-        default="domain_geographic",
+    source: Annotated[Literal["geographic_features", "file"], StripLower, Profile.USER] = Field(
+        default="geographic_features",
         description=(
             "Origin of the river constraints used to force mesh edges along the river network. "
-            "Use 'domain_geographic' for the in-memory river trace produced by geographic preprocessing, "
+            "Use 'geographic_features' for the in-memory river trace produced by geographic preprocessing, "
             "or 'file' to reload a vector river dataset from disk."
         ),
     )

@@ -37,6 +37,7 @@ from hydromodpy.solver.modflow_grid import (
     SolverGridContext,
     build_spatial_discretization,
     build_temporal_discretization_from_time_grid,
+    resolve_first_period_steady,
     resolve_domain_surfaces,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
@@ -251,7 +252,9 @@ class ModflowNwt:
         result = build_temporal_discretization_from_time_grid(
             time_grid=launcher_time_grid,
             flow_regime=self.flow_regime,
-            firstpersteady=bool(getattr(self.tgrid_config, "firstpersteady", True)),
+            first_period_steady=resolve_first_period_steady(
+                flow=getattr(self, "flow", None),
+            ),
         )
 
         self.dis_itmuni = result.itmuni

@@ -147,9 +147,7 @@ def test_build_river_network_products_noop_when_disabled():
     assert result.enabled is False
     assert result.threshold_cells is None
     assert result.streams_tif is None
-    assert result.network_shp is None
     assert result.network_crs is None
-    assert result.summary_json is None
     assert result.hydrographic_network_generated_shp is None
     assert result.hydrographic_network_generated_summary_json is None
 
@@ -223,10 +221,8 @@ def test_build_river_network_products_skips_empty_vector_export(
     )
 
     assert backend.write_vector_calls == 0
-    assert result.network_shp is None
+    assert result.hydrographic_network_generated_shp is None
     assert result.river_mesh_trace is None
     assert not network_shp.exists()
     assert not stale_dbf.exists()
-    assert Path(str(result.summary_json)).exists()
-    assert result.hydrographic_network_generated_shp is None
-    assert result.hydrographic_network_generated_summary_json == str(result.summary_json)
+    assert Path(str(result.hydrographic_network_generated_summary_json)).exists()

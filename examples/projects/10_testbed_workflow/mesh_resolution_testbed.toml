@@ -16,38 +16,38 @@ execute = false
 [testbed.runner]
 type = "simulation"
 
-[[testbed.variant]]
+[[testbed.case]]
 id = "coarse"
 axis = "resolution"
 
-[testbed.variant.overlay.workspace]
+[testbed.case.overlay.workspace]
 project_root = "outputs/mesh_resolution_testbed/coarse_workspace"
 
-[testbed.variant.overlay.mesh_catchment.zone_meshing]
+[testbed.case.overlay.mesh_catchment.zone_meshing]
 global_size = 3500.0
 min_size = 1800.0
 max_size = 5200.0
 
-[[testbed.variant]]
+[[testbed.case]]
 id = "reference"
 axis = "resolution"
 
-[testbed.variant.overlay.workspace]
+[testbed.case.overlay.workspace]
 project_root = "outputs/mesh_resolution_testbed/reference_workspace"
 
-[testbed.variant.overlay.mesh_catchment.zone_meshing]
+[testbed.case.overlay.mesh_catchment.zone_meshing]
 global_size = 2500.0
 min_size = 1200.0
 max_size = 4000.0
 
-[[testbed.variant]]
+[[testbed.case]]
 id = "fine"
 axis = "resolution"
 
-[testbed.variant.overlay.workspace]
+[testbed.case.overlay.workspace]
 project_root = "outputs/mesh_resolution_testbed/fine_workspace"
 
-[testbed.variant.overlay.mesh_catchment.zone_meshing]
+[testbed.case.overlay.mesh_catchment.zone_meshing]
 global_size = 1600.0
 min_size = 700.0
 max_size = 2800.0

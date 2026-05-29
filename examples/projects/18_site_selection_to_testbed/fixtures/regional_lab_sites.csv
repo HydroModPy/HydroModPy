@@ -1,0 +1,3 @@
+site_id,site_label,region_id,source_selection_id,site_status,maturity,x,y,x_outlet,y_outlet,area_km2,tags,enabled
+demo_site_01,Demo site 01,demo_region,fixture_selection,ready,screening,131189.1,6833784.4,131189.1,6833784.4,45.5,selected;simulation;comparison;demo,true
+demo_site_02,Demo site 02,demo_region,fixture_selection,ready,screening,132450.0,6835100.0,132450.0,6835100.0,62.0,selected;simulation;comparison;demo,true

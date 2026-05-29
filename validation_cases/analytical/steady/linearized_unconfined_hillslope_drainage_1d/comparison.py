@@ -73,7 +73,6 @@ def build_linearized_unconfined_hillslope_drainage_comparison(
     else:
         expected_shape = tuple(output_cfg.get("expected_shape", ()))
     timestep, heads = load_field(
-        postprocess_dir=result.postprocess_dir,
         store=result.store,
         sim_id=result.sim_id,
         observable_name=observable_name,

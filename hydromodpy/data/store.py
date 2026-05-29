@@ -4,7 +4,7 @@ The DataStore is the main interface for loading data. It manages the catalog
 (metadata registry backed by DuckDB) and delegates to variable-specific
 managers.
 
-If *workspace_root* is provided (path to an ``hmp init`` workspace), API
+If *workspace_root* is provided (path to an ``hmp workspace init`` workspace), API
 results are persisted as CSV files in ``data/<variable>/`` and registered
 in ``data/cache.duckdb`` under the workspace root. Custom data stays at the
 path specified by the user in the TOML.
@@ -52,7 +52,7 @@ class DataStore:
     Parameters
     ----------
     workspace_root : Path or str, optional
-        Root of the HydroModPy workspace (created by ``hmp init``).
+        Root of the HydroModPy workspace (created by ``hmp workspace init``).
         If provided, ``data/cache.duckdb`` is opened at this location and API
         results are saved as CSV in ``data/<variable>/``.
         If *None*, the catalog is in-memory and nothing is persisted.
@@ -84,7 +84,7 @@ class DataStore:
             if not (self.workspace_root / "data").is_dir():
                 raise FileNotFoundError(
                     f"Workspace invalide : dossier 'data/' introuvable dans "
-                    f"{self.workspace_root}. Lancez 'hmp init' ou verifiez le chemin."
+                    f"{self.workspace_root}. Lancez 'hmp workspace init' ou verifiez le chemin."
                 )
             self.data_root = self.workspace_root / "data"
         else:

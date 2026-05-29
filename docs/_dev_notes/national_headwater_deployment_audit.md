@@ -6,7 +6,7 @@ Statut: note de reflexion preparatoire. Ce document ne decrit pas une recette
 operationnelle stabilisee. Il sert a cadrer le chantier avant d'engager du
 developpement ou une campagne de calcul massive.
 
-Document associe: `docs/_dev_notes/site_selection_tool_implementation_plan.md`
+Document associe: `docs/_dev_notes/legacy/site_selection_tool_implementation_plan.md`
 detaille le plan d'implementation specifique pour l'outil independant de
 selection de sites en amont des regional labs et testbeds.
 
@@ -472,7 +472,7 @@ des points d'entree officiels ou institutionnels identifies le 2026-05-12.
 
 | Theme | Source probable | Role | Etat HydroModPy | Methode d'acquisition possible | Manque principal |
 | --- | --- | --- | --- | --- | --- |
-| Relief / MNT | IGN RGE ALTI ou BD ALTI, https://geoservices.ign.fr/rgealti | Delimitation, pentes, top/bottom, maillage | Manager DEM avec source `ign_bdalti` et `custom` | Telechargement Geoplateforme/IGN par departement ou tuile, cache local, clipping par bassin | Strategie nationale de tuilage, version freeze, choix 1 m/5 m/25 m selon cout |
+| Relief / MNT | IGN RGE ALTI ou BD ALTI, https://geoservices.ign.fr/rgealti | Delimitation, pentes, top/bottom, maillage | Manager DEM avec sources `ign_geoplateforme_dem` et `custom`; `ign_bdalti` retire du contrat public | Telechargement Geoplateforme/IGN par departement ou tuile, cache local, clipping par bassin | Strategie nationale de tuilage, version freeze, choix 1 m/5 m/25 m selon cout |
 | Hydrographie reference | BD TOPAGE, Sandre/OFB/IGN, https://www.sandre.eaufrance.fr/v2/news/diffusion-de-la-1ere-version-de-la-bd-topage-metropole | Reseau reference, sources, troncons, noeuds, bassins | Manager hydrography avec `bdtopage`, `euhydro`, `osm`, `custom` | Telechargement Sandre en Shapefile/GeoJSON/GeoPackage ou WFS/WMS | Pretraitement national: routage, headwaters, matching DEM, attributs Strahler |
 | Geologie | BRGM InfoTerre, cartes 1/1 000 000 et 1/50 000 harmonisees, https://infoterre.brgm.fr/page/telechargement-cartes-geologiques | Mapping lithologie -> K/Sy/Ss, typologie | Manager geology avec `brgm_1m`, `brgm_50k`, `custom` | Telechargement direct InfoTerre/BRGM ou data.gouv par departement | Table scientifique de proprietes hydraulique, incertitudes, regroupements lithologiques |
 | Hydrogeologie | BDLISA, BRGM/Sandre, https://www.brgm.fr/en/reference-completed-project/bdlisa-french-hydrogeological-database | Systemes aquiferes, limites hydrogeologiques, classification | Pas de manager dedie identifie | Telechargement/flux via Sandre/BRGM, puis usage comme custom vector | Manager BDLISA ou support generic hydrogeology, mapping vers couches modele |

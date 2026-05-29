@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from hydromodpy.reporting.comparison.compact_network.io import (
@@ -111,7 +112,10 @@ def test_resolve_recorded_path_normalizes_windows_and_relative_paths(tmp_path, m
     windows_path = resolve_recorded_path(r"C:\tmp\run_a")
     relative_path = resolve_recorded_path("outputs/run_b")
 
-    assert windows_path.as_posix() == "/mnt/c/tmp/run_a"
+    if os.name == "nt":
+        assert windows_path == Path(r"C:\tmp\run_a").resolve()
+    else:
+        assert windows_path.as_posix() == "/mnt/c/tmp/run_a"
     assert relative_path == (tmp_path / "outputs" / "run_b").resolve()
 
 

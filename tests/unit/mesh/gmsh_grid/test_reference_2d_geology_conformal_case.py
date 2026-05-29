@@ -383,7 +383,7 @@ def _write_mode_case_toml(
         migrated = (
             f"{migrated.rstrip()}\n\n"
             f"[{section}.rivers]\n"
-            'source = "domain_geographic"\n'
+            'source = "geographic_features"\n'
             "clip_to_domain = true\n"
             "min_segment_length = 0.0\n"
             "snap_tolerance = 0.0\n"
@@ -664,14 +664,13 @@ def test_reference_2d_geology_conformal_rejects_removed_clip_bbox_syntax(tmp_pat
 def test_resolve_river_trace_for_meshing_prefers_explicit_trace() -> None:
     explicit_trace = object()
 
-    class _DomainGeographic:
-        river_mesh_trace = object()
-
     resolved = _resolve_river_trace_for_meshing(
         river_trace=explicit_trace,
-        domain_geographic=_DomainGeographic(),
+        geographic_features=SimpleNamespace(
+            rivers=SimpleNamespace(river_mesh_trace=object())
+        ),
         rivers_cfg=ZoneConformalRiversConfig(
-            source="domain_geographic",
+            source="geographic_features",
             path=None,
             clip_to_domain=True,
             min_segment_length=0.0,
@@ -683,17 +682,16 @@ def test_resolve_river_trace_for_meshing_prefers_explicit_trace() -> None:
     assert resolved is explicit_trace
 
 
-def test_resolve_river_trace_for_meshing_falls_back_to_domain_geographic() -> None:
-    domain_trace = object()
-
-    class _DomainGeographic:
-        river_mesh_trace = domain_trace
+def test_resolve_river_trace_for_meshing_uses_geographic_features() -> None:
+    river_trace = object()
 
     resolved = _resolve_river_trace_for_meshing(
         river_trace=None,
-        domain_geographic=_DomainGeographic(),
+        geographic_features=SimpleNamespace(
+            rivers=SimpleNamespace(river_mesh_trace=river_trace)
+        ),
         rivers_cfg=ZoneConformalRiversConfig(
-            source="domain_geographic",
+            source="geographic_features",
             path=None,
             clip_to_domain=True,
             min_segment_length=0.0,
@@ -702,15 +700,15 @@ def test_resolve_river_trace_for_meshing_falls_back_to_domain_geographic() -> No
         config_path=Path.cwd(),
     )
 
-    assert resolved is domain_trace
+    assert resolved is river_trace
 
 
 def test_resolve_river_trace_for_meshing_returns_none_without_inputs() -> None:
     resolved = _resolve_river_trace_for_meshing(
         river_trace=None,
-        domain_geographic=None,
+        geographic_features=None,
         rivers_cfg=ZoneConformalRiversConfig(
-            source="domain_geographic",
+            source="geographic_features",
             path=None,
             clip_to_domain=True,
             min_segment_length=0.0,
@@ -1394,7 +1392,7 @@ def test_river_constraints_mode_requires_river_trace(tmp_path: Path) -> None:
                 "bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]",
                 "",
                 "[case.rivers]",
-                'source = "domain_geographic"',
+                'source = "geographic_features"',
                 "",
                 "[case.zone_meshing]",
                 'algorithm = "delaunay"',
@@ -1572,7 +1570,7 @@ def test_rivers_only_mode_builds_river_constraints_contract(tmp_path: Path) -> N
                 "bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]",
                 "",
                 "[case.rivers]",
-                'source = "domain_geographic"',
+                'source = "geographic_features"',
                 "clip_to_domain = true",
                 "min_segment_length = 0.0",
                 "snap_tolerance = 0.0",

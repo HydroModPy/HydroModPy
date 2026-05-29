@@ -22,7 +22,7 @@
       "group": "Spatial",
       "sources": [
         "custom",
-        "ign_bdalti"
+        "ign_geoplateforme_dem"
       ],
       "shape": "Raster",
       "diagnostic": "DEM + basin",
@@ -212,17 +212,14 @@
   ],
   "code_sources": {
     "dem": [
-      "custom",
-      "ign_bdalti"
+      "custom"
     ],
     "etp": [
       "custom",
       "sim2"
     ],
     "geology": [
-      "custom",
-      "brgm_1m",
-      "brgm_50k"
+      "custom"
     ],
     "humidity": [
       "custom",
@@ -367,7 +364,7 @@
   "provider_replay_cases": {
     "hubeau": {
       "hydrometry": {
-        "locations": 4,
+        "locations": 21,
         "series": {
           "row_count": 90,
           "first_timestamp": "2022-01-01T00:00:00",
@@ -379,7 +376,7 @@
         "source_file": "examples\\data\\hydrometry\\hydrometry_hubeau_J709063002_20220101_20220331_D.csv"
       },
       "piezometry": {
-        "locations": 2,
+        "locations": 3,
         "series": {
           "row_count": 89,
           "first_timestamp": "2022-01-01T00:00:00",
@@ -493,7 +490,7 @@
     "min_msl_m": 0.9,
     "max_msl_m": 1.3,
     "returned_msl_m": 1.125,
-    "fetch_seconds": 0.05583
+    "fetch_seconds": 0.850689
   },
   "intermittency_case": {
     "source": "custom",

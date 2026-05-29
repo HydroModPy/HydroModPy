@@ -68,6 +68,17 @@ class TestCreate:
         assert "mesh" in s2.root
         s2.close()
 
+    def test_close_releases_root_reference(self, tmp_path):
+        path = tmp_path / "closed.zarr"
+        target = tmp_path / "renamed.zarr"
+        s = SimulationZarr.create(path, n_cells=5, n_layers=2)
+        s.close()
+        assert s._root is None
+        with pytest.raises(RuntimeError, match="closed"):
+            _ = s.root
+        path.rename(target)
+        assert target.exists()
+
 
 class TestMesh:
     def test_write_read_roundtrip(self, sz):

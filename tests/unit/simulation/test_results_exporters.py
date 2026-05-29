@@ -163,7 +163,7 @@ class TestCSVExport:
 
 class TestVTUExport:
     def test_basic(self, catalog_with_data):
-        import meshio
+        meshio = pytest.importorskip("meshio")
 
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.vtu"

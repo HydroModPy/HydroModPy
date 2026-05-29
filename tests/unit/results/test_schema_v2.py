@@ -119,7 +119,7 @@ def test_simulations_has_v2_fk_columns(catalog: SimulationCatalog) -> None:
     assert "scientific_objective" in cols
     assert "description" in cols
     assert "principal_id" in cols
-    assert "last_heartbeat" in cols
+    assert "last_heartbeat" not in cols
 
 
 def test_simulations_no_mf6_columns(catalog: SimulationCatalog) -> None:
@@ -302,7 +302,7 @@ def test_metric_definitions_seeded(catalog: SimulationCatalog) -> None:
 def test_schema_version_records_catalog_v1(catalog: SimulationCatalog) -> None:
     """``_schema_version`` carries the latest catalog migration after init."""
     rows = catalog.connection.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert ("catalog", 4) in rows
+    assert ("catalog", 6) in rows
 
 
 def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatalog) -> None:
@@ -315,6 +315,8 @@ def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatal
         (2, "audit_hash_chain"),
         (3, "retention_policies"),
         (4, "workflow_events"),
+        (5, "drop_simulation_heartbeat"),
+        (6, "drop_simulation_heartbeat_column"),
     ]
 
 
@@ -342,7 +344,7 @@ def test_double_init_is_idempotent(tmp_path: Path) -> None:
     cat2.close()
 
     assert tables_a == tables_b
-    assert rows[0] == 4, "schema_migrations should record every bundled migration"
+    assert rows[0] == 6, "schema_migrations should record every bundled migration"
     assert version_rows[0] == 1
 
 

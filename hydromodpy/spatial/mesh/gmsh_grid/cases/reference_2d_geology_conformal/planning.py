@@ -18,6 +18,9 @@ from types import SimpleNamespace
 import geopandas as gpd
 from shapely.ops import unary_union
 
+from hydromodpy.spatial.geographic.core.derived_features import (
+    resolve_river_mesh_trace,
+)
 from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     build_river_mesh_trace_from_vector,
 )
@@ -55,7 +58,7 @@ from hydromodpy.spatial.protocols import get_geology_data_source
 def _resolve_river_trace_for_meshing(
     *,
     river_trace: object | None,
-    domain_geographic: object | None,
+    geographic_features: object | None,
     rivers_cfg: ZoneConformalRiversConfig | None,
     config_path: Path,
 ) -> object | None:
@@ -92,9 +95,7 @@ def _resolve_river_trace_for_meshing(
                 except Exception:
                     return None
 
-    if domain_geographic is None:
-        return None
-    return getattr(domain_geographic, "river_mesh_trace", None)
+    return resolve_river_mesh_trace(geographic_features=geographic_features)
 
 
 def _clip_line_constraint_to_domain(
@@ -709,6 +710,7 @@ def _build_linear_constraint_inputs(
     cfg: ZoneConformalCaseConfig,
     config_path: Path,
     river_trace: object | None,
+    geographic_features: object | None,
     domain_geographic: object | None,
     effective_domain_payload: ZoneMeshingDomainPayload,
 ) -> tuple[object | None, tuple[ZoneLinearConstraint, ...]]:
@@ -721,7 +723,7 @@ def _build_linear_constraint_inputs(
             raise ValueError("river constraints require one rivers configuration.")
         resolved_river_trace = _resolve_river_trace_for_meshing(
             river_trace=river_trace,
-            domain_geographic=domain_geographic,
+            geographic_features=geographic_features,
             rivers_cfg=rivers_cfg,
             config_path=config_path,
         )
@@ -740,7 +742,7 @@ def _build_linear_constraint_inputs(
         if resolved_river_trace is None:
             raise ValueError(
                 "river constraints mode requires one usable river trace. Provide rivers.source='file', "
-                "or provide domain_geographic with one river_mesh_trace, or pass an explicit river_trace."
+                "or provide geographic_features with rivers.river_mesh_trace, or pass an explicit river_trace."
             )
         river_constraint = _normalize_linear_constraint(
             name="river::trace",
@@ -817,6 +819,7 @@ def _build_zone_conformal_meshing_inputs(
     config_path: Path,
     river_trace: object | None,
     domain_geographic: object | None,
+    geographic_features: object | None = None,
 ) -> ZoneConformalMeshingInputs:
     (
         source_payload,
@@ -833,6 +836,7 @@ def _build_zone_conformal_meshing_inputs(
         cfg=cfg,
         config_path=config_path,
         river_trace=river_trace,
+        geographic_features=geographic_features,
         domain_geographic=domain_geographic,
         effective_domain_payload=effective_domain_payload,
     )

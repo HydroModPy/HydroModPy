@@ -22,6 +22,17 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
+def _optional_dask_array():
+    """Return ``dask.array`` when installed, otherwise ``None``."""
+    try:
+        import dask.array as da
+    except ModuleNotFoundError as exc:
+        if exc.name != "dask":
+            raise
+        return None
+    return da
+
+
 def lookup_zarr_path(root, zarr_path: str):
     """Resolve a registry zarr_path against a Zarr root, returning ``None`` if absent."""
     if "/" in zarr_path:
@@ -63,10 +74,10 @@ class RunArrayProvider:
             Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS;
             restricts the dataset to faces whose centroid falls inside.
         """
-        import dask.array as da
         import xarray as xr
         import xugrid as xu
 
+        da = _optional_dask_array()
         run = self._run
         mesh = run.mesh
         verts = np.asarray(mesh.vertices, dtype=float)
@@ -115,8 +126,11 @@ class RunArrayProvider:
                 dims = face_shapes[desc.shape]
                 if len(dims) != arr.ndim:
                     continue
-                chunks = arr.chunks if arr.chunks else "auto"
-                values = da.from_array(arr, chunks=chunks)
+                if da is None:
+                    values = np.asarray(arr)
+                else:
+                    chunks = arr.chunks if arr.chunks else "auto"
+                    values = da.from_array(arr, chunks=chunks)
                 data_vars[name] = xr.DataArray(
                     values,
                     dims=dims,
@@ -126,7 +140,7 @@ class RunArrayProvider:
             sz.close()
             raise
 
-        if not data_vars:
+        if da is None or not data_vars:
             sz.close()
         ds = xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
         if bbox is not None:
@@ -150,9 +164,9 @@ class RunArrayProvider:
         ``bbox`` restricts the dataset to cells whose centroid lies within
         the bounding box.
         """
-        import dask.array as da
         import xarray as xr
 
+        da = _optional_dask_array()
         run = self._run
         sz = run._catalog.open_zarr(run._sim_id)
         try:
@@ -177,8 +191,11 @@ class RunArrayProvider:
                     dims = ("cell",)
                 else:
                     dims = tuple(f"d{i}" for i in range(arr.ndim))
-                chunks = arr.chunks if arr.chunks else "auto"
-                values = da.from_array(arr, chunks=chunks)
+                if da is None:
+                    values = np.asarray(arr)
+                else:
+                    chunks = arr.chunks if arr.chunks else "auto"
+                    values = da.from_array(arr, chunks=chunks)
                 if shape == field_registry.SHAPE_TIME_LAYER_FACE and values.ndim == 2:
                     values = values[:, np.newaxis, :]
                 if time_slice is not None and dims and dims[0] == "time":
@@ -191,7 +208,7 @@ class RunArrayProvider:
         except Exception:
             sz.close()
             raise
-        if not data_vars:
+        if da is None or not data_vars:
             sz.close()
         ds = xr.Dataset(data_vars)
         if bbox is not None:

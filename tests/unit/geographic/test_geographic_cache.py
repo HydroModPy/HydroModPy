@@ -30,12 +30,14 @@ def _cached_config(tmp_path: Path) -> GeographicConfig:
     dem_path.write_text("dem", encoding="utf-8")
     return GeographicConfig.model_validate(
         {
-            "catch_def": "from_outlet_coord",
-            "dem_init_path": dem_path,
-            "x_outlet": 1.0,
-            "y_outlet": 2.0,
-            "snap_dist": 10.0,
-            "buff_area": 10.0,
+            "catchment": {
+                "catch_def": "from_outlet_coord",
+                "dem_init_path": dem_path,
+                "x_outlet": 1.0,
+                "y_outlet": 2.0,
+                "snap_dist": 10.0,
+                "buff_area": 10.0,
+            },
             "reuse_existing_outputs": True,
         }
     )

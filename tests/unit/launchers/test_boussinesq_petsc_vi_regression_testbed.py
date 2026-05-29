@@ -62,7 +62,7 @@ def test_petsc_vi_regression_testbed_materializes_multi_scale_comparisons(
 ) -> None:
     summary = MethodTestbedLauncher(_isolated_testbed_config(tmp_path)).run()
 
-    assert summary["variant_count"] == 6
+    assert summary["case_count"] == 6
     assert summary["executed_count"] == 0
 
     generated_dir = Path(summary["generated_configs_dir"])
@@ -103,8 +103,8 @@ def test_petsc_vi_regression_100km2_rule_overrides_scale_settings(tmp_path: Path
     assert comparison["fine_raster"]["resolution"] == 160.0
 
     base_overlay = comparison["base_simulation_overlay"]
-    assert base_overlay["geographic"]["snap_dist"] == "300.0 m"
-    assert base_overlay["geographic"]["buff_area"] == "1800.0 m"
+    assert base_overlay["geographic"]["catchment"]["snap_dist"] == "300.0 m"
+    assert base_overlay["geographic"]["catchment"]["buff_area"] == "1800.0 m"
     assert base_overlay["geographic"]["river_network"]["enabled"] is False
     assert "mesh_catchment" not in base_overlay
     assert base_overlay["data"]["types"] == ["dem", "geology", "recharge"]

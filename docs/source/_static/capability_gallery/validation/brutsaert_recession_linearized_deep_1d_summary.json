@@ -178,7 +178,7 @@
           "category": "analytical",
           "regime": "transient",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "config_file": "config_modflownwt.toml",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
@@ -276,7 +276,7 @@
           "category": "analytical",
           "regime": "transient",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "config_file": "config_modflownwt.toml",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
@@ -374,7 +374,7 @@
           "category": "analytical",
           "regime": "transient",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "config_file": "config_modflownwt.toml",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
@@ -472,7 +472,7 @@
           "category": "analytical",
           "regime": "transient",
           "dimension": "1d",
-          "launcher": "launcher_simulation",
+          "launcher": "simulation_regression",
           "config_file": "config_modflownwt.toml",
           "default_solver": "modflownwt",
           "base_config": "config_common.toml",
@@ -841,12 +841,6 @@
           "meaning": "Number of vertical layers used by MODFLOW-NWT.",
           "value": "1",
           "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
-        },
-        {
-          "field": "modflownwt.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW-NWT.",
-          "value": "true",
-          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
         }
       ],
       "modflow6": [
@@ -897,12 +891,6 @@
           "meaning": "Number of vertical layers used by MODFLOW 6.",
           "value": "1",
           "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
-        },
-        {
-          "field": "modflow6.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
-          "value": "true",
-          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
         }
       ],
       "modflow6_irregular_tri": [
@@ -928,12 +916,6 @@
           "field": "modflow6.sgrid.vertical.nlay",
           "meaning": "Number of vertical layers used by MODFLOW 6.",
           "value": "1",
-          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
-        },
-        {
-          "field": "modflow6.tgrid.firstpersteady",
-          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
-          "value": "true",
           "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6_irregular_tri.toml"
         },
         {

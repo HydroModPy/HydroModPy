@@ -13,6 +13,11 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.display.map_axes import (
+    RELATIVE_MAP_COLORBAR_LABEL_SIZE,
+    RELATIVE_MAP_COLORBAR_TICK_SIZE,
+)
+
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.collections import PolyCollection
@@ -59,7 +64,8 @@ def render_face_field(
     ax.autoscale_view()
     cbar = ax.figure.colorbar(coll, ax=ax, fraction=0.046, pad=0.04)
     if cbar_label:
-        cbar.set_label(cbar_label)
+        cbar.set_label(cbar_label, fontsize=RELATIVE_MAP_COLORBAR_LABEL_SIZE)
+    cbar.ax.tick_params(labelsize=RELATIVE_MAP_COLORBAR_TICK_SIZE)
     return coll
 
 

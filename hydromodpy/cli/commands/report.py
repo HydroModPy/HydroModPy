@@ -1,4 +1,4 @@
-"""``hmp report`` - render calibration HTML reports and pairwise comparisons.
+"""``hmp report`` - render HTML reports and pairwise comparisons.
 
 Sub-actions:
 
@@ -6,6 +6,8 @@ Sub-actions:
   a calibration session (UUID full or unambiguous prefix).
 - ``hmp report compare <ref_a> <ref_b>``: side-by-side metric comparison of
   two simulations.
+- ``hmp report catchment <report_config>``: build a catchment HTML report from
+  one catchment report TOML configuration.
 """
 
 from __future__ import annotations
@@ -20,9 +22,10 @@ from hydromodpy.cli.helpers import (
     find_catalog_root,
 )
 from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.display.catchment_report.cli import add_catchment_report_arguments
 
 NAME: str = "report"
-HELP: str = "Render calibration HTML reports and pairwise comparisons"
+HELP: str = "Render HTML reports and pairwise comparisons"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -68,6 +71,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Comma-separated list of variable names to restrict the comparison",
     )
 
+    catchment_p = sub.add_parser(
+        "catchment",
+        help="Build a catchment HTML report from one TOML configuration",
+    )
+    add_catchment_report_arguments(catchment_p, report_config_option=False)
+
     parser.set_defaults(_handler=run)
     return parser
 
@@ -80,8 +89,11 @@ def run(args: argparse.Namespace) -> None:
     if action == "compare":
         _cmd_compare(args)
         return
+    if action == "catchment":
+        _cmd_catchment(args)
+        return
     print(
-        "Usage: hmp report {render|compare} [options]. See 'hmp report --help'.",
+        "Usage: hmp report {render|compare|catchment} [options]. See 'hmp report --help'.",
         file=sys.stderr,
     )
     sys.exit(EXIT_CONFIG)
@@ -138,3 +150,21 @@ def _cmd_compare(args: argparse.Namespace) -> None:
         print("(no metrics recorded for either simulation)")
         return
     print(df.to_string())
+
+
+def _cmd_catchment(args: argparse.Namespace) -> None:
+    from hydromodpy.display.catchment_report.cli import (
+        print_catchment_report_result,
+        run_catchment_report_from_args,
+    )
+
+    try:
+        result = run_catchment_report_from_args(args)
+    except ValueError as exc:
+        print(
+            str(exc),
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+
+    print_catchment_report_result(result)

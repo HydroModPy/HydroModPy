@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import decode_workspace_path
 from hydromodpy.results.geographic_cache import (
     CACHE_DIRNAME,
     MANIFEST_FILENAME,
@@ -181,13 +182,17 @@ def _copy_directory_tree(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst)
 
 
-def _bundle_one_input(entry_row: dict, staging_inputs: Path) -> dict | None:
+def _bundle_one_input(
+    entry_row: dict,
+    staging_inputs: Path,
+    workspace_path: Path,
+) -> dict | None:
     """Copy or pack one tracked file into the inputs staging area.
 
     Returns the manifest entry for this file, or ``None`` if the source is
     missing on disk at export time.
     """
-    src = Path(entry_row["canonical_path"])
+    src = decode_workspace_path(workspace_path, str(entry_row["canonical_path"]))
     if not src.exists():
         logger.warning(
             "Tracked file missing at export time, skipping: %s",
@@ -253,7 +258,7 @@ def _materialise_inputs(
     for _, row in rows.iterrows():
         if not bool(row["portable"]):
             continue
-        bundled = _bundle_one_input(dict(row), staging_inputs)
+        bundled = _bundle_one_input(dict(row), staging_inputs, catalog.workspace_path)
         if bundled is not None:
             entries.append(bundled)
 
@@ -680,6 +685,15 @@ def _rewrite_snapshot_paths(snap_path: Path, rewrites: dict[str, str]) -> None:
                     "WHERE sim_id = ?",
                     [new_toml, new_snap, sim_id],
                 )
+        for old_path, new_path in rewrites.items():
+            snap.execute(
+                """UPDATE tracked_files
+                   SET original_path = ?,
+                       canonical_path = ?,
+                       portable = TRUE
+                   WHERE original_path = ? OR canonical_path = ?""",
+                [new_path, new_path, old_path, old_path],
+            )
     finally:
         snap.close()
 

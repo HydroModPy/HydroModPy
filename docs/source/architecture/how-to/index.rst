@@ -63,6 +63,13 @@ Recipes
       Publish a named figure consumable by ``Run.plot`` and the
       ``[display]`` section.
 
+   .. grid-item-card:: Add a block HTML report
+      :link: add-a-block-html-report
+      :link-type: doc
+
+      Compose a static HTML report from reusable blocks, figures,
+      metrics, tables, and artifact links.
+
    .. grid-item-card:: Add an exporter
       :link: add-an-exporter
       :link-type: doc
@@ -104,6 +111,7 @@ Recipes
    add-a-data-variable
    add-a-data-source
    add-a-figure
+   add-a-block-html-report
    add-an-exporter
    add-a-test
    add-a-cli-command

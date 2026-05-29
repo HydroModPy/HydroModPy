@@ -6,8 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figures.hydrographic_network import _plot_topography_background
 from hydromodpy.display.geo import GeoFigureMixin
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
+from hydromodpy.display.map_axes import (
+    RELATIVE_MAP_LEGEND_SIZE,
+    overlay_watershed_contour,
+    style_relative_km_axes,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -47,10 +52,10 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             sim,
             comparison,
             gdf=comparison.reference_gdf,
-            color="#222222",
-            linewidth=1.4,
-            title="Loaded reference",
-            subtitle="data.hydrography",
+            color="#123f6d",
+            linewidth=1.45,
+            title="BD Topage",
+            subtitle="data.hydrography: BD Topage",
             length_m=comparison.reference_total_length_m,
         )
         return ax
@@ -87,10 +92,10 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             sim,
             comparison,
             gdf=comparison.reference_gdf,
-            color="#222222",
-            linewidth=1.4,
-            title="Loaded reference",
-            subtitle="data.hydrography",
+            color="#123f6d",
+            linewidth=1.45,
+            title="BD Topage",
+            subtitle="data.hydrography: BD Topage",
             length_m=comparison.reference_total_length_m,
         )
         self._draw_single_network(
@@ -98,8 +103,8 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             sim,
             comparison,
             gdf=comparison.candidate_gdf,
-            color="#2a6f97",
-            linewidth=1.2,
+            color="#c2410c",
+            linewidth=1.25,
             title="Generated from DEM",
             subtitle="geographic.river_network",
             length_m=comparison.candidate_total_length_m,
@@ -170,17 +175,17 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         self._plot_lines(
             ax,
             comparison.reference_gdf,
-            color="#222222",
-            linewidth=1.4,
-            label="reference",
+            color="#123f6d",
+            linewidth=1.45,
+            label="BD Topage",
             alpha=0.95,
         )
         self._plot_lines(
             ax,
             comparison.candidate_gdf,
-            color="#2a6f97",
+            color="#c2410c",
             linewidth=1.15,
-            label="generated",
+            label="DEM-derived",
             alpha=0.8,
         )
         self._finalize_map(ax, sim, comparison, title="Overlay + tolerance")
@@ -188,7 +193,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             ax.legend(
                 handles=_overlay_legend_handles(comparison.tolerance_m),
                 loc="lower right",
-                fontsize=8,
+                fontsize=RELATIVE_MAP_LEGEND_SIZE,
                 frameon=True,
             )
 
@@ -252,7 +257,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             ax.legend(
                 handles=_diff_legend_handles(comparison.tolerance_m),
                 loc="lower right",
-                fontsize=8,
+                fontsize=RELATIVE_MAP_LEGEND_SIZE,
                 frameon=True,
             )
 
@@ -272,6 +277,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             alpha=0.7,
             target_crs=comparison.crs,
         )
+        _plot_topography_background(ax, sim, alpha=0.72)
         bounds = _combined_total_bounds(
             comparison.reference_gdf,
             comparison.candidate_gdf,
@@ -284,7 +290,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             pad_y = max(dy * 0.04, 1.0)
             ax.set_xlim(xmin - pad_x, xmax + pad_x)
             ax.set_ylim(ymin - pad_y, ymax + pad_y)
-        style_map_axes(ax)
+        style_relative_km_axes(ax)
         self.add_scale_bar(ax)
         self.add_north_arrow(ax)
         ax.set_title(title)
@@ -471,7 +477,7 @@ class HydrographicNetworkReferenceMissingOnlyFigure(_HydrographicNetworkDifferen
             ax.legend(
                 handles=_reference_missing_legend_handles(comparison.tolerance_m),
                 loc="lower right",
-                fontsize=8,
+                fontsize=RELATIVE_MAP_LEGEND_SIZE,
                 frameon=True,
             )
 
@@ -545,7 +551,7 @@ class HydrographicNetworkGeneratedExtraOnlyFigure(_HydrographicNetworkDifference
             ax.legend(
                 handles=_generated_extra_legend_handles(comparison.tolerance_m),
                 loc="lower right",
-                fontsize=8,
+                fontsize=RELATIVE_MAP_LEGEND_SIZE,
                 frameon=True,
             )
 
@@ -640,8 +646,8 @@ def _overlay_legend_handles(tolerance_m: float):
             alpha=0.18,
             label=f"ref tolerance ({tolerance_m:.0f} m)",
         ),
-        Line2D([0], [0], color="#222222", linewidth=1.4, label="reference"),
-        Line2D([0], [0], color="#2a6f97", linewidth=1.15, label="generated"),
+        Line2D([0], [0], color="#123f6d", linewidth=1.45, label="BD Topage"),
+        Line2D([0], [0], color="#c2410c", linewidth=1.15, label="DEM-derived"),
     ]
 
 

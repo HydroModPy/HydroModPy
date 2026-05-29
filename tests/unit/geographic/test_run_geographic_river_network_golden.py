@@ -51,15 +51,16 @@ def _write_tmp_config(tmp_path: Path) -> Path:
                 f'root = "{ws_root}"',
                 "",
                 "[geographic]",
+                'crs_project = "EPSG:2154"',
+                'dem_correc_type = "breach"',
+                "",
+                "[geographic.catchment]",
                 'catch_def = "from_outlet_coord"',
                 f'dem_init_path = "{dem_path}"',
                 "x_outlet = 265611.933",
                 "y_outlet = 6784182.776",
                 "snap_dist = 50",
                 "buff_area = 20.0",
-                'crs_project = "EPSG:2154"',
-                'dem_correc_type = "breach"',
-                "",
                 "[geographic.river_network]",
                 "enabled = true",
                 'threshold_mode = "area_km2"',
@@ -113,7 +114,7 @@ def _river_network_signature(tmp_path: Path) -> dict:
     workspace, geographic = run_geographic_case_from_toml(config_path)
     _ = workspace
 
-    summary_path = Path(geographic.river_network_summary_json)
+    summary_path = Path(geographic.hydrographic_network_generated_summary_json)
     if not summary_path.exists():
         raise AssertionError(f"Missing river network summary JSON: {summary_path}")
     summary = _load_json(summary_path)
@@ -138,7 +139,7 @@ def _river_network_signature(tmp_path: Path) -> dict:
         "streams": _raster_signature(geographic.river_streams_tif),
         "stream_order_strahler": _raster_signature(geographic.river_stream_order_strahler_tif),
         "stream_link_id": _raster_signature(geographic.river_stream_link_id_tif),
-        "network_vector": _vector_signature(geographic.river_network_shp),
+        "network_vector": _vector_signature(geographic.hydrographic_network_generated_shp),
     }
     return payload
 

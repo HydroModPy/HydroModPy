@@ -37,7 +37,7 @@ required_fields = [
 tags = ["comparison"]
 
 # Standard 10 km2 sites.
-[[testbed.variant_from_catalog]]
+[[testbed.case_from_catalog]]
 id_template = "{site_id}"
 label_template = "{site_label}"
 axis_template = "{site_group}"
@@ -45,21 +45,21 @@ required_fields = ["x_outlet", "y_outlet"]
 field_equals = { cluster_scale = "10km2" }
 tags = ["n1_10km2"]
 
-[testbed.variant_from_catalog.overlay.comparison]
+[testbed.case_from_catalog.overlay.comparison]
 comparison_id = "{site_id}_natural_network_site_candidates"
 output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/comparisons/{site_id}_natural_network_site_candidates"
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
 name = "{site_id}_natural_network_shared_case"
 description = "Natural site network benchmark with one fixed set of named method candidates."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
 # Same 10 km2 sites with lower K.  These are deliberately explicit
 # low-conductivity scenarios to make the network response more saturated.
-[[testbed.variant_from_catalog]]
+[[testbed.case_from_catalog]]
 id_template = "{site_id}_low_k"
 label_template = "{site_label} / K faible"
 axis_template = "10km2_low_k"
@@ -67,24 +67,24 @@ required_fields = ["x_outlet", "y_outlet"]
 field_equals = { cluster_scale = "10km2" }
 tags = ["n1_10km2"]
 
-[testbed.variant_from_catalog.overlay.comparison]
+[testbed.case_from_catalog.overlay.comparison]
 comparison_id = "{site_id}_low_k_natural_network_site_candidates"
 output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/comparisons/{site_id}_low_k_natural_network_site_candidates"
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
 name = "{site_id}_low_k_natural_network_shared_case"
 description = "Natural 10 km2 site network benchmark with lower homogeneous K."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.flow.param.K.field]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.flow.param.K.field]
 value = "1e-5 m/s"
 
 # Larger 100 km2 headwater case.  Mesh and raster settings are coarsened to
 # keep the comparison cost reasonable at this scale.
-[[testbed.variant_from_catalog]]
+[[testbed.case_from_catalog]]
 id_template = "{site_id}"
 label_template = "{site_label}"
 axis_template = "{site_group}"
@@ -98,22 +98,22 @@ required_fields = [
 field_equals = { site_id = "headwater_100km2_outlet_2" }
 tags = ["n2_100km2"]
 
-[testbed.variant_from_catalog.overlay.comparison]
+[testbed.case_from_catalog.overlay.comparison]
 comparison_id = "{site_id}_natural_network_site_candidates"
 base_simulation_config = "base_site_01_mf6_bouss_transient_mesh_input_polygon.toml"
 output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/comparisons/{site_id}_natural_network_site_candidates"
 
-[testbed.variant_from_catalog.overlay.comparison.execution]
+[testbed.case_from_catalog.overlay.comparison.execution]
 timeout_seconds = 10800
 
-[testbed.variant_from_catalog.overlay.comparison.fine_raster]
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
 resolution = 160.0
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
 name = "{site_id}_natural_network_shared_case"
 description = "Natural 100 km2 headwater network benchmark with one fixed set of named method candidates."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 catch_def = "from_polyg_shp"
 polyg_shp_path = "{domain_polygon_path}"
 buff_area = "1.0 m"
@@ -121,98 +121,98 @@ x_outlet__delete = true
 y_outlet__delete = true
 snap_dist__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay]
 mesh_catchment__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.data]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.data]
 types = ["dem", "geology", "recharge"]
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.domain.depth_model]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.domain.depth_model]
 thickness = 50.0
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 enabled = false
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
 bundle_dir = "{mesh_bundle_dir}"
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_unstructured_reference"
 label = "MF6 maillage triangulaire preconstruit"
 solver = "modflow6"
 mesh_label = "unstructured_reference"
 mesh_mode = "mesh_input"
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_120"
 label = "MF6 grille reguliere 120 x 120"
 solver = "modflow6"
 mesh_label = "regular_grid_120"
 mesh_mode = "structured"
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay]
 mesh_catchment__delete = true
 mesh_input__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
 mode = "resample_to_shape"
 nx = 120
 ny = 120
 resampling = "nearest"
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_180"
 label = "MF6 grille reguliere 180 x 180"
 solver = "modflow6"
 mesh_label = "regular_grid_180"
 mesh_mode = "structured"
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay]
 mesh_catchment__delete = true
 mesh_input__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
 mode = "resample_to_shape"
 nx = 180
 ny = 180
 resampling = "nearest"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_wet_year1"
 variable = "watertable_elevation"
 support = "map"
 time = 5
 unit = "m"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_dry_late"
 variable = "watertable_elevation"
 support = "map"
 time = 22
 unit = "m"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_last"
 variable = "watertable_elevation"
 support = "map"
 time = "last"
 unit = "m"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "release_flux_map_last"
 variable = "release_flux"
 support = "map"
 time = "last"
 unit = "m/day"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "release_accumulation_flux_map_last"
 variable = "release_accumulation_flux"
 support = "map"
 time = "last"
 unit = "m/day"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "active_network_flux_map_last"
 variable = "accumulation_flux"
 support = "map"
@@ -225,7 +225,7 @@ simulations = [
 ]
 
 # Larger 100 km2 Strahler-3 case, to avoid testing only headwater geometry.
-[[testbed.variant_from_catalog]]
+[[testbed.case_from_catalog]]
 id_template = "{site_id}"
 label_template = "{site_label}"
 axis_template = "{site_group}"
@@ -239,22 +239,22 @@ required_fields = [
 field_equals = { site_id = "s3_100km2_outlet_25" }
 tags = ["n2_100km2"]
 
-[testbed.variant_from_catalog.overlay.comparison]
+[testbed.case_from_catalog.overlay.comparison]
 comparison_id = "{site_id}_natural_network_site_candidates"
 base_simulation_config = "base_site_01_mf6_bouss_transient_mesh_input_polygon.toml"
 output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/comparisons/{site_id}_natural_network_site_candidates"
 
-[testbed.variant_from_catalog.overlay.comparison.execution]
+[testbed.case_from_catalog.overlay.comparison.execution]
 timeout_seconds = 10800
 
-[testbed.variant_from_catalog.overlay.comparison.fine_raster]
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
 resolution = 160.0
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
 name = "{site_id}_natural_network_shared_case"
 description = "Natural 100 km2 Strahler-3 network benchmark with one fixed set of named method candidates."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 catch_def = "from_polyg_shp"
 polyg_shp_path = "{domain_polygon_path}"
 buff_area = "1.0 m"
@@ -262,98 +262,98 @@ x_outlet__delete = true
 y_outlet__delete = true
 snap_dist__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay]
 mesh_catchment__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.data]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.data]
 types = ["dem", "geology", "recharge"]
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.domain.depth_model]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.domain.depth_model]
 thickness = 50.0
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 enabled = false
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
 bundle_dir = "{mesh_bundle_dir}"
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_unstructured_reference"
 label = "MF6 maillage triangulaire preconstruit"
 solver = "modflow6"
 mesh_label = "unstructured_reference"
 mesh_mode = "mesh_input"
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_120"
 label = "MF6 grille reguliere 120 x 120"
 solver = "modflow6"
 mesh_label = "regular_grid_120"
 mesh_mode = "structured"
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay]
 mesh_catchment__delete = true
 mesh_input__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
 mode = "resample_to_shape"
 nx = 120
 ny = 120
 resampling = "nearest"
 
-[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_180"
 label = "MF6 grille reguliere 180 x 180"
 solver = "modflow6"
 mesh_label = "regular_grid_180"
 mesh_mode = "structured"
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay]
 mesh_catchment__delete = true
 mesh_input__delete = true
 
-[testbed.variant_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
 mode = "resample_to_shape"
 nx = 180
 ny = 180
 resampling = "nearest"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_wet_year1"
 variable = "watertable_elevation"
 support = "map"
 time = 5
 unit = "m"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_dry_late"
 variable = "watertable_elevation"
 support = "map"
 time = 22
 unit = "m"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_last"
 variable = "watertable_elevation"
 support = "map"
 time = "last"
 unit = "m"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "release_flux_map_last"
 variable = "release_flux"
 support = "map"
 time = "last"
 unit = "m/day"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "release_accumulation_flux_map_last"
 variable = "release_accumulation_flux"
 support = "map"
 time = "last"
 unit = "m/day"
 
-[[testbed.variant_from_catalog.overlay.comparison.observable]]
+[[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "active_network_flux_map_last"
 variable = "accumulation_flux"
 support = "map"

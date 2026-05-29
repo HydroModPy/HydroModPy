@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_DATA_ERROR, EXIT_NOT_FOUND
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_VALIDATION
 
 NAME: str = "lock"
 HELP: str = "Manage the reproducible data lockfile (hydromodpy.lock)"
@@ -73,7 +73,7 @@ def run(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
             if args.strict:
-                sys.exit(EXIT_DATA_ERROR)
+                sys.exit(EXIT_VALIDATION)
         if result["ok"]:
             print("  OK: catalog matches lockfile")
             return
@@ -82,6 +82,6 @@ def run(args: argparse.Namespace) -> None:
         print(f"  {label}: {len(mismatches)} mismatch(es):")
         for m in mismatches:
             print(f"    [{m.kind}] {m.variable}/{m.source}/{m.station_id} -> {m.path}")
-        sys.exit(EXIT_DATA_ERROR)
+        sys.exit(EXIT_VALIDATION)
     print("Usage: hmp dev lock {update|archive|restore|verify} [options]", file=sys.stderr)
     sys.exit(EXIT_CONFIG)

@@ -205,8 +205,8 @@ def render_regional_lab_report(
             cases=site_cases,
             comparisons=_match_comparisons(
                 case={
-                    "variant_id": raw_site_id,
-                    "variant_label": site.get("site_label"),
+                    "case_id": raw_site_id,
+                    "case_label": site.get("site_label"),
                     "page_id": page_id,
                     "site": site,
                 },
@@ -259,7 +259,7 @@ def _render_testbed_index(
 ) -> str:
     title = str(context.get("title") or f"Testbed report - {manifest.get('testbed_id', output_root.name)}")
     summary_cards = [
-        ("Cas", manifest.get("variant_count") or len(cases)),
+        ("Cas", manifest.get("case_count") or len(cases)),
         ("OK", manifest.get("successful_count")),
         ("Echecs", manifest.get("failed_count")),
         ("Comparaisons", len(comparisons)),
@@ -306,9 +306,9 @@ def _render_catalog_testbed_guidance(
     catalog = manifest.get("catalog") if isinstance(manifest.get("catalog"), Mapping) else None
     if catalog is None and isinstance(plan.get("catalog"), Mapping):
         catalog = plan.get("catalog")
-    rules = manifest.get("variant_from_catalog")
-    if not isinstance(rules, list) and isinstance(plan.get("variant_from_catalog"), list):
-        rules = plan.get("variant_from_catalog")
+    rules = manifest.get("case_from_catalog")
+    if not isinstance(rules, list) and isinstance(plan.get("case_from_catalog"), list):
+        rules = plan.get("case_from_catalog")
     if catalog is None and not rules:
         return ""
 
@@ -372,7 +372,8 @@ def _render_testbed_case_page(
     page_dir: Path,
     context: Mapping[str, Any],
 ) -> str:
-    label = _display_value(case.get("variant_label") or case.get("variant_id"))
+    case_id = case.get("case_id")
+    label = _display_value(case.get("case_label") or case_id)
     config = case.get("config") if isinstance(case.get("config"), Mapping) else {}
     site = case.get("site") if isinstance(case.get("site"), Mapping) else {}
     figures = list(case.get("figures") or [])
@@ -383,7 +384,7 @@ def _render_testbed_case_page(
     comparison = comparisons[0] if comparisons else {}
     status = _case_display_status(case, comparison)
     facts = [
-        ("Variant id", case.get("variant_id")),
+        ("Case id", case_id),
         ("Status", _status_badge(status)),
         ("Axis", case.get("axis")),
         ("Runner", case.get("runner")),
@@ -425,7 +426,7 @@ def _render_testbed_case_page(
             )
         )
     sections = [
-        _hero(label, subtitle=f"{_display_value(case.get('variant_id'))} - {_path_text(output_root)}"),
+        _hero(label, subtitle=f"{_display_value(case_id)} - {_path_text(output_root)}"),
         '<p><a href="../index.html">Retour a la synthese</a></p>',
         _section(
             "Orientation",
@@ -499,8 +500,8 @@ def _render_regional_lab_index(
         page_path = web_root / "sites" / f"{_safe_page_id(site_id)}.html"
         site_comparisons = _match_comparisons(
             case={
-                "variant_id": site_id,
-                "variant_label": site.get("site_label"),
+                "case_id": site_id,
+                "case_label": site.get("site_label"),
                 "page_id": _safe_page_id(site_id),
                 "site": site,
             },
@@ -630,8 +631,8 @@ def _enrich_testbed_case(
     comparisons: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     enriched = dict(case)
-    variant_id = _display_value(case.get("variant_id") or case.get("id") or "case")
-    enriched["page_id"] = _safe_page_id(variant_id)
+    case_id = _display_value(case.get("case_id") or case.get("id") or "case")
+    enriched["page_id"] = _safe_page_id(case_id)
     config_path = _path_or_none(case.get("config_path"))
     config = _read_toml(config_path) if config_path and config_path.is_file() else {}
     enriched["config"] = config
@@ -658,8 +659,8 @@ def _match_site_row(
     site_index: Mapping[str, Mapping[str, str]],
 ) -> Mapping[str, str]:
     candidates = [
-        case.get("variant_id"),
-        case.get("variant_label"),
+        case.get("case_id"),
+        case.get("case_label"),
         _get_nested(config, ["simulation", "name"]),
         _get_nested(config, ["simulation", "run_id"]),
     ]
@@ -675,7 +676,6 @@ def _index_site_catalog(rows: Sequence[Mapping[str, str]]) -> dict[str, Mapping[
     for row in rows:
         keys: list[str] = []
         for field in (
-            "variant_id",
             "case_id",
             "site_id",
             "outlet_id",
@@ -978,9 +978,9 @@ def _find_case_html_pages(
 ) -> list[Path]:
     names: list[str] = []
     for value in (
-        case.get("variant_id"),
+        case.get("case_id"),
         case.get("page_id"),
-        case.get("variant_label"),
+        case.get("case_label"),
         site.get("site_id") if isinstance(site, Mapping) else None,
         site.get("outlet_id") if isinstance(site, Mapping) else None,
     ):
@@ -1413,8 +1413,8 @@ def _match_comparisons(
     candidates: set[str] = set()
     strict_site_ids: set[str] = set()
     for value in (
-        case.get("variant_id"),
-        case.get("variant_label"),
+        case.get("case_id"),
+        case.get("case_label"),
         case.get("page_id"),
     ):
         text = _display_value(value)
@@ -1468,7 +1468,7 @@ def _comparison_matches_strict_site(
     if isinstance(manifest, Mapping):
         values.extend(
             manifest.get(key)
-            for key in ("comparison_id", "case_id", "site_id", "variant_id")
+            for key in ("comparison_id", "case_id", "site_id")
         )
     normalized = [_normalize_key(value) for value in values if value is not None]
     for value in normalized:
@@ -1501,7 +1501,6 @@ def _comparison_match_text(comparison: Mapping[str, Any]) -> str:
             "comparison_id",
             "case_id",
             "site_id",
-            "variant_id",
             "source_selection_id",
             "config_path",
             "base_simulation_config",
@@ -1837,7 +1836,7 @@ def _render_testbed_unified_comparison_table(
         head_summary = _comparison_head_summary(comparison) if comparison else None
         rows.append(
             [
-                _display_value(case.get("variant_label") or case.get("variant_id")),
+                _display_value(case.get("case_label") or case.get("case_id")),
                 _link(report, "Rapport detaille", web_root)
                 if isinstance(report, Path)
                 else '<span class="muted">non disponible</span>',
@@ -1914,7 +1913,7 @@ def _render_testbed_case_overview_table(
         status = _case_display_status(case, comparison)
         rows.append(
             [
-                _display_value(case.get("variant_label") or case.get("variant_id")),
+                _display_value(case.get("case_label") or case.get("case_id")),
                 _link(case_path, "Fiche synthese", web_root),
                 _link(report, "Rapport detaille", web_root)
                 if isinstance(report, Path)
@@ -2018,7 +2017,7 @@ def _render_testbed_comparison_overview_table(
         ]
         comparison = comparisons[0] if comparisons else {}
         status = _case_display_status(case, comparison)
-        label = _display_value(case.get("variant_label") or case.get("variant_id"))
+        label = _display_value(case.get("case_label") or case.get("case_id"))
         web_index = comparison.get("web_index") if comparison else None
         rows.append(
             [
@@ -2226,7 +2225,7 @@ def _render_testbed_direct_links(
         case_path = web_root / "cases" / f"{case['page_id']}.html"
         rows.append(
             [
-                _display_value(case.get("variant_label") or case.get("variant_id")),
+                _display_value(case.get("case_label") or case.get("case_id")),
                 _link(case_path, "Page cas", web_root),
                 _case_comparison_links(case.get("comparisons") or [], from_dir=web_root),
                 _simulation_html_links(case.get("simulation_html_pages") or [], from_dir=web_root),
@@ -2442,7 +2441,7 @@ def _render_metrics_summary(
             + "</p>"
         )
     columns = _collect_columns(metrics)
-    identity_columns = {"variant_id", "variant_label", "axis", "status", "duration_s"}
+    identity_columns = {"case_id", "case_label", "axis", "status", "duration_s"}
     populated_metric_columns = []
     for column in columns:
         if column in identity_columns:

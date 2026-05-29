@@ -135,8 +135,9 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
         ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
     )
 
-    head_path = Path(str(steady_model.full_path)) / f"{steady_model.model_name}.hds"
-    list_path = Path(str(steady_model.full_path)) / f"{steady_model.model_name}.lst"
+    output_name = str(getattr(steady_model, "model_output_name", steady_model.model_name))
+    head_path = Path(str(steady_model.full_path)) / f"{output_name}.hds"
+    list_path = Path(str(steady_model.full_path)) / f"{output_name}.lst"
     if not success:
         if not _steady_initialization_balance_is_acceptable(list_path):
             raise RuntimeError("MODFLOW 6 steady-state initial-condition solve failed.")

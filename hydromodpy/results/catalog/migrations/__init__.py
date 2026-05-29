@@ -77,13 +77,19 @@ def ensure_schema(
     """
     if db_path is None:
         db_path = _resolve_db_path_from_connection(connection)
+    migration_dir = versions_dir if versions_dir is not None else MIGRATIONS_DIR
     _ensure_schema_safe(
         connection,
         db_path=db_path,
-        versions_dir=versions_dir if versions_dir is not None else MIGRATIONS_DIR,
+        versions_dir=migration_dir,
         component=CATALOG_COMPONENT,
         post_apply=_emit_migrate_event,
     )
+
+    if migration_dir.resolve() == MIGRATIONS_DIR.resolve():
+        from hydromodpy.results.catalog.views import ensure_views
+
+        ensure_views(connection)
 
 
 def _resolve_db_path_from_connection(

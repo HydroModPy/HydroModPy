@@ -1,4 +1,4 @@
-﻿[[simulation.process]]
+[[simulation.process]]
 solvers = ["modflow6"]
 
 [modflow6.runtime]
@@ -15,5 +15,3 @@ resampling = "nearest"
 nlay = 1
 
 [modflow6.tgrid]
-firstpersteady = false
-

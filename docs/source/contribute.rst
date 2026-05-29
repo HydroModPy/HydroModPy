@@ -105,7 +105,11 @@ the recipe that matches your platform.
       Run the command from the repository root: the relative
       ``pip install -e "..[docs,test]"`` inside the YAML must reach the
       project source. The Python version is pinned by each YAML; no
-      need to set it on the command line.
+      need to set it on the command line. On Windows, these editable
+      YAMLs preinstall ``graphviz`` and ``pygraphviz`` from
+      ``conda-forge`` before the editable ``pip`` step. This avoids
+      compiling ``pygraphviz`` from source while installing the
+      documentation extra.
 
       Quick option without cloning, when you only need the runtime
       env: download ``env_hydromodpy.yml`` from the install folder
@@ -310,11 +314,25 @@ SHA256 verification and installs the local Graphviz bundle on Windows.
 Pass ``--skip-graphviz`` if the system already provides the ``dot``
 command.
 
+On an existing Windows Conda environment, install the Graphviz Python
+bindings with Conda before rerunning the editable docs install:
+
+.. code-block:: powershell
+
+   conda install -c conda-forge graphviz pygraphviz
+   python -m pip install -e ".[docs]"
+
 For live preview during edits:
 
 .. code-block:: bash
 
-   sphinx-autobuild -E -a docs/source docs/_build/html
+   sphinx-autobuild -E -a -b html --open-browser --watch hydromodpy --watch examples --watch tools docs/source docs/build/html
+
+Or, when ``make`` is available:
+
+.. code-block:: bash
+
+   make -C docs livehtml
 
 If the change touches the capability gallery, refresh the generated
 artifacts before committing:

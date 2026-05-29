@@ -117,9 +117,10 @@ def test_restore_on_migration_failure(tmp_path: Path) -> None:
 
     real_ensure = auto_boot_mod.ensure_schema
 
-    def _boom(*args, **kwargs) -> None:
-        # Corrupt the file mid-migration to simulate a partial DDL crash.
-        db_path.write_bytes(b"corrupt")
+    def _boom(connection, *args, **kwargs) -> None:
+        # Mutate through DuckDB itself so the failure simulation is portable
+        # even on platforms that deny raw writes to an open database file.
+        connection.execute("DROP TABLE IF EXISTS simulations")
         raise RuntimeError("simulated migration crash")
 
     auto_boot_mod.ensure_schema = _boom  # type: ignore[assignment]

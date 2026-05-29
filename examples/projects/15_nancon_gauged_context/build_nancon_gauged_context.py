@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import shutil
+import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,6 +19,10 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[2]
 DATA_ROOT = REPO_ROOT / "examples" / "data"
 NANCON_PROJECT = REPO_ROOT / "examples" / "projects" / "02_nancon_watershed"
+DEFAULT_SIMULATION_NAME = "transient_nwt"
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 @dataclass(frozen=True)
@@ -78,31 +83,28 @@ def _configured_station_ids(config: dict[str, Any], family: str) -> list[str]:
     return ids
 
 
-def _latest_network_figure_dir(project_dir: Path) -> Path | None:
+def _network_figure_dir(project_dir: Path, simulation_name: str) -> Path | None:
     figures_root = project_dir / "figures"
-    if not figures_root.exists():
+    candidate = figures_root / simulation_name
+    if not candidate.exists():
         return None
     required = {
         "hydrographic_network_reference.png",
         "hydrographic_network_generated.png",
         "hydrographic_network_comparison.png",
     }
-    candidates: list[Path] = []
-    for folder in figures_root.glob("run_*"):
-        if folder.is_dir() and required.issubset({item.name for item in folder.iterdir()}):
-            candidates.append(folder)
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    if required.issubset({item.name for item in candidate.iterdir()}):
+        return candidate
+    return None
 
 
-def _latest_simulation_parquet_dir(project_dir: Path) -> Path | None:
+def _simulation_parquet_dir(project_dir: Path, simulation_name: str) -> Path | None:
     simulations = project_dir / "simulations"
     if not simulations.exists():
         return None
     candidates = [
         path
-        for path in simulations.glob("*.parquet")
+        for path in simulations.glob(f"*__{simulation_name}__*.parquet")
         if path.is_dir() and (path / "timeseries.parquet").exists()
     ]
     if not candidates:
@@ -249,7 +251,7 @@ def _plot_full_observed(observed: pd.DataFrame, output_path: Path) -> None:
     ax.set_title("Debit observe Nancon, chronique complete")
     ax.set_ylabel("Q (m3/s)")
     ax.grid(True, color="#d1d5db", linewidth=0.6, alpha=0.8)
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper right", fontsize=13, framealpha=0.94)
     fig.tight_layout()
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
@@ -291,7 +293,7 @@ def _plot_window_forcing(
     axes[1].set_ylabel("mm/day")
     axes[1].set_title("Recharge et runoff disponibles")
     axes[1].grid(True, color="#d1d5db", linewidth=0.6, alpha=0.8)
-    axes[1].legend(ncols=2, loc="upper right")
+    axes[1].legend(ncols=2, loc="upper right", fontsize=11, framealpha=0.92)
     fig.tight_layout()
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
@@ -333,7 +335,7 @@ def _plot_baseline_comparison(
     ax.set_title("Debit observe et debit simule non calibre")
     ax.set_ylabel("Q (m3/s)")
     ax.grid(True, color="#d1d5db", linewidth=0.6, alpha=0.8)
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper right", fontsize=11, framealpha=0.92)
     fig.tight_layout()
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
@@ -575,14 +577,20 @@ def _write_html(
     (web_dir / "index.html").write_text(html, encoding="utf-8")
 
 
-def build_context(output_root: Path) -> None:
+def build_context(
+    output_root: Path,
+    *,
+    project_dir: Path = NANCON_PROJECT,
+    simulation_name: str = DEFAULT_SIMULATION_NAME,
+) -> None:
     context_dir = output_root / "context"
     web_dir = output_root / "web"
     assets_dir = web_dir / "assets"
     context_dir.mkdir(parents=True, exist_ok=True)
     assets_dir.mkdir(parents=True, exist_ok=True)
 
-    project_config_path = NANCON_PROJECT / "project.toml"
+    project_dir = project_dir.resolve()
+    project_config_path = project_dir / "project.toml"
     project_config = _load_project_config(project_config_path)
 
     observed_path = DATA_ROOT / "hydrometry" / "hydrometry_custom_NANCON_19820201_20220125_D.csv"
@@ -603,7 +611,7 @@ def build_context(output_root: Path) -> None:
         ),
     }
 
-    simulated_path = NANCON_PROJECT / "exports" / "run_0001" / "timeseries.csv"
+    simulated_path = project_dir / "exports" / simulation_name / "timeseries.csv"
     simulated = _read_series(simulated_path) if simulated_path.exists() else None
 
     csv_outputs = _write_timeseries_outputs(context_dir, observed, forcing_frames, simulated)
@@ -612,15 +620,16 @@ def build_context(output_root: Path) -> None:
     _plot_window_forcing(observed, forcing_frames, assets_dir / "forcing_window.png")
     _plot_baseline_comparison(observed, simulated, assets_dir / "baseline_discharge_comparison.png")
 
-    figure_dir = _latest_network_figure_dir(NANCON_PROJECT)
+    figure_dir = _network_figure_dir(project_dir, simulation_name)
     network_assets = _copy_network_assets(figure_dir, assets_dir)
 
-    parquet_dir = _latest_simulation_parquet_dir(NANCON_PROJECT)
+    parquet_dir = _simulation_parquet_dir(project_dir, simulation_name)
     n_timesteps = len(simulated) if simulated is not None else None
     baseline = {
         "source_export": str(simulated_path.relative_to(REPO_ROOT))
         if simulated_path.exists()
         else None,
+        "simulation_name": simulation_name,
         "simulation_parquet": str(parquet_dir.relative_to(REPO_ROOT)) if parquet_dir else None,
         "n_cells": _read_provenance_n_records(parquet_dir, "hydrography:hydrography_streams"),
         "n_timesteps": int(n_timesteps) if n_timesteps is not None else None,
@@ -695,12 +704,43 @@ def parse_args() -> argparse.Namespace:
         default=SCRIPT_DIR / "outputs",
         help="Output directory for context CSV/JSON and web report.",
     )
+    parser.add_argument(
+        "--project-dir",
+        type=Path,
+        default=NANCON_PROJECT,
+        help="Watershed project directory containing the simulation outputs.",
+    )
+    parser.add_argument(
+        "--simulation-name",
+        default=DEFAULT_SIMULATION_NAME,
+        help="Simulation name used for exports, figures and parquet results.",
+    )
+    parser.add_argument(
+        "--report-config",
+        type=Path,
+        default=None,
+        help="Optional catchment_report.toml used to derive project, output and simulation names.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    build_context(args.output_root)
+    output_root = args.output_root
+    project_dir = args.project_dir
+    simulation_name = args.simulation_name
+    if args.report_config is not None:
+        from hydromodpy.display.catchment_report import CatchmentReportInputs
+
+        inputs = CatchmentReportInputs.from_toml(args.report_config)
+        output_root = inputs.context_outputs_dir
+        project_dir = inputs.watershed_project_dir
+        simulation_name = inputs.simulation_name
+    build_context(
+        output_root,
+        project_dir=project_dir,
+        simulation_name=simulation_name,
+    )
 
 
 if __name__ == "__main__":

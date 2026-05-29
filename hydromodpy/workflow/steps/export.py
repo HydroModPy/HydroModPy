@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import gc
 import shutil
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
@@ -15,6 +17,8 @@ if TYPE_CHECKING:
     from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
+
+_SCRATCH_CLEANUP_RETRY_DELAYS = (0.1, 0.2, 0.4, 0.8, 1.6)
 
 
 # ---------------------------------------------------------------------------
@@ -118,12 +122,48 @@ def step_cleanup_scratch(
         return
     scratch = workspace.solver_scratch_folder
     if scratch.exists():
+        _release_cleanup_handles(ctx)
+        last_error: OSError | None = None
+        for delay in (0.0, *_SCRATCH_CLEANUP_RETRY_DELAYS):
+            if delay:
+                time.sleep(delay)
+                _release_cleanup_handles(ctx)
+            try:
+                shutil.rmtree(scratch)
+                return
+            except FileNotFoundError:
+                return
+            except OSError as exc:
+                last_error = exc
+        if last_error is not None:
+            raise ExportError(
+                f"Could not remove solver scratch directory: {scratch}: {last_error}"
+            ) from last_error
+
+
+def _release_cleanup_handles(ctx: WorkflowContext) -> None:
+    """Release best-effort runtime handles before deleting scratch files."""
+    store = getattr(ctx, "store", None)
+    close_zarr = getattr(store, "_close_open_zarr_handles", None)
+    if callable(close_zarr):
         try:
-            shutil.rmtree(scratch)
-        except FileNotFoundError:
-            return
-        except OSError as exc:
-            raise ExportError(f"Could not remove solver scratch directory: {scratch}") from exc
+            close_zarr()
+        except Exception:
+            logger.debug("Could not close open Zarr handles before scratch cleanup", exc_info=True)
+
+    try:
+        from hydromodpy.spatial.geographic.geographic_io import (
+            backend_has_callables,
+            resolve_delineation_backend,
+        )
+
+        backend = resolve_delineation_backend()
+        if backend_has_callables(backend, "raster", "clear_raster_cache"):
+            backend.raster.clear_raster_cache()
+    except Exception:
+        logger.debug("Could not clear delineation raster cache before scratch cleanup", exc_info=True)
+
+    gc.collect()
 
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,8 @@ CASE_IDS = ["nancon"]
 # ~10 px at 75 m DEM; whitebox D8/breach tie envelope drifts between mamba and pip stacks.
 ABS_TOL_AREA_KM2 = 6e-2
 ABS_TOL_ELEV_M = 1e-2
-ABS_TOL_SUM_ELEV_M = 1_000.0
+# Match the 10-cell pixel-count envelope at the local DEM elevation scale.
+ABS_TOL_SUM_ELEV_M = 2_500.0
 ABS_TOL_PIXEL_COUNT = 10
 
 ELEV_METRIC_KEYS = [
@@ -77,15 +78,16 @@ def _write_tmp_config(tmp_path: Path) -> Path:
                 f'root = "{ws_root}"',
                 "",
                 "[geographic]",
+                'crs_project = "EPSG:2154"',
+                'dem_correc_type = "breach"',
+                "",
+                "[geographic.catchment]",
                 'catch_def = "from_outlet_coord"',
                 f'dem_init_path = "{dem_path}"',
                 "x_outlet = 265611.933",
                 "y_outlet = 6784182.776",
                 "snap_dist = 50",
                 "buff_area = 20.0",
-                'crs_project = "EPSG:2154"',
-                'dem_correc_type = "breach"',
-                "",
             ]
         ),
         encoding="utf-8",

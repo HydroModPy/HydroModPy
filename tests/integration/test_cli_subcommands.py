@@ -33,6 +33,17 @@ def test_top_level_help_lists_every_subcommand(monkeypatch, capsys) -> None:
         assert name in out, f"'{name}' missing from --help"
 
 
+def test_legacy_init_alias_is_not_a_top_level_subcommand(monkeypatch, capsys) -> None:
+    assert "init" not in SUBCOMMANDS
+
+    code = _run_cli(monkeypatch, ["hmp", "init", "--help"])
+
+    assert code == 2
+    err = capsys.readouterr().err.lower()
+    assert "invalid choice" in err
+    assert "workspace" in err
+
+
 @pytest.mark.parametrize("name", SUBCOMMANDS)
 def test_subcommand_help_exits_zero(monkeypatch, capsys, name: str) -> None:
     code = _run_cli(monkeypatch, ["hmp", name, "--help"])
@@ -55,7 +66,7 @@ def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
     out = capsys.readouterr().out
     assert "hmp" in out
     # Each completion script should mention at least one of our subcommands.
-    assert any(name in out for name in ("run", "init", "doctor"))
+    assert any(name in out for name in ("run", "workspace", "doctor"))
 
 
 def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
@@ -92,6 +103,94 @@ def test_config_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> Non
     assert code == 14
     err = capsys.readouterr().err
     assert "invalid toml" in err.lower() or "config" in err.lower()
+
+
+def test_config_check_accepts_site_selection_without_geographic(monkeypatch, capsys, tmp_path):
+    config = tmp_path / "site_selection.toml"
+    config.write_text(
+        "\n".join(
+            [
+                "[workflow]",
+                'mode = "site_selection"',
+                "",
+                "[site_selection]",
+                'selection_id = "check_demo"',
+                'output_root = "out"',
+                "",
+                "[site_selection.input]",
+                'mode = "plan_only"',
+                "",
+                "[site_selection.strategy]",
+                'principle = "criteria_crossing"',
+                'profile = "area_only"',
+                'primary_axes = ["area"]',
+                'observation_role = "report_only"',
+                'geology_role = "report_only"',
+                "",
+                "[site_selection.territory]",
+                'mode = "admin_regions"',
+                'country = "FR"',
+                'regions = ["Bretagne"]',
+                "",
+                "[site_selection.criteria.area]",
+                'mode = "hard_reject"',
+                "hard_min_area_km2 = 75.0",
+                "hard_max_area_km2 = 125.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "config", "check", str(config)])
+
+    main()
+    out = capsys.readouterr().out
+    assert "OK:" in out
+
+
+def test_site_selection_plan_cli_can_write_report(monkeypatch, capsys, tmp_path):
+    config = tmp_path / "site_selection.toml"
+    config.write_text(
+        "\n".join(
+            [
+                "[site_selection]",
+                'selection_id = "cli_plan_report_demo"',
+                'output_root = "out"',
+                "",
+                "[site_selection.input]",
+                'mode = "plan_only"',
+                "",
+                "[site_selection.strategy]",
+                'principle = "criteria_crossing"',
+                'profile = "area_only"',
+                'primary_axes = ["area"]',
+                'observation_role = "report_only"',
+                'geology_role = "report_only"',
+                "",
+                "[site_selection.territory]",
+                'mode = "admin_regions"',
+                'country = "FR"',
+                'regions = ["Bretagne"]',
+                "",
+                "[site_selection.criteria.area]",
+                'mode = "hard_reject"',
+                "hard_min_area_km2 = 75.0",
+                "hard_max_area_km2 = 125.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    code = _run_cli(
+        monkeypatch,
+        ["hmp", "site-selection", "plan", str(config), "--write-report"],
+    )
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "site_selection_report_html" in out
+    assert (tmp_path / "out" / "site_selection_plan.json").is_file()
+    assert (tmp_path / "out" / "review" / "index.html").is_file()
 
 
 def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:

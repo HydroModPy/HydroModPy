@@ -60,7 +60,7 @@ Seventeen variables ship today, each in its own folder under
      - ``custom``, BRGM 1:1M (``brgm_1m``), BRGM 1:50k
        (``brgm_50k``).
    * - ``dem``
-     - ``custom``, IGN BD Alti (``ign_bdalti``).
+     - ``custom``, IGN Geoplateforme DEM (``ign_geoplateforme_dem``).
    * - ``oceanic``
      - ``custom``, SHOM (``shom``), constant.
    * - ``recharge``
