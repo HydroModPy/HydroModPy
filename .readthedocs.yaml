@@ -14,17 +14,13 @@ build:
     - pandoc
     - plantuml
   jobs:
+    install:
+      - python -m pip install --upgrade --no-cache-dir pip setuptools wheel
+      - python -m pip install --exists-action=w --no-cache-dir -r docs/readthedocs_requirements.txt
+      - python -m pip install --no-build-isolation --no-deps --no-cache-dir .
     build:
       html:
         - python -m sphinx -T -j auto -b html -d _build/doctrees -D language=en docs/source $READTHEDOCS_OUTPUT/html
 
 sphinx:
   configuration: docs/source/conf.py
-
-python:
-  install:
-    # Install the HydroModPy package
-    - method: pip
-      path: .
-    # Install documentation-specific dependencies
-    - requirements: docs/readthedocs_requirements.txt

@@ -167,7 +167,10 @@ def _copy_file(source_path: Path, destination_path: Path) -> None:
     try:
         shutil.copy2(source_path, destination_path)
     except OSError as exc:
-        if _is_windows() and getattr(exc, "winerror", None) in _WINDOWS_EXTENDED_PATH_FALLBACK_WINERRORS:
+        if (
+            _is_windows()
+            and getattr(exc, "winerror", None) in _WINDOWS_EXTENDED_PATH_FALLBACK_WINERRORS
+        ):
             shutil.copy2(
                 _windows_extended_length_path(source_path),
                 _windows_extended_length_path(destination_path),
@@ -5504,7 +5507,7 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
     for category_slug in CATEGORY_SPECS:
         if cases_by_category.get(category_slug):
             lines.append(f"   {category_slug}")
-    lines.append("   Examples <../examples/index>")
+    lines.append("   Examples <../user_guide/cookbook/index>")
     return "\n".join(lines)
 
 

@@ -112,6 +112,31 @@ def test_auto_register_workspace_is_idempotent(
     assert records[0].workspace_id == first_id
 
 
+def test_auto_register_workspace_skips_federation_refresh(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Auto-registration must not attach catalogs during concurrent runs."""
+    from hydromodpy.core.state import global_index as gi_mod
+
+    monkeypatch.setenv("HMP_STATE_HOME", str(tmp_path / "state"))
+
+    def _fail_refresh(_self: object) -> None:
+        raise AssertionError("auto-registration should not refresh federation")
+
+    monkeypatch.setattr(gi_mod.GlobalIndex, "refresh_federation", _fail_refresh)
+
+    workspace_root = tmp_path / "ws_no_refresh"
+    workspace_root.mkdir()
+
+    workspace_id = auto_register_workspace(workspace_root, label="no-refresh")
+
+    assert workspace_id is not None
+    with GlobalIndex(refresh_federation=False) as index:
+        records = index.list_workspaces()
+    assert len(records) == 1
+    assert records[0].workspace_id == workspace_id
+
+
 def test_auto_register_workspace_swallows_errors(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
