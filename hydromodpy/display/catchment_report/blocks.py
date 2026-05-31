@@ -51,7 +51,7 @@ class BlockContent:
     warnings: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _build_blocks(
+def build_blocks(
     *,
     summary: dict[str, Any],
     copied: dict[str, Path],
@@ -72,10 +72,10 @@ def _build_blocks(
         station_label=station_label,
         geology_rows=geology_rows,
         artifact_paths=artifact_paths,
-        config=_mapping(summary.get("configuration")),
-        stats=_mapping(summary.get("stats")),
-        baseline=_mapping(summary.get("baseline_run")),
-        network=_mapping(summary.get("network")),
+        config=mapping(summary.get("configuration")),
+        stats=mapping(summary.get("stats")),
+        baseline=mapping(summary.get("baseline_run")),
+        network=mapping(summary.get("network")),
     )
     return [
         _block_from_spec(spec, context)
@@ -252,8 +252,8 @@ def _empty_content(context: BlockBuildContext) -> BlockContent:
 def _forcing_flux_content(context: BlockBuildContext) -> BlockContent:
     config = context.config
     stats = context.stats
-    observed = _mapping(stats.get("observed_discharge"))
-    simulated = _mapping(stats.get("baseline_simulated_discharge"))
+    observed = mapping(stats.get("observed_discharge"))
+    simulated = mapping(stats.get("baseline_simulated_discharge"))
     rows = _stats_rows(
         (
             ("Debit observe", observed, "m3/s"),
@@ -299,7 +299,7 @@ def _forcing_flux_content(context: BlockBuildContext) -> BlockContent:
 
 def _simulation_outputs_content(context: BlockBuildContext) -> BlockContent:
     baseline = context.baseline
-    baseline_q = _mapping(context.stats.get("baseline_simulated_discharge"))
+    baseline_q = mapping(context.stats.get("baseline_simulated_discharge"))
     return BlockContent(
         metrics=_for_level(
             context.detail_level,
@@ -375,7 +375,7 @@ def _level_at_least(level: DetailLevel, minimum: DetailLevel) -> bool:
     return REPORT_LEVEL_RANK[level] >= REPORT_LEVEL_RANK[minimum]
 
 
-def _block_variants_by_id(
+def block_variants_by_id(
     blocks_by_level: Mapping[DetailLevel, Sequence[ReportBlock]],
 ) -> tuple[tuple[str, dict[str, ReportBlock]], ...]:
     order: list[str] = []
@@ -408,7 +408,7 @@ def _block_variants_by_id(
     return tuple(groups)
 
 
-def _assert_monotonic_blocks(
+def assert_monotonic_blocks(
     blocks_by_level: Mapping[DetailLevel, Sequence[ReportBlock]],
 ) -> None:
     for lower, higher in zip(REPORT_LEVELS, REPORT_LEVELS[1:], strict=False):
@@ -474,7 +474,7 @@ def _stats_rows(items: Iterable[tuple[str, dict[str, Any], str]]) -> list[dict[s
     return rows
 
 
-def _mapping(value: Any) -> dict[str, Any]:
+def mapping(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
@@ -518,11 +518,6 @@ def _fmt(value: Any) -> str:
         return str(value)
     return f"{number:.4g}"
 
-
-build_blocks = _build_blocks
-block_variants_by_id = _block_variants_by_id
-assert_monotonic_blocks = _assert_monotonic_blocks
-mapping = _mapping
 
 __all__ = [
     "PAGE_MODES",
