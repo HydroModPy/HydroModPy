@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
-from hydromodpy.core.version import __version__ as HMP_VERSION
+from hydromodpy import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.catalog import SimulationCatalog
 
 # Fields whose value depends on wall-clock time. Strip before snapshotting.
@@ -137,8 +137,16 @@ GOLDEN_PARAMETERS = (
     '0.0001, "1/m", null]]'
 )
 GOLDEN_METRICS = '[["12345678-1234-5678-1234-567812345678", "P01", "head", "nse", 0.91, null]]'
-GOLDEN_RUN_ENV = (
-    f'[["12345678-1234-5678-1234-567812345678", "{HMP_VERSION}", "modflow6", 42]]'
+GOLDEN_RUN_ENV = json.dumps(
+    [
+        [
+            "12345678-1234-5678-1234-567812345678",
+            HYDROMODPY_VERSION,
+            "modflow6",
+            42,
+        ]
+    ],
+    sort_keys=True,
 )
 GOLDEN_OBJECTIVE = (
     '[["12345678-1234-5678-1234-567812345678", '
