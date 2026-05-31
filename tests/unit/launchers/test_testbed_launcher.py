@@ -8,13 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.analysis.testbed.config import (
-    TestbedCaseConfig as _TestbedCaseConfig,
-    TestbedCatalogCaseConfig as _TestbedCatalogCaseConfig,
-    TestbedCatalogVariantConfig as _TestbedCatalogVariantConfig,
-    TestbedConfig as MethodTestbedConfig,
-    TestbedVariantConfig as _TestbedVariantConfig,
-)
+from hydromodpy.analysis.testbed.config import TestbedConfig as MethodTestbedConfig
 from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
 from hydromodpy.analysis.testbed.runtime import TestbedLauncher as MethodTestbedLauncher
 from hydromodpy.core.toml_io import load_toml_with_base_config
@@ -125,11 +119,6 @@ def _write_calibration_base(path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-
-
-def test_testbed_case_config_names_are_canonical_with_legacy_aliases() -> None:
-    assert _TestbedVariantConfig is _TestbedCaseConfig
-    assert _TestbedCatalogVariantConfig is _TestbedCatalogCaseConfig
 
 
 def test_testbed_config_parses_mesh_cases(tmp_path: Path) -> None:
@@ -960,14 +949,8 @@ def test_testbed_launcher_runs_comparison_cases_and_collects_metrics(
     assert len(calls) == 1
     assert summary["successful_count"] == 1
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
-    assert (
-        "case_id,case_label,axis,status,comparison_id,n_metric_rows"
-        in metrics_text
-    )
-    assert (
-        "candidate,candidate,method_pair,ok,candidate_comparison,3"
-        in metrics_text
-    )
+    assert "case_id,case_label,axis,status,comparison_id,n_metric_rows" in metrics_text
+    assert "candidate,candidate,method_pair,ok,candidate_comparison,3" in metrics_text
 
 
 def test_testbed_launcher_runs_calibration_cases_and_collects_metrics(
@@ -1039,14 +1022,8 @@ def test_testbed_launcher_runs_calibration_cases_and_collects_metrics(
     assert child_payload["calibration"]["campaign_id"] == "site_01_calibration"
     assert child_payload["calibration"]["output_root"].endswith("calibration_outputs/site_01")
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
-    assert (
-        "case_id,case_label,axis,status,calibration_id,best_score"
-        in metrics_text
-    )
-    assert (
-        "site_01,site_01,site,ok,site_01_calibration,0.92"
-        in metrics_text
-    )
+    assert "case_id,case_label,axis,status,calibration_id,best_score" in metrics_text
+    assert "site_01,site_01,site,ok,site_01_calibration,0.92" in metrics_text
 
 
 def test_testbed_launcher_runs_catalog_backed_comparison_cases(
@@ -1178,13 +1155,9 @@ def test_testbed_launcher_runs_catalog_backed_comparison_cases(
     assert rows[0]["comparison_web_report"].endswith("site_01.html")
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert (
-        "case_id,case_label,axis,status,comparison_id,audit_status,"
-        "n_metric_rows,n_difference_rows"
+        "case_id,case_label,axis,status,comparison_id,audit_status,n_metric_rows,n_difference_rows"
     ) in metrics_text
-    assert (
-        "site_01,Site 01,10km2,ok,site_01_mf6_bouss,pass,3,"
-        in metrics_text
-    )
+    assert "site_01,Site 01,10km2,ok,site_01_mf6_bouss,pass,3," in metrics_text
 
 
 def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
@@ -1333,15 +1306,8 @@ def test_testbed_launcher_runs_flow_cases_and_collects_metrics(
     assert summary["successful_count"] == 2
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert "case_id,case_label,axis,status,sim_id,k_value" in metrics_text
-    assert (
-        "low_k,low_k,hydraulic_conductivity,ok,sim_flow_low_k,5e-6 m/s"
-        in metrics_text
-    )
-    assert (
-        "high_k,high_k,hydraulic_conductivity,ok,"
-        "sim_flow_high_k,2e-5 m/s"
-        in metrics_text
-    )
+    assert "low_k,low_k,hydraulic_conductivity,ok,sim_flow_low_k,5e-6 m/s" in metrics_text
+    assert "high_k,high_k,hydraulic_conductivity,ok,sim_flow_high_k,2e-5 m/s" in metrics_text
     cases_text = Path(summary["cases_csv"]).read_text(encoding="utf-8")
     assert "flow_low_k" in cases_text
     assert "sim_flow_high_k" in cases_text
@@ -1494,10 +1460,7 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
         "case_id,case_label,axis,status,duration_s,param_K,"
         "max_abs_balance_error,head_range_m,prescribed_head_out"
     ) in metrics_text
-    assert (
-        "reference,reference,catalog,ok,12.5,1e-05,0.25,4.0,3.0"
-        in metrics_text
-    )
+    assert "reference,reference,catalog,ok,12.5,1e-05,0.25,4.0,3.0" in metrics_text
     manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
     case = manifest["cases"][0]
     assert case["flow_metrics"]["n_cells"] == 4
