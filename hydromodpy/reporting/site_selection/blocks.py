@@ -277,7 +277,10 @@ def build_site_selection_result_blocks(
                         ("decision_reason", "Decision"),
                         ("warning_flags", "Avertissements"),
                     ),
-                    rows=tuple(_selected_row(row, decision_by_site.get(row.get("site_id", ""))) for row in selected),
+                    rows=tuple(
+                        _selected_row(row, decision_by_site.get(row.get("site_id", "")))
+                        for row in selected
+                    ),
                     empty_message="Aucun site retenu.",
                 ),
             ),
@@ -298,7 +301,10 @@ def build_site_selection_result_blocks(
                         ("decision_reason", "Raison"),
                         ("blocking_flags", "Flags bloquants"),
                     ),
-                    rows=tuple(_rejected_row(row, decision_by_site.get(row.get("site_id", ""))) for row in rejected),
+                    rows=tuple(
+                        _rejected_row(row, decision_by_site.get(row.get("site_id", "")))
+                        for row in rejected
+                    ),
                     empty_message="Aucun site rejete.",
                 ),
             ),
@@ -328,7 +334,9 @@ def build_site_selection_result_blocks(
             block_id="artifact_links",
             title="Artefacts",
             level="audit",
-            links=_artifact_links(manifest_path=manifest_path, output_root=output_root, outputs=outputs),
+            links=_artifact_links(
+                manifest_path=manifest_path, output_root=output_root, outputs=outputs
+            ),
         ),
     ]
 
@@ -371,9 +379,7 @@ def blocks_for_detail_level(
     """Return the blocks whose minimum level is visible at ``level``."""
 
     return tuple(
-        replace(block, level=level)
-        for block in blocks
-        if _level_at_least(level, block.level)
+        replace(block, level=level) for block in blocks if _level_at_least(level, block.level)
     )
 
 

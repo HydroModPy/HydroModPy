@@ -21,6 +21,10 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
+from hydromodpy.reporting.site_selection.plan import (
+    render_site_selection_plan_html_report,
+)
 from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
@@ -65,9 +69,6 @@ from hydromodpy.spatial.site_selection.pipelines.build import (
     build_site_selection_from_generated_network,
     build_site_selection_from_point_records,
 )
-from hydromodpy.spatial.site_selection.reports.plan import (
-    render_site_selection_plan_html_report,
-)
 from hydromodpy.workflow.site_selection_data import (
     DemLoader,
     HydrometryLoader,
@@ -89,7 +90,9 @@ class SiteSelectionPlan:
     def write_manifest(self, path: str | Path | None = None) -> Path:
         """Write the plan manifest as JSON."""
 
-        destination = Path(path) if path is not None else self.config.output_root / PLAN_MANIFEST_NAME
+        destination = (
+            Path(path) if path is not None else self.config.output_root / PLAN_MANIFEST_NAME
+        )
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(
             json.dumps(self.manifest, indent=2, sort_keys=True) + "\n",
@@ -242,8 +245,7 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
                 for layer in cfg.criteria.observations.piezometer_layers
             ],
             "area_ranges": [
-                area_range.model_dump(mode="json")
-                for area_range in cfg.criteria.area.ranges
+                area_range.model_dump(mode="json") for area_range in cfg.criteria.area.ranges
             ],
         },
         "map_context": {
@@ -377,6 +379,7 @@ def select_delineated_catchments_from_csv(
             action="delineated_catchments",
             input_paths={"catchments_csv": catchments_csv},
             flow_products=flow_manifest,
+            report_renderer=render_site_selection_html_report,
         )
     )
     if not cfg_for_outputs.output.keep_intermediate_rasters:
@@ -431,9 +434,7 @@ def _maybe_delineate_from_outlets(
             builder=delineation_builder or extract_catchment_from_point,
             area_reader=area_reader,
             reference_network=reference_network,
-            reference_network_source=(
-                "" if reference_bundle is None else reference_bundle.source
-            ),
+            reference_network_source=("" if reference_bundle is None else reference_bundle.source),
             reference_network_max_distance_m=config.outlets.reference_network_max_distance_m,
         )
         for catchment in catchments
@@ -954,6 +955,7 @@ def build_observed_site_selection_from_toml(
         delineation_builder=delineation_builder,
         area_reader=area_reader,
         write_outputs=write_outputs,
+        report_renderer=render_site_selection_html_report,
     )
     _emit_progress(
         progress_callback,
@@ -1010,6 +1012,7 @@ def build_generated_site_selection_from_toml(
         delineation_builder=delineation_builder,
         area_reader=area_reader,
         write_outputs=write_outputs,
+        report_renderer=render_site_selection_html_report,
     )
     _emit_progress(
         progress_callback,
@@ -1068,6 +1071,7 @@ def build_dem_area_light_site_selection_from_toml(
         delineation_builder=delineation_builder,
         area_reader=area_reader,
         write_outputs=write_outputs,
+        report_renderer=render_site_selection_html_report,
     )
     _emit_progress(
         progress_callback,
@@ -1124,9 +1128,7 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "selected_basins_geojson": str(paths.get("selected_basins_geojson", "")),
             "rejected_basins_geojson": str(paths.get("rejected_basins_geojson", "")),
             "observation_points_geojson": str(paths.get("observation_points_geojson", "")),
-            "site_selection_manifest_json": str(
-                paths.get("site_selection_manifest_json", "")
-            ),
+            "site_selection_manifest_json": str(paths.get("site_selection_manifest_json", "")),
             "site_selection_report_html": str(paths.get("site_selection_report_html", "")),
             "site_selection_map_png": str(paths.get("site_selection_map_png", "")),
         }
@@ -1159,24 +1161,18 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
                 result.output_paths.get("generated_network_geojson", "")
             ),
             "selected_sites_csv": str(result.output_paths.get("selected_sites_csv", "")),
-            "regional_lab_sites_csv": str(
-                result.output_paths.get("regional_lab_sites_csv", "")
-            ),
+            "regional_lab_sites_csv": str(result.output_paths.get("regional_lab_sites_csv", "")),
             "selected_outlets_geojson": str(
                 result.output_paths.get("selected_outlets_geojson", "")
             ),
-            "selected_basins_geojson": str(
-                result.output_paths.get("selected_basins_geojson", "")
-            ),
+            "selected_basins_geojson": str(result.output_paths.get("selected_basins_geojson", "")),
             "site_selection_manifest_json": str(
                 result.output_paths.get("site_selection_manifest_json", "")
             ),
             "site_selection_report_html": str(
                 result.output_paths.get("site_selection_report_html", "")
             ),
-            "site_selection_map_png": str(
-                result.output_paths.get("site_selection_map_png", "")
-            ),
+            "site_selection_map_png": str(result.output_paths.get("site_selection_map_png", "")),
         }
 
     if action == "dem_area_light":
@@ -1200,24 +1196,18 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             ),
             "diagnostics_csv": str(result.output_paths.get("diagnostics_csv", "")),
             "selected_sites_csv": str(result.output_paths.get("selected_sites_csv", "")),
-            "regional_lab_sites_csv": str(
-                result.output_paths.get("regional_lab_sites_csv", "")
-            ),
+            "regional_lab_sites_csv": str(result.output_paths.get("regional_lab_sites_csv", "")),
             "selected_outlets_geojson": str(
                 result.output_paths.get("selected_outlets_geojson", "")
             ),
-            "selected_basins_geojson": str(
-                result.output_paths.get("selected_basins_geojson", "")
-            ),
+            "selected_basins_geojson": str(result.output_paths.get("selected_basins_geojson", "")),
             "site_selection_manifest_json": str(
                 result.output_paths.get("site_selection_manifest_json", "")
             ),
             "site_selection_report_html": str(
                 result.output_paths.get("site_selection_report_html", "")
             ),
-            "site_selection_map_png": str(
-                result.output_paths.get("site_selection_map_png", "")
-            ),
+            "site_selection_map_png": str(result.output_paths.get("site_selection_map_png", "")),
         }
 
     if cfg.strategy.principle != "observation_led":
@@ -1239,18 +1229,10 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
         "rejected": len(result.selection.rejected),
         "selected_sites_csv": str(result.output_paths.get("selected_sites_csv", "")),
         "regional_lab_sites_csv": str(result.output_paths.get("regional_lab_sites_csv", "")),
-        "selected_outlets_geojson": str(
-            result.output_paths.get("selected_outlets_geojson", "")
-        ),
-        "rejected_outlets_geojson": str(
-            result.output_paths.get("rejected_outlets_geojson", "")
-        ),
-        "selected_basins_geojson": str(
-            result.output_paths.get("selected_basins_geojson", "")
-        ),
-        "rejected_basins_geojson": str(
-            result.output_paths.get("rejected_basins_geojson", "")
-        ),
+        "selected_outlets_geojson": str(result.output_paths.get("selected_outlets_geojson", "")),
+        "rejected_outlets_geojson": str(result.output_paths.get("rejected_outlets_geojson", "")),
+        "selected_basins_geojson": str(result.output_paths.get("selected_basins_geojson", "")),
+        "rejected_basins_geojson": str(result.output_paths.get("rejected_basins_geojson", "")),
         "observation_points_geojson": str(
             result.output_paths.get("observation_points_geojson", "")
         ),

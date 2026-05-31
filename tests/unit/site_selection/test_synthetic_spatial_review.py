@@ -4,6 +4,11 @@ import json
 
 import pytest
 
+from hydromodpy.reporting.site_selection.figures import (
+    _choose_display_bounds,
+    _prefer_dem_extent_from_manifest,
+)
+from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
 from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
@@ -16,10 +21,6 @@ from hydromodpy.spatial.site_selection.outputs.artifacts import write_manifest_a
 from hydromodpy.spatial.site_selection.outputs.writer import (
     write_observation_points_geojson,
     write_selection_result,
-)
-from hydromodpy.spatial.site_selection.reports.figures import (
-    _choose_display_bounds,
-    _prefer_dem_extent_from_manifest,
 )
 from tests.unit.site_selection._geojson import write_polygon_geojson
 
@@ -129,6 +130,7 @@ def test_synthetic_spatial_review_contains_basins_observations_map_and_html(tmp_
             selection=selection,
             output_paths=output_paths,
             action="synthetic_spatial_review",
+            report_renderer=render_site_selection_html_report,
         )
     )
 
@@ -158,10 +160,7 @@ def test_display_bounds_can_honor_requested_regional_dem_extent():
     artifact_bounds = (45.0, 45.0, 55.0, 55.0)
 
     assert _choose_display_bounds(dem_extent, artifact_bounds) != dem_extent
-    assert (
-        _choose_display_bounds(dem_extent, artifact_bounds, prefer_dem_extent=True)
-        == dem_extent
-    )
+    assert _choose_display_bounds(dem_extent, artifact_bounds, prefer_dem_extent=True) == dem_extent
 
 
 @pytest.mark.fast
@@ -172,6 +171,7 @@ def test_manifest_prefers_dem_extent_for_territory_background():
     }
 
     assert _prefer_dem_extent_from_manifest(manifest) is True
+
 
 def _evidence(
     site_id: str,

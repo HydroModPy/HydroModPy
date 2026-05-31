@@ -9,7 +9,7 @@ from hydromodpy.display.report_blocks import (
     write_report_page,
     write_report_page_with_block_variants,
 )
-from hydromodpy.spatial.site_selection.reports.blocks import (
+from hydromodpy.reporting.site_selection.blocks import (
     DETAIL_LEVELS,
     blocks_for_detail_level,
     build_site_selection_plan_block_variants,
