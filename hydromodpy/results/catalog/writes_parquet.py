@@ -413,8 +413,7 @@ class WritesMixinParquet:
         existing_tables = {
             str(row[0])
             for row in self._db.execute(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_type='BASE TABLE'"
+                "SELECT table_name FROM information_schema.tables WHERE table_type='BASE TABLE'"
             ).fetchall()
         }
         duckdb_view = view_name_for(view_name, existing_tables)

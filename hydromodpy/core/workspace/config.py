@@ -209,10 +209,7 @@ def _reject_safe_filename_path(name: str, value: object | None) -> None:
     if value is None:
         return
     text = str(value)
-    if (
-        _SAFE_FILENAME_WINDOWS_DRIVE in text
-        or _SAFE_FILENAME_WINDOWS_SEPARATOR in text
-    ):
+    if _SAFE_FILENAME_WINDOWS_DRIVE in text or _SAFE_FILENAME_WINDOWS_SEPARATOR in text:
         raise ValueError(
             f"workspace.{name} contains private-use characters that look like a "
             "Windows path encoded as a safe filename. Pass a real path, such as "

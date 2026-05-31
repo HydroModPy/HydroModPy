@@ -466,9 +466,7 @@ def load_time_series_fields(
     ``stacked_arrays`` has shape ``(n_timesteps, *spatial_shape)``.
     """
     if store is None or sim_id is None:
-        raise ValueError(
-            f"Cannot load time-series '{observable_name}': no store/sim_id provided."
-        )
+        raise ValueError(f"Cannot load time-series '{observable_name}': no store/sim_id provided.")
 
     errors: list[Exception] = []
     sz = None

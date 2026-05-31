@@ -235,15 +235,11 @@ def _reference_manifest_payload(
     completed = [row for row in score_rows if row.get("status") == "completed"]
     failed = [row for row in score_rows if row.get("status") != "completed"]
     best_global = (
-        min(completed, key=lambda row: _float(row.get("J"), float("inf")))
-        if completed
-        else None
+        min(completed, key=lambda row: _float(row.get("J"), float("inf"))) if completed else None
     )
     non_target = [row for row in completed if not _candidate_is_truth(row)]
     best_non_target = (
-        min(non_target, key=lambda row: _float(row.get("J"), float("inf")))
-        if non_target
-        else None
+        min(non_target, key=lambda row: _float(row.get("J"), float("inf"))) if non_target else None
     )
     status_counts: dict[str, int] = {}
     for row in score_rows:

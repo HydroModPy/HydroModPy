@@ -116,9 +116,7 @@ def test_parse_atom_entries_extracts_links_and_properties():
     assert entries[0].title.endswith(".7z")
     assert entries[0].properties["size"] == "123"
     assert entries[0].properties["md5"] == "abc"
-    assert entries[0].links == (
-        "https://data.geopf.fr/telechargement/download/BDALTI/sub/file.7z",
-    )
+    assert entries[0].links == ("https://data.geopf.fr/telechargement/download/BDALTI/sub/file.7z",)
 
 
 @pytest.mark.fast

@@ -32,7 +32,9 @@ def cleanup_site_selection_intermediate_rasters(
         try:
             resolved.unlink()
         except OSError as exc:
-            logger.warning("Could not remove site-selection intermediate raster %s: %s", resolved, exc)
+            logger.warning(
+                "Could not remove site-selection intermediate raster %s: %s", resolved, exc
+            )
             continue
         removed.append(resolved)
         _remove_empty_parents(resolved.parent, stop=root)

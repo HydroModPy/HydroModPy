@@ -340,10 +340,7 @@ def _overlap_component(
     reason = (
         "overlap is below configured threshold"
         if allowed
-        else (
-            f"overlap {max_overlap:.3f} with {max_overlap_site_id} exceeds "
-            f"{max_allowed:.3f}"
-        )
+        else (f"overlap {max_overlap:.3f} with {max_overlap_site_id} exceeds {max_allowed:.3f}")
     )
     return CriteriaComponent(
         site_id=catchment.site_id,
@@ -382,10 +379,13 @@ def _outlet_spacing_component(
     nearest_site_id = ""
     for selected_catchment in selected:
         selected_xy = outlet_display_xy(selected_catchment)
-        distance_km = math.hypot(
-            candidate_xy[0] - selected_xy[0],
-            candidate_xy[1] - selected_xy[1],
-        ) / 1000.0
+        distance_km = (
+            math.hypot(
+                candidate_xy[0] - selected_xy[0],
+                candidate_xy[1] - selected_xy[1],
+            )
+            / 1000.0
+        )
         if nearest_distance_km is None or distance_km < nearest_distance_km:
             nearest_distance_km = distance_km
             nearest_site_id = selected_catchment.site_id

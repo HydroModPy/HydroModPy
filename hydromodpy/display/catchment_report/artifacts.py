@@ -142,6 +142,7 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
     artifact_spec("water_budget", artifact_candidate("simulation_figures", "water_budget.png")),
 )
 
+
 def copy_real_figures(
     figures_dir: Path,
     *,

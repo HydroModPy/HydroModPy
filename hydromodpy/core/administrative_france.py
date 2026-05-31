@@ -52,12 +52,9 @@ _REGION_CODE_BY_KEY: dict[str, str] = {
 def normalize_french_region_key(value: str) -> str:
     """Normalize a French region label for registry lookups."""
 
-    ascii_text = (
-        unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    )
+    ascii_text = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     normalized = "".join(
-        char.lower() if char.isalnum() else "-"
-        for char in ascii_text.replace("'", " ")
+        char.lower() if char.isalnum() else "-" for char in ascii_text.replace("'", " ")
     )
     parts = [part for part in normalized.split("-") if part]
     return "-".join(parts)

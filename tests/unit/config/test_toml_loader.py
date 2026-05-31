@@ -165,8 +165,7 @@ def test_workspace_rejects_filename_safe_windows_path_tokens() -> None:
     drive_token = chr(0xF03A)
     separator_token = chr(0xF05C)
     encoded_path = (
-        f"C{drive_token}{separator_token}codes{separator_token}"
-        f"HydroModPy{separator_token}outputs"
+        f"C{drive_token}{separator_token}codes{separator_token}HydroModPy{separator_token}outputs"
     )
 
     with pytest.raises(ValueError, match="encoded as a safe filename"):

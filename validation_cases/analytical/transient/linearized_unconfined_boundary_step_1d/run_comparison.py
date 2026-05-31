@@ -36,7 +36,7 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
                         }
                     }
                 }
-            }
+            },
         },
     }
 

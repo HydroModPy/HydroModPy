@@ -175,14 +175,20 @@ def fetch_ign_dem(
 
     normalized_dataset = _normalize_dataset(dataset)
     normalized_format = file_format.upper()
-    resolved_resolution = 25.0 if resolution_m is None and normalized_dataset == "bd-alti" else resolution_m
+    resolved_resolution = (
+        25.0 if resolution_m is None and normalized_dataset == "bd-alti" else resolution_m
+    )
     if normalized_dataset == "rge-alti":
         raise NotImplementedError(
             "RGE ALTI raster assembly is not implemented in fetch_ign_dem yet. "
             "Use download_ign_dem_departments(..., dataset='rge-alti', dry_run=True) "
             "to inspect raw archives, or request BD ALTI 25 m ASC for assembled GeoTIFFs."
         )
-    if normalized_dataset != "bd-alti" or float(resolved_resolution or 0.0) != 25.0 or normalized_format != "ASC":
+    if (
+        normalized_dataset != "bd-alti"
+        or float(resolved_resolution or 0.0) != 25.0
+        or normalized_format != "ASC"
+    ):
         raise NotImplementedError(
             "DEM raster assembly through ign_geoplateforme_dem currently supports "
             "only dataset='bd-alti', resolution_m=25, file_format='ASC'. "
@@ -348,7 +354,9 @@ def _discover_department_files(
                 dataset=dataset,
                 resolution_m=resolution_m,
             )
-            if _file_matches(enriched.file_name, resolution_m=resolution_m, file_format=file_format):
+            if _file_matches(
+                enriched.file_name, resolution_m=resolution_m, file_format=file_format
+            ):
                 discovered.append(enriched)
     return discovered
 
@@ -395,7 +403,9 @@ def _resource_name(dataset: str) -> str:
         return DATASET_RESOURCE_NAMES[dataset]
     except KeyError as exc:
         allowed = ", ".join(sorted(DATASET_RESOURCE_NAMES))
-        raise ValueError(f"Unsupported DEM dataset {dataset!r}. Expected one of: {allowed}") from exc
+        raise ValueError(
+            f"Unsupported DEM dataset {dataset!r}. Expected one of: {allowed}"
+        ) from exc
 
 
 def _normalize_dataset(dataset: str) -> IgnDemDataset:

@@ -75,9 +75,7 @@ def test_geology_layer_sets_dominant_geology_from_basin_intersection(tmp_path):
         selection_principle="criteria_crossing",
     )
     geology_component = next(
-        component
-        for component in result.criteria_components
-        if component.criterion_id == "geology"
+        component for component in result.criteria_components if component.criterion_id == "geology"
     )
     assert geology_component.raw_value == "schist"
     assert geology_component.criterion_status == "stratified"
@@ -173,8 +171,7 @@ def test_workflow_writes_geology_and_piezometer_outputs_from_configured_layers(t
     ).to_file(piezometer_path, layer="piezometers", driver="GPKG")
     catchments_csv = tmp_path / "catchments.csv"
     catchments_csv.write_text(
-        "site_id,x,y,outlet_crs,area_km2,watershed_shp\n"
-        "site_001,0,0,EPSG:2154,0.01,basin.gpkg\n",
+        "site_id,x,y,outlet_crs,area_km2,watershed_shp\nsite_001,0,0,EPSG:2154,0.01,basin.gpkg\n",
         encoding="utf-8",
     )
     config_path = tmp_path / "selection.toml"
@@ -243,9 +240,7 @@ def _write_basin(gpd, basin_path):
 
     gpd.GeoDataFrame(
         {"name": ["basin"]},
-        geometry=[
-            Polygon([(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0), (0.0, 0.0)])
-        ],
+        geometry=[Polygon([(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0), (0.0, 0.0)])],
         crs="EPSG:2154",
     ).to_file(basin_path, layer="basin", driver="GPKG")
 

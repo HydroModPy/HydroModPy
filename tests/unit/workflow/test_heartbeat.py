@@ -105,8 +105,7 @@ def test_pulse_does_not_write_simulation_heartbeat_column(catalog: SimulationCat
         pass
 
     cols = {
-        row[1]
-        for row in catalog.connection.execute("PRAGMA table_info('simulations')").fetchall()
+        row[1] for row in catalog.connection.execute("PRAGMA table_info('simulations')").fetchall()
     }
     assert "last_heartbeat" not in cols
     assert _read_heartbeat(catalog, sim_id) is not None

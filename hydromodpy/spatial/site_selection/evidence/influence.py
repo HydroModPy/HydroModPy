@@ -276,10 +276,14 @@ def _basin_geometry(catchment: DelineatedCatchment, *, target_crs: str):
         frame = frame.set_crs(target_crs, allow_override=True)
     elif not _same_crs(str(frame.crs), target_crs):
         frame = frame.to_crs(target_crs)
-    geometries = [geometry for geometry in frame.geometry if geometry is not None and not geometry.is_empty]
+    geometries = [
+        geometry for geometry in frame.geometry if geometry is not None and not geometry.is_empty
+    ]
     if not geometries:
         return None
-    union = frame.geometry.union_all() if hasattr(frame.geometry, "union_all") else frame.unary_union
+    union = (
+        frame.geometry.union_all() if hasattr(frame.geometry, "union_all") else frame.unary_union
+    )
     return None if union is None or union.is_empty else union
 
 
@@ -320,7 +324,9 @@ def _apply_influence_flags(
 
 
 def _is_major_feature(row: Mapping[str, Any], *, layer_cfg: object) -> bool:
-    major_values = [str(value).strip().lower() for value in getattr(layer_cfg, "major_values", []) or []]
+    major_values = [
+        str(value).strip().lower() for value in getattr(layer_cfg, "major_values", []) or []
+    ]
     severity_field = getattr(layer_cfg, "severity_field", None)
     if not severity_field or not major_values:
         return True

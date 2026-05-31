@@ -111,6 +111,7 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
         "validation_cases.shared.runtime.resolve_validation_results_dir",
         _resolve_results_dir,
     )
+
     def _fake_subprocess_run(*args, **kwargs):
         del args
         captured["auto_register"] = kwargs["env"].get("HMP_AUTO_REGISTER_WORKSPACE")
@@ -256,7 +257,7 @@ def test_validation_launcher_config_requires_explicit_workflow(tmp_path: Path) -
     case_dir = tmp_path / "case"
     case_dir.mkdir()
     config_path = case_dir / "config_modflownwt.toml"
-    config_path.write_text("[simulation]\nname = \"missing workflow\"\n", encoding="utf-8")
+    config_path.write_text('[simulation]\nname = "missing workflow"\n', encoding="utf-8")
     (case_dir / "metadata.toml").write_text(
         'case_id = "case_demo"\nconfig_file = "config_modflownwt.toml"\n',
         encoding="utf-8",

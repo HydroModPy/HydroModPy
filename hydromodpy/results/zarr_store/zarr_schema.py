@@ -50,9 +50,7 @@ class RetryingLocalStore(zarr.storage.LocalStore):
                     or attempt == LOCAL_STORE_WRITE_RETRIES - 1
                 ):
                     raise
-                await asyncio.sleep(
-                    LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS * (attempt + 1)
-                )
+                await asyncio.sleep(LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS * (attempt + 1))
 
     async def set_if_not_exists(self, key: str, value: Any) -> None:
         for attempt in range(LOCAL_STORE_WRITE_RETRIES):
@@ -66,9 +64,7 @@ class RetryingLocalStore(zarr.storage.LocalStore):
                     or attempt == LOCAL_STORE_WRITE_RETRIES - 1
                 ):
                     raise
-                await asyncio.sleep(
-                    LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS * (attempt + 1)
-                )
+                await asyncio.sleep(LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS * (attempt + 1))
 
 
 def is_zip_store_path(path: Path) -> bool:

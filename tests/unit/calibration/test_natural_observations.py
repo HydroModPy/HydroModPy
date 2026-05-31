@@ -15,9 +15,7 @@ from hydromodpy.calibration.natural_observations import (
 
 
 def _line_geometry(n_cells: int = 5) -> tuple[np.ndarray, np.ndarray]:
-    centroids = np.column_stack(
-        [np.arange(n_cells, dtype=float), np.zeros(n_cells, dtype=float)]
-    )
+    centroids = np.column_stack([np.arange(n_cells, dtype=float), np.zeros(n_cells, dtype=float)])
     area = np.ones(n_cells, dtype=float)
     return centroids, area
 

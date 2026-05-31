@@ -67,9 +67,7 @@ def find_departments_in_regions(regions: Sequence[str]) -> list[str]:
     region_codes = {french_region_code(region) for region in regions}
     depts = _read_departments_2154()
     if "code_insee_de_la_region" not in depts.columns:
-        raise ValueError(
-            "Cannot find region code column in bundled department GeoPackage."
-        )
+        raise ValueError("Cannot find region code column in bundled department GeoPackage.")
     selected = depts.loc[
         depts["code_insee_de_la_region"].astype(str).str.strip().isin(region_codes)
     ]

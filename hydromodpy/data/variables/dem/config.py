@@ -63,10 +63,7 @@ class _FrenchAdministrativeDemSource(_DemSourceBase):
     )
     regions: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
-        description=(
-            "Optional French administrative regions used to infer department "
-            "downloads."
-        ),
+        description=("Optional French administrative regions used to infer department downloads."),
     )
 
     @model_validator(mode="after")

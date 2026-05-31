@@ -173,10 +173,7 @@ def observation_points_gdf(evidence: Iterable[object]):
     import geopandas as gpd
     from shapely.geometry import Point
 
-    rows = [
-        item.to_record() if hasattr(item, "to_record") else dict(item)
-        for item in evidence
-    ]
+    rows = [item.to_record() if hasattr(item, "to_record") else dict(item) for item in evidence]
     records: list[dict[str, Any]] = []
     geometries = []
     crs_values: list[str] = []

@@ -666,9 +666,7 @@ def test_resolve_river_trace_for_meshing_prefers_explicit_trace() -> None:
 
     resolved = _resolve_river_trace_for_meshing(
         river_trace=explicit_trace,
-        geographic_features=SimpleNamespace(
-            rivers=SimpleNamespace(river_mesh_trace=object())
-        ),
+        geographic_features=SimpleNamespace(rivers=SimpleNamespace(river_mesh_trace=object())),
         rivers_cfg=ZoneConformalRiversConfig(
             source="geographic_features",
             path=None,
@@ -687,9 +685,7 @@ def test_resolve_river_trace_for_meshing_uses_geographic_features() -> None:
 
     resolved = _resolve_river_trace_for_meshing(
         river_trace=None,
-        geographic_features=SimpleNamespace(
-            rivers=SimpleNamespace(river_mesh_trace=river_trace)
-        ),
+        geographic_features=SimpleNamespace(rivers=SimpleNamespace(river_mesh_trace=river_trace)),
         rivers_cfg=ZoneConformalRiversConfig(
             source="geographic_features",
             path=None,

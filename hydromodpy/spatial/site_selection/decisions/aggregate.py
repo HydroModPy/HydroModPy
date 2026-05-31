@@ -52,9 +52,7 @@ def _global_decision(records: list[DecisionRecord]) -> GlobalDecisionValue:
 
 def _reasons(records: list[DecisionRecord], *, decision: str) -> list[str]:
     return _stable_unique(
-        _reason_label(record)
-        for record in records
-        if record.decision == decision
+        _reason_label(record) for record in records if record.decision == decision
     )
 
 
@@ -66,9 +64,7 @@ def _reason_label(record: DecisionRecord) -> str:
 
 def _evidence_refs(records: list[DecisionRecord]) -> list[str]:
     return _stable_unique(
-        str(record.evidence_ref)
-        for record in records
-        if record.evidence_ref not in (None, "")
+        str(record.evidence_ref) for record in records if record.evidence_ref not in (None, "")
     )
 
 

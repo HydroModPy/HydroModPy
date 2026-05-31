@@ -81,9 +81,7 @@ def natural_network_cost(
 
     centroids_arr = np.asarray(centroids, dtype=float)
     if centroids_arr.shape != (obs_mask.size, 2):
-        raise ValueError(
-            "centroids must have shape (n_cells, 2) matching observed_network_mask."
-        )
+        raise ValueError("centroids must have shape (n_cells, 2) matching observed_network_mask.")
     area = np.asarray(cell_area, dtype=float).reshape(-1)
     if area.size != obs_mask.size:
         raise ValueError(f"cell_area length must match mask ({area.size} != {obs_mask.size}).")
@@ -212,7 +210,9 @@ def write_natural_observation_package(
     if cell_area_arr.size != obs_mask.size:
         raise ValueError("cell_area length must match observed_network_mask.")
     if distance_arr.size != obs_mask.size:
-        raise ValueError("observed_network_distance_by_cell length must match observed_network_mask.")
+        raise ValueError(
+            "observed_network_distance_by_cell length must match observed_network_mask."
+        )
     if np.any(~np.isfinite(distance_arr)) or np.any(distance_arr < 0.0):
         raise ValueError("observed_network_distance_by_cell must be finite and >= 0.")
 
@@ -317,9 +317,9 @@ def score_natural_network_transient_candidate(
     with np.load(obs_path / "cell_geometry.npz") as geometry:
         centroids = np.asarray(geometry["centroids"], dtype=float)
         cell_area = np.asarray(geometry["cell_area"], dtype=float)
-    q_obs = pd.read_csv(obs_path / "observed_q_total_release.csv")[
-        "q_total_release"
-    ].to_numpy(dtype=float)
+    q_obs = pd.read_csv(obs_path / "observed_q_total_release.csv")["q_total_release"].to_numpy(
+        dtype=float
+    )
 
     network = natural_network_cost(
         candidate_steady_drain_by_cell,
@@ -336,7 +336,9 @@ def score_natural_network_transient_candidate(
     stop = int(normalization["score_stop_index"])
     q_sim = np.asarray(candidate_q_total_release, dtype=float).reshape(-1)
     if q_sim.size != q_obs.size:
-        raise ValueError(f"candidate_q_total_release length must be {q_obs.size}, got {q_sim.size}.")
+        raise ValueError(
+            f"candidate_q_total_release length must be {q_obs.size}, got {q_sim.size}."
+        )
     eps_raw = normalization.get("nse_log_epsilon")
     eps = None if eps_raw is None else float(eps_raw)
     discharge_cost, discharge_components = discharge_log_nse_cost(

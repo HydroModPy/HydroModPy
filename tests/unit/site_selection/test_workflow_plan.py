@@ -641,4 +641,3 @@ def test_run_site_selection_workflow_writes_manifest_without_html_by_default(tmp
     assert (tmp_path / "out" / "site_selection_manifest.json").is_file()
     assert not (tmp_path / "out" / "review" / "index.html").exists()
     assert summary["site_selection_report_html"] == ""
-

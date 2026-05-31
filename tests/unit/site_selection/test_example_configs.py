@@ -242,16 +242,17 @@ def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeyp
     assert summary["rejected"] == 2
     assert summary["site_selection_report_html"]
     assert (
-        work_example
-        / "outputs"
-        / "bretagne_hydrometry_primary_v1"
-        / "site_selection_manifest.json"
+        work_example / "outputs" / "bretagne_hydrometry_primary_v1" / "site_selection_manifest.json"
     ).is_file()
     assert (
         work_example / "outputs" / "bretagne_hydrometry_primary_v1" / "review" / "index.html"
     ).is_file()
     assert (
-        work_example / "outputs" / "bretagne_hydrometry_primary_v1" / "review" / "site_selection_map.png"
+        work_example
+        / "outputs"
+        / "bretagne_hydrometry_primary_v1"
+        / "review"
+        / "site_selection_map.png"
     ).is_file()
     assert (
         work_example / "outputs" / "bretagne_hydrometry_primary_v1" / "observation_points.geojson"
@@ -319,13 +320,17 @@ def test_auvergne_rhone_alpes_area_only_example_runs_from_fixture(tmp_path, monk
     assert (work_example / "outputs" / "aura_area_only_v1" / "selected_outlets.geojson").is_file()
     assert (work_example / "outputs" / "aura_area_only_v1" / "rejected_outlets.geojson").is_file()
     assert (work_example / "outputs" / "aura_area_only_v1" / "selected_basins.geojson").is_file()
-    assert (work_example / "outputs" / "aura_area_only_v1" / "site_selection_manifest.json").is_file()
+    assert (
+        work_example / "outputs" / "aura_area_only_v1" / "site_selection_manifest.json"
+    ).is_file()
     assert (work_example / "outputs" / "aura_area_only_v1" / "review" / "index.html").is_file()
-    assert (work_example / "outputs" / "aura_area_only_v1" / "review" / "site_selection_map.png").is_file()
+    assert (
+        work_example / "outputs" / "aura_area_only_v1" / "review" / "site_selection_map.png"
+    ).is_file()
     selected_basins = json.loads(
-        (
-            work_example / "outputs" / "aura_area_only_v1" / "selected_basins.geojson"
-        ).read_text(encoding="utf-8")
+        (work_example / "outputs" / "aura_area_only_v1" / "selected_basins.geojson").read_text(
+            encoding="utf-8"
+        )
     )
     assert len(selected_basins["features"]) == 20
     assert selected_basins["hydromodpy_skipped_basins"] == []

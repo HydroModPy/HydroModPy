@@ -37,9 +37,7 @@ def decision_records_from_selection_result(
         run_id=run_id,
     )
     if include_final_selection:
-        records.extend(
-            decision_records_from_selection_decisions(result.decisions, run_id=run_id)
-        )
+        records.extend(decision_records_from_selection_decisions(result.decisions, run_id=run_id))
     return sorted(
         records,
         key=lambda record: (

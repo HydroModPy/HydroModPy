@@ -161,7 +161,9 @@ def _release_cleanup_handles(ctx: WorkflowContext) -> None:
         if backend_has_callables(backend, "raster", "clear_raster_cache"):
             backend.raster.clear_raster_cache()
     except Exception:
-        logger.debug("Could not clear delineation raster cache before scratch cleanup", exc_info=True)
+        logger.debug(
+            "Could not clear delineation raster cache before scratch cleanup", exc_info=True
+        )
 
     gc.collect()
 

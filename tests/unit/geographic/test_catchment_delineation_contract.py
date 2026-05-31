@@ -32,9 +32,7 @@ GOLDEN_FILE = (
     / "catchment_delineation_polygon_contract_golden.json"
 )
 GOLDEN_FILE_OUTLET = (
-    Path(__file__).resolve().parent
-    / "golden"
-    / "catchment_delineation_outlet_contract_golden.json"
+    Path(__file__).resolve().parent / "golden" / "catchment_delineation_outlet_contract_golden.json"
 )
 
 
