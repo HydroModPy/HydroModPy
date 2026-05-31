@@ -11,18 +11,18 @@ from hydromodpy.display.report_blocks import (
     write_report_page,
     write_report_page_with_block_variants,
 )
-from hydromodpy.spatial.site_selection.outputs.manifest import (
-    load_selection_manifest,
-    manifest_output_path,
-    validate_selection_manifest,
-)
-from hydromodpy.spatial.site_selection.reports.blocks import (
+from hydromodpy.reporting.site_selection.blocks import (
     DETAIL_LEVELS,
     blocks_for_detail_level,
     build_site_selection_result_block_variants,
     build_site_selection_result_blocks,
 )
-from hydromodpy.spatial.site_selection.reports.figures import render_site_selection_map
+from hydromodpy.reporting.site_selection.figures import render_site_selection_map
+from hydromodpy.schema.site_selection_manifest import (
+    load_selection_manifest,
+    manifest_output_path,
+    validate_selection_manifest,
+)
 
 REPORT_DIR_NAME = "review"
 REPORT_HTML_NAME = "index.html"
@@ -51,10 +51,16 @@ def render_site_selection_html_report(
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    selected = _read_csv(manifest_output_path(manifest, "selected_sites_csv", manifest_path=manifest_file))
-    rejected = _read_csv(manifest_output_path(manifest, "rejected_sites_csv", manifest_path=manifest_file))
+    selected = _read_csv(
+        manifest_output_path(manifest, "selected_sites_csv", manifest_path=manifest_file)
+    )
+    rejected = _read_csv(
+        manifest_output_path(manifest, "rejected_sites_csv", manifest_path=manifest_file)
+    )
     decisions = _read_jsonl(
-        manifest_output_path(manifest, "site_selection_decisions_jsonl", manifest_path=manifest_file)
+        manifest_output_path(
+            manifest, "site_selection_decisions_jsonl", manifest_path=manifest_file
+        )
     )
     components = _read_jsonl(
         manifest_output_path(manifest, "criteria_components_jsonl", manifest_path=manifest_file)
@@ -92,7 +98,9 @@ def render_site_selection_html_report(
         evidence=evidence,
         candidate_generation=candidate_generation,
     )
-    subtitle = f"Rapport HTML v0 - selection de sites HydroModPy. {manifest.get('created_at_utc', '')}"
+    subtitle = (
+        f"Rapport HTML v0 - selection de sites HydroModPy. {manifest.get('created_at_utc', '')}"
+    )
     level_links = _level_links(destination)
     for level in DETAIL_LEVELS:
         write_report_page(

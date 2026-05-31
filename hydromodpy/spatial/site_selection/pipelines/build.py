@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -82,6 +82,7 @@ def build_site_selection_from_point_records(
     delineation_builder=None,
     area_reader=None,
     write_outputs: bool = True,
+    report_renderer: Callable[[str | Path], Path] | None = None,
 ) -> SiteSelectionBuildResult:
     """Run station-led site selection from loaded ``PointRecord`` objects.
 
@@ -92,11 +93,15 @@ def build_site_selection_from_point_records(
     records = list(point_records)
     root = Path(output_root) if output_root is not None else config.output_root
     root = root.expanduser().resolve()
-    dem_path = Path(dem_init_path or config.dem.path).expanduser().resolve() if (
-        dem_init_path or config.dem.path
-    ) else None
+    dem_path = (
+        Path(dem_init_path or config.dem.path).expanduser().resolve()
+        if (dem_init_path or config.dem.path)
+        else None
+    )
     if dem_path is None:
-        raise ValueError("build_site_selection_from_point_records requires dem_init_path or dem.path.")
+        raise ValueError(
+            "build_site_selection_from_point_records requires dem_init_path or dem.path."
+        )
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
 
     candidates = build_station_candidate_outlets(
@@ -174,6 +179,7 @@ def build_site_selection_from_point_records(
                 output_paths=output_paths,
                 action="hydrometry",
                 flow_products=flow_manifest,
+                report_renderer=report_renderer,
             )
         )
         _cleanup_intermediate_rasters(
@@ -204,16 +210,21 @@ def build_site_selection_from_generated_network(
     delineation_builder=None,
     area_reader=None,
     write_outputs: bool = True,
+    report_renderer: Callable[[str | Path], Path] | None = None,
 ) -> SiteSelectionBuildResult:
     """Run DEM/network-generated site selection without station or CSV candidates."""
 
     root = Path(output_root) if output_root is not None else config.output_root
     root = root.expanduser().resolve()
-    dem_path = Path(dem_init_path or config.dem.path).expanduser().resolve() if (
-        dem_init_path or config.dem.path
-    ) else None
+    dem_path = (
+        Path(dem_init_path or config.dem.path).expanduser().resolve()
+        if (dem_init_path or config.dem.path)
+        else None
+    )
     if dem_path is None:
-        raise ValueError("build_site_selection_from_generated_network requires dem_init_path or dem.path.")
+        raise ValueError(
+            "build_site_selection_from_generated_network requires dem_init_path or dem.path."
+        )
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
     search_geometry = site_selection_search_geometry(config, target_crs=target_crs)
 
@@ -305,6 +316,7 @@ def build_site_selection_from_generated_network(
                 output_paths=output_paths,
                 action="generated_candidates",
                 flow_products=flow_manifest,
+                report_renderer=report_renderer,
             )
         )
         _cleanup_intermediate_rasters(
@@ -337,6 +349,7 @@ def build_site_selection_from_dem_area_light(
     delineation_builder=None,
     area_reader=None,
     write_outputs: bool = True,
+    report_renderer: Callable[[str | Path], Path] | None = None,
 ) -> SiteSelectionBuildResult:
     """Run the lightweight DEM-only basin-area selection workflow."""
 
@@ -345,11 +358,15 @@ def build_site_selection_from_dem_area_light(
 
     root = Path(output_root) if output_root is not None else config.output_root
     root = root.expanduser().resolve()
-    dem_path = Path(dem_init_path or config.dem.path).expanduser().resolve() if (
-        dem_init_path or config.dem.path
-    ) else None
+    dem_path = (
+        Path(dem_init_path or config.dem.path).expanduser().resolve()
+        if (dem_init_path or config.dem.path)
+        else None
+    )
     if dem_path is None:
-        raise ValueError("build_site_selection_from_dem_area_light requires dem_init_path or dem.path.")
+        raise ValueError(
+            "build_site_selection_from_dem_area_light requires dem_init_path or dem.path."
+        )
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
     search_geometry = site_selection_search_geometry(config, target_crs=target_crs)
 
@@ -450,6 +467,7 @@ def build_site_selection_from_dem_area_light(
                 output_paths=output_paths,
                 action="dem_area_light",
                 flow_products=flow_manifest,
+                report_renderer=report_renderer,
             )
         )
         _cleanup_intermediate_rasters(

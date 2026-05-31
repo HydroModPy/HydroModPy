@@ -47,7 +47,6 @@ tolerances:
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
   - {src: data,        tgt: results,  reason: "cross-DB ATTACH bridge: data.DataEntry.used_by reads results.cross_db (commit 1bd5f31ef)"}
   - {src: results,     tgt: data,     reason: "cross-DB ATTACH bridge: results.cross_db reads DataCatalogDuckDB via ATTACH read-only (commit 1bd5f31ef)"}
-  - {src: spatial,     tgt: display,  reason: "site-selection review reports build static HTML blocks next to their spatial manifest producer until report assembly moves above workflow"}
   - {src: spatial,     tgt: data,     reason: "site-selection BD Topage outlet snapping delegates the optional hydrography fetch to data managers through a narrow helper"}
   - {src: calibration, tgt: display,  reason: "network-transient calibration diagnostics reuse the shared static HTML report-block renderer"}
 

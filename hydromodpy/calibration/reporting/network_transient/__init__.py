@@ -1,14 +1,11 @@
 """Diagnostic HTML pages for transient network calibration runs.
 
-This package splits the historical ``network_transient_html.py`` module into
-five concerns:
+This package backs the ``network_transient_html.py`` facade with four concerns:
 
 - ``state``: mutable defaults loaded from ``validation_cases/calibration/network_transient_b0/fixture.toml``.
 - ``io``: CSV/JSON/TOML readers, artifact inspection and small parsing helpers.
-- ``charts``: matplotlib figure builders (id card, recharge, outflow maps, ...).
-- ``sections``: HTML section builders and metric summaries.
-- ``styling``: the CSS string used by the rendered page.
-- ``assemble``: the public entry points and the page composition.
+- ``args``: runtime configuration of the report globals.
+- ``blocks``: report blocks rendered through the shared ``display.report_blocks`` engine.
 
 The companion module ``network_transient_html.py`` is the public facade.
 """

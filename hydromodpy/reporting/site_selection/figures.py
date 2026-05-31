@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.site_selection.outputs.manifest import (
+from hydromodpy.schema.site_selection_manifest import (
     load_selection_manifest,
     manifest_output_path,
 )
@@ -243,7 +243,9 @@ def _write_map_png(
     plt.close(fig)
 
 
-def _plot_dem_background(ax: Any, dem_path: Path | None) -> tuple[float, float, float, float] | None:
+def _plot_dem_background(
+    ax: Any, dem_path: Path | None
+) -> tuple[float, float, float, float] | None:
     if dem_path is None or not dem_path.is_file():
         return None
     try:
@@ -309,7 +311,9 @@ def _plot_dem_background(ax: Any, dem_path: Path | None) -> tuple[float, float, 
 def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
     for layer in layers:
         role = str(layer.get("role") or "other")
-        features = [feature for feature in layer.get("features", []) if isinstance(feature, Mapping)]
+        features = [
+            feature for feature in layer.get("features", []) if isinstance(feature, Mapping)
+        ]
         if role == "territory":
             _plot_polygons(
                 ax,
@@ -386,9 +390,7 @@ def _plot_generated_network(ax: Any, features: list[dict[str, Any]]) -> None:
         zorder=1,
     )
     point_features = [
-        feature
-        for feature in features
-        if _mapping(feature.get("geometry")).get("type") == "Point"
+        feature for feature in features if _mapping(feature.get("geometry")).get("type") == "Point"
     ]
     _plot_points(
         ax,
@@ -761,7 +763,9 @@ def _has_visible_snap_links(
             continue
         site_id = str(props.get("site_id") or outlet.get("id") or "").strip()
         distance_m = _float_or_none(props.get("outlet_snap_distance_m"))
-        if site_id in flow_site_ids and (distance_m is None or distance_m >= SNAP_LINK_MIN_DISTANCE_M):
+        if site_id in flow_site_ids and (
+            distance_m is None or distance_m >= SNAP_LINK_MIN_DISTANCE_M
+        ):
             return True
     return False
 
@@ -822,7 +826,9 @@ def _observation_types(features: list[dict[str, Any]]) -> set[str]:
     return values
 
 
-def _map_note(*, dem_path: Path | None, dem_extent: tuple[float, float, float, float] | None) -> str:
+def _map_note(
+    *, dem_path: Path | None, dem_extent: tuple[float, float, float, float] | None
+) -> str:
     if dem_path is not None and dem_extent is not None:
         return "Fond DEM regional; contours calcules depuis les exutoires"
     return "Contours calcules depuis les exutoires quand les produits DEM sont disponibles"
@@ -867,7 +873,9 @@ def _read_geojson(path: Path | None) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _read_context_layers(manifest: Mapping[str, Any], *, manifest_file: Path) -> list[dict[str, Any]]:
+def _read_context_layers(
+    manifest: Mapping[str, Any], *, manifest_file: Path
+) -> list[dict[str, Any]]:
     context = _mapping(manifest.get("map_context"))
     raw_layers = context.get("layers")
     if not isinstance(raw_layers, list):
@@ -1034,10 +1042,7 @@ def _bounds_intersect(
     right: tuple[float, float, float, float],
 ) -> bool:
     return not (
-        left[2] < right[0]
-        or right[2] < left[0]
-        or left[3] < right[1]
-        or right[3] < left[1]
+        left[2] < right[0] or right[2] < left[0] or left[3] < right[1] or right[3] < left[1]
     )
 
 

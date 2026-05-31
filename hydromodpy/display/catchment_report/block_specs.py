@@ -96,7 +96,9 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
             "associe a la fenetre de simulation."
         ),
         figures=(
-            FigureSpec("compact", "forcing_window", "Fenetre de simulation: debit observe et simule"),
+            FigureSpec(
+                "compact", "forcing_window", "Fenetre de simulation: debit observe et simule"
+            ),
             FigureSpec("audit", "observed_discharge_full", "Debit observe complet"),
             FigureSpec("audit", "climate_summary", "Climatologie mensuelle"),
         ),
@@ -125,12 +127,9 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
     ),
 )
 
-GENERIC_BLOCK_SPECS = DEFAULT_BLOCK_SPECS
-
 
 __all__ = [
     "FigureSpec",
     "DEFAULT_BLOCK_SPECS",
-    "GENERIC_BLOCK_SPECS",
     "ReportBlockSpec",
 ]

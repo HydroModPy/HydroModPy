@@ -6,6 +6,7 @@ delegates to a runner, and gathers evidence artifacts.
 """
 
 from __future__ import annotations
+
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any
@@ -210,10 +211,6 @@ class TestbedCatalogCaseConfig(HydroModelBase):
     )
 
 
-TestbedVariantConfig = TestbedCaseConfig
-TestbedCatalogVariantConfig = TestbedCatalogCaseConfig
-
-
 def _select_case_items(
     section: Mapping[str, Any],
     *,
@@ -225,9 +222,7 @@ def _select_case_items(
     canonical_label = f"testbed.{canonical_key}"
     legacy_label = f"testbed.{legacy_key}"
     if legacy_value is not None:
-        raise ValueError(
-            f"{legacy_label} is no longer supported; use {canonical_label}."
-        )
+        raise ValueError(f"{legacy_label} is no longer supported; use {canonical_label}.")
     if canonical_value is not None:
         return canonical_value, canonical_label
     return None, canonical_label

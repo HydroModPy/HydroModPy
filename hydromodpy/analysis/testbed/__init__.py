@@ -4,11 +4,9 @@ from hydromodpy.analysis.testbed.config import (
     TestbedCaseConfig,
     TestbedCatalogCaseConfig,
     TestbedCatalogConfig,
-    TestbedCatalogVariantConfig,
     TestbedConfig,
     TestbedMetricConfig,
     TestbedRunnerConfig,
-    TestbedVariantConfig,
 )
 from hydromodpy.analysis.testbed.profiles import (
     GENERIC_TESTBED_PROFILE,
@@ -35,11 +33,9 @@ __all__ = [
     "TestbedCaseConfig",
     "TestbedCatalogCaseConfig",
     "TestbedCatalogConfig",
-    "TestbedCatalogVariantConfig",
     "TestbedConfig",
     "TestbedLauncher",
     "TestbedMetricConfig",
     "TestbedRunnerConfig",
-    "TestbedVariantConfig",
     "resolve_testbed_profile",
 ]

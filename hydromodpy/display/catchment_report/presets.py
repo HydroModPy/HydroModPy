@@ -9,7 +9,7 @@ from hydromodpy.display.catchment_report.artifacts import (
     ReportArtifactSpec,
 )
 from hydromodpy.display.catchment_report.block_specs import (
-    GENERIC_BLOCK_SPECS,
+    DEFAULT_BLOCK_SPECS,
     ReportBlockSpec,
 )
 
@@ -25,7 +25,7 @@ class CatchmentReportPreset:
 GENERIC_REPORT_PRESET = CatchmentReportPreset(
     name="generic_catchment_report",
     artifact_specs=DEFAULT_ARTIFACT_SPECS,
-    block_specs=GENERIC_BLOCK_SPECS,
+    block_specs=DEFAULT_BLOCK_SPECS,
     description="Generic catchment report preset using local artifacts only.",
 )
 

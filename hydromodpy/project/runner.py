@@ -14,13 +14,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.prepared_run import DEFAULT_RUN_NAME_TEMPLATE, ProjectPreparedRun
+
 if TYPE_CHECKING:
     from hydromodpy.project.facade import Project
     from hydromodpy.results.run import Run
@@ -302,51 +302,12 @@ class ProjectRunner:
             previous_frozen_mode = is_frozen_mode()
             set_frozen_mode(True)
 
-                # lazy import / optional capturer
-        capturer = None
-        try:
-            from hydromodpy.validity_frame.auto_capture import ExecutionContext, RuntimeAutoCapture  # local import
-        except Exception:
-            RuntimeAutoCapture = None
-
-        if RuntimeAutoCapture is not None:
-            capturer = RuntimeAutoCapture(
-                context=ExecutionContext(run_id=run_id, workspace=str(workspace_path)),
-                output_dir=workspace_path / "execution_knowledge" / run_id / "raw",
-            )
-
-        import time
-        start_time = time.time()
-
         try:
             final = pipeline.run(initial, resume_from=resume_from, parallel=parallel)
-
-            if capturer is not None:
-                snapshot = capturer.collector.capture_end(
-                    start_time=start_time,
-                    solver_source=project._solver,
-                    logs=[],
-                )
-                capturer._write_snapshot("runtime_capture_success.json", asdict(snapshot))
-
-        except Exception as exc:
-            if capturer is not None:
-                snapshot = capturer.collector.capture_exception(
-                    start_time=start_time,
-                    exc=exc,
-                    solver_source=project._solver,
-                    logs=[],
-                )
-                capturer._write_snapshot("runtime_capture_failure.json", asdict(snapshot))
-
-            # ensure catalog open and mark failed simulation if possible
+        except Exception:
             from hydromodpy.project import phases as project_phases
 
-            try:
-                project_phases.open_catalog(project)
-            except Exception:
-                pass
-
+            project_phases.open_catalog(project)
             failed_sim_id = getattr(project._ctx, "sim_id", None)
             if failed_sim_id is not None and project._store is not None:
                 try:
@@ -368,14 +329,15 @@ class ProjectRunner:
                 from hydromodpy.data.data_freeze import set_frozen_mode
 
                 set_frozen_mode(previous_frozen_mode)
-                final_ctx = final.get("ctx") if final is not None else None
-                sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
-                if sim_id is None or project._store is None:
-                    return None
-                run_view = project._store[sim_id]
-                project._run_history.append(run_view)
-                _rebind_run_history_catalog(project)
-                return run_view
+
+        final_ctx = final.get("ctx") if final is not None else None
+        sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
+        if sim_id is None or project._store is None:
+            return None
+        run_view = project._store[sim_id]
+        project._run_history.append(run_view)
+        _rebind_run_history_catalog(project)
+        return run_view
 
     def simulate(
         self,
