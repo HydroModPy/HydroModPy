@@ -37,8 +37,8 @@ from hydromodpy.solver.modflow_grid import (
     SolverGridContext,
     build_spatial_discretization,
     build_temporal_discretization_from_time_grid,
-    resolve_first_period_steady,
     resolve_domain_surfaces,
+    resolve_first_period_steady,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 

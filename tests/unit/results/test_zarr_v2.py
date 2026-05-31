@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 import zarr
 
+import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
 from hydromodpy.results.zarr_store import (
     BALANCED_TARGET_BYTES,
     HIGHLY_RECOMMENDED,
@@ -27,7 +28,6 @@ from hydromodpy.results.zarr_store import (
     compute_balanced_chunks_2d,
     should_use_sharding,
 )
-import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
 
 
 @pytest.fixture
@@ -196,13 +196,7 @@ def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path
         len(
             str(
                 (
-                    long_dir
-                    / "sim.zarr"
-                    / "derived"
-                    / "watertable_elevation"
-                    / "c"
-                    / "0"
-                    / "0"
+                    long_dir / "sim.zarr" / "derived" / "watertable_elevation" / "c" / "0" / "0"
                 ).resolve()
             )
         )

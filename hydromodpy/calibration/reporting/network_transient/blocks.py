@@ -13,8 +13,8 @@ from hydromodpy.display.report_blocks import (
     ReportFigure,
     ReportLink,
     ReportMetric,
-    render_report_page,
     key_value_table,
+    render_report_page,
 )
 
 
@@ -33,9 +33,7 @@ def build_page(
 
     return render_report_page(
         title=page_title,
-        subtitle=(
-            "Diagnostic reproductible de calibration reseau permanent + debit transitoire."
-        ),
+        subtitle=("Diagnostic reproductible de calibration reseau permanent + debit transitoire."),
         blocks=build_network_transient_blocks(
             normalization=normalization,
             score_rows=score_rows,
@@ -84,9 +82,7 @@ def _calibration_problem_block(
     missing = list(artifact_report.required_missing) + list(artifact_report.optional_missing)
     warnings = list(artifact_report.contract_warnings)
     if missing:
-        warnings.append(
-            "Artefacts absents ou non exploitables: " + ", ".join(missing[:8])
-        )
+        warnings.append("Artefacts absents ou non exploitables: " + ", ".join(missing[:8]))
     return ReportBlock(
         block_id="calibration_problem",
         title="Probleme de calibration",
@@ -130,7 +126,13 @@ def _candidate_ranking_block(
         ReportMetric("J minimum", _nt_io.fmt_float(best.get("J"), 5)),
     ]
     if target is not None:
-        metrics.insert(0, ReportMetric("valeur cible", f"mK={_nt_io.fmt_float(target[0], 2)}, Sy={_nt_io.fmt_float(target[1], 3)}"))
+        metrics.insert(
+            0,
+            ReportMetric(
+                "valeur cible",
+                f"mK={_nt_io.fmt_float(target[0], 2)}, Sy={_nt_io.fmt_float(target[1], 3)}",
+            ),
+        )
     return ReportBlock(
         block_id="candidate_ranking",
         title="Classement des candidats",
@@ -143,7 +145,11 @@ def _candidate_ranking_block(
 
 def _configuration_block(normalization: dict[str, Any], truth_dir: Path | None) -> ReportBlock:
     metadata = _read_json(truth_dir / "metadata.json") if truth_dir is not None else {}
-    q_rows = _nt_io.read_csv(truth_dir / "transient_q_total_release.csv") if truth_dir is not None else []
+    q_rows = (
+        _nt_io.read_csv(truth_dir / "transient_q_total_release.csv")
+        if truth_dir is not None
+        else []
+    )
     active_count = ""
     if truth_dir is not None and (truth_dir / "steady_network_active_mask.npz").is_file():
         active = np.load(truth_dir / "steady_network_active_mask.npz")["active_mask"]
@@ -162,8 +168,12 @@ def _configuration_block(normalization: dict[str, Any], truth_dir: Path | None) 
             ReportMetric("cellules DISV", metadata.get("n_cells", "")),
             ReportMetric("periodes debit", metadata.get("n_timesteps", "")),
             ReportMetric("cellules drainantes cible", active_count),
-            ReportMetric("Q steady cible", _nt_io.fmt_float(normalization.get("Q_ref_steady"), 5), "m3/s"),
-            ReportMetric("Q moyen cible", _nt_io.fmt_float(normalization.get("Qbar_ref"), 5), "m3/s"),
+            ReportMetric(
+                "Q steady cible", _nt_io.fmt_float(normalization.get("Q_ref_steady"), 5), "m3/s"
+            ),
+            ReportMetric(
+                "Q moyen cible", _nt_io.fmt_float(normalization.get("Qbar_ref"), 5), "m3/s"
+            ),
             ReportMetric("L reseau cible", _nt_io.fmt_float(normalization.get("L_ref"), 1), "m"),
             ReportMetric("d_tol", _nt_io.fmt_float(normalization.get("d_tol"), 1), "m"),
         ),
@@ -266,9 +276,7 @@ def _hydrographic_network_block(figures: dict[str, Path]) -> ReportBlock:
         block_id="hydrographic_network",
         title="Cartes de drainage vis-a-vis de la cible",
         level="standard",
-        lead=(
-            "Comparaison spatiale entre le reseau cible et le meilleur candidat non cible."
-        ),
+        lead=("Comparaison spatiale entre le reseau cible et le meilleur candidat non cible."),
         figures=(
             ReportFigure(
                 "outflow_drain_maps",
@@ -311,10 +319,7 @@ def _artifact_links_block(
         links.append(ReportLink("Package de reference", truth_dir, "truth"))
     if score_table is not None:
         links.append(ReportLink("Table de scores", score_table, "score"))
-    links.extend(
-        ReportLink(path.name, path, "figure")
-        for _, path in sorted(figures.items())
-    )
+    links.extend(ReportLink(path.name, path, "figure") for _, path in sorted(figures.items()))
     rows = (
         {"kind": "available", "items": ", ".join(artifact_report.available)},
         {"kind": "required_missing", "items": ", ".join(artifact_report.required_missing)},

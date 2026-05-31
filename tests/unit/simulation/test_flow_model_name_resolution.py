@@ -3,12 +3,12 @@
 from types import SimpleNamespace
 
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.modflow6.build import mf6_output_name, mf6_safe_name
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_base_model_name,
     resolve_run_model_name,
 )
-from hydromodpy.solver.modflow6.build import mf6_output_name, mf6_safe_name
 
 
 def test_resolve_base_model_name_prefers_run_id() -> None:

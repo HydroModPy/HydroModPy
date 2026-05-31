@@ -81,9 +81,9 @@ def resolve_first_period_steady(
     """Resolve the first-period steady policy from [flow]."""
     flow_config = getattr(flow, "config", None) if flow is not None else None
     if flow_config is not None and hasattr(flow_config, "first_period_steady"):
-        return bool(getattr(flow_config, "first_period_steady"))
+        return bool(flow_config.first_period_steady)
     if flow is not None and hasattr(flow, "first_period_steady"):
-        return bool(getattr(flow, "first_period_steady"))
+        return bool(flow.first_period_steady)
     return bool(default)
 
 

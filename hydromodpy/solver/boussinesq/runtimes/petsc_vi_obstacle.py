@@ -35,6 +35,9 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
     detect_dry_equilibrium,
 )
+from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
+    _snes_reason_label,
+)
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
     clip_head_to_bounds as _clip_head_to_bounds,
 )
@@ -59,9 +62,6 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
     configure_vi_snes as _configure_vi_snes,
 )
-from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
-    _snes_reason_label,
-)
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
     attempt_diagnostic_record as _attempt_diagnostic_record,
 )
@@ -81,10 +81,10 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
     solve_transient_vi_substep as _solve_transient_vi_substep,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    solver_diagnostics as _solver_diagnostics,
+    solve_vi_obstacle_problem as _solve_vi_obstacle_problem,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
-    solve_vi_obstacle_problem as _solve_vi_obstacle_problem,
+    solver_diagnostics as _solver_diagnostics,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
     substep_attempt_counts as _substep_attempt_counts,

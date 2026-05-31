@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 from hydromodpy.validity_frame.auto_capture.context import ExecutionContext
-import traceback
 
 
 @dataclass(slots=True)
@@ -26,14 +25,16 @@ class AutoCaptureCollector:
     provided, fallback to the builtin probes.
     """
 
-    def __init__(self, context: ExecutionContext | None = None, probes: Dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, context: ExecutionContext | None = None, probes: dict[str, Any] | None = None
+    ) -> None:
         self.context = context or ExecutionContext()
         if probes is None:
             # lazy import to avoid import-time coupling
-            from hydromodpy.validity_frame.probes.system import SystemProbe
             from hydromodpy.validity_frame.probes.hardware import HardwareProbe
             from hydromodpy.validity_frame.probes.runtime import RuntimeProbe
             from hydromodpy.validity_frame.probes.solver import SolverProbe
+            from hydromodpy.validity_frame.probes.system import SystemProbe
 
             self.probes = {
                 "system": SystemProbe,
