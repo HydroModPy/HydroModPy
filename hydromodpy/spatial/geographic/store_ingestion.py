@@ -37,6 +37,8 @@ _SHAPEFILE_ATTRS = [
 ]
 
 _GENERATED_HYDROGRAPHIC_NETWORK_ATTR = "hydrographic_network_generated_shp"
+
+
 def persist_geographic_to_store(
     geographic: Any,
     store: Any,

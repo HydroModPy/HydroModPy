@@ -47,7 +47,9 @@ def test_select_delineated_catchments_rejects_area_hard_failures():
 
     assert [catchment.site_id for catchment in result.selected] == ["ok"]
     assert [catchment.site_id for catchment in result.rejected] == ["too_small"]
-    rejected_decision = next(decision for decision in result.decisions if decision.site_id == "too_small")
+    rejected_decision = next(
+        decision for decision in result.decisions if decision.site_id == "too_small"
+    )
     assert rejected_decision.blocking_flags == ["area"]
 
 

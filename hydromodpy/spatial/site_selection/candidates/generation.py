@@ -103,7 +103,9 @@ def generate_network_candidate_outlets(
 
     raster = _read_accumulation_raster(flow_products.products.acc)
     search_mask = _search_geometry_mask(raster, search_geometry)
-    valid_search_mask = raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
+    valid_search_mask = (
+        raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
+    )
     threshold = _resolve_accumulation_threshold(
         raster,
         network_threshold_area_km2=hydrology.network_threshold_area_km2,
@@ -254,7 +256,9 @@ def generate_dem_area_light_candidate_outlets(
         cell_area_m2=raster.cell_area_m2,
     )
     search_mask = _search_geometry_mask(raster, search_geometry)
-    valid_search_mask = raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
+    valid_search_mask = (
+        raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
+    )
     candidate_mask = (
         valid_search_mask
         & (upstream_area >= float(dem_area_light.min_area_km2))
@@ -438,7 +442,9 @@ def ensure_raw_accumulation_cells(
 
     tool = resolve_delineation_backend(backend)
     products = flow_products.products
-    if backend_has_callables(tool, "raster", "read_raster", "write_raster") and backend_has_callables(
+    if backend_has_callables(
+        tool, "raster", "read_raster", "write_raster"
+    ) and backend_has_callables(
         tool,
         "flow",
         "d8_flow_accumulation_raster",
@@ -469,10 +475,7 @@ def candidate_generation_evidence_with_candidate_attributes(
 ) -> list[CandidateGenerationEvidence]:
     """Copy reference-network scoring attributes from candidates to audit rows."""
 
-    attributes_by_id = {
-        candidate.candidate_id: candidate.attributes
-        for candidate in candidates
-    }
+    attributes_by_id = {candidate.candidate_id: candidate.attributes for candidate in candidates}
     updated: list[CandidateGenerationEvidence] = []
     for row in evidence:
         attributes = attributes_by_id.get(row.candidate_id)
@@ -488,9 +491,7 @@ def candidate_generation_evidence_with_candidate_attributes(
                 reference_network_distance_m=_optional_float(
                     attributes.get("reference_network_distance_m")
                 ),
-                reference_network_score=_optional_float(
-                    attributes.get("reference_network_score")
-                ),
+                reference_network_score=_optional_float(attributes.get("reference_network_score")),
                 reference_network_status=str(
                     attributes.get("reference_network_status") or row.reference_network_status
                 ),
@@ -525,7 +526,9 @@ def write_generated_network_geojson(
 
     raster = _read_accumulation_raster(flow_products.products.acc)
     search_mask = _search_geometry_mask(raster, search_geometry)
-    valid_search_mask = raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
+    valid_search_mask = (
+        raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
+    )
     threshold = _resolve_accumulation_threshold(
         raster,
         network_threshold_area_km2=hydrology.network_threshold_area_km2,
@@ -664,11 +667,15 @@ def _search_geometry_mask(
     try:
         from shapely.geometry import mapping
     except ImportError as exc:  # pragma: no cover - shapely is a geospatial dependency.
-        raise ImportError("shapely is required to rasterize site-selection territory masks.") from exc
+        raise ImportError(
+            "shapely is required to rasterize site-selection territory masks."
+        ) from exc
     try:
         import rasterio.features
     except ImportError as exc:  # pragma: no cover - rasterio is already required for rasters.
-        raise ImportError("rasterio is required to rasterize site-selection territory masks.") from exc
+        raise ImportError(
+            "rasterio is required to rasterize site-selection territory masks."
+        ) from exc
 
     return rasterio.features.geometry_mask(
         [mapping(search_geometry)],

@@ -176,9 +176,7 @@ def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: P
         export_module.step_cleanup_scratch(ctx)
 
 
-def test_step_cleanup_scratch_retries_after_releasing_handles(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_path: Path) -> None:
     from hydromodpy.workflow.steps import export as export_module
 
     scratch = tmp_path / ".solver_scratch"

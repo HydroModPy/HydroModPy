@@ -4,8 +4,8 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from hydromodpy.validity_frame.auto_capture.runtime_capture import RuntimeAutoCapture
 from hydromodpy.validity_frame.auto_capture.context import ExecutionContext
+from hydromodpy.validity_frame.auto_capture.runtime_capture import RuntimeAutoCapture
 from hydromodpy.validity_frame.probes.runtime import RuntimeProbe
 
 
@@ -85,7 +85,9 @@ def main():
     runtime_probe = MyRuntimeProbe()
 
     ctx = ExecutionContext(run_id="example_run", workspace=str(Path.cwd()))
-    cap = RuntimeAutoCapture(context=ctx, output_dir=outdir, probes={"solver": solver_probe, "runtime": runtime_probe})
+    cap = RuntimeAutoCapture(
+        context=ctx, output_dir=outdir, probes={"solver": solver_probe, "runtime": runtime_probe}
+    )
 
     # exécution avec capture; `solver_source` permet au SolverProbe de
     # récupérer les états (itérations, status, ...)

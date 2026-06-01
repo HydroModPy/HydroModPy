@@ -141,7 +141,6 @@ def _read_watershed(sim: Run):
 def _plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
     """Draw cell topography with the same terrain palette as context maps."""
     import numpy as np
-
     from matplotlib.collections import PolyCollection
 
     try:

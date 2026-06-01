@@ -42,7 +42,7 @@ def test_site_selection_dry_run_inference():
 def test_workflow_resolution_accepts_utf8_bom(tmp_path: Path):
     config_path = tmp_path / "selection_bom.toml"
     config_path.write_text(
-        "[workflow]\nmode = \"site_selection\"\n",
+        '[workflow]\nmode = "site_selection"\n',
         encoding="utf-8-sig",
     )
 

@@ -452,12 +452,9 @@ def resolve_validation_results_dir(*, test_file: str | Path, run_name: str) -> P
         test_file=test_file,
         run_name=run_name,
     )
-    if (
-        base_out_path
-        and _windows_path_budget_exceeded(
-            out_dir,
-            headroom=_VALIDATION_GENERATED_PATH_HEADROOM,
-        )
+    if base_out_path and _windows_path_budget_exceeded(
+        out_dir,
+        headroom=_VALIDATION_GENERATED_PATH_HEADROOM,
     ):
         results_root = _fallback_validation_results_root(base_out_path)
         out_dir = _resolve_budgeted_validation_results_dir(
@@ -565,8 +562,7 @@ def _normalize_validation_field_series(
         else:
             raw_items = raw_series
         series = [
-            (int(time_key), np.asarray(values, dtype="float64"))
-            for time_key, values in raw_items
+            (int(time_key), np.asarray(values, dtype="float64")) for time_key, values in raw_items
         ]
         if not series:
             continue
@@ -742,9 +738,7 @@ def _build_validation_launcher_config(
         sim_section["run_id"] = stable_run_id
 
     if "workflow" not in merged_payload:
-        raise ValueError(
-            f"{config_path} must define [workflow] or inherit it from base_config."
-        )
+        raise ValueError(f"{config_path} must define [workflow] or inherit it from base_config.")
 
     tmp_name = f".__validation_runtime_{config_path.stem}_{solver_name}_{os.getpid()}.toml"
     tmp_path = case_dir / tmp_name

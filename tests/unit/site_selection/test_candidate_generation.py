@@ -403,10 +403,7 @@ def test_generated_network_geojson_exports_dem_stream_segments(tmp_path):
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["hydromodpy_geometry_role"] == "generated_dem_network"
     assert payload["hydromodpy_coordinate_crs"] == "EPSG:2154"
-    assert any(
-        feature["geometry"]["type"] == "LineString"
-        for feature in payload["features"]
-    )
+    assert any(feature["geometry"]["type"] == "LineString" for feature in payload["features"])
 
 
 @pytest.mark.fast
@@ -441,9 +438,7 @@ def test_generated_network_geojson_honors_search_geometry(tmp_path):
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     coordinates = [
-        point
-        for feature in payload["features"]
-        for point in _feature_points(feature["geometry"])
+        point for feature in payload["features"] for point in _feature_points(feature["geometry"])
     ]
     assert coordinates
     assert all(x >= 20.0 for x, _y in coordinates)

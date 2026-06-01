@@ -13,18 +13,14 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
 
 
 def test_analytical_boussinesq_defaults_fill_steady_petsc_vi() -> None:
-    flow = apply_analytical_boussinesq_runtime_defaults(
-        {"flow_regime": "steady"}
-    )
+    flow = apply_analytical_boussinesq_runtime_defaults({"flow_regime": "steady"})
 
     assert flow["runtime_backend"] == "petsc"
     assert flow["surface_interaction_model"] == "vi_obstacle"
 
 
 def test_analytical_boussinesq_defaults_fill_transient_petsc_ts_vi() -> None:
-    flow = apply_analytical_boussinesq_runtime_defaults(
-        {"flow_regime": "transient"}
-    )
+    flow = apply_analytical_boussinesq_runtime_defaults({"flow_regime": "transient"})
 
     assert flow["runtime_backend"] == "petsc"
     assert flow["surface_interaction_model"] == "ts_vi_obstacle"

@@ -543,31 +543,35 @@ class HydroModPyConfig(HydroModelBase):
             "testbed": (None, _load_optional_testbed_section),
             "site_selection": (
                 None,
-                lambda data, b: None
-                if (
-                    data is None
-                    or (
-                        isinstance(data, Mapping)
-                        and not data
-                        and workflow_mode != "site_selection"
+                lambda data, b: (
+                    None
+                    if (
+                        data is None
+                        or (
+                            isinstance(data, Mapping)
+                            and not data
+                            and workflow_mode != "site_selection"
+                        )
                     )
-                )
-                else load_standard_section(
-                    data,
-                    SiteSelectionConfig,
-                    b,
-                    workspace_data_dir=workspace_data_dir,
+                    else load_standard_section(
+                        data,
+                        SiteSelectionConfig,
+                        b,
+                        workspace_data_dir=workspace_data_dir,
+                    )
                 ),
             ),
             "hydrometry": (
                 None,
-                lambda data, b: None
-                if data is None
-                else load_standard_section(
-                    data,
-                    HydrometryConfig,
-                    b,
-                    workspace_data_dir=workspace_data_dir,
+                lambda data, b: (
+                    None
+                    if data is None
+                    else load_standard_section(
+                        data,
+                        HydrometryConfig,
+                        b,
+                        workspace_data_dir=workspace_data_dir,
+                    )
                 ),
             ),
         }

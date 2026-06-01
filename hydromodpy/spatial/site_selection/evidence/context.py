@@ -424,13 +424,13 @@ def _basin_geometry(catchment: DelineatedCatchment, *, target_crs: str):
         return None
     frame = _frame_in_target_crs(frame, target_crs=target_crs)
     geometries = [
-        geometry
-        for geometry in frame.geometry
-        if geometry is not None and not geometry.is_empty
+        geometry for geometry in frame.geometry if geometry is not None and not geometry.is_empty
     ]
     if not geometries:
         return None
-    union = frame.geometry.union_all() if hasattr(frame.geometry, "union_all") else frame.unary_union
+    union = (
+        frame.geometry.union_all() if hasattr(frame.geometry, "union_all") else frame.unary_union
+    )
     return None if union is None or union.is_empty else union
 
 

@@ -77,7 +77,9 @@ def outlet_snap_distance_m(catchment: DelineatedCatchment) -> float | None:
     snapped = snapped_outlet_xy(catchment)
     if snapped is None:
         return None
-    return math.hypot(snapped[0] - float(catchment.outlet.x), snapped[1] - float(catchment.outlet.y))
+    return math.hypot(
+        snapped[0] - float(catchment.outlet.x), snapped[1] - float(catchment.outlet.y)
+    )
 
 
 def delineate_candidate_outlet(

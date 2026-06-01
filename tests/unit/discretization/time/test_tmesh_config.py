@@ -112,11 +112,7 @@ def test_load_tmesh_toml_returns_normalized_dict(tmp_path: Path):
 
     toml_path = tmp_path / "config.toml"
     toml_path.write_text(
-        "[tmesh]\n"
-        'itmuni = "d"\n'
-        'genmtd = "synthetic_regular"\n'
-        "nper = 4\n"
-        "lenper = 1\n",
+        '[tmesh]\nitmuni = "d"\ngenmtd = "synthetic_regular"\nnper = 4\nlenper = 1\n',
         encoding="utf-8",
     )
 

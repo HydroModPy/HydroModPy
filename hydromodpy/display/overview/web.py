@@ -211,7 +211,9 @@ def _hydrographic_network_block(
     metrics = (
         ReportMetric("Objets", _record_count_label(hydrography)),
         ReportMetric("Sources", ", ".join(_source_names(section)) or "-"),
-        ReportMetric("Periode", _section_period(section) or _load_result_period(hydrography) or "-"),
+        ReportMetric(
+            "Periode", _section_period(section) or _load_result_period(hydrography) or "-"
+        ),
     )
     tables: tuple[ReportTable, ...] = ()
     if level == "audit":
@@ -415,11 +417,7 @@ def _forcing_context_block(state: DataOverviewState, *, level: DetailLevel) -> R
     pumping = _pumping_summary(state)
     data_cfg = _data_config(state)
     requested = _requested_data_types(state)
-    if (
-        recharge is None
-        and "recharge" not in requested
-        and pumping["well_count"] == 0
-    ):
+    if recharge is None and "recharge" not in requested and pumping["well_count"] == 0:
         return ReportBlock(
             block_id="forcing_context",
             title="Recharge et pompages",

@@ -43,11 +43,11 @@
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "47e631bcd61202d689436040dc1c89cc909fedd47898ad7ab429fc4e779a9bf0",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json": "b6046c5c9f40866a4e02a13515498189e5c127dff11cada3dbf35aa83261aab6",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "6e57e3e2819d373dd6253fb2326d303f2ddbadf42906594ba8ec3b220e37891c",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "92e8e13dd4105a7762ceee1937cf1b7da515d872bad254d4cbe3b6b2a3323d11",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "00a7e6299a1eac9b6f0a82000da444b4e3a503d30129cce982a3d78d2023d25d"
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "5646b9644f9c6a175558480025ea96c5f5daf09fd2877c748daad2751cd7c66c",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json": "1068f8ff802add9e337573b435cb8a8aeb72ca42a1ef48ee0e222b75be8d0578",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "924c8b6526cc4481c5a4d3f156a824144b3e6d916dd8966bd9322d7ac7f49f25",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "ac6c7ea54c2b91a3baa8211d8dd176305aaa6d36a27d2529b982043d4133bb49",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "6a174bc32a9b9809b2c4a1e00d676eb16264d02fea709e3ccc7a99cb371ae21c"
   },
   "docname": "cases/ex12_multi_simulation_moderate",
   "images": [

@@ -153,10 +153,7 @@ def write_observation_points_geojson(
 ) -> Path:
     """Write observation locations from normalized observation evidence."""
 
-    rows = [
-        item.to_record() if hasattr(item, "to_record") else dict(item)
-        for item in evidence
-    ]
+    rows = [item.to_record() if hasattr(item, "to_record") else dict(item) for item in evidence]
     features: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
     crs_values: set[str] = set()

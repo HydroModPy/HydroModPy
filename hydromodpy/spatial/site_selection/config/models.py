@@ -95,15 +95,12 @@ class StrategyConfig(HydroModelBase):
                     "(for example 'flow_station')."
                 )
             if self.profile != "gauged_downstream_station":
-                raise ValueError(
-                    "observation_led requires profile='gauged_downstream_station'."
-                )
+                raise ValueError("observation_led requires profile='gauged_downstream_station'.")
 
         if self.profile == "gauged_downstream_station":
             if self.principle != "observation_led":
                 raise ValueError(
-                    "profile='gauged_downstream_station' requires "
-                    "principle='observation_led'."
+                    "profile='gauged_downstream_station' requires principle='observation_led'."
                 )
             if self.primary_observation_type != "flow_station":
                 raise ValueError(
@@ -112,8 +109,7 @@ class StrategyConfig(HydroModelBase):
                 )
             if self.candidate_mode not in {None, "station_outlets"}:
                 raise ValueError(
-                    "profile='gauged_downstream_station' requires "
-                    "candidate_mode='station_outlets'."
+                    "profile='gauged_downstream_station' requires candidate_mode='station_outlets'."
                 )
 
         if self.profile == "area_only":
@@ -187,9 +183,7 @@ class DemConfig(HydroModelBase):
 
     source: Annotated[Literal["custom", "data", "ign_geoplateforme_dem"], Profile.USER] = Field(
         default="custom",
-        description=(
-            "DEM source identifier: custom path, data section, or ign_geoplateforme_dem."
-        ),
+        description=("DEM source identifier: custom path, data section, or ign_geoplateforme_dem."),
     )
     path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
@@ -432,9 +426,9 @@ class SpatialSelectionConfig(HydroModelBase):
         le=1,
         description="Maximum allowed overlap fraction between selected basins.",
     )
-    overlap_reference: Annotated[Literal["smaller_basin", "candidate", "selected"], Profile.USER] = (
-        Field(default="smaller_basin", description="Denominator used for overlap fraction.")
-    )
+    overlap_reference: Annotated[
+        Literal["smaller_basin", "candidate", "selected"], Profile.USER
+    ] = Field(default="smaller_basin", description="Denominator used for overlap fraction.")
     overlap_mode: Annotated[RouteOverlapMode, Profile.USER] = Field(
         default="hard_reject",
         description="How overlap violations affect selection.",
@@ -457,9 +451,7 @@ class SpatialSelectionConfig(HydroModelBase):
     @model_validator(mode="after")
     def _validate_spatial_quota(self) -> SpatialSelectionConfig:
         if self.spatial_quota_mode == "grid" and self.spatial_quota_cell_size_km is None:
-            raise ValueError(
-                "spatial_quota_mode='grid' requires spatial_quota_cell_size_km."
-            )
+            raise ValueError("spatial_quota_mode='grid' requires spatial_quota_cell_size_km.")
         return self
 
 
@@ -472,9 +464,7 @@ class SiteSelectionInputConfig(HydroModelBase):
     )
     catchments_csv: Annotated[Path | None, Profile.USER] = Field(
         default=None,
-        description=(
-            "Pre-delineated catchments CSV used when mode='delineated_catchments'."
-        ),
+        description=("Pre-delineated catchments CSV used when mode='delineated_catchments'."),
     )
     region_id: Annotated[str, Profile.USER] = Field(
         default="",
@@ -596,8 +586,7 @@ class AreaCriteriaConfig(HydroModelBase):
             and self.hard_max_area_km2 is None
         ):
             raise ValueError(
-                "area mode='hard_reject' requires at least one area range "
-                "or a hard min/max area."
+                "area mode='hard_reject' requires at least one area range or a hard min/max area."
             )
         return self
 

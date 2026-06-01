@@ -82,9 +82,7 @@ def _load_heads_for_comparison(
     if observable_name != "watertable_elevation":
         if store_error is not None:
             raise store_error
-        raise ValueError(
-            f"Cannot load field '{observable_name}': no store/sim_id provided."
-        )
+        raise ValueError(f"Cannot load field '{observable_name}': no store/sim_id provided.")
 
     head_path = result.model_ws / f"{result.model_ws.name}.hds"
     head_fpu = fpu.HeadFile(str(head_path))

@@ -15,9 +15,7 @@ from hydromodpy.display.colormaps import BANNED_CMAPS
 
 def _figure_files() -> list[Path]:
     root = Path(__file__).resolve().parents[3] / "hydromodpy" / "display"
-    return sorted(
-        p for p in root.rglob("*.py") if p.is_file() and "__pycache__" not in p.parts
-    )
+    return sorted(p for p in root.rglob("*.py") if p.is_file() and "__pycache__" not in p.parts)
 
 
 def test_no_banned_cmap_literal() -> None:

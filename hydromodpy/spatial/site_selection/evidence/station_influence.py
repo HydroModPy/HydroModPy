@@ -179,9 +179,7 @@ def station_influence_metadata_from_hubeau(info: Mapping[str, Any]) -> dict[str,
     """Return the Hub'Eau station influence fields that should be kept."""
 
     return {
-        key: info.get(key)
-        for key in STATION_INFLUENCE_FIELDS
-        if info.get(key) not in (None, "")
+        key: info.get(key) for key in STATION_INFLUENCE_FIELDS if info.get(key) not in (None, "")
     }
 
 

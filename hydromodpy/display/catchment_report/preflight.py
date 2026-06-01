@@ -22,8 +22,7 @@ class CatchmentReportPreflightError(FileNotFoundError):
         self.missing = missing
         details = "\n".join(f"- {item.label}: {item.path}" for item in missing)
         super().__init__(
-            "Catchment report preflight failed. Required inputs were not found:\n"
-            f"{details}"
+            f"Catchment report preflight failed. Required inputs were not found:\n{details}"
         )
 
 

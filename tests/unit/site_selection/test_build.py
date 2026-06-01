@@ -109,9 +109,7 @@ def test_build_site_selection_from_point_records_removes_intermediate_rasters_by
     tmp_path,
 ):
     cfg = _config(tmp_path)
-    cfg = cfg.model_copy(
-        update={"output": cfg.output.model_copy(update={"write_geojson": False})}
-    )
+    cfg = cfg.model_copy(update={"output": cfg.output.model_copy(update={"write_geojson": False})})
     created: dict[str, list[Path] | Path] = {}
 
     def fake_flow_builder(**kwargs):
@@ -249,7 +247,9 @@ def test_build_site_selection_from_point_records_reprojects_station_locations(tm
 
 @pytest.mark.fast
 def test_build_site_selection_from_point_records_requires_dem(tmp_path):
-    cfg = _config(tmp_path).model_copy(update={"dem": _config(tmp_path).dem.model_copy(update={"path": None})})
+    cfg = _config(tmp_path).model_copy(
+        update={"dem": _config(tmp_path).dem.model_copy(update={"path": None})}
+    )
 
     with pytest.raises(ValueError, match="requires dem_init_path or dem.path"):
         build_site_selection_from_point_records(
@@ -502,9 +502,7 @@ def test_build_observed_site_selection_from_toml_uses_station_extent_for_dem(tmp
     )
 
     assert calls["order"] == ["hydrometry", "dem"]
-    assert calls["dem_extent"] == pytest.approx(
-        (350000.0, 6810000.0, 354000.0, 6814000.0)
-    )
+    assert calls["dem_extent"] == pytest.approx((350000.0, 6810000.0, 354000.0, 6814000.0))
     lon_min, lat_min, lon_max, lat_max = calls["hydrometry_extent"]
     assert -3.5 < lon_min < lon_max < -2.0
     assert 47.5 < lat_min < lat_max < 49.0

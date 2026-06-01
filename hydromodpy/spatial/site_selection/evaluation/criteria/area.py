@@ -165,12 +165,11 @@ def _area_range_failure_reason(area_km2: float, config: AreaCriteriaConfig) -> s
     ranges = _area_ranges(config)
     if not ranges:
         return _area_hard_failure_reason(area_km2, config)
-    if any(
-        area_range.min_area_km2 <= area_km2 <= area_range.max_area_km2
-        for area_range in ranges
-    ):
+    if any(area_range.min_area_km2 <= area_km2 <= area_range.max_area_km2 for area_range in ranges):
         return ""
-    return f"area {area_km2:g} km2 is outside configured area ranges: {_area_threshold_label(config)}"
+    return (
+        f"area {area_km2:g} km2 is outside configured area ranges: {_area_threshold_label(config)}"
+    )
 
 
 def _area_threshold_label(config: AreaCriteriaConfig) -> str:

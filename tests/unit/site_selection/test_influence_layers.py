@@ -100,10 +100,7 @@ def test_influence_layer_sets_rejection_flag_from_basin_intersection(tmp_path):
         if component.criterion_id == "influence"
     )
     assert component.blocking
-    assert (
-        component.evidence_json["evidence_ref"]
-        == "influence:site_001:major_dam_upstream:DAM001"
-    )
+    assert component.evidence_json["evidence_ref"] == "influence:site_001:major_dam_upstream:DAM001"
 
 
 @pytest.mark.fast

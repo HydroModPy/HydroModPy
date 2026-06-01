@@ -246,9 +246,7 @@ def _score_contract_warnings(
         }
     )
     if non_steady_sources:
-        warnings.append(
-            "score_table.non_steady_network_map_source=" + ",".join(non_steady_sources)
-        )
+        warnings.append("score_table.non_steady_network_map_source=" + ",".join(non_steady_sources))
 
     missing_steady_artifact = [
         row

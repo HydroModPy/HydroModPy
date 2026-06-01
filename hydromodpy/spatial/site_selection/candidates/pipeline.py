@@ -226,7 +226,9 @@ def site_selection_search_geometry(
         try:
             import geopandas as gpd
         except ImportError as exc:  # pragma: no cover - optional geospatial dependency.
-            raise ImportError("geopandas is required for site_selection territory polygons.") from exc
+            raise ImportError(
+                "geopandas is required for site_selection territory polygons."
+            ) from exc
 
         frame = gpd.read_file(territory.polygon_file)
         if target_crs and frame.crs is not None and str(frame.crs) != str(target_crs):

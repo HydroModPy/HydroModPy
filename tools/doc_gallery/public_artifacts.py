@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-LEGACY_PATH_REPLACEMENTS = (
-    ("_".join(("launcher", "simulation")), "simulation_regression"),
-)
+LEGACY_PATH_REPLACEMENTS = (("_".join(("launcher", "simulation")), "simulation_regression"),)
 
 PUBLIC_COMPARISON_MANIFEST_DROP_KEYS = frozenset(
     {

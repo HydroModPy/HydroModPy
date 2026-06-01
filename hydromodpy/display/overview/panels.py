@@ -69,7 +69,9 @@ def render_dem_map(
         origin="upper",
     )
     cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
-    cbar.set_label("Elevation (m)", fontsize=_MAP_COLORBAR_LABEL_SIZE if relative_ticks else _font(8))
+    cbar.set_label(
+        "Elevation (m)", fontsize=_MAP_COLORBAR_LABEL_SIZE if relative_ticks else _font(8)
+    )
     cbar.ax.tick_params(labelsize=_MAP_COLORBAR_TICK_SIZE if relative_ticks else _font(7))
 
     handles = []
@@ -273,7 +275,9 @@ def render_geology_map(
         origin="upper",
     )
     cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
-    cbar.set_label("Elevation (m)", fontsize=_MAP_COLORBAR_LABEL_SIZE if relative_ticks else _font(8))
+    cbar.set_label(
+        "Elevation (m)", fontsize=_MAP_COLORBAR_LABEL_SIZE if relative_ticks else _font(8)
+    )
     cbar.ax.tick_params(labelsize=_MAP_COLORBAR_TICK_SIZE if relative_ticks else _font(7))
 
     if geology_gdf is not None and not geology_gdf.empty:

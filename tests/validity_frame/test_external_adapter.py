@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hydromodpy.validity_frame.auto_capture import RuntimeAutoCapture, ExecutionContext
+from hydromodpy.validity_frame.auto_capture import ExecutionContext, RuntimeAutoCapture
 from hydromodpy.validity_frame.probes.base import ProbeProtocol
 
 

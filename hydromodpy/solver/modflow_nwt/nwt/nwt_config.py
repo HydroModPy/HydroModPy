@@ -10,8 +10,8 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.core.units import LengthMeters
+from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 

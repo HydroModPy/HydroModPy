@@ -43,11 +43,11 @@
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json": "89ecc74e295c200ec15803033807fd1791832dd1407b4980649c229c8749123f",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json": "9c8f4dd2ae0c5a8ee64a9cf38c1f49036fbc5203445b5dd31e52f9b89341051b",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "b3c3e3cbadf0a096676798fa79b5f5c7b8efe607a078ce6843acd63ae677a472",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv": "ab2aaf5be3f5bd80a80a51138f1149055c66b015698c2088a7b8189773243580",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv": "db4a65725d7d7bf0eb301e7df44f4a703cea2216beb6b42e3b5eb9b991a2a4a1"
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json": "64393a75e16fecd2802f956f34baaea61216830d98455199a15f92b454d7f589",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json": "bff0f025e15b0bbb70d6588dad28b9dc95f1aa9e1ad5f407313c7f269a8b52b7",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "0e7ef6f118e016e3d1598fb46b6af435e42be22bc32d3b63a17846f19def103c",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv": "0feb0079abe467213b2792cfd11b460067ddbde72be50ae339b34344fbdc24fb",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv": "ce520882507401b77c569218b5bc97ed8965c38b373a7cad72a7f895e0394a2f"
   },
   "docname": "cases/ex12_mf6_nwt_moderate_same_s60",
   "images": [

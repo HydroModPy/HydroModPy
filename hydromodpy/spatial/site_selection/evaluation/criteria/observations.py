@@ -105,8 +105,7 @@ def evaluate_flow_station_criterion(
         failures.append("station is not flagged inside or at the outlet")
 
     has_evidence = any(
-        value is not None and value != ""
-        for value in (record_years, n_records, distance_km)
+        value is not None and value != "" for value in (record_years, n_records, distance_km)
     )
     if mode == "report_only":
         return CriteriaComponent(
@@ -375,11 +374,7 @@ def evaluate_piezometer_criterion(
         "piezometer_id",
         "nearest_piezometer_id",
     )
-    has_evidence = (
-        (count is not None and count > 0.0)
-        or distance_km is not None
-        or inside is True
-    )
+    has_evidence = (count is not None and count > 0.0) or distance_km is not None or inside is True
     evidence = {
         "piezometer_count": count,
         "nearest_piezometer_distance_km": distance_km,
@@ -465,9 +460,7 @@ def evaluate_piezometer_criterion(
         if distance_km is None:
             failures.append("piezometer distance is missing")
         elif distance_km > max_distance_km:
-            failures.append(
-                f"piezometer distance {distance_km:g} km exceeds {max_distance_km:g}"
-            )
+            failures.append(f"piezometer distance {distance_km:g} km exceeds {max_distance_km:g}")
     failed = bool(failures)
     status = "passed"
     if failed:

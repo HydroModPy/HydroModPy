@@ -74,10 +74,7 @@ def test_network_transient_html_artifact_contract_warns_on_transient_network_map
     )
 
     assert report.ok
-    assert (
-        "score_table.non_steady_network_map_source=transient_last"
-        in report.contract_warnings
-    )
+    assert "score_table.non_steady_network_map_source=transient_last" in report.contract_warnings
 
 
 def test_network_transient_html_artifact_contract_flags_missing_required(
@@ -310,8 +307,7 @@ def _write_line_mesh_bundle(bundle_dir: Path, *, n_cells: int) -> None:
     (bundle_dir / "nodes.csv").write_text(
         "node_id,x,y\n"
         + "".join(
-            f"{idx},{float(idx) - 0.5},-0.5\n"
-            f"{idx + n_cells + 1},{float(idx) - 0.5},0.5\n"
+            f"{idx},{float(idx) - 0.5},-0.5\n{idx + n_cells + 1},{float(idx) - 0.5},0.5\n"
             for idx in range(n_cells + 1)
         ),
         encoding="utf-8",

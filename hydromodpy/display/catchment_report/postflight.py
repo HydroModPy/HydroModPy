@@ -71,7 +71,9 @@ def _expected_figure_ids(config: Any, manifest: dict[str, Any]) -> tuple[str, ..
     from_manifest = manifest.get("expected_figure_ids")
     if isinstance(from_manifest, list):
         return tuple(sorted(str(item) for item in from_manifest))
-    specs = config.artifact_specs if config.artifact_specs is not None else config.preset.artifact_specs
+    specs = (
+        config.artifact_specs if config.artifact_specs is not None else config.preset.artifact_specs
+    )
     return tuple(sorted(spec.figure_id for spec in specs))
 
 

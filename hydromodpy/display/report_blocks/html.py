@@ -215,11 +215,7 @@ def _normalize_block_variants(
     raw_items = block_variants.items() if isinstance(block_variants, Mapping) else block_variants
     groups: list[tuple[str, dict[str, ReportBlock]]] = []
     for block_id, variants in raw_items:
-        applicable = {
-            str(level): block
-            for level, block in variants.items()
-            if block.is_applicable
-        }
+        applicable = {str(level): block for level, block in variants.items() if block.is_applicable}
         if applicable:
             groups.append((str(block_id), applicable))
     return tuple(groups)

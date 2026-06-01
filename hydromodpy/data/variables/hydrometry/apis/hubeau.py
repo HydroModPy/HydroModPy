@@ -255,11 +255,7 @@ def _fetch_station_location(station_id: str) -> StationLocation | None:
         "end_date": info.get("date_fermeture_station"),
     }
     metadata.update(
-        {
-            key: info.get(key)
-            for key in _STATION_INFLUENCE_FIELDS
-            if info.get(key) not in (None, "")
-        }
+        {key: info.get(key) for key in _STATION_INFLUENCE_FIELDS if info.get(key) not in (None, "")}
     )
 
     return StationLocation(

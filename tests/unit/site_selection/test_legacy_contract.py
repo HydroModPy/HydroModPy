@@ -18,11 +18,7 @@ ACTIVE_TEXT_TARGETS = [
     REPO_ROOT / "hydromodpy" / "spatial" / "site_selection",
     REPO_ROOT / "hydromodpy" / "workflow" / "site_selection.py",
     REPO_ROOT / "hydromodpy" / "cli" / "commands" / "site_selection.py",
-    REPO_ROOT
-    / "examples"
-    / "projects"
-    / "17_site_selection_workflow"
-    / "configs",
+    REPO_ROOT / "examples" / "projects" / "17_site_selection_workflow" / "configs",
 ]
 FORBIDDEN_LEGACY_SNIPPETS = (
     "_normalize_report_mode",
@@ -77,15 +73,13 @@ def test_active_site_selection_files_do_not_reintroduce_legacy_tokens():
 
 @pytest.mark.fast
 def test_dem_area_light_examples_declare_profile_and_area_criteria():
-    config_dir = (
-        REPO_ROOT / "examples" / "projects" / "17_site_selection_workflow" / "configs"
-    )
+    config_dir = REPO_ROOT / "examples" / "projects" / "17_site_selection_workflow" / "configs"
     configs = sorted(config_dir.glob("*dem_area_light*.toml"))
     assert configs
 
     for path in configs:
         text = path.read_text(encoding="utf-8")
         assert 'mode = "dem_area_light"' in text
-        assert '[site_selection.strategy]' in text
+        assert "[site_selection.strategy]" in text
         assert 'profile = "area_only"' in text
-        assert '[site_selection.criteria.area]' in text
+        assert "[site_selection.criteria.area]" in text

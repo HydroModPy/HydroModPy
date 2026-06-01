@@ -161,7 +161,7 @@ Overview Panels
      - Source
    * - ``[overview] name``
      - Title injected into the generated overview panels.
-     - Canut
+     - Nancon
      - ``examples/projects/05_nancon_data_overview/config_hydrography_only.toml``
    * - ``[overview.panels] enabled``
      - Panel toggles enabled for this overview run.

@@ -39,9 +39,9 @@
     "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/summary_metrics.csv"
   ],
   "source_hashes": {
-    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/case.json": "4e480590584ab59e29ec4cff024ae79d01148eda1bdceba864d809d0e4d891f4",
-    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/comparison_manifest.json": "3e045fada5ae585843fe12e397bdc6b4c1eda039e18357ee84eaf7f9e16952bd",
-    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/summary_metrics.csv": "f0b337ccc3ee9e25c83876ed4ae4f08ef2556a8fc8244c588cf03f403a93f987"
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/case.json": "013a03f38620208cf66bd980bada17aeb150d9922bb39418a00b743f0a3685b0",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/comparison_manifest.json": "15eb1626bb2d654071a057f3d0c81354b1a5454f12b4b8f779eb896590319b4e",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/summary_metrics.csv": "a1c5ef4686ae1d4e774ec5e049a79a9c35d1951e2d5f2a5c6bb9ff31f1eb28ed"
   },
   "docname": "cases/site_03_natural_n1_10km2_mf6_bouss",
   "images": [

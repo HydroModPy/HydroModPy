@@ -56,8 +56,7 @@ def test_observation_evidence_from_hubeau_point_record_separates_provider_and_sp
     assert evidence.upstream_dam_count is None
     assert evidence.evidence_json["provider_metadata"]["department"] == "Ille-et-Vilaine"
     assert (
-        evidence.evidence_json["station_influence"]["raw_fields"]["influence_generale_site"]
-        == "1"
+        evidence.evidence_json["station_influence"]["raw_fields"]["influence_generale_site"] == "1"
     )
     assert evidence.evidence_json["provider_location"]["crs"] == "EPSG:4326"
 

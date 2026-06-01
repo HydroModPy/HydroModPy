@@ -190,9 +190,7 @@ def test_import_simulation_comparison_publishes_bundle(
     assert destination == published_root / "natural_site_03_mf6_bouss"
     assert (destination / "comparison_manifest.json").exists()
     assert (destination / "summary_metrics.csv").exists()
-    published_manifest_text = (destination / "comparison_manifest.json").read_text(
-        encoding="utf-8"
-    )
+    published_manifest_text = (destination / "comparison_manifest.json").read_text(encoding="utf-8")
     assert legacy_project_name not in published_manifest_text
     assert "simulation_regression" not in published_manifest_text
     assert "run_folder" not in published_manifest_text
