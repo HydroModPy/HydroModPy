@@ -153,6 +153,31 @@ class TestFullCycle:
         df_f = catalog.list_simulations(solver="gr4j")
         assert len(df_f) == 0
 
+    def test_list_simulations_named_only_drops_technical_rows(self, catalog):
+        real = str(uuid4())
+        catalog.register_simulation(real, project="test", solver="modflow6", name="real_run")
+        catalog.finalize(real, status="completed")
+
+        # Effective-config snapshot keeps a dotted name.
+        snap = str(uuid4())
+        catalog.register_simulation(
+            snap, project="test", solver="modflow6", name=".real_run.effective.abc123"
+        )
+        catalog.finalize(snap, status="completed")
+
+        # Re-registering the same (project, name) clears the old run's name to NULL.
+        old = str(uuid4())
+        catalog.register_simulation(old, project="test", solver="modflow6", name="dup")
+        catalog.finalize(old, status="completed")
+        new = str(uuid4())
+        catalog.register_simulation(new, project="test", solver="modflow6", name="dup")
+        catalog.finalize(new, status="completed")
+
+        assert len(catalog.list_simulations()) == 4
+
+        named = catalog.list_simulations(named_only=True)
+        assert set(named["name"]) == {"real_run", "dup"}
+
 
 class TestTimeseriesCycle:
     """register → write_timeseries → query_timeseries"""

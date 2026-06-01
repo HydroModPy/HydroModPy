@@ -1,0 +1,59 @@
+# ======================================================================
+# Nancon - run permanent avec MODFLOW 6
+# ----------------------------------------------------------------------
+# Meme bassin, meme physique que sim_steady_nwt.toml, resolu par
+# MODFLOW 6 sur une grille reguliere structuree (DIS). Lancer les deux,
+# puis comparer charges et bilans avec hmp.compare_pair (voir
+# compare_solvers.py).
+#
+# Lancement :
+#   hmp run examples/projects/20_atelier_nancon/sim_steady_mf6.toml
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "steady_mf6"
+description = "Nancon permanent, MODFLOW 6 (grille structuree DIS)."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 year"
+coverage_policy = "warn"
+
+[flow]
+flow_regime = "steady"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+# Solver IMS. COMPLEX ne relache rien sur la precision mais utilise
+# l'acceleration la plus robuste pour les problemes en nappe libre.
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-4
+mf6_inner_dvclose = 1e-4
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+
+# Grille structuree reechantillonnee a 80 x 80 mailles sur la boite du
+# bassin. C'est la discretisation DIS (reguliere), pendant MF6 de la
+# grille native NWT.
+[modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 80
+ny = 80
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[flow.param.K.field]
+value = 5e-5

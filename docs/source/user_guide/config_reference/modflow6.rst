@@ -764,3 +764,17 @@ Validation gallery cases that reference fields from this section:
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`
+
+Entity-relationship diagram
+---------------------------
+
+.. container:: hmp-er-wrapper hmp-er-thumbnail
+
+   .. image:: _diagrams/modflow6.svg
+      :alt: ER diagram for Modflow6Config
+      :class: er-diagram hmp-zoomable
+      :target: _diagrams/modflow6.svg
+
+   .. container:: hmp-er-hint
+
+      Click to zoom and pan. Press *Esc* or click outside to close.

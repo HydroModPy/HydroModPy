@@ -1,0 +1,77 @@
+# ======================================================================
+# Nancon - calibration sur le debit observe
+# ----------------------------------------------------------------------
+# Herite de project.toml et lance une campagne Optuna qui cherche K et Sy
+# pour maximiser le KGE entre le debit de drainage simule et l'hydrogramme
+# observe du Nancon (charge depuis le CSV custom local).
+#
+# `[workflow].mode = "calibration"` bascule le dispatcher sur la boucle
+# ask/tell. Chaque iteration lance un vrai run transient MODFLOW-NWT en
+# mode leger ; `save_runs = "best_n"` garde les sorties completes des
+# meilleures iterations a la fin.
+#
+# Lancement :
+#   hmp run examples/projects/20_atelier_nancon/calibration_discharge.toml
+#   hmp report            # rapport HTML de la session de calage
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "calib_discharge"
+description = "Calibration Optuna de K et Sy vs KGE(debit)."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+# Parametres geles (non cherches).
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.Ss.field]
+value = 1e-5
+
+
+# ---- Calibration -----------------------------------------------------
+[calibration]
+# Sampler TPE d'Optuna.
+method = "optuna"
+# Petit budget pour une demo en direct ; augmenter pour la production.
+max_iter = 12
+batch_size = 1
+# Promeut les 2 meilleures iterations en runs complets (Zarr + figures)
+# a la fin.
+save_runs = "best_n"
+save_best_n = 2
+seed = 42
+# Le KGE est le standard de calage en debit : il equilibre correlation,
+# biais et variabilite, au lieu d'une seule norme d'erreur.
+objective = "kge"
+variable = "discharge"
+use_cache = true
+
+# Deux parametres, deux priors : K couvre plusieurs decades (log), Sy est
+# une fraction.
+[calibration.parameters.K]
+bounds = [1e-6, 1e-3]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.parameters.Sy]
+bounds = [0.01, 0.30]
+prior = "uniform"
+path = "flow.param.Sy.field.value"
+units = "-"

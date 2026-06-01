@@ -1,0 +1,17 @@
+# Artefacts generes par les runs. Tout est regenerable depuis les TOML et
+# les scripts Python, donc rien ici n'est versionne.
+catalog.duckdb
+catalog.duckdb.*
+*.duckdb.wal
+simulations/
+figures/
+web/
+web_review/
+exports/
+mesh/
+data/
+.hmp/
+.solver_scratch/
+hydromodpy_debug.log
+*_output.png
+__pycache__/

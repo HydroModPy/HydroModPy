@@ -240,6 +240,58 @@ def test_sim_obs_figures_reject_missing_overlap(mpl) -> None:
     mpl.close(fig)
 
 
+def test_hydrograph_sim_obs_fetches_gauge_obs_not_sim_station(mpl) -> None:
+    """Sim discharge is keyed by the ``_catchment`` pseudo-station while obs
+    come from a real gauge with its own id. The overlay must fetch obs across
+    stations, not filter them by the sim station (which would return nothing).
+    """
+
+    class _GaugeRun(_Run):
+        def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:
+            if station is not None:
+                raise ValueError(f"No observations for station={station!r}")
+            dates = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-04"])
+            return pd.DataFrame(
+                {
+                    "datetime": dates,
+                    "station_id": ["NANCON", "NANCON", "NANCON"],
+                    "variable": [variable, variable, variable],
+                    "value": [1.5, 1.0, 2.0],
+                }
+            )
+
+    fig, ax = mpl.subplots()
+    HydrographSimObs().render(_GaugeRun(), ax)
+    assert [line.get_label() for line in ax.lines] == ["sim", "obs (NANCON)"]
+    mpl.close(fig)
+
+
+def test_hydrograph_sim_obs_marks_single_sample_series(mpl) -> None:
+    """A steady run has one stress period; a single-point line is invisible, so
+    the lone sim and obs samples must be drawn with a marker."""
+
+    class _SteadyRun(_Run):
+        def timeseries(self, variable: str, *, station: str = "_catchment") -> pd.Series:
+            return pd.Series([1.8], index=pd.to_datetime(["2000-06-15"]), name="discharge")
+
+        def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "datetime": pd.to_datetime(["2000-06-15"]),
+                    "station_id": ["NANCON"],
+                    "variable": [variable],
+                    "value": [1.5],
+                }
+            )
+
+    fig, ax = mpl.subplots()
+    HydrographSimObs().render(_SteadyRun(), ax)
+    assert [line.get_label() for line in ax.lines] == ["sim", "obs (NANCON)"]
+    assert ax.lines[0].get_marker() == "o"
+    assert ax.lines[1].get_marker() == "o"
+    mpl.close(fig)
+
+
 def test_ensemble_band_uses_quantiles_and_observed_overlay(mpl) -> None:
     fig, ax = mpl.subplots()
     members = [_Run(values=np.asarray([1.0, 2.0])), _Run(values=np.asarray([2.0, 3.0]))]

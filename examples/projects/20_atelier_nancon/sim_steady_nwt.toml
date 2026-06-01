@@ -1,0 +1,57 @@
+# ======================================================================
+# Nancon - run permanent avec MODFLOW-NWT
+# ----------------------------------------------------------------------
+# Herite de project.toml (geographie, donnees, defauts du flow) et change
+# seulement le regime en permanent plus les reglages du solver NWT.
+# A coupler avec sim_steady_mf6.toml pour comparer les deux solvers sur
+# exactement la meme physique.
+#
+# Lancement :
+#   hmp run examples/projects/20_atelier_nancon/sim_steady_nwt.toml
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "steady_nwt"
+description = "Nancon permanent, MODFLOW-NWT."
+
+[simulation.time]
+# Une seule periode de stress annuelle. Le regime permanent ignore la
+# duree, mais la fenetre selectionne quand meme les enregistrements de
+# forcage utilises.
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 year"
+coverage_policy = "warn"
+
+# Permanent : la nappe est l'equilibre entre recharge et drainage, sans
+# terme de stockage ni marche en temps.
+[flow]
+flow_regime = "steady"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+# Solver non-lineaire NWT. Le preset COMPLEX est robuste pour les mailles
+# libres qui s'assechent et se remouillent pres des faces de suintement.
+[modflownwt.runtime.nwt]
+version = "mfnwt"
+headtol = 1e-4
+fluxtol = 500.0
+maxiterout = 5000
+thickfact = 1e-5
+options = "COMPLEX"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+# Conductivite hydraulique de base pour l'aquifere fracture armoricain.
+[flow.param.K.field]
+value = 5e-5

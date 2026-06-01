@@ -256,8 +256,12 @@ class SimulationStore(Protocol):
     ) -> pd.Series:
         """Read a per-station simulated timeseries for ``sim_id``."""
 
-    def list_simulations(self, **filters: Any) -> pd.DataFrame:
-        """Return one DataFrame row per simulation matching ``filters``."""
+    def list_simulations(self, *, named_only: bool = False, **filters: Any) -> pd.DataFrame:
+        """Return one DataFrame row per simulation matching ``filters``.
+
+        ``named_only=True`` drops technical rows: replaced runs whose name was
+        cleared (``name IS NULL``) and effective-config snapshots (dotted names).
+        """
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         """Open the per-simulation Zarr store for ``sim_id``."""
