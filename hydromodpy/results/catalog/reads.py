@@ -215,25 +215,30 @@ class ReadsMixin:
             params.append(variable)
         return self._backend.query(query, params)
 
-    def list_simulations(self, **filters) -> pd.DataFrame:
+    def list_simulations(self, *, named_only: bool = False, **filters) -> pd.DataFrame:
         """Return one DataFrame row per simulation matching ``filters``.
 
         ``order_by`` accepts only whitelisted simulation columns, with an
-        optional ``ASC`` or ``DESC`` direction.
+        optional ``ASC`` or ``DESC`` direction. ``named_only=True`` drops the
+        technical rows: runs whose name was cleared on a replace collision
+        (``name IS NULL``) and effective-config snapshots (dotted names).
         """
         order_by = filters.pop("order_by", None)
         query = _SIMULATIONS_VIEW_SELECT
         params: list = []
-        if filters:
-            clauses = []
-            for key, val in filters.items():
-                if key not in _SIMULATION_FILTER_COLUMNS:
-                    raise ValueError(f"Unknown simulation filter: {key!r}")
-                if key in _SIMULATION_DIM_FILTERS:
-                    clauses.append(f"{_SIMULATION_DIM_FILTERS[key]} = ?")
-                else:
-                    clauses.append(f"s.{key} = ?")
-                params.append(val)
+        clauses: list[str] = []
+        for key, val in filters.items():
+            if key not in _SIMULATION_FILTER_COLUMNS:
+                raise ValueError(f"Unknown simulation filter: {key!r}")
+            if key in _SIMULATION_DIM_FILTERS:
+                clauses.append(f"{_SIMULATION_DIM_FILTERS[key]} = ?")
+            else:
+                clauses.append(f"s.{key} = ?")
+            params.append(val)
+        if named_only:
+            clauses.append("s.name IS NOT NULL")
+            clauses.append("s.name NOT LIKE '.%'")
+        if clauses:
             query += " WHERE " + " AND ".join(clauses)
         clause = _order_clause(order_by)
         if clause is not None:

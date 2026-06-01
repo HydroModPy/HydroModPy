@@ -42,15 +42,25 @@ class HydrographSimObs(BaseFigure):
         **_,
     ) -> Axes:
         sim_ts = normalize_datetime_series(sim.timeseries(variable, station=station))
+        # A line is invisible when a series carries one or two samples (e.g. a
+        # steady run with a single stress period); add a marker so the point
+        # shows. Dense transient series stay marker-free for a clean look.
+        sim_marker = "o" if len(sim_ts) <= 2 else None
         ax.plot(
             sim_ts.index,
             sim_ts.values,
             label="sim",
             color="steelblue",
             lw=1.2,
+            marker=sim_marker,
+            ms=6,
         )
 
-        obs_df = sim.observed(variable, station=station)
+        # Simulated discharge lives at the catchment-outlet pseudo-station
+        # (``station``, default ``_catchment``), while observations come from
+        # real gauges keyed by their own id. Fetch every observed gauge and
+        # let the per-station loop align each onto the simulation index.
+        obs_df = sim.observed(variable)
         has_aligned = False
         for station_id, group in obs_df.groupby("station_id"):
             obs_ts = normalize_datetime_series(
@@ -60,6 +70,7 @@ class HydrographSimObs(BaseFigure):
             if obs_aligned.empty:
                 continue
             has_aligned = True
+            obs_marker = "o" if len(obs_aligned) <= 2 else None
             ax.plot(
                 obs_aligned.index,
                 obs_aligned.values,
@@ -68,6 +79,8 @@ class HydrographSimObs(BaseFigure):
                 lw=0.9,
                 ls="--",
                 alpha=0.85,
+                marker=obs_marker,
+                ms=5,
             )
         if not has_aligned:
             raise ValueError(f"No observed {variable!r} values overlap station {station!r}")

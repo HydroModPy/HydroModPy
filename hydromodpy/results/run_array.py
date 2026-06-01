@@ -147,6 +147,22 @@ class RunArrayProvider:
             ds = _bbox_select_ugrid(ds, grid, bbox, face_dim)
         return ds
 
+    def list_fields(self) -> list[str]:
+        """Return the registry field names readable through ``run.field``.
+
+        Mirrors ``read_field`` resolution: a name is listed when it is a
+        direct key of the store root or of the ``state`` / ``derived`` /
+        ``budget`` subgroups. Reads only the store layout, never the arrays.
+        """
+        run = self._run
+        sz = run._catalog.open_zarr(run._sim_id)
+        try:
+            groups = [sz.root, *(sz.root.get(g) for g in ("state", "derived", "budget"))]
+            present = {key for group in groups if group is not None for key in group.keys()}
+            return sorted(name for name in field_registry.FIELD_REGISTRY if name in present)
+        finally:
+            sz.close()
+
     def to_xarray_batch(
         self,
         variables: tuple[str, ...] = ("head",),

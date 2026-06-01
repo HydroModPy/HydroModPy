@@ -1,0 +1,347 @@
+# ======================================================================
+# Configuration HydroModPy - bassin du Nancon (projet de base)
+# Profil : user | Modules : workspace, geographic, domain, data, flow, simulation, display
+# ----------------------------------------------------------------------
+# Ce fichier porte la description partagee et stable du projet Nancon.
+# Chaque TOML de run du dossier en herite via `base_config` et ne
+# redefinit que ce qui change (fenetre temporelle, valeurs de parametres,
+# workflow). Les commentaires au-dessus de chaque option expliquent
+# pourquoi la valeur est choisie et ce qu'elle implique a l'execution.
+# ======================================================================
+
+
+# ----------------------------------------------------------------------
+# Workflow
+# ----------------------------------------------------------------------
+# `workflow` est obligatoire. Il indique a `hmp run` quel dispatcher
+# appeler (simulation / calibration / batch / overview / mesh). Les TOML
+# de run peuvent l'ecraser ; la valeur de base est "simulation" parce que
+# la plupart du temps on calcule juste un run MODFLOW.
+
+
+# ----------------------------------------------------------------------
+# Workspace
+# ----------------------------------------------------------------------
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+# Racine du projet. "." = le dossier qui contient ce TOML. Tous les
+# chemins relatifs (donnees, figures) y sont resolus.
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Geographic - delimitation du bassin
+# ----------------------------------------------------------------------
+
+[geographic]
+# `standard` utilise un vrai DEM. `synthetic` construirait un domaine
+# analytique (cas academiques). Ici on s'appuie sur un vrai DEM.
+source_mode = "standard"
+
+# CRS du projet. Lambert-93 (EPSG:2154) est le CRS metrique officiel
+# francais.
+crs_project = "EPSG:2154"
+
+# Traitement des depressions. `breach` entaille le DEM le long des
+# chemins d'ecoulement naturels, ce qui preserve mieux le reseau que
+# `fill`.
+dem_correc_type = "breach"
+
+# Reutilise les sorties geographiques en cache quand rien n'a change
+# (DEM/exutoire). Accelere les reruns du meme projet. Peut rester actif.
+reuse_existing_outputs = false
+
+
+# ----------------------------------------------------------------------
+# Domain - discretisation verticale
+# ----------------------------------------------------------------------
+
+[geographic.catchment]
+# Bassin construit a partir d'un point exutoire. Le DEM sert a
+# l'accumulation d'ecoulement ; l'exutoire est accroche a la maille de
+# cours d'eau la plus proche.
+catch_def = "from_outlet_coord"
+
+# DEM regional pour l'analyse d'ecoulement. Le nom de fichier nu est
+# resolu automatiquement sous `<workspace>/data/dem/` (convention plutot
+# que configuration) ; les chemins absolus ou `../` sont aussi acceptes.
+dem_init_path = "DEM_armorican_massif.tif"
+
+# Coordonnees de l'exutoire de la station du Nancon, en EPSG:2154.
+x_outlet = 389285.91
+y_outlet = 6816518.749
+
+# Distance maximale pour accrocher l'exutoire a une maille de cours
+# d'eau. 150 m est un defaut sur pour un DEM a 25 m : assez pour pardonner
+# un petit decalage des coordonnees d'entree sans sauter dans un autre
+# bief.
+snap_dist = "150 m"
+
+# Tampon conserve autour du polygone du bassin. "10%" varie avec la
+# surface du bassin ; assez grand pour garder les mailles de bordure mais
+# assez petit pour ne pas gaspiller de mailles hors bassin.
+buff_area = "10%"
+
+[domain]
+# La geologie est la seule zonation utilisee. Elle alimente le registre
+# de supports spatiaux quand des champs de parametres heterogenes sont
+# necessaires.
+zone_ids = ["geology"]
+
+# Aucun support spatial heterogene nomme declare a ce niveau.
+supports = {}
+
+[domain.depth_model]
+# Aquifere decrit comme une couche d'epaisseur constante sous la
+# topographie. 30 m est une base raisonnable pour l'aquifere fracture
+# armoricain.
+kind = "constant_thickness"
+thickness = 30.0
+
+
+# ----------------------------------------------------------------------
+# Data - forcages externes et observations
+# ----------------------------------------------------------------------
+
+[data]
+# Toutes les donnees chargees sont reprojetees en Lambert-93 pour
+# correspondre au CRS du projet.
+project_crs = "EPSG:2154"
+
+# Familles de donnees necessaires aux simulations du Nancon :
+#   dem          : topographie
+#   geology      : carte lithologique de fond
+#   hydrography  : reseau de cours d'eau de reference (figures seulement)
+#   hydrometry   : debit observe (calibration / traces)
+#   recharge     : forcage de drainage sur le toit de l'aquifere
+#   runoff       : forcage de ruissellement de surface, ajoute au
+#                  baseflow DRN simule avant comparaison au debit observe.
+#   etp          : evapotranspiration potentielle. Chargee comme donnee
+#                  d'entree (catalog + figures) et injectee dans le
+#                  package EVT de MODFLOW-NWT quand 'etp' est dans
+#                  flow.active_sinks_sources.
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "etp"]
+
+
+# Source du DEM. `custom` pointe vers le meme fichier que [geographic].
+# Le nom de fichier nu est resolu sous `<workspace>/data/dem/`, ici
+# `examples/data/dem/`. Les chemins absolus ou `../` priment sur la
+# resolution.
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+
+
+# Source geologie. BRGM 1:1M est la carte geologique nationale francaise.
+# Bonne zonation de premiere passe, aucun fichier supplementaire.
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+
+# Reseau de cours d'eau pour les figures. BD TOPAGE est le jeu officiel
+# francais.
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+rasterize_field = "FID"
+
+
+# Series temporelles de debit observe.
+
+[data.hydrometry]
+# Fenetre simulee. Les autres dates des fichiers source sont ignorees.
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.hydrometry.sources]]
+source = "custom"
+# Nom de dossier nu resolu sous `<workspace>/data/hydrometry`.
+path = "hydrometry"
+# `extent = "watershed"` filtre les stations avec le polygone du bassin.
+extent = "watershed"
+station_ids = []
+
+
+# Series temporelles de recharge.
+
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.recharge.sources]]
+source = "custom"
+# Nom de dossier nu resolu sous `<workspace>/data/recharge`.
+path = "recharge"
+# `EX04` est la station d'exemple de la zone Nancon fournie avec les
+# exemples.
+station_ids = ["EX04"]
+
+
+# Series temporelles de ruissellement. Lues par l'agregation du catalog
+# et la metrique de calibration pour ajouter la composante de surface au
+# baseflow DRN simule (`discharge = DRN + runoff`). Sauter ce bloc emet
+# un avertissement et retombe sur une comparaison baseflow seul.
+
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.runoff.sources]]
+source = "custom"
+# Nom de dossier nu resolu sous `<workspace>/data/runoff`.
+path = "runoff"
+station_ids = ["EX04"]
+
+
+# Series temporelles d'ETP (evapotranspiration potentielle). Lues depuis
+# le NetCDF SIM2 d'exemple fourni pour que les runs restent hors ligne.
+# Consommees par le catalog ET injectees dans le package EVT de
+# MODFLOW-NWT quand 'etp' est dans flow.active_sinks_sources.
+
+[data.etp]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.etp.sources]]
+source = "custom"
+# Nom de fichier nu resolu sous `<workspace>/data/etp/`.
+path = "etp_sim2_5347fa22_20000101_20251231.nc"
+# Le NetCDF fourni expose des coordonnees x/y Lambert-93 mais pas
+# d'attributs CRS/nodata.
+crs = "EPSG:2154"
+nodata = -9999.0
+
+
+# ----------------------------------------------------------------------
+# Flow - processus de nappe
+# ----------------------------------------------------------------------
+
+[flow]
+# Trois parametres homogenes : conductivite hydraulique (K), porosite de
+# drainage (Sy), emmagasinement specifique (Ss). Les TOML de run ecrasent
+# leur valeur, la base garde un defaut raisonnable.
+param_list = ["K", "Sy", "Ss"]
+
+# Recharge diffuse appliquee au toit de l'aquifere ; ETP appliquee comme
+# package EVT (comportement historique, restaure dans le pipeline de
+# config typee). Retirer "etp" ici desactive completement l'EVT.
+active_sinks_sources = ["recharge", "etp"]
+
+# `drainage` laisse l'eau sortir de l'aquifere quand la nappe atteint la
+# surface (condition de Cauchy sur la face superieure).
+active_bc = ["drainage"]
+
+# Regime de marche en temps. `transient` est requis pour la fenetre
+# mensuelle.
+flow_regime = "transient"
+
+
+[flow.ic]
+# Nappe initiale : aquifere plein (toit du substratum). `top` est le
+# demarrage de chauffe transient le plus sur.
+type = "top"
+description = "Nappe initialisee a la surface topographique."
+
+
+# K (conductivite hydraulique).
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+value = 0.0
+
+
+# Charge utile de recharge diffuse. Les valeurs viennent de
+# [data.recharge] ; ce bloc declare seulement l'emplacement.
+
+[flow.sinks_sources.recharge]
+values = 0.0
+
+
+# ----------------------------------------------------------------------
+# Simulation - orchestration
+# ----------------------------------------------------------------------
+
+[simulation]
+# Nom par defaut pour les runs qui heritent de cette base sans le
+# redefinir. Les TOML de run fixent toujours leur propre nom.
+name = "nancon_base"
+description = "Bassin du Nancon - config de base partagee pour les runs."
+# `replace` ecrase un run de meme nom dans le catalog. Utile quand on
+# itere sur la meme configuration.
+on_collision = "replace"
+
+
+[simulation.time]
+# Fenetre de simulation. Les TOML de run peuvent la raccourcir.
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+# Duree de la periode de stress. "1 month" correspond a l'echantillonnage
+# de la recharge.
+step_value = "1 month"
+
+
+# Un processus : nappe, resolu par MODFLOW-NWT.
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+
+# ----------------------------------------------------------------------
+# Display - figures rendues automatiquement a la fin de chaque run
+# ----------------------------------------------------------------------
+
+[display]
+# Interrupteur principal. `false` desactiverait toutes les figures.
+enabled = true
+# Le theme `default` garde le rendu matplotlib standard.
+preset = "default"
+# `show = false` garde `hmp run` non interactif (pas de fenetre popup).
+show = false
+# Sauvegarde sur disque sous <project_root>/<output_dir>/<run_name>/.
+save = true
+output_dir = "figures"
+cmap = "viridis"
+
+# Figures rendues automatiquement. Commenter une ligne pour ne pas la
+# rendre. Tout desactiver avec `hmp run --no-display` ou
+# `Project(..., no_display=True)`.
+# `hydrograph_sim_obs` superpose le debit simule (au point exutoire
+# `_catchment`) et l'observe (station NANCON). C'est la figure utile pour
+# ce bassin riche en donnees ; un run permanent (un seul pas) la rend avec
+# des marqueurs au lieu d'une ligne.
+figures = [
+    "watershed_id_card",
+    "piezometric_map",
+    "water_budget",
+    "hydrograph_sim_obs",
+    "recharge_map",
+    "seepage_map",
+]

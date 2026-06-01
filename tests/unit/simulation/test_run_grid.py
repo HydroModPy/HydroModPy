@@ -225,6 +225,20 @@ class TestFields:
             frame = np.asarray(run.field("head", timestep=t)).ravel()
             np.testing.assert_array_equal(ds["head"].isel(time=t, layer=0).values, frame)
 
+    def test_list_fields_lists_readable_registry_names(self, catalog):
+        sid = self._register_with_fields(catalog, nrow=5, ncol=4, n_timesteps=3)
+        n_cells = 5 * 4
+        sz = catalog.open_zarr(sid)
+        for t in range(3):
+            sz.write_field("watertable_depth", t, np.ones(n_cells), n_timesteps=3)
+        run = Run(sid, catalog)
+
+        fields = run.array.list_fields()
+        assert fields == ["head", "watertable_depth"]
+        # every listed name is readable through run.field
+        for name in fields:
+            assert run.field(name, timestep=0).size == n_cells
+
 
 class TestTimeIndex:
     def test_time_index_basic(self, catalog):

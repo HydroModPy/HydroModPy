@@ -98,7 +98,7 @@ def restore_seepage_raster_from_store(
 
 
 class ExtractStep:
-    """Extract solver outputs into the result store."""
+    """Extract solver outputs and ingest observations into the result store."""
 
     name = "extract"
     tin: ClassVar[type] = SolverRanState
@@ -145,6 +145,11 @@ class ExtractStep:
                 store=ctx.store,
             )
             extracted += 1
+        # Observation series (hydrometry, piezometry, ...) are part of the
+        # scientific record but are independent of solver extraction, so they
+        # are ingested here once the store is populated for this sim. Runs
+        # without observation data write nothing and do not raise.
+        step_ingest_observations(ctx, ctx.sim_id)
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,

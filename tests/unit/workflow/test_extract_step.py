@@ -32,6 +32,12 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
         _extract_run_outputs,
     )
 
+    ingested: list[tuple[object, str]] = []
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.extract.step_ingest_observations",
+        lambda ctx, sim_id: ingested.append((ctx, sim_id)),
+    )
+
     ctx = SimpleNamespace(
         execution=SimpleNamespace(
             lightweight=False,
@@ -40,6 +46,7 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
         ),
         store="store",
         sim_id="sim-1",
+        loaded_data=None,
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results)),
         effective_results_config=results,
     )
@@ -48,4 +55,6 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
     out = ExtractStep().run(state)
 
     assert calls == [(run.id, "sim-1", output_dir)]
+    # Observations are ingested in the same step, after solver extraction.
+    assert ingested == [(ctx, "sim-1")]
     assert out.data["extraction_summary"] == {"runs": 1}
