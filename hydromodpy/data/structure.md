@@ -87,7 +87,6 @@ hydromodpy/data/
 ├── auto_scan.py                # Scan automatique des sources custom
 ├── data_freeze.py              # Snapshot reproductible des inputs
 ├── entry.py                    # Entree CatalogEntry (DuckDB row)
-├── layout.py                   # Resolution arborescence workspace
 ├── sidecars.py                 # Sidecars meta (.json a cote des fichiers)
 │
 ├── adapters/                   # Conversions de format

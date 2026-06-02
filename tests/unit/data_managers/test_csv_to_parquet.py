@@ -113,15 +113,19 @@ def test_read_locations_csv_reports_missing_columns(tmp_path):
 
 
 def test_iter_chronicle_files_skips_example(tmp_path):
-    chronicles = tmp_path / "chronicles"
-    chronicles.mkdir()
-    _write(chronicles / "EXAMPLE.csv", "datetime,value\n")
-    _write(chronicles / "P01.csv", "datetime,value\n2020-01-01,1.0\n")
-    _write(chronicles / "_hidden.csv", "datetime,value\n")
-    _write(chronicles / "README.md", "ignored")
+    # Flat ``data/<variable>/`` layout: custom chronicles are ``<prefix>_custom_*``;
+    # the LOC file, EXAMPLE templates, API files, and ``_`` files are skipped.
+    _write(tmp_path / "hydrometry_custom_LOC.csv", "id,x,y,crs,unit\n")
+    _write(tmp_path / "hydrometry_custom_EXAMPLE_20000101_20000131_D.csv", "datetime,value\n")
+    _write(
+        tmp_path / "hydrometry_custom_P01_20200101_20200103_D.csv",
+        "datetime,value\n2020-01-01,1.0\n",
+    )
+    _write(tmp_path / "_hidden.csv", "datetime,value\n")
+    _write(tmp_path / "hydrometry_hubeau_J01_20200101_20200103_D.csv", "datetime,value\n")
 
-    files = list(iter_chronicle_files(tmp_path))
-    assert [p.name for p in files] == ["P01.csv"]
+    files = list(iter_chronicle_files(tmp_path, "hydrometry"))
+    assert [p.name for p in files] == ["hydrometry_custom_P01_20200101_20200103_D.csv"]
 
 
 def test_comments_and_blank_lines_are_ignored(tmp_path):

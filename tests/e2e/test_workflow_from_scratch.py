@@ -118,15 +118,14 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert metadata["conventions"]["acdd"].startswith("ACDD-")
 
     # ----- Step 3: scaffold layout exposes the data drop zones --------------
-    # The scaffold uses ``<variable>_custom/`` folders. ``data/`` is the
-    # workspace-wide cache root. We check both styles are present.
+    # Each variable gets a flat ``data/<variable>/`` folder; the provider is
+    # encoded in the file name (``<variable>_custom_*`` vs ``<variable>_<api>_*``).
     assert (workspace / "data").is_dir()
     assert (workspace / "projects").is_dir()
-    # Drag-and-drop folders for the canonical variables.
     for variable in ("dem", "piezometry", "hydrometry"):
-        assert (workspace / f"{variable}_custom").is_dir(), f"{variable}_custom missing"
+        assert (workspace / "data" / variable).is_dir(), f"data/{variable} missing"
 
-    # ----- Step 4: hmp data get creates raw/ + sidecar without network ------
+    # ----- Step 4: hmp data get writes a flat file + sidecar (no network) ---
     fetch = _run_hmp(
         "data",
         "get",
@@ -138,10 +137,10 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert fetch.returncode == 0, (
         f"`hmp data get dem` failed.\nstdout:\n{fetch.stdout}\nstderr:\n{fetch.stderr}"
     )
-    raw_dir = workspace / "data" / "dem" / "raw"
-    assert raw_dir.is_dir(), "hmp data get must create data/<var>/raw"
-    raw_files = list(raw_dir.glob("dem_*.tif"))
-    assert raw_files, "no fetched DEM placeholder under data/dem/raw"
+    dem_dir = workspace / "data" / "dem"
+    assert dem_dir.is_dir(), "hmp data get must write into data/<variable>/"
+    raw_files = list(dem_dir.glob("dem_*.tif"))
+    assert raw_files, "no fetched DEM placeholder under data/dem/"
     sidecar = raw_files[0].with_suffix(raw_files[0].suffix + ".json")
     assert sidecar.is_file(), "sidecar JSON missing next to fetched file"
     sidecar_payload = json.loads(sidecar.read_text(encoding="utf-8"))

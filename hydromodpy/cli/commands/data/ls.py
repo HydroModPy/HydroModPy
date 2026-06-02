@@ -25,7 +25,7 @@ def run(args: argparse.Namespace) -> None:
         print("  (no cache found)")
         return
     if df.empty:
-        print("  (empty cache - drop files in <variable>_custom/ then run 'hmp run')")
+        print("  (empty cache - drop files in data/<variable>/ then run 'hmp run')")
         return
     cols = [c for c in ("variable", "source", "station_id", "file_path") if c in df.columns]
     print(df[cols].to_string(index=False))

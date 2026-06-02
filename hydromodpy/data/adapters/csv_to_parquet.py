@@ -2,9 +2,9 @@
 
 Two CSV flavours are supported:
 
-- **Timeseries CSVs** (``chronicles/<STATION_ID>.csv``) with columns
-  ``datetime,value``.
-- **Locations CSVs** (``example_locations.csv``) with columns
+- **Timeseries CSVs** (``<variable>_custom_<id>_<start>_<end>_<freq>.csv``)
+  with columns ``datetime,value``.
+- **Locations CSVs** (``<variable>_custom_LOC.csv``) with columns
   ``id,x,y,crs,unit``.
 
 Validation is strict but emits all errors at once via
@@ -356,20 +356,24 @@ def convert_locations_csv_to_geoparquet(
     return dest
 
 
-def iter_chronicle_files(custom_dir: Path) -> Iterable[Path]:
-    """Yield chronicle CSV paths under ``<custom_dir>/chronicles/``.
+def iter_chronicle_files(data_dir: Path, prefix: str) -> Iterable[Path]:
+    """Yield custom chronicle CSV paths in ``data_dir`` (flat).
 
-    Files named ``EXAMPLE.csv`` or starting with ``_`` are skipped so
-    the example template shipped by ``hmp workspace init`` does not get ingested.
+    Matches ``<prefix>_custom_*.csv`` directly in the variable folder,
+    excluding the ``_LOC`` location file, EXAMPLE templates shipped by
+    ``hmp workspace init``, and files starting with ``_``.
     """
-    chronicles = Path(custom_dir) / "chronicles"
-    if not chronicles.is_dir():
+    from hydromodpy.data.common.io_helpers import is_scaffold_example
+
+    data_dir = Path(data_dir)
+    if not data_dir.is_dir():
         return []
+    loc_name = f"{prefix}_custom_LOC.csv"
     out: list[Path] = []
-    for p in sorted(chronicles.iterdir()):
-        if not p.is_file() or p.suffix.lower() != ".csv":
+    for p in sorted(data_dir.glob(f"{prefix}_custom_*.csv")):
+        if not p.is_file() or p.name.startswith("_"):
             continue
-        if p.stem == "EXAMPLE" or p.name.startswith("_"):
+        if p.name == loc_name or is_scaffold_example(p):
             continue
         out.append(p)
     return out

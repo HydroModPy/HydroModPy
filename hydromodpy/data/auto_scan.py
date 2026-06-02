@@ -1,10 +1,11 @@
-"""Auto-scan the drag-and-drop ``<variable>_custom/`` folders.
+"""Auto-scan the ``data/<variable>/`` folders for custom files.
 
 Called at the start of every ``hmp run`` and from ``hmp data check`` /
-``hmp data list``. Detects new or modified user files (mtime > last
-indexed timestamp), validates them via the adapters, normalises to the
-internal pivot format, and registers the result in ``data/cache.duckdb``
-with ``provider="custom"``.
+``hmp data list``. Detects new or modified ``<variable>_custom_*`` files
+(mtime > last indexed timestamp), validates them via the adapters,
+normalises to the internal pivot format, and registers the result in
+``data/cache.duckdb`` with ``provider="custom"``. API files
+(``<variable>_<api>_*``) in the same folder are left to the managers.
 
 The module is idempotent: re-scanning an unchanged workspace is a no-op.
 """
@@ -24,6 +25,7 @@ from hydromodpy.data.adapters import (
     read_locations_csv,
 )
 from hydromodpy.data.adapters.csv_to_parquet import iter_chronicle_files
+from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
 from hydromodpy.data.scaffold import VARIABLES, VariableSpec
 from hydromodpy.data.schemas import StationCollectionSchema, validate_warn_only
 
@@ -116,7 +118,7 @@ def _is_fresh(source_path: Path, stored_mtime: float | None) -> bool:
 
 
 def _custom_dir(workspace: Path, spec: VariableSpec) -> Path:
-    return Path(workspace) / f"{spec.name}_custom"
+    return Path(workspace) / "data" / spec.name
 
 
 def _scan_timeseries_variable(
@@ -132,7 +134,7 @@ def _scan_timeseries_variable(
     if not custom_dir.is_dir():
         return
 
-    loc_csv = custom_dir / "example_locations.csv"
+    loc_csv = custom_dir / f"{spec.file_prefix}_custom_LOC.csv"
     locations_by_id: dict[str, dict] = {}
     if loc_csv.exists():
         loc_artifact = read_locations_csv(loc_csv)
@@ -157,7 +159,7 @@ def _scan_timeseries_variable(
                 schema_name=f"StationCollectionSchema[{loc_csv.name}]",
             )
 
-    for src in iter_chronicle_files(custom_dir):
+    for src in iter_chronicle_files(custom_dir, spec.file_prefix):
         stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
         if _is_fresh(src, stored_mtime):
             report.skipped.append(src)
@@ -173,7 +175,8 @@ def _scan_timeseries_variable(
             report.errors.append((src, f"{type(exc).__name__}: {exc}"))
             continue
 
-        station_id = src.stem
+        parsed = parse_chronicle_filename(src.name)
+        station_id = parsed["id"] if parsed else src.stem
         station = locations_by_id.get(station_id, {})
         crs = str(station.get("crs") or "")
         unit = str(station.get("unit") or spec.unit)
@@ -214,7 +217,7 @@ def _scan_timeseries_variable(
             report.updated.append(artifact)
 
 
-def _iter_files(custom_dir: Path, suffixes: frozenset[str]) -> list[Path]:
+def _iter_files(custom_dir: Path, prefix: str, suffixes: frozenset[str]) -> list[Path]:
     if not custom_dir.is_dir():
         return []
     out = []
@@ -223,7 +226,9 @@ def _iter_files(custom_dir: Path, suffixes: frozenset[str]) -> list[Path]:
             continue
         if p.suffix.lower() not in suffixes:
             continue
-        if p.name.startswith("_") or p.stem == "EXAMPLE":
+        if not p.name.startswith(f"{prefix}_custom") or p.name.startswith("_"):
+            continue
+        if is_scaffold_example(p):
             continue
         out.append(p)
     return out
@@ -243,7 +248,7 @@ def _scan_raster_variable(
     now: datetime,
 ) -> None:
     custom_dir = _custom_dir(workspace, spec)
-    for src in _iter_files(custom_dir, _RASTER_SUFFIXES):
+    for src in _iter_files(custom_dir, spec.file_prefix, _RASTER_SUFFIXES):
         stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
         if _is_fresh(src, stored_mtime):
             report.skipped.append(src)
@@ -294,7 +299,7 @@ def _scan_vector_variable(
     now: datetime,
 ) -> None:
     custom_dir = _custom_dir(workspace, spec)
-    for src in _iter_files(custom_dir, _VECTOR_SUFFIXES):
+    for src in _iter_files(custom_dir, spec.file_prefix, _VECTOR_SUFFIXES):
         stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
         if _is_fresh(src, stored_mtime):
             report.skipped.append(src)
@@ -356,7 +361,7 @@ def scan_custom(
     catalog=None,
     now: datetime | None = None,
 ) -> ScanReport:
-    """Scan all ``<variable>_custom/`` folders in ``workspace_path``.
+    """Scan all ``data/<variable>/`` folders in ``workspace_path``.
 
     Returns a :class:`ScanReport` listing what was added, updated,
     skipped, or errored. If ``catalog`` is omitted, the function opens
@@ -423,12 +428,12 @@ def check_custom(
             continue
 
         if spec.kind == "timeseries":
-            loc = custom_dir / "example_locations.csv"
+            loc = custom_dir / f"{spec.file_prefix}_custom_LOC.csv"
             if loc.exists():
                 artefact = read_locations_csv(loc)
                 for err in artefact.errors:
                     issues.append((loc, err))
-            for src in iter_chronicle_files(custom_dir):
+            for src in iter_chronicle_files(custom_dir, spec.file_prefix):
                 try:
                     convert_timeseries_csv_to_parquet(src, custom_dir / "_check.tmp")
                 except TimeSeriesValidationError as exc:
@@ -440,7 +445,7 @@ def check_custom(
                         tmp.unlink(missing_ok=True)
         elif spec.kind in ("raster", "vector"):
             suffixes = _RASTER_SUFFIXES if spec.kind == "raster" else _VECTOR_SUFFIXES
-            for src in _iter_files(custom_dir, suffixes):
+            for src in _iter_files(custom_dir, spec.file_prefix, suffixes):
                 if not src.exists():
                     issues.append((src, "file disappeared during check"))
     return issues

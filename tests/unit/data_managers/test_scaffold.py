@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from hydromodpy.data.scaffold import (
     VARIABLES,
     create_project,
@@ -10,62 +12,58 @@ from hydromodpy.data.scaffold import (
 
 
 class TestScaffold:
-    def test_creates_structure(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
+    @pytest.fixture(scope="class")
+    def ws(self, tmp_path_factory):
+        return scaffold(tmp_path_factory.mktemp("hmp"))
 
-        assert root.exists()
-        assert (root / "data").is_dir()
-        assert (root / "projects").is_dir()
-        assert (root / "hydrometry_custom").is_dir()
-        assert (root / "piezometry_custom").is_dir()
-        assert (root / "water_quality_custom").is_dir()
-        assert (root / "dem_custom").is_dir()
-        assert (root / "geology_custom").is_dir()
+    def test_creates_structure(self, ws):
+        assert ws.exists()
+        assert (ws / "data").is_dir()
+        assert (ws / "projects").is_dir()
+        for name in (
+            "hydrometry",
+            "piezometry",
+            "water_quality",
+            "intermittency",
+            "dem",
+            "geology",
+        ):
+            assert (ws / "data" / name).is_dir()
+        assert list(ws.glob("*_custom")) == []
 
-    def test_creates_readme_per_variable(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
-
+    def test_creates_readme_per_variable(self, ws):
         for spec in VARIABLES:
-            readme = root / f"{spec.name}_custom" / "README.md"
-            assert readme.exists(), f"Missing README for {spec.name}_custom"
-            text = readme.read_text()
-            assert spec.name in text
+            readme = ws / "data" / spec.name / "README.md"
+            assert readme.exists(), f"Missing README for {spec.name}"
+            assert spec.name in readme.read_text()
 
-    def test_creates_locations_template_for_timeseries(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
-
-        loc = root / "hydrometry_custom" / "example_locations.csv"
+    def test_loc_template_for_point_and_grid(self, ws):
+        loc = ws / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
         assert loc.exists()
-        content = loc.read_text()
-        assert "id,x,y,crs,unit" in content
+        assert "id,x,y,crs,unit" in loc.read_text()
 
-        assert (root / "piezometry_custom" / "example_locations.csv").exists()
-        assert (root / "water_quality_custom" / "example_locations.csv").exists()
+        assert (ws / "data" / "piezometry" / "piezometry_custom_LOC.csv").exists()
+        assert (ws / "data" / "water_quality" / "waterquality_custom_LOC.csv").exists()
+        assert (ws / "data" / "precipitation" / "precipitation_custom_LOC.csv").exists()
 
-    def test_no_locations_for_raster_or_vector(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
-
-        assert not (root / "dem_custom" / "example_locations.csv").exists()
-        assert not (root / "geology_custom" / "example_locations.csv").exists()
-
-    def test_creates_chronicle_example(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
-
-        chronicles = root / "hydrometry_custom" / "chronicles"
-        assert chronicles.is_dir()
-        example = chronicles / "EXAMPLE.csv"
+    def test_chronicle_example(self, ws):
+        example = ws / "data" / "hydrometry" / "hydrometry_custom_EXAMPLE_20000101_20000131_D.csv"
         assert example.exists()
-        content = example.read_text()
-        assert "datetime,value" in content
+        assert "datetime,value" in example.read_text()
+
+    def test_geology_example_per_format(self, ws):
+        geo = ws / "data" / "geology"
+        for ext in ("gpkg", "shp", "geojson", "tif", "csv"):
+            assert (geo / f"geology_custom_EXAMPLE.{ext}").exists(), ext
 
     def test_idempotent(self, tmp_path):
         """Running scaffold twice does not overwrite existing files."""
-        root = scaffold(tmp_path / "hydromodpy")
-        loc = root / "hydrometry_custom" / "example_locations.csv"
+        root = scaffold(tmp_path / "hmp")
+        loc = root / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
 
         loc.write_text("id,x,y,crs,unit\nST01,-1.5,48.0,EPSG:4326,m3/s\n")
 
-        scaffold(tmp_path / "hydromodpy")
+        scaffold(tmp_path / "hmp")
 
         assert "ST01" in loc.read_text()
 
@@ -77,7 +75,7 @@ class TestScaffold:
 
 class TestCreateProject:
     def test_creates_project_structure(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
         project_dir = create_project(root, "my_project")
 
         assert project_dir.is_dir()
@@ -85,7 +83,7 @@ class TestCreateProject:
         assert (project_dir / "run_demo.toml").exists()
 
     def test_project_toml_content(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
         project_dir = create_project(root, "canut")
 
         content = (project_dir / "hydromodpy.toml").read_text()
@@ -95,7 +93,7 @@ class TestCreateProject:
         assert "[flow]" in content
 
     def test_run_toml_content(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
         project_dir = create_project(root, "canut")
 
         content = (project_dir / "run_demo.toml").read_text()
@@ -104,7 +102,7 @@ class TestCreateProject:
         assert "[[simulation.process]]" in content
 
     def test_idempotent(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
         project_dir = create_project(root, "my_project")
 
         (project_dir / "hydromodpy.toml").write_text("# custom\n")
@@ -113,7 +111,7 @@ class TestCreateProject:
         assert (project_dir / "hydromodpy.toml").read_text() == "# custom\n"
 
     def test_project_inside_projects_dir(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
+        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
         project_dir = create_project(root, "test_proj")
 
         assert project_dir.parent.name == "projects"

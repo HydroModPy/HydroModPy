@@ -40,14 +40,21 @@ def run(args: argparse.Namespace) -> None:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
+    from hydromodpy.data.scaffold import VARIABLES
+
     target = result["path"]
     print(f"Workspace: {target}")
     print(f"Scaffolded at {target}/. Create projects with 'hmp project new <name>'.")
     print()
     print("Layout:")
-    print(f"  {target}/{WORKSPACE_TOML_FILENAME}")
-    print(f"  {target}/data/")
-    print(f"  {target}/projects/")
-    print(f"  <project>/{CATALOG_FILENAME}")
+    print(f"  {target}/{WORKSPACE_TOML_FILENAME}    workspace metadata")
+    print(f"  {target}/data/                 input data + cache.duckdb (created on first run)")
+    print(f"  {target}/data/<variable>/      {len(VARIABLES)} folders, drop your files here")
+    print(f"  {target}/projects/             your projects (<project>/{CATALOG_FILENAME})")
+    print()
+    print("Each data/<variable>/ ships a README and one example file per accepted")
+    print("format. Use the same naming for your files, e.g.:")
+    print(f"  {target}/data/hydrometry/hydrometry_custom_LOC.csv")
+    print(f"  {target}/data/geology/geology_custom_my_map.gpkg")
     print()
     print(f"Workspace metadata: {result['workspace_toml']}")

@@ -25,23 +25,29 @@ def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     path = Path(config.path)
 
     if path.is_dir():
-        # Try raster first, then vector
-        candidates: list[Path] = []
-        for ext in _RASTER_EXTENSIONS:
-            candidates.extend(path.glob(ext))
-        if candidates:
-            path = candidates[0]
+        # Try raster first, then vector. Scaffold EXAMPLE templates are skipped.
+        from hydromodpy.data.common.io_helpers import is_scaffold_example
+
+        def _scan(extensions: tuple[str, ...]) -> list[Path]:
+            found: list[Path] = []
+            for ext in extensions:
+                found.extend(p for p in sorted(path.glob(ext)) if not is_scaffold_example(p))
+            return found
+
+        raster = _scan(_RASTER_EXTENSIONS)
+        if raster:
+            path = raster[0]
             logger.info("Auto-detected raster file: %s", path)
             return path
 
-        for ext in _VECTOR_EXTENSIONS:
-            candidates.extend(path.glob(ext))
-        if not candidates:
+        vector = _scan(_VECTOR_EXTENSIONS)
+        if not vector:
             all_exts = _VECTOR_EXTENSIONS + _RASTER_EXTENSIONS
             raise FileNotFoundError(
-                f"No vector or raster file ({', '.join(all_exts)}) found in {config.path}"
+                f"No vector or raster file ({', '.join(all_exts)}) found in {config.path}. "
+                "EXAMPLE templates are ignored: add your own file or point 'path' at it."
             )
-        path = candidates[0]
+        path = vector[0]
         logger.info("Auto-detected vector file: %s", path)
 
     # Single file - decide by extension

@@ -71,12 +71,17 @@ def load_custom_geology(
 
 
 def _find_geology_file_in_dir(directory: Path) -> Path:
-    """Find a single geology file in a directory."""
+    """Find a single geology file in a directory, skipping scaffold examples."""
+    from hydromodpy.data.common.io_helpers import is_scaffold_example
+
     for ext in (".gpkg", ".shp", ".geojson", ".tif", ".tiff", ".csv"):
-        candidates = list(directory.glob(f"*{ext}"))
+        candidates = [p for p in sorted(directory.glob(f"*{ext}")) if not is_scaffold_example(p)]
         if candidates:
             return candidates[0]
-    raise FileNotFoundError(f"No geology file (SHP, GPKG, GeoJSON, TIF, CSV) found in {directory}")
+    raise FileNotFoundError(
+        f"No geology file (SHP, GPKG, GeoJSON, TIF, CSV) found in {directory}. "
+        "EXAMPLE templates are ignored: add your own file or point 'path' at it."
+    )
 
 
 def _load_custom_vector(
