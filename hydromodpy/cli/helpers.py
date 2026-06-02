@@ -91,11 +91,14 @@ def find_workspace_root(project_dir: Path) -> Path:
 
 
 def find_data_workspace(start: Path) -> Path | None:
-    """Walk up from ``start`` to find a workspace containing ``*_custom/``."""
+    """Walk up from ``start`` to find a workspace root (has a ``data/`` folder)."""
     for parent in [start] + list(start.parents):
-        for child in parent.iterdir() if parent.is_dir() else []:
-            if child.is_dir() and child.name.endswith("_custom"):
-                return parent
+        if not parent.is_dir():
+            continue
+        if (parent / "data").is_dir() and (
+            (parent / "projects").is_dir() or (parent / "workspace.toml").exists()
+        ):
+            return parent
     return None
 
 

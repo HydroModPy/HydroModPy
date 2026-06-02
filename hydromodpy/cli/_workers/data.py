@@ -35,6 +35,7 @@ def fetch_data_variable(
     from datetime import UTC, datetime
 
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
+    from hydromodpy.data.common.io_helpers import safe_file_token
     from hydromodpy.data.scaffold import VARIABLES
     from hydromodpy.data.sidecars import (
         Sidecar,
@@ -48,11 +49,13 @@ def fetch_data_variable(
     if spec is None:
         raise ValueError(f"Unknown variable {variable!r}")
 
-    raw_dir = workspace_root / "data" / spec.name / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
+    # Flat layout: the file lands directly in data/<variable>/ with the provider
+    # encoded in the name (<prefix>_<source>_*), same convention as the managers.
+    var_dir = workspace_root / "data" / spec.name
+    var_dir.mkdir(parents=True, exist_ok=True)
     suffix = {"raster": ".tif", "vector": ".gpkg", "timeseries": ".parquet"}.get(spec.kind, ".bin")
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    target = raw_dir / f"{spec.name}_{stamp}{suffix}"
+    target = var_dir / f"{spec.file_prefix}_{safe_file_token(source)}_{stamp}{suffix}"
 
     payload = (
         f"placeholder fetch for variable={spec.name} bbox={bbox} "
@@ -78,7 +81,7 @@ def check_data_cache(
     variable: str | None = None,
     fix: bool = False,
 ) -> dict:
-    """Validate ``<variable>_custom/`` folders. Returns issues + optional fix summary."""
+    """Validate custom files in ``data/<variable>/``. Returns issues + optional fix summary."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.auto_scan import check_custom
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB

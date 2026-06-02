@@ -192,7 +192,7 @@ parses the shared table for tests that need a named tolerance.
 The shared fixtures come from `tests/conftest.py`:
 
 - `tmp_workspace(tmp_path)` yields an initialized workspace directory
-  (standard `data/`, `projects/`, per-variable `*_custom/` seed folders)
+  (standard `data/`, `projects/`, one `data/<variable>/` folder per variable)
   ready to back a `SimulationCatalog`.
 - `minimal_config(tmp_path)` returns the smallest valid
   `HydroModPyConfig` (synthetic `geographic` + a `workspace` pointed at
