@@ -12,19 +12,14 @@ from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespa
 from hydromodpy._api import (
     audit_prune,
     calibrate,
-    compare,
     compare_pair,
     doctor,
     export,
     index,
-    mesh,
     open,
-    open_catalog,
-    overview,
     read,
     report,
     run,
-    testbed,
 )
 from hydromodpy._bootstrap import bootstrap
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
@@ -46,18 +41,13 @@ log_manager = _log_manager
 
 _DIRECT_EXPORTS = [
     "open",
-    "open_catalog",
     "catalog",
     "read",
     "export",
     "run",
     "calibrate",
     "index",
-    "overview",
-    "compare",
     "compare_pair",
-    "mesh",
-    "testbed",
     "report",
     "audit_prune",
     "bootstrap_proj",

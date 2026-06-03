@@ -214,7 +214,11 @@ class DiscoveryMixin:
                 clauses.append(f"s.{key} = ?")
                 clause_params.append(val)
             else:
-                raise ValueError(f"Unknown filter: '{key}'")
+                raise ValueError(
+                    f"Unknown filter {key!r}. Valid: solver, solver_category, status, "
+                    "flow_regime, mesh_topology, project, name, crs, tags, "
+                    "<metric>_gt, <metric>_lt, <metric>_gte"
+                )
 
         if joins:
             query += " " + " ".join(joins)
@@ -226,18 +230,28 @@ class DiscoveryMixin:
         sim_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sim_ids, self)
 
-    def latest(self, project: str) -> Run:
+    def latest(self, project: str | None = None) -> Run:
         from hydromodpy.results.run import Run
 
-        row = self._backend.fetch_one(
-            "SELECT s.sim_id FROM simulations s "
-            "JOIN statuses st ON s.status_id = st.id "
-            "WHERE s.project = ? AND st.code = 'completed' "
-            "ORDER BY s.created_at DESC LIMIT 1",
-            [project],
-        )
+        if project is not None:
+            row = self._backend.fetch_one(
+                "SELECT s.sim_id FROM simulations s "
+                "JOIN statuses st ON s.status_id = st.id "
+                "WHERE s.project = ? AND st.code = 'completed' "
+                "ORDER BY s.created_at DESC LIMIT 1",
+                [project],
+            )
+            where = f"for project '{project}'"
+        else:
+            row = self._backend.fetch_one(
+                "SELECT s.sim_id FROM simulations s "
+                "JOIN statuses st ON s.status_id = st.id "
+                "WHERE st.code = 'completed' "
+                "ORDER BY s.created_at DESC LIMIT 1"
+            )
+            where = "in the catalog"
         if row is None:
-            raise KeyError(f"No completed simulation for project '{project}'")
+            raise KeyError(f"No completed simulation {where}")
         return Run(str(row[0]), self)
 
     def best(self, project: str, metric: str = "nse") -> Run:

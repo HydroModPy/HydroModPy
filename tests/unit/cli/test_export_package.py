@@ -30,7 +30,7 @@ def _register_minimal_simulation(workspace: Path, project: str = "demo") -> str:
 
     sim_id = str(uuid4())
     idx = pd.date_range("2024-01-01", periods=3, freq="D")
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         reg = catalog.register_simulation(
             sim_id=sim_id,
             project=project,

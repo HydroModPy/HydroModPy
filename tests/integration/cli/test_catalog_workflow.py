@@ -25,7 +25,7 @@ def _seed_project_with_simulation(workspace: Path, project: str = "demo") -> str
 
     project_dir = workspace / "projects" / project
     sim_id = str(uuid4())
-    with hmp.open(project_dir) as catalog:
+    with hmp.open(project_dir, create=True) as catalog:
         catalog.register_simulation(
             sim_id=sim_id,
             project=project,

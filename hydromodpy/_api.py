@@ -23,72 +23,64 @@ if TYPE_CHECKING:
     Readable = xr.DataArray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
-def open(workspace_path: Any) -> Any:
+def open(workspace: Any, *, create: bool = False) -> Any:
     """Open a HydroModPy project catalog.
 
-    Mirrors ``xarray.open_dataset`` / ``pandas.read_csv`` in intent: one call,
-    a ready-to-query object backed by ``catalog.duckdb``.
-
-    Parameters
-    ----------
-    workspace_path
-        Workspace directory, or a direct path to ``catalog.duckdb``.
-
-    Returns
-    -------
-    SimulationCatalog
-        Catalog object used to find runs, query metadata, and open persisted
-        field stores.
-
-    Raises
-    ------
-    FileNotFoundError
-        If ``workspace_path`` does not exist on disk.
-    hydromodpy.core.exceptions.CatalogError
-        If the DuckDB catalog file is locked, corrupted, or unreadable.
-    hydromodpy.results.errors.SchemaVersionMismatchError
-        If the stored catalog schema is older than the runtime expects.
-
-    Examples
-    --------
-    >>> import hydromodpy as hmp
-    >>> catalog = hmp.open("~/hmp_workspace")
-    >>> catalog.latest()
-
-    See Also
-    --------
-    hydromodpy.results.catalog.SimulationCatalog
-        Workspace-level catalog implementation.
-    hydromodpy.results.run.Run
-        Per-simulation result view returned by catalog queries.
-    """
-    from hydromodpy.results.catalog import SimulationCatalog
-
-    return SimulationCatalog(workspace_path)
-
-
-def open_catalog(workspace: Any = None) -> Any:
-    """Open the V1 catalog facade fronting the three DuckDB files.
-
-    Returns a :class:`hydromodpy.catalog.CatalogFacade` exposing the
-    ``simulations``, ``inputs`` and ``projects`` namespaces. Usable as a
-    context manager.
+    The single door to a workspace catalog: returns a
+    :class:`hydromodpy.results.catalog.SimulationCatalog` backed by
+    ``catalog.duckdb``. It exposes object access (``latest``, ``best``,
+    ``find``, ``cat[ref]``), tabular access (``frame``, ``sql``,
+    ``list_simulations``), schema discovery (``describe``, ``tables``,
+    ``columns``, ``variables``, ``metrics``, ``stations``), per-id reads
+    (``read``), and the simulation writers used by the workflow engine.
 
     Parameters
     ----------
     workspace
-        Workspace directory. Defaults to ``HMP_WORKSPACE`` then to the
-        current working directory.
+        Project directory holding ``catalog.duckdb`` (or a direct path to the
+        ``.duckdb`` file).
+    create
+        ``False`` (default) raises :class:`FileNotFoundError` when no catalog
+        exists yet (no phantom catalog is created). ``True`` opens and
+        initialises an empty catalog.
+
+    Returns
+    -------
+    hydromodpy.results.catalog.SimulationCatalog
+        Catalog handle for the project.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no ``catalog.duckdb`` is found and ``create`` is ``False``.
+    hydromodpy.core.exceptions.CatalogError
+        If the DuckDB catalog file is locked, corrupted, or unreadable.
 
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> with hmp.open_catalog("~/proj/naizin") as cat:
-    ...     sims = cat.simulations.find(solver="modflow6")
-    """
-    from hydromodpy.catalog import open_catalog as _open
+    >>> cat = hmp.open("~/ws/projects/naizin")  # doctest: +SKIP
+    >>> cat.latest()  # doctest: +SKIP
 
-    return _open(workspace)
+    See Also
+    --------
+    hydromodpy.index
+        Machine-wide federation across registered workspaces.
+    """
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    ws = Path(workspace).expanduser().resolve()
+    if ws.suffix == ".duckdb":
+        catalog_file = ws
+    else:
+        catalog_file = find_catalog_root(ws) / CATALOG_FILENAME
+    if not create and not catalog_file.is_file():
+        raise FileNotFoundError(
+            f"No catalog at {catalog_file.parent}. Run a workflow there first, "
+            f"or pass create=True to initialise an empty catalog."
+        )
+    return SimulationCatalog(ws)
 
 
 def index(db_path: Any = None, *, read_only: bool = False) -> Any:
@@ -260,91 +252,6 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
         return project.calibrate(**kwargs)
 
 
-def overview(config: Any, **kwargs: Any) -> Any:
-    """Run the overview workflow declared by a TOML file.
-
-    Parameters
-    ----------
-    config
-        TOML file containing ``[workflow] mode = "overview"``.
-    kwargs
-        Runtime options forwarded to the workflow dispatcher.
-
-    Returns
-    -------
-    Any
-        Overview workflow summary.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the TOML path does not exist.
-    hydromodpy.core.exceptions.ConfigError
-        If the TOML payload fails validation or has the wrong workflow mode.
-
-    Examples
-    --------
-    >>> import hydromodpy as hmp
-    >>> hmp.overview("overview.toml")
-    """
-    from hydromodpy.project.dispatch.workflow import dispatch_workflow
-    from hydromodpy.workflow.dispatch import resolve_workflow
-
-    config_path = Path(config).expanduser().resolve()
-    workflow = resolve_workflow(
-        config_path,
-        cli_workflow="overview",
-        require_toml_field=True,
-    )
-    return dispatch_workflow(workflow, config_path, **kwargs)
-
-
-def compare(config: Any) -> Any:
-    """Run the comparison workflow declared by a TOML file.
-
-    Equivalent to ``hmp run cmp.toml`` when the file declares
-    ``[workflow] mode = "comparison"``. For pairwise metric tables between two
-    persisted simulations, see :func:`compare_pair`.
-
-    Parameters
-    ----------
-    config
-        TOML file containing ``[workflow] mode = "comparison"``.
-
-    Returns
-    -------
-    Any
-        Comparison workflow summary.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the TOML path does not exist.
-    hydromodpy.core.exceptions.ConfigError
-        If the TOML payload fails validation or has the wrong workflow mode.
-
-    Examples
-    --------
-    >>> import hydromodpy as hmp
-    >>> hmp.compare("comparison.toml")
-
-    See Also
-    --------
-    compare_pair
-        Pairwise metric comparison between two already-persisted simulations.
-    """
-    from hydromodpy.project.dispatch.workflow import dispatch_workflow
-    from hydromodpy.workflow.dispatch import resolve_workflow
-
-    config_path = Path(config).expanduser().resolve()
-    workflow = resolve_workflow(
-        config_path,
-        cli_workflow="comparison",
-        require_toml_field=True,
-    )
-    return dispatch_workflow(workflow, config_path)
-
-
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     """Compare two simulations by id or result object.
 
@@ -378,74 +285,6 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     from hydromodpy.analysis.comparison.pairwise import compare_pair as _compare_pair
 
     return _compare_pair(sim_a, sim_b, workspace=workspace)
-
-
-def testbed(toml_path: Any) -> Any:
-    """Run a TOML-driven method testbed.
-
-    Delegates to the workflow dispatcher (``run_testbed``) so the launcher
-    resolution (``TestbedLauncher`` vs ``RegionalLabProfileLauncher``) matches
-    the CLI path. The profile is read from the TOML payload.
-
-    Parameters
-    ----------
-    toml_path
-        Testbed configuration path.
-
-    Returns
-    -------
-    Any
-        Testbed launcher result.
-
-    Raises
-    ------
-    FileNotFoundError
-        If ``toml_path`` does not exist on disk.
-    hydromodpy.core.exceptions.ConfigError
-        If the testbed TOML fails validation.
-
-    Examples
-    --------
-    >>> import hydromodpy as hmp
-    >>> hmp.testbed("testbed_methods.toml")
-    """
-    from hydromodpy.project.dispatch.workflow import run_testbed
-
-    return run_testbed(Path(toml_path).expanduser().resolve())
-
-
-def mesh(toml_path: Any) -> dict:
-    """Run the standalone mesh launcher from a TOML file.
-
-    This is a direct API for single mesh artifacts. Public ``hmp run`` configs
-    should model mesh-only work as ``[workflow] mode = "simulation"`` with a
-    ``[[simulation.process]]`` block whose ``type`` is ``"mesh"``.
-
-    Parameters
-    ----------
-    toml_path
-        Standalone mesh launcher TOML path.
-
-    Returns
-    -------
-    dict
-        Mesh launcher summary.
-
-    Raises
-    ------
-    FileNotFoundError
-        If ``toml_path`` does not exist on disk.
-    hydromodpy.core.exceptions.MeshGenerationError
-        If the mesh generator (gmsh / FloPy helper) fails to build a mesh.
-
-    Examples
-    --------
-    >>> import hydromodpy as hmp
-    >>> summary = hmp.mesh("mesh_only.toml")
-    """
-    from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-    return MeshCatchmentLauncher(Path(toml_path).expanduser().resolve()).run()
 
 
 def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
@@ -513,69 +352,44 @@ def read(
     layer: int | None = None,
     sel: dict | None = None,
     bbox: tuple[float, float, float, float] | None = None,
-    lazy: bool | None = None,
 ) -> Any:
-    """Read a variable from a simulation with auto-dispatch.
+    """Read a variable from a simulation Run with storage-kind auto-dispatch.
 
-    Single entry point for reads: dispatches on the variable kind via the
-    canonical :mod:`hydromodpy.results.field_registry` (Zarr fields), the
-    DuckDB ``timeseries`` table, and the GeoParquet ``geographic_features``
-    table.
+    Single entry point for reads on a :class:`~hydromodpy.results.run.Run`.
+    The return type follows one rule:
 
-    Return type depends on the storage kind AND on the ``time``/``layer``
-    selectors when reading a Zarr field:
+    - Zarr field -> ``xr.DataArray`` (lazy); when ``time`` is an ``int``, the
+      eager ``np.ndarray`` of that single timestep instead.
+    - timeseries -> ``pd.Series``.
+    - geographic feature -> ``gpd.GeoDataFrame``.
 
-    +----------------+--------------------+------------------------+----------------------+
-    | storage        | time / layer       | ``lazy`` value         | return type          |
-    +================+====================+========================+======================+
-    | Zarr field     | both ``None``      | ``None`` or ``True``   | ``xr.DataArray``     |
-    +----------------+--------------------+------------------------+----------------------+
-    | Zarr field     | ``slice`` only     | ``None`` or ``True``   | ``xr.DataArray``     |
-    +----------------+--------------------+------------------------+----------------------+
-    | Zarr field     | ``time`` is ``int``| ``None`` (auto)        | ``np.ndarray``       |
-    +----------------+--------------------+------------------------+----------------------+
-    | Zarr field     | any                | ``True``               | ``xr.DataArray``     |
-    +----------------+--------------------+------------------------+----------------------+
-    | Zarr field     | any                | ``False``              | ``np.ndarray``       |
-    +----------------+--------------------+------------------------+----------------------+
-    | timeseries     | n/a                | any                    | ``pd.Series``        |
-    +----------------+--------------------+------------------------+----------------------+
-    | geo. feature   | n/a                | any                    | ``gpd.GeoDataFrame`` |
-    +----------------+--------------------+------------------------+----------------------+
+    To read by reference (id / unique prefix / name) instead of a ``Run``, use
+    ``cat.read(ref, var)`` on a :class:`hydromodpy.catalog.Catalog`.
 
     Parameters
     ----------
     sim
-        :class:`hydromodpy.results.run.Run` or simulation id resolvable
-        through a :class:`SimulationCatalog`. When passing an id, callers
-        must have set the catalog through ``sim=("sim_id", catalog)``.
+        A :class:`~hydromodpy.results.run.Run` (e.g. ``cat.latest()`` or
+        ``cat[ref]``).
     var
-        Variable name. Looked up against ``field_registry`` first, then
-        against the DuckDB timeseries variables, then against the
-        ``geographic_features`` table.
+        Variable name, resolved against the field registry, then the DuckDB
+        ``timeseries`` table, then the geographic features.
     time
-        Timestep index (``int``) or slice for Zarr fields. ``None`` means
-        load every persisted timestep (lazy).
+        Timestep index (``int``) or ``slice`` for Zarr fields. ``None`` loads
+        every persisted timestep lazily.
     layer
         Optional layer index for three-dimensional fields.
     sel
-        Optional kwargs forwarded to the appropriate reader:
-        ``{"station": ...}`` for timeseries, ``{"feature_name": ...}`` for
-        geographic features.
+        Optional selectors forwarded to the reader: ``{"station": ...}`` for
+        timeseries, ``{"period": ...}`` for a time window.
     bbox
         Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS;
         restricts Zarr fields to faces whose centroid lies in the box.
-    lazy
-        Force the return type for Zarr fields. ``True`` -> always
-        ``xr.DataArray`` (load values manually via ``.values``); ``False``
-        -> always ``np.ndarray`` (eager load); ``None`` -> auto (eager
-        when ``time`` is an int, lazy otherwise). Ignored for timeseries
-        and geographic features.
 
     Returns
     -------
-    object
-        See the table above for the resolved return type.
+    xarray.DataArray or numpy.ndarray or pandas.Series or geopandas.GeoDataFrame
+        See the rule above.
 
     Raises
     ------
@@ -583,114 +397,20 @@ def read(
         If ``sim`` is not a :class:`Run` instance.
     hydromodpy.results.errors.FieldNotFoundError
         If ``var`` could not be resolved by any backend.
-    hydromodpy.results.errors.RunNotFoundError
-        If the underlying run row was deleted between catalog open and read.
-    hydromodpy.results.errors.SchemaVersionMismatchError
-        If the on-disk Zarr or Parquet schema is older than the runtime.
 
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> catalog = hmp.open("~/hmp_workspace")
-    >>> run = catalog.latest()
-    >>> da = hmp.read(run, "head")  # xr.DataArray lazy
-    >>> arr = hmp.read(run, "head", time=-1, layer=0)  # numpy via DataArray
-    >>> da2 = hmp.read(run, "head", time=-1, lazy=True)  # force DataArray
-    >>> arr2 = hmp.read(run, "head", lazy=False)  # force eager ndarray
-    >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})
-    >>> gdf = hmp.read(run, "watershed_polygon")  # geographic feature
+    >>> cat = hmp.open("~/ws/projects/naizin")  # doctest: +SKIP
+    >>> run = cat.latest()  # doctest: +SKIP
+    >>> da = hmp.read(run, "head")  # lazy DataArray  # doctest: +SKIP
+    >>> arr = hmp.read(run, "head", time=-1, layer=0)  # ndarray  # doctest: +SKIP
+    >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
+    >>> gdf = hmp.read(run, "watershed_polygon")  # doctest: +SKIP
     """
-    from hydromodpy.results import field_registry
-    from hydromodpy.results.errors import FieldNotFoundError
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.reading import read_variable
 
-    if not isinstance(sim, Run):
-        raise TypeError(
-            f"hmp.read expects a Run object as first argument, got {type(sim).__name__}"
-        )
-
-    sel_kw: dict = dict(sel or {})
-
-    if field_registry.has(var):
-        return _read_zarr_field(sim, var, time=time, layer=layer, bbox=bbox, lazy=lazy)
-
-    if _has_timeseries_var(sim, var):
-        station = sel_kw.pop("station", None)
-        period = sel_kw.pop("period", None)
-        return sim.timeseries(var, station=station, period=period)
-
-    if _has_geographic_feature(sim, var):
-        return sim.geographic(var)
-
-    available = ", ".join(sorted(field_registry.all_names()))
-    raise FieldNotFoundError(
-        f"Variable '{var}' not found in any backend (field_registry, timeseries, "
-        f"geographic_features). Known field-registry names: {available}.",
-        sim_id=sim.sim_id,
-        variable=var,
-    )
-
-
-def _read_zarr_field(
-    sim: Any,
-    var: str,
-    *,
-    time: int | slice | None,
-    layer: int | None,
-    bbox: tuple[float, float, float, float] | None,
-    lazy: bool | None,
-) -> Any:
-    """Dispatch a Zarr field read to the lazy xarray loader.
-
-    ``lazy`` controls the return type:
-
-    - ``None`` (auto): eager ``np.ndarray`` when ``time`` is an int (single
-      timestep selection), lazy ``xr.DataArray`` otherwise.
-    - ``True``: always return an ``xr.DataArray`` (call ``.values`` for the
-      eager numpy equivalent).
-    - ``False``: always return an ``np.ndarray`` (eager load).
-    """
-    if lazy is False:
-        if isinstance(time, int):
-            return sim.field(var, timestep=time, layer=layer, bbox=bbox)
-        da = sim.array.to_xarray_batch((var,), bbox=bbox)[var]
-        if isinstance(time, slice):
-            da = da.isel(time=time)
-        if layer is not None and "layer" in da.dims:
-            da = da.isel(layer=layer)
-        import numpy as np
-
-        return np.asarray(da.values)
-
-    if lazy is True or not isinstance(time, int):
-        da = sim.array.to_xarray_batch((var,), bbox=bbox)[var]
-        if isinstance(time, int):
-            da = da.isel(time=time)
-        elif isinstance(time, slice):
-            da = da.isel(time=time)
-        if layer is not None and "layer" in da.dims:
-            da = da.isel(layer=layer)
-        return da
-
-    return sim.field(var, timestep=time, layer=layer, bbox=bbox)
-
-
-def _has_timeseries_var(sim: Any, variable: str) -> bool:
-    """True when ``variable`` appears in the simulation ``timeseries`` table."""
-    df = sim._catalog.backend.query(
-        "SELECT 1 FROM timeseries WHERE sim_id = ? AND variable = ? LIMIT 1",
-        [sim.sim_id, variable],
-    )
-    return not df.empty
-
-
-def _has_geographic_feature(sim: Any, feature_name: str) -> bool:
-    """True when ``feature_name`` is a persisted geographic feature."""
-    try:
-        names = sim._catalog.list_geographic_features(sim.sim_id)
-    except Exception:
-        return False
-    return feature_name in names
+    return read_variable(sim, var, time=time, layer=layer, sel=sel, bbox=bbox)
 
 
 def export(

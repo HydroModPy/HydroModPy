@@ -36,7 +36,7 @@ def _register_demo_sim(catalog, *, project: str, nse: float, sim_name: str):
 
 def test_open_returns_catalog_with_empty_dataframe(tmp_path: Path) -> None:
     """``hmp.open`` on a fresh directory yields an empty simulations table."""
-    with hmp.open(tmp_path / "workspace") as catalog:
+    with hmp.open(tmp_path / "workspace", create=True) as catalog:
         assert isinstance(catalog, hmp.SimulationCatalog)
         df = catalog.simulations
         assert isinstance(df, pd.DataFrame)
@@ -48,14 +48,14 @@ def test_open_returns_catalog_with_empty_dataframe(tmp_path: Path) -> None:
 def test_catalog_supports_context_manager(tmp_path: Path) -> None:
     """The catalog can be used as a ``with`` block (no leaked DB handle)."""
     ws = tmp_path / "workspace"
-    with hmp.open(ws) as catalog:
+    with hmp.open(ws, create=True) as catalog:
         assert catalog.workspace_path == ws
     assert (ws / "catalog.duckdb").is_file()
 
 
 def test_register_write_query_roundtrip(tmp_path: Path) -> None:
     """Register two sims, attach metrics, and retrieve them via the public API."""
-    with hmp.open(tmp_path / "workspace") as catalog:
+    with hmp.open(tmp_path / "workspace", create=True) as catalog:
         sid_a = _register_demo_sim(catalog, project="demo", nse=0.92, sim_name="run_a")
         sid_b = _register_demo_sim(catalog, project="demo", nse=0.45, sim_name="run_b")
 
@@ -67,7 +67,7 @@ def test_register_write_query_roundtrip(tmp_path: Path) -> None:
 
 def test_find_returns_simulation_group_filtered_by_metric(tmp_path: Path) -> None:
     """``catalog.find(project=..., nse_gt=...)`` returns a SimulationGroup."""
-    with hmp.open(tmp_path / "workspace") as catalog:
+    with hmp.open(tmp_path / "workspace", create=True) as catalog:
         sid_good = _register_demo_sim(catalog, project="demo", nse=0.92, sim_name="good")
         _register_demo_sim(catalog, project="demo", nse=0.45, sim_name="bad")
 
@@ -79,7 +79,7 @@ def test_find_returns_simulation_group_filtered_by_metric(tmp_path: Path) -> Non
 
 def test_best_returns_simulation_view_with_public_methods(tmp_path: Path) -> None:
     """``catalog.best`` returns a Run exposing sim_id/project/metrics."""
-    with hmp.open(tmp_path / "workspace") as catalog:
+    with hmp.open(tmp_path / "workspace", create=True) as catalog:
         sid_good = _register_demo_sim(catalog, project="demo", nse=0.92, sim_name="good")
         _register_demo_sim(catalog, project="demo", nse=0.45, sim_name="bad")
 
