@@ -27,7 +27,7 @@ allowed:
   # ``validity_frame`` records execution metadata for downstream knowledge
   # ingestion. It is a standalone observability island and must not import the
   # modeling layers directly.
-  validity_frame: [validity_frame]
+
   # ``catalog`` is the V1 facade over the three DuckDB scopes (cache, project, index).
   # It reaches into ``core``, ``data`` and ``results`` to wrap the underlying
   # stores. The reverse (data/results importing catalog) is forbidden so the

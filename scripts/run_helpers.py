@@ -15,13 +15,14 @@ Ce module ne modifie aucun fichier dans `hydromodpy` et reste découplé.
 
 from __future__ import annotations
 
-from typing import Protocol, Any
-import logging
+from collections.abc import Protocol
+from typing import Any
 
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ValidityFrameProtocol(Protocol):
@@ -52,7 +53,7 @@ def run_pipeline_with_validity(
     if validity_frame is not None:
         try:
             validity_frame.verify(state, pipeline.steps)
-        except Exception as exc:  # pragma: no cover - branch for user policy
+        except Exception:  # pragma: no cover - branch for user policy
             logger.exception("validity_frame verification failed")
             if raise_on_failure:
                 raise
