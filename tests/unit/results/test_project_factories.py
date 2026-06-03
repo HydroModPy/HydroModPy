@@ -1,12 +1,13 @@
-"""Smoke tests for :class:`hydromodpy.Project` factory entry points.
+"""Smoke tests for the polymorphic :class:`hydromodpy.Project` constructor.
 
-S05-10 adds ``from_toml`` / ``from_json`` / ``from_dict`` so callers reach
-the :class:`Project` facade through a single uniform API.
+``Project(config)`` accepts a TOML path, a ``HydroModPyConfig``, a ``dict``,
+or a JSON string (auto-detected) - replacing the removed ``from_toml`` /
+``from_json`` / ``from_dict`` factories.
 
 The model phase is heavy (workspace, geographic, mesh) so these tests
-monkey-patch :func:`project_phases.configure` and the eager phase verbs.
-The aim is to verify the factories dispatch the right config payload to
-``Project.__init__``, not to exercise the full pipeline.
+monkey-patch :func:`project_phases.configure`. The aim is to verify the
+constructor dispatches the right config payload to ``configure``, not to
+exercise the full pipeline.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ def stub_project_phases(monkeypatch):
         captured["solver"] = solver
         captured["headless"] = headless
         captured["no_display"] = no_display
-        project.cfg = config if not isinstance(config, (str, Path)) else None
+        project._cfg = config if not isinstance(config, (str, Path)) else None
         project._config_path = Path(config).resolve() if isinstance(config, (str, Path)) else None
         project._ctx = SimpleNamespace(parent_sim_id=None)
 
@@ -71,18 +72,18 @@ def _build_payload(tmp_path: Path) -> dict:
     }
 
 
-def test_project_from_toml_passes_path_to_configure(
+def test_project_constructor_passes_path_to_configure(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
     from hydromodpy.project import Project
 
     config_path = _write_minimal_toml(tmp_path)
-    Project.from_toml(config_path)
+    Project(config_path)
     assert stub_project_phases["config"] == config_path
 
 
-def test_project_from_dict_validates_and_passes_config(
+def test_project_constructor_validates_dict(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
@@ -90,11 +91,11 @@ def test_project_from_dict_validates_and_passes_config(
     from hydromodpy.project import Project
 
     payload = _build_payload(tmp_path)
-    Project.from_dict(payload)
+    Project(payload)
     assert isinstance(stub_project_phases["config"], HydroModPyConfig)
 
 
-def test_project_from_json_validates_and_passes_config(
+def test_project_constructor_validates_json_string(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
@@ -102,7 +103,7 @@ def test_project_from_json_validates_and_passes_config(
     from hydromodpy.project import Project
 
     payload = json.dumps(_build_payload(tmp_path))
-    Project.from_json(payload)
+    Project(payload)
     assert isinstance(stub_project_phases["config"], HydroModPyConfig)
 
 

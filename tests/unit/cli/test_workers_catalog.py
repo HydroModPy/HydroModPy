@@ -26,7 +26,7 @@ def _seed_workspace(tmp_path: Path) -> tuple[Path, str]:
     (project_dir / "simulations").mkdir()
 
     sim_id = str(uuid4())
-    with hmp.open(project_dir) as catalog:
+    with hmp.open(project_dir, create=True) as catalog:
         catalog.register_simulation(
             sim_id=sim_id,
             project="demo",
@@ -45,7 +45,7 @@ def _seed_project(tmp_path: Path) -> tuple[Path, str]:
     project_dir.mkdir(parents=True)
     (project_dir / "simulations").mkdir()
     sim_id = str(uuid4())
-    with hmp.open(project_dir) as catalog:
+    with hmp.open(project_dir, create=True) as catalog:
         catalog.register_simulation(
             sim_id=sim_id,
             project="demo",
@@ -63,7 +63,7 @@ def _seed_project_catalog(tmp_path: Path) -> Path:
     project_dir = tmp_path / "ws" / "projects" / "demo"
     project_dir.mkdir(parents=True)
     (project_dir / "simulations").mkdir()
-    with hmp.open(project_dir):
+    with hmp.open(project_dir, create=True):
         pass
     return project_dir
 

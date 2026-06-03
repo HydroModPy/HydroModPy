@@ -126,7 +126,7 @@ Once registered, the figure is reachable from:
 
 .. code-block:: bash
 
-   hmp display <sim_id> --figure my_figure
+   hmp display <sim_ref> --figure my_figure
    hmp display run.toml --session <session_id> --figure my_figure  # calibration
 
 And from TOML:

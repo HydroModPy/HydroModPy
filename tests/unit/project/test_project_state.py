@@ -37,7 +37,7 @@ def test_project_state_mapping_covers_all_known_attrs() -> None:
     """The proxy mapping covers the 21 attributes formerly set on Project."""
     expected = {
         "_config_path",
-        "cfg",
+        "_cfg",
         "_solver",
         "_time_grid",
         "_headless",
@@ -65,11 +65,11 @@ def test_setattr_routes_known_fields_to_state() -> None:
     """Setting a proxied attribute updates ``_state`` and not ``__dict__``."""
     project = _bare_project()
     project._config_path = Path("/tmp/example.toml")
-    project.cfg = "fake_cfg"
+    project._cfg = "fake_cfg"
     project._run_counter = 7
 
     assert "_config_path" not in project.__dict__
-    assert "cfg" not in project.__dict__
+    assert "_cfg" not in project.__dict__
     assert "_run_counter" not in project.__dict__
     assert project._state.config_path == Path("/tmp/example.toml")
     assert project._state.cfg == "fake_cfg"
@@ -83,7 +83,7 @@ def test_getattr_reads_state_for_proxied_names() -> None:
     project._state.cfg = {"k": "v"}
 
     assert project._config_path == Path("/tmp/x.toml")
-    assert project.cfg == {"k": "v"}
+    assert project._cfg == {"k": "v"}
 
 
 def test_setattr_keeps_unknown_attrs_directly_on_instance() -> None:

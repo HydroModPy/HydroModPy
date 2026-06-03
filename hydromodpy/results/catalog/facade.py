@@ -26,6 +26,7 @@ from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.reads import ReadsMixin
 from hydromodpy.results.catalog.registration import RegistrationMixin
+from hydromodpy.results.catalog.schema import SchemaDiscoveryMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.catalog.writes import WritesMixin
@@ -44,6 +45,7 @@ class SimulationCatalog(
     WritesMixin,
     ReadsMixin,
     DiscoveryMixin,
+    SchemaDiscoveryMixin,
     PackageIOMixin,
 ):
     """Workspace-level catalog of finished simulations.
@@ -82,9 +84,9 @@ class SimulationCatalog(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> catalog = hmp.open("~/hmp_workspace")
-    >>> latest = catalog.latest()
-    >>> latest.summary()
+    >>> catalog = hmp.open("~/hmp_workspace")  # doctest: +SKIP
+    >>> latest = catalog.latest()  # doctest: +SKIP
+    >>> latest.summary()  # doctest: +SKIP
 
     See Also
     --------
@@ -343,6 +345,31 @@ class SimulationCatalog(
             include_metrics=include_metrics,
             include_env=include_env,
         )
+
+    @property
+    def frame(self):
+        """Every simulation as one DataFrame row (alias of ``list_simulations``)."""
+        return self.list_simulations()
+
+    def read(
+        self,
+        ref: str,
+        var: str,
+        *,
+        time: int | slice | None = None,
+        layer: int | None = None,
+        sel: dict | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+    ) -> Any:
+        """Read ``var`` for the run referenced by ``ref`` (the by-id read path).
+
+        ``ref`` is resolved through :meth:`resolve` (full UUID, unique prefix,
+        or name). For an already-resolved :class:`~hydromodpy.results.run.Run`,
+        use :func:`hydromodpy.read`.
+        """
+        from hydromodpy.results.reading import read_variable
+
+        return read_variable(self[ref], var, time=time, layer=layer, sel=sel, bbox=bbox)
 
     def __repr__(self) -> str:
         try:

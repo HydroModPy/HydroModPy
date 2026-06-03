@@ -24,16 +24,14 @@ registry, see :doc:`/architecture/overview/contracts`.
    :toctree: generated
 
    hydromodpy.open
-   hydromodpy.open_catalog
    hydromodpy.read
+   hydromodpy.export
    hydromodpy.run
    hydromodpy.calibrate
    hydromodpy.index
-   hydromodpy.overview
    hydromodpy.compare_pair
-   hydromodpy.mesh
-   hydromodpy.testbed
    hydromodpy.report
+   hydromodpy.audit_prune
    hydromodpy.bootstrap_proj
    hydromodpy.doctor
 

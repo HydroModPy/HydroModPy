@@ -24,7 +24,7 @@ def test_hmp_package_roundtrip(tmp_path: Path) -> None:
     index = pd.date_range("2024-01-01", periods=4, freq="D")
     series = pd.Series([10.0, 10.1, 10.2, 10.3], index=index, name="head")
 
-    with hmp.open(src_workspace) as catalog:
+    with hmp.open(src_workspace, create=True) as catalog:
         reg = catalog.register_simulation(
             sim_id=sim_id,
             project="roundtrip",
@@ -49,7 +49,7 @@ def test_hmp_package_roundtrip(tmp_path: Path) -> None:
         package_path = catalog.export_package(sim_id, tmp_path / "out.hmp")
         assert package_path.exists()
 
-    with hmp.open(dst_workspace) as target:
+    with hmp.open(dst_workspace, create=True) as target:
         imported_id = target.import_package(package_path)
         assert imported_id == sim_id
 

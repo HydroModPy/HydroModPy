@@ -10,6 +10,7 @@ import json
 import sys
 from pathlib import Path
 
+from hydromodpy.cli._conventions import add_sim_ref, format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
@@ -18,15 +19,14 @@ HELP: str = "Show simulation metadata, metrics, parameters, and storage layout"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument(
-        "sim_id",
-        help="Full sim_id, unique prefix (>=4 chars), or simulation name",
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[workspace_parser(), format_parser()],
+        epilog="Example:\n  hmp catalog show ab12cd34 --detail",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--workspace", default=None, help="Project catalog root (default: auto-detect)"
-    )
-    parser.add_argument("--json", action="store_true", help="Emit a JSON document")
+    add_sim_ref(parser)
     parser.add_argument(
         "--detail",
         action="store_true",
@@ -52,7 +52,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        payload = show_simulation(args.sim_id, workspace=workspace_root, detail=args.detail)
+        payload = show_simulation(args.sim_ref, workspace=workspace_root, detail=args.detail)
     except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -60,7 +60,7 @@ def run(args: argparse.Namespace) -> None:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    if args.json:
+    if args.format == "json":
         print(json.dumps(payload, indent=2, default=str))
         return
 

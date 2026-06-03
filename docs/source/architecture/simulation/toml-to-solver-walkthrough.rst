@@ -63,9 +63,10 @@ runtime context:
 - ``build_mesh`` either builds a runtime Gmsh mesh or loads one from
   disk.
 
-These phases run once per project session, not once per solver. Lazy
-projects (``Project.lazy(cfg)``) trigger each phase explicitly so
-notebooks can re-execute only the phase that changed.
+These phases run once per project session, not once per solver.
+Construction (``Project(cfg)``) is cheap and does no I/O, so each phase
+can be triggered explicitly and notebooks can re-execute only the phase
+that changed.
 
 Step 3: declarative simulation config to executable plan
 --------------------------------------------------------

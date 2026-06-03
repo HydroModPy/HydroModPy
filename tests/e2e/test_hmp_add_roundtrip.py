@@ -70,7 +70,7 @@ def test_add_copies_inputs_and_rewrites_paths(tmp_path: Path) -> None:
     original_path = str(dem_file)
 
     sim_id = str(uuid4())
-    with hmp.open(src_ws) as catalog:
+    with hmp.open(src_ws, create=True) as catalog:
         _populate_simulation(
             catalog,
             sim_id=sim_id,
@@ -80,7 +80,7 @@ def test_add_copies_inputs_and_rewrites_paths(tmp_path: Path) -> None:
         )
         archive = catalog.export_package(sim_id, tmp_path / "share.hmp")
 
-    with hmp.open(dst_ws) as target:
+    with hmp.open(dst_ws, create=True) as target:
         imported = target.import_package(archive)
         assert imported == sim_id
 
@@ -107,7 +107,7 @@ def test_add_dedupes_reimport_of_same_archive(tmp_path: Path) -> None:
     dem_file.write_bytes(b"DEM")
 
     sim_id = str(uuid4())
-    with hmp.open(src_ws) as catalog:
+    with hmp.open(src_ws, create=True) as catalog:
         _populate_simulation(
             catalog,
             sim_id=sim_id,
@@ -116,7 +116,7 @@ def test_add_dedupes_reimport_of_same_archive(tmp_path: Path) -> None:
         )
         archive = catalog.export_package(sim_id, tmp_path / "share.hmp")
 
-    with hmp.open(dst_ws) as target:
+    with hmp.open(dst_ws, create=True) as target:
         target.import_package(archive)
         # Re-import requires force=True and a rename (or overwrite) because
         # project 'alpha' already exists. Use --as and force.
@@ -139,7 +139,7 @@ def test_add_aborts_on_hash_collision(tmp_path: Path) -> None:
     dem_file.write_bytes(b"DEM_v1")
 
     sim_id = str(uuid4())
-    with hmp.open(src_ws) as catalog:
+    with hmp.open(src_ws, create=True) as catalog:
         _populate_simulation(
             catalog,
             sim_id=sim_id,
@@ -153,7 +153,7 @@ def test_add_aborts_on_hash_collision(tmp_path: Path) -> None:
     target_data.mkdir(parents=True)
     (target_data / "dem.tif").write_bytes(b"DEM_v2_different")
 
-    with hmp.open(dst_ws) as target:
+    with hmp.open(dst_ws, create=True) as target:
         with pytest.raises(InputCollisionError):
             target.import_package(archive)
 
@@ -166,7 +166,7 @@ def test_add_project_name_conflict_requires_as(tmp_path: Path) -> None:
 
     sim_id_a = str(uuid4())
     sim_id_b = str(uuid4())
-    with hmp.open(src_ws) as catalog:
+    with hmp.open(src_ws, create=True) as catalog:
         _populate_simulation(
             catalog,
             sim_id=sim_id_a,
@@ -175,7 +175,7 @@ def test_add_project_name_conflict_requires_as(tmp_path: Path) -> None:
         )
         archive = catalog.export_package(sim_id_a, tmp_path / "share.hmp")
 
-    with hmp.open(dst_ws) as target:
+    with hmp.open(dst_ws, create=True) as target:
         _populate_simulation(
             target,
             sim_id=sim_id_b,
@@ -183,7 +183,7 @@ def test_add_project_name_conflict_requires_as(tmp_path: Path) -> None:
             dem_file=dem_file,
         )
 
-    with hmp.open(dst_ws) as target:
+    with hmp.open(dst_ws, create=True) as target:
         with pytest.raises(ValueError, match="already exists"):
             target.import_package(archive)
         target.import_package(archive, as_project="alpha_imported")
@@ -200,7 +200,7 @@ def test_add_dry_run_writes_nothing(tmp_path: Path) -> None:
     dem_file.write_bytes(b"DEM")
 
     sim_id = str(uuid4())
-    with hmp.open(src_ws) as catalog:
+    with hmp.open(src_ws, create=True) as catalog:
         _populate_simulation(
             catalog,
             sim_id=sim_id,
@@ -209,7 +209,7 @@ def test_add_dry_run_writes_nothing(tmp_path: Path) -> None:
         )
         archive = catalog.export_package(sim_id, tmp_path / "share.hmp")
 
-    with hmp.open(dst_ws) as target:
+    with hmp.open(dst_ws, create=True) as target:
         reported = target.import_package(archive, dry_run=True)
         rows = target.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
     assert reported == sim_id

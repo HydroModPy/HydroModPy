@@ -90,7 +90,7 @@ def run_sweep(
     def _one(point: dict[str, float]) -> str:
         param, value = next(iter(point.items()))
         name = name_template.format(param=param, value=value)
-        run = project.run(name=name, **point)
+        run = project.simulate(name=name, **point)
         return run.sim_id
 
     if parallel == 1 or len(points) == 1:

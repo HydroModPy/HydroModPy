@@ -45,7 +45,7 @@ def test_export_bundles_registered_inputs(tmp_path: Path) -> None:
     expected_sha = hashlib.sha256(b"fake-dem-bytes").hexdigest()
 
     sim_id = str(uuid4())
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         catalog.register_simulation(
             sim_id=sim_id,
             project="with_inputs",
@@ -104,7 +104,7 @@ def test_export_bundles_registered_inputs(tmp_path: Path) -> None:
 def test_export_without_inputs_still_succeeds(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     sim_id = str(uuid4())
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         catalog.register_simulation(
             sim_id=sim_id,
             project="no_inputs",
@@ -140,7 +140,7 @@ def test_export_bundles_shapefile_group(tmp_path: Path) -> None:
     prj.write_text("GEOGCS[...]")
 
     sim_id = str(uuid4())
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         catalog.register_simulation(
             sim_id=sim_id,
             project="shp",
@@ -194,7 +194,7 @@ def test_export_bundles_directory_input(tmp_path: Path) -> None:
     (src_dir / "chronicles" / "A.csv").write_text("datetime,value\n2020-01-01,1.0\n")
 
     sim_id = str(uuid4())
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         catalog.register_simulation(
             sim_id=sim_id,
             project="hydro",

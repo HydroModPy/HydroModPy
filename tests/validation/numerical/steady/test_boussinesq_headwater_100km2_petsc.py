@@ -120,7 +120,7 @@ def test_headwater_real_case_petsc_variants_converge_on_committed_mesh(
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
     with Project(config_path) as project:
-        run = project.run()
+        run = project.simulate()
     assert run is not None
 
     summary = _load_boussinesq_summary(project_root)

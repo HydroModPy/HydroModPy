@@ -234,7 +234,7 @@ def ensure_schema_safe(
         if db_path.is_file():
             backup = backup_path_for(db_path)
             _copy_backup(db_path, backup, connection=connection)
-            logger.info("Pre-migration backup written: %s", backup)
+            logger.debug("Pre-migration backup written: %s", backup)
 
         try:
             ensure_schema(

@@ -68,7 +68,7 @@ def test_run_with_string_path_resolves(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_run_with_config_object_uses_project(monkeypatch) -> None:
-    """A non-path config object opens a ``Project`` and calls ``project.run``."""
+    """A non-path config object opens a ``Project`` and calls ``project.simulate``."""
     captured: dict = {}
 
     class FakeProject:
@@ -82,7 +82,7 @@ def test_run_with_config_object_uses_project(monkeypatch) -> None:
         def __exit__(self, *exc):
             captured["closed"] = True
 
-        def run(self, **kwargs):
+        def simulate(self, **kwargs):
             captured["run_kwargs"] = kwargs
             return {"name": "from_object"}
 

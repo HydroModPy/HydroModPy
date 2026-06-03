@@ -1,8 +1,8 @@
 """Nancon - Python script 07 - Inspect the run catalog from Python.
 
-After any `hmp run` or Python run has populated `hydromodpy.duckdb`,
-this script reads it back via the public `Project.runs` accessor and
-the per-run `Run` view (Zarr field arrays + Parquet timeseries).
+After any `hmp run` or Python run has populated `catalog.duckdb`,
+this script reads it back via the catalog door `hmp.open(project_dir)`
+and the per-run `Run` view (Zarr field arrays + Parquet timeseries).
 
 What it does:
 
@@ -24,26 +24,28 @@ from hydromodpy.results.views import saturated_fraction
 
 HERE = Path(__file__).resolve().parent
 PROJECT_DIR = HERE.parent
-PROJECT_TOML = PROJECT_DIR / "project.toml"
 
 
 # ---------------------------------------------------------------------
-# 1. Open the project (read-only, no display)
+# 1. Open the catalog (read-only, raises if none exists yet)
 # ---------------------------------------------------------------------
 
-project = hmp.Project(PROJECT_TOML, no_display=True)
+try:
+    cat = hmp.open(PROJECT_DIR)
+except FileNotFoundError:
+    print("no catalog yet - run at least one TOML first.")
+    raise SystemExit(0) from None
 
 
 # ---------------------------------------------------------------------
 # 2. List every simulation registered in the catalog
 # ---------------------------------------------------------------------
 
-# `project.runs.list()` returns a pandas DataFrame indexed by sim_id.
-df = project.runs.list()
+# `cat.frame` returns a pandas DataFrame indexed by sim_id.
+df = cat.frame
 
 if df is None or df.empty:
     print("no simulations registered yet - run at least one TOML first.")
-    project.close()
     raise SystemExit(0)
 
 print(f"{len(df)} simulation(s) in this project:")
@@ -58,8 +60,8 @@ for _, row in df.iterrows():
 # 3. Pick the most recent simulation as a Run view
 # ---------------------------------------------------------------------
 
-# `project.runs.latest()` returns a Run view backed by Zarr/Parquet.
-latest = project.runs.latest()
+# `cat.latest()` returns a Run view backed by Zarr/Parquet.
+latest = cat.latest()
 
 
 # ---------------------------------------------------------------------
@@ -87,6 +89,3 @@ if latest is not None:
         print(f"  sat. frac.  : min={sat.min():.3f} max={sat.max():.3f}")
     except Exception as exc:  # noqa: BLE001
         print(f"  sat. frac.  : unavailable ({exc.__class__.__name__})")
-
-
-project.close()

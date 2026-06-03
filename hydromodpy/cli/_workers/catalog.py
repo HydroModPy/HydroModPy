@@ -87,9 +87,13 @@ def list_simulations(
         if sims.empty:
             continue
         if solver:
-            sims = sims[sims["solver"].fillna("").str.contains(solver, case=False)]
-        if catchment and "catchment" in sims.columns:
-            sims = sims[sims["catchment"].fillna("").str.contains(catchment, case=False)]
+            alias = {"mf6": "modflow6", "nwt": "modflow_nwt"}
+            target = alias.get(solver.strip().lower(), solver.strip().lower())
+            sims = sims[sims["solver"].fillna("").str.lower() == target]
+        if catchment:
+            col = "study_area_name" if "study_area_name" in sims.columns else None
+            if col is not None:
+                sims = sims[sims[col].fillna("").str.contains(catchment, case=False)]
         sims = sims.assign(project=project_dir.name)
         frames.append(sims)
     if not frames:

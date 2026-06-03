@@ -54,7 +54,7 @@ def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> t
     """
     import hydromodpy as hmp
 
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         reg = catalog.register_simulation(
             sim_id=sim_id,
             project=project,
@@ -164,7 +164,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert zarr_path.exists(), f"Zarr store missing at {zarr_path}"
     assert parquet_dir.exists(), f"Parquet directory missing at {parquet_dir}"
 
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         rows = catalog.connection.execute(
             "SELECT component, version FROM _schema_version WHERE component = 'catalog'"
         ).fetchall()
@@ -176,7 +176,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
     # ----- Step 7: hmp.open + hmp.read return a real field ------------------
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         run = catalog[sim_id]
         data = np.asarray(hmp.read(run, "head", time=0, layer=0))
         assert data.shape[-1] == 4
@@ -211,9 +211,11 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
     _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
 
     nc_out = tmp_path / "head.nc"
+    from hydromodpy.core.config_kit.export_spec import ExportSpec
+
     try:
-        with hmp.open(workspace) as catalog:
-            catalog.export(sim_id, "head", "netcdf", nc_out)
+        with hmp.open(workspace, create=True) as catalog:
+            catalog.export(sim_id, ExportSpec(var="head", fmt="netcdf", dest=nc_out))
     except KeyError as exc:
         pytest.skip(f"NetCDF export needs a UGRID mesh, not present on this synthetic sim: {exc}")
     except Exception as exc:  # pragma: no cover - guarded for missing optional dep
@@ -293,7 +295,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
 
     import hydromodpy as hmp
 
-    with hmp.open(out_path) as catalog:
+    with hmp.open(out_path, create=True) as catalog:
         sims = catalog.list_simulations()
         assert not sims.empty, "no simulation row recorded after hmp run"
         sim_id = str(sims.iloc[0]["sim_id"])

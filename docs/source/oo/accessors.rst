@@ -50,8 +50,8 @@ The accessor exposes four common queries:
 .. code-block:: python
 
    with hmp.Project("hydromodpy.toml") as p:
-       p.run(Sy=0.05, name="probe-1")
-       p.run(Sy=0.08, name="probe-2")
+       p.simulate(Sy=0.05, name="probe-1")
+       p.simulate(Sy=0.08, name="probe-2")
 
        last = p.runs.latest()
        baselines = p.runs.find(name="probe-1")

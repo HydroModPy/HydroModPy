@@ -60,11 +60,9 @@ def test_calibrate_with_object_config(monkeypatch) -> None:
     captured: dict = {}
 
     class FakeProject:
-        @classmethod
-        def lazy(cls, cfg, *, headless=True):
-            captured["lazy_cfg"] = cfg
-            captured["lazy_headless"] = headless
-            return cls()
+        def __init__(self, cfg, *, headless=True):
+            captured["init_cfg"] = cfg
+            captured["init_headless"] = headless
 
         def __enter__(self):
             return self
@@ -81,21 +79,19 @@ def test_calibrate_with_object_config(monkeypatch) -> None:
     fake_cfg = object()
     result = hmp.calibrate(fake_cfg, max_iter=10)
     assert result == {"report": "from_object"}
-    assert captured["lazy_cfg"] is fake_cfg
-    assert captured["lazy_headless"] is True
+    assert captured["init_cfg"] is fake_cfg
+    assert captured["init_headless"] is True
     assert "config_path" not in captured["calibrate_kwargs"]
     assert captured["calibrate_kwargs"] == {"max_iter": 10}
 
 
 def test_calibrate_object_config_honors_headless_override(monkeypatch) -> None:
-    """``headless`` is forwarded to ``Project.lazy`` on the object branch."""
+    """``headless`` is forwarded to the Project constructor on the object branch."""
     captured: dict = {}
 
     class FakeProject:
-        @classmethod
-        def lazy(cls, cfg, *, headless=True):
+        def __init__(self, cfg, *, headless=True):
             captured["headless"] = headless
-            return cls()
 
         def __enter__(self):
             return self

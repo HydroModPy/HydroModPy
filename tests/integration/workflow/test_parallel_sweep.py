@@ -26,7 +26,7 @@ class _FakeProject:
         self._lock = threading.Lock()
         self.calls: list[dict[str, object]] = []
 
-    def run(self, *, name: str | None = None, **overrides: float) -> _FakeRun:
+    def simulate(self, *, name: str | None = None, **overrides: float) -> _FakeRun:
         with self._lock:
             sim_id = f"sim_{len(self.calls):02d}"
             self.calls.append({"name": name, **overrides})
@@ -89,7 +89,7 @@ def test_project_runner_sweep_passes_parallel_through(monkeypatch) -> None:
         return ["sim_a", "sim_b"]
 
     monkeypatch.setattr("hydromodpy.workflow.parallel.run_sweep", fake_run_sweep)
-    project = SimpleNamespace(_store=None)
+    project = SimpleNamespace(_store=None, _ensure_model_built=lambda: None)
 
     ProjectRunner(project).sweep({"K": [1.0, 2.0]}, parallel=3)
 

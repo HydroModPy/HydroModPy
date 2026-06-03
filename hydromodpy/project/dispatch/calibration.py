@@ -40,11 +40,11 @@ class ProjectTrialPromotionProvider:
                 for pname, pvalue in values.items():
                     dotted = paths.get(pname)
                     if dotted:
-                        _set_by_path(project.cfg, dotted, pvalue)
-                run = project.run(name=name or "promoted")
+                        _set_by_path(project.config, dotted, pvalue)
+                run = project.simulate(name=name or "promoted")
             else:
                 run_kwargs: dict[str, Any] = dict(values)
-                run = project.run(name=name or "promoted", **run_kwargs)
+                run = project.simulate(name=name or "promoted", **run_kwargs)
             if run is None:
                 raise RuntimeError("Promoted calibration trial did not produce a run.")
             sim_id = run.sim_id

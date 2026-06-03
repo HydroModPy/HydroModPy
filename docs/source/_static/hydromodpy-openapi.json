@@ -4279,9 +4279,176 @@
             "$ref": "#/components/schemas/ExportVariablesConfig",
             "description": "Which variables to include in exports.",
             "x-hmp-profile": "user"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.",
+            "title": "Resolution",
+            "x-hmp-profile": "dev"
+          },
+          "artifacts": {
+            "description": "Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.",
+            "items": {
+              "$ref": "#/components/schemas/ExportSpec"
+            },
+            "title": "Artifacts",
+            "type": "array",
+            "x-hmp-profile": "dev"
           }
         },
         "title": "ExportConfig",
+        "type": "object"
+      },
+      "ExportFormat": {
+        "description": "Output formats reachable through the unified export engine.",
+        "enum": [
+          "csv",
+          "netcdf",
+          "geotiff",
+          "shapefile",
+          "vtu",
+          "hmp"
+        ],
+        "title": "ExportFormat",
+        "type": "string"
+      },
+      "ExportSpec": {
+        "additionalProperties": false,
+        "description": "One export artifact: what to select, in which format, where to write.\n\n``fmt`` is optional when ``dest`` carries a known extension\n(``.nc`` -> netcdf, ``.tif`` -> geotiff, ``.csv`` -> csv ...).",
+        "properties": {
+          "var": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variable name, list of names, or '*' (all timeseries, csv only).",
+            "title": "Var",
+            "x-hmp-profile": "user"
+          },
+          "dest": {
+            "description": "Output file path. Its extension can imply 'fmt'.",
+            "examples": [
+              "data/input.csv"
+            ],
+            "format": "path",
+            "title": "Dest",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "fmt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportFormat"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Output format. Inferred from the 'dest' extension when omitted.",
+            "x-hmp-profile": "user"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "enum": [
+                  "first",
+                  "last",
+                  "all"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Timestep selector: index, list of indices, 'first', 'last', 'all', or None (per-format default: all timesteps for netcdf, last for rasters).",
+            "title": "Time",
+            "x-hmp-profile": "user"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Layer index for 3D fields.",
+            "title": "Layer",
+            "x-hmp-profile": "dev"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "GeoTIFF pixel size in CRS units. Auto-derived from the grid when omitted.",
+            "title": "Resolution",
+            "x-hmp-profile": "dev"
+          },
+          "crs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Output CRS (e.g. 'EPSG:2154'). Auto-filled from the simulation when omitted.",
+            "title": "Crs",
+            "x-hmp-profile": "dev"
+          },
+          "nodata": {
+            "default": -9999.0,
+            "description": "Nodata fill value for raster formats.",
+            "examples": [
+              -9999.0
+            ],
+            "title": "Nodata",
+            "type": "number",
+            "x-hmp-profile": "dev"
+          }
+        },
+        "required": [
+          "var",
+          "dest"
+        ],
+        "title": "ExportSpec",
         "type": "object"
       },
       "ExportVariablesConfig": {

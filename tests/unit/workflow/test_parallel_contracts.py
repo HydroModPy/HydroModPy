@@ -49,7 +49,7 @@ def test_run_sweep_parallel_path_bounds_workers_and_dispatches_overrides(monkeyp
         def __init__(self) -> None:
             self.calls: list[dict[str, object]] = []
 
-        def run(self, *, name: str | None = None, **overrides: float):
+        def simulate(self, *, name: str | None = None, **overrides: float):
             self.calls.append({"name": name, **overrides})
             return SimpleNamespace(sim_id=f"sim-{len(self.calls)}")
 
@@ -74,8 +74,8 @@ def test_run_sweep_parallel_path_bounds_workers_and_dispatches_overrides(monkeyp
 
 def test_run_sweep_rejects_invalid_parallel_before_expanding_parameters() -> None:
     class Project:
-        def run(self, *, name: str | None = None, **overrides: float):
-            raise AssertionError("run should not be called")
+        def simulate(self, *, name: str | None = None, **overrides: float):
+            raise AssertionError("simulate should not be called")
 
     with pytest.raises(ConfigError, match="parallel"):
         parallel_module.run_sweep(

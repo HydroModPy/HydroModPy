@@ -32,5 +32,4 @@ See Also
 --------
 
 - :func:`hydromodpy.open` -- workspace catalog (per-workspace view).
-- :func:`hydromodpy.open_catalog` -- V1 catalog facade.
 - :mod:`hydromodpy.core.state.global_index` -- federation implementation.

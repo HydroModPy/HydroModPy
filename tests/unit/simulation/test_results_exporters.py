@@ -8,9 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from pydantic import ValidationError
 
+from hydromodpy.core.config_kit.export_spec import ExportSpec
 from hydromodpy.core.exceptions import UnknownFieldError
-from hydromodpy.results.catalog import SimulationCatalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -82,7 +83,7 @@ class TestNetCDFExport:
     def test_roundtrip(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "export.nc"
-        result = catalog.export(sid, "head", "netcdf", out)
+        result = catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
         assert result.exists()
 
         ds = xr.open_dataset(out, decode_times=False)
@@ -109,7 +110,7 @@ class TestNetCDFExport:
             )
 
         out = tmp_path / "multi.nc"
-        result = catalog.export(sid, "head,watertable_depth", "netcdf", out)
+        catalog.export(sid, ExportSpec(var=["head", "watertable_depth"], fmt="netcdf", dest=out))
         ds = xr.open_dataset(out, decode_times=False)
         assert "head" in ds
         assert "watertable_depth" in ds
@@ -119,7 +120,7 @@ class TestNetCDFExport:
     def test_timestep_subset(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "subset.nc"
-        result = catalog.export(sid, "head", "netcdf", out, timesteps=[0, 2])
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out, time=[0, 2]))
         ds = xr.open_dataset(out, decode_times=False)
         assert ds["head"].shape[0] == 2
         np.testing.assert_array_equal(ds["time"].values, np.array([0, 172800]))
@@ -130,7 +131,7 @@ class TestCSVExport:
     def test_basic(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "ts.csv"
-        result = catalog.export(sid, "*", "csv", out)
+        result = catalog.export(sid, ExportSpec(var="*", fmt="csv", dest=out))
         assert result.exists()
         df = pd.read_csv(out)
         assert len(df) == 10
@@ -149,14 +150,14 @@ class TestCSVExport:
             pd.Series(range(5), index=idx, dtype=float),
         )
         out = tmp_path / "filtered.csv"
-        catalog.export(sid, "discharge", "csv", out)
+        catalog.export(sid, ExportSpec(var="discharge", fmt="csv", dest=out))
         df = pd.read_csv(out)
         assert all(df["variable"] == "discharge")
 
     def test_empty_result(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "empty.csv"
-        catalog.export(sid, "nonexistent", "csv", out)
+        catalog.export(sid, ExportSpec(var="nonexistent", fmt="csv", dest=out))
         df = pd.read_csv(out)
         assert len(df) == 0
 
@@ -167,7 +168,7 @@ class TestVTUExport:
 
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.vtu"
-        result = catalog.export(sid, "head", "vtu", out, timestep=0, layer=0)
+        result = catalog.export(sid, ExportSpec(var="head", fmt="vtu", dest=out, time=0, layer=0))
         assert result.exists()
         mesh = meshio.read(str(out))
         assert "head" in mesh.cell_data
@@ -183,12 +184,7 @@ class TestGeoTIFFExport:
         out = tmp_path / "field.tif"
         result = catalog.export(
             sid,
-            "head",
-            "geotiff",
-            out,
-            timestep=0,
-            layer=0,
-            resolution=0.5,
+            ExportSpec(var="head", fmt="geotiff", dest=out, time=0, layer=0, resolution=0.5),
         )
         assert result.exists()
         with rasterio.open(str(out)) as src:
@@ -205,7 +201,10 @@ class TestGeoTIFFExport:
 
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field_cog.tif"
-        catalog.export(sid, "head", "geotiff", out, timestep=0, layer=0, resolution=0.5)
+        catalog.export(
+            sid,
+            ExportSpec(var="head", fmt="geotiff", dest=out, time=0, layer=0, resolution=0.5),
+        )
         with rasterio.open(str(out)) as src:
             profile = src.profile
             assert profile.get("tiled") is True
@@ -227,11 +226,7 @@ class TestShapefileExport:
         out = tmp_path / "cells.shp"
         result = catalog.export(
             sid,
-            "head",
-            "shapefile",
-            out,
-            timestep=0,
-            layer=0,
+            ExportSpec(var="head", fmt="shapefile", dest=out, time=0, layer=0),
         )
         assert result.exists()
         gdf = gpd.read_file(str(out))
@@ -242,12 +237,13 @@ class TestShapefileExport:
 
 class TestExportErrors:
     def test_unknown_format(self, catalog_with_data):
-        catalog, sid, tmp_path = catalog_with_data
-        with pytest.raises(ValueError, match="Unknown export format"):
-            catalog.export(sid, "head", "parquet", tmp_path / "out.pq")
+        _catalog, _sid, tmp_path = catalog_with_data
+        # An unknown format is rejected at spec construction, before any I/O.
+        with pytest.raises(ValidationError):
+            ExportSpec(var="head", fmt="parquet", dest=tmp_path / "out.pq")
 
     def test_missing_variable_netcdf(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "missing.nc"
         with pytest.raises(UnknownFieldError, match="nonexistent_field"):
-            catalog.export(sid, "nonexistent_field", "netcdf", out)
+            catalog.export(sid, ExportSpec(var="nonexistent_field", fmt="netcdf", dest=out))

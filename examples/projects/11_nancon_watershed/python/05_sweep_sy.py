@@ -1,8 +1,8 @@
 """Nancon - Python script 05 - Parametric sweep on Sy.
 
-The public Python API exposes parameter overrides on ``project.run``.
+The public Python API exposes parameter overrides on ``project.simulate``.
 A sweep is therefore a simple ``for`` loop over the swept values,
-calling ``project.run(name=..., Sy=value, **fixed)`` once per point.
+calling ``project.simulate(name=..., Sy=value, **fixed)`` once per point.
 The catalog stores every run; downstream scripts (07_inspect_catalog)
 read them back.
 
@@ -35,7 +35,7 @@ project = hmp.Project(CONFIG_PATH)
 
 runs = {}
 for value in SWEEP_VALUES:
-    run = project.run(
+    run = project.simulate(
         name=f"nancon_sweep_sy_{value:.4f}",
         Sy=value,
         **FIXED_PARAMS,

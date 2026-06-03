@@ -65,7 +65,7 @@ def run_calibration_programmatic(
         from hydromodpy.calibration.materialize import write_overlay_toml
 
         cfg_path = ws_root / ".hydromodpy" / "calibration_base.toml"
-        payload = project.cfg.model_dump(mode="json", exclude_none=True)
+        payload = project.config.model_dump(mode="json", exclude_none=True)
         write_overlay_toml(cfg_path, payload)
     else:
         cfg_path = Path(src_path).expanduser().resolve()

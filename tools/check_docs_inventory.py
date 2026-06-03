@@ -27,7 +27,7 @@ BANNED_AUTHORED_PATTERNS = {
 REQUIRED_API_PAGES = {
     "hydromodpy.run",
     "hydromodpy.calibrate",
-    "hydromodpy.overview",
+    "hydromodpy.open",
     "hydromodpy.config",
     "hydromodpy.analysis",
 }

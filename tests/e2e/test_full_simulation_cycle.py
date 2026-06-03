@@ -18,7 +18,7 @@ import pytest
 def test_open_register_query_roundtrip(e2e_workspace: Path) -> None:
     import hydromodpy as hmp
 
-    with hmp.open(e2e_workspace) as catalog:
+    with hmp.open(e2e_workspace, create=True) as catalog:
         sim_id = str(uuid4())
         catalog.register_simulation(
             sim_id=sim_id,
@@ -38,7 +38,7 @@ def test_open_register_query_roundtrip(e2e_workspace: Path) -> None:
         catalog.finalize(sim_id, status="completed", duration_s=0.1)
 
     # Re-open the workspace and verify every write is durable.
-    with hmp.open(e2e_workspace) as catalog2:
+    with hmp.open(e2e_workspace, create=True) as catalog2:
         sims = catalog2.list_simulations(project="e2e_demo")
         assert len(sims) == 1
         assert sims.iloc[0]["solver"] == "modflow_nwt"

@@ -5,8 +5,8 @@ run/lifecycle API only.
 
 Functions here mutate the :class:`Project` instance directly and call the
 same ``workflow.steps`` helpers that the full Pipeline uses. They are not a
-second execution engine; they only adapt the shared step logic to interactive
-``Project.lazy(...)`` usage.
+second execution engine; they only adapt the shared step logic to the
+interactive phase verbs (``prepare`` and the per-phase builders).
 """
 
 from __future__ import annotations
@@ -58,18 +58,18 @@ def configure(
 
     if isinstance(config, HydroModPyConfig):
         project._config_path = None
-        project.cfg = config
+        project._cfg = config
         raw_toml: dict = {}
     else:
         project._config_path = Path(config).resolve()
-        project.cfg = HydroModPyConfig.from_toml(project._config_path)
+        project._cfg = HydroModPyConfig.from_toml(project._config_path)
         raw_toml = load_toml_with_base_config(project._config_path)
 
     project._solver = solver or detect_solver(project)
     ensure_simulation_block(project)
 
-    apply_explicit_time_window_to_tgrids(project.cfg)
-    project._time_grid = require_flow_simulation_time_grid(project.cfg)
+    apply_explicit_time_window_to_tgrids(project._cfg)
+    project._time_grid = require_flow_simulation_time_grid(project._cfg)
 
     if project._config_path is not None:
         project._mesh_section_data = resolve_optional_mesh_section(raw_toml)
@@ -78,7 +78,7 @@ def configure(
             project._config_path,
         )
     else:
-        project._mesh_section_data = project.cfg.mesh_catchment
+        project._mesh_section_data = project._cfg.mesh_catchment
         project._external_mesh_input = None
     project._mesh_constraints_mode = None
     if project._mesh_section_data is not None and project._external_mesh_input is not None:
@@ -92,45 +92,45 @@ def configure(
         )
 
         project._mesh_constraints_mode = project._mesh_section_data.constraints_mode
-        project.cfg.geographic = prepare_geographic_config_for_meshing(
-            project.cfg.geographic,
+        project._cfg.geographic = prepare_geographic_config_for_meshing(
+            project._cfg.geographic,
             constraints_mode=project._mesh_constraints_mode,
         )
     elif project._external_mesh_input is not None and "stream" in {
-        str(bc_id).strip().lower() for bc_id in getattr(project.cfg.flow, "active_bc", ())
+        str(bc_id).strip().lower() for bc_id in getattr(project._cfg.flow, "active_bc", ())
     }:
         from hydromodpy.spatial.mesh.runtime import (
             prepare_geographic_config_for_meshing,
         )
 
-        project.cfg.geographic = prepare_geographic_config_for_meshing(
-            project.cfg.geographic,
+        project._cfg.geographic = prepare_geographic_config_for_meshing(
+            project._cfg.geographic,
             constraints_mode="rivers_only",
             section_name="mesh_input",
         )
 
     project._spatial_support_registry = build_default_spatial_support_provider_registry()
-    project._requested_support_ids = collect_requested_support_ids(project.cfg.flow)
+    project._requested_support_ids = collect_requested_support_ids(project._cfg.flow)
     project._requested_domain_supports = resolve_support_configs(
-        project.cfg.domain,
+        project._cfg.domain,
         project._requested_support_ids,
     )
 
     data_plan = DataPlanner().build(
-        project.cfg.data,
-        domain_zone_ids=project.cfg.domain.zone_ids,
+        project._cfg.data,
+        domain_zone_ids=project._cfg.domain.zone_ids,
         domain_support_provider_names=support_provider_names(
             project._requested_domain_supports,
         ),
         requested_spatial_support_ids=project._requested_support_ids,
         raw_toml=raw_toml,
-        flow_active_bc=project.cfg.flow.active_bc,
+        flow_active_bc=project._cfg.flow.active_bc,
     )
     log_data_plan(data_plan)
-    project.cfg.data = project.cfg.data.with_resolved_types(data_plan.types)
+    project._cfg.data = project._cfg.data.with_resolved_types(data_plan.types)
 
     project._ctx = WorkflowContext(
-        cfg=project.cfg,
+        cfg=project._cfg,
         config_path=project._config_path or Path.cwd(),
         raw_toml=raw_toml,
     )
@@ -140,8 +140,8 @@ def configure(
     project._headless = headless
     project._no_display = no_display
     if headless:
-        project.cfg.display.save = False
-        project.cfg.display.show = False
+        project._cfg.display.save = False
+        project._cfg.display.show = False
 
     project._store = None
     project._project_name = None
@@ -238,11 +238,11 @@ def build_mesh(project: Project, **overrides: object) -> None:
     if overrides:
         from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
-        if project.cfg.mesh_catchment is None:
-            project.cfg.mesh_catchment = MeshCatchmentConfig.model_validate(overrides)
+        if project._cfg.mesh_catchment is None:
+            project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(overrides)
         else:
-            merged = {**project.cfg.mesh_catchment.model_dump(), **overrides}
-            project.cfg.mesh_catchment = MeshCatchmentConfig.model_validate(merged)
+            merged = {**project._cfg.mesh_catchment.model_dump(), **overrides}
+            project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(merged)
     step_mesh(
         project._ctx,
         mesh_section_data=project._mesh_section_data,
@@ -267,14 +267,14 @@ def open_catalog(project: Project) -> None:
 
 def detect_solver(project: Project) -> str:
     """Resolve the flow solver from the declared process list or solver block."""
-    sim = project.cfg.simulation
+    sim = project._cfg.simulation
     if sim.process:
         for proc in sim.process:
             if proc.type == "flow" and proc.solvers:
                 return proc.solvers[0]
         if all(proc.type == "mesh" for proc in sim.process):
             return "mesh"
-    solver_cfg = getattr(project.cfg, "solver", None)
+    solver_cfg = getattr(project._cfg, "solver", None)
     engine = getattr(solver_cfg, "backend_name", None) if solver_cfg else None
     if engine:
         return str(engine)
@@ -286,7 +286,7 @@ def detect_solver(project: Project) -> str:
 
 def ensure_simulation_block(project: Project) -> None:
     """Synthesize [simulation] from [data.recharge] when it is absent."""
-    if project.cfg.simulation.has_processes():
+    if project._cfg.simulation.has_processes():
         return
 
     from hydromodpy.simulation.planning.config import (
@@ -296,7 +296,7 @@ def ensure_simulation_block(project: Project) -> None:
     )
     from hydromodpy.workflow.steps.planning import DEFAULT_FLOW_PROCESS_ID
 
-    recharge_cfg = getattr(project.cfg.data, "recharge", None)
+    recharge_cfg = getattr(project._cfg.data, "recharge", None)
     start = getattr(recharge_cfg, "date_start", None) if recharge_cfg else None
     end = getattr(recharge_cfg, "date_end", None) if recharge_cfg else None
     if start is None or end is None:
@@ -310,7 +310,7 @@ def ensure_simulation_block(project: Project) -> None:
         if project._config_path is not None
         else "simulation"
     )
-    project.cfg.simulation = SimulationConfig(
+    project._cfg.simulation = SimulationConfig(
         name=default_name,
         time=SimulationTimeConfig(
             start_datetime=start,

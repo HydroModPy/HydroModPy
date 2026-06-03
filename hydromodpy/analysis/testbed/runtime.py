@@ -13,6 +13,7 @@ from hydromodpy.analysis.testbed.config import (
     TestbedConfig,
 )
 from hydromodpy.analysis.testbed.contracts import (
+    get_auto_capture_provider,
     run_testbed_child_workflow,
     testbed_runner_workflow,
 )
@@ -236,21 +237,9 @@ class TestbedLauncher:
             for case in cases:
                 if case.status == "disabled":
                     continue
-                # prepare auto-capture collector (requires external package)
-                try:
-                    from hydromodpy.validity_frame.adapters.external_adapter import (
-                        AutoCaptureCollector,
-                        ExecutionContext,
-                    )
-                except Exception:
-                    AutoCaptureCollector = None
-                    ExecutionContext = None
-
-                collector = (
-                    AutoCaptureCollector(context=ExecutionContext(run_id=case.variant.id))
-                    if AutoCaptureCollector is not None
-                    else None
-                )
+                # auto-capture collector via the DI contract (keeps analysis
+                # free of a validity_frame import edge); None when unavailable.
+                collector = get_auto_capture_provider().make_collector(case.variant.id)
 
                 started_at = time.perf_counter()
                 try:
