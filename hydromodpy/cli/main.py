@@ -94,6 +94,10 @@ def main(argv: list[str] | None = None) -> None:
     if handler is None:
         parser.print_help()
         sys.exit(EXIT_OK)
+
+    from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
+
+    bootstrap_proj()
     try:
         handler(args)
     except SystemExit:
