@@ -84,9 +84,9 @@ class SimulationCatalog(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> catalog = hmp.open("~/hmp_workspace")
-    >>> latest = catalog.latest()
-    >>> latest.summary()
+    >>> catalog = hmp.open("~/hmp_workspace")  # doctest: +SKIP
+    >>> latest = catalog.latest()  # doctest: +SKIP
+    >>> latest.summary()  # doctest: +SKIP
 
     See Also
     --------

@@ -113,8 +113,8 @@ def index(db_path: Any = None, *, read_only: bool = False) -> Any:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> idx = hmp.index(read_only=True)
-    >>> idx.list_workspaces()
+    >>> idx = hmp.index(read_only=True)  # doctest: +SKIP
+    >>> idx.list_workspaces()  # doctest: +SKIP
 
     See Also
     --------
@@ -167,7 +167,7 @@ def run(config: Any, **kwargs: Any) -> Any:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> run = hmp.run("run_transient_nwt.toml", name="baseline")
+    >>> run = hmp.run("run_transient_nwt.toml", name="baseline")  # doctest: +SKIP
 
     See Also
     --------
@@ -228,7 +228,7 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> report = hmp.calibrate("calibration.toml")
+    >>> report = hmp.calibrate("calibration.toml")  # doctest: +SKIP
 
     See Also
     --------
@@ -275,7 +275,9 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> table = hmp.compare_pair("ab12cd34", "ef56gh78", workspace="~/hmp_workspace")
+    >>> table = hmp.compare_pair(
+    ...     "ab12cd34", "ef56gh78", workspace="~/hmp_workspace"
+    ... )  # doctest: +SKIP
 
     See Also
     --------
@@ -318,8 +320,8 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> hmp.report()  # latest session in the current workspace
-    >>> hmp.report("ab12cd34", workspace="~/hmp_workspace")
+    >>> hmp.report()  # latest session in the current workspace  # doctest: +SKIP
+    >>> hmp.report("ab12cd34", workspace="~/hmp_workspace")  # doctest: +SKIP
     """
     from hydromodpy.calibration.report import resolve_calibration_session_id
     from hydromodpy.core.state.paths import CATALOG_FILENAME
@@ -439,9 +441,13 @@ def export(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> run = hmp.open("~/hmp_workspace")["transient_nwt"]
-    >>> hmp.export(run, "head", "head.tif", time="last", resolution=50)
-    >>> hmp.export(run, ["head", "watertable_depth"], "fields.nc", time="all")
+    >>> run = hmp.open("~/hmp_workspace")["transient_nwt"]  # doctest: +SKIP
+    >>> hmp.export(
+    ...     run, "head", "head.tif", time="last", resolution=50
+    ... )  # doctest: +SKIP
+    >>> hmp.export(
+    ...     run, ["head", "watertable_depth"], "fields.nc", time="all"
+    ... )  # doctest: +SKIP
     """
     from hydromodpy.results.run import Run
 
@@ -516,7 +522,7 @@ def doctor() -> dict:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> hmp.doctor()["hydromodpy"]
+    >>> hmp.doctor()["hydromodpy"]  # doctest: +SKIP
     """
     info: dict = {
         "python": platform.python_version(),
