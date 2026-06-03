@@ -236,8 +236,38 @@ class TestbedLauncher:
             for case in cases:
                 if case.status == "disabled":
                     continue
+                # prepare auto-capture collector (requires external package)
+                try:
+                    from hydromodpy.validity_frame.adapters.external_adapter import (
+                        AutoCaptureCollector,
+                        ExecutionContext,
+                    )
+                except Exception:
+                    AutoCaptureCollector = None
+                    ExecutionContext = None
+
+                collector = (
+                    AutoCaptureCollector(context=ExecutionContext(run_id=case.variant.id))
+                    if AutoCaptureCollector is not None
+                    else None
+                )
+
                 started_at = time.perf_counter()
                 try:
+                    # capture start snapshot if collector available
+                    if collector is not None:
+                        import time as _time
+
+                        _start_ts = _time.time()
+                        try:
+                            _ = collector.capture_start()
+                        except Exception:
+                            _start_ts = _time.time()
+                    else:
+                        import time as _time
+
+                        _start_ts = _time.time()
+
                     child_summary = self._run_case(case)
                     if self.cfg.runner.type == "simulation":
                         child_summary = {
@@ -250,11 +280,26 @@ class TestbedLauncher:
                     duration = round(float(time.perf_counter() - started_at), 6)
                     from hydromodpy.analysis.testbed.io import _jsonable
 
+                    summary = _jsonable(child_summary)
+                    # capture end snapshot and attach if possible
+                    if collector is not None:
+                        try:
+                            _end_snap = collector.capture_end(start_time=_start_ts)
+                            # dataclasses -> mapping
+                            try:
+                                from dataclasses import asdict
+
+                                summary["auto_capture"] = asdict(_end_snap)
+                            except Exception:
+                                summary["auto_capture"] = str(_end_snap)
+                        except Exception:
+                            summary["auto_capture"] = None
+
                     execution = TestbedExecution(
                         case=case,
                         status="ok",
                         duration_seconds=duration,
-                        summary=_jsonable(child_summary),
+                        summary=summary,
                     )
                     if self.cfg.metrics:
                         _configured_metric_row(metrics=self.cfg.metrics, summary=execution.summary)
