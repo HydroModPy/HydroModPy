@@ -1,25 +1,13 @@
-from __future__ import annotations
+"""Wrapper to expose `ExecutionContext` from the external package.
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from typing import Any
+This repository no longer provides an internal ExecutionContext; the external
+package must be installed.
+"""
+try:
+    from validity_frame.auto_capture.context import Context, ExecutionContext
+except Exception as exc:  # pragma: no cover - environment dependent
+    raise ImportError(
+        "validity_frame external package not found; install it with 'pip install -e validity_frame'"
+    ) from exc
 
-
-@dataclass(slots=True)
-class Context:
-    run_id: str | None = None
-    solver: str | None = None
-    iteration: int | None = None
-    workspace: str | None = None
-    started_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class ExecutionContext:
-    run_id: str | None = None
-    solver: str | None = None
-    iteration: int | None = None
-    workspace: str | None = None
-    started_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
-    metadata: dict[str, Any] = field(default_factory=dict)
+__all__ = ["Context", "ExecutionContext"]
