@@ -17,7 +17,7 @@ import platform
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_OK, exit_code_for
+from hydromodpy.cli.helpers import EXIT_USAGE, exit_code_for
 
 
 def _version_string() -> str:
@@ -60,7 +60,9 @@ def _build_parser() -> argparse.ArgumentParser:
         version=_version_string(),
         help="Print version and exit",
     )
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(
+        dest="command", metavar="<command>", required=True, help="Available commands"
+    )
     for mod in ALL_COMMANDS:
         mod.register(subparsers)
     return parser
@@ -92,8 +94,8 @@ def main(argv: list[str] | None = None) -> None:
 
     handler = getattr(args, "_handler", None)
     if handler is None:
-        parser.print_help()
-        sys.exit(EXIT_OK)
+        parser.print_help(sys.stderr)
+        sys.exit(EXIT_USAGE)
 
     from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 

@@ -12,9 +12,10 @@ from pathlib import Path
 from hydromodpy.core.state.paths import find_catalog_root
 
 # ---------------------------------------------------------------------------
-# Standardised exit codes (interface refactor, see reports/99_target_architecture.md §5.3).
-# Typed codes 10..19 map onto specific exception classes; 0/1/2 keep their
-# POSIX-conventional meaning; 130 is the standard SIGINT termination code.
+# Standardised exit codes for the hmp CLI. The shared grammar that emits them
+# lives in ``hydromodpy/cli/_conventions.py``. Typed codes 10..19 map onto
+# specific exception classes; 0/1/2 keep their POSIX-conventional meaning;
+# 130 is the standard SIGINT termination code.
 # ---------------------------------------------------------------------------
 
 EXIT_OK = 0
