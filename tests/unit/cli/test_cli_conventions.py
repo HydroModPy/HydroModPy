@@ -20,11 +20,69 @@ from hydromodpy.cli import _conventions
 from hydromodpy.cli.main import _build_parser
 
 # Family groups whose bare invocation must be a usage error (exit 2).
-REQUIRED_GROUPS = ("catalog", "data", "dev", "project", "viz", "workspace")
+REQUIRED_GROUPS = (
+    "catalog",
+    "data",
+    "dev",
+    "project",
+    "viz",
+    "workspace",
+    "audit",
+    "report",
+    "privacy",
+)
+
+# (group, action) leaf commands that reference a single simulation: positional sim_ref.
+SIM_REF_COMMANDS = (
+    ("catalog", "show"),
+    ("catalog", "delete"),
+    ("viz", "show"),
+    ("privacy", "purge"),
+    ("report", "render"),
+)
+
+# Destructive leaf commands that must offer -y/--yes.
+DESTRUCTIVE_COMMANDS = (
+    ("catalog", "delete"),
+    ("project", "delete"),
+    ("privacy", "purge"),
+)
+
+# Read leaf commands that must offer --format.
+READ_FORMAT_COMMANDS = (
+    ("catalog", "ls"),
+    ("catalog", "show"),
+    ("catalog", "query"),
+)
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
     return _build_parser().parse_args(argv)
+
+
+def _subparsers_action(parser: argparse.ArgumentParser):
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return action
+    return None
+
+
+def _leaf_parser(group: str, action: str) -> argparse.ArgumentParser:
+    top = _subparsers_action(_build_parser())
+    grp = top.choices[group]
+    grp_sub = _subparsers_action(grp)
+    return grp_sub.choices[action]
+
+
+def _option_strings(parser: argparse.ArgumentParser) -> set[str]:
+    opts: set[str] = set()
+    for action in parser._actions:
+        opts.update(action.option_strings)
+    return opts
+
+
+def _positional_dests(parser: argparse.ArgumentParser) -> list[str]:
+    return [a.dest for a in parser._actions if not a.option_strings and a.dest != "help"]
 
 
 def test_bare_top_level_exits_2() -> None:
@@ -79,3 +137,34 @@ def test_add_sim_ref_adds_positional() -> None:
     parser = argparse.ArgumentParser(add_help=False)
     _conventions.add_sim_ref(parser)
     assert parser.parse_args(["ab12cd34"]).sim_ref == "ab12cd34"
+
+
+# --- Per-command grammar (Phase 3 sweep) -----------------------------------
+
+
+@pytest.mark.parametrize(("group", "action"), SIM_REF_COMMANDS)
+def test_simulation_reference_is_named_sim_ref(group: str, action: str) -> None:
+    parser = _leaf_parser(group, action)
+    assert "sim_ref" in _positional_dests(parser), (
+        f"{group} {action}: the simulation reference positional must be 'sim_ref'"
+    )
+
+
+@pytest.mark.parametrize(("group", "action"), DESTRUCTIVE_COMMANDS)
+def test_destructive_commands_offer_yes(group: str, action: str) -> None:
+    opts = _option_strings(_leaf_parser(group, action))
+    assert "-y" in opts and "--yes" in opts, f"{group} {action} must offer -y/--yes"
+
+
+@pytest.mark.parametrize(("group", "action"), READ_FORMAT_COMMANDS)
+def test_read_commands_offer_format(group: str, action: str) -> None:
+    opts = _option_strings(_leaf_parser(group, action))
+    assert "--format" in opts, f"{group} {action} must offer --format"
+
+
+def test_dev_doctor_removed() -> None:
+    """``hmp dev doctor`` is gone; the canonical verb is ``hmp doctor``."""
+    top = _subparsers_action(_build_parser())
+    dev_sub = _subparsers_action(top.choices["dev"])
+    assert "doctor" not in dev_sub.choices
+    assert "doctor" in top.choices

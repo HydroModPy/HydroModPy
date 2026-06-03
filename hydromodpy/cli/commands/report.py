@@ -16,6 +16,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
@@ -30,23 +31,16 @@ HELP: str = "Render HTML reports and pairwise comparisons"
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    sub = parser.add_subparsers(dest="report_action", metavar="<action>")
+    sub = parser.add_subparsers(dest="report_action", metavar="<action>", required=True)
 
     render_p = sub.add_parser(
         "render",
         help="Render an HTML report for a calibration session",
+        parents=[workspace_parser()],
+        epilog="Example:\n  hmp report render ab12cd34 --open",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    render_p.add_argument(
-        "session_id",
-        help="Calibration session UUID (full or unambiguous short prefix)",
-    )
-    render_p.add_argument(
-        "--workspace",
-        type=Path,
-        default=None,
-        metavar="PATH",
-        help="Project catalog root (defaults to ancestor of CWD).",
-    )
+    add_sim_ref(render_p, help="Calibration session UUID (full or unambiguous short prefix)")
     render_p.add_argument(
         "--open",
         action="store_true",
@@ -57,14 +51,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     compare_p = sub.add_parser(
         "compare",
         help="Compare two simulations side-by-side",
+        parents=[workspace_parser()],
+        epilog="Example:\n  hmp report compare ab12cd34 ef56gh78",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     compare_p.add_argument("ref_a", help="First simulation reference (id, prefix, or name)")
     compare_p.add_argument("ref_b", help="Second simulation reference")
-    compare_p.add_argument(
-        "--workspace",
-        default=None,
-        help="Project catalog root (default: auto-detect)",
-    )
     compare_p.add_argument(
         "--variables",
         default=None,
@@ -105,7 +97,7 @@ def _cmd_render(args: argparse.Namespace) -> None:
 
     workspace_root = args.workspace or find_catalog_root(Path.cwd())
     try:
-        out_path = hmp.report(args.session_id, workspace=workspace_root)
+        out_path = hmp.report(args.sim_ref, workspace=workspace_root)
     except ConfigMissingError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from hydromodpy.cli._conventions import confirm_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_SIGINT
 
 NAME: str = "delete"
@@ -12,10 +13,14 @@ HELP: str = "Delete a project and its catalog data"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[workspace_parser(), confirm_parser()],
+        epilog="Example:\n  hmp project delete demo -y",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("project", help="Project name (directory under projects/)")
-    parser.add_argument("--workspace", default=None, help="Workspace root")
-    parser.add_argument("--force", action="store_true", help="Skip the confirmation prompt")
     parser.set_defaults(_handler=run)
     return parser
 
@@ -23,9 +28,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.project import delete_project
 
-    if not args.force:
+    if not args.yes:
         if not sys.stdin.isatty():
-            print("Refusing to delete without --force in non-interactive mode.", file=sys.stderr)
+            print("Refusing to delete without -y in non-interactive mode.", file=sys.stderr)
             sys.exit(EXIT_SIGINT)
         try:
             resp = input(f"Delete project {args.project!r}? [y/N] ").strip().lower()
@@ -37,7 +42,7 @@ def run(args: argparse.Namespace) -> None:
             sys.exit(EXIT_SIGINT)
 
     try:
-        result = delete_project(args.project, workspace=args.workspace, force=args.force)
+        result = delete_project(args.project, workspace=args.workspace, force=args.yes)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
