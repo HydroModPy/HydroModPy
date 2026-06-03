@@ -184,6 +184,34 @@ def _register_analysis_contracts() -> None:
     register_testbed_runner_provider(ProjectTestbedRunnerProvider())
 
 
+def _register_auto_capture_provider() -> None:
+    """Wire the validity_frame auto-capture collector into the testbed contract.
+
+    Keeps the ``analysis`` layer free of a ``validity_frame`` import edge: the
+    testbed runtime resolves the collector through ``AutoCaptureProvider``. When
+    ``validity_frame`` (or its external dependencies) is unavailable, the null
+    provider stays in place and auto-capture remains optional.
+    """
+    from hydromodpy.analysis.testbed.contracts import register_auto_capture_provider
+
+    try:
+        from hydromodpy.validity_frame.adapters.external_adapter import (
+            AutoCaptureCollector,
+            ExecutionContext,
+        )
+    except Exception:
+        return
+
+    class _AutoCaptureProvider:
+        def make_collector(self, run_id: str):
+            try:
+                return AutoCaptureCollector(context=ExecutionContext(run_id=run_id))
+            except Exception:
+                return None
+
+    register_auto_capture_provider(_AutoCaptureProvider())
+
+
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
@@ -236,6 +264,7 @@ _BOOTSTRAP_HOOKS: tuple[Callable[[], None], ...] = (
     _register_calibration_contracts,
     _register_solver_registry_provider,
     _register_analysis_contracts,
+    _register_auto_capture_provider,
     _rebuild_forward_refs,
     _register_root_config_contracts,
     _register_dynamic_flow_examples_contract,

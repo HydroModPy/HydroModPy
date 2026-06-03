@@ -208,6 +208,11 @@ def run(args: argparse.Namespace) -> None:
         if not any_format:
             args.csv = True
 
+        if args.geotiff and args.resolution is None:
+            print("--resolution is required with --geotiff", file=sys.stderr)
+            catalog.close()
+            sys.exit(EXIT_CONFIG)
+
         # Real, registered field names present in this run (whitelist via the
         # field registry: skips Zarr groups like 'geographic', 'mesh', 'crs').
         field_vars: list[str] = []

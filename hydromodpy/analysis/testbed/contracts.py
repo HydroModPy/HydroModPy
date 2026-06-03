@@ -111,6 +111,40 @@ def get_testbed_runner_provider() -> TestbedRunnerProvider:
     return _provider
 
 
+@runtime_checkable
+class AutoCaptureProvider(Protocol):
+    """Creates an auto-capture collector for one testbed run.
+
+    Decouples the analysis testbed runtime from the experimental
+    ``validity_frame`` package (a forbidden import edge in the layer matrix).
+    The real provider is wired at bootstrap; when ``validity_frame`` or its
+    external dependencies are absent the null provider keeps auto-capture
+    optional.
+    """
+
+    def make_collector(self, run_id: str) -> Any | None:
+        """Return a collector (``capture_start`` / ``capture_end``), or None."""
+
+
+class _NullAutoCaptureProvider:
+    def make_collector(self, run_id: str) -> None:
+        return None
+
+
+_auto_capture_provider: AutoCaptureProvider = _NullAutoCaptureProvider()
+
+
+def register_auto_capture_provider(provider: AutoCaptureProvider) -> None:
+    """Register the auto-capture collector provider (wired at bootstrap)."""
+    global _auto_capture_provider
+    _auto_capture_provider = provider
+
+
+def get_auto_capture_provider() -> AutoCaptureProvider:
+    """Return the registered auto-capture provider (null provider by default)."""
+    return _auto_capture_provider
+
+
 def register_testbed_workflow_adapter(adapter: TestbedWorkflowAdapter) -> None:
     """Register or replace one testbed workflow adapter."""
     runner_type = str(adapter.runner_type).strip().lower()
