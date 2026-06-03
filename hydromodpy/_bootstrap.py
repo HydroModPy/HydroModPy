@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 _BOOTSTRAPPED = False
+_IN_PROGRESS = False
 
 
 def _rebuild_forward_refs() -> None:
@@ -250,9 +251,23 @@ def bootstrap() -> None:
     (``_register_root_config_contracts``,
     ``_register_dynamic_flow_examples_contract``).
     """
-    global _BOOTSTRAPPED
-    if _BOOTSTRAPPED:
+    global _BOOTSTRAPPED, _IN_PROGRESS
+    if _BOOTSTRAPPED or _IN_PROGRESS:
         return
-    for hook in _BOOTSTRAP_HOOKS:
-        hook()
-    _BOOTSTRAPPED = True
+    _IN_PROGRESS = True
+    try:
+        for hook in _BOOTSTRAP_HOOKS:
+            hook()
+        _BOOTSTRAPPED = True
+    finally:
+        _IN_PROGRESS = False
+
+
+def _register_bootstrap_hook() -> None:
+    """Register :func:`bootstrap` as the lazy hook (called at module import)."""
+    from hydromodpy.core.bootstrap_hook import set_bootstrap_hook
+
+    set_bootstrap_hook(bootstrap)
+
+
+_register_bootstrap_hook()

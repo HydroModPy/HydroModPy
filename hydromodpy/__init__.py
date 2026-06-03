@@ -21,14 +21,17 @@ from hydromodpy._api import (
     report,
     run,
 )
-from hydromodpy._bootstrap import bootstrap
+from hydromodpy._bootstrap import bootstrap  # noqa: F401  -- import registers the lazy hook
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
 from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
 from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 from hydromodpy.core.logging import LogManager
 from hydromodpy.core.version import __version__
 
-bootstrap()
+# ``bootstrap()`` is deferred to first real use (config validation, a verb,
+# Project, or the CLI handler) via ``core.bootstrap_hook``. Importing
+# ``_bootstrap`` above only registers the hook, so ``import hydromodpy`` and
+# ``hmp --help`` stay cheap. The symbol is kept public for explicit callers.
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = (

@@ -97,8 +97,10 @@ def main(argv: list[str] | None = None) -> None:
         parser.print_help(sys.stderr)
         sys.exit(EXIT_USAGE)
 
+    from hydromodpy.core.bootstrap_hook import ensure_bootstrapped
     from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 
+    ensure_bootstrapped()
     bootstrap_proj()
     try:
         handler(args)
