@@ -29,14 +29,16 @@ alt success
   Probes --> Collector: completed snapshot data
   Collector --> Capture: completed snapshot
   Capture -> Runner: return snapshot
-  Runner -> Storage: write runtime_capture_success.json\n+append runtime_capture.jsonl
+  Runner -> Storage: write runtime_capture_success.json
+  append runtime_capture.jsonl
 else failure
   Capture -> Collector: capture_exception(start_time, exc, solver_source, logs)
   Collector -> Probes: collect end state and exception details
   Probes --> Collector: failed snapshot data
   Collector --> Capture: failed snapshot
   Capture -> Runner: return failed snapshot
-  Runner -> Storage: write runtime_capture_failure.json\n+append runtime_capture.jsonl
+  Runner -> Storage: write runtime_capture_failure.json
+  append runtime_capture.jsonl
 end
 
 note right of Capture
