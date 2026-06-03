@@ -149,7 +149,8 @@ jobs:
             --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
             --ignore=tests/unit/geographic \
             --ignore=tests/unit/delineation \
-            -n auto --dist loadgroup \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
             --timeout=300 \
             --cov=hydromodpy \
             --cov-report= \
@@ -232,7 +233,8 @@ jobs:
       - name: Run integration suite
         run: |
           python -m pytest tests/integration/ \
-            -n auto --dist loadgroup \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
             --timeout=600 \
             -q
 
@@ -260,7 +262,7 @@ jobs:
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
       - name: Run fast regression suite
-        run: python -m pytest tests/regression/fast/ -n auto --dist loadgroup --timeout=600 -q
+        run: python -m pytest tests/regression/fast/ -n 2 --dist loadgroup --max-worker-restart=0 --timeout=600 -q
 
   package-smoke:
     name: Package / wheel smoke py3.12
