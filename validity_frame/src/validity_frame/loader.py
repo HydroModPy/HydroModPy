@@ -4,6 +4,7 @@ The package exposes a default entry point named ``default`` in the
 ``validity_frame.frames`` group. External projects can register their own
 implementations under the same group and load them dynamically.
 """
+
 from __future__ import annotations
 
 from importlib import metadata
@@ -38,6 +39,4 @@ def create_validity_frame(name: str = "default", **kwargs: Any):
         return ValidityFrame(**kwargs)
 
     available = sorted(ep.name for ep in _iter_entry_points("validity_frame.frames"))
-    raise LookupError(
-        f"No validity frame entry point named {name!r} found. Available: {available}"
-    )
+    raise LookupError(f"No validity frame entry point named {name!r} found. Available: {available}")

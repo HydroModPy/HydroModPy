@@ -114,7 +114,8 @@ jobs:
       - name: Run fast marker suite
         run: |
           python -m pytest -m fast \
-            -n auto --dist loadgroup \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
             --timeout=300 \
             -q
 
