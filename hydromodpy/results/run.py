@@ -50,7 +50,8 @@ Cross-refs
 from __future__ import annotations
 
 import json as _json
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
@@ -143,6 +144,46 @@ class Run(
             )
             self._row["tags"] = [r[0] for r in tag_rows] if tag_rows else None
         return self._row
+
+    # -- Export --------------------------------------------------------------
+
+    def export(
+        self,
+        var: str | list[str],
+        dest: str | Path,
+        *,
+        fmt: str | None = None,
+        time: int | Literal["first", "last", "all"] | None = None,
+        layer: int | None = None,
+        resolution: float | None = None,
+        crs: str | None = None,
+        nodata: float = -9999.0,
+    ) -> Path:
+        """Export one or more variables of this run to a standalone file.
+
+        The natural Python gesture: no UUID handling, the run already knows
+        which simulation to read. ``fmt`` is optional when ``dest`` has a known
+        extension (``.nc``, ``.tif``, ``.csv``, ``.shp``, ``.vtu``, ``.hmp``).
+
+        Examples
+        --------
+        >>> run.export("head", "head.tif", time="last", resolution=50)
+        >>> run.export(["head", "watertable_depth"], "fields.nc", time="all")
+        >>> run.export("*", "timeseries.csv")
+        """
+        from hydromodpy.core.config_kit.export_spec import ExportSpec
+
+        spec = ExportSpec(
+            var=var,
+            dest=Path(dest),
+            fmt=fmt,
+            time=time,
+            layer=layer,
+            resolution=resolution,
+            crs=crs,
+            nodata=nodata,
+        )
+        return self._catalog.export(self._sim_id, spec)
 
     # -- Metadata properties -------------------------------------------------
 

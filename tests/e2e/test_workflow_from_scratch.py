@@ -211,9 +211,11 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
     _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
 
     nc_out = tmp_path / "head.nc"
+    from hydromodpy.core.config_kit.export_spec import ExportSpec
+
     try:
         with hmp.open(workspace) as catalog:
-            catalog.export(sim_id, "head", "netcdf", nc_out)
+            catalog.export(sim_id, ExportSpec(var="head", fmt="netcdf", dest=nc_out))
     except KeyError as exc:
         pytest.skip(f"NetCDF export needs a UGRID mesh, not present on this synthetic sim: {exc}")
     except Exception as exc:  # pragma: no cover - guarded for missing optional dep

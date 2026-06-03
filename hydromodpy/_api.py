@@ -693,6 +693,55 @@ def _has_geographic_feature(sim: Any, feature_name: str) -> bool:
     return feature_name in names
 
 
+def export(
+    sim: Any,
+    var: str | list[str],
+    dest: Any,
+    *,
+    fmt: str | None = None,
+    time: int | str | None = None,
+    layer: int | None = None,
+    resolution: float | None = None,
+    crs: str | None = None,
+    nodata: float = -9999.0,
+) -> Path:
+    """Export a variable from a simulation to a standalone file.
+
+    Functional mirror of :func:`read`: same selector (``sim`` / ``var`` /
+    ``time`` / ``layer``) plus an output format and destination. ``sim`` must
+    be a :class:`~hydromodpy.results.run.Run`, as returned by
+    ``hmp.open(workspace)[ref]`` or ``catalog.latest()``.
+
+    ``fmt`` is optional when ``dest`` carries a known extension
+    (``.nc`` -> netcdf, ``.tif`` -> geotiff, ``.csv`` -> csv, ``.shp`` ->
+    shapefile, ``.vtu`` -> vtu, ``.hmp`` -> portable package).
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> run = hmp.open("~/hmp_workspace")["transient_nwt"]
+    >>> hmp.export(run, "head", "head.tif", time="last", resolution=50)
+    >>> hmp.export(run, ["head", "watertable_depth"], "fields.nc", time="all")
+    """
+    from hydromodpy.results.run import Run
+
+    if not isinstance(sim, Run):
+        raise TypeError(
+            f"hmp.export expects a Run object as first argument, got {type(sim).__name__}. "
+            f"Obtain one with hmp.open(workspace)[ref] or catalog.latest()."
+        )
+    return sim.export(
+        var,
+        dest,
+        fmt=fmt,
+        time=time,
+        layer=layer,
+        resolution=resolution,
+        crs=crs,
+        nodata=nodata,
+    )
+
+
 def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]:
     """Apply ``retention_policies`` to ``audit_log`` for the workspace catalog.
 

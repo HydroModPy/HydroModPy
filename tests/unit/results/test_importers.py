@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.config_kit.export_spec import ExportSpec
 from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.importers import (
@@ -83,7 +84,7 @@ class TestImportCSVTimeseries:
     def test_roundtrip(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "ts.csv"
-        catalog.export(sid, "*", "csv", out)
+        catalog.export(sid, ExportSpec(var="*", fmt="csv", dest=out))
 
         df = import_csv_timeseries(out)
         assert list(df.columns) == [
@@ -102,7 +103,7 @@ class TestImportCSVTimeseries:
     def test_filter_variable(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "ts.csv"
-        catalog.export(sid, "*", "csv", out)
+        catalog.export(sid, ExportSpec(var="*", fmt="csv", dest=out))
 
         df = import_csv_timeseries(out, variable="recharge")
         assert (df["variable"] == "recharge").all()
@@ -142,7 +143,7 @@ class TestImportNetCDFFields:
     def test_roundtrip_head(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "fields.nc"
-        catalog.export(sid, "head", "netcdf", out)
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
 
         fields = import_netcdf_fields(out, ["head"])
         assert "head" in fields
@@ -151,7 +152,7 @@ class TestImportNetCDFFields:
     def test_default_loads_registered_only(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "fields.nc"
-        catalog.export(sid, "head", "netcdf", out)
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
 
         fields = import_netcdf_fields(out)
         assert "head" in fields
@@ -160,7 +161,7 @@ class TestImportNetCDFFields:
     def test_timestep_subset(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "fields.nc"
-        catalog.export(sid, "head", "netcdf", out)
+        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
 
         fields = import_netcdf_fields(out, ["head"], timesteps=[0, 2])
         assert fields["head"].shape == (2, 2, 6)

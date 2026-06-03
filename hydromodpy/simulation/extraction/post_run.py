@@ -244,78 +244,60 @@ def _auto_export(
     Exports are written to ``exports/{export_label}/`` so that the
     directory tree is organized by human-readable run name, not UUID.
     """
-    export = config.export
-    if not export.any_enabled():
-        return
+    from hydromodpy.core.config_kit.export_spec import ExportSpec
 
-    var_names = export.variables.active_names()
-    if not var_names:
-        return
+    export = config.export
 
     label = export_label or sim_id[:8]
-    base_dir = Path(export.output_dir) if export.output_dir else None
-    if base_dir is None:
-        base_dir = store.project_path / "exports"
+    base_dir = Path(export.output_dir) if export.output_dir else store.project_path / "exports"
     output_dir = base_dir / label
+
+    specs: list[ExportSpec] = []
+
+    # Format toggles -> one spec per artifact (rasters use the first timestep,
+    # preserving the historical filename convention).
+    if export.any_enabled():
+        var_names = export.variables.active_names()
+        if export.csv_timeseries:
+            specs.append(ExportSpec(var="*", dest=output_dir / "timeseries.csv"))
+        if var_names:
+            if export.netcdf:
+                specs.append(ExportSpec(var=list(var_names), dest=output_dir / "fields.nc"))
+            for var in var_names:
+                if export.vtu:
+                    specs.append(
+                        ExportSpec(var=var, dest=output_dir / f"{var}_t0.vtu", time="first")
+                    )
+                if export.geotiff:
+                    specs.append(
+                        ExportSpec(
+                            var=var,
+                            dest=output_dir / f"{var}_t0.tif",
+                            time="first",
+                            resolution=export.resolution,
+                        )
+                    )
+                if export.shapefile:
+                    specs.append(
+                        ExportSpec(var=var, dest=output_dir / f"{var}_t0.shp", time="first")
+                    )
+
+    # Explicit artifact specs (the full contract). Relative dests resolve under
+    # the run export directory; absolute dests are kept verbatim.
+    for art in export.artifacts:
+        dest = art.dest if art.dest.is_absolute() else output_dir / art.dest
+        specs.append(art.model_copy(update={"dest": dest}))
+
+    if not specs:
+        return
+
     output_dir.mkdir(parents=True, exist_ok=True)
-
     failures: list[str] = []
-
-    if export.csv_timeseries:
+    for spec in specs:
         try:
-            store.export(sim_id, "*", "csv", output_dir / "timeseries.csv")
+            store.export(sim_id, spec)
         except Exception as exc:
-            failures.append(f"csv: {exc}")
-
-    if export.netcdf and var_names:
-        try:
-            store.export(
-                sim_id,
-                ",".join(var_names),
-                "netcdf",
-                output_dir / "fields.nc",
-            )
-        except Exception as exc:
-            failures.append(f"netcdf: {exc}")
-
-    if export.vtu and var_names:
-        for var in var_names:
-            try:
-                store.export(
-                    sim_id,
-                    var,
-                    "vtu",
-                    output_dir / f"{var}_t0.vtu",
-                    timestep=0,
-                )
-            except Exception as exc:
-                failures.append(f"vtu:{var}: {exc}")
-
-    if export.geotiff and var_names:
-        for var in var_names:
-            try:
-                store.export(
-                    sim_id,
-                    var,
-                    "geotiff",
-                    output_dir / f"{var}_t0.tif",
-                    timestep=0,
-                )
-            except Exception as exc:
-                failures.append(f"geotiff:{var}: {exc}")
-
-    if export.shapefile and var_names:
-        for var in var_names:
-            try:
-                store.export(
-                    sim_id,
-                    var,
-                    "shapefile",
-                    output_dir / f"{var}_t0.shp",
-                    timestep=0,
-                )
-            except Exception as exc:
-                failures.append(f"shapefile:{var}: {exc}")
+            failures.append(f"{spec.fmt.value}:{spec.var}: {exc}")
 
     if failures:
         raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
