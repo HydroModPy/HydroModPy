@@ -30,6 +30,12 @@ Sub-modules
   probes.
 - ``validity_frame/storage/`` -- JSONL-to-DuckDB ingestion helpers.
 
+Sequence diagram
+----------------
+
+- :doc:`../process/diagrams/validity_frame_runtime_sequence` -- runtime
+  envelope showing capture before, during and after simulation.
+
 Storage contract
 ----------------
 

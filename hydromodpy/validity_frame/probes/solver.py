@@ -1,37 +1,12 @@
-from __future__ import annotations
+"""Wrapper that re-exports solver probe from external package.
 
-from dataclasses import dataclass
-from typing import Any
+Requires `validity_frame` to be installed.
+"""
+try:
+    from validity_frame.probes.solver import SolverMetrics, SolverProbe
+except Exception as exc:  # pragma: no cover - environment dependent
+    raise ImportError(
+        "validity_frame external package not found; install it with 'pip install -e validity_frame'"
+    ) from exc
 
-
-@dataclass(slots=True)
-class SolverMetrics:
-    solver_name: str | None = None
-    iterations: int | None = None
-    converged: bool | None = None
-    solver_status: str | None = None
-
-
-class SolverProbe:
-    @staticmethod
-    def collect(source: Any = None) -> SolverMetrics:
-        if source is None:
-            return SolverMetrics()
-
-        solver_name = getattr(source, "solver", None)
-        if solver_name is None:
-            solver_name = getattr(source, "solver_name", None)
-
-        iterations = getattr(source, "iterations", None)
-        if iterations is None:
-            iterations = getattr(source, "n_iter", None)
-
-        converged = getattr(source, "converged", None)
-        solver_status = getattr(source, "status", None)
-
-        return SolverMetrics(
-            solver_name=solver_name,
-            iterations=iterations,
-            converged=converged,
-            solver_status=solver_status,
-        )
+__all__ = ["SolverMetrics", "SolverProbe"]

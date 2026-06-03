@@ -1,29 +1,12 @@
-from __future__ import annotations
+"""Wrapper that re-exports system probe from external package.
 
-import platform
-from dataclasses import dataclass
+Requires `validity_frame` to be installed.
+"""
+try:
+    from validity_frame.probes.system import SystemMetrics, SystemProbe
+except Exception as exc:  # pragma: no cover - environment dependent
+    raise ImportError(
+        "validity_frame external package not found; install it with 'pip install -e validity_frame'"
+    ) from exc
 
-
-@dataclass(slots=True)
-class SystemMetrics:
-    os_name: str | None = None
-    os_release: str | None = None
-    os_version: str | None = None
-    machine: str | None = None
-    python_version: str | None = None
-
-
-class SystemProbe:
-    @staticmethod
-    def collect() -> SystemMetrics:
-        return SystemMetrics(
-            os_name=platform.system(),
-            os_release=platform.release(),
-            os_version=platform.version(),
-            machine=platform.machine(),
-            python_version=platform.python_version(),
-        )
-
-    @staticmethod
-    def capture() -> SystemMetrics:
-        return SystemProbe.collect()
+__all__ = ["SystemMetrics", "SystemProbe"]
