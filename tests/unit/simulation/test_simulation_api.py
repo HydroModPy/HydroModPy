@@ -683,7 +683,7 @@ class TestSimulationGroup:
             return sids
 
         monkeypatch.setattr("hydromodpy.workflow.parallel.run_sweep", fake_run_sweep)
-        project = SimpleNamespace(_store=catalog)
+        project = SimpleNamespace(_store=catalog, _ensure_model_built=lambda: None)
 
         group = ProjectRunner(project).sweep({"K": [1.0, 2.0]})
 
@@ -767,7 +767,7 @@ class TestSimulationGroup:
         )
         project = SimpleNamespace(
             _ctx=ctx,
-            cfg=SimpleNamespace(),
+            _cfg=SimpleNamespace(),
             _config_path=tmp_path / "hydromodpy.toml",
             _spatial_support_registry=None,
             _requested_support_ids=(),
@@ -845,7 +845,7 @@ class TestSimulationGroup:
         )
         project = SimpleNamespace(
             _ctx=ctx,
-            cfg=SimpleNamespace(),
+            _cfg=SimpleNamespace(),
             _config_path=tmp_path / "hydromodpy.toml",
             _spatial_support_registry=None,
             _requested_support_ids=(),

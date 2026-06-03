@@ -84,12 +84,10 @@ def test_lazy_and_module_keys_disjoint() -> None:
 
 
 class _FakeProject:
-    """Test double matching :class:`hydromodpy.project.Project` surface."""
+    """Test double matching the :class:`hydromodpy.project.Project` surface."""
 
     last_headless: bool | None = None
-    last_run_kwargs: dict | None = None
     last_calibrate_kwargs: dict | None = None
-    run_result: object = None
     calibrate_result: object = None
 
     def __init__(self, cfg, *, headless=False):  # noqa: D401
@@ -101,18 +99,9 @@ class _FakeProject:
     def __exit__(self, *exc):
         return False
 
-    def run(self, **kwargs):
-        type(self).last_run_kwargs = kwargs
-        return type(self).run_result
-
     def calibrate(self, **kwargs):
         type(self).last_calibrate_kwargs = kwargs
         return type(self).calibrate_result
-
-    @classmethod
-    def lazy(cls, cfg, *, headless=True):
-        cls.last_headless = headless
-        return cls(cfg, headless=headless)
 
 
 def _write_simulation_toml(path: Path) -> Path:
@@ -132,9 +121,8 @@ def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> Non
         return {"branch": "path"}
 
     class _SentinelProject(_FakeProject):
-        @classmethod
-        def lazy(cls, cfg, *, headless=True):
-            raise AssertionError("Project.lazy must not be used on the TOML branch")
+        def __init__(self, *a, **k):
+            raise AssertionError("Project must not be constructed on the TOML branch")
 
     monkeypatch.setattr("hydromodpy.calibration.cli_runner.run_calibration_cli", fake_cli)
     monkeypatch.setattr("hydromodpy.project.Project", _SentinelProject)
@@ -145,7 +133,7 @@ def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> Non
 
 
 def test_calibrate_object_branch_keeps_project(monkeypatch) -> None:
-    """The config-object branch still routes through ``Project.lazy``."""
+    """The config-object branch still routes through a ``Project`` context."""
     _FakeProject.calibrate_result = {"branch": "object"}
     monkeypatch.setattr("hydromodpy.project.Project", _FakeProject)
 

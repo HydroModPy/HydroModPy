@@ -19,13 +19,14 @@ from typing import TYPE_CHECKING, Any, cast
 
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.project.prepared_run import DEFAULT_RUN_NAME_TEMPLATE, ProjectPreparedRun
 
 if TYPE_CHECKING:
     from hydromodpy.project.facade import Project
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
+
+DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
 
 
 @contextmanager
@@ -146,44 +147,6 @@ class ProjectRunner:
 
     def __init__(self, project: Project) -> None:
         self._project = project
-        self._prepared = ProjectPreparedRun(project)
-
-    # -- Prepared-run primitives (delegated) ------------------------------
-
-    def prepare(self, *, name: str | None = None, **overrides) -> str:
-        """Reserve a sim_id, register the simulation and persist all inputs."""
-        return self._prepared.prepare(name=name, **overrides)
-
-    def execute(self, sim_id: str) -> float:
-        """Run the solver for a previously prepared simulation."""
-        return self._prepared.execute(sim_id)
-
-    def ingest(self, sim_id: str, *, extractors: list[str] | None = None) -> None:
-        """Ingest observations for a completed simulation."""
-        return self._prepared.ingest(sim_id, extractors=extractors)
-
-    def render(
-        self,
-        sim_id: str,
-        *,
-        figures: list[str] | None = None,
-    ) -> list[Path]:
-        """Render the display figures attached to this simulation."""
-        return self._prepared.render(sim_id, figures=figures)
-
-    def cleanup(
-        self,
-        sim_id: str,
-        *,
-        keep_solver_files: bool = False,
-        status: str = "completed",
-    ) -> None:
-        """Finalize the run status and remove the scratch directory."""
-        return self._prepared.cleanup(
-            sim_id,
-            keep_solver_files=keep_solver_files,
-            status=status,
-        )
 
     # -- High-level workflow entry points ---------------------------------
 
@@ -284,7 +247,7 @@ class ProjectRunner:
             run_id=run_id,
             data={
                 "ctx": project._ctx,
-                "cfg": project.cfg,
+                "cfg": project._cfg,
                 "config_path": project._config_path,
                 "raw_toml": getattr(project._ctx, "raw_toml", {}) or {},
                 "skip_display": skip_display,
@@ -339,82 +302,6 @@ class ProjectRunner:
         _rebind_run_history_catalog(project)
         return run_view
 
-    def simulate(
-        self,
-        *,
-        time: tuple | None = None,
-        processes: list | None = None,
-        name: str | None = None,
-        **overrides,
-    ) -> Run:
-        """Run one simulation with orchestration specified from Python."""
-        from hydromodpy.simulation.planning.config import (
-            FlowProcessConfig,
-            MeshProcessConfig,
-            SimulationTimeConfig,
-            TransportProcessConfig,
-        )
-
-        project = self._project
-
-        if time is not None:
-            start, end, step = time
-            project.cfg.simulation.time = SimulationTimeConfig(
-                start_datetime=start,
-                end_datetime=end,
-                step_value=step,
-                coverage_policy=getattr(project.cfg.simulation.time, "coverage_policy", "warn"),
-            )
-            from hydromodpy.core.time import (
-                apply_explicit_time_window_to_tgrids,
-                require_flow_simulation_time_grid,
-            )
-
-            apply_explicit_time_window_to_tgrids(project.cfg)
-            project._time_grid = require_flow_simulation_time_grid(project.cfg)
-            project._ctx.setup.time_grid = project._time_grid
-
-        if processes is not None:
-            resolved: list[Any] = []
-            for idx, entry in enumerate(processes):
-                if isinstance(entry, str):
-                    proc_type, solver_name = entry, project._solver
-                else:
-                    proc_type, solver_name = entry
-                ptype = str(proc_type).strip().lower()
-                if ptype == "mesh":
-                    resolved.append(
-                        MeshProcessConfig(
-                            id=f"{proc_type}_{idx}",
-                            backend=str(solver_name or "catchment"),
-                        )
-                    )
-                elif ptype == "flow":
-                    resolved.append(
-                        FlowProcessConfig(
-                            id=f"{proc_type}_{idx}",
-                            solvers=[solver_name],
-                        )
-                    )
-                elif ptype == "transport":
-                    resolved.append(
-                        TransportProcessConfig(
-                            id=f"{proc_type}_{idx}",
-                            solvers=[solver_name],
-                        )
-                    )
-                else:
-                    raise ValueError(
-                        f"Unknown process type '{proc_type}'. "
-                        "Supported types: flow, transport, mesh."
-                    )
-            project.cfg.simulation.process = resolved
-
-        run = self.run(name=name, **overrides)
-        if run is None:
-            raise RuntimeError("Simulation did not produce a run.")
-        return run
-
     def sweep(
         self,
         parameters: dict[str, list[float] | dict],
@@ -434,6 +321,7 @@ class ProjectRunner:
         from hydromodpy.results.simulation_group import SimulationGroup
         from hydromodpy.workflow.parallel import run_sweep
 
+        self._project._ensure_model_built()
         sim_ids = run_sweep(
             cast(Any, self._project),
             parameters=parameters,

@@ -171,7 +171,7 @@ def run(config: Any, **kwargs: Any) -> Any:
 
     See Also
     --------
-    hydromodpy.project.Project.run
+    hydromodpy.project.Project.simulate
         Object-oriented form for repeated runs from one project.
     """
     headless = bool(kwargs.pop("headless", False))
@@ -191,7 +191,7 @@ def run(config: Any, **kwargs: Any) -> Any:
     from hydromodpy.project import Project
 
     with Project(config, headless=headless) as project:
-        return project.run(**kwargs)
+        return project.simulate(**kwargs)
 
 
 def calibrate(config: Any, **kwargs: Any) -> Any:
@@ -248,7 +248,7 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
     from hydromodpy.project import Project
 
     headless = bool(kwargs.pop("headless", True))
-    with Project.lazy(config, headless=headless) as project:
+    with Project(config, headless=headless) as project:
         return project.calibrate(**kwargs)
 
 

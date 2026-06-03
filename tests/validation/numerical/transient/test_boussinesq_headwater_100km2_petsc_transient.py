@@ -102,7 +102,7 @@ def _run_transient_real_case_summary(
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
     with Project(config_path) as project:
-        run = project.run()
+        run = project.simulate()
     assert run is not None
 
     return _load_boussinesq_summary(project_root)
