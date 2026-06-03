@@ -565,7 +565,7 @@ def promote_trial(
     paths
         Parameter name → dotted config path mapping. When omitted the
         caller must have already configured the values via
-        ``Project.run(**values)`` conventions (flat Flow.parameters).
+        ``Project.simulate(**values)`` conventions (flat Flow.parameters).
     name
         Run name (falls back to ``"promoted_<short sid>"``).
     tags

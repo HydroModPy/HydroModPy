@@ -212,7 +212,7 @@ class Project:
         solver, headless, no_display
             Options forwarded to the derived :class:`Project`.
         overrides
-            Flow parameter overrides forwarded to :meth:`Project.run`.
+            Flow parameter overrides forwarded to :meth:`Project.simulate`.
 
         Returns
         -------
