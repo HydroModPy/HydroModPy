@@ -3,6 +3,7 @@
 This module does not depend on HydroModPy. It uses duck-typing on the
 `state` object (it must expose the attributes required by your rules).
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable

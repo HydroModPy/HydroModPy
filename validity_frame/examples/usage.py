@@ -8,6 +8,7 @@ Run after installing the package locally (editable):
 This script shows direct use of `ValidityFrame` and the automatic loader
 based on entry points.
 """
+
 from types import SimpleNamespace
 
 from validity_frame import ValidityFrame, create_validity_frame
