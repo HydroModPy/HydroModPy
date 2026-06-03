@@ -145,10 +145,11 @@ class LogManager:
         watershed_folder : str
             Path to watershed folder
         """
-        self.simulation_log_path = os.path.join(watershed_folder, "hydromodpy_debug.log")
+        sim_log_dir = os.path.join(watershed_folder, ".hmp", "logs")
+        self.simulation_log_path = os.path.join(sim_log_dir, "hydromodpy_debug.log")
 
-        # Create folder if needed
-        os.makedirs(watershed_folder, exist_ok=True)
+        # Create the hidden log folder if needed
+        os.makedirs(sim_log_dir, exist_ok=True)
 
         # Remove any existing simulation log handler
         for handler in self.logger.handlers[:]:
@@ -171,7 +172,7 @@ class LogManager:
         )
         candidate_paths = [
             self.simulation_log_path,
-            os.path.join(watershed_folder, f"hydromodpy_debug_{os.getpid()}.log"),
+            os.path.join(sim_log_dir, f"hydromodpy_debug_{os.getpid()}.log"),
         ]
         for candidate_path in candidate_paths:
             try:
