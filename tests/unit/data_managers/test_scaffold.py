@@ -56,6 +56,12 @@ class TestScaffold:
         for ext in ("gpkg", "shp", "geojson", "tif", "csv"):
             assert (geo / f"geology_custom_EXAMPLE.{ext}").exists(), ext
 
+    def test_example_project_and_projects_readme(self, ws):
+        assert (ws / "projects" / "README.md").exists()
+        example = ws / "projects" / "example"
+        assert (example / "hydromodpy.toml").exists()
+        assert (example / "run_demo.toml").exists()
+
     def test_idempotent(self, tmp_path):
         """Running scaffold twice does not overwrite existing files."""
         root = scaffold(tmp_path / "hmp")

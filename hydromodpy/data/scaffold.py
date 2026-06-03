@@ -343,6 +343,41 @@ solvers = ["modflow_nwt"]
 """
 
 
+EXAMPLE_PROJECT_NAME = "example"
+
+PROJECTS_README = """\
+# projects/ - your HydroModPy projects
+
+Each project lives in its own subfolder here, e.g. `projects/example/`. You
+work *inside* a project folder, never directly in `projects/`.
+
+A project folder holds:
+
+- `hydromodpy.toml` - shared settings (geographic, domain, data, flow).
+- `run_*.toml`      - one runnable configuration each, inheriting the above.
+
+Create a new project:
+
+    hmp project new <name>
+
+Then run it:
+
+    hmp run projects/<name>/run_demo.toml
+
+`projects/example/` is a ready-to-run synthetic demo. Copy it or start fresh.
+"""
+
+PROJECT_GITIGNORE = """\
+# HydroModPy generated artefacts - do not edit or commit.
+# Internal runtime (catalog, backups, logs) lives under .hmp/.
+.hmp/
+*.duckdb
+*.duckdb.*
+simulations/
+exports/
+"""
+
+
 def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) -> Path:
     """Create the HydroModPy workspace folder layout.
 
@@ -359,13 +394,19 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
         |   |   |-- README.md
         |   |   |-- geology_custom_EXAMPLE.gpkg / .shp / .geojson / .tif / .csv
         |   |-- dem/ ...
-        |-- projects/                     (empty, ready for hmp new)
+        |-- projects/
+        |   |-- README.md                 (how projects are organised)
+        |   |-- example/                  (ready-to-run synthetic demo project)
+        |   |   |-- hydromodpy.toml
+        |   |   |-- run_demo.toml
 
     Each ``data/<variable>/`` folder ships a README plus one example file per
-    accepted input format. Example files carry the ``EXAMPLE`` id token and are
-    never loaded as data. Idempotent for user files: existing READMEs and data
-    files are never overwritten. Pass ``with_examples=False`` to skip the
-    (geospatial) example generation.
+    accepted input format. ``projects/`` gets a README and an ``example/``
+    starter project so the ``projects/<name>/`` convention is obvious. Example
+    files carry the ``EXAMPLE`` id token and are never loaded as data.
+    Idempotent for user files: existing READMEs and data files are never
+    overwritten. Pass ``with_examples=False`` to skip the (geospatial) data
+    examples and the example project.
     """
     root = Path(root_dir).expanduser().resolve() if root_dir else DEFAULT_ROOT
     root.mkdir(parents=True, exist_ok=True)
@@ -391,6 +432,15 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
                 file_prefix=spec.file_prefix,
                 unit=spec.unit,
             )
+
+    projects_readme = root / "projects" / "README.md"
+    if not projects_readme.exists():
+        projects_readme.write_text(PROJECTS_README, encoding="utf-8")
+
+    if with_examples:
+        # A ready-to-run demo so the projects/<name>/ convention is obvious:
+        # work inside a project subfolder, not directly in projects/.
+        create_project(root, EXAMPLE_PROJECT_NAME)
 
     return root
 
@@ -423,5 +473,9 @@ def create_project(workspace_root: Path, name: str) -> Path:
             RUN_TOML_TEMPLATE.format(run_name="demo"),
             encoding="utf-8",
         )
+
+    gitignore = project_dir / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text(PROJECT_GITIGNORE, encoding="utf-8")
 
     return project_dir

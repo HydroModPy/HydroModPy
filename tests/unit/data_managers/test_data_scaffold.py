@@ -66,6 +66,13 @@ def test_creates_projects_and_data_dirs(ws):
     assert (ws / "data").is_dir()
 
 
+def test_creates_example_project_and_projects_readme(ws):
+    assert (ws / "projects" / "README.md").exists()
+    example = ws / "projects" / "example"
+    assert (example / "hydromodpy.toml").exists()
+    assert (example / "run_demo.toml").exists()
+
+
 def test_example_files_are_flagged_inert():
     assert is_scaffold_example("geology_custom_EXAMPLE.gpkg")
     assert is_scaffold_example("hydrometry_custom_EXAMPLE_20000101_20000131_D.csv")

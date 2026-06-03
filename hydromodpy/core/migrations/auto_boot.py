@@ -67,19 +67,28 @@ def _format_timestamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
+def _backup_dir(db_path: Path) -> Path:
+    """Hidden directory holding rolling backups next to ``db_path``."""
+    return db_path.parent / ".hmp" / "backups"
+
+
 def backup_path_for(db_path: Path, *, timestamp: str | None = None) -> Path:
-    """Return the canonical backup path for ``db_path`` at ``timestamp``."""
+    """Return the canonical backup path for ``db_path`` at ``timestamp``.
+
+    Backups live in a hidden ``.hmp/backups/`` folder next to the database so
+    they never clutter the project directory.
+    """
     stamp = timestamp or _format_timestamp()
-    return db_path.with_name(f"{db_path.name}{BACKUP_SUFFIX}{stamp}")
+    return _backup_dir(db_path) / f"{db_path.name}{BACKUP_SUFFIX}{stamp}"
 
 
 def list_backups(db_path: Path) -> list[Path]:
     """Return existing backups for ``db_path`` ordered oldest -> newest."""
-    parent = db_path.parent
-    if not parent.is_dir():
+    backup_dir = _backup_dir(db_path)
+    if not backup_dir.is_dir():
         return []
     matches: list[tuple[str, Path]] = []
-    for candidate in parent.iterdir():
+    for candidate in backup_dir.iterdir():
         m = _BACKUP_TS_RE.match(candidate.name)
         if m is None:
             continue
