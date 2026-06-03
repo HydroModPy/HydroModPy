@@ -1,0 +1,35 @@
+@startuml testbed_activity
+title Testbed Activity Diagram
+
+start
+ :Load testbed TOML -> TestbedConfig;
+ :Expand cases (explicit + catalog);
+ :Materialize child TOML files in _generated_configs;
+ :Write plan / manifest / CSV / MD to output_root;
+
+if (cfg.execute?) then (yes)
+  :For each planned case;
+  if (case.enabled?) then (yes)
+    :Prepare AutoCaptureCollector (optional);
+    :capture_start();
+    :Run child workflow via provider
+    (run_simulation / run_comparison / run_calibration);
+    :capture_end();
+    :Attach snapshot to summary as auto_capture;
+    :Persist outputs (manifest, metrics CSV, report);
+  else (no)
+    :Mark case as disabled (skip execution);
+  endif
+else (no)
+  :Only materialize child configs (no execution);
+endif
+
+stop
+
+note right
+ The Testbed orchestrates child workflows and collects
+ results/metrics. The scientific work is performed by
+ child workflows provided by the registered provider.
+end note
+
+@enduml

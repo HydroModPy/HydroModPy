@@ -13,7 +13,6 @@ from hydromodpy.analysis.testbed.config import (
     TestbedConfig,
 )
 from hydromodpy.analysis.testbed.contracts import (
-    get_auto_capture_provider,
     run_testbed_child_workflow,
     testbed_runner_workflow,
 )
@@ -237,26 +236,9 @@ class TestbedLauncher:
             for case in cases:
                 if case.status == "disabled":
                     continue
-                # auto-capture collector via the DI contract (keeps analysis
-                # free of a validity_frame import edge); None when unavailable.
-                collector = get_auto_capture_provider().make_collector(case.variant.id)
 
                 started_at = time.perf_counter()
                 try:
-                    # capture start snapshot if collector available
-                    if collector is not None:
-                        import time as _time
-
-                        _start_ts = _time.time()
-                        try:
-                            _ = collector.capture_start()
-                        except Exception:
-                            _start_ts = _time.time()
-                    else:
-                        import time as _time
-
-                        _start_ts = _time.time()
-
                     child_summary = self._run_case(case)
                     if self.cfg.runner.type == "simulation":
                         child_summary = {
@@ -270,20 +252,6 @@ class TestbedLauncher:
                     from hydromodpy.analysis.testbed.io import _jsonable
 
                     summary = _jsonable(child_summary)
-                    # capture end snapshot and attach if possible
-                    if collector is not None:
-                        try:
-                            _end_snap = collector.capture_end(start_time=_start_ts)
-                            # dataclasses -> mapping
-                            try:
-                                from dataclasses import asdict
-
-                                summary["auto_capture"] = asdict(_end_snap)
-                            except Exception:
-                                summary["auto_capture"] = str(_end_snap)
-                        except Exception:
-                            summary["auto_capture"] = None
-
                     execution = TestbedExecution(
                         case=case,
                         status="ok",

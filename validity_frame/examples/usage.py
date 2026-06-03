@@ -9,14 +9,11 @@ This script shows direct use of `ValidityFrame` and the automatic loader
 based on entry points.
 """
 from types import SimpleNamespace
-import logging
 
 from validity_frame import ValidityFrame, create_validity_frame
 
-logger = logging.getLogger(__name__)
 
-
-def direct_examples():
+def direct_examples() -> None:
     print("--- Direct examples ---")
     vf = ValidityFrame(tolerant=False)
 
@@ -37,7 +34,7 @@ def direct_examples():
         print("state_ok: verification failed (unexpected):", exc)
 
 
-def wrapper_example():
+def wrapper_example() -> None:
     print("--- Automatic loading example ---")
     vf = create_validity_frame(tolerant=True)
     state = SimpleNamespace(run_id="example", data={"a": 1})
@@ -47,6 +44,5 @@ def wrapper_example():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     direct_examples()
     wrapper_example()

@@ -1,1 +1,0 @@
-"""Validity Frame service package."""

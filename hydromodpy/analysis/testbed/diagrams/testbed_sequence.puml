@@ -1,0 +1,37 @@
+@startuml testbed_sequence
+title Testbed Sequence Diagram
+
+actor User
+participant Launcher as TestbedLauncher
+participant Config as TestbedConfig
+participant FS as FileSystem_generated_configs
+participant Provider as TestbedRunnerProvider
+participant Child as ChildWorkflow
+participant Collector as AutoCaptureCollector
+participant Store as OutputFiles
+
+User -> Launcher: run(testbed.toml)
+Launcher -> Config: load and validate TOML
+Launcher -> FS: write generated child TOML(s)
+Launcher -> Store: write initial plan/manifest
+
+loop for each case
+  Launcher -> Collector: create collector(run_id)
+  Launcher -> Collector: capture_start()
+  Launcher -> Provider: run_simulation(config_path)
+  Provider -> Child: start child workflow
+  Child -->> Provider: child summary (sim_id, metrics, files)
+  Provider -->> Launcher: child summary
+  Launcher -> Collector: capture_end(start_time)
+  Collector -->> Launcher: snapshot
+  Launcher -> Store: attach summary + snapshot, persist
+end
+
+Launcher -->> User: return compact summary (paths + counts)
+
+note right of Provider
+ Provider is registered at bootstrap (ProjectTestbedRunnerProvider)
+ and delegates to actual workflow implementations.
+end note
+
+@enduml
