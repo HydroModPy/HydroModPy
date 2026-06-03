@@ -105,6 +105,9 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test,performance,calibration,delineation]"
 
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
       - name: Install solver binaries for fast tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet || true
 
@@ -134,6 +137,9 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[test,calibration,delineation]"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
 
       - name: Run unit tests in parallel
         run: |

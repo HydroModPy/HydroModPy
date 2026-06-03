@@ -1,40 +1,27 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from types import SimpleNamespace
 
-from hydromodpy.validity_frame.auto_capture import ExecutionContext, RuntimeAutoCapture
-from hydromodpy.validity_frame.probes.base import ProbeProtocol
-
-
-class FakeProbe:
-    def __init__(self):
-        self.started = False
-
-    def role(self) -> str:
-        return "solver"
-
-    def collect(self, source=None):
-        return {"solver_name": "fake", "iterations": 1, "converged": True}
+from validity_frame.auto_capture.collector import AutoCaptureCollector
+from validity_frame.auto_capture.context import ExecutionContext
 
 
-def test_runtime_capture_writes_snapshot(tmp_path: Path):
+def test_auto_capture_collector_returns_snapshots(tmp_path: Path):
     ctx = ExecutionContext(run_id="test_run", workspace=str(tmp_path))
-    probe = FakeProbe()
-    assert isinstance(probe, ProbeProtocol)
-    cap = RuntimeAutoCapture(context=ctx, probes={"solver": probe}, output_dir=tmp_path / "raw")
+    cap = AutoCaptureCollector(context=ctx)
 
-    def work():
-        return 42
+    start_snapshot = cap.capture_start()
+    end_snapshot = cap.capture_end(
+        start_time=0.0,
+        solver_source=SimpleNamespace(
+            solver_name="fake",
+            iterations=1,
+            converged=True,
+            status="ok",
+        ),
+    )
 
-    result, snapshot = cap.run_with_capture(work)
-    assert result == 42
-
-    # verify files were written
-    raw_dir = tmp_path / "raw"
-    assert raw_dir.exists()
-    success_file = raw_dir / "runtime_capture_success.json"
-    assert success_file.exists()
-    data = json.loads(success_file.read_text(encoding="utf-8"))
-    assert data.get("solver") is not None
-    assert data.get("status") == "completed"
+    assert start_snapshot.execution.run_id == "test_run"
+    assert end_snapshot.status == "completed"
+    assert end_snapshot.solver.solver_name == "fake"

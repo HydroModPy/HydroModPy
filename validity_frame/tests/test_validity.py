@@ -1,8 +1,8 @@
+import pytest
+
 from types import SimpleNamespace
 
 from validity_frame import ValidityFrame, create_validity_frame
-
-import pytest
 
 
 def test_verify_raises_on_missing_run_id():

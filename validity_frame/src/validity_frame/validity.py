@@ -5,10 +5,8 @@ This module does not depend on HydroModPy. It uses duck-typing on the
 """
 from __future__ import annotations
 
-import logging
-from typing import Any, Iterable
-
-logger = logging.getLogger(__name__)
+from collections.abc import Iterable
+from typing import Any
 
 
 class ValidityFrame:
@@ -32,8 +30,8 @@ class ValidityFrame:
             data = getattr(state, "data", None)
             if data in (None, {}, ""):
                 raise RuntimeError("validity: state.data is empty or missing")
-        except Exception as exc:
+        except Exception:
             if self.tolerant:
-                logger.warning("validity check failed but tolerant=True: %s", exc)
+                return
             else:
                 raise
