@@ -28,9 +28,11 @@ working unchanged:
 
 .. code-block:: python
 
-   project.cfg          # reads project._state.cfg
+   project._cfg         # reads project._state.cfg
    project._config_path # reads project._state.config_path
    project._run_history # reads project._state.run_history
+
+The public read-only view of the config is ``project.config``.
 
 The full mapping lives in
 :data:`hydromodpy.project.state.PROJECT_ATTR_TO_STATE_FIELD`. Any name

@@ -17,10 +17,6 @@ Stable Python API
      - TOML status
    * - Open project catalog
      - ``hmp.open``
-     - CLI-only catalog browsing
-     - not a TOML workflow
-   * - Open V1 catalog facade
-     - ``hmp.open_catalog``
      - ``hmp catalog``
      - not a TOML workflow
    * - Global index
@@ -40,10 +36,6 @@ Stable Python API
      - ``hmp.compare_pair``
      - ``hmp report compare``
      - not a TOML workflow
-   * - Mesh helper
-     - ``hmp.mesh``
-     - no dedicated stable verb
-     - mesh-only public runs use ``simulation`` with a mesh process
    * - Read persisted variable
      - ``hmp.read``
      - Python-only
@@ -60,9 +52,10 @@ Stable Python API
 Python-only expert APIs
 -----------------------
 
-``Project`` is stable as the object-oriented facade. Its session-level
-``sweep`` helper is Python-only in V1. ``workflow.mode = "sweep"`` is
-not accepted by ``HydroModPyConfig`` or ``workflow.dispatch``.
+``Project`` is stable as the object-oriented facade. A parameter sweep
+is a Python-only loop over ``project.simulate(...)`` in V1.
+``workflow.mode = "sweep"`` is not accepted by ``HydroModPyConfig`` or
+``workflow.dispatch``.
 
 Experimental or outside V1
 --------------------------

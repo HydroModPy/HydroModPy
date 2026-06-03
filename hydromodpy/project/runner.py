@@ -1,13 +1,12 @@
 """Run-phase orchestration for :class:`hydromodpy.project.Project`.
 
-Holds the high-level workflow entry points kept on ``Project``: ``run``,
-``simulate``, ``sweep`` and ``calibrate``. The prepared-run primitives
-(``prepare``, ``execute``, ``ingest``, ``render``, ``cleanup``) live in
-:mod:`hydromodpy.project.prepared_run` and are composed into the runner so
-the legacy ``project._runner.prepare(...)`` access pattern keeps working.
+Holds the internal run-phase entry points backing the facade: ``run`` (the
+engine method that ``Project.simulate`` delegates to) and ``sweep``. The
+facade verb is :meth:`Project.simulate`.
 
-TOML-only workflows that do not benefit from setup-once state (``overview``,
-``mesh``, ``compare``, ``report``) live in :mod:`hydromodpy._api`.
+TOML-driven workflows that do not benefit from setup-once state (overview,
+mesh, comparison) are reached through :func:`hydromodpy.run` on the
+``[workflow] mode``, not through ``Project``.
 """
 
 from __future__ import annotations

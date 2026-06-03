@@ -1,14 +1,16 @@
 hmp.open
 ========
 
-Open a workspace catalog backed by ``catalog.duckdb``.
+Open a workspace catalog backed by ``catalog.duckdb``. With the default
+``create=False`` it raises ``FileNotFoundError`` when no ``catalog.duckdb``
+exists; pass ``create=True`` to initialise an empty catalog.
 
 Signature
 ---------
 
 .. code-block:: python
 
-   hmp.open(workspace_path) -> SimulationCatalog
+   hmp.open(workspace_path, *, create=False) -> SimulationCatalog
 
 Reference
 ---------
@@ -29,8 +31,6 @@ Example
 See Also
 --------
 
-- :func:`hydromodpy.open_catalog` -- V1 catalog facade fronting
-  the three DuckDB files.
 - :func:`hydromodpy.read` -- read a variable from a run returned
   by the catalog.
 - :mod:`hydromodpy.results` -- catalog and run result implementations.

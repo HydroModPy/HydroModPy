@@ -131,7 +131,7 @@ Integration pattern
 
    @pytest.mark.integration
    def test_overview(tmp_workspace, minimal_overview_toml):
-       hmp.overview(minimal_overview_toml)
+       hmp.run(minimal_overview_toml)  # [workflow] mode = "overview"
        assert (tmp_workspace.root / "data").exists()
 
 Regression pattern

@@ -66,12 +66,19 @@ Catalog operations
 
 ``SimulationCatalog`` exposes:
 
-- ``open(project_path)`` -- entry point
-  (``hydromodpy.open(project_path)``).
-- ``list_simulations(status=..., order_by=...)``
+- ``hmp.open(project_path)`` -- single catalog door. Default
+  ``create=False`` raises ``FileNotFoundError`` when no
+  ``catalog.duckdb`` exists; pass ``create=True`` to initialise an
+  empty one.
+- ``find(**filters)`` -- one return type (a ``SimulationGroup``);
+  raises ``ValueError`` listing valid filters on an unknown key.
+- ``frame`` -- the full simulations ``DataFrame``.
 - ``resolve(prefix)`` -- expand a sim id prefix.
-- ``__getitem__(sim_id)`` -- return a ``Run``.
-- ``latest()``, ``best(metric)``.
+- ``__getitem__(ref)`` -- return a ``Run``.
+- ``latest()``, ``best(metric)``, ``worst(metric)``, ``rank(...)``.
+- ``read(ref, variable)`` -- by-id field / timeseries / feature read.
+- Schema discovery: ``describe()``, ``tables()``, ``columns()``,
+  ``variables()``, ``metrics()``, ``stations()``.
 - ``query_timeseries(sim_id, station=..., variable=...)``,
   ``query_budget(sim_id, component=...)``,
   ``query_mass_balance(sim_id)``.
@@ -86,7 +93,8 @@ Catalog operations
 Field reads go through the ``hmp.read`` facade (see ``hydromodpy.read``
 re-export). The facade dispatches to a Zarr or Parquet reader via
 ``field_registry.py`` so the same call works regardless of where the
-field lives. The legacy ``catalog.query_field`` is removed in v2.
+field lives. The by-id path is ``cat.read(ref, variable)``. The legacy
+``catalog.query_field`` is removed in v2.
 
 Companion DuckDB views (``v_simulation_summary``,
 ``v_best_per_project``, ``v_metrics_wide``, ``v_params_wide``)

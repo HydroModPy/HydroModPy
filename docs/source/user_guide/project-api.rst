@@ -4,7 +4,7 @@ Project API
 The ``Project`` facade is the Python path for users who want the same behavior
 as TOML workflows but need programmatic control.
 
-``Project`` is the session object: it owns the resolved config, workspace,
+``Project`` is the stateful facade: it owns the resolved config, workspace,
 geographic/domain runtime, loaded data, mesh, and catalog handles. The
 ``Pipeline`` is the execution engine: it runs ordered steps with checkpoint and
 resume support. Both call the same ``workflow.steps`` helpers; ``Project`` only
@@ -26,12 +26,12 @@ For explicit lifecycle control:
 
    import hydromodpy as hmp
 
-   with hmp.Project.lazy("project.toml") as project:
+   with hmp.Project("project.toml") as project:
        project.setup_workspace()
        project.build_geographic()
        project.load_data()
        project.build_mesh()
-       run = project.run()
+       run = project.simulate()
 
 Lifecycle methods
 -----------------
@@ -42,8 +42,9 @@ Lifecycle methods
 
    * - Method
      - Role
-   * - ``Project.lazy(config)``
+   * - ``Project(config)``
      - Build the facade without immediately running setup/data/mesh phases.
+       Construction is cheap and does no I/O.
    * - ``setup_workspace()``
      - Bootstrap the shared runtime anchor: workspace, geographic context,
        domain, and process objects.
@@ -58,22 +59,14 @@ Lifecycle methods
      - Build or load the mesh used by the solver.
    * - ``prepare()``
      - Run the setup/data/mesh phases needed before execution.
-   * - ``execute()``
-     - Run the configured solver or process execution phase.
-   * - ``ingest()``
-     - Persist solver outputs into the result store.
-   * - ``render()``
-     - Render configured display figures.
-   * - ``cleanup()``
-     - Close runtime resources and temporary state.
-   * - ``run()``
-     - Execute the complete workflow path.
+   * - ``simulate()``
+     - Execute the complete workflow path and produce a run.
 
 Workflow helpers
 ----------------
 
-The facade exposes ``Project.calibrate()`` for calibration. Run-phase helpers
-that create one or many simulations live on ``project.session()``.
+The facade exposes ``Project.calibrate()`` for calibration. ``project.simulate()``
+creates a single simulation; a sweep is a plain Python loop over it.
 
 .. list-table::
    :header-rows: 1
@@ -83,15 +76,18 @@ that create one or many simulations live on ``project.session()``.
      - Role
    * - ``Project.calibrate()``
      - Run calibration from the project configuration.
-   * - ``project.session().simulate()``
+   * - ``project.simulate()``
      - Run a standard simulation workflow.
-   * - ``project.session().sweep()``
-     - Execute controlled parameter or configuration sweeps from Python.
-       Sweep is not a TOML workflow mode in V1.
+
+Run a parameter sweep by calling ``simulate()`` once per value:
+
+.. code-block:: python
+
+   for value in [1e-3, 5e-3, 1e-2]:
+       project.simulate(name=f"sy_{value}", Sy=value)
 
 Overview, comparison and testbed runs are V1 TOML workflows executed through
-``hmp.run(...)`` or the matching top-level Python helper, not ``Project``
-methods.
+``hmp.run(...)`` on the matching ``[workflow] mode``, not ``Project`` methods.
 
 State accessors
 ---------------

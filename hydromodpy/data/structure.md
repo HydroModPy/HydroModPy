@@ -21,16 +21,18 @@ Le runner enregistre les versions appliquees dans une table
 `schema_migrations` + `_schema_version` par DB, et acquiert un
 `filelock` sur `<db_path>.lock` pour serialiser les callers concurrents.
 
-**Facade haut-niveau** : `hmp.catalog` (`hydromodpy/catalog/`). Trois
-namespaces qui cachent la fragmentation a l'utilisateur final.
+**Facade haut-niveau** : `hmp.open(ws)` (`hydromodpy/catalog/`) ouvre le
+scope projet (un `SimulationCatalog`). Les inputs workspace passent par
+`hydromodpy.catalog.InputsNamespace(ws)` et la federation cross-projets par
+`hmp.index()`. Trois portes qui cachent la fragmentation a l'utilisateur final.
 
 ```python
 import hydromodpy as hmp
 
-with hmp.open_catalog("~/proj/naizin") as cat:
-    cat.simulations.find(solver="modflow6")  # -> <project>/catalog.duckdb
-    cat.inputs.list(variable="recharge")     # -> <workspace>/data/cache.duckdb
-    cat.projects.list()                      # -> <state_dir>/index.duckdb
+cat = hmp.open("~/proj/naizin")
+cat.find(solver="modflow6")                        # -> <project>/catalog.duckdb
+hydromodpy.catalog.InputsNamespace("~/hydromodpy").list(variable="recharge")  # -> <workspace>/data/cache.duckdb
+hmp.index()                                        # -> <state_dir>/index.duckdb
 ```
 
 Sur disque, les trois fichiers restent separes. Le port

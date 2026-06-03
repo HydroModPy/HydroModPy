@@ -170,7 +170,7 @@ Submission flow
    the section structure: ``[flow]``, ``[geographic]``, etc.).
 2. POST the payload (or a ``HydroModPyConfig`` JSON dump) to a thin
    service that calls ``hmp.run`` or
-   ``hmp.Project.from_json(payload).run()``.
+   ``hmp.Project(payload).simulate()``.
 3. The service returns a ``sim_id`` that the frontend polls or
    subscribes to.
 4. Results come back through the catalog: open the workspace with

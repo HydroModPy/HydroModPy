@@ -8122,7 +8122,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L155",
     "description": "Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables, lockfile)."
   },
   {
@@ -8206,7 +8206,7 @@
     "section": "simulation",
     "anchor": "simulation-results-keep-solver-files",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L147",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L162",
     "description": "Keep raw solver output files (.hds, .cbc, .lst) after ingestion."
   },
   {
@@ -8218,7 +8218,7 @@
     "section": "simulation",
     "anchor": "simulation-results-solver-scratch",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L151",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L166",
     "description": "Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC."
   },
   {
@@ -8230,7 +8230,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L158",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L173",
     "description": "Derived variable computation toggles."
   },
   {
@@ -8242,7 +8242,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-watertable-elevation",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L17",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L18",
     "description": "Compute water-table elevation from uppermost saturated layer."
   },
   {
@@ -8254,7 +8254,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-watertable-depth",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L21",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L22",
     "description": "Compute water-table depth (surface minus water-table elevation)."
   },
   {
@@ -8266,7 +8266,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-seepage-areas",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L25",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L26",
     "description": "Identify seepage areas where water table >= surface elevation."
   },
   {
@@ -8278,7 +8278,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-groundwater-flux",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L30",
     "description": "Magnitude of inter-cell flow (right/front/lower face). Volumetric."
   },
   {
@@ -8290,7 +8290,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-release-flux",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L34",
     "description": "Positive total groundwater release flux from drains and surface excess."
   },
   {
@@ -8302,7 +8302,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-accumulation-flux",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L37",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L38",
     "description": "Drain flux routed on the drainage network."
   },
   {
@@ -8314,7 +8314,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-release-accumulation-flux",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L42",
     "description": "Release flux routed on surface drainage paths."
   },
   {
@@ -8326,7 +8326,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-outflow-drain",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L45",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L46",
     "description": "Positive per-cell drain outflow summed over layers."
   },
   {
@@ -8338,7 +8338,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-concentration-seepage",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L50",
     "description": "Concentration at seepage cells only. Requires transport."
   },
   {
@@ -8350,7 +8350,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-mass-seepage",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L54",
     "description": "Mass flux at seepage cells. Requires transport + budget."
   },
   {
@@ -8362,7 +8362,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-mass-accumulated",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L58",
     "description": "Cumulative mass_seepage over time."
   },
   {
@@ -8374,7 +8374,7 @@
     "section": "simulation",
     "anchor": "simulation-results-budget",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L162",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L177",
     "description": "Budget extraction configuration."
   },
   {
@@ -8386,7 +8386,7 @@
     "section": "simulation",
     "anchor": "simulation-results-budget-spatial-fields",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L126",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L141",
     "description": "Extract per-cell budget fields (DRN, RCH, etc.) into Zarr."
   },
   {
@@ -8398,7 +8398,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L166",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L181",
     "description": "Automated export configuration."
   },
   {
@@ -8410,7 +8410,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-netcdf",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L96",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L97",
     "description": "Export to NetCDF-4/UGRID."
   },
   {
@@ -8422,7 +8422,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-csv-timeseries",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L100",
     "description": "Export time series to CSV."
   },
   {
@@ -8434,7 +8434,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-vtu",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L102",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L103",
     "description": "Export to VTU (ParaView)."
   },
   {
@@ -8446,7 +8446,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-geotiff",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L105",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106",
     "description": "Export to GeoTIFF."
   },
   {
@@ -8458,7 +8458,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-shapefile",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L107",
     "description": "Export to Shapefile."
   },
   {
@@ -8470,7 +8470,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-output-dir",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L109",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110",
     "description": "Output directory for exports. Defaults to project results folder."
   },
   {
@@ -8482,7 +8482,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L113",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114",
     "description": "Which variables to include in exports."
   },
   {
@@ -8494,7 +8494,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-head",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L66",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L67",
     "description": "Export head field."
   },
   {
@@ -8506,7 +8506,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-concentration",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L68",
     "description": "Export concentration field."
   },
   {
@@ -8518,7 +8518,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-budget",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L71",
     "description": "Export spatial budget fields."
   },
   {
@@ -8530,7 +8530,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-pathlines",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L73",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L74",
     "description": "Export pathline data."
   },
   {
@@ -8542,8 +8542,128 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-derived",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L76",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L77",
     "description": "Export derived variables (watertable_depth, seepage_mask, etc.)."
+  },
+  {
+    "path": "simulation.results.export.resolution",
+    "name": "resolution",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-resolution",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L118",
+    "description": "GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted."
+  },
+  {
+    "path": "simulation.results.export.artifacts",
+    "name": "artifacts",
+    "type": "list[ExportSpec]",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L125",
+    "description": "Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above."
+  },
+  {
+    "path": "simulation.results.export.artifacts.var",
+    "name": "var",
+    "type": "str | list[str]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-var",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L65",
+    "description": "Variable name, list of names, or '*' (all timeseries, csv only)."
+  },
+  {
+    "path": "simulation.results.export.artifacts.dest",
+    "name": "dest",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-dest",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L68",
+    "description": "Output file path. Its extension can imply 'fmt'."
+  },
+  {
+    "path": "simulation.results.export.artifacts.fmt",
+    "name": "fmt",
+    "type": "ExportFormat | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-fmt",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L71",
+    "description": "Output format. Inferred from the 'dest' extension when omitted."
+  },
+  {
+    "path": "simulation.results.export.artifacts.time",
+    "name": "time",
+    "type": "Union[int, list[int], Literal['first', 'last', 'all'], NoneType]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-time",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L75",
+    "description": "Timestep selector: index, list of indices, 'first', 'last', 'all', or None (per-format default: all timesteps for netcdf, last for rasters)."
+  },
+  {
+    "path": "simulation.results.export.artifacts.layer",
+    "name": "layer",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-layer",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L82",
+    "description": "Layer index for 3D fields."
+  },
+  {
+    "path": "simulation.results.export.artifacts.resolution",
+    "name": "resolution",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-resolution",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L86",
+    "description": "GeoTIFF pixel size in CRS units. Auto-derived from the grid when omitted."
+  },
+  {
+    "path": "simulation.results.export.artifacts.crs",
+    "name": "crs",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-crs",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L90",
+    "description": "Output CRS (e.g. 'EPSG:2154'). Auto-filled from the simulation when omitted."
+  },
+  {
+    "path": "simulation.results.export.artifacts.nodata",
+    "name": "nodata",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-export-artifacts-nodata",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L94",
+    "description": "Nodata fill value for raster formats."
   },
   {
     "path": "simulation.rng_seed",

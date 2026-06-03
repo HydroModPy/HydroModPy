@@ -1,10 +1,10 @@
 """Mutable state container for :class:`hydromodpy.project.Project`.
 
-Encapsulates the 21 runtime fields that previously lived directly on the
-``Project`` instance and were assigned from :mod:`hydromodpy.project.phases`,
-:mod:`hydromodpy.project.runner` and :mod:`hydromodpy.project.prepared_run`.
-Centralising them gives mypy/pyright a typed view of the state and removes
-the dunder-attribute sprawl on ``Project`` itself.
+Encapsulates the runtime fields that previously lived directly on the
+``Project`` instance and are assigned from :mod:`hydromodpy.project.phases`
+and :mod:`hydromodpy.project.runner`. Centralising them gives mypy/pyright a
+typed view of the state and removes the dunder-attribute sprawl on
+``Project`` itself.
 
 ``Project`` proxies private attribute reads and writes (``project._config_path``,
 ``project._cfg``, ...) to this dataclass via ``__getattr__`` / ``__setattr__``.
