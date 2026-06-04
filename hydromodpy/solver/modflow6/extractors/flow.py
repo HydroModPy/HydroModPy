@@ -9,6 +9,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import factor_to_seconds
+from hydromodpy.solver.modflow_common.budget_components import is_scalar_budget_component
 
 logger = get_logger(__name__)
 
@@ -189,6 +190,10 @@ class Modflow6OutputAdapter:
         budget_records: list[dict] = []
         for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
             for component in record_names:
+                # Intercell face flows and the specific-discharge velocity are not
+                # scalar budget terms; skip them before reading or summing.
+                if not is_scalar_budget_component(component):
+                    continue
                 try:
                     data = cbb.get_data(text=component, kstpkper=kstpkper, totim=time)
                 except Exception as exc:
@@ -259,18 +264,13 @@ class Modflow6OutputAdapter:
 
         MF6 stress packages store sparse records with 1-based ``node``
         IDs and ``q`` flux values.  This scatters them into a dense
-        ``(nlay, n_cells)`` array.
+        ``(nlay, n_cells)`` array. Vector records (DATA-SPDIS) are excluded
+        upstream by ``is_scalar_budget_component`` and never reach here.
         """
         names = rec.dtype.names
-        if names is not None and {"qx", "qy", "qz"}.issubset(names):
-            qx = np.asarray(rec["qx"], dtype="float64")
-            qy = np.asarray(rec["qy"], dtype="float64")
-            qz = np.asarray(rec["qz"], dtype="float64")
-            q = np.sqrt(qx * qx + qy * qy + qz * qz)
-        else:
-            q = np.asarray(
-                rec["q"] if names is not None and "q" in names else rec[names[-1]], dtype="float64"
-            )
+        q = np.asarray(
+            rec["q"] if names is not None and "q" in names else rec[names[-1]], dtype="float64"
+        )
 
         if n_cells == 0:
             return q
