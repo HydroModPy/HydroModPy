@@ -45,7 +45,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -55,6 +55,9 @@ jobs:
           for pth in site.glob('*coverage*.pth'):
               pth.unlink()
           "
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
       - name: Run extensive regression
         run: |
@@ -102,7 +105,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -114,6 +117,9 @@ jobs:
           "
 
       # Skip PETSc-only validation tests here; they live in the petsc-smoke workflow.
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
       - name: Run validation tests
         run: |
           python -m pytest tests/validation/ -m "not petsc" \
@@ -160,7 +166,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -170,6 +176,9 @@ jobs:
           for pth in site.glob('*coverage*.pth'):
               pth.unlink()
           "
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
       - name: Run integration tests
         run: |
