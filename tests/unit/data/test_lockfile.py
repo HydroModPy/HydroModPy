@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import os
 import threading
-import time
 from pathlib import Path
 
 import pytest
@@ -268,4 +267,3 @@ def test_lockfile_round_trip_legacy_artefact_block(tmp_path: Path) -> None:
     # Sanity: a second write does not duplicate inputs.
     write_lockfile(catalog, dest)
     assert len(read_lockfile_inputs(dest)) == 1
-    time.sleep(0)  # ensure linter sees the import as used
