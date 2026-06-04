@@ -38,7 +38,6 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
     {
         "test_catchment_from_point.py",
         "test_reference_river_network_nancon_case.py",
-        "test_run_geographic_case_golden.py",
         "test_run_geographic_case_regression.py",
         "test_run_geographic_case_river_network_regression.py",
         "test_run_geographic_dem_processing_golden.py",
