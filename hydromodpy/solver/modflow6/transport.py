@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Mapping
 from dataclasses import replace
 
@@ -71,7 +72,30 @@ class Modflow6Transport:
         self.diffu_coeff = float(conc_params.get("diffu_coeff", 0.0))
         self.react_order = conc_params.get("react_order", None)
         self.rate_decay = conc_params.get("rate_decay", 0.0)
+        self.porosity = conc_params.get("porosity", None)
         self.plot_conc = bool(conc_params.get("plot_conc", True))
+
+    def _resolve_mst_porosity(self):
+        """Return effective porosity for MST: configured value, else specific yield.
+
+        MST needs total porosity n, not specific yield Sy (the gravity-drainable
+        fraction, smaller than n). Pore velocity is v = q / n, so falling back to
+        Sy makes solute appear to move faster than reality; the fallback warns.
+        """
+        if self.porosity is not None:
+            return float(self.porosity)
+        warnings.warn(
+            "No transport porosity set; falling back to the flow specific yield, which "
+            "underestimates pore volume. Set transport.modflow6gwt.parameters.porosity.",
+            UserWarning,
+            stacklevel=2,
+        )
+        nlay = int(self.model_modflow.nlay)
+        ncpl = int(self.model_modflow.ncpl)
+        sy = np.asarray(self.model_modflow.sy, dtype=float)
+        if sy.size == 1:
+            return np.full((nlay, ncpl), float(sy.reshape(-1)[0]), dtype=float)
+        return sy.reshape(nlay, ncpl)
 
     def _build_crch(self) -> dict[int, np.ndarray]:
         nper = int(self.model_modflow.nper)
@@ -133,7 +157,7 @@ class Modflow6Transport:
         decay = self.rate_decay if self.react_order in {0, 1} else None
         self.mst = flopy.mf6.ModflowGwtmst(
             self.gwt,
-            porosity=self.model_modflow.sy,
+            porosity=self._resolve_mst_porosity(),
             first_order_decay=bool(self.react_order == 1),
             decay=decay,
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Mapping, Sequence
 
 import flopy
@@ -46,6 +47,10 @@ def _regular_track_times_days(
 # Numerical tolerance (days) used to clip the last regular track time to
 # stop_time_days without losing it to floating-point rounding.
 _TRACK_TIME_TOLERANCE_DAYS = 1.0e-9
+
+# Last-resort porosity when no transport porosity is set and specific yield is
+# non-positive. 0.30 is a generic unconsolidated-aquifer placeholder.
+_PRT_DEFAULT_POROSITY = 0.30
 
 
 class Modflow6Prt:
@@ -137,17 +142,26 @@ class Modflow6Prt:
         )
 
     def _build_porosity(self) -> np.ndarray:
+        """Return PRT MIP porosity. Pore velocity v = q / porosity needs total
+        porosity, not specific yield; the Sy fallback warns and is a placeholder."""
         nlay = int(self.model_modflow.nlay)
         ncpl = int(self.model_modflow.ncpl)
         if self.porosity is not None:
             return np.full((nlay, ncpl), float(self.porosity), dtype=float)
 
-        sy = np.asarray(getattr(self.model_modflow, "sy", 0.30), dtype=float)
+        warnings.warn(
+            "No PRT porosity set; falling back to the flow specific yield "
+            f"(or {_PRT_DEFAULT_POROSITY} where non-positive), which overstates particle "
+            "speed. Set transport.modflow6prt.parameters.porosity.",
+            UserWarning,
+            stacklevel=2,
+        )
+        sy = np.asarray(getattr(self.model_modflow, "sy", _PRT_DEFAULT_POROSITY), dtype=float)
         if sy.size == 1:
             sy = np.full((nlay, ncpl), float(sy.reshape(-1)[0]), dtype=float)
         else:
             sy = sy.reshape(nlay, ncpl)
-        return np.where(sy > 0.0, sy, 0.30).astype(float)
+        return np.where(sy > 0.0, sy, _PRT_DEFAULT_POROSITY).astype(float)
 
     def _active_planar_mask(self) -> np.ndarray:
         solver_mesh = self.model_modflow.solver_mesh

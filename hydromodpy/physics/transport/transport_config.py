@@ -97,6 +97,17 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
         default=0.0,
         description="Decay rate value (can be overridden at runtime).",
     )
+    porosity: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "Effective (total) porosity [-], the dimensionless volume of interconnected "
+            "pores per bulk volume. Drives MST pore volume and pore velocity. When omitted, "
+            "the flow model specific yield is used, which underestimates pore volume and "
+            "biases transit times low."
+        ),
+    )
     plot_conc: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description="Enable concentration plotting outputs.",
@@ -156,9 +167,11 @@ class Modflow6PrtParametersConfig(HydroModelBase):
     porosity: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         gt=0.0,
+        le=1.0,
         description=(
-            "Optional uniform particle-tracking porosity. When omitted, the "
-            "flow model specific yield is used where positive."
+            "Effective (total) porosity [-] for particle tracking (v = q / porosity). "
+            "When omitted, the flow model specific yield is used where positive, with a "
+            "warning, since specific yield underestimates pore volume."
         ),
     )
     local_z: Annotated[float, Profile.DEV] = Field(
