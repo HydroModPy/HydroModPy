@@ -253,8 +253,8 @@ def test_sidecar_emitted_on_register(tmp_path: Path) -> None:
     assert payload["source"] == "hubeau"
 
 
-def test_lockfile_round_trip_legacy_artefact_block(tmp_path: Path) -> None:
-    """The legacy ``[[artefact]]`` records still load via read_lockfile()."""
+def test_lockfile_round_trip_artefact_block(tmp_path: Path) -> None:
+    """The ``[[artefact]]`` records round-trip through write/read_lockfile()."""
     catalog, workspace, _ = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
     write_lockfile(catalog, dest)
