@@ -35,12 +35,21 @@ def xt3d_activation_mode(model, solver_mesh=None) -> str:
 
 
 def resolve_ims_complexity(model, solver_mesh=None) -> str:
-    """Return IMS complexity, promoting SIMPLE when XT3D is active."""
+    """Return IMS complexity, promoting SIMPLE under XT3D or Newton.
+
+    SIMPLE assumes a symmetric, well-conditioned matrix. XT3D and the Newton
+    formulation both break that assumption, so a configured SIMPLE is promoted:
+    to COMPLEX under XT3D, and to at least MODERATE under Newton.
+    """
     runtime = getattr(model.modflow_config, "runtime", None)
     configured = str(getattr(runtime, "mf6_ims_complexity", "COMPLEX")).strip().upper()
-    if xt3d_is_enabled(model, solver_mesh) and configured == "SIMPLE":
+    if configured != "SIMPLE":
+        return configured or "COMPLEX"
+    if xt3d_is_enabled(model, solver_mesh):
         return "COMPLEX"
-    return configured or "COMPLEX"
+    if bool(getattr(runtime, "mf6_newton", False)):
+        return "MODERATE"
+    return "SIMPLE"
 
 
 def log_xt3d_resolution(model, solver_mesh=None) -> None:

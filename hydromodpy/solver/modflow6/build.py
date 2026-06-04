@@ -101,6 +101,40 @@ def resolve_ims_complexity_for(model, solver_mesh=None) -> str:
     return resolve_ims_complexity(model, solver_mesh)
 
 
+def newton_options(runtime) -> list[str] | None:
+    """Return MF6 GWF newtonoptions. Catchment cells are convertible, so Newton
+    with under-relaxation is the robust default."""
+    if not runtime.mf6_newton:
+        return None
+    options = ["NEWTON"]
+    if runtime.mf6_newton_under_relaxation:
+        options.append("UNDER_RELAXATION")
+    return options
+
+
+def guard_newton_rewet(runtime, rewet_record) -> None:
+    """Reject NEWTON + REWET: MF6 forbids rewetting under the Newton formulation,
+    which uses continuous upstream weighting."""
+    if runtime.mf6_newton and rewet_record is not None:
+        raise ValueError(
+            "[HMPY.E405] mf6_newton and mf6_enable_rewet are mutually exclusive in "
+            "MODFLOW 6: the Newton formulation uses continuous upstream weighting and "
+            "forbids NPF rewetting. Disable one of them."
+        )
+
+
+def optional_ims_kwargs(runtime) -> dict[str, object]:
+    """Return the optional IMS knobs that are set; None values keep flopy presets."""
+    kwargs: dict[str, object] = {}
+    if runtime.mf6_inner_rclose is not None:
+        kwargs["inner_rclose"] = float(runtime.mf6_inner_rclose)
+    if runtime.mf6_linear_acceleration is not None:
+        kwargs["linear_acceleration"] = runtime.mf6_linear_acceleration
+    if runtime.mf6_under_relaxation is not None:
+        kwargs["under_relaxation"] = runtime.mf6_under_relaxation
+    return kwargs
+
+
 def log_xt3d_resolution(model, solver_mesh=None) -> None:
     """Log the resolved XT3D mode."""
     logger.info(
@@ -342,12 +376,9 @@ def run_pre_processing(  # noqa: PLR0915
         inner_maximum=int(runtime.mf6_inner_maximum),
         filename=f"{model.model_name_mf6}_gwf.ims",
         pname="IMS_GWF",
+        **optional_ims_kwargs(runtime),
     )
-    newtonoptions = None
-    if bool(getattr(runtime, "mf6_newton", False)):
-        newtonoptions = ["NEWTON"]
-        if bool(getattr(runtime, "mf6_newton_under_relaxation", True)):
-            newtonoptions.append("UNDER_RELAXATION")
+    newtonoptions = newton_options(runtime)
     model.gwf = flopy.mf6.ModflowGwf(
         model.sim,
         modelname=model.model_name_mf6,
@@ -383,14 +414,15 @@ def run_pre_processing(  # noqa: PLR0915
     model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
     model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
     rewet_record, wetdry = resolve_rewet_npf_options(model, solver_mesh)
+    guard_newton_rewet(runtime, rewet_record)
     xt3doptions = resolve_xt3d_options(model, solver_mesh)
 
     model.npf = flopy.mf6.ModflowGwfnpf(
         model.gwf,
         icelltype=np.ones((model.nlay,), dtype=int),
         k=model.hk,
-        # k33 = k / vka (vka = kh/kv anisotropy ratio); floor avoids divide-by-zero.
-        k33=model.hk / max(float(model.modflow_config.process_specific.vka), 1e-12),
+        # k33 = k / vka (vka = kh/kv vertical anisotropy ratio, > 0).
+        k33=model.hk / float(model.modflow_config.process_specific.vka),
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,
         wetdry=wetdry,
