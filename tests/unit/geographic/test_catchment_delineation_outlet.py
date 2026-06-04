@@ -1,4 +1,4 @@
-"""Characterization tests for the ``CatchmentDelineation`` runtime contract.
+"""Characterization tests for the outlet-mode ``CatchmentDelineation`` contract.
 
 Goal:
 - lock the current public contract of the catchment delineation facade,
@@ -15,22 +15,13 @@ import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio
-from geopy.exc import GeocoderUnavailable
-from rasterio.errors import RasterioIOError
 from rasterio.features import geometry_mask, rasterize, shapes
 from rasterio.transform import from_origin
-from shapely.geometry import box
 from shapely.geometry import shape as shapely_shape
 
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.spatial.geographic.dem_metadata import _resolve_dep_code
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
-GOLDEN_FILE = (
-    Path(__file__).resolve().parent
-    / "golden"
-    / "catchment_delineation_polygon_contract_golden.json"
-)
 GOLDEN_FILE_OUTLET = (
     Path(__file__).resolve().parent / "golden" / "catchment_delineation_outlet_contract_golden.json"
 )
@@ -46,14 +37,6 @@ class _FakeNominatim:
 
     def reverse(self, *_args, **_kwargs):
         return _FakeLocation()
-
-
-class _UnavailableNominatim:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def reverse(self, *_args, **_kwargs):
-        raise GeocoderUnavailable("offline")
 
 
 class _FakeRasterOps:
@@ -270,16 +253,6 @@ def _write_synthetic_dem(path: Path) -> None:
         dst_ds.write(data, 1)
 
 
-def _write_synthetic_catchment(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    gdf = gpd.GeoDataFrame(
-        data={"id": [1]},
-        geometry=[box(100.0, 100.0, 700.0, 700.0)],
-        crs="EPSG:2154",
-    )
-    gdf.to_file(path)
-
-
 def _load_json(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
@@ -290,34 +263,6 @@ def _write_json(path: Path, payload: dict) -> None:
     with path.open("w", encoding="utf-8") as stream:
         json.dump(payload, stream, indent=2)
         stream.write("\n")
-
-
-def _build_polygon_catchment_case(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> CatchmentDelineation:
-    import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
-
-    fake_wbt = _FakeWhiteboxBackend()
-    monkeypatch.setattr(geo_mod, "resolve_delineation_backend", lambda backend=None: fake_wbt)
-    monkeypatch.setattr(geo_mod, "Nominatim", _FakeNominatim)
-
-    dem_path = tmp_path / "inputs" / "dem.tif"
-    catchment_path = tmp_path / "inputs" / "catchment.shp"
-    _write_synthetic_dem(dem_path)
-    _write_synthetic_catchment(catchment_path)
-
-    cfg = GeographicConfig(
-        catchment={
-            "catch_def": "from_polyg_shp",
-            "dem_init_path": dem_path,
-            "polyg_shp_path": catchment_path,
-            "buff_area": 20.0,
-        },
-        crs_project="EPSG:2154",
-        dem_correc_type="breach",
-    )
-    initializing = SimpleNamespace(project_root=str(tmp_path / "case_run"))
-    return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
 def _build_outlet_catchment_case(
@@ -370,92 +315,6 @@ def _catchment_delineation_signature(geo: CatchmentDelineation) -> dict:
         "top_left_box_buff": float(geo.dem_box_buff_data[0, 0]),
         "center_core": float(geo.dem_data[5, 5]),
     }
-
-
-def test_catchment_delineation_from_polygon_contract(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """Check public artifacts and georeferencing contract on synthetic inputs."""
-    geo = _build_polygon_catchment_case(tmp_path, monkeypatch)
-
-    assert Path(geo.watershed_shp).exists()
-    assert Path(geo.watershed_box_shp).exists()
-    assert Path(geo.box_buff).exists()
-    assert Path(geo.watershed_box_buff_dem).exists()
-    assert Path(geo.watershed_dem).exists()
-    assert Path(geo.watershed_contour_tif).exists()
-
-    georef = geo.build_georeferencing()
-    assert set(georef.keys()) == {"crs", "dx", "dy", "xmin", "xmax", "ymin", "ymax"}
-    assert georef["crs"] == "EPSG:2154"
-    assert float(georef["dx"]) == pytest.approx(100.0, abs=1e-9)
-    assert float(georef["dy"]) == pytest.approx(100.0, abs=1e-9)
-
-    domain_geographic = geo.get_domain_geographic_context()
-    assert domain_geographic.catch_def == "from_polyg_shp"
-    assert domain_geographic.zone_kind == "catchment"
-    assert domain_geographic.watershed_shp == geo.watershed_shp
-    assert domain_geographic.watershed_box_buff_dem == geo.watershed_box_buff_dem
-    assert domain_geographic.box_buff_shp == geo.box_buff
-    assert float(domain_geographic.catchment_area_km2) == pytest.approx(
-        float(geo.catch_area),
-        abs=1e-9,
-    )
-    assert domain_geographic.surface_topo.support is not None
-
-    features = geo.get_geographic_derived_features()
-    assert features.catch_def == "from_polyg_shp"
-    assert features.zone_kind == "catchment"
-    assert features.boundaries.watershed_shp == geo.watershed_shp
-    assert features.boundaries.box_buff_shp == geo.box_buff
-    assert features.rivers.river_mesh_trace is None
-    assert float(features.catchment_area_km2) == pytest.approx(
-        float(geo.catch_area),
-        abs=1e-9,
-    )
-
-
-def test_catchment_delineation_from_polygon_golden(
-    update_goldens: bool,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """Freeze one deterministic signature as non-regression baseline."""
-    geo = _build_polygon_catchment_case(tmp_path, monkeypatch)
-    actual = _catchment_delineation_signature(geo)
-
-    if update_goldens:
-        _write_json(GOLDEN_FILE, actual)
-        return
-
-    if not GOLDEN_FILE.exists():
-        pytest.fail(
-            f"Missing golden reference file: {GOLDEN_FILE}. "
-            "Run tests with --update-goldens to generate it."
-        )
-
-    expected = _load_json(GOLDEN_FILE)
-    assert actual["shape_box_buff"] == expected["shape_box_buff"]
-    assert actual["shape_buff"] == expected["shape_buff"]
-    assert actual["shape_core"] == expected["shape_core"]
-    assert actual["crs_proj"] == expected["crs_proj"]
-    assert actual["dep_code"] == expected["dep_code"]
-
-    for key in (
-        "catch_area_km2",
-        "dx",
-        "dy",
-        "xmin",
-        "xmax",
-        "ymin",
-        "ymax",
-        "mean_box_buff",
-        "mean_core",
-        "top_left_box_buff",
-        "center_core",
-    ):
-        assert actual[key] == pytest.approx(expected[key], rel=0.0, abs=1e-9)
 
 
 def test_catchment_delineation_from_outlet_contract(
@@ -517,49 +376,3 @@ def test_catchment_delineation_from_outlet_golden(
         "center_core",
     ):
         assert actual[key] == pytest.approx(expected[key], rel=0.0, abs=1e-9)
-
-
-def test_geographic_config_rejects_missing_outlet_fields() -> None:
-    """Validate per-variant required-field guardrails for outlet catchment definition."""
-    with pytest.raises(ValueError, match="from_outlet_coord"):
-        GeographicConfig(
-            catchment={
-                "catch_def": "from_outlet_coord",
-                "dem_init_path": Path("dummy_dem.tif"),
-                "snap_dist": 50,
-                "buff_area": 20.0,
-            },
-        )
-
-
-def test_catchment_delineation_missing_dem_file_raises(tmp_path: Path) -> None:
-    """CatchmentDelineation should fail early when input DEM does not exist."""
-    catchment_path = tmp_path / "inputs" / "catchment.shp"
-    _write_synthetic_catchment(catchment_path)
-    missing_dem = tmp_path / "inputs" / "missing_dem.tif"
-
-    cfg = GeographicConfig(
-        catchment={
-            "catch_def": "from_polyg_shp",
-            "dem_init_path": missing_dem,
-            "polyg_shp_path": catchment_path,
-            "buff_area": 20.0,
-        },
-        crs_project="EPSG:2154",
-        dem_correc_type="breach",
-    )
-    initializing = SimpleNamespace(project_root=str(tmp_path / "case_missing_dem"))
-
-    with pytest.raises(RasterioIOError):
-        CatchmentDelineation(config=cfg, initializing=initializing)
-
-
-def test_resolve_dep_code_returns_none_when_geocoder_is_unavailable() -> None:
-    """Department lookup is best-effort and should not fail offline runs."""
-    assert (
-        _resolve_dep_code(
-            centroid_long_lat_Greenwich=[48.019638516018894, -2.8265621461935666],
-            locator_factory=_UnavailableNominatim,
-        )
-        is None
-    )
