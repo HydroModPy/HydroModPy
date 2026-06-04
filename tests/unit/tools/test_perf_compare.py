@@ -1,12 +1,12 @@
 """Unit tests for the ratio-based performance regression gate.
 
-The gate compares pairwise benchmark mean ratios between baseline and current
+The gate compares pairwise benchmark median ratios between baseline and current
 runs. These tests pin the three properties that make the gate trustworthy on a
 CI runner whose absolute speed differs from the baseline machine:
 
-* identical means -> no regression,
-* every mean scaled uniformly -> no regression (machine factor neutralized),
-* a single benchmark mean doubled -> regression detected.
+* identical medians -> no regression,
+* every median scaled uniformly -> no regression (machine factor neutralized),
+* a single benchmark median doubled -> regression detected.
 """
 
 from __future__ import annotations
@@ -36,16 +36,18 @@ def perf_compare() -> object:
     return _load_perf_compare_module()
 
 
-def _write_benchmark_json(path: Path, means: dict[str, float]) -> None:
+def _write_benchmark_json(path: Path, medians: dict[str, float]) -> None:
     payload = {
-        "benchmarks": [{"fullname": name, "stats": {"mean": mean}} for name, mean in means.items()]
+        "benchmarks": [
+            {"fullname": name, "stats": {"median": median}} for name, median in medians.items()
+        ]
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def test_compute_ratios_includes_every_ordered_pair(perf_compare: object) -> None:
-    means = {"a": 1.0, "b": 2.0, "c": 4.0}
-    ratios = perf_compare.compute_ratios(means)
+    values = {"a": 1.0, "b": 2.0, "c": 4.0}
+    ratios = perf_compare.compute_ratios(values)
 
     assert set(ratios) == {("a", "b"), ("a", "c"), ("b", "c")}
     assert ratios[("a", "b")] == pytest.approx(0.5)
@@ -53,9 +55,9 @@ def test_compute_ratios_includes_every_ordered_pair(perf_compare: object) -> Non
     assert ratios[("b", "c")] == pytest.approx(0.5)
 
 
-def test_compute_ratios_skips_non_positive_means(perf_compare: object) -> None:
-    means = {"a": 1.0, "b": 0.0, "c": 4.0}
-    ratios = perf_compare.compute_ratios(means)
+def test_compute_ratios_skips_non_positive_values(perf_compare: object) -> None:
+    values = {"a": 1.0, "b": 0.0, "c": 4.0}
+    ratios = perf_compare.compute_ratios(values)
 
     assert ("a", "c") in ratios
     assert all("b" not in pair for pair in ratios)
@@ -64,11 +66,11 @@ def test_compute_ratios_skips_non_positive_means(perf_compare: object) -> None:
 def test_gate_passes_against_identical_baseline(
     perf_compare: object, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    means = {"bench/a": 0.001, "bench/b": 0.002, "bench/c": 0.004}
+    medians = {"bench/a": 0.001, "bench/b": 0.002, "bench/c": 0.004}
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
-    _write_benchmark_json(baseline, means)
-    _write_benchmark_json(current, means)
+    _write_benchmark_json(baseline, medians)
+    _write_benchmark_json(current, medians)
 
     rc = perf_compare.main(
         ["--baseline", str(baseline), "--current", str(current), "--threshold", "0.30"]
@@ -80,15 +82,15 @@ def test_gate_passes_against_identical_baseline(
 def test_gate_passes_when_every_benchmark_scaled_uniformly(
     perf_compare: object, tmp_path: Path
 ) -> None:
-    """Machine factor: doubling every mean preserves all ratios."""
+    """Machine factor: doubling every median preserves all ratios."""
 
-    base_means = {"bench/a": 0.001, "bench/b": 0.002, "bench/c": 0.004}
-    scaled_means = {name: mean * 2.0 for name, mean in base_means.items()}
+    base_medians = {"bench/a": 0.001, "bench/b": 0.002, "bench/c": 0.004}
+    scaled_medians = {name: median * 2.0 for name, median in base_medians.items()}
 
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
-    _write_benchmark_json(baseline, base_means)
-    _write_benchmark_json(current, scaled_means)
+    _write_benchmark_json(baseline, base_medians)
+    _write_benchmark_json(current, scaled_medians)
 
     rc = perf_compare.main(
         ["--baseline", str(baseline), "--current", str(current), "--threshold", "0.30"]
@@ -99,14 +101,14 @@ def test_gate_passes_when_every_benchmark_scaled_uniformly(
 def test_gate_fails_when_single_benchmark_doubles(
     perf_compare: object, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    base_means = {"bench/a": 0.001, "bench/b": 0.002, "bench/c": 0.004}
-    current_means = dict(base_means)
-    current_means["bench/b"] = base_means["bench/b"] * 2.0
+    base_medians = {"bench/a": 0.001, "bench/b": 0.002, "bench/c": 0.004}
+    current_medians = dict(base_medians)
+    current_medians["bench/b"] = base_medians["bench/b"] * 2.0
 
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
-    _write_benchmark_json(baseline, base_means)
-    _write_benchmark_json(current, current_means)
+    _write_benchmark_json(baseline, base_medians)
+    _write_benchmark_json(current, current_medians)
 
     rc = perf_compare.main(
         ["--baseline", str(baseline), "--current", str(current), "--threshold", "0.30"]
@@ -117,12 +119,12 @@ def test_gate_fails_when_single_benchmark_doubles(
 
 
 def test_gate_writes_report_when_path_given(perf_compare: object, tmp_path: Path) -> None:
-    means = {"bench/a": 0.001, "bench/b": 0.002}
+    medians = {"bench/a": 0.001, "bench/b": 0.002}
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
     report = tmp_path / "report.md"
-    _write_benchmark_json(baseline, means)
-    _write_benchmark_json(current, means)
+    _write_benchmark_json(baseline, medians)
+    _write_benchmark_json(current, medians)
 
     rc = perf_compare.main(
         [
@@ -154,13 +156,13 @@ def test_gate_returns_two_when_baseline_missing(perf_compare: object, tmp_path: 
 def test_gate_ignores_new_benchmarks_in_current(perf_compare: object, tmp_path: Path) -> None:
     """A benchmark introduced only in current must not block the gate."""
 
-    base_means = {"bench/a": 0.001, "bench/b": 0.002}
-    current_means = {"bench/a": 0.001, "bench/b": 0.002, "bench/new": 0.010}
+    base_medians = {"bench/a": 0.001, "bench/b": 0.002}
+    current_medians = {"bench/a": 0.001, "bench/b": 0.002, "bench/new": 0.010}
 
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
-    _write_benchmark_json(baseline, base_means)
-    _write_benchmark_json(current, current_means)
+    _write_benchmark_json(baseline, base_medians)
+    _write_benchmark_json(current, current_medians)
 
     rc = perf_compare.main(
         ["--baseline", str(baseline), "--current", str(current), "--threshold", "0.30"]

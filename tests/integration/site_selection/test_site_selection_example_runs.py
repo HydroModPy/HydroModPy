@@ -11,6 +11,8 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
 from hydromodpy.workflow.site_selection import run_site_selection_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -18,6 +20,14 @@ EXAMPLE_ROOT = REPO_ROOT / "examples" / "projects" / "17_site_selection_workflow
 
 
 def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeypatch):
+    # This config sets delineate_from_outlets = true, so the run resolves the
+    # default whitebox_workflows delineation backend. The integration job
+    # installs only `.[test]` (no delineation extra), like gmsh and the other
+    # heavy native deps it skips, so gate the run on the backend being present.
+    pytest.importorskip(
+        "whitebox_workflows",
+        reason="delineate_from_outlets needs the optional whitebox-workflows backend",
+    )
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path / "workspace"))
     work_example = tmp_path / "17_site_selection_workflow"
     shutil.copytree(

@@ -20,11 +20,17 @@ build:
       - python -m pip install --no-build-isolation --no-deps --no-cache-dir .
     build:
       html:
-        # -j 2 (not auto): RTD runners report the host CPU count (~20+), so
-        # -j auto spawns that many parallel workers, each holding the ~900-page
-        # autosummary doctree, and the build OOMs. Two workers stay parallel
-        # while keeping peak memory (~1.5 GB) under the RTD container limit.
-        - python -m sphinx -T -j 2 -b html -d _build/doctrees -D language=en docs/source $READTHEDOCS_OUTPUT/html
+        # RTD community limits: 15 min build time, 7 GB RAM. The recursive
+        # autosummary over hydromodpy renders ~1650 pages and the build is
+        # ~99% parallel, so worker count is the lever for the time wall.
+        # `nproc` reports the host count (~20) on RTD, so `-j auto` forks ~20
+        # workers that each unpickle the full doctree env (~0.75 GB each) and
+        # the build OOMs past 7 GB. `-j 2` avoided the OOM but stayed near the
+        # 15 min wall. `-j 6` cuts wall time ~3.4x (10:20 -> ~3:00) with peak
+        # memory ~5.5 GB measured locally; on RTD it is lower since the
+        # optional geo/solver deps are mocked (autodoc_mock_imports), so the
+        # workers stay lighter. Do not raise to 8: peak hits ~6.9 GB, no margin.
+        - python -m sphinx -T -j 6 -b html -d _build/doctrees -D language=en docs/source $READTHEDOCS_OUTPUT/html
 
 sphinx:
   configuration: docs/source/conf.py

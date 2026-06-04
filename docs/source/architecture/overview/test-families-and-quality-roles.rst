@@ -190,6 +190,39 @@ Local READMEs (``validation_cases/README.md`` and
 ``tests/validation/README.md``) carry the case-by-case maintainer
 contract; this page stays the high-level map.
 
+Tolerances and coverage expectations
+-------------------------------------
+
+Numerical tolerances live in exactly one place, never inline-duplicated:
+
+- ``tests/TOLERANCES.md`` is the human rationale for every scientific
+  tolerance. The single documented scalars are consumed in
+  ``validation/`` and ``regression/`` through
+  ``tests/_helpers/tolerances.py::tol('<slug>')`` so the number exists in
+  one place. ``tests/unit/test_tolerances_single_source.py`` guards this:
+  every ``tol()`` call must resolve to a real row, and every documented
+  scalar that is used inline must be referenced through ``tol()``.
+- Per-case envelopes stay in ``validation_cases/**/tolerances*.toml`` and
+  are consumed at runtime via ``comparison.tolerances`` (for example
+  ``profile_tol['rmse']``). These are case-owned and are *not* duplicated
+  into ``TOLERANCES.md`` consumption.
+- Machine-epsilon and purely structural tolerances in ``unit/`` (for
+  example ``atol=1e-12`` on an exact linear solve) may stay inline with a
+  one-line rationale comment; do not force them through the table.
+
+Coverage is gated by Codecov, not by ``pyproject``:
+
+- The real gate is ``codecov.yml``: ``patch`` target 80 % (the diff you
+  add must be >= 80 % covered) and ``project`` target ``auto`` (overall
+  coverage must not drop). One Codecov flag per tier, ``carryforward:
+  true``, so moving a test between tiers keeps its coverage.
+- ``[tool.coverage] fail_under = 80`` in ``pyproject.toml`` is **not** a
+  CI gate (the unit job runs with ``--cov-fail-under=0``); treat it as a
+  local hint only.
+- New tests should raise coverage by asserting real behavior or a
+  physical/mathematical invariant. Never add a test purely to move the
+  number.
+
 Related pages
 -------------
 

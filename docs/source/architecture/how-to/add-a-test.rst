@@ -188,8 +188,12 @@ The split exists so the same case can be run as an automated test or
 launched manually for figure-first diagnosis (``python -m
 validation_cases.run_cases``).
 
-Tolerances live in the case's ``tolerances.toml`` and never inline
-in the test. See ``tests/TOLERANCES.md`` for the global policy.
+Tolerances are never inline magic numbers. A case envelope lives in the
+case's ``tolerances.toml`` and is read through ``comparison.tolerances``;
+a single documented scalar from ``tests/TOLERANCES.md`` is read through
+``tests/_helpers/tolerances.py::tol('<slug>')``. See ``tests/TOLERANCES.md``
+for the global policy and ``tests/unit/test_tolerances_single_source.py``
+for the drift guard.
 
 Solver-sanity pattern
 ---------------------
@@ -214,8 +218,19 @@ Pitfalls flagged by the layer matrix
 - A unit test must not write to a network resource. Mock at the
   ``HTTPClient`` level (``core/io/http_client.py``).
 - Validation tests must keep tolerances in their case-local
-  ``tolerances.toml``; do not hard-code numeric thresholds in the
-  pytest file.
+  ``tolerances.toml`` (case envelopes) or in ``tests/TOLERANCES.md`` via
+  ``tol('<slug>')`` (documented scalars); do not hard-code numeric
+  thresholds in the pytest file.
+
+Coverage expectation
+--------------------
+
+Coverage is gated by Codecov, not by ``pyproject``: the ``patch`` target
+is 80 % (your diff must be at least 80 % covered) and the ``project``
+target is ``auto`` (overall coverage must not drop). ``[tool.coverage]
+fail_under`` in ``pyproject.toml`` is not enforced by CI. Raise coverage
+by asserting real behavior or a physical/mathematical invariant, never by
+adding a test purely to hit a line.
 
 See also
 --------

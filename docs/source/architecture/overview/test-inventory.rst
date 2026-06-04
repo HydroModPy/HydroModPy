@@ -15,14 +15,19 @@ The counts below were collected from the repository root with:
 
    python -m pytest --collect-only -q -o addopts= \
      --ignore=tests/integration/test_run_dataset_xugrid.py \
-     --ignore=tests/unit/test_data_schemas.py
+     --ignore=tests/unit/test_data_schemas.py \
+     --ignore=tests/validity_frame
 
-The two ignored files required optional dependencies that were missing in
-the local Python environment used for this snapshot. The current install
-manifests include the runtime schema dependency ``pandera``; a fully
-provisioned development environment may therefore collect a few more tests.
+The first two ignored files required optional dependencies missing in the
+local Python environment used for this snapshot. ``tests/validity_frame``
+imports the standalone, uninstalled ``validity_frame`` sub-project and is
+not run by any CI job. A fully provisioned environment may collect a few
+more tests.
 
-Collected test count: **3368**.
+Collected test count: **4979** (rough snapshot; the de-duplication and
+re-tiering work splits some god-files into many smaller files, so the file
+count rose while several copy-paste families collapsed into parametrized
+tables).
 
 Runtime envelope
 ----------------
