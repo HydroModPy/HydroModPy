@@ -502,16 +502,8 @@ def build_evt_stress_period_data(
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
-    evt_depth = max(
-        float(
-            getattr(
-                getattr(model.modflow_config, "process_specific", object()),
-                "evt_extinction_depth",
-                1.0,
-            )
-        ),
-        1e-6,
-    )
+    # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
+    evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):

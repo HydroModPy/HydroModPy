@@ -377,17 +377,8 @@ def run_pre_processing(  # noqa: PLR0915
         model.gwf,
         icelltype=np.ones((model.nlay,), dtype=int),
         k=model.hk,
-        k33=model.hk
-        / max(
-            float(
-                getattr(
-                    getattr(model.modflow_config, "process_specific", object()),
-                    "vka",
-                    1.0,
-                )
-            ),
-            1e-12,
-        ),
+        # k33 = k / vka (vka = kh/kv anisotropy ratio); floor avoids divide-by-zero.
+        k33=model.hk / max(float(model.modflow_config.process_specific.vka), 1e-12),
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,
         wetdry=wetdry,
