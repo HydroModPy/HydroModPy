@@ -36,6 +36,7 @@ import numpy as np
 import pytest
 from scipy.special import exp1
 
+from tests._helpers.tolerances import tol
 from tests.regression.golden_utils import (
     assert_required_executables,
     resolve_bundled_executable,
@@ -237,7 +238,7 @@ def test_theis_confined_pumping_matches_analytical_reference(tmp_path: Path) -> 
     variance = float(np.sum((analytical_arr - analytical_arr.mean()) ** 2))
     residual = float(np.sum((numerical_arr - analytical_arr) ** 2))
     nse = 1.0 - residual / variance
-    assert nse > 0.999, (
+    assert nse > tol("theis_confined_pumping_2d__nse_vs_analytical_9_probes"), (
         f"Theis NSE too low: {nse:.6f} (residual={residual:.3e}, variance={variance:.3e})"
     )
 
@@ -246,7 +247,7 @@ def test_theis_confined_pumping_matches_analytical_reference(tmp_path: Path) -> 
         np.abs(analytical_arr), 1e-12
     )
     max_rel = float(relative_errors.max())
-    assert max_rel < 0.01, (
+    assert max_rel < tol("theis_confined_pumping_2d__max_pointwise_relative_drawdown_error"), (
         f"Theis drawdown max relative error {max_rel:.4%} > 1%: "
         f"numerical={numerical_arr.tolist()}, analytical={analytical_arr.tolist()}"
     )
