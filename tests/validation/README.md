@@ -297,12 +297,8 @@ Current pytest coverage is:
 | `analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py` | steady | radial piecewise-`K` island |
 | `analytical/steady/test_linearized_unconfined_drainage_1d.py` | steady | linearized distributed drainage |
 | `analytical/steady/test_linearized_unconfined_hillslope_drainage_1d.py` | steady | linearized hillslope drainage |
-| `analytical/transient/test_linearized_unconfined_recharge_step_1d.py` | transient | linearized recharge step |
 | `analytical/transient/test_boussinesq_hillslope_recharge_step_interception_1d.py` | transient | hillslope interception onset |
-| `analytical/transient/test_linearized_unconfined_boundary_step_1d.py` | transient | linearized boundary step |
-| `analytical/transient/test_linearized_unconfined_recharge_step_deep_1d.py` | transient | linearized recharge step, deep aquifer |
-| `analytical/transient/test_linearized_unconfined_boundary_piecewise_1d.py` | transient | linearized piecewise boundary forcing |
-| `analytical/transient/test_linearized_unconfined_recharge_periodic_1d.py` | transient | linearized periodic recharge |
+| `analytical/transient/test_linearized_unconfined_transient_1d.py` | transient | linearized recharge step / periodic recharge / boundary step / piecewise boundary / deep recharge step (parametrized) |
 | `analytical/transient/test_late_time_unconfined_pumping_2d.py` | transient | late-time radial pumping |
 
 ## Pytest Markers

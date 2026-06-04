@@ -18,11 +18,17 @@ from validation_cases.shared.runtime import (
     run_launcher_validation_case,
 )
 
-from .assertions import assert_metric_below
+from .assertions import (
+    assert_metric_below,
+    assert_profile_metrics,
+    assert_space_time_metrics,
+)
 
 __all__ = [
     "ValidationRunResult",
     "assert_metric_below",
+    "assert_profile_metrics",
+    "assert_space_time_metrics",
     "load_case_metadata",
     "load_case_tolerances",
     "load_last_npy_array",
