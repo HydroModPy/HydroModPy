@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import platform
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -24,49 +23,11 @@ from hydromodpy.solver.boussinesq.runtimes.stationary_picard_lscheme import (
     bounded_picard_lscheme,
     bounded_picard_vi_cycles,
 )
+from tests._helpers.mesh_doubles import _MiniMesh, line_mesh
 
 
-@dataclass(frozen=True)
-class _LineMesh:
-    cell_area_m2: np.ndarray
-    z_top_m: np.ndarray
-    z_bottom_m: np.ndarray
-    hydraulic_conductivity_m_s: np.ndarray
-    storage_coefficient: np.ndarray
-    edge_ids: np.ndarray
-    edge_cell_a: np.ndarray
-    edge_cell_b: np.ndarray
-    edge_length_m: np.ndarray
-    edge_distance_m: np.ndarray
-    edge_midpoint_distance_to_cell_a_m: np.ndarray
-    edge_midpoint_distance_to_cell_b_m: np.ndarray
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.cell_area_m2.size)
-
-    @property
-    def n_edges(self) -> int:
-        return int(self.edge_ids.size)
-
-
-def _mesh(z_bottom: list[float], *, k_m_s: float = 1.0e-5) -> _LineMesh:
-    n_cells = len(z_bottom)
-    n_edges = max(n_cells - 1, 0)
-    return _LineMesh(
-        cell_area_m2=np.ones(n_cells, dtype=float),
-        z_bottom_m=np.asarray(z_bottom, dtype=float),
-        z_top_m=np.asarray(z_bottom, dtype=float) + 10.0,
-        hydraulic_conductivity_m_s=np.full(n_cells, float(k_m_s), dtype=float),
-        storage_coefficient=np.full(n_cells, 0.10, dtype=float),
-        edge_ids=np.arange(n_edges, dtype=int),
-        edge_cell_a=np.arange(n_edges, dtype=int),
-        edge_cell_b=np.arange(1, n_cells, dtype=int),
-        edge_length_m=np.ones(n_edges, dtype=float),
-        edge_distance_m=np.ones(n_edges, dtype=float),
-        edge_midpoint_distance_to_cell_a_m=0.5 * np.ones(n_edges, dtype=float),
-        edge_midpoint_distance_to_cell_b_m=0.5 * np.ones(n_edges, dtype=float),
-    )
+def _mesh(z_bottom: list[float], *, k_m_s: float = 1.0e-5) -> _MiniMesh:
+    return line_mesh(z_bottom, k_m_s=k_m_s, storage_coefficient=0.10)
 
 
 def _options(**overrides) -> NonlinearRuntimeOptions:

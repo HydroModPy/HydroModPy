@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import (
@@ -22,30 +20,7 @@ from hydromodpy.solver.boussinesq.jacobian.operator_triplets import (
 from hydromodpy.solver.boussinesq.jacobian.partition_triplets import (
     build_sparse_semianalytic_partition_saturation_triplets,
 )
-
-
-@dataclass
-class _MiniMesh:
-    cell_area_m2: np.ndarray
-    z_top_m: np.ndarray
-    z_bottom_m: np.ndarray
-    hydraulic_conductivity_m_s: np.ndarray
-    storage_coefficient: np.ndarray
-    edge_ids: np.ndarray
-    edge_cell_a: np.ndarray
-    edge_cell_b: np.ndarray
-    edge_length_m: np.ndarray
-    edge_distance_m: np.ndarray
-    edge_midpoint_distance_to_cell_a_m: np.ndarray
-    edge_midpoint_distance_to_cell_b_m: np.ndarray
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.cell_area_m2.size)
-
-    @property
-    def n_edges(self) -> int:
-        return int(self.edge_ids.size)
+from tests._helpers.mesh_doubles import _MiniMesh
 
 
 def _build_mesh() -> _MiniMesh:
