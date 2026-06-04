@@ -3,6 +3,10 @@ Tests for WEL stress-period building via FlowToModflowAdapter._build_well_stress
 
 Covers the active_sinks_sources gate for wells plus location resolution
 (cell / absolute_xy / relative_xy) and forcing resolution.
+
+Asserts on the private ``_build_well_stress_period_data`` decision unit: the
+public ``build()`` path needs a full flow (initial_conditions.h, hk/sy/ss) and
+domain, so it cannot reach ``wel_spd`` with these minimal fixtures.
 """
 
 from __future__ import annotations
