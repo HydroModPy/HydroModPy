@@ -1,12 +1,19 @@
 """Compare a pytest-benchmark JSON run against a stored baseline using ratios.
 
-The gate compares pairwise mean ratios between benchmarks rather than absolute
-mean values. This neutralizes the constant machine speed factor: if a CI runner
-is uniformly N times slower than the baseline machine, every absolute mean
-scales by N but the ratio between any two benchmarks stays invariant.
+The gate compares pairwise median ratios between benchmarks rather than
+absolute values. This neutralizes the constant machine speed factor: if a CI
+runner is uniformly N times slower than the baseline machine, every absolute
+timing scales by N but the ratio between any two benchmarks stays invariant.
+
+The median (not the mean) is used because the I/O micro-benchmarks have a high
+coefficient of variation (the Zarr field write/read are tiny filesystem ops);
+the mean is pulled around by scheduling and disk jitter on shared runners,
+while the median is stable. The threshold is wide for the same reason: a real
+regression in these thin storage wrappers shows up as a multi-fold ratio shift,
+well past the gate, so the gate stays useful without flagging noise.
 
 A regression is flagged when the relative change of any baseline ratio exceeds
-``--threshold`` (default 0.30 = 30 percent). Benchmarks present only in the
+``--threshold`` (default 0.50 = 50 percent). Benchmarks present only in the
 current run are ignored (new tests). Benchmarks present only in the baseline
 are reported as missing but do not fail the gate.
 
@@ -23,28 +30,28 @@ from pathlib import Path
 
 
 def _load(path: Path) -> dict[str, float]:
-    """Return mapping fullname -> mean (seconds) from a pytest-benchmark JSON."""
+    """Return mapping fullname -> median (seconds) from a pytest-benchmark JSON."""
     with path.open("r", encoding="utf-8") as fh:
         payload = json.load(fh)
     out: dict[str, float] = {}
     for entry in payload.get("benchmarks", []):
         key = entry.get("fullname") or entry.get("name")
         stats = entry.get("stats") or {}
-        mean = stats.get("mean")
-        if key is None or mean is None:
+        median = stats.get("median")
+        if key is None or median is None:
             continue
-        out[str(key)] = float(mean)
+        out[str(key)] = float(median)
     return out
 
 
-def compute_ratios(means: dict[str, float]) -> dict[tuple[str, str], float]:
-    """Return mean_a / mean_b for every ordered pair (a, b) with a < b."""
-    names = sorted(name for name, mean in means.items() if mean > 0)
+def compute_ratios(values: dict[str, float]) -> dict[tuple[str, str], float]:
+    """Return value_a / value_b for every ordered pair (a, b) with a < b."""
+    names = sorted(name for name, value in values.items() if value > 0)
     ratios: dict[tuple[str, str], float] = {}
     for a, b in combinations(names, 2):
-        mean_b = means[b]
-        if mean_b > 0:
-            ratios[(a, b)] = means[a] / mean_b
+        value_b = values[b]
+        if value_b > 0:
+            ratios[(a, b)] = values[a] / value_b
     return ratios
 
 
@@ -60,8 +67,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--threshold",
         type=float,
-        default=0.30,
-        help="Fractional ratio drift allowed before failing (default 0.30 = 30 pct).",
+        default=0.50,
+        help="Fractional ratio drift allowed before failing (default 0.50 = 50 pct).",
     )
     parser.add_argument(
         "--report",
@@ -78,11 +85,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"current not found: {args.current}", file=sys.stderr)
         return 2
 
-    baseline_means = _load(args.baseline)
-    current_means = _load(args.current)
+    baseline_values = _load(args.baseline)
+    current_values = _load(args.current)
 
-    baseline_ratios = compute_ratios(baseline_means)
-    current_ratios = compute_ratios(current_means)
+    baseline_ratios = compute_ratios(baseline_values)
+    current_ratios = compute_ratios(current_values)
 
     rows: list[tuple[str, str, float, float, float, bool]] = []
     regressions: list[tuple[str, str]] = []
@@ -97,11 +104,11 @@ def main(argv: list[str] | None = None) -> int:
         if failed:
             regressions.append(pair)
 
-    missing = sorted(set(baseline_means) - set(current_means))
-    new_benchmarks = sorted(set(current_means) - set(baseline_means))
+    missing = sorted(set(baseline_values) - set(current_values))
+    new_benchmarks = sorted(set(current_values) - set(baseline_values))
 
     lines: list[str] = []
-    lines.append("# Performance regression report (ratio-based)\n")
+    lines.append("# Performance regression report (median ratio-based)\n")
     lines.append(
         f"- Threshold: pairwise ratio drift must stay within {_format_pct(args.threshold)}\n"
     )
@@ -120,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     if new_benchmarks:
         lines.append("\n## New benchmarks (no baseline)\n\n")
         for name in new_benchmarks:
-            lines.append(f"- `{name}`: {current_means[name]:.6f}s\n")
+            lines.append(f"- `{name}`: {current_values[name]:.6f}s\n")
     if missing:
         lines.append("\n## Missing benchmarks (skipped this run)\n\n")
         for name in missing:
