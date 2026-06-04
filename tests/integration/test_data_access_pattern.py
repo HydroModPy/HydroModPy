@@ -83,7 +83,7 @@ class TestRunsEnvironment:
 
     def test_environment_is_captured(self, catalog):
         sid = _seed_run(catalog, project="ml_p1", name="r1", objective="exploratory")
-        row = catalog._db.execute(
+        row = catalog.connection.execute(
             "SELECT python_version, hydromodpy_version, platform, hostname, "
             "memory_gb, cpu_info FROM runs_environment WHERE sim_id = ?",
             [sid],
@@ -104,7 +104,7 @@ class TestDuckDBPattern:
         _seed_run(catalog, project="ml_p2a", name="r1", objective="calibration")
         _seed_run(catalog, project="ml_p2a", name="r2", objective="validation")
 
-        df = catalog._db.execute(
+        df = catalog.connection.execute(
             "SELECT sim_id, project, name, scientific_objective, study_area_name "
             "FROM simulations WHERE project = 'ml_p2a' ORDER BY name"
         ).fetchdf()
@@ -124,7 +124,7 @@ class TestParquetPattern:
 
         # Read via DuckDB (no pyarrow dependency); equivalent to
         # pd.read_parquet when pyarrow / fastparquet is installed.
-        df = catalog._db.execute(f"SELECT * FROM read_parquet('{target}')").fetchdf()
+        df = catalog.connection.execute(f"SELECT * FROM read_parquet('{target}')").fetchdf()
         assert {"time", "value", "variable", "station_id"}.issubset(df.columns)
         assert len(df) > 0
 
@@ -136,7 +136,7 @@ class TestParquetPattern:
         else:
             assert {"time", "value", "variable", "station_id"}.issubset(df_pd.columns)
 
-        rows = catalog._db.execute(
+        rows = catalog.connection.execute(
             f"SELECT key, value FROM parquet_kv_metadata('{target}')"
         ).fetchall()
         kv = {row[0].decode(): row[1].decode() for row in rows}
@@ -180,7 +180,7 @@ class TestScientificObjective:
             outlet_x=247_500.0,
             outlet_y=6_770_000.0,
         )
-        row = catalog._db.execute(
+        row = catalog.connection.execute(
             "SELECT scientific_objective, description, doi, outlet_x, outlet_y "
             "FROM simulations WHERE sim_id = ?",
             [sid],
@@ -197,7 +197,7 @@ class TestScientificObjective:
         sid = str(uuid4())
         catalog.register_simulation(sid, project="so2", solver="gr4j")
         catalog.finalize(sid, status="completed", duration_s=0.1)
-        row = catalog._db.execute(
+        row = catalog.connection.execute(
             "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
