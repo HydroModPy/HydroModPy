@@ -16,17 +16,53 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# MODFLOW ITMUNI codes -> seconds per native time unit. CBC fluxes are
-# expressed in volume / itmuni-time-unit; dividing by this factor yields
-# m3/s, which matches the hydrometry observations.
-_ITMUNI_TO_SECONDS: dict[int, float] = {
-    0: 1.0,
-    1: 1.0,
-    2: 60.0,
-    3: 3600.0,
-    4: 86400.0,
-    5: 31557600.0,
-}
+from hydromodpy.core.units.time import factor_to_seconds
+
+
+def _seconds_per_itmuni(itmuni: int) -> float:
+    """Seconds per MODFLOW ITMUNI code; 0 (undefined) means seconds."""
+    if itmuni == 0:
+        return 1.0
+    try:
+        return factor_to_seconds(int(itmuni))
+    except ValueError:
+        return 1.0
+
+
+def _read_time_units_from_tdis(tdis_path: Path) -> str | None:
+    """Return the MF6 TDIS TIME_UNITS token, or None when unreadable."""
+    if not tdis_path.is_file():
+        return None
+    try:
+        with tdis_path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                tokens = raw.strip().split()
+                if len(tokens) >= 2 and tokens[0].upper() == "TIME_UNITS":
+                    return tokens[1].upper()
+    except OSError:
+        return None
+    return None
+
+
+def _resolve_seconds_per_unit(output_dir: Path, model_name: str) -> float:
+    """Seconds per native solver time unit, to convert CBC fluxes to m3/s.
+
+    MODFLOW 6 declares the unit as TIME_UNITS in ``{stem}.tdis`` (the TDIS file
+    name may differ from the CBC stem, so glob for it). MODFLOW-NWT declares it
+    as ITMUNI in ``{model_name}.dis``. Defaults to seconds (1.0).
+    """
+    tdis_path = output_dir / f"{model_name}.tdis"
+    if not tdis_path.is_file():
+        tdis_path = next(iter(output_dir.glob("*.tdis")), tdis_path)
+    token = _read_time_units_from_tdis(tdis_path)
+    if token is not None:
+        if token in ("", "UNKNOWN"):
+            return 1.0
+        try:
+            return factor_to_seconds(token)
+        except ValueError:
+            return 1.0
+    return _seconds_per_itmuni(_read_itmuni_from_dis(output_dir / f"{model_name}.dis"))
 
 
 def _read_itmuni_from_dis(dis_path: Path) -> int:
@@ -73,8 +109,7 @@ def extract_discharge_from_cbc(
     if not cbc_path.exists():
         raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
 
-    itmuni = _read_itmuni_from_dis(output_dir / f"{model_name}.dis")
-    seconds_per_unit = _ITMUNI_TO_SECONDS.get(itmuni, 1.0)
+    seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
@@ -179,8 +214,7 @@ def extract_drain_outflow_by_cell_from_cbc(
     if not cbc_path.exists():
         raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
 
-    itmuni = _read_itmuni_from_dis(output_dir / f"{model_name}.dis")
-    seconds_per_unit = _ITMUNI_TO_SECONDS.get(itmuni, 1.0)
+    seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:

@@ -8,17 +8,22 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.time import factor_to_seconds
 
 logger = get_logger(__name__)
 
-_TIME_UNIT_SECONDS: dict[str, float] = {
-    "UNKNOWN": 1.0,
-    "SECONDS": 1.0,
-    "MINUTES": 60.0,
-    "HOURS": 3600.0,
-    "DAYS": 86400.0,
-    "YEARS": 31557600.0,
-}
+
+def _seconds_per_time_unit(time_units: str) -> float:
+    """Seconds per MF6 TDIS TIME_UNITS token; UNKNOWN/blank means seconds (1.0)."""
+    token = (time_units or "").strip().upper()
+    if token in ("", "UNKNOWN"):
+        return 1.0
+    return factor_to_seconds(token)
+
+
+def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
+    """Return one MF6 listing-budget field, or 0.0 when the field is absent."""
+    return float(row[key]) if names is not None and key in names else 0.0
 
 
 def _read_time_units(tdis_path: Path) -> str:
@@ -41,7 +46,7 @@ def _write_time_coordinate(store: Any, sim_id: str, times: list[float], time_uni
     writer = getattr(store, "write_time", None)
     if writer is None:
         raise TypeError("Simulation store must implement write_time().")
-    factor = _TIME_UNIT_SECONDS.get(time_units.upper(), 1.0)
+    factor = _seconds_per_time_unit(time_units)
     values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
     writer(sim_id, values)
 
@@ -85,7 +90,10 @@ class Modflow6OutputAdapter:
         tdis_path = solver_output_dir / f"{model_name}.tdis"
         if not tdis_path.is_file():
             tdis_path = next(iter(solver_output_dir.glob("*.tdis")), tdis_path)
-        _write_time_coordinate(store, sim_id, times, _read_time_units(tdis_path))
+        time_units = _read_time_units(tdis_path)
+        # MF6 emits fluxes in length^3 per TDIS time unit; convert to m3/s.
+        seconds_per_time_unit = _seconds_per_time_unit(time_units)
+        _write_time_coordinate(store, sim_id, times, time_units)
 
         head0 = head_file.get_data(totim=times[0])
         grid_shape: tuple[int, int] | None = None
@@ -131,11 +139,14 @@ class Modflow6OutputAdapter:
                 spatial_fields=budget_spatial_fields,
                 nlay=nlay,
                 n_cells=n_cells,
+                seconds_per_time_unit=seconds_per_time_unit,
             )
 
         lst_path = solver_output_dir / f"{model_name}.lst"
         if lst_path.exists():
-            self._extract_mass_balance(sim_id, store, lst_path)
+            self._extract_mass_balance(
+                sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
+            )
 
         head_file.close()
 
@@ -160,8 +171,13 @@ class Modflow6OutputAdapter:
         spatial_fields: bool = False,
         nlay: int = 1,
         n_cells: int = 0,
+        seconds_per_time_unit: float = 1.0,
     ) -> None:
-        """Extract cell budget data from MF6 .cbc file."""
+        """Extract cell budget data from MF6 .cbc file.
+
+        Fluxes are divided by ``seconds_per_time_unit`` so the stored values are
+        m3/s regardless of the TDIS time unit (m3/s = flux / seconds_per_time_unit).
+        """
         import flopy.utils.binaryfile as bf
 
         try:
@@ -189,8 +205,8 @@ class Modflow6OutputAdapter:
                 if hasattr(arr, "dtype") and arr.dtype.names is not None:
                     arr = self._recarray_to_grid(arr, nlay, n_cells)
                 if hasattr(arr, "shape") and arr.ndim >= 1:
-                    flux_in = float(np.maximum(arr, 0).sum())
-                    flux_out = float(np.minimum(arr, 0).sum())
+                    flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
+                    flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
                 else:
                     flux_in = 0.0
                     flux_out = 0.0
@@ -206,9 +222,9 @@ class Modflow6OutputAdapter:
                 )
                 if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
                     if arr.size == nlay * n_cells:
-                        field = arr.reshape(nlay, n_cells)
+                        field = arr.reshape(nlay, n_cells) / seconds_per_time_unit
                     elif arr.ndim == 1 and arr.size == n_cells:
-                        field = arr.reshape(1, n_cells)
+                        field = arr.reshape(1, n_cells) / seconds_per_time_unit
                     else:
                         field = None
                     if field is not None:
@@ -277,8 +293,16 @@ class Modflow6OutputAdapter:
         sim_id: str,
         store: Any,
         lst_path: Path,
+        *,
+        seconds_per_time_unit: float = 1.0,
     ) -> None:
-        """Parse MODFLOW 6 listing file for mass balance summary."""
+        """Parse MODFLOW 6 listing file for mass balance summary.
+
+        MF6 splits storage into specific storage (STO-SS, confined) and specific
+        yield (STO-SY, unconfined); total storage flux = STO-SS + STO-SY. Totals
+        and storage scale to m3/s like the budget fluxes; PERCENT_DISCREPANCY is
+        unitless and must not be scaled.
+        """
         try:
             from flopy.utils import Mf6ListBudget
 
@@ -286,23 +310,26 @@ class Modflow6OutputAdapter:
             inc, cum = mf6_list.get_budget()
             if inc is not None:
                 names = inc.dtype.names
+                spt = seconds_per_time_unit
                 records = []
                 for t in range(len(inc)):
-                    total_in = float(inc[t]["TOTAL_IN"]) if "TOTAL_IN" in names else 0.0
-                    total_out = float(inc[t]["TOTAL_OUT"]) if "TOTAL_OUT" in names else 0.0
-                    pct_err = (
-                        float(inc[t]["PERCENT_DISCREPANCY"])
-                        if "PERCENT_DISCREPANCY" in names
-                        else 0.0
-                    )
+                    row = inc[t]
+                    storage_in = (
+                        _budget_field(row, names, "STO-SS_IN")
+                        + _budget_field(row, names, "STO-SY_IN")
+                    ) / spt
+                    storage_out = (
+                        _budget_field(row, names, "STO-SS_OUT")
+                        + _budget_field(row, names, "STO-SY_OUT")
+                    ) / spt
                     records.append(
                         {
                             "timestep": t,
-                            "total_in": total_in,
-                            "total_out": total_out,
-                            "storage_in": 0.0,
-                            "storage_out": 0.0,
-                            "percent_error": pct_err,
+                            "total_in": _budget_field(row, names, "TOTAL_IN") / spt,
+                            "total_out": _budget_field(row, names, "TOTAL_OUT") / spt,
+                            "storage_in": storage_in,
+                            "storage_out": storage_out,
+                            "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
                         }
                     )
                 store.write_mass_balances(sim_id, records)

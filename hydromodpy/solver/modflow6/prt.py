@@ -8,7 +8,7 @@ from collections.abc import Mapping, Sequence
 import flopy
 import numpy as np
 
-from hydromodpy.core.units.time import SECONDS_PER_DAY
+from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.transport import _mf6_safe_name
 
@@ -42,15 +42,6 @@ def _regular_track_times_days(
         values = np.append(values, stop)
     return [float(value) for value in values]
 
-
-_TIME_UNIT_SECONDS = {
-    "UNKNOWN": 1.0,
-    "SECONDS": 1.0,
-    "MINUTES": 60.0,
-    "HOURS": 3600.0,
-    "DAYS": SECONDS_PER_DAY,
-    "YEARS": 31557600.0,
-}
 
 # Numerical tolerance (days) used to clip the last regular track time to
 # stop_time_days without losing it to floating-point rounding.
@@ -116,6 +107,7 @@ class Modflow6Prt:
         self.write_track_binary = bool(prt_params.get("write_track_binary", True))
 
     def _model_time_unit_seconds(self) -> float:
+        """Seconds per model TDIS time unit. Defaults to DAYS when TDIS is absent."""
         raw_units = "DAYS"
         tdis = getattr(self.model_modflow, "tdis", None)
         units = getattr(tdis, "time_units", None)
@@ -123,7 +115,13 @@ class Modflow6Prt:
             raw_units = str(units.get_data())
         elif units is not None:
             raw_units = str(units)
-        return _TIME_UNIT_SECONDS.get(raw_units.upper(), SECONDS_PER_DAY)
+        token = raw_units.strip().upper()
+        if token == "UNKNOWN":
+            return 1.0
+        try:
+            return factor_to_seconds(token)
+        except ValueError:
+            return SECONDS_PER_DAY
 
     def _days_to_model_time(self, value: float | None) -> float | None:
         if value is None:

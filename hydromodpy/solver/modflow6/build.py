@@ -265,6 +265,9 @@ def run_pre_processing(  # noqa: PLR0915
     model.nper = temporal.nper
     model.nstp = temporal.nstp
     model.steady = temporal.steady
+    # MF6 runs in SI seconds: the launcher delivers perlen in seconds, so TDIS
+    # declares SECONDS and the output budget factor stays exactly 1.0. The flow
+    # extractor converts fluxes back from this declared unit.
     time_units = "seconds"
     finalize_pending_recharge_evt(model)
 
@@ -315,6 +318,11 @@ def run_pre_processing(  # noqa: PLR0915
     model.sim = flopy.mf6.MFSimulation(
         sim_name=sim_name, sim_ws=model.full_path, exe_name=model.exe
     )
+    # MF6 TDIS START_DATE_TIME is a free-form ISO 8601 string (flopy rejects a
+    # datetime object). None means no calendar anchor is written.
+    start_date_time = (
+        temporal.start_datetime.isoformat() if temporal.start_datetime is not None else None
+    )
     model.tdis = flopy.mf6.ModflowTdis(
         model.sim,
         nper=int(model.nper),
@@ -322,6 +330,7 @@ def run_pre_processing(  # noqa: PLR0915
             (float(model.perlen[i]), int(model.nstp[i]), 1.0) for i in range(int(model.nper))
         ],
         time_units=time_units,
+        start_date_time=start_date_time,
     )
     model.ims = flopy.mf6.ModflowIms(
         model.sim,
