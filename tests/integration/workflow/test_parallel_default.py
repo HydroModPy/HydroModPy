@@ -16,12 +16,18 @@ from hydromodpy.workflow.runner import Pipeline
 
 
 class _SourceStep:
-    """Independent source step writing a unique key into ``state.data``."""
+    """Independent source step writing a unique key into ``state.data``.
+
+    Records the thread it ran on so tests can observe whether the runner
+    dispatched the cohort through a thread pool (parallel) or the calling
+    thread (sequential), instead of inspecting the runner's private flag.
+    """
 
     def __init__(self, name: str, key: str, value: int) -> None:
         self.name = name
         self._key = key
         self._value = value
+        self.run_thread_id: int | None = None
         self.tin: ClassVar[type | None] = None
         self.tout: ClassVar[type | None] = None
 
@@ -29,6 +35,7 @@ class _SourceStep:
         return ()
 
     def run(self, state: PipelineState) -> PipelineState:
+        self.run_thread_id = threading.get_ident()
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
@@ -74,7 +81,12 @@ def test_pipeline_runs_parallel_cohort_by_default() -> None:
     final = pipeline.run(state)
 
     assert final.data.get("sum") == 7
-    assert pipeline._parallel is True
+    # Observable: the default parallel path dispatched the two-step cohort
+    # through a thread pool, so its siblings ran off the calling thread.
+    assert src_a.run_thread_id is not None
+    assert src_b.run_thread_id is not None
+    assert src_a.run_thread_id != threading.get_ident()
+    assert src_b.run_thread_id != threading.get_ident()
 
 
 def test_pipeline_no_parallel_falls_back_to_sequential() -> None:
@@ -88,7 +100,10 @@ def test_pipeline_no_parallel_falls_back_to_sequential() -> None:
     final = pipeline.run(state, parallel=False)
 
     assert final.data.get("sum") == 3
-    assert pipeline._parallel is False
+    # Observable: the sequential executor runs every cohort item inline on
+    # the calling thread, so no worker thread is ever spawned.
+    assert src_a.run_thread_id == threading.get_ident()
+    assert src_b.run_thread_id == threading.get_ident()
 
 
 def test_pipeline_parallel_cohort_runs_in_threads() -> None:
