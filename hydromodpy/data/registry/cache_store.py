@@ -26,6 +26,20 @@ logger = get_logger(__name__)
 _RETRY = 8
 _BACKOFF = 0.05
 
+#: Root of the installed ``hydromodpy`` package. Provenance sidecars are never
+#: written next to read-only data bundled inside the package (e.g. example and
+#: ``cases/`` reference inputs); those sidecars are version-controlled and must
+#: not be mutated at runtime.
+_PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _is_inside_package(path: Path) -> bool:
+    try:
+        Path(path).resolve().relative_to(_PACKAGE_ROOT)
+    except ValueError:
+        return False
+    return True
+
 
 def workspace_root(catalog: DataCatalogDuckDB) -> Path | None:
     """Return the workspace root inferred from the cache DB location."""
@@ -394,7 +408,12 @@ def emit_input_sidecar(
 
     Best-effort: any failure is logged at debug level and never propagates,
     so a sidecar issue cannot block the catalog registration.
+
+    Inputs that live inside the installed package tree (bundled example /
+    ``cases/`` data) are skipped: their sidecars are committed and read-only.
     """
+    if _is_inside_package(path):
+        return
     try:
         from hydromodpy.data.sidecars import Sidecar, resolve_fetched_at, write_sidecar
 
