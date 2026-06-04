@@ -190,6 +190,14 @@ def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
         ).fetchdf()
         assert list(rows["value"]) == pytest.approx([10.0, 10.1, 10.2, 10.3])
 
+        # The nse metric survives the snapshot round trip (CLI import path).
+        metric = target.connection.execute(
+            "SELECT value FROM metrics WHERE sim_id = ? AND metric_name = 'nse'",
+            [sim_id],
+        ).fetchone()
+        assert metric is not None
+        assert float(metric[0]) == pytest.approx(0.91)
+
     # The manifest SHA-256 covers every file *inside* the archive. We
     # cross-check it survives extraction unchanged: pulling the archive
     # and re-hashing the byte payload of any listed file must equal the

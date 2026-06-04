@@ -45,8 +45,10 @@ Available markers:
 
 ``regression``, ``validation``, ``analytical``, ``steady``,
 ``transient``, ``fast``, ``slow``, ``extensive``, ``nwt``, ``mf6``,
-``petsc``, ``integration``, ``coverage``, ``solver_sanity``,
-``intercomparison``.
+``petsc``, ``boussinesq``, ``intercomparison``, ``integration``,
+``e2e``, ``unit``, ``coverage``, ``performance``, ``solver_sanity``,
+``network``, ``binary``, ``gpu``, ``allow_subprocess``, ``timeout``,
+``xdist_group``.
 
 Add the marker on the function:
 
@@ -58,7 +60,7 @@ Add the marker on the function:
    @pytest.mark.regression
    @pytest.mark.mf6
    @pytest.mark.fast
-   def test_my_workflow(catalog_with_data):
+   def test_my_workflow(tmp_path):
        ...
 
 The CLI selects subsets:
@@ -71,6 +73,11 @@ The CLI selects subsets:
    hmp test validation --analytical --steady
    pytest -m solver_sanity -q
    pytest -m petsc -q
+
+``hmp test`` wraps only the ``unit``, ``regression``, and ``validation``
+tiers. Run the ``integration``, ``e2e``, and MMS suites with raw
+``pytest`` (for example ``pytest tests/integration/`` or
+``pytest tests/e2e/``).
 
 Where to put the file
 ---------------------
@@ -93,12 +100,13 @@ Reusable fixtures
 
 Top-level ``conftest.py`` exposes:
 
-- ``tmp_workspace`` -- a fresh ``Workspace`` rooted in ``tmp_path``.
+- ``tmp_workspace`` -- a fresh workspace directory (a ``Path`` rooted in
+  ``tmp_path`` with the standard ``data/`` / ``projects/`` layout).
 - ``minimal_config`` -- a ready-to-run ``HydroModPyConfig`` for the
-  smallest case.
-- ``catalog_with_data`` (under ``tests/unit/conftest.py``) -- a
-  catalog seeded with a single fake simulation and its Parquet
-  views.
+  smallest case (extend via ``model_copy(update=...)``).
+
+For a DuckDB/Zarr catalog seeded on ``tmp_path``, use the
+``tests._helpers.fixtures_catalog.simulation_catalog`` context manager.
 
 Use them to avoid re-implementing scaffolding in every test.
 
@@ -132,7 +140,7 @@ Integration pattern
    @pytest.mark.integration
    def test_overview(tmp_workspace, minimal_overview_toml):
        hmp.run(minimal_overview_toml)  # [workflow] mode = "overview"
-       assert (tmp_workspace.root / "data").exists()
+       assert (tmp_workspace / "data").exists()
 
 Regression pattern
 ------------------
@@ -142,18 +150,28 @@ Regression pattern
    # tests/regression/fast/test_simulation_regression_fast_mf6.py
    import pytest
 
-   from tests.support.golden import assert_golden
+   from tests.regression.golden_utils import (
+       load_golden_reference,
+       resolve_tiered_golden_file,
+       snapshot_signature,
+       write_golden_reference,
+   )
 
 
    @pytest.mark.regression
    @pytest.mark.mf6
    @pytest.mark.fast
-   def test_simulation_regression_fast_mf6(catalog_with_data):
-       result = run_workflow(catalog_with_data, ...)
-       assert_golden(result, "fixtures/simulation_regression_fast_mf6.json")
+   def test_simulation_regression_fast_mf6(tmp_path, update_goldens):
+       signature = snapshot_signature(run_workflow(tmp_path, ...))
+       golden = resolve_tiered_golden_file(
+           test_file=__file__, filename="simulation_regression_fast_mf6.json"
+       )
+       if update_goldens:
+           write_golden_reference(golden, signature)
+       assert signature == load_golden_reference(golden)
 
-Update the golden manually with ``hmp test regression
---update-goldens``; review the diff before committing.
+Refresh the golden with ``pytest tests/regression/ --update-goldens``;
+review the diff before committing.
 
 Validation pattern
 ------------------

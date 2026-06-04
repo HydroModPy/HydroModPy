@@ -86,17 +86,6 @@ def test_update_gallery_copy_file_falls_back_to_extended_windows_paths(
     _assert_windows_copy_uses_extended_path_fallback(update_gallery_module, monkeypatch)
 
 
-def _read_bytes(path: Path) -> bytes:
-    if os.name != "nt":
-        return path.read_bytes()
-    text = str(path.expanduser().resolve())
-    if text.startswith("\\\\?\\"):
-        return Path(text).read_bytes()
-    if text.startswith("\\\\"):
-        return Path("\\\\?\\UNC\\" + text.lstrip("\\")).read_bytes()
-    return Path("\\\\?\\" + text).read_bytes()
-
-
 def _write_text(path: Path, content: str) -> None:
     if os.name != "nt":
         path.write_text(content, encoding="utf-8")

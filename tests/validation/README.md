@@ -112,8 +112,7 @@ every solver backend is available on every operating system.
 Today, the Linux-only PETSc coverage is concentrated in:
 
 - `tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py`
-- `tests/validation/numerical/steady/test_boussinesq_headwater_100km2_petsc.py`
-- `tests/validation/numerical/transient/test_boussinesq_headwater_100km2_petsc_transient.py`
+- `tests/validation/numerical/transient/test_boussinesq_drying_petsc.py`
 - `tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py`
 
 In practice:
@@ -178,8 +177,8 @@ python -m pytest \
   tests/unit/solver/test_boussinesq_method_catalog.py \
   tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py \
   tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py \
+  tests/validation/numerical/transient/test_boussinesq_drying_petsc.py \
   tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py \
-  tests/validation/numerical/transient/test_boussinesq_headwater_100km2_petsc_transient.py \
   -q
 ```
 

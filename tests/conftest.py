@@ -71,12 +71,6 @@ def _resolve_test_session_root(scratch_root: Path) -> Path:
     return (scratch_root / "sessions" / _SCRATCH_OWNER_TOKEN).resolve()
 
 
-def _path_has_suffix_parts(path: Path, suffix_parts: tuple[str, ...]) -> bool:
-    """Return True when ``path`` ends with the requested path-part suffix."""
-    parts = path.parts
-    return len(parts) >= len(suffix_parts) and tuple(parts[-len(suffix_parts) :]) == suffix_parts
-
-
 def _session_owner_pid(session_name: str) -> int | None:
     """Return the owning process id encoded in a managed scratch-session name."""
     if session_name.startswith("cli_"):
@@ -311,25 +305,6 @@ def _deterministic_seeds():
     random.seed(42)
     np.random.seed(42)
     yield
-
-
-@pytest.fixture(autouse=True)
-def _redirect_repo_root_cwd_for_gmsh_grid_tests(
-    request,
-    monkeypatch: pytest.MonkeyPatch,
-    hydromodpy_test_scratch_root: Path,
-) -> None:
-    """Keep gmsh-grid tests from materializing scratch folders in the repo root."""
-    test_path = Path(str(getattr(request.node, "fspath", request.node.path))).resolve()
-    if not _path_has_suffix_parts(
-        test_path.parent,
-        ("tests", "unit", "solver", "utils", "mesh", "gmsh_grid"),
-    ):
-        return
-
-    scratch_cwd = hydromodpy_test_scratch_root / "cwd" / "gmsh_grid" / test_path.stem
-    scratch_cwd.mkdir(parents=True, exist_ok=True)
-    monkeypatch.chdir(scratch_cwd)
 
 
 def pytest_collection_modifyitems(config, items):

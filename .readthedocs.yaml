@@ -20,7 +20,11 @@ build:
       - python -m pip install --no-build-isolation --no-deps --no-cache-dir .
     build:
       html:
-        - python -m sphinx -T -j auto -b html -d _build/doctrees -D language=en docs/source $READTHEDOCS_OUTPUT/html
+        # -j 2 (not auto): RTD runners report the host CPU count (~20+), so
+        # -j auto spawns that many parallel workers, each holding the ~900-page
+        # autosummary doctree, and the build OOMs. Two workers stay parallel
+        # while keeping peak memory (~1.5 GB) under the RTD container limit.
+        - python -m sphinx -T -j 2 -b html -d _build/doctrees -D language=en docs/source $READTHEDOCS_OUTPUT/html
 
 sphinx:
   configuration: docs/source/conf.py

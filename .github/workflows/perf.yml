@@ -61,6 +61,7 @@ jobs:
           python -m pytest tests/performance/ \
             --benchmark-only \
             --benchmark-json=.perf/current.json \
+            --dist no \
             -q
 
       - name: Compare current vs baseline (fail if any ratio drifts > 30 pct)

@@ -1,17 +1,13 @@
-"""Tests for simulation/results/adapters/ - output adapters."""
+"""Unit tests for derived-variable computation (watertable, seepage)."""
 
 from __future__ import annotations
 
 from uuid import uuid4
 
 import numpy as np
-import pandas as pd
 import pytest
 
-from hydromodpy.calibration.lumped import Gr4jFlowExtractor
-from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.simulation.extraction.derivation.derived import compute_derived
-from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -19,44 +15,6 @@ from tests._helpers.fixtures_catalog import simulation_catalog
 def catalog(tmp_path):
     with simulation_catalog(tmp_path / "workspace") as cat:
         yield cat
-
-
-class TestGr4jFlowExtractor:
-    def test_discharge_stored(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="gr4j")
-
-        idx = pd.date_range("2020-01-01", periods=30, freq="D")
-        q = pd.Series(np.random.default_rng(1).random(30), index=idx, name="Q")
-
-        adapter = Gr4jFlowExtractor()
-        adapter.extract_from_memory(sid, catalog, discharge=q)
-
-        result = catalog.query_timeseries(sid, "outlet", "discharge")
-        assert len(result) == 30
-        np.testing.assert_array_almost_equal(result.values, q.values)
-
-    def test_extra_series(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="gr4j")
-
-        idx = pd.date_range("2020-01-01", periods=10, freq="D")
-        adapter = Gr4jFlowExtractor()
-        adapter.extract_from_memory(
-            sid,
-            catalog,
-            extra={"evap": pd.Series(range(10), index=idx, dtype=float)},
-            station_id="BV1",
-        )
-
-        result = catalog.query_timeseries(sid, "BV1", "evap")
-        assert len(result) == 10
-
-    def test_derive_noop(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="gr4j")
-        adapter = Gr4jFlowExtractor()
-        adapter.derive(sid, catalog)  # should not raise
 
 
 class TestDerivedVariables:
@@ -127,27 +85,3 @@ class TestDerivedVariables:
         assert seep.shape == (10,)
         # Some cells have head > 10 (surface), so seepage > 0
         assert seep.sum() > 0
-
-
-class TestCleanupSolverFiles:
-    def test_remove_all(self, tmp_path):
-        d = tmp_path / "solver_output"
-        d.mkdir()
-        (d / "model.hds").write_text("head data")
-        (d / "model.cbc").write_text("budget data")
-        (d / "model.lst").write_text("listing")
-
-        cleanup_solver_files(d)
-        assert not d.exists()
-
-    def test_keep_extensions(self, tmp_path):
-        d = tmp_path / "solver_output"
-        d.mkdir()
-        (d / "model.hds").write_text("head data")
-        (d / "model.lst").write_text("listing")
-        (d / "model.nam").write_text("name file")
-
-        cleanup_solver_files(d, keep={".lst", ".nam"})
-        assert (d / "model.lst").exists()
-        assert (d / "model.nam").exists()
-        assert not (d / "model.hds").exists()

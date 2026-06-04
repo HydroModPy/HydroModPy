@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import pytest
-
-
-@pytest.fixture
-def tmp_data_dir(tmp_path):
-    """Return a temporary directory pre-populated with sample custom data."""
-    return tmp_path
 
 
 @pytest.fixture

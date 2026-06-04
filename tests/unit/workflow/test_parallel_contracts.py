@@ -87,6 +87,28 @@ def test_run_sweep_rejects_invalid_parallel_before_expanding_parameters() -> Non
         )
 
 
+def test_run_sweep_sequential_default_path() -> None:
+    """Without a ``parallel`` kwarg, run_sweep keeps sequential ordering."""
+
+    class FakeProject:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def simulate(self, *, name: str | None = None, **overrides: float):
+            sim_id = f"sim_{len(self.calls):02d}"
+            self.calls.append({"name": name, **overrides})
+            return SimpleNamespace(sim_id=sim_id)
+
+    project = FakeProject()
+    sim_ids = parallel_module.run_sweep(
+        project,
+        parameters={"K": [1.0, 2.0]},
+        strategy="enumerate",
+        name_template="K_{value:.2f}",
+    )
+    assert sim_ids == ["sim_00", "sim_01"]
+
+
 def test_execute_cohorts_dispatches_each_cohort_to_the_selected_executor() -> None:
     class RecordingExecutor:
         def __init__(self) -> None:
