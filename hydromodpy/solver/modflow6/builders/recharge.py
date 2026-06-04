@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from numbers import Real
 
@@ -14,6 +15,7 @@ from hydromodpy.physics.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
+from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 
 
 def sanitize_numeric_payload(payload: object) -> object:
@@ -86,8 +88,15 @@ def copy_runtime_payload(payload: object) -> object:
 def extract_evt_payload_2d(
     rch_data: Mapping[int, object],
     negative_to_evt: bool,
+    *,
+    steady: object,
 ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
-    """Route negative recharge arrays to EVT and clip RCH to non-negative values."""
+    """Route negative recharge arrays to EVT and clip RCH to non-negative values.
+
+    Steady periods carry the time-mean deficit; transient periods keep their own
+    split (see ``route_negative_recharge_to_evt``). ``steady`` is the per-period
+    steady flag (model.steady).
+    """
     normalized_rch = {int(kper): np.asarray(value, dtype=float) for kper, value in rch_data.items()}
     if not negative_to_evt:
         return normalized_rch, None
@@ -96,15 +105,7 @@ def extract_evt_payload_2d(
     if not has_negative:
         return normalized_rch, None
 
-    evt_data: dict[int, np.ndarray] = {}
-    clipped_rch: dict[int, np.ndarray] = {}
-    for kper, arr in normalized_rch.items():
-        if int(kper) == 0:
-            evt_data[int(kper)] = np.zeros_like(arr, dtype=float)
-        else:
-            evt_data[int(kper)] = np.abs(np.minimum(arr, 0.0)).astype(float, copy=False)
-        clipped_rch[int(kper)] = np.maximum(arr, 0.0).astype(float, copy=False)
-    return clipped_rch, evt_data
+    return route_negative_recharge_to_evt(normalized_rch, steady=steady)
 
 
 def series_payload_value(payload: object, kper: int, *, first_clim: object) -> float:
@@ -152,7 +153,7 @@ def extract_evt_payload(
         return payload, None
 
     if isinstance(payload, Mapping):
-        return extract_evt_payload_2d(payload, True)
+        return extract_evt_payload_2d(payload, True, steady=model.steady)
 
     payload_for_rch = copy_runtime_payload(payload)
     evt_payload = copy_runtime_payload(payload)
@@ -175,12 +176,17 @@ def extract_evt_payload(
     evt_negative = np.abs(evt_negative)
 
     first_clim = model.first_clim if model.first_clim is not None else "mean"
-    evt_spd: dict[int, object] = {
-        kper: (
-            0.0 if kper == 0 else series_payload_value(evt_negative, kper, first_clim=first_clim)
-        )
-        for kper in range(int(model.nper))
-    }
+    steady = model.steady
+
+    def _evt_value(kper: int) -> object:
+        if kper < len(steady) and bool(steady[kper]):
+            # Steady spin-up carries the time-mean deficit.
+            return series_payload_value(evt_negative, 0, first_clim="mean")
+        # Transient period keeps its own deficit (period 0 uses its own value).
+        policy = "first" if kper == 0 else first_clim
+        return series_payload_value(evt_negative, kper, first_clim=policy)
+
+    evt_spd: dict[int, object] = {kper: _evt_value(kper) for kper in range(int(model.nper))}
     return payload_for_rch, evt_spd
 
 
@@ -344,6 +350,7 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
     raw_arrays, evt_payload = extract_evt_payload_2d(
         raw_arrays,
         getattr(model, "_heterogeneous_negative_to_evt", False),
+        steady=model.steady,
     )
     validate_recharge_numeric_payload(
         raw_arrays,
@@ -448,8 +455,15 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
                 spd[kper] = flat.copy()
             return spd
         if arr.size == int(model.nper):
+            steady = model.steady
+            first_clim = model.first_clim if model.first_clim is not None else "mean"
             for kper in range(model.nper):
-                spd[kper] = scalar_to_flat(model, float(arr[kper]))
+                if kper < len(steady) and bool(steady[kper]):
+                    # Steady spin-up uses the first_clim policy (mean by default).
+                    value = series_payload_value(arr, 0, first_clim=first_clim)
+                else:
+                    value = float(arr[kper])
+                spd[kper] = scalar_to_flat(model, float(value))
             return spd
         if int(model.nper) == 1:
             scalar = series_payload_value(model.recharge, 0, first_clim=model.first_clim)
@@ -499,11 +513,12 @@ def build_evt_stress_period_data(
         return None
 
     top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-    dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
+    # Place the EVT sink on the uppermost active layer of each cell, not layer 0.
+    idomain = solver_mesh.idomain()
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
@@ -511,15 +526,26 @@ def build_evt_stress_period_data(
         rate_flat = as_recharge_flat(model, raw_value, kper=kper)
         period_cells: list[list[float]] = []
         for cid in range(int(model.ncpl)):
-            if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
+            if ocean_mask_flat[cid] or stream_mask_flat[cid]:
                 continue
+            active_layers = np.flatnonzero(idomain[:, cid] == 1)
+            if active_layers.size == 0:
+                continue  # fully inactive cell: no EVT record
             rate_value = float(rate_flat[cid])
             if rate_value <= 0.0:
                 continue
-            period_cells.append([0, cid, float(top_flat[cid]), rate_value, evt_depth])
+            top_layer = int(active_layers[0])
+            period_cells.append([top_layer, cid, float(top_flat[cid]), rate_value, evt_depth])
         evt_spd[kper] = period_cells
 
     if any(len(v) > 0 for v in evt_spd.values()):
+        warnings.warn(
+            "Routed climatic deficit uses a fixed EVT extinction depth of "
+            f"{evt_depth} m; a sustained deficit can saturate the water table near "
+            "this depth rather than over the full saturated thickness.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return evt_spd
     return None
 

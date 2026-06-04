@@ -124,7 +124,12 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
-        description="MF6 EVT extinction depth in meters when recharge negatives are routed to EVT.",
+        description=(
+            "Meters; extinction depth for the EVT sink used when recharge negatives "
+            "are routed to EVT. The routed deficit tapers linearly from the cell top "
+            "to this depth and stops below it, so a sustained climatic deficit can "
+            "saturate near this value."
+        ),
     )
 
 
