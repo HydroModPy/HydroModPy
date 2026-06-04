@@ -2251,27 +2251,55 @@
           "x-hmp-profile": "dev"
         },
         "react_order": {
+          "default": null,
+          "description": "Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 (zero-order, constant rate mass/volume/T), or 1 (first-order, proportional to concentration, 1/T).",
+          "enum": [
+            null,
+            0,
+            1
+          ],
+          "title": "React Order",
+          "x-hmp-profile": "dev"
+        },
+        "scheme": {
+          "default": "upstream",
+          "description": "Advection scheme for MODFLOW 6 GWT. upstream: robust but diffusive (default). central: least diffusive, may oscillate. TVD: accurate sharp fronts (Ogata-Banks).",
+          "enum": [
+            "upstream",
+            "central",
+            "TVD"
+          ],
+          "examples": [
+            "upstream"
+          ],
+          "title": "Scheme",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "rate_decay": {
+          "default": 0.0,
+          "description": "Decay rate. Units depend on react_order: 1/T for first-order, mass per volume per time for zero-order. Can be overridden at runtime.",
+          "examples": [
+            0.0
+          ],
+          "title": "Rate Decay",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        },
+        "porosity": {
           "anyOf": [
             {
-              "type": "integer"
+              "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
+              "type": "number"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Reaction order for MT3DMS: None, 0, or 1.",
-          "title": "React Order",
-          "x-hmp-profile": "dev"
-        },
-        "rate_decay": {
-          "default": 0.0,
-          "description": "Decay rate value (can be overridden at runtime).",
-          "examples": [
-            0.0
-          ],
-          "title": "Rate Decay",
-          "type": "number",
+          "description": "Effective (total) porosity [-], the dimensionless volume of interconnected pores per bulk volume. Drives MST pore volume and pore velocity. When omitted, the flow model specific yield is used, which underestimates pore volume and biases transit times low.",
+          "title": "Porosity",
           "x-hmp-profile": "dev"
         },
         "plot_conc": {
@@ -9505,17 +9533,18 @@
       "properties": {
         "vka": {
           "default": 1.0,
-          "description": "Vertical anisotropy factor used to derive k33 from k.",
+          "description": "Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka.",
           "examples": [
             1.0
           ],
+          "exclusiveMinimum": 0.0,
           "title": "Vka",
           "type": "number",
           "x-hmp-profile": "expert"
         },
         "evt_extinction_depth": {
           "default": 1.0,
-          "description": "MF6 EVT extinction depth in meters when recharge negatives are routed to EVT.",
+          "description": "Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value.",
           "examples": [
             1.0
           ],
@@ -9581,6 +9610,7 @@
           "anyOf": [
             {
               "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
               "type": "number"
             },
             {
@@ -9588,7 +9618,7 @@
             }
           ],
           "default": null,
-          "description": "Optional uniform particle-tracking porosity. When omitted, the flow model specific yield is used where positive.",
+          "description": "Effective (total) porosity [-] for particle tracking (v = q / porosity). When omitted, the flow model specific yield is used where positive, with a warning, since specific yield underestimates pore volume.",
           "title": "Porosity",
           "x-hmp-profile": "dev"
         },
@@ -9806,9 +9836,14 @@
         },
         "mf6_ims_complexity": {
           "default": "COMPLEX",
-          "description": "IMS complexity keyword for MODFLOW 6 (e.g. SIMPLE, MODERATE, COMPLEX).",
-          "examples": [
+          "description": "IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX.",
+          "enum": [
+            "SIMPLE",
+            "MODERATE",
             "COMPLEX"
+          ],
+          "examples": [
+            "SIMPLE"
           ],
           "title": "Mf6 Ims Complexity",
           "type": "string",
@@ -9868,6 +9903,60 @@
           "type": "integer",
           "x-hmp-profile": "expert"
         },
+        "mf6_inner_rclose": {
+          "anyOf": [
+            {
+              "description": "Positive floating-point value.",
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IMS inner-iteration flow-residual closure (L^3/T in run units). None keeps the complexity-preset default.",
+          "title": "Mf6 Inner Rclose",
+          "x-hmp-profile": "expert"
+        },
+        "mf6_linear_acceleration": {
+          "anyOf": [
+            {
+              "enum": [
+                "CG",
+                "BICGSTAB"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IMS linear acceleration: CG for symmetric matrices, BICGSTAB for the non-symmetric Newton formulation. None keeps the preset default.",
+          "title": "Mf6 Linear Acceleration",
+          "x-hmp-profile": "expert"
+        },
+        "mf6_under_relaxation": {
+          "anyOf": [
+            {
+              "enum": [
+                "NONE",
+                "SIMPLE",
+                "COOLEY",
+                "DBD"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IMS non-linear under-relaxation scheme. DBD is recommended with Newton. None keeps the preset default.",
+          "title": "Mf6 Under Relaxation",
+          "x-hmp-profile": "expert"
+        },
         "mf6_enable_rewet": {
           "anyOf": [
             {
@@ -9883,10 +9972,10 @@
           "x-hmp-profile": "expert"
         },
         "mf6_newton": {
-          "default": false,
-          "description": "Enable the MODFLOW 6 Newton-Raphson formulation for convertible groundwater cells.",
+          "default": true,
+          "description": "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default and matches the MODFLOW-NWT backend.",
           "examples": [
-            false
+            true
           ],
           "title": "Mf6 Newton",
           "type": "boolean",
