@@ -9,7 +9,7 @@ but from a Python file, which is convenient when you want to:
 
 The TOML is the SINGLE SOURCE OF TRUTH. Nothing here overrides any
 field; we just hand the validated config to `Project(...)` and call
-`project.run()`.
+`project.simulate()`.
 
 Launch:
     python examples/projects/11_nancon_watershed/python/01_run_from_toml.py
@@ -35,7 +35,7 @@ project = hmp.Project(CONFIG_PATH)
 # 2. Run one simulation
 # ---------------------------------------------------------------------
 
-run = project.run()
+run = project.simulate()
 
 
 # ---------------------------------------------------------------------

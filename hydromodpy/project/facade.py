@@ -1,33 +1,26 @@
 """High-level Project API for interactive Python usage.
 
-Setup-once, run-many interface that keeps the user-facing session state
-(``cfg``, workspace, geographic runtime, loaded data, mesh, catalog) behind a
-clean API. The TOML-driven workflow (``hmp run``) is unchanged; this module
-provides the **programmatic** equivalent.
+Construct cheap, simulate many. ``Project(config)`` only validates the config;
+the heavy model phase (geographic delineation, data download, mesh) runs lazily
+on the first :meth:`Project.simulate` (or the first access to a runtime
+accessor), or eagerly via :meth:`Project.prepare` / the per-phase verbs. The
+TOML-driven workflow (``hmp run``) is unchanged; this module is its
+**programmatic** equivalent.
 
-``Project`` is intentionally not the execution engine. Ordered execution
-and resume live in :mod:`hydromodpy.workflow.runner.Pipeline`.
-Both routes use the same ``workflow.steps`` helpers so interactive notebooks
-and full pipeline runs do not fork the scientific logic.
+``Project`` is intentionally not the execution engine. Ordered execution and
+resume live in :mod:`hydromodpy.workflow.runner.Pipeline`. Both routes use the
+same ``workflow.steps`` helpers so interactive notebooks and full pipeline runs
+do not fork the scientific logic.
 
-The facade is composed of four cohesive helpers:
+The facade is composed of three cohesive helpers:
 
-- :class:`hydromodpy.project.session.ProjectSession`: run-phase orchestrator
-  exposed via :meth:`Project.session`. Owns ``simulate``, ``sweep`` and the
-  prepared-run primitives (``prepare`` / ``execute`` / ``ingest`` /
-  ``render`` / ``cleanup``).
 - :class:`hydromodpy.project.runner.ProjectRunner` (``project._runner``):
-  internal runner for ``run`` / ``calibrate``.
+  internal runner backing ``simulate`` / ``calibrate``.
 - :class:`hydromodpy.project.catalog.ProjectCatalog` (``project._catalog``):
   catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
 - :mod:`hydromodpy.project.phases`: model-phase verbs that mutate the
   project directly (``configure``, ``setup_workspace``, ``build_geographic``,
   ``load_data``, ``build_mesh``).
-
-Workflows that run from a TOML payload but do not benefit from setup-once
-state (``overview``, ``mesh``, ``compare``, ``report``) are not methods on
-``Project``. Use :mod:`hydromodpy._api` (``hmp.overview``, ``hmp.mesh``,
-``hmp.compare``, ``hmp.report``) instead.
 
 Example
 -------
@@ -35,16 +28,13 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Project("hydromodpy.toml")
+    project = hmp.Project("hydromodpy.toml")  # cheap: validates config
+    run = project.simulate(Sy=0.05, K=5e-5, name="baseline")  # builds, then runs
+    wt = run.field("watertable_depth", timestep=12)
 
-    result = project.run(Sy=0.05, K=5e-5, name="baseline")
-    wt = result.field("watertable_depth", timestep=12)
-    ts = result.timeseries("discharge", station="_catchment")
-
-    # Low-level prepared-run primitives
-    session = project.session()
-    sim_id = session.prepare(name="probe")
-    session.execute(sim_id)
+    # Parameter sweep: one simulate() per value
+    for sy in (0.01, 0.05, 0.1):
+        project.simulate(name=f"sy_{sy}", Sy=sy)
 
     project.close()
 """
@@ -60,10 +50,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project.catalog import ProjectCatalog
 from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
-from hydromodpy.project.session import ProjectSession
 from hydromodpy.project.state import PROJECT_ATTR_TO_STATE_FIELD, ProjectState
 
 if TYPE_CHECKING:
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.data import LoadedDataContext
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time.window import (
@@ -80,106 +70,92 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _resolve_config(config: str | Path | object | dict) -> object:
+    """Normalize a polymorphic config input to a path or ``HydroModPyConfig``.
+
+    ``dict`` -> validated config; JSON string (starts with ``{``) -> validated
+    config; a TOML path or an already-built config object passes through.
+    """
+    if isinstance(config, Mapping):
+        from hydromodpy.config import HydroModPyConfig
+
+        return HydroModPyConfig.from_dict(dict(config))
+    if isinstance(config, str) and config.lstrip().startswith("{"):
+        from hydromodpy.config import HydroModPyConfig
+
+        return HydroModPyConfig.from_json(config)
+    return config
+
+
 class Project:
     """Setup-once, run-many interface for HydroModPy simulations.
 
-    Builds the geographic/domain/data context once, then allows running
-    multiple simulations with parameter overrides.
-
-    Three concerns split the public surface:
-
-    1. **Factory and lifecycle** - constructors (``__init__``, ``lazy``,
-       ``from_toml`` / ``from_json`` / ``from_dict``, ``rerun``), context
-       manager (``__enter__`` / ``__exit__``), ``close``, ``__repr__`` and
-       the inspection / accessor properties (``data``, ``runs``, ``cfg``,
-       ``geographic``, ``domain``, ``store``, ``time_grid``,
-       ``loaded_data``, ``workflow_context``, ``has_mesh``, ``data_loaded``,
-       ``__getitem__``).
-    2. **Model phase** - ``setup_workspace``, ``build_geographic``,
-       ``rebuild_geographic``, ``load_data``, ``reload_data``,
-       ``build_mesh``.
-    3. **Run phase** - ``run``, ``calibrate`` and the prepared-run wrapper
-       ``session()`` returning a :class:`ProjectSession`.
-
-    TOML-only workflows that do not benefit from setup-once state
-    (``overview``, ``mesh``, ``compare``, ``report``) live on
-    :mod:`hydromodpy._api`.
+    ``Project(config)`` is cheap: it validates the configuration and builds an
+    empty runtime context. The heavy model phase (geographic, data, mesh) is
+    built lazily on the first :meth:`simulate` (or eagerly via :meth:`prepare`
+    or the per-phase verbs ``build_geographic`` / ``load_data`` /
+    ``build_mesh``). Run many simulations with parameter overrides; inspect
+    past runs through :attr:`runs` and inputs through :attr:`data`.
 
     Parameters
     ----------
-    config : str, Path, or HydroModPyConfig
-        Either a path to a TOML file (``base_config`` inheritance is
-        supported) or a fully-built :class:`HydroModPyConfig` instance
-        for fully-Python workflows.
+    config : str, Path, HydroModPyConfig, dict, or JSON str
+        A TOML path, a fully-built :class:`HydroModPyConfig`, a ``dict``
+        payload, or a JSON string (auto-detected).
     solver : str, optional
         Flow solver name. Auto-detected from the config, defaults to
         ``"modflow_nwt"``.
     headless : bool, optional
         Disable display and postprocess runners (useful for calibration
         loops where generating figures per iteration is wasteful).
+    no_display : bool, optional
+        Skip display generation for later run phases.
 
     Examples
     --------
-    TOML-driven (the CLI path, but usable from Python too)::
-
-        import hydromodpy as hmp
-
-        project = hmp.Project("hydromodpy.toml")
-        r = project.run(Sy=0.05)
-
-    Same TOML, orchestration from Python::
-
-        project = hmp.Project("hydromodpy.toml")
-        r = project.simulate(
-            time=("2000-01-01", "2005-12-31", "1 month"),
-            processes=[("flow", "modflow_nwt")],
-            Sy=0.05,
-        )
-
-    Full Python, no TOML::
-
-        from hydromodpy.config import HydroModPyConfig
-
-        cfg = HydroModPyConfig(...)
-        project = hmp.Project(cfg)
-        r = project.simulate(
-            time=("2000-01-01", "2005-12-31", "1 month"),
-            processes=["flow"],
-            Sy=0.05,
-        )
+    >>> import hydromodpy as hmp
+    >>> project = hmp.Project("hydromodpy.toml")  # doctest: +SKIP
+    >>> run = project.simulate(Sy=0.05)  # doctest: +SKIP
+    >>> project.close()  # doctest: +SKIP
     """
 
     def __init__(
         self,
-        config: str | Path | object,
+        config: str | Path | object | dict,
         *,
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
-        _lazy: bool = False,
     ) -> None:
-        """Build a Project from a TOML path or a HydroModPyConfig instance.
+        """Validate ``config`` and build an empty runtime context (cheap).
 
-        By default the model phase runs eagerly: workspace is created, geographic
-        is built, data is loaded, the mesh is generated. Use :meth:`Project.lazy`
-        to defer the model phase and drive each verb from Python.
+        No heavy I/O: geographic delineation, data download and meshing are
+        deferred to the first :meth:`simulate` (or :meth:`prepare`).
         """
         from hydromodpy.project import phases as project_phases
 
         object.__setattr__(self, "_state", ProjectState())
         project_phases.configure(
             self,
-            config,
+            _resolve_config(config),
             solver=solver,
             headless=headless,
             no_display=no_display,
         )
         object.__setattr__(self, "_runner", ProjectRunner(self))
         object.__setattr__(self, "_catalog", ProjectCatalog(self))
-        if not _lazy:
+
+    def _ensure_model_built(self) -> None:
+        """Build the model phase once, lazily, on first run or accessor use."""
+        if self._phase == "uninitialized":
             self.build_geographic()
             self.load_data()
             self.build_mesh()
+
+    def prepare(self) -> Project:
+        """Eagerly build the model phase (geographic, data, mesh). Returns self."""
+        self._ensure_model_built()
+        return self
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Proxy state-field assignments to :attr:`_state`.
@@ -203,158 +179,6 @@ class Project:
             if state is not None:
                 return getattr(state, target)
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
-
-    @classmethod
-    def lazy(
-        cls,
-        config: str | Path | object,
-        *,
-        solver: str | None = None,
-        headless: bool = False,
-        no_display: bool = False,
-    ) -> Project:
-        """Validate ``config`` and build an empty context without running anything.
-
-        The caller drives :meth:`build_geographic`, :meth:`load_data`,
-        :meth:`build_mesh` (and optionally :meth:`setup_workspace`) manually.
-
-        Parameters
-        ----------
-        config
-            TOML path or validated configuration object.
-        solver
-            Optional flow solver override.
-        headless
-            Disable interactive display side effects.
-        no_display
-            Skip display generation for later run phases.
-
-        Returns
-        -------
-        Project
-            Project with validated configuration and empty runtime context.
-
-        Raises
-        ------
-        FileNotFoundError
-            If ``config`` is a path that does not exist.
-        ConfigValidationError
-            If the resolved payload fails Pydantic validation.
-
-        Examples
-        --------
-        >>> project = Project.lazy("hydromodpy.toml")
-        >>> project.build_geographic()
-        >>> project.load_data()
-        >>> project.build_mesh()
-        """
-        return cls(
-            config,
-            solver=solver,
-            headless=headless,
-            no_display=no_display,
-            _lazy=True,
-        )
-
-    @classmethod
-    def from_toml(cls, config_path: str | Path, **kwargs) -> Project:
-        """Build a Project from a TOML path.
-
-        Parameters
-        ----------
-        config_path
-            Path to a HydroModPy TOML file.
-        kwargs
-            Options forwarded to ``Project``.
-
-        Returns
-        -------
-        Project
-            Project initialized from the TOML file.
-
-        Raises
-        ------
-        FileNotFoundError
-            If ``config_path`` does not exist on disk.
-        ConfigValidationError
-            If the TOML payload fails Pydantic validation.
-
-        Examples
-        --------
-        >>> import hydromodpy as hmp
-        >>> project = hmp.Project.from_toml("hydromodpy.toml")
-        """
-        return cls(Path(config_path), **kwargs)
-
-    @classmethod
-    def from_json(
-        cls,
-        payload: str | bytes,
-        *,
-        base_dir: str | Path | None = None,
-        **kwargs,
-    ) -> Project:
-        """Build a Project from a JSON string.
-
-        Parameters
-        ----------
-        payload
-            JSON payload validated against ``HydroModPyConfig``.
-        base_dir
-            Base directory used to resolve relative paths in the payload.
-        kwargs
-            Options forwarded to ``Project``.
-
-        Returns
-        -------
-        Project
-            Project initialized from the validated JSON payload.
-
-        Raises
-        ------
-        ConfigValidationError
-            If the JSON payload fails Pydantic validation.
-        json.JSONDecodeError
-            If ``payload`` is not valid JSON.
-        """
-        from hydromodpy.config import HydroModPyConfig
-
-        cfg = HydroModPyConfig.from_json(payload, base_dir=base_dir)
-        return cls(cfg, **kwargs)
-
-    @classmethod
-    def from_dict(
-        cls,
-        payload: dict,
-        *,
-        base_dir: str | Path | None = None,
-        **kwargs,
-    ) -> Project:
-        """Build a Project from a dictionary payload.
-
-        Parameters
-        ----------
-        payload
-            Mapping validated against ``HydroModPyConfig``.
-        base_dir
-            Base directory used to resolve relative paths in the payload.
-        kwargs
-            Options forwarded to ``Project``.
-
-        Returns
-        -------
-        Project
-            Project initialized from the validated mapping.
-
-        Raises
-        ------
-        ConfigValidationError
-            If the mapping fails Pydantic validation.
-        """
-        from hydromodpy.config import HydroModPyConfig
-
-        cfg = HydroModPyConfig.from_dict(payload, base_dir=base_dir)
-        return cls(cfg, **kwargs)
 
     @classmethod
     def rerun(
@@ -388,7 +212,7 @@ class Project:
         solver, headless, no_display
             Options forwarded to the derived :class:`Project`.
         overrides
-            Flow parameter overrides forwarded to :meth:`Project.run`.
+            Flow parameter overrides forwarded to :meth:`Project.simulate`.
 
         Returns
         -------
@@ -470,6 +294,13 @@ class Project:
 
         project_phases.build_mesh(self, **overrides)
 
+    # -- Public config view -----------------------------------------------
+
+    @property
+    def config(self) -> HydroModPyConfig:
+        """Validated configuration driving this project (read-only)."""
+        return self._cfg
+
     # -- Inspection properties --------------------------------------------
 
     @property
@@ -490,27 +321,32 @@ class Project:
     @property
     def runs(self) -> ProjectRunsAccessor:
         """Accessor for the simulation catalog scoped to this project."""
+        self._ensure_model_built()
         return self._catalog.runs
 
     def __getitem__(self, sim_id: str) -> Run:
         """Return the Run view associated with ``sim_id``."""
+        self._ensure_model_built()
         return self._catalog.get(sim_id)
 
     # -- Public properties (context state) --------------------------------
 
     @property
     def geographic(self) -> CatchmentDelineation | None:
-        """Geographic runtime object (DEM, watershed, CRS)."""
+        """Geographic runtime object (DEM, watershed, CRS). Triggers build."""
+        self._ensure_model_built()
         return self._ctx.setup.geographic
 
     @property
     def domain(self) -> Domain | None:
-        """Spatial domain (mesh, layers, zones)."""
+        """Spatial domain (mesh, layers, zones). Triggers build."""
+        self._ensure_model_built()
         return self._ctx.setup.domain
 
     @property
     def store(self) -> SimulationCatalog | None:
-        """Open SimulationCatalog for direct queries across all runs."""
+        """Open SimulationCatalog for direct queries across all runs. Triggers build."""
+        self._ensure_model_built()
         return self._catalog.store
 
     @property
@@ -522,7 +358,8 @@ class Project:
 
     @property
     def loaded_data(self) -> LoadedDataContext:
-        """Loaded data context (recharge, geology, hydrometry, etc.)."""
+        """Loaded data context (recharge, geology, hydrometry, etc.). Triggers build."""
+        self._ensure_model_built()
         return self._ctx.loaded_data
 
     @property
@@ -530,21 +367,9 @@ class Project:
         """Mutable workflow runtime state threaded through workflow steps."""
         return self._ctx
 
-    # -- Run-phase session ------------------------------------------------
-
-    def session(self) -> ProjectSession:
-        """Return the run-phase orchestration facade bound to this project.
-
-        ``session`` exposes the prepared-run primitives (``prepare``,
-        ``execute``, ``ingest``, ``render``, ``cleanup``) plus ``simulate``
-        and ``sweep``. The high-level verbs ``run`` and ``calibrate`` remain
-        on :class:`Project` for the common case.
-        """
-        return ProjectSession(self)
-
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
 
-    def run(
+    def simulate(
         self,
         *,
         name: str | None = None,
@@ -557,12 +382,12 @@ class Project:
         parallel: bool = True,
         **overrides,
     ) -> Run | None:
-        """Run the configured workflow and return its result.
+        """Run one simulation through the configured workflow and return its result.
 
-        Single entry point that unifies the interactive Python flow and the
-        ``hmp run`` CLI. Flow parameter overrides (``Sy``, ``K``, ``Ss``) and
-        the special keys ``thickness``, ``first_clim``, ``properties`` are
-        applied to the plan before the Pipeline runs.
+        Builds the model phase on first call (lazy), then runs the Pipeline.
+        Flow parameter overrides (``Sy``, ``K``, ``Ss``) and the special keys
+        ``thickness``, ``first_clim``, ``properties`` are applied to the plan
+        before the Pipeline runs. Call once per point to sweep a parameter.
 
         Parameters
         ----------
@@ -598,8 +423,8 @@ class Project:
 
         Examples
         --------
-        >>> run = project.run(Sy=0.05, name="probe")
-        >>> run.summary()
+        >>> run = project.simulate(Sy=0.05, name="probe")  # doctest: +SKIP
+        >>> run.summary()  # doctest: +SKIP
 
         See Also
         --------
@@ -608,6 +433,7 @@ class Project:
         hydromodpy.results.run.Run
             Per-simulation result view returned by successful runs.
         """
+        self._ensure_model_built()
         return self._runner.run(
             name=name,
             resume=resume,

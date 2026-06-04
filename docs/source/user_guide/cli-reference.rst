@@ -31,10 +31,10 @@ Command inventory
    * - ``hmp project``
      - Project lifecycle
      - ``new``, ``list``, ``show``, ``delete`` (the last requires
-       ``--force`` outside a TTY).
+       ``-y``/``--yes`` outside a TTY).
    * - ``hmp catalog``
      - Catalog browsing and maintenance
-     - ``ls``, ``query "<SQL>"``, ``show <sim_id> [--detail]``,
+     - ``ls``, ``query "<SQL>"``, ``show <sim_ref> [--detail]``,
        ``gc``, ``vacuum``, ``delete``.
    * - ``hmp run``
      - Workflow execution
@@ -47,7 +47,7 @@ Command inventory
      - Developer diagnostics and tooling
      - ``config`` generates templates or validates TOML files, ``schema``
        exports JSON Schema and companion metadata for UI integrations,
-       ``doctor``, ``lock``, ``rank``, ``manage``, ``completion``, and
+       ``lock``, ``rank``, ``manage``, ``completion``, and
        ``run-script`` cover the remaining developer surfaces.
    * - ``hmp viz``
      - Figure rendering and UI
@@ -73,7 +73,7 @@ Command inventory
    * - ``hmp doctor``
      - Environment diagnosis
      - Check Python, dependencies, solver binaries, workspace, data cache, and
-       result-storage consistency. Also exposed as ``hmp dev doctor``.
+       result-storage consistency.
    * - ``hmp install-binaries``
      - Solver binaries
      - Download MODFLOW, MODPATH, and MT3D-USGS binaries into the managed

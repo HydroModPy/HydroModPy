@@ -51,7 +51,7 @@ def run_simulation(
 
     with Project(config_path, no_display=no_display) as project:
         run_name = Path(config_path).stem
-        result = project.run(
+        result = project.simulate(
             name=run_name,
             resume=resume,
             from_step=from_step,

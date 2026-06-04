@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from hydromodpy.cli._conventions import add_sim_ref, confirm_parser, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
@@ -17,10 +18,14 @@ HELP: str = "Delete a simulation (DuckDB row + Zarr store)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument("sim_id", help="Full sim_id, unique prefix, or simulation name")
-    parser.add_argument("--workspace", default=None, help="Project catalog root")
-    parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[workspace_parser(), confirm_parser()],
+        epilog="Example:\n  hmp catalog delete ab12cd34 -y",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_sim_ref(parser)
     parser.add_argument(
         "--keep-storage",
         action="store_true",
@@ -42,7 +47,7 @@ def run(args: argparse.Namespace) -> None:
             print("Refusing to delete without -y in non-interactive mode.", file=sys.stderr)
             sys.exit(EXIT_SIGINT)
         try:
-            resp = input(f"Delete simulation {args.sim_id!r}? [y/N] ").strip().lower()
+            resp = input(f"Delete simulation {args.sim_ref!r}? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print("\nAborted.", file=sys.stderr)
             sys.exit(EXIT_SIGINT)
@@ -52,7 +57,7 @@ def run(args: argparse.Namespace) -> None:
 
     try:
         result = delete_simulation(
-            args.sim_id,
+            args.sim_ref,
             workspace=workspace_root,
             keep_storage=args.keep_storage,
         )

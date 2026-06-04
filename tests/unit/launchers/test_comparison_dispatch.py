@@ -98,7 +98,7 @@ def test_hmp_compare_invokes_simulation_comparison_launcher(monkeypatch, tmp_pat
         FakeSimulationComparisonLauncher,
     )
 
-    summary = hmp.compare(config_path)
+    summary = hmp.run(config_path)
 
     assert captured["path"] == config_path.resolve()
     assert summary == {"launcher": "simulation_comparison"}

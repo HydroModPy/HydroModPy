@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
+import hydromodpy
 from hydromodpy.spatial.mesh.gmsh_grid import (
     build_zone_conformal_partition_from_dataframe,
     generate_zone_conformal_mesh_from_dataframe,
@@ -40,6 +41,9 @@ try:
     import gmsh  # noqa: F401
 except (ImportError, OSError) as exc:
     pytest.skip(f"could not import 'gmsh': {exc}", allow_module_level=True)
+
+# Conformal meshing consumes the geology data source registered by bootstrap.
+hydromodpy.bootstrap()
 
 
 def _build_split_zones_gdf():

@@ -169,13 +169,18 @@ def persist_calibration_summary_to_store(
     calibration_id : str, optional
         Human-readable calibration session identifier.
     """
+    if not solver:
+        raise ValueError(
+            "persist_calibration_summary_to_store requires the calibrated solver "
+            "code (e.g. 'modflow6', 'gr4j'); got None."
+        )
     name = calibration_id or "calibration_best"
     store.register_simulation(
         sim_id,
         project="calibration",
-        solver=solver or "calibration",
+        solver=solver,
         name=name,
-        tags=["calibration"],
+        tags=["calibration", f"method:{method}"],
     )
 
     # Persist summary metrics under a synthetic "__calibration__" station so
@@ -186,11 +191,11 @@ def persist_calibration_summary_to_store(
     if score_best is not None:
         store.write_metric(sim_id, station, "score_best", score_best)
 
-    # Write calibration params enriched with metadata so the method and
-    # objective are recoverable from the single JSON blob.
+    # Write the calibrated parameters plus numeric run metadata. The method name
+    # is a string and lives in the simulation tags above; the parameters.value
+    # column is DOUBLE, so only numeric metadata is stored here.
     params_with_meta = dict(best_params)
-    params_with_meta["__method__"] = method
-    params_with_meta["__iteration_count__"] = iteration_count
+    params_with_meta["__iteration_count__"] = float(iteration_count)
     params_with_meta["__objective_best__"] = best_objective
     if score_best is not None:
         params_with_meta["__score_best__"] = score_best

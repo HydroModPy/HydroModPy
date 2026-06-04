@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.core.config_kit.export_spec import ExportSpec
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "export"
@@ -23,6 +24,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--sim", default=None, help="Simulation name to export (use --list to see available)"
     )
     parser.add_argument(
+        "--var",
+        nargs="+",
+        default=None,
+        help="Field variable name(s) to export (default: all exportable fields present).",
+    )
+    parser.add_argument(
         "--csv",
         action="store_true",
         help="Export timeseries as CSV (default when --sim is used alone)",
@@ -35,7 +42,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--resolution",
         type=float,
         default=None,
-        help="GeoTIFF pixel size in project CRS units. Required with --geotiff.",
+        help="GeoTIFF pixel size in project CRS units. Auto-derived from the grid when omitted.",
     )
     parser.add_argument("--vtu", action="store_true", help="Export mesh + fields as VTU (ParaView)")
     parser.add_argument(
@@ -201,75 +208,67 @@ def run(args: argparse.Namespace) -> None:
         if not any_format:
             args.csv = True
 
+        if args.geotiff and args.resolution is None:
+            print("--resolution is required with --geotiff", file=sys.stderr)
+            catalog.close()
+            sys.exit(EXIT_CONFIG)
+
+        # Real, registered field names present in this run (whitelist via the
+        # field registry: skips Zarr groups like 'geographic', 'mesh', 'crs').
+        field_vars: list[str] = []
+        if args.netcdf or args.geotiff or args.vtu:
+            field_vars = _exportable_fields(catalog, sim_id, args.var)
+            if args.var:
+                for name in (v for v in args.var if v not in field_vars):
+                    print(f"  Variable '{name}' is not an exportable field", file=sys.stderr)
+
         if args.csv:
             out = sim_dir / "timeseries.csv"
-            catalog.export(sim_id, "*", "csv", out)
+            catalog.export(sim_id, ExportSpec(var="*", dest=out))
             exported.append(out)
             print(f"  {out}", file=sys.stderr)
 
         if args.netcdf:
             out = sim_dir / "fields.nc"
             try:
-                catalog.export(sim_id, "head", "netcdf", out)
+                catalog.export(sim_id, ExportSpec(var=field_vars or ["head"], dest=out, time="all"))
                 exported.append(out)
                 print(f"  {out}", file=sys.stderr)
             except Exception as exc:
                 print(f"  NetCDF export failed: {exc}", file=sys.stderr)
 
         if args.geotiff:
-            if args.resolution is None:
-                print("--resolution is required with --geotiff", file=sys.stderr)
-                catalog.close()
-                sys.exit(EXIT_CONFIG)
             failures: list[str] = []
-            sz = catalog.open_zarr(sim_id)
-            try:
-                grp = sz.root
-                variables = list(grp.keys()) + list((grp.get("derived") or {}).keys())
-            finally:
-                sz.close()
-            for var in variables:
-                if var in (
-                    "mesh",
-                    "meta",
-                    "state",
-                    "budget",
-                    "derived",
-                    "particles",
-                    "forcing",
-                    "crs",
-                    "time",
-                ):
-                    continue
+            for var in field_vars:
                 try:
                     out = sim_dir / f"{var}_t0.tif"
                     catalog.export(
                         sim_id,
-                        var,
-                        "geotiff",
-                        out,
-                        timestep=0,
-                        resolution=float(args.resolution),
+                        ExportSpec(var=var, dest=out, time="first", resolution=args.resolution),
                     )
                     exported.append(out)
                     print(f"  {out}", file=sys.stderr)
                 except Exception as exc:
                     failures.append(f"{var}: {exc}")
             if failures:
-                print("GeoTIFF export failed:", file=sys.stderr)
+                print("GeoTIFF export failed for some variables:", file=sys.stderr)
                 for failure in failures:
                     print(f"  {failure}", file=sys.stderr)
-                catalog.close()
-                sys.exit(EXIT_CONFIG)
 
         if args.vtu:
-            out = sim_dir / "head_t0.vtu"
-            try:
-                catalog.export(sim_id, "head", "vtu", out, timestep=0)
-                exported.append(out)
-                print(f"  {out}", file=sys.stderr)
-            except Exception as exc:
-                print(f"  VTU export failed: {exc}", file=sys.stderr)
+            vtu_failures: list[str] = []
+            for var in field_vars:
+                try:
+                    out = sim_dir / f"{var}_t0.vtu"
+                    catalog.export(sim_id, ExportSpec(var=var, dest=out, time="first"))
+                    exported.append(out)
+                    print(f"  {out}", file=sys.stderr)
+                except Exception as exc:
+                    vtu_failures.append(f"{var}: {exc}")
+            if vtu_failures:
+                print("VTU export failed for some variables:", file=sys.stderr)
+                for failure in vtu_failures:
+                    print(f"  {failure}", file=sys.stderr)
 
         if fair_formats:
             exported.extend(_emit_fair(catalog, sim_id, sim_dir, fair_formats))
@@ -284,6 +283,27 @@ def run(args: argparse.Namespace) -> None:
 
     if exported:
         print(f"Exported {len(exported)} file(s)", file=sys.stderr)
+
+
+def _exportable_fields(catalog, sim_id: str, selected: list[str] | None = None) -> list[str]:
+    """Registered field names present in the run's Zarr store.
+
+    Whitelists against the field registry so Zarr groups that are not fields
+    (``geographic``, ``mesh``, ``crs``, ``time``, ``budget`` ...) are skipped.
+    When ``selected`` is given, keep only those requested names that exist.
+    """
+    from hydromodpy.results import field_registry
+
+    sz = catalog.open_zarr(sim_id)
+    try:
+        grp = sz.root
+        present = list(grp.keys()) + list((grp.get("derived") or {}).keys())
+    finally:
+        sz.close()
+    fields = [v for v in present if field_registry.has(v)]
+    if selected:
+        return [v for v in selected if v in fields]
+    return fields
 
 
 def _emit_fair(

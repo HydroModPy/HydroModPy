@@ -36,6 +36,7 @@ class _BridgeClosed(RuntimeError):
 
 
 _SENTINEL = object()
+_BRIDGE_EMPTY = object()
 
 
 class _AskTellBridge:
@@ -77,6 +78,13 @@ class _AskTellBridge:
         """Block until SciPy requests the next evaluation (or finishes)."""
         return self._out_q.get(timeout=timeout)
 
+    def next_point_nowait(self) -> np.ndarray | None | object:
+        """Return a queued point, or ``_BRIDGE_EMPTY`` when none is ready yet."""
+        try:
+            return self._out_q.get_nowait()
+        except queue.Empty:
+            return _BRIDGE_EMPTY
+
     def feed(self, value: float) -> None:
         self._in_q.put(value)
 
@@ -109,8 +117,17 @@ class _ScipyAdapterBase:
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
         out: list[ParamSuggestion] = []
-        for _ in range(n):
-            point = self._bridge.next_point()
+        for slot in range(n):
+            if slot == 0:
+                point = self._bridge.next_point()
+            else:
+                # SciPy DE / Nelder-Mead are sequential (workers=1): the next
+                # point is only produced after the current one is told back.
+                # Never block here, or ask(n>1) would deadlock; return only the
+                # points already queued (typically one).
+                point = self._bridge.next_point_nowait()
+                if point is _BRIDGE_EMPTY:
+                    break
             if point is None:
                 break
             self._trial_id += 1

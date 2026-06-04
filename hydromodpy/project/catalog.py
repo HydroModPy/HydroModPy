@@ -56,13 +56,18 @@ class ProjectCatalog:
         return self._project._store[sim_id]
 
     def close(self) -> None:
-        """Close the SimulationCatalog and clean up preprocessing files."""
-        from hydromodpy.spatial.geographic.store_ingestion import (
-            cleanup_stable_folder,
-        )
+        """Close the SimulationCatalog and clean up preprocessing files.
 
+        Reads the geographic object directly from the context (never triggers
+        a lazy build), so closing an unused Project stays cheap.
+        """
         project = self._project
-        cleanup_stable_folder(project.geographic)
+        if project._phase != "uninitialized":
+            from hydromodpy.spatial.geographic.store_ingestion import (
+                cleanup_stable_folder,
+            )
+
+            cleanup_stable_folder(project._ctx.setup.geographic)
         if project._store is not None:
             project._store.close()
             project._store = None

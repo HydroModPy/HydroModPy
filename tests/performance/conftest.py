@@ -2,9 +2,10 @@
 
 Each module under ``tests/performance/`` sets ``pytestmark =
 pytest.mark.performance`` so the suite is selectable via
-``pytest -m performance``. Benchmarks are self-contained: they avoid
-any dependency on hydromodpy runtime so the baseline survives across
-the v2 refactor phases (P1 to P15).
+``pytest -m performance``. Benchmarks exercise the thin HydroModPy storage
+wrappers (SimulationCatalog over DuckDB, the Zarr field backend, the Parquet
+timeseries backend) so a regression in those wrappers is caught by the
+ratio-based drift gate in ``perf.yml``.
 """
 
 from __future__ import annotations

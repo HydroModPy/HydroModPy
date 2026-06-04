@@ -37,7 +37,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
     assert "hydromodpy.toml" in shown.stdout
 
     deleted = runner.invoke(
-        ["hmp", "project", "delete", "demo", "--workspace", str(workspace), "--force"]
+        ["hmp", "project", "delete", "demo", "--workspace", str(workspace), "-y"]
     )
     assert deleted.ok, deleted.stderr
     assert not project_dir.exists()

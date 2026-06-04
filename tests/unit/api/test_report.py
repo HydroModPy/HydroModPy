@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
+from tests._helpers.api_doubles import make_capturing_catalog
 
 pytestmark = pytest.mark.fast
 
@@ -14,16 +15,6 @@ pytestmark = pytest.mark.fast
 def test_report_with_explicit_workspace(monkeypatch, tmp_path: Path) -> None:
     """``hmp.report`` resolves the session id via the catalog and renders."""
     captured: dict = {}
-
-    class FakeCatalog:
-        def __init__(self, workspace_root):
-            captured["catalog_workspace"] = workspace_root
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            captured["closed"] = True
 
     def fake_resolve_session(catalog, raw):
         captured["resolve_catalog"] = catalog
@@ -35,7 +26,9 @@ def test_report_with_explicit_workspace(monkeypatch, tmp_path: Path) -> None:
         captured["render_workspace_root"] = workspace_root
         return Path("/tmp/report.html")
 
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.results.catalog.SimulationCatalog", make_capturing_catalog(captured)
+    )
     monkeypatch.setattr(
         "hydromodpy.calibration.report.resolve_calibration_session_id",
         fake_resolve_session,
@@ -47,7 +40,7 @@ def test_report_with_explicit_workspace(monkeypatch, tmp_path: Path) -> None:
 
     result = hmp.report("ab12cd34", workspace=tmp_path)
     assert result == Path("/tmp/report.html")
-    assert captured["catalog_workspace"] == tmp_path.resolve()
+    assert captured["workspace_root"] == tmp_path.resolve()
     assert captured["raw"] == "ab12cd34"
     assert captured["render_session_id"] == "abcdef0123456789"
     assert captured["render_workspace_root"] == tmp_path.resolve()
@@ -61,17 +54,9 @@ def test_report_default_workspace_uses_cwd(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
     captured: dict = {}
 
-    class FakeCatalog:
-        def __init__(self, workspace_root):
-            captured["workspace_root"] = Path(workspace_root)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            pass
-
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.results.catalog.SimulationCatalog", make_capturing_catalog(captured)
+    )
     monkeypatch.setattr(
         "hydromodpy.calibration.report.resolve_calibration_session_id",
         lambda catalog, raw: "session",
@@ -82,26 +67,19 @@ def test_report_default_workspace_uses_cwd(monkeypatch, tmp_path: Path) -> None:
     )
 
     hmp.report()
-    assert captured["workspace_root"] == tmp_path
+    assert Path(captured["workspace_root"]) == tmp_path
 
 
 def test_report_propagates_session_lookup_error(monkeypatch, tmp_path: Path) -> None:
     """Errors from session resolution propagate to the caller."""
-
-    class FakeCatalog:
-        def __init__(self, workspace_root):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            pass
+    captured: dict = {}
 
     def fake_resolve(catalog, raw):
         raise FileNotFoundError("no session")
 
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.results.catalog.SimulationCatalog", make_capturing_catalog(captured)
+    )
     monkeypatch.setattr(
         "hydromodpy.calibration.report.resolve_calibration_session_id", fake_resolve
     )

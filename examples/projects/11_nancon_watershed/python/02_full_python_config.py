@@ -253,6 +253,6 @@ cfg = HydroModPyConfig(
 
 
 with hmp.Project(cfg) as project:
-    run = project.run()
+    run = project.simulate()
     if run is not None:
         print(f"sim_id={run.sim_id} name={run.name} status={run.status}")

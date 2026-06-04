@@ -59,6 +59,16 @@ def _heartbeat_count(catalog: SimulationCatalog, sim_id: str) -> int:
     return int(row[0]) if row else 0
 
 
+def _wait_until(predicate, *, timeout: float = 5.0, poll: float = 0.02) -> bool:
+    """Poll ``predicate`` up to ``timeout`` seconds (jitter-proof, not flaky)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(poll)
+    return predicate()
+
+
 def test_enter_sets_heartbeat_synchronously(catalog: SimulationCatalog) -> None:
     sim_id = "22222222-2222-2222-2222-222222222222"
     _register_running_sim(catalog, sim_id)
@@ -74,9 +84,9 @@ def test_loop_refreshes_within_interval(catalog: SimulationCatalog) -> None:
     sim_id = "33333333-3333-3333-3333-333333333333"
     _register_running_sim(catalog, sim_id)
     events = WorkflowEventStream(catalog)
-    with HeartbeatPulse(sim_id, interval_s=0.2, events=events):
+    with HeartbeatPulse(sim_id, interval_s=0.05, events=events):
         first = _heartbeat_count(catalog, sim_id)
-        time.sleep(0.6)
+        assert _wait_until(lambda: _heartbeat_count(catalog, sim_id) > first)
         second = _heartbeat_count(catalog, sim_id)
     assert first >= 1
     assert second > first
@@ -89,9 +99,9 @@ def test_exit_joins_thread_without_leak(catalog: SimulationCatalog) -> None:
     pulse = HeartbeatPulse(sim_id, interval_s=0.2, events=events)
     name_prefix = f"hmp-heartbeat-{sim_id[:8]}"
     with pulse:
-        time.sleep(0.05)
-        alive = [t for t in threading.enumerate() if t.name == name_prefix]
-        assert alive, "heartbeat thread should be running inside the context"
+        assert _wait_until(lambda: any(t.name == name_prefix for t in threading.enumerate())), (
+            "heartbeat thread should be running inside the context"
+        )
     leftover = [t for t in threading.enumerate() if t.name == name_prefix and t.is_alive()]
     assert leftover == []
 

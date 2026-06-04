@@ -1,5 +1,5 @@
-The ``hmp.catalog`` facade
-==========================
+The catalog door
+================
 
 HydroModPy stores its tabular state in three DuckDB files:
 
@@ -8,10 +8,11 @@ HydroModPy stores its tabular state in three DuckDB files:
 - ``<state_dir>/index.duckdb`` -- machine-wide federation of every
   registered workspace.
 
-End-user code never needs to know which file holds a given row. The
-:mod:`hydromodpy.catalog` module exposes the three databases behind one
-facade with three namespaces: ``simulations``, ``inputs`` and
-``projects``.
+End-user code never needs to know which file holds a given row.
+``hmp.open`` is the single door onto the simulation catalog; the input
+cache and the machine-wide federation are reached through their own
+entry points (``hydromodpy.catalog.InputsNamespace`` / the ``hmp data``
+CLI, and ``hmp.index()``).
 
 Opening a catalog
 -----------------
@@ -20,116 +21,110 @@ Opening a catalog
 
    import hydromodpy as hmp
 
-   with hmp.open_catalog("~/proj/naizin") as cat:
-       sims = cat.simulations.find(solver="modflow6")
-       inputs = cat.inputs.list(variable="recharge")
-       workspaces = cat.projects.list()
+   cat = hmp.open("~/proj/naizin")
+   sims = cat.find(solver="modflow6")          # SimulationGroup
+   workspaces = hmp.index()                     # machine-wide federation
 
-``open_catalog`` accepts an explicit workspace path, falls back to the
-``HMP_WORKSPACE`` environment variable, then to the current working
-directory. The facade is usable both as a context manager (preferred)
-and as a long-lived object whose ``.close()`` method releases the
-underlying DuckDB handles.
+``hmp.open`` returns a :class:`~hydromodpy.results.catalog.SimulationCatalog`
+(the engine itself, not a wrapper). With the default ``create=False`` it
+raises ``FileNotFoundError`` when no ``catalog.duckdb`` exists; pass
+``create=True`` to initialise an empty catalog instead.
 
-The three namespaces
---------------------
+The three databases
+-------------------
 
-``cat.simulations`` -- project simulation catalog
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The simulation catalog -- ``hmp.open``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Backed by ``<workspace>/catalog.duckdb``. Lazy: the catalog is opened
-on the first call, not when the facade itself is constructed.
+Backed by ``<project>/catalog.duckdb``.
 
 .. code-block:: python
 
-   # Has a catalog at all?
-   cat.simulations.has_catalog()
+   cat = hmp.open("~/proj/naizin")
 
    # All simulations for this project as a DataFrame.
-   df = cat.simulations.list()
+   df = cat.frame
 
    # Equality filters against ``v_simulation_summary`` columns.
-   # Unknown filters are silently ignored so callers can stay generic.
-   df = cat.simulations.find(solver="modflow6", status="completed")
+   # An unknown filter raises ValueError listing the valid keys.
+   group = cat.find(solver="modflow6", status="completed")
 
-   # One sim by id.
-   row = cat.simulations.get("ab12cd34-...-...-...-...")
+   # Schema discovery.
+   cat.describe()
+   cat.tables()
+   cat.columns()
+   cat.variables()
+   cat.metrics()
+   cat.stations()
 
-``cat.inputs`` -- workspace input cache
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   # Ranking and resolution.
+   cat.latest()
+   cat.best()
+   cat.worst()
+   cat.rank()
+   cat.resolve(ref)
 
-Backed by ``<workspace>/data/cache.duckdb``. Lazy.
+   # One sim by reference.
+   row = cat["ab12cd34-...-...-...-..."]
+   data = cat.read(ref, "head")
+
+   # Raw SQL.
+   cat.sql("SELECT * FROM v_simulation_summary LIMIT 5")
+
+The input cache
+~~~~~~~~~~~~~~~~
+
+Backed by ``<workspace>/data/cache.duckdb``. Reached through
+``hydromodpy.catalog.InputsNamespace`` or the ``hmp data`` CLI, not
+through ``hmp.open``.
 
 .. code-block:: python
 
-   cat.inputs.has_cache()
-   cat.inputs.db_path  # -> ``<workspace>/data/cache.duckdb``
+   from hydromodpy.catalog import InputsNamespace
+
+   inputs = InputsNamespace("~/proj/naizin")
+   inputs.has_cache()
+   inputs.db_path  # -> ``<workspace>/data/cache.duckdb``
 
    # List entries, optionally filtered.
-   cat.inputs.list(variable="recharge")
-   cat.inputs.list(variable="head", source="brgm")
+   inputs.list(variable="recharge")
+   inputs.list(variable="head", source="brgm")
 
    # Locate a single cached entry covering a given extent.
-   entry = cat.inputs.find(
+   entry = inputs.find(
        variable="recharge",
        source="meteofrance",
        station_id=None,
        bbox=(2.0, 48.0, 3.0, 49.0),
    )
 
-``cat.projects`` -- machine global index
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The machine global index -- ``hmp.index``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Backed by ``<state_dir>/index.duckdb``. Opens the index in read-only
-mode so concurrent ``hmp run`` writers keep their write-lock.
+Backed by ``<state_dir>/index.duckdb``. Opened in read-only mode so
+concurrent ``hmp run`` writers keep their write-lock.
 
 .. code-block:: python
 
-   # Every registered workspace.
-   cat.projects.list()
+   # Every registered workspace plus federated search.
+   hmp.index()
 
-   # Federated simulation search across every workspace.
-   cat.projects.find(solver="modflow6")
+The federation (federated search across every workspace, full-text
+search across descriptions / scientific objectives) lives on the index
+returned by ``hmp.index()``.
 
-   # Full-text search across descriptions / scientific objectives.
-   cat.projects.search("Bretagne fissured aquifer")
-
-What the facade abstracts away
-------------------------------
-
-The facade hides:
-
-- Which file backs which row.
-- The DuckDB connection lifecycle (``open / close``).
-- The migrations runner (each namespace asserts its DDL on first use).
-- The ``CatalogBackend`` indirection (Protocol vs. concrete adapter).
-- The federation rebuild (``cat.projects.find`` triggers
-  ``GlobalIndex.refresh_federation`` if needed).
+Underlying objects
+------------------
 
 Callers that need a finer surface (custom SQL, transaction control,
-register/unregister) keep direct access to the underlying objects:
+register/unregister) reach the underlying objects directly:
 
 - :class:`hydromodpy.results.catalog.SimulationCatalog`
 - :class:`hydromodpy.data.registry.DataCatalogDuckDB`
 - :class:`hydromodpy.core.state.global_index.GlobalIndex`
 
 These are the V1 implementations and remain the canonical entry points
-for low-level work. The facade is a convenience layer on top of them.
-
-Direct submodule access
------------------------
-
-``hmp.catalog`` is a module, not a function. The submodules are
-importable directly:
-
-.. code-block:: python
-
-   from hydromodpy.catalog import CatalogFacade, open_catalog
-   from hydromodpy.catalog.simulations import SimulationsNamespace
-
-Both styles (``hmp.open_catalog(...)`` and
-``hmp.catalog.open_catalog(...)``) resolve to the same function. Use
-whichever fits your import conventions.
+for low-level work.
 
 Migrations runner
 -----------------

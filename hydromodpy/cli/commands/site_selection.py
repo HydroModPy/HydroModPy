@@ -76,7 +76,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Override [site_selection].output_root for this build.",
     )
     build_observed.add_argument(
-        "--workspace-root",
+        "--workspace",
         type=Path,
         default=None,
         help="Optional HydroModPy workspace root used for data caching.",
@@ -105,7 +105,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Override [site_selection].output_root for this build.",
     )
     build_generated.add_argument(
-        "--workspace-root",
+        "--workspace",
         type=Path,
         default=None,
         help="Optional HydroModPy workspace root used for data caching.",
@@ -210,7 +210,7 @@ def run_build_observed(args: argparse.Namespace) -> None:
         result = build_observed_site_selection_from_toml(
             config_path=config_path,
             output_root=args.output_root,
-            workspace_root=args.workspace_root,
+            workspace_root=args.workspace,
             data_root=args.data_root,
             progress_callback=_progress,
         )
@@ -237,7 +237,7 @@ def run_build_generated(args: argparse.Namespace) -> None:
         result = build_generated_site_selection_from_toml(
             config_path=config_path,
             output_root=args.output_root,
-            workspace_root=args.workspace_root,
+            workspace_root=args.workspace,
             data_root=args.data_root,
             progress_callback=_progress,
         )

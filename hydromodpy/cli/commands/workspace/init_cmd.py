@@ -6,7 +6,7 @@ import argparse
 import sys
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
-from hydromodpy.core.state.paths import CATALOG_FILENAME, WORKSPACE_TOML_FILENAME
+from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
 
 NAME: str = "init"
 HELP: str = "Scaffold a HydroModPy workspace (data + projects). Default: ~/hydromodpy/"
@@ -40,14 +40,25 @@ def run(args: argparse.Namespace) -> None:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
+    from hydromodpy.data.scaffold import EXAMPLE_PROJECT_NAME, VARIABLES
+
     target = result["path"]
     print(f"Workspace: {target}")
-    print(f"Scaffolded at {target}/. Create projects with 'hmp project new <name>'.")
+    print(f"Scaffolded at {target}/. Add projects with 'hmp project new <name>'.")
     print()
     print("Layout:")
-    print(f"  {target}/{WORKSPACE_TOML_FILENAME}")
-    print(f"  {target}/data/")
-    print(f"  {target}/projects/")
-    print(f"  <project>/{CATALOG_FILENAME}")
+    print(f"  {target}/{WORKSPACE_TOML_FILENAME}    workspace metadata")
+    print(f"  {target}/data/                 input data + cache.duckdb (created on first run)")
+    print(f"  {target}/data/<variable>/      {len(VARIABLES)} folders, drop your files here")
+    print(f"  {target}/projects/             one subfolder per project (work inside them)")
+    print(f"  {target}/projects/{EXAMPLE_PROJECT_NAME}/     ready-to-run synthetic demo project")
+    print()
+    print("Each data/<variable>/ ships a README and one example file per accepted")
+    print("format. Use the same naming for your files, e.g.:")
+    print(f"  {target}/data/hydrometry/hydrometry_custom_LOC.csv")
+    print(f"  {target}/data/geology/geology_custom_my_map.gpkg")
+    print()
+    print("You work inside projects/<name>/, never directly in projects/. Try the demo:")
+    print(f"  hmp run {target}/projects/{EXAMPLE_PROJECT_NAME}/run_demo.toml")
     print()
     print(f"Workspace metadata: {result['workspace_toml']}")

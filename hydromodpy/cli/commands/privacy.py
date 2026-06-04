@@ -13,7 +13,7 @@ HELP: str = "Privacy-preserving operations (purge a sim with audit certificate)"
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    sub = parser.add_subparsers(dest="privacy_command")
+    sub = parser.add_subparsers(dest="privacy_command", metavar="<action>", required=True)
 
     purge = sub.add_parser("purge", help="Hard-delete a simulation + emit a JSON purge certificate")
     purge.add_argument("sim_ref", help="Full sim_id, unique prefix, or simulation name")

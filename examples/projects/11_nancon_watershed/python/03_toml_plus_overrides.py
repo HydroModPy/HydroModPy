@@ -6,14 +6,14 @@ This is the most common mixed-mode workflow:
 2. Patch the validated config in Python via `model_copy(update=...)`
    on any nested sub-model.
 3. Hand the patched config to `Project(...)`.
-4. Optionally pass extra flow-parameter overrides at `project.run(...)`.
+4. Optionally pass extra flow-parameter overrides at `project.simulate(...)`.
 
 Two ways to override are shown here:
 
 * config-level: walk to the nested Pydantic model you want to patch
   and rebuild it. The example below replaces the simulation window
   with a 1-year span and renames the run.
-* run-level: keyword arguments to `project.run(...)`. Recognised keys
+* run-level: keyword arguments to `project.simulate(...)`. Recognised keys
   are flow parameter ids (`K`, `Sy`, `Ss`), plus `thickness`,
   `first_clim`, `properties`. These do NOT rebuild the config; they
   patch the plan just before execution.
@@ -74,7 +74,7 @@ project = hmp.Project(cfg)
 # 4. Run-level override - bump K, keep Sy / Ss / thickness from TOML
 # ---------------------------------------------------------------------
 
-run = project.run(K=1e-4)
+run = project.simulate(K=1e-4)
 
 
 # ---------------------------------------------------------------------

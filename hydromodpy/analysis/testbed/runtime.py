@@ -239,7 +239,6 @@ class TestbedLauncher:
 
                 started_at = time.perf_counter()
                 try:
-
                     child_summary = self._run_case(case)
                     if self.cfg.runner.type == "simulation":
                         child_summary = {

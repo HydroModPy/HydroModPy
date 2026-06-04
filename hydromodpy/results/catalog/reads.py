@@ -8,6 +8,7 @@ methods are pure reads and never mutate DuckDB or the on-disk artefacts.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -17,6 +18,8 @@ import pandas as pd
 
 if TYPE_CHECKING:
     import geopandas as gpd
+
+    from hydromodpy.core.config_kit.export_spec import ExportSpec
 
 # Filter columns that map to a real simulations.* column (no dim join).
 _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
@@ -334,52 +337,91 @@ class ReadsMixin:
             return self._backend.query(query, params)
         return self._backend.query(query)
 
-    def export(
-        self,
-        sim_id: str | UUID,
-        variable: str,
-        fmt: str,
-        path: Path | str,
-        **kwargs,
-    ) -> Path:
-        sid = str(sim_id)
-        path = Path(path)
-        zarr_path = str(self.zarr_path_for(sim_id))
+    def export(self, ref: str | UUID, spec: ExportSpec) -> Path:
+        """Export one artifact described by *spec* for simulation *ref*.
 
-        if fmt == "netcdf":
-            from hydromodpy.results.exporters.netcdf import export_netcdf
+        *ref* is resolved through :meth:`resolve` (full UUID, prefix, or a
+        unique name), so callers never need the raw catalog UUID. The output
+        format comes from ``spec.fmt`` (or is inferred from the destination
+        extension when the spec was built).
+        """
+        from hydromodpy.core.config_kit.export_spec import ExportFormat
 
-            variables = [v.strip() for v in variable.split(",")]
-            return export_netcdf(zarr_path, sid, variables, path, **kwargs)
-        elif fmt == "csv":
+        def _single_ts(t: object) -> int:
+            if t is None or t == "last":
+                return -1
+            if t == "first":
+                return 0
+            return int(t)  # type: ignore[arg-type]
+
+        def _nc_ts(t: object) -> list[int] | None:
+            if t is None or t == "all":
+                return None
+            if t == "first":
+                return [0]
+            if t == "last":
+                return [-1]
+            if isinstance(t, list):
+                return [int(x) for x in t]
+            return [int(t)]  # type: ignore[arg-type]
+
+        sid = self.resolve(ref)
+        dest = Path(spec.dest)
+        fmt = spec.fmt
+
+        if fmt is ExportFormat.hmp:
+            return self.export_package(sid, dest)
+
+        if fmt is ExportFormat.csv:
             from hydromodpy.results.exporters.csv import export_csv
 
-            return export_csv(
-                self._db,
-                sid,
-                path,
-                variable=variable if variable != "*" else None,
-                **kwargs,
-            )
-        elif fmt == "vtu":
+            var = None if (isinstance(spec.var, str) and spec.var == "*") else spec.var_list[0]
+            return export_csv(self._db, sid, dest, variable=var)
+
+        zarr_path = str(self.zarr_path_for(sid))
+
+        if fmt is ExportFormat.netcdf:
+            from hydromodpy.results.exporters.netcdf import export_netcdf
+
+            return export_netcdf(zarr_path, sid, spec.var_list, dest, timesteps=_nc_ts(spec.time))
+
+        # Single-timestep raster / mesh formats.
+        timestep = _single_ts(spec.time)
+        variable = spec.var_list[0]
+
+        if fmt is ExportFormat.vtu:
             from hydromodpy.results.exporters.vtu import export_vtu
 
-            timestep = kwargs.pop("timestep", 0)
-            return export_vtu(zarr_path, sid, variable, timestep, path, **kwargs)
-        elif fmt == "geotiff":
+            return export_vtu(zarr_path, sid, variable, timestep, dest, layer=spec.layer)
+
+        if fmt is ExportFormat.geotiff:
             from hydromodpy.results.exporters.geotiff import export_geotiff
 
-            timestep = kwargs.pop("timestep", 0)
-            kwargs.setdefault("crs", self._export_crs_for(sid))
-            return export_geotiff(zarr_path, sid, variable, timestep, path, **kwargs)
-        elif fmt == "shapefile":
+            resolution = (
+                spec.resolution if spec.resolution is not None else self._default_resolution(sid)
+            )
+            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
+            return export_geotiff(
+                zarr_path,
+                sid,
+                variable,
+                timestep,
+                dest,
+                layer=spec.layer,
+                resolution=resolution,
+                crs=crs,
+                nodata=spec.nodata,
+            )
+
+        if fmt is ExportFormat.shapefile:
             from hydromodpy.results.exporters.shapefile import export_shapefile
 
-            timestep = kwargs.pop("timestep", 0)
-            kwargs.setdefault("crs", self._export_crs_for(sid))
-            return export_shapefile(zarr_path, sid, variable, timestep, path, **kwargs)
-        else:
-            raise ValueError(f"Unknown export format '{fmt}'")
+            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
+            return export_shapefile(
+                zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
+            )
+
+        raise ValueError(f"Unsupported export format '{fmt}'")
 
     def _export_crs_for(self, sim_id: str) -> str | None:
         row = self._backend.fetch_one(
@@ -408,3 +450,33 @@ class ReadsMixin:
             return f"EPSG:{int(epsg_attr)}"
         wkt_attr = attrs.get("crs_wkt")
         return str(wkt_attr) if wkt_attr else None
+
+    def _default_resolution(self, sim_id: str) -> float | None:
+        """Native cell size for raster exports when the caller omits one.
+
+        Prefers the grid's ``cell_size`` (exact for regular grids); falls back
+        to ``sqrt(area / n_cells)`` from the catalog bbox. Returns ``None`` when
+        neither is available, leaving the exporter to raise a clear error.
+        """
+        try:
+            from hydromodpy.results.run import Run
+
+            cell_size = getattr(Run(sim_id, self).grid, "cell_size", None)
+            if cell_size:
+                return float(cell_size)
+        except Exception:
+            pass
+        row = self._backend.fetch_one(
+            "SELECT bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax, n_cells "
+            "FROM simulations WHERE sim_id = ?",
+            [sim_id],
+        )
+        if not row:
+            return None
+        xmin, ymin, xmax, ymax, n_cells = row
+        if None in (xmin, ymin, xmax, ymax) or not n_cells:
+            return None
+        area = (float(xmax) - float(xmin)) * (float(ymax) - float(ymin))
+        if area <= 0 or n_cells <= 0:
+            return None
+        return math.sqrt(area / float(n_cells))

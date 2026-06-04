@@ -76,7 +76,7 @@ def test_project_delete_force_removes_project_directory(monkeypatch, tmp_path) -
 
     code = _run(
         monkeypatch,
-        ["hmp", "project", "delete", "demo", "--workspace", str(workspace), "--force"],
+        ["hmp", "project", "delete", "demo", "--workspace", str(workspace), "-y"],
     )
     assert code == 0
     assert not project_dir.exists()

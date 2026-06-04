@@ -54,7 +54,7 @@ def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> t
     """
     import hydromodpy as hmp
 
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         reg = catalog.register_simulation(
             sim_id=sim_id,
             project=project,
@@ -118,15 +118,14 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert metadata["conventions"]["acdd"].startswith("ACDD-")
 
     # ----- Step 3: scaffold layout exposes the data drop zones --------------
-    # The scaffold uses ``<variable>_custom/`` folders. ``data/`` is the
-    # workspace-wide cache root. We check both styles are present.
+    # Each variable gets a flat ``data/<variable>/`` folder; the provider is
+    # encoded in the file name (``<variable>_custom_*`` vs ``<variable>_<api>_*``).
     assert (workspace / "data").is_dir()
     assert (workspace / "projects").is_dir()
-    # Drag-and-drop folders for the canonical variables.
     for variable in ("dem", "piezometry", "hydrometry"):
-        assert (workspace / f"{variable}_custom").is_dir(), f"{variable}_custom missing"
+        assert (workspace / "data" / variable).is_dir(), f"data/{variable} missing"
 
-    # ----- Step 4: hmp data get creates raw/ + sidecar without network ------
+    # ----- Step 4: hmp data get writes a flat file + sidecar (no network) ---
     fetch = _run_hmp(
         "data",
         "get",
@@ -138,10 +137,10 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert fetch.returncode == 0, (
         f"`hmp data get dem` failed.\nstdout:\n{fetch.stdout}\nstderr:\n{fetch.stderr}"
     )
-    raw_dir = workspace / "data" / "dem" / "raw"
-    assert raw_dir.is_dir(), "hmp data get must create data/<var>/raw"
-    raw_files = list(raw_dir.glob("dem_*.tif"))
-    assert raw_files, "no fetched DEM placeholder under data/dem/raw"
+    dem_dir = workspace / "data" / "dem"
+    assert dem_dir.is_dir(), "hmp data get must write into data/<variable>/"
+    raw_files = list(dem_dir.glob("dem_*.tif"))
+    assert raw_files, "no fetched DEM placeholder under data/dem/"
     sidecar = raw_files[0].with_suffix(raw_files[0].suffix + ".json")
     assert sidecar.is_file(), "sidecar JSON missing next to fetched file"
     sidecar_payload = json.loads(sidecar.read_text(encoding="utf-8"))
@@ -165,7 +164,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert zarr_path.exists(), f"Zarr store missing at {zarr_path}"
     assert parquet_dir.exists(), f"Parquet directory missing at {parquet_dir}"
 
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         rows = catalog.connection.execute(
             "SELECT component, version FROM _schema_version WHERE component = 'catalog'"
         ).fetchall()
@@ -177,7 +176,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
     # ----- Step 7: hmp.open + hmp.read return a real field ------------------
-    with hmp.open(workspace) as catalog:
+    with hmp.open(workspace, create=True) as catalog:
         run = catalog[sim_id]
         data = np.asarray(hmp.read(run, "head", time=0, layer=0))
         assert data.shape[-1] == 4
@@ -212,13 +211,16 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
     _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
 
     nc_out = tmp_path / "head.nc"
+    from hydromodpy.core.config_kit.export_spec import ExportSpec
+
     try:
-        with hmp.open(workspace) as catalog:
-            catalog.export(sim_id, "head", "netcdf", nc_out)
+        with hmp.open(workspace, create=True) as catalog:
+            catalog.export(sim_id, ExportSpec(var="head", fmt="netcdf", dest=nc_out))
     except KeyError as exc:
+        # export_netcdf raises KeyError (not ValueError) when the store has no
+        # UGRID mesh; the synthetic fixture seeds a head field but no mesh.
+        # Any other exception is a real failure and must not be swallowed.
         pytest.skip(f"NetCDF export needs a UGRID mesh, not present on this synthetic sim: {exc}")
-    except Exception as exc:  # pragma: no cover - guarded for missing optional dep
-        pytest.skip(f"NetCDF export skipped: {exc}")
 
     assert nc_out.is_file(), "NetCDF file should be produced"
     import xarray as xr
@@ -294,7 +296,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
 
     import hydromodpy as hmp
 
-    with hmp.open(out_path) as catalog:
+    with hmp.open(out_path, create=True) as catalog:
         sims = catalog.list_simulations()
         assert not sims.empty, "no simulation row recorded after hmp run"
         sim_id = str(sims.iloc[0]["sim_id"])

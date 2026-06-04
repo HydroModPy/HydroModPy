@@ -1,6 +1,6 @@
-import pytest
-
 from types import SimpleNamespace
+
+import pytest
 
 from validity_frame import ValidityFrame, create_validity_frame
 

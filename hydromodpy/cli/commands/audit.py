@@ -13,7 +13,7 @@ HELP: str = "Inspect and verify the workspace audit log"
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    sub = parser.add_subparsers(dest="audit_command", metavar="<action>")
+    sub = parser.add_subparsers(dest="audit_command", metavar="<action>", required=True)
 
     list_p = sub.add_parser("list", help="Print recent audit log entries")
     list_p.add_argument("--workspace", default=None)

@@ -10,9 +10,7 @@ from hydromodpy.core.time import (
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
-    stress_period_bounds,
-)
+from hydromodpy.spatial.mesh.cartesian_grid import stress_period_bounds
 
 
 def test_single_period_mean_forcing_time_grid_spans_full_source_window() -> None:

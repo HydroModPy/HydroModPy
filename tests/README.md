@@ -21,9 +21,9 @@ tests/
 │   │   └── transient/
 │   └── numerical/
 ├── e2e/                         # subprocess-level command scenarios
-├── performance/                 # pytest-benchmark performance checks
+├── performance/                 # pytest-benchmark storage-wrapper benchmarks
 ├── contract/                    # compatibility contracts across implementations
-├── golden/                      # byte-normalized golden helpers
+├── validity_frame/              # experimental observability tooling (not run by CI)
 └── _helpers/                    # pytest-local helpers and shared builders
 ```
 
@@ -39,7 +39,7 @@ tests/
 
 ## Markers
 
-Declared in `tests/pytest.ini`:
+Declared in the repository-root `pytest.ini`:
 
 | Marker        | Meaning |
 |---------------|---------|
@@ -58,7 +58,6 @@ Declared in `tests/pytest.ini`:
 | `integration` | cross-module workflow test (auto-applied to `tests/integration/`) |
 | `coverage`    | long-running coverage-focused test |
 | `solver_sanity` | benchmark built directly on the solver SDK (e.g. flopy); validates the external solver against an analytical reference, **not** the hydromodpy pipeline |
-| `golden`      | golden-file regression tests (byte-equal Parquet/Zarr, normalized HTML/JSON) |
 | `e2e`         | end-to-end pipeline scenarios |
 | `performance` | performance baseline benchmarks |
 | `unit`        | unit-tier tests, auto-applied by path |
@@ -192,7 +191,7 @@ parses the shared table for tests that need a named tolerance.
 The shared fixtures come from `tests/conftest.py`:
 
 - `tmp_workspace(tmp_path)` yields an initialized workspace directory
-  (standard `data/`, `projects/`, per-variable `*_custom/` seed folders)
+  (standard `data/`, `projects/`, one `data/<variable>/` folder per variable)
   ready to back a `SimulationCatalog`.
 - `minimal_config(tmp_path)` returns the smallest valid
   `HydroModPyConfig` (synthetic `geographic` + a `workspace` pointed at
@@ -206,11 +205,15 @@ usually hiding several independent suites.
 
 The active GitHub Actions gates are split across `.github/workflows/`:
 
-- **test.yml** - fast, unit and integration tiers on supported Python
-  versions.
-- **ci-fast.yml** - routine fast checks for the development branch.
-- **ci-nightly.yml** - nightly regression and validation coverage.
-- **ci-weekly.yml** - heavier validation and performance coverage.
+- **main-ci.yml** - PR + push gate: quality (ruff), secrets, architecture,
+  fast / unit / integration / regression-fast tiers, package-smoke, typing.
+- **ci-nightly.yml** - nightly extensive regression, validation (not petsc),
+  integration with coverage.
+- **ci-weekly.yml** - cross-OS unit + fast-regression + analytical, serial
+  e2e, full regression.
+- **perf.yml** - pytest-benchmark drift gate over `tests/performance/`.
+- **petsc-smoke.yml** - Linux PETSc Boussinesq smoke subset (conda env).
 
-Validation runs are not part of the fast PR-blocking suite; run them
-manually before a release with `pytest tests/validation/ -q`.
+Validation, extensive regression, and e2e are not part of the fast
+PR-blocking suite; run validation manually before a release with
+`pytest tests/validation/ -q`.

@@ -18,9 +18,9 @@ from __future__ import annotations
 from collections.abc import Protocol
 from typing import Any
 
-from hydromodpy.workflow.runner import Pipeline
-from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.core.logging import get_logger
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.runner import Pipeline
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,9 @@ class ValidityFrameProtocol(Protocol):
     La méthode `verify` doit lever une exception en cas d'invalidité.
     """
 
-    def verify(self, state: PipelineState, steps: tuple) -> None:  # pragma: no cover - simple protocol
+    def verify(
+        self, state: PipelineState, steps: tuple
+    ) -> None:  # pragma: no cover - simple protocol
         ...
 
 

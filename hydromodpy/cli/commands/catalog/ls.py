@@ -10,6 +10,7 @@ import os
 import sys
 from pathlib import Path
 
+from hydromodpy.cli._conventions import format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
 NAME: str = "ls"
@@ -17,20 +18,25 @@ HELP: str = "List simulations recorded in a workspace catalog"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument(
-        "--workspace",
-        default=None,
-        help="Workspace root (default: walk up from cwd, fallback ~/hydromodpy/)",
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[workspace_parser(), format_parser()],
+        epilog="Example:\n  hmp catalog ls --solver mf6 --format json",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--project",
         default=None,
         help="Restrict to one project (looks at projects/<name>/catalog.duckdb)",
     )
-    parser.add_argument("--solver", default=None, help="Filter by solver name (substring match)")
     parser.add_argument(
-        "--catchment", default=None, help="Filter by catchment name (substring match)"
+        "--solver",
+        default=None,
+        help="Filter by solver (exact match; aliases: mf6 -> modflow6, nwt -> modflow_nwt)",
+    )
+    parser.add_argument(
+        "--catchment", default=None, help="Filter by study area name (substring match)"
     )
     parser.add_argument("--limit", type=int, default=None, help="Maximum number of rows to print")
     parser.set_defaults(_handler=run)
@@ -68,6 +74,13 @@ def run(args: argparse.Namespace) -> None:
     )
     if df.empty:
         print(f"(no simulations recorded under {workspace_root / 'projects'})")
+        return
+
+    if args.format == "json":
+        print(df.to_json(orient="records"))
+        return
+    if args.format == "csv":
+        print(df.to_csv(index=False), end="")
         return
 
     current_project: str | None = None

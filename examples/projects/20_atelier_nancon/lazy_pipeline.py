@@ -1,6 +1,6 @@
 # Piloter un projet etape par etape au lieu d'un seul hmp run.
 #
-# Project.lazy valide la config mais ne lance rien. On appelle ensuite
+# Project(cfg) valide la config mais ne lance rien. On appelle ensuite
 # les etapes du pipeline a la main et on inspecte, ou on modifie, le
 # projet entre chaque. Utile pour prototyper et montrer ce que fait
 # hmp run en interne.
@@ -28,7 +28,7 @@ cfg.flow.flow_regime = "steady"
 
 # Construire un projet lazy depuis la config editee. headless = pas de
 # popups.
-project = Project.lazy(cfg, headless=True)
+project = Project(cfg, headless=True)
 
 # Etape 1 : workspace et catalog.
 project.setup_workspace()
@@ -43,7 +43,7 @@ project.load_data()
 print("donnees chargees :", sorted(project.data_loaded))
 
 # Etape 4 : lancer le solver sur l'etat qu'on vient de preparer a la main.
-run = project.run()
+run = project.simulate()
 head = run.field("head", timestep=-1)
 print(
     "run :", run.name, "| mailles de charge :", head.size, f"| moyenne {float(head.mean()):.2f} m"

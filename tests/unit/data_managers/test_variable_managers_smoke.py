@@ -1,12 +1,20 @@
 """Smoke tests for the 10 variable managers that lack dedicated tests.
 
-Covers config validation (valid + invalid) and custom CSV loader for:
+Covers config validation (valid + invalid) and the custom CSV loader for:
 dem, etp, humidity, precipitation, radiation, recharge, runoff,
 soil_moisture, temperature, wind.
+
+The nine forcing/flux variables share an identical config + custom-loader
+contract, so they are driven from one parametrized table (``VARIABLE_CASES``).
+DEM has a different source shape and keeps its own class. Variable-specific
+behaviour (ETP date window, precipitation/radiation components, recharge
+synthetic source, ...) lives in the per-variable ``*Specific`` classes.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -20,8 +28,6 @@ from hydromodpy.data.variables.dem.config import (
     IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
-
-# ── Custom loader imports ─────────────────────────────────────────────
 from hydromodpy.data.variables.etp.custom import load_custom as load_etp
 from hydromodpy.data.variables.humidity.config import HumidityConfig, HumiditySourceConfig
 from hydromodpy.data.variables.humidity.custom import load_custom as load_humidity
@@ -89,7 +95,125 @@ def _make_custom_csv_dir(
 
 
 # =====================================================================
-# DEM
+# Parametrized contract shared by the nine forcing/flux variables
+# =====================================================================
+
+
+@dataclass(frozen=True)
+class VarCase:
+    """One variable's config classes, custom loader, and CSV fixture values."""
+
+    name: str
+    config_cls: type
+    source_cls: type
+    loader: Callable
+    invalid_source: str
+    unit: str
+    value: float
+
+
+VARIABLE_CASES = [
+    VarCase("etp", EtpConfig, EtpSourceConfig, load_etp, "noaa", "mm/day", 3.0),
+    VarCase("humidity", HumidityConfig, HumiditySourceConfig, load_humidity, "era5", "%", 65.0),
+    VarCase(
+        "precipitation",
+        PrecipitationConfig,
+        PrecipitationSourceConfig,
+        load_precipitation,
+        "gpm",
+        "mm/day",
+        5.0,
+    ),
+    VarCase(
+        "radiation",
+        RadiationConfig,
+        RadiationSourceConfig,
+        load_radiation,
+        "copernicus",
+        "MJ/m2/j",
+        12.0,
+    ),
+    VarCase(
+        "recharge", RechargeConfig, RechargeSourceConfig, load_recharge, "pyhelp", "mm/day", 0.8
+    ),
+    VarCase("runoff", RunoffConfig, RunoffSourceConfig, load_runoff, "hype", "mm/day", 2.0),
+    VarCase(
+        "soil_moisture",
+        SoilMoistureConfig,
+        SoilMoistureSourceConfig,
+        load_soil_moisture,
+        "smap",
+        "%",
+        35.0,
+    ),
+    VarCase(
+        "temperature",
+        TemperatureConfig,
+        TemperatureSourceConfig,
+        load_temperature,
+        "ecmwf",
+        "degC",
+        15.0,
+    ),
+    VarCase("wind", WindConfig, WindSourceConfig, load_wind, "ncep", "m/s", 4.2),
+]
+
+
+@pytest.fixture(params=VARIABLE_CASES, ids=[c.name for c in VARIABLE_CASES])
+def var_case(request) -> VarCase:
+    return request.param
+
+
+@pytest.mark.fast
+class TestVariableConfigContract:
+    def test_valid_custom_source(self, var_case, tmp_path):
+        cfg = var_case.source_cls(source="custom", path=tmp_path)
+        assert cfg.source == "custom"
+
+    def test_valid_sim2_source(self, var_case):
+        cfg = var_case.source_cls(source="sim2")
+        assert cfg.source == "sim2"
+
+    def test_custom_requires_path(self, var_case):
+        with pytest.raises(ValueError, match="path"):
+            var_case.source_cls(source="custom")
+
+    def test_invalid_source_rejected(self, var_case):
+        with pytest.raises(ValueError):
+            var_case.source_cls(source=var_case.invalid_source)
+
+    def test_top_level_config(self, var_case, tmp_path):
+        cfg = var_case.config_cls(sources=[var_case.source_cls(source="custom", path=tmp_path)])
+        assert len(cfg.sources) == 1
+
+    def test_empty_sources_rejected(self, var_case):
+        with pytest.raises(ValueError):
+            var_case.config_cls(sources=[])
+
+
+@pytest.mark.fast
+class TestVariableCustomLoaderContract:
+    def test_load_one_station(self, var_case, tmp_path):
+        d = _make_custom_csv_dir(tmp_path, var_case.name, unit=var_case.unit, value=var_case.value)
+        cfg = var_case.source_cls(source="custom", path=d)
+        records = var_case.loader(cfg, project_period=PROJECT_PERIOD)
+        assert len(records) == 1
+        assert records[0].station_id == "ST01"
+        assert records[0].variable == var_case.name
+        assert records[0].unit == var_case.unit
+        assert records[0].has_data
+        assert records[0].data["value"].iloc[0] == pytest.approx(var_case.value)
+
+    def test_missing_loc_file_raises(self, var_case, tmp_path):
+        d = tmp_path / f"{var_case.name}_empty"
+        d.mkdir()
+        cfg = var_case.source_cls(source="custom", path=d)
+        with pytest.raises(FileNotFoundError, match=f"{var_case.name}_custom_LOC"):
+            var_case.loader(cfg, project_period=PROJECT_PERIOD)
+
+
+# =====================================================================
+# DEM (distinct source shape, no custom loader)
 # =====================================================================
 
 
@@ -136,28 +260,15 @@ class TestDemConfig:
 
 
 # =====================================================================
-# ETP
+# Variable-specific behaviour
 # =====================================================================
 
 
 @pytest.mark.fast
-class TestEtpConfig:
-    def test_valid_custom_source(self, tmp_path):
+class TestEtpSpecific:
+    def test_custom_source_defaults_col_id(self, tmp_path):
         cfg = EtpSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
         assert cfg.col_id == "id"
-
-    def test_valid_sim2_source(self):
-        cfg = EtpSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            EtpSourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            EtpSourceConfig(source="noaa")
 
     def test_top_level_with_dates(self, tmp_path):
         cfg = EtpConfig(
@@ -182,106 +293,12 @@ class TestEtpConfig:
                 date_end="2020-01-01",
             )
 
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            EtpConfig(sources=[])
-
 
 @pytest.mark.fast
-class TestEtpCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "etp", unit="mm/day", value=3.0)
-        cfg = EtpSourceConfig(source="custom", path=d)
-        records = load_etp(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].station_id == "ST01"
-        assert records[0].variable == "etp"
-        assert records[0].unit == "mm/day"
-        assert records[0].has_data
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "etp_empty"
-        d.mkdir()
-        cfg = EtpSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="etp_custom_LOC"):
-            load_etp(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Humidity
-# =====================================================================
-
-
-@pytest.mark.fast
-class TestHumidityConfig:
-    def test_valid_custom_source(self, tmp_path):
-        cfg = HumiditySourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
-
-    def test_valid_sim2_source(self):
-        cfg = HumiditySourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            HumiditySourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            HumiditySourceConfig(source="era5")
-
-    def test_top_level_config(self, tmp_path):
-        cfg = HumidityConfig(
-            sources=[HumiditySourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            HumidityConfig(sources=[])
-
-
-@pytest.mark.fast
-class TestHumidityCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "humidity", unit="%", value=65.0)
-        cfg = HumiditySourceConfig(source="custom", path=d)
-        records = load_humidity(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "humidity"
-        assert records[0].unit == "%"
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "humidity_empty"
-        d.mkdir()
-        cfg = HumiditySourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="humidity_custom_LOC"):
-            load_humidity(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Precipitation
-# =====================================================================
-
-
-@pytest.mark.fast
-class TestPrecipitationConfig:
-    def test_valid_custom_source(self, tmp_path):
+class TestPrecipitationSpecific:
+    def test_custom_source_defaults_components_total(self, tmp_path):
         cfg = PrecipitationSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
         assert cfg.components == ["total"]
-
-    def test_valid_sim2_source(self):
-        cfg = PrecipitationSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            PrecipitationSourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            PrecipitationSourceConfig(source="gpm")
 
     def test_components_liquid_solid(self, tmp_path):
         cfg = PrecipitationSourceConfig(
@@ -293,150 +310,38 @@ class TestPrecipitationConfig:
 
     def test_invalid_component_rejected(self, tmp_path):
         with pytest.raises(ValueError):
-            PrecipitationSourceConfig(
-                source="custom",
-                path=tmp_path,
-                components=["hail"],
-            )
+            PrecipitationSourceConfig(source="custom", path=tmp_path, components=["hail"])
 
     def test_empty_components_rejected(self, tmp_path):
         with pytest.raises(ValueError):
-            PrecipitationSourceConfig(
-                source="custom",
-                path=tmp_path,
-                components=[],
-            )
-
-    def test_top_level_config(self, tmp_path):
-        cfg = PrecipitationConfig(
-            sources=[PrecipitationSourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            PrecipitationConfig(sources=[])
+            PrecipitationSourceConfig(source="custom", path=tmp_path, components=[])
 
 
 @pytest.mark.fast
-class TestPrecipitationCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "precipitation", unit="mm/day", value=5.0)
-        cfg = PrecipitationSourceConfig(source="custom", path=d)
-        records = load_precipitation(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "precipitation"
-        assert records[0].unit == "mm/day"
-        assert records[0].data["value"].iloc[0] == pytest.approx(5.0)
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "precip_empty"
-        d.mkdir()
-        cfg = PrecipitationSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="precipitation_custom_LOC"):
-            load_precipitation(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Radiation
-# =====================================================================
-
-
-@pytest.mark.fast
-class TestRadiationConfig:
-    def test_valid_custom_source(self, tmp_path):
+class TestRadiationSpecific:
+    def test_custom_source_defaults_components(self, tmp_path):
         cfg = RadiationSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
         assert cfg.components == ["atmospheric", "visible"]
 
-    def test_valid_sim2_source(self):
-        cfg = RadiationSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            RadiationSourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            RadiationSourceConfig(source="copernicus")
-
     def test_components_atmospheric_only(self, tmp_path):
-        cfg = RadiationSourceConfig(
-            source="custom",
-            path=tmp_path,
-            components=["atmospheric"],
-        )
+        cfg = RadiationSourceConfig(source="custom", path=tmp_path, components=["atmospheric"])
         assert cfg.components == ["atmospheric"]
 
     def test_invalid_component_rejected(self, tmp_path):
         with pytest.raises(ValueError):
-            RadiationSourceConfig(
-                source="custom",
-                path=tmp_path,
-                components=["infrared"],
-            )
-
-    def test_top_level_config(self, tmp_path):
-        cfg = RadiationConfig(
-            sources=[RadiationSourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            RadiationConfig(sources=[])
+            RadiationSourceConfig(source="custom", path=tmp_path, components=["infrared"])
 
 
 @pytest.mark.fast
-class TestRadiationCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "radiation", unit="MJ/m2/j", value=12.0)
-        cfg = RadiationSourceConfig(source="custom", path=d)
-        records = load_radiation(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "radiation"
-        assert records[0].unit == "MJ/m2/j"
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "radiation_empty"
-        d.mkdir()
-        cfg = RadiationSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="radiation_custom_LOC"):
-            load_radiation(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Recharge
-# =====================================================================
-
-
-@pytest.mark.fast
-class TestRechargeConfig:
-    def test_valid_custom_source(self, tmp_path):
-        cfg = RechargeSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
-
-    def test_valid_sim2_source(self):
-        cfg = RechargeSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
+class TestRechargeSpecific:
     def test_valid_synthetic_source(self):
         cfg = RechargeSourceConfig(source="synthetic", values=[0.5])
         assert cfg.source == "synthetic"
         assert cfg.values == [0.5]
 
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            RechargeSourceConfig(source="custom")
-
     def test_synthetic_requires_values(self):
         with pytest.raises(ValueError, match="values"):
             RechargeSourceConfig(source="synthetic")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            RechargeSourceConfig(source="pyhelp")
 
     def test_synthetic_with_amplitude(self):
         cfg = RechargeSourceConfig(
@@ -448,80 +353,9 @@ class TestRechargeConfig:
         assert cfg.amplitude == 0.5
         assert cfg.period_days == 365
 
-    def test_top_level_config(self, tmp_path):
-        cfg = RechargeConfig(
-            sources=[RechargeSourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            RechargeConfig(sources=[])
-
 
 @pytest.mark.fast
-class TestRechargeCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "recharge", unit="mm/day", value=0.8)
-        cfg = RechargeSourceConfig(source="custom", path=d)
-        records = load_recharge(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "recharge"
-        assert records[0].unit == "mm/day"
-        assert records[0].data["value"].iloc[0] == pytest.approx(0.8)
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "recharge_empty"
-        d.mkdir()
-        cfg = RechargeSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="recharge_custom_LOC"):
-            load_recharge(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Runoff
-# =====================================================================
-
-
-@pytest.mark.fast
-class TestRunoffConfig:
-    def test_valid_custom_source(self, tmp_path):
-        cfg = RunoffSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
-
-    def test_valid_sim2_source(self):
-        cfg = RunoffSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            RunoffSourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            RunoffSourceConfig(source="hype")
-
-    def test_top_level_config(self, tmp_path):
-        cfg = RunoffConfig(
-            sources=[RunoffSourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            RunoffConfig(sources=[])
-
-
-@pytest.mark.fast
-class TestRunoffCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "runoff", unit="mm/day", value=2.0)
-        cfg = RunoffSourceConfig(source="custom", path=d)
-        records = load_runoff(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "runoff"
-        assert records[0].unit == "mm/day"
-
+class TestRunoffSpecific:
     def test_two_stations(self, tmp_path):
         d = _make_custom_csv_dir(
             tmp_path,
@@ -535,183 +369,16 @@ class TestRunoffCustomLoader:
         assert len(records) == 2
         assert {r.station_id for r in records} == {"R01", "R02"}
 
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "runoff_empty"
-        d.mkdir()
-        cfg = RunoffSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="runoff_custom_LOC"):
-            load_runoff(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Soil Moisture
-# =====================================================================
-
 
 @pytest.mark.fast
-class TestSoilMoistureConfig:
-    def test_valid_custom_source(self, tmp_path):
-        cfg = SoilMoistureSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
-
-    def test_valid_sim2_source(self):
-        cfg = SoilMoistureSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            SoilMoistureSourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            SoilMoistureSourceConfig(source="smap")
-
-    def test_top_level_config(self, tmp_path):
-        cfg = SoilMoistureConfig(
-            sources=[SoilMoistureSourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            SoilMoistureConfig(sources=[])
-
-
-@pytest.mark.fast
-class TestSoilMoistureCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "soil_moisture", unit="%", value=35.0)
-        cfg = SoilMoistureSourceConfig(source="custom", path=d)
-        records = load_soil_moisture(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "soil_moisture"
-        assert records[0].unit == "%"
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "soil_moisture_empty"
-        d.mkdir()
-        cfg = SoilMoistureSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="soil_moisture_custom_LOC"):
-            load_soil_moisture(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Temperature
-# =====================================================================
-
-
-@pytest.mark.fast
-class TestTemperatureConfig:
-    def test_valid_custom_source(self, tmp_path):
-        cfg = TemperatureSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
-
-    def test_valid_sim2_source(self):
-        cfg = TemperatureSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            TemperatureSourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            TemperatureSourceConfig(source="ecmwf")
-
+class TestTemperatureSpecific:
     def test_station_ids_filtering(self, tmp_path):
-        cfg = TemperatureSourceConfig(
-            source="custom",
-            path=tmp_path,
-            station_ids=["T01", "T02"],
-        )
+        cfg = TemperatureSourceConfig(source="custom", path=tmp_path, station_ids=["T01", "T02"])
         assert cfg.station_ids == ["T01", "T02"]
 
-    def test_top_level_config(self, tmp_path):
-        cfg = TemperatureConfig(
-            sources=[TemperatureSourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            TemperatureConfig(sources=[])
-
 
 @pytest.mark.fast
-class TestTemperatureCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "temperature", unit="degC", value=15.0)
-        cfg = TemperatureSourceConfig(source="custom", path=d)
-        records = load_temperature(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "temperature"
-        assert records[0].unit == "degC"
-        assert records[0].data["value"].iloc[0] == pytest.approx(15.0)
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "temperature_empty"
-        d.mkdir()
-        cfg = TemperatureSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="temperature_custom_LOC"):
-            load_temperature(cfg, project_period=PROJECT_PERIOD)
-
-
-# =====================================================================
-# Wind
-# =====================================================================
-
-
-@pytest.mark.fast
-class TestWindConfig:
-    def test_valid_custom_source(self, tmp_path):
-        cfg = WindSourceConfig(source="custom", path=tmp_path)
-        assert cfg.source == "custom"
-
-    def test_valid_sim2_source(self):
-        cfg = WindSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-
-    def test_custom_requires_path(self):
-        with pytest.raises(ValueError, match="path"):
-            WindSourceConfig(source="custom")
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(ValueError):
-            WindSourceConfig(source="ncep")
-
+class TestWindSpecific:
     def test_source_unit_override(self, tmp_path):
-        cfg = WindSourceConfig(
-            source="custom",
-            path=tmp_path,
-            source_unit="km/h",
-        )
+        cfg = WindSourceConfig(source="custom", path=tmp_path, source_unit="km/h")
         assert cfg.source_unit == "km/h"
-
-    def test_top_level_config(self, tmp_path):
-        cfg = WindConfig(
-            sources=[WindSourceConfig(source="custom", path=tmp_path)],
-        )
-        assert len(cfg.sources) == 1
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValueError):
-            WindConfig(sources=[])
-
-
-@pytest.mark.fast
-class TestWindCustomLoader:
-    def test_load_one_station(self, tmp_path):
-        d = _make_custom_csv_dir(tmp_path, "wind", unit="m/s", value=4.2)
-        cfg = WindSourceConfig(source="custom", path=d)
-        records = load_wind(cfg, project_period=PROJECT_PERIOD)
-        assert len(records) == 1
-        assert records[0].variable == "wind"
-        assert records[0].unit == "m/s"
-        assert records[0].data["value"].iloc[0] == pytest.approx(4.2)
-
-    def test_missing_loc_file_raises(self, tmp_path):
-        d = tmp_path / "wind_empty"
-        d.mkdir()
-        cfg = WindSourceConfig(source="custom", path=d)
-        with pytest.raises(FileNotFoundError, match="wind_custom_LOC"):
-            load_wind(cfg, project_period=PROJECT_PERIOD)
