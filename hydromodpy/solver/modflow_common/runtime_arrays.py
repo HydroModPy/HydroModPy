@@ -7,6 +7,10 @@ from numbers import Real
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def flow_grid_shape(flow_model: object) -> tuple[int, int, int]:
     """Return one shape tuple for structured or cell-based flow models.
@@ -75,11 +79,17 @@ def _normalize_sconc_input(
 ) -> dict[int, np.ndarray] | None:
     if _is_scalar_number(raw_value):
         scalar = float(raw_value)
+        # A single-period (fully steady) run must inject the recharge concentration
+        # at period 0; transient multi-period runs keep their per-period split.
+        start_sp = 0 if nper == 1 else 1
+        if nper == 1 and scalar != 0.0:
+            logger.warning("Single-period recharge concentration %.6g applied at period 0.", scalar)
         if structured:
             return {
-                sp: np.full((int(nrow), int(ncol)), scalar, dtype=float) for sp in range(1, nper)
+                sp: np.full((int(nrow), int(ncol)), scalar, dtype=float)
+                for sp in range(start_sp, nper)
             }
-        return {sp: np.full(ncpl, scalar, dtype=float) for sp in range(1, nper)}
+        return {sp: np.full(ncpl, scalar, dtype=float) for sp in range(start_sp, nper)}
 
     if not isinstance(raw_value, Mapping):
         return None

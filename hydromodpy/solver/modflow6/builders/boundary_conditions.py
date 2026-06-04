@@ -18,6 +18,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
 
 
 def is_scalar_number(value: object) -> bool:
@@ -370,13 +371,18 @@ def build_drain_stress_period_data(
     ocean_support_mask: np.ndarray,
     stream_support_mask: np.ndarray,
 ) -> dict[int, list[list[float]]]:
-    """Build DRN stress-period data, including hk-scaled fallback conductance."""
+    """Build DRN stress-period data with a dimensionally-correct hk fallback.
+
+    When no conductance is configured, the fallback conductance is
+    ``C = hk * cell_area / top_layer_thickness`` (m2/s), shared with NWT.
+    """
     drn_spd: dict[int, list[list[float]]] = {}
     top_flat = solver_mesh.top
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     cell_areas = solver_mesh.cell_areas()
+    top_thickness = solver_mesh.layer_thicknesses()[0]
     for kper in range(int(model.nper)):
         period_cells: list[list[float]] = []
         configured_cond_value = float(drainage_cond_series[kper])
@@ -386,7 +392,11 @@ def build_drain_stress_period_data(
             if configured_cond_value > 0.0:
                 cond_value = max(configured_cond_value, 1e-12)
             else:
-                cond_value = max(float(model.hk[0, cid]) * float(cell_areas[cid]), 1e-12)
+                cond_value = hk_fallback_drain_conductance(
+                    hk=float(model.hk[0, cid]),
+                    cell_area=float(cell_areas[cid]),
+                    top_thickness=float(top_thickness[cid]),
+                )
             period_cells.append([0, cid, float(top_flat[cid]), cond_value])
         drn_spd[kper] = period_cells
     return drn_spd

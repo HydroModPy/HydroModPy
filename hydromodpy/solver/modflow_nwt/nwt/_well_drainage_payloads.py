@@ -13,6 +13,7 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
 from hydromodpy.solver.modflow_grid.grid_context import grid_reference_from_solver_mesh
 from hydromodpy.solver.modflow_nwt.nwt._chd_payloads import forcing_units
 
@@ -42,7 +43,8 @@ def build_drainage_spd(
 
     Conductance policy:
     - If drainage BC value > 0: use this explicit conductance.
-    - Otherwise: derive conductance from ``hk * cell_area``.
+    - Otherwise: derive conductance from ``hk * cell_area / top_layer_thickness``
+      (m2/s), shared with the MODFLOW 6 backend.
     - With ``sink_fill=True``: cells flagged as sink receive zero conductance.
 
     Returns ``None`` when drainage is not activated.
@@ -63,6 +65,15 @@ def build_drainage_spd(
         units=getattr(drainage_boundary, "units", "m2/s"),
     )
 
+    top_thickness = adapter.solver_mesh.reshape_to_grid(adapter.solver_mesh.layer_thicknesses()[0])
+
+    def _fallback(i: int, j: int) -> float:
+        return hk_fallback_drain_conductance(
+            hk=float(hk[0, i, j]),
+            cell_area=float(adapter.cell_area),
+            top_thickness=float(top_thickness[i, j]),
+        )
+
     count = 0
     for i in range(adapter.nrow):
         for j in range(adapter.ncol):
@@ -77,14 +88,14 @@ def build_drainage_spd(
                 if drainage_value > 0:
                     drn_data[count, 4] = drainage_value
                 else:
-                    drn_data[count, 4] = hk[0, i, j] * adapter.cell_area
+                    drn_data[count, 4] = _fallback(i, j)
             else:
                 if adapter.sink[i, j] > 0:
                     drn_data[count, 4] = 0.0
                 elif drainage_value > 0:
                     drn_data[count, 4] = drainage_value
                 else:
-                    drn_data[count, 4] = hk[0, i, j] * adapter.cell_area
+                    drn_data[count, 4] = _fallback(i, j)
             count += 1
 
     return {0: drn_data}

@@ -25,7 +25,7 @@ from ._test_modflow6_boundary_conditions_builders import _build_model
                 1: np.array([0.0, 4.0e-6], dtype=float),
             },
             {
-                0: np.zeros(2, dtype=float),
+                0: np.array([0.0, 2.0e-6], dtype=float),
                 1: np.array([3.0e-6, 0.0], dtype=float),
             },
             id="test_modflow6_extracts_evt_payload_from_negative_2d_recharge",
@@ -40,7 +40,7 @@ from ._test_modflow6_boundary_conditions_builders import _build_model
                 1: np.asarray([0.0, 4.0], dtype=float),
             },
             {
-                0: np.asarray([0.0, 0.0], dtype=float),
+                0: np.asarray([0.0, 2.0], dtype=float),
                 1: np.asarray([3.0, 0.0], dtype=float),
             },
             id="test_modflow6_flow_adapter_extracts_evt_payload_from_negative_2d_recharge",
@@ -52,7 +52,8 @@ def test_modflow6_extracts_evt_payload_from_negative_2d_recharge(
     expected_clipped: dict[int, np.ndarray],
     expected_evt: dict[int, np.ndarray],
 ) -> None:
-    clipped_rch, evt_data = extract_evt_payload_2d(recharge_2d, True)
+    # All transient: each period keeps its own positive/negative split (H5 fix).
+    clipped_rch, evt_data = extract_evt_payload_2d(recharge_2d, True, steady=[False, False])
 
     assert evt_data is not None
     np.testing.assert_allclose(clipped_rch[0], expected_clipped[0])

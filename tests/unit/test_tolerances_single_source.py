@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 21 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 22 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 21 loadable rows split into three enforcement classes (W5 classification):
+The 22 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 21 loadable TOLERANCES.md rows.
+# W5 classification of the 22 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -61,6 +61,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "regression_goldens_arrays__atol",
         "signature_stats_post_v0_5__rtol",
         "signature_stats_post_v0_5__atol",
+        "mf6_prt_uniform_velocity_streamline__max_relative_position_error_x_x_exp_x_exp_x0",
     }
 )
 
@@ -151,10 +152,10 @@ def _resolve(slug: str) -> str:
 
 @pytest.mark.fast
 def test_classification_partitions_all_loadable_rows() -> None:
-    """INLINE, CASE_TOML and UNUSED partition exactly the 21 loadable rows."""
+    """INLINE, CASE_TOML and UNUSED partition exactly the 22 loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 21, sorted(loadable)
+    assert len(loadable) == 22, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
@@ -179,7 +180,7 @@ def test_every_tol_call_resolves_to_one_real_row() -> None:
 
 @pytest.mark.fast
 def test_referenced_rows_are_subset_of_loadable_keys() -> None:
-    """Every row reached through tol() is one of the 21 loadable keys."""
+    """Every row reached through tol() is one of the 22 loadable keys."""
     referenced = {_resolve(slug) for slug in _collect_tol_arguments()}
     assert referenced <= set(TOLERANCES), sorted(referenced - set(TOLERANCES))
 

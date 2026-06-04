@@ -8,18 +8,19 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.time import factor_to_seconds
 
 logger = get_logger(__name__)
 
-# Map MODFLOW ITMUNI codes to seconds per model-time unit.
-_ITMUNI_SECONDS: dict[int, float] = {
-    0: 1.0,
-    1: 1.0,
-    2: 60.0,
-    3: 3600.0,
-    4: 86400.0,
-    5: 31557600.0,
-}
+
+def _seconds_per_itmuni(itmuni: int) -> float:
+    """Seconds per MODFLOW ITMUNI code; 0 (undefined) means seconds (1.0)."""
+    if itmuni == 0:
+        return 1.0
+    try:
+        return factor_to_seconds(int(itmuni))
+    except ValueError:
+        return 1.0
 
 
 def _read_itmuni(dis_path: Path) -> int:
@@ -58,7 +59,7 @@ def _write_time_coordinate(store: Any, sim_id: str, times: list[float], itmuni: 
     writer = getattr(store, "write_time", None)
     if writer is None:
         raise TypeError("Simulation store must implement write_time().")
-    factor = _ITMUNI_SECONDS.get(itmuni, 1.0)
+    factor = _seconds_per_itmuni(itmuni)
     values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
     writer(sim_id, values)
 
@@ -121,7 +122,7 @@ class ModflowNwtOutputAdapter:
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
         itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
-        flux_scale_to_m3_s = 1.0 / float(_ITMUNI_SECONDS.get(itmuni, 1.0))
+        flux_scale_to_m3_s = 1.0 / _seconds_per_itmuni(itmuni)
         _write_time_coordinate(store, sim_id, times, itmuni)
 
         head0 = head_file.get_data(totim=times[0])
