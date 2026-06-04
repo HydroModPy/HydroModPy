@@ -43,6 +43,9 @@ class _DummyHeadFile:
     def get_times(self) -> list[float]:
         return [1.0]
 
+    def get_kstpkper(self) -> list[tuple[int, int]]:
+        return [(0, 0)]
+
     def get_data(self, *, totim: float) -> np.ndarray:
         del totim
         return np.array([[[9.0, 8.5], [8.0, 7.5]]], dtype=float)
@@ -54,6 +57,9 @@ class _DummyHeadFileUnstructured:
 
     def get_times(self) -> list[float]:
         return [1.0]
+
+    def get_kstpkper(self) -> list[tuple[int, int]]:
+        return [(0, 0)]
 
     def get_data(self, *, totim: float) -> np.ndarray:
         del totim
@@ -76,8 +82,8 @@ class _DummyBudgetFile:
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper, text
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, text, totim
         raise ValueError("The specified text string is not in the budget file")
 
 
@@ -85,8 +91,8 @@ class _DummyBudgetFileWithDrn:
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, totim
         assert text == "DRN"
         return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
 
@@ -95,8 +101,8 @@ class _DummyBudgetFileWithDrnAndChd:
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, totim
         if text == "DRN":
             return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
         if text == "CHD":
@@ -119,8 +125,8 @@ class _DummyBudgetFileUnexpectedValueError:
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper, text
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, text, totim
         raise ValueError("Corrupted DRN record payload")
 
 

@@ -13,10 +13,17 @@ def get_budget_records_or_none(
     *,
     kstpkper: tuple[int, int],
     text: str,
+    totim: float | None = None,
 ):
-    """Return one budget term, or None when the term is absent from the file."""
+    """Return one budget term, or None when the term is absent from the file.
+
+    Reading by both ``(kstp, kper)`` and ``totim`` matches the head read so the
+    budget term comes from the same output time when nstp_per_period > 1.
+    """
     try:
-        return cbb.get_data(kstpkper=kstpkper, text=text)
+        if totim is None:
+            return cbb.get_data(kstpkper=kstpkper, text=text)
+        return cbb.get_data(kstpkper=kstpkper, totim=totim, text=text)
     except Exception as exc:
         message = str(exc)
         if "text string is not in the budget file" in message.lower():
