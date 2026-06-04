@@ -305,13 +305,17 @@ class Modflow6Prt:
             save_flows=True,
         )
         disv_kwargs = solver_mesh.to_disv_kwargs()
+        # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
+        # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
+        # the whole grid by one full origin (double offset). PRP release points use
+        # absolute centroids, so they only line up with an un-offset grid.
         self.prtdis = flopy.mf6.ModflowPrtdisv(
             self.prt,
             nlay=self.model_modflow.nlay,
             **disv_kwargs,
             idomain=idomain,
-            xorigin=float(solver_mesh.xoffset),
-            yorigin=float(solver_mesh.yoffset),
+            xorigin=0.0,
+            yorigin=0.0,
             length_units="METERS",
         )
         self.mip = flopy.mf6.ModflowPrtmip(self.prt, porosity=self._build_porosity())

@@ -351,13 +351,16 @@ def run_pre_processing(  # noqa: PLR0915
     idomain = np.where(solver_mesh.inactive_mask, 0, 1).astype(int)
 
     disv_kwargs = solver_mesh.to_disv_kwargs()
+    # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
+    # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
+    # the whole grid by one full origin (double offset).
     model.dis = flopy.mf6.ModflowGwfdisv(
         model.gwf,
         nlay=solver_mesh.nlay,
         **disv_kwargs,
         idomain=idomain,
-        xorigin=float(solver_mesh.xoffset),
-        yorigin=float(solver_mesh.yoffset),
+        xorigin=0.0,
+        yorigin=0.0,
         length_units="METERS",
     )
 
