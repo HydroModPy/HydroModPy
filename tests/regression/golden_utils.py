@@ -41,6 +41,16 @@ import pandas as pd
 import pytest
 
 from hydromodpy.solver.modflow_common import ensure_platform_executable
+from tests._helpers.tolerances import tol
+
+# Golden / signature comparison tolerances (single source: tests/TOLERANCES.md).
+# Rows 14/15 (regression goldens arrays) and rows 16/17 (signature stats
+# post-v0.5) carry the same rtol/atol envelope; assert they agree so a future
+# split that diverges them fails loudly here rather than drifting silently.
+_GOLDEN_RTOL = tol("regression_goldens_arrays__rtol")
+_GOLDEN_ATOL = tol("regression_goldens_arrays__atol")
+assert _GOLDEN_RTOL == tol("signature_stats_post_v0_5__rtol")
+assert _GOLDEN_ATOL == tol("signature_stats_post_v0_5__atol")
 
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -338,8 +348,8 @@ def assert_stats(
     actual: dict,
     expected: dict,
     *,
-    rel: float = 1e-4,
-    abs_tol: float = 1e-6,
+    rel: float = _GOLDEN_RTOL,
+    abs_tol: float = _GOLDEN_ATOL,
 ) -> None:
     """
     Compare two statistical signatures with a small numeric tolerance.
@@ -602,8 +612,8 @@ def assert_modflow_signatures(
     actual_by_name: dict,
     expected_by_name: dict,
     *,
-    rel: float = 1e-4,
-    abs_tol: float = 1e-6,
+    rel: float = _GOLDEN_RTOL,
+    abs_tol: float = _GOLDEN_ATOL,
 ) -> None:
     """
     Validate MODFLOW signatures against golden expectations.
@@ -647,8 +657,8 @@ def assert_array_signatures(
     actual_by_name: dict,
     expected_by_name: dict,
     *,
-    rel: float = 1e-4,
-    abs_tol: float = 1e-6,
+    rel: float = _GOLDEN_RTOL,
+    abs_tol: float = _GOLDEN_ATOL,
 ) -> None:
     """Validate generic array signatures against golden expectations."""
     assert set(actual_by_name) == set(expected_by_name)
@@ -700,8 +710,8 @@ def assert_json_signatures(
     actual: dict,
     expected: dict,
     *,
-    rel: float = 1e-4,
-    abs_tol: float = 1e-6,
+    rel: float = _GOLDEN_RTOL,
+    abs_tol: float = _GOLDEN_ATOL,
 ) -> None:
     """Validate one JSON signature payload with tolerant float comparison."""
     assert set(actual) == set(expected)

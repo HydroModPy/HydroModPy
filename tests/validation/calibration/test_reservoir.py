@@ -6,6 +6,7 @@ import math
 
 import pytest
 
+from tests._helpers.tolerances import tol
 from validation_cases.calibration.reservoir.experiment import (
     ONE_RESERVOIR_CASE,
     TWO_RESERVOIR_CASE,
@@ -34,9 +35,10 @@ def test_one_reservoir_nelder_mead_recovers_truth() -> None:
 
     best = _best_values(session)
     truth = ONE_RESERVOIR_CASE.truth
+    drift_tol = tol("reservoir_calibration_validation__recovered_log10_k_and_n_drift_from_truth")
     assert math.isfinite(session.best.objective_value)
-    assert abs(math.log10(best["k"]) - math.log10(truth["k"])) < 0.3, best
-    assert abs(best["n"] - truth["n"]) < 0.3, best
+    assert abs(math.log10(best["k"]) - math.log10(truth["k"])) < drift_tol, best
+    assert abs(best["n"] - truth["n"]) < drift_tol, best
 
 
 @pytest.mark.validation

@@ -103,11 +103,16 @@ def default_sections() -> list[ReportSection]:
 
 
 def render_sections(ctx: ComparisonWebContext) -> str:
-    """Render all available default report sections."""
+    """Render all available default report sections.
+
+    Each block is wrapped in a stable anchor (``id="section-<section_id>"``)
+    so tooling and tests can target sections without matching localized text.
+    """
     blocks: list[str] = []
     for section in sorted(default_sections(), key=lambda item: item.priority):
         if section.is_available(ctx):
-            blocks.append(section.render(ctx))
+            anchor = f'<div id="section-{safe(section.section_id)}" data-section="{safe(section.section_id)}">'
+            blocks.append(f"{anchor}\n{section.render(ctx)}\n</div>")
     return "\n\n".join(blocks)
 
 

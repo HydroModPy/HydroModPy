@@ -1,3 +1,4 @@
+from ._sgrid_field_grid_utils import stress_period_bounds
 from .sgrid_config import (
     PlanarGridConfig,
     SGridConfig,
@@ -33,4 +34,5 @@ __all__ = [
     "extract_structured_vertices",
     "SGridFieldParamDiscretizationResult",
     "discretize_fieldparam_on_sgrid",
+    "stress_period_bounds",
 ]

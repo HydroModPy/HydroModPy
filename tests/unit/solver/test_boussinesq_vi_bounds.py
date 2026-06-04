@@ -1,21 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 import pytest
 
 from hydromodpy.solver.boussinesq.runtimes.vi_bounds import variable_bounds
-
-
-@dataclass
-class _MiniMesh:
-    z_bottom_m: np.ndarray
-    z_top_m: np.ndarray
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.z_bottom_m.size)
+from tests._helpers.mesh_doubles import _MiniMesh
 
 
 def test_vi_bounds_relax_upper_obstacle_for_explicit_cauchy_drainage() -> None:

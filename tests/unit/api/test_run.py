@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
+from tests._helpers.api_doubles import make_capturing_project
 
 pytestmark = pytest.mark.fast
 
@@ -70,28 +71,15 @@ def test_run_with_string_path_resolves(monkeypatch, tmp_path: Path) -> None:
 def test_run_with_config_object_uses_project(monkeypatch) -> None:
     """A non-path config object opens a ``Project`` and calls ``project.simulate``."""
     captured: dict = {}
-
-    class FakeProject:
-        def __init__(self, cfg, *, headless=False):
-            captured["cfg"] = cfg
-            captured["headless"] = headless
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            captured["closed"] = True
-
-        def simulate(self, **kwargs):
-            captured["run_kwargs"] = kwargs
-            return {"name": "from_object"}
-
-    monkeypatch.setattr("hydromodpy.project.Project", FakeProject)
+    monkeypatch.setattr(
+        "hydromodpy.project.Project",
+        make_capturing_project(captured, result={"name": "from_object"}, verb="simulate"),
+    )
 
     fake_cfg = object()
     result = hmp.run(fake_cfg, name="alpha", headless=True)
     assert result == {"name": "from_object"}
-    assert captured["cfg"] is fake_cfg
-    assert captured["headless"] is True
-    assert captured["run_kwargs"] == {"name": "alpha"}
+    assert captured["init_cfg"] is fake_cfg
+    assert captured["init_headless"] is True
+    assert captured["verb_kwargs"] == {"name": "alpha"}
     assert captured["closed"] is True
