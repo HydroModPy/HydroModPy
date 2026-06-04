@@ -10,7 +10,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
-import pandas as pd
 import zstandard as zstd
 
 import hydromodpy as hmp
