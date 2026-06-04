@@ -350,6 +350,9 @@ def run_pre_processing(  # noqa: PLR0915
     model.sim.register_ims_package(model.ims, [model.gwf.name])
     idomain = solver_mesh.idomain()
 
+    # MF6 uses DISV for every grid (structured and unstructured) so one code path
+    # covers both. Native DIS is reserved for the NWT backend, which only supports
+    # structured grids.
     disv_kwargs = solver_mesh.to_disv_kwargs()
     # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
     # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
