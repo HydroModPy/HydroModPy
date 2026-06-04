@@ -8,6 +8,7 @@ import pytest
 
 import hydromodpy as hmp
 from hydromodpy.core.state.global_index import GlobalIndex
+from tests._helpers.api_doubles import make_capturing_index
 
 pytestmark = pytest.mark.fast
 
@@ -32,24 +33,14 @@ def test_index_read_only_flag_propagates(tmp_path: Path) -> None:
         idx.close()
 
 
-def test_index_default_path_when_none(monkeypatch, tmp_path: Path) -> None:
+def test_index_default_path_when_none(monkeypatch) -> None:
     """``hmp.index(None)`` delegates to GlobalIndex without explicit path."""
     captured: dict = {}
+    fake = make_capturing_index(captured)
+    monkeypatch.setattr("hydromodpy.core.state.global_index.GlobalIndex", fake)
 
-    class FakeIndex:
-        def __init__(self, db_path, *, read_only=False):
-            captured["db_path"] = db_path
-            captured["read_only"] = read_only
-
-        def close(self):
-            captured["closed"] = True
-
-    monkeypatch.setattr(
-        "hydromodpy.core.state.global_index.GlobalIndex",
-        FakeIndex,
-    )
     idx = hmp.index()
-    assert isinstance(idx, FakeIndex)
+    assert isinstance(idx, fake)
     assert captured["db_path"] is None
     assert captured["read_only"] is False
 
@@ -57,19 +48,11 @@ def test_index_default_path_when_none(monkeypatch, tmp_path: Path) -> None:
 def test_index_resolves_path(monkeypatch, tmp_path: Path) -> None:
     """``hmp.index`` expands and resolves the provided path."""
     captured: dict = {}
-
-    class FakeIndex:
-        def __init__(self, db_path, *, read_only=False):
-            captured["db_path"] = db_path
-            captured["read_only"] = read_only
-
-        def close(self):
-            pass
-
     monkeypatch.setattr(
         "hydromodpy.core.state.global_index.GlobalIndex",
-        FakeIndex,
+        make_capturing_index(captured),
     )
+
     db_path = tmp_path / "idx.duckdb"
     hmp.index(db_path, read_only=True)
     assert captured["db_path"] == db_path.expanduser().resolve()

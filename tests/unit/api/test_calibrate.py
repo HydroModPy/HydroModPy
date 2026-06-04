@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
+from tests._helpers.api_doubles import make_capturing_project
 
 pytestmark = pytest.mark.fast
 
@@ -55,61 +56,26 @@ def test_calibrate_with_path_drops_headless_kwarg(monkeypatch, tmp_path: Path) -
     assert "headless" not in captured["kwargs"]
 
 
-def test_calibrate_with_object_config(monkeypatch) -> None:
-    """A non-path config opens a lazy Project and delegates to ``project.calibrate``."""
+@pytest.mark.parametrize("headless", [True, False])
+def test_calibrate_object_config_routes_to_project(monkeypatch, headless: bool) -> None:
+    """A non-path config opens a Project and delegates to ``project.calibrate``.
+
+    ``headless`` reaches the Project constructor, not the verb kwargs; the
+    user kwargs (here ``max_iter``) reach ``calibrate`` untouched and never
+    leak a ``config_path``.
+    """
     captured: dict = {}
-
-    class FakeProject:
-        @classmethod
-        def lazy(cls, cfg, *, headless=True):
-            captured["lazy_cfg"] = cfg
-            captured["lazy_headless"] = headless
-            return cls()
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            captured["closed"] = True
-
-        def calibrate(self, **kwargs):
-            captured["calibrate_kwargs"] = kwargs
-            return {"report": "from_object"}
-
-    monkeypatch.setattr("hydromodpy.project.Project", FakeProject)
+    monkeypatch.setattr(
+        "hydromodpy.project.Project",
+        make_capturing_project(captured, result={"report": "from_object"}, verb="calibrate"),
+    )
 
     fake_cfg = object()
-    result = hmp.calibrate(fake_cfg, max_iter=10)
+    result = hmp.calibrate(fake_cfg, headless=headless, max_iter=10)
     assert result == {"report": "from_object"}
-    assert captured["lazy_cfg"] is fake_cfg
-    assert captured["lazy_headless"] is True
-    assert "config_path" not in captured["calibrate_kwargs"]
-    assert captured["calibrate_kwargs"] == {"max_iter": 10}
-
-
-def test_calibrate_object_config_honors_headless_override(monkeypatch) -> None:
-    """``headless`` is forwarded to ``Project.lazy`` on the object branch."""
-    captured: dict = {}
-
-    class FakeProject:
-        @classmethod
-        def lazy(cls, cfg, *, headless=True):
-            captured["headless"] = headless
-            return cls()
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            pass
-
-        def calibrate(self, **kwargs):
-            captured["kwargs"] = kwargs
-            return None
-
-    monkeypatch.setattr("hydromodpy.project.Project", FakeProject)
-
-    fake_cfg = object()
-    hmp.calibrate(fake_cfg, headless=False)
-    assert captured["headless"] is False
-    assert "headless" not in captured["kwargs"]
+    assert captured["init_cfg"] is fake_cfg
+    assert captured["init_headless"] is headless
+    assert captured["verb_kwargs"] == {"max_iter": 10}
+    assert "config_path" not in captured["verb_kwargs"]
+    assert "headless" not in captured["verb_kwargs"]
+    assert captured["closed"] is True

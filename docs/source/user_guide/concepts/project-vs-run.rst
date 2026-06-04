@@ -30,8 +30,8 @@ Three levels
    * - N
      - **Run**
      - One simulation result in the project catalog, identified by
-       UUID v7. Built by ``project.run(**overrides)`` or retrieved
-       from ``catalog[sim_id]`` / ``catalog.best(...)`` /
+       UUID v7. Built by ``project.simulate(**overrides)`` or retrieved
+       from ``catalog[sim_ref]`` / ``catalog.best(...)`` /
        ``SimulationGroup`` queries as a
        :class:`~hydromodpy.results.run.Run`.
 
@@ -45,8 +45,8 @@ Programmatic flow
    project = hmp.Project("~/ws/projects/canut/hydromodpy.toml")
 
    # Setup-once / run-many: share the context between runs
-   baseline = project.run(K=5e-5, name="baseline")
-   sensitivity = project.run(K=1e-4, name="K_up")
+   baseline = project.simulate(K=5e-5, name="baseline")
+   sensitivity = project.simulate(K=1e-4, name="K_up")
    project.close()
 
    # Open-and-query: jump straight to any run
@@ -59,16 +59,18 @@ Programmatic flow
 CLI equivalents
 ---------------
 
-+-----------------------------+-------------------------------------------+
-| CLI                         | Python                                    |
-+=============================+===========================================+
-| ``hmp run hydromodpy.toml`` | ``hmp.Project(toml).run()``               |
-+-----------------------------+-------------------------------------------+
-| ``hmp catalog ls``          | ``hmp.open(project).simulations``         |
-+-----------------------------+-------------------------------------------+
-| ``hmp catalog show <id>``   | ``hmp.open(project)[sim_id]``             |
-+-----------------------------+-------------------------------------------+
-| ``hmp display``             | ``hmp.viz.show(run, ...)``                |
-+-----------------------------+-------------------------------------------+
-| ``hmp index search``        | ``hmp.index().search(...)``               |
-+-----------------------------+-------------------------------------------+
+.. list-table::
+   :header-rows: 1
+
+   * - CLI
+     - Python
+   * - ``hmp run hydromodpy.toml``
+     - ``hmp.Project(toml).simulate()``
+   * - ``hmp catalog ls``
+     - ``hmp.open(project).frame``
+   * - ``hmp catalog show <sim_ref>``
+     - ``hmp.open(project)[sim_ref]``
+   * - ``hmp display``
+     - ``hmp.viz.show(run, ...)``
+   * - ``hmp index search``
+     - ``hmp.index().search(...)``

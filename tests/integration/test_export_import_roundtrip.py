@@ -94,7 +94,7 @@ def test_export_package_layout_and_manifest_sha256(tmp_path: Path) -> None:
     sim_id = str(uuid4())
     archive_path = tmp_path / "run.hmp"
 
-    with hmp.open(src_workspace) as catalog:
+    with hmp.open(src_workspace, create=True) as catalog:
         _populate_simulation(catalog, project="roundtrip", sim_id=sim_id)
         produced = catalog.export_package(sim_id, archive_path)
     assert produced == archive_path
@@ -131,7 +131,7 @@ def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
     archive_path = tmp_path / "run.hmp"
     sim_id = str(uuid4())
 
-    with hmp.open(src_workspace) as catalog:
+    with hmp.open(src_workspace, create=True) as catalog:
         _populate_simulation(catalog, project="roundtrip", sim_id=sim_id)
         catalog.export_package(sim_id, archive_path)
 
@@ -165,7 +165,7 @@ def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
     )
     assert sim_id in completed.stdout
 
-    with hmp.open(dst_workspace) as target:
+    with hmp.open(dst_workspace, create=True) as target:
         sims = target.list_simulations(project="roundtrip")
         assert len(sims) == 1
         assert str(sims.iloc[0]["sim_id"]) == sim_id
@@ -189,6 +189,14 @@ def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
             [sim_id],
         ).fetchdf()
         assert list(rows["value"]) == pytest.approx([10.0, 10.1, 10.2, 10.3])
+
+        # The nse metric survives the snapshot round trip (CLI import path).
+        metric = target.connection.execute(
+            "SELECT value FROM metrics WHERE sim_id = ? AND metric_name = 'nse'",
+            [sim_id],
+        ).fetchone()
+        assert metric is not None
+        assert float(metric[0]) == pytest.approx(0.91)
 
     # The manifest SHA-256 covers every file *inside* the archive. We
     # cross-check it survives extraction unchanged: pulling the archive

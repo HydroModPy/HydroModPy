@@ -60,12 +60,12 @@ def test_data_fetch_dem_writes_sidecar(monkeypatch, tmp_path, capsys) -> None:
     )
     assert code == 0
 
-    raw_dir = workspace / "data" / "dem" / "raw"
-    assert raw_dir.is_dir()
+    var_dir = workspace / "data" / "dem"
+    assert var_dir.is_dir()
 
-    tifs = list(raw_dir.glob("*.tif"))
+    tifs = list(var_dir.glob("dem_*.tif"))
     assert tifs, "no .tif written"
-    sidecars = list(raw_dir.glob("*.tif.json"))
+    sidecars = list(var_dir.glob("dem_*.tif.json"))
     assert sidecars, "no sidecar written"
 
     payload = json.loads(sidecars[0].read_text())
@@ -121,7 +121,7 @@ def test_bbox_parses_negative_first_value(monkeypatch, tmp_path, capsys) -> None
         ],
     )
     assert code == 0
-    sidecars = list((workspace / "data" / "dem" / "raw").glob("*.tif.json"))
+    sidecars = list((workspace / "data" / "dem").glob("dem_*.tif.json"))
     assert sidecars
     payload = json.loads(sidecars[0].read_text())
     assert payload["bbox"] == [-1.17, 48.4, -1.0, 48.5]

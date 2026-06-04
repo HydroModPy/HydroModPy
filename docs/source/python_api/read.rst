@@ -9,7 +9,7 @@ Signature
 
 .. code-block:: python
 
-   hmp.read(sim, var, *, time=None, layer=None, sel=None, bbox=None, lazy=None) -> Any
+   hmp.read(sim, var, *, time=None, layer=None, sel=None, bbox=None) -> Any
 
 Reference
 ---------

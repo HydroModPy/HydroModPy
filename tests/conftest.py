@@ -38,7 +38,6 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
     {
         "test_catchment_from_point.py",
         "test_reference_river_network_nancon_case.py",
-        "test_run_geographic_case_golden.py",
         "test_run_geographic_case_regression.py",
         "test_run_geographic_case_river_network_regression.py",
         "test_run_geographic_dem_processing_golden.py",
@@ -69,12 +68,6 @@ def _resolve_test_session_root(scratch_root: Path) -> Path:
     if override:
         return Path(override).expanduser().resolve()
     return (scratch_root / "sessions" / _SCRATCH_OWNER_TOKEN).resolve()
-
-
-def _path_has_suffix_parts(path: Path, suffix_parts: tuple[str, ...]) -> bool:
-    """Return True when ``path`` ends with the requested path-part suffix."""
-    parts = path.parts
-    return len(parts) >= len(suffix_parts) and tuple(parts[-len(suffix_parts) :]) == suffix_parts
 
 
 def _session_owner_pid(session_name: str) -> int | None:
@@ -266,17 +259,17 @@ def hydromodpy_test_scratch_root() -> Path:
 def tmp_workspace(tmp_path: Path) -> Path:
     """Create one initialized HydroModPy workspace under *tmp_path*.
 
-    Populates the standard layout (``data/``, ``projects/``, the
-    per-variable ``*_custom/`` seed folders) using the same code path as
+    Populates the standard layout (``data/``, ``projects/``, one
+    ``data/<variable>/`` folder per variable) using the same code path as
     ``hmp workspace init``, so integration tests can open the workspace with
     ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.SimulationCatalog`
     on top of it.  The catalog itself is opened lazily - this fixture
-    only creates folders, keeping the fixture cheap and free of DuckDB
-    I/O until a test explicitly needs it.
+    only creates folders (without the geospatial example files), keeping it
+    cheap and free of DuckDB I/O until a test explicitly needs it.
     """
     from hydromodpy.data.scaffold import scaffold
 
-    root = scaffold(tmp_path / "workspace")
+    root = scaffold(tmp_path / "workspace", with_examples=False)
     return root
 
 
@@ -311,25 +304,6 @@ def _deterministic_seeds():
     random.seed(42)
     np.random.seed(42)
     yield
-
-
-@pytest.fixture(autouse=True)
-def _redirect_repo_root_cwd_for_gmsh_grid_tests(
-    request,
-    monkeypatch: pytest.MonkeyPatch,
-    hydromodpy_test_scratch_root: Path,
-) -> None:
-    """Keep gmsh-grid tests from materializing scratch folders in the repo root."""
-    test_path = Path(str(getattr(request.node, "fspath", request.node.path))).resolve()
-    if not _path_has_suffix_parts(
-        test_path.parent,
-        ("tests", "unit", "solver", "utils", "mesh", "gmsh_grid"),
-    ):
-        return
-
-    scratch_cwd = hydromodpy_test_scratch_root / "cwd" / "gmsh_grid" / test_path.stem
-    scratch_cwd.mkdir(parents=True, exist_ok=True)
-    monkeypatch.chdir(scratch_cwd)
 
 
 def pytest_collection_modifyitems(config, items):

@@ -7,6 +7,7 @@ from typing import Annotated
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.export_spec import ExportSpec
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 
@@ -113,6 +114,20 @@ class ExportConfig(HydroModelBase):
     variables: Annotated[ExportVariablesConfig, Profile.USER] = Field(
         default_factory=ExportVariablesConfig,
         description="Which variables to include in exports.",
+    )
+    resolution: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "GeoTIFF pixel size in CRS units for toggle exports. "
+            "Auto-derived from the grid when omitted."
+        ),
+    )
+    artifacts: Annotated[list[ExportSpec], Profile.DEV] = Field(
+        default_factory=list,
+        description=(
+            "Explicit export artifacts: full control over variable, format, "
+            "timestep and destination, beyond the format toggles above."
+        ),
     )
 
     def any_enabled(self) -> bool:

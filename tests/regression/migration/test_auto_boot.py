@@ -102,7 +102,9 @@ def test_rolling_backups_respect_max(tmp_path: Path) -> None:
     db_path.write_bytes(b"\x00")
     for offset in range(MAX_BACKUPS + 3):
         stamp = (datetime.now(UTC) + timedelta(seconds=offset)).strftime("%Y%m%dT%H%M%SZ")
-        backup_path_for(db_path, timestamp=stamp).write_bytes(b"backup")
+        backup = backup_path_for(db_path, timestamp=stamp)
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        backup.write_bytes(b"backup")
     _prune_old_backups(db_path, keep=MAX_BACKUPS)
     survivors = list_backups(db_path)
     assert len(survivors) == MAX_BACKUPS

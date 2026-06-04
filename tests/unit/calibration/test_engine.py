@@ -137,6 +137,34 @@ class TestEngineRun:
         # Grid spans [0.0, 1.0] with 5 points - min is 0.0.
         assert session.best.objective_value == pytest.approx(0.0)
 
+    def test_grid_2d_explores_full_product_and_finds_convex_minimum(self):
+        """A 2D grid runs the full ask/tell loop and lands on the convex min."""
+        space = ParameterSpace(
+            [
+                CalibParameter(name="x", lower=-1.0, upper=1.0),
+                CalibParameter(name="y", lower=-1.0, upper=1.0),
+            ]
+        )
+        opt = build_optimizer("grid", space, points_per_dim=3)
+
+        def convex(sugg: ParamSuggestion) -> EvaluationResult:
+            x = float(sugg.values["x"])
+            y = float(sugg.values["y"])
+            return EvaluationResult(
+                trial_id=sugg.trial_id,
+                sim_id=None,
+                objective_value=x**2 + y**2,
+                status="completed",
+            )
+
+        engine = CalibrationEngine(space=space, optimizer=opt, evaluator=convex, max_iter=9)
+        session = engine.run()
+
+        assert len(session.history) == 9  # full 3x3 cartesian product
+        assert session.best is not None
+        assert session.best.objective_value <= session.history[-1].objective_value + 1e-9
+        assert abs(session.best.objective_value) < 1e-12  # grid includes (0, 0)
+
     def test_session_exposes_duration(self):
         """Duration tracking does not break when the loop runs to completion."""
         space = _unit_space()

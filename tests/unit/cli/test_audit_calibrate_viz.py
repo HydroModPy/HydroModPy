@@ -161,7 +161,7 @@ def test_report_render_calls_api_and_opens_browser_after_success(
 
     assert code == 0
     assert calls["session_id"] == "session-1"
-    assert calls["workspace"] == tmp_path
+    assert Path(calls["workspace"]) == tmp_path
     assert calls["opened"] == html.as_uri()
     assert f"wrote {html}" in capsys.readouterr().err
 

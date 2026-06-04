@@ -1,7 +1,7 @@
 Python API
 ==========
 
-HydroModPy exposes 13 top-level verbs through ``import hydromodpy as hmp``.
+HydroModPy exposes its top-level verbs through ``import hydromodpy as hmp``.
 Each verb mirrors a CLI subcommand so ``hmp.run("cfg.toml")`` and
 ``hmp run cfg.toml`` execute the same workflow. The functions are
 re-exported from :mod:`hydromodpy._api`.
@@ -9,28 +9,26 @@ re-exported from :mod:`hydromodpy._api`.
 Catalog and indexing
 --------------------
 
-- :func:`hydromodpy.open` -- open a workspace simulation catalog.
-- :func:`hydromodpy.open_catalog` -- V1 catalog facade
-  (simulations, inputs, projects).
+- :func:`hydromodpy.open` -- the single door to a workspace catalog (object
+  access, DataFrames, and schema discovery). Replaces the former
+  ``open_catalog``.
 - :func:`hydromodpy.index` -- open the machine-wide global index of workspaces.
 
 Workflow launchers
 ------------------
 
-- :func:`hydromodpy.run` -- run any workflow from a TOML file or config object.
+- :func:`hydromodpy.run` -- run any workflow from a TOML file or config object;
+  dispatches on ``[workflow] mode`` (simulation, overview, comparison, mesh,
+  testbed).
 - :func:`hydromodpy.calibrate` -- run a calibration workflow.
-- :func:`hydromodpy.overview` -- run the overview workflow.
-- :func:`hydromodpy.compare` -- run the comparison workflow.
-- :func:`hydromodpy.testbed` -- run a TOML-driven method testbed.
-- :func:`hydromodpy.mesh` -- run the standalone mesh launcher.
 
 Analysis and reporting
 ----------------------
 
 - :func:`hydromodpy.compare_pair` -- compare two simulations by id.
 - :func:`hydromodpy.report` -- render the HTML calibration report.
-- :func:`hydromodpy.read` -- read a variable from a simulation
-  with auto-dispatch.
+- :func:`hydromodpy.read` -- read a variable from a simulation Run with
+  auto-dispatch.
 
 Diagnostics
 -----------
@@ -42,15 +40,10 @@ Diagnostics
    :caption: Verbs
 
    open
-   open_catalog
    index_verb
    run
    calibrate
-   overview
-   compare
    compare_pair
-   testbed
-   mesh
    report
    read
    doctor

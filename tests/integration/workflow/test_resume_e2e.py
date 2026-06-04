@@ -9,7 +9,6 @@ a stale event-stream heartbeat visible to ``hmp catalog gc``.
 
 from __future__ import annotations
 
-import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -238,9 +237,8 @@ def test_artifact_deletion_triggers_partial_redo(tmp_path: Path) -> None:
     finally:
         catalog.close()
 
-    # Allow short jitter between heartbeats and the next start
-    time.sleep(0.01)
-
+    # The journal keys steps on (run_id, step_order) and orders by step_order,
+    # so resume is independent of wall-clock timing. No sleep needed.
     recovery = (
         _ArtifactStep("alpha"),
         _ArtifactStep("beta"),

@@ -18,9 +18,7 @@ EXPECTED_TOP_LEVEL = [
     "open",
     "run",
     "calibrate",
-    "overview",
     "compare_pair",
-    "testbed",
     "doctor",
     # Project / run / catalog API
     "Project",
@@ -55,7 +53,7 @@ def test_removed_batch_api_is_not_exposed() -> None:
 
 def test_open_returns_simulation_catalog() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        cat = hmp.open(tmp)
+        cat = hmp.open(tmp, create=True)
         try:
             assert isinstance(cat, hmp.SimulationCatalog)
         finally:
@@ -64,7 +62,7 @@ def test_open_returns_simulation_catalog() -> None:
 
 def test_simulation_catalog_repr_html() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        cat = hmp.open(tmp)
+        cat = hmp.open(tmp, create=True)
         try:
             html = cat._repr_html_()
             assert "<b>SimulationCatalog</b>" in html
@@ -93,7 +91,7 @@ def test_simulation_view_fluent_methods_present() -> None:
 def test_catalog_export_import_method_names() -> None:
     """Public catalog API exposes export_package() and import_package() (P10 rename)."""
     with tempfile.TemporaryDirectory() as tmp:
-        cat = hmp.open(tmp)
+        cat = hmp.open(tmp, create=True)
         try:
             assert callable(getattr(cat, "export_package", None))
             assert callable(getattr(cat, "import_package", None))

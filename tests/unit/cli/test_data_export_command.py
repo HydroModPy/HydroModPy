@@ -41,22 +41,10 @@ def test_data_export_sim_defaults_to_csv_and_prints_export_count(monkeypatch, tm
             calls["resolve"] = {"sim_ref": sim_ref, "project": project}
             return "sim-001"
 
-        def export(
-            self,
-            sim_id: str,
-            variable: str,
-            fmt: str,
-            out: Path,
-            **kwargs: object,
-        ) -> None:
-            calls["export"] = {
-                "sim_id": sim_id,
-                "variable": variable,
-                "fmt": fmt,
-                "out": out,
-                "kwargs": kwargs,
-            }
-            out.write_text("csv", encoding="utf-8")
+        def export(self, ref: str, spec) -> Path:
+            calls["export"] = {"ref": ref, "var": spec.var, "dest": spec.dest}
+            spec.dest.write_text("csv", encoding="utf-8")
+            return spec.dest
 
         def close(self) -> None:
             calls["closed"] = True
@@ -70,13 +58,7 @@ def test_data_export_sim_defaults_to_csv_and_prints_export_count(monkeypatch, tm
     assert calls["catalog_root"] == project.resolve()
     assert calls["resolve"] == {"sim_ref": "run-one", "project": "ProjectA"}
     assert calls["query"]["params"] == ["sim-001"]
-    assert calls["export"] == {
-        "sim_id": "sim-001",
-        "variable": "*",
-        "fmt": "csv",
-        "out": out,
-        "kwargs": {},
-    }
+    assert calls["export"] == {"ref": "sim-001", "var": "*", "dest": out}
     assert calls["closed"] is True
     assert out.is_file()
     assert str(out) in result.stderr

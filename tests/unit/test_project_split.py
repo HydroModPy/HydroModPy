@@ -1,21 +1,20 @@
-"""Split of :class:`hydromodpy.project.Project` into model and run phases.
+"""Public surface of :class:`hydromodpy.project.Project` after the interface refactor.
 
-P8 caps :class:`Project` at <= 15 instance methods (model-phase verbs +
-lifecycle). Run-phase orchestration primitives move to
-:class:`hydromodpy.project.session.ProjectSession` returned by
-:meth:`Project.session`.
+The run-phase verb is :meth:`Project.simulate` (ex-``run``); cheap construction
+replaces ``Project.lazy``; the removed ``session()`` / prepared-run primitives
+and the ``from_*`` factories are gone. ``Project`` stays focused on model-phase
+verbs, ``simulate`` / ``calibrate``, and lifecycle.
 """
 
 from __future__ import annotations
 
 from hydromodpy.project import Project
-from hydromodpy.project.session import ProjectSession
 
 MAX_PROJECT_METHODS = 15
 
 
 def test_project_instance_methods_below_limit() -> None:
-    """Project exposes at most 15 instance methods after the P8 split."""
+    """Project keeps a small public method surface."""
     methods = [
         name
         for name, value in vars(Project).items()
@@ -26,29 +25,33 @@ def test_project_instance_methods_below_limit() -> None:
     )
 
 
-def test_project_session_factory_returns_session() -> None:
-    """``Project.session`` is the canonical entry to the run-phase facade."""
-    assert hasattr(Project, "session")
-
-
-def test_project_session_owns_prepared_run_primitives() -> None:
-    """Prepared-run primitives are on :class:`ProjectSession`, not Project."""
-    for name in ("prepare", "execute", "ingest", "render", "cleanup", "simulate", "sweep"):
-        assert hasattr(ProjectSession, name), f"ProjectSession is missing {name!r}"
-
-
-def test_project_no_longer_exposes_prepared_run_primitives() -> None:
-    """``Project`` does not duplicate the prepared-run primitives."""
-    for name in ("prepare", "execute", "ingest", "render", "cleanup", "simulate", "sweep"):
-        assert not hasattr(Project, name), (
-            f"Project still exposes {name!r}; move it to ProjectSession."
-        )
+def test_project_drops_removed_surface() -> None:
+    """The removed run/session/factory surface is gone."""
+    for name in (
+        "run",
+        "lazy",
+        "session",
+        "from_toml",
+        "from_json",
+        "from_dict",
+        "execute",
+        "ingest",
+        "render",
+        "cleanup",
+    ):
+        assert not hasattr(Project, name), f"Project still exposes removed {name!r}"
 
 
 def test_project_keeps_canonical_run_phase_verbs() -> None:
-    """``Project`` keeps the high-level run-phase verbs that benefit from setup-once state."""
-    for name in ("run", "calibrate"):
+    """``Project`` keeps the high-level run-phase verbs."""
+    for name in ("simulate", "calibrate", "prepare", "rerun"):
         assert hasattr(Project, name), f"Project lost canonical verb {name!r}"
+
+
+def test_project_config_is_a_property() -> None:
+    """``cfg`` is replaced by the read-only ``config`` property."""
+    assert isinstance(Project.config, property)
+    assert not hasattr(Project, "cfg")
 
 
 def test_project_drops_toml_only_workflow_verbs() -> None:
@@ -70,17 +73,3 @@ def test_project_keeps_model_phase_verbs() -> None:
         "build_mesh",
     ):
         assert hasattr(Project, name), f"Project lost model-phase verb {name!r}"
-
-
-def test_project_session_repr() -> None:
-    """Smoke-check :class:`ProjectSession` repr (no Project init required)."""
-
-    class _FakeProject:
-        def __init__(self) -> None:
-            self._runner = object()
-
-        def __repr__(self) -> str:
-            return "FakeProject()"
-
-    sess = ProjectSession(_FakeProject())
-    assert "ProjectSession" in repr(sess)

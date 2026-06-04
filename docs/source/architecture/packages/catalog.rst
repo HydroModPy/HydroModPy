@@ -3,7 +3,7 @@ catalog
 
 ``hydromodpy.catalog`` is the V1 facade over the three DuckDB scopes
 (per-workspace cache, per-project catalog, machine-wide index). It is
-the canonical entry point for :func:`hmp.open_catalog` and sits above
+the canonical entry point for :func:`hmp.open` and sits above
 ``results`` and ``data`` without the reverse edge.
 
 Sub-modules
@@ -16,18 +16,24 @@ Sub-modules
    * - Module
      - Role
    * - ``catalog/facade.py``
-     - :class:`CatalogFacade` and :func:`open_catalog`. Resolves the
-       workspace, builds the three namespaces, and exposes a context
-       manager that closes underlying DuckDB handles.
+     - :func:`hmp.open`. Resolves the workspace and returns a
+       :class:`SimulationCatalog`. Default ``create=False`` raises
+       ``FileNotFoundError`` when no ``catalog.duckdb`` exists; pass
+       ``create=True`` to initialise an empty one.
    * - ``catalog/simulations.py``
-     - :class:`SimulationsNamespace`. Read-mostly access to the
-       project catalog rows (``find``, ``get``, ``latest``).
+     - :class:`SimulationCatalog`. Read-mostly access to the
+       project catalog rows (``find`` returning a ``SimulationGroup``,
+       ``frame``, ``latest``, ``best``, ``worst``, ``rank``,
+       ``cat[ref]``) plus schema discovery (``describe``, ``tables``,
+       ``columns``, ``variables``, ``metrics``, ``stations``).
    * - ``catalog/inputs.py``
      - :class:`InputsNamespace`. Lookup over the per-workspace data
-       cache (``list``, ``get`` by variable).
+       cache (``list``, ``get`` by variable). Reached via
+       ``hydromodpy.catalog.InputsNamespace(ws)`` or the ``hmp data``
+       CLI, not via :func:`hmp.open`.
    * - ``catalog/projects.py``
-     - :class:`ProjectsNamespace`. Lookup over the machine-wide
-       index of registered projects.
+     - Machine-wide index of registered projects, reached through
+       :func:`hmp.index`.
 
 Mutators (since v1.x.6)
 -----------------------
@@ -66,5 +72,5 @@ See also
 
 - :doc:`results` for the project catalog and ``Run`` facade reached
   through this facade.
-- :doc:`/python_api/open_catalog` for the public Python entry point.
+- :doc:`/python_api/open` for the public Python entry point.
 - :doc:`/architecture/storage-layout` for the DuckDB file layout.

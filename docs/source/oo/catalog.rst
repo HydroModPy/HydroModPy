@@ -3,7 +3,7 @@ Catalog patterns
 
 A project handle is convenient for the run loop but unnecessary when
 all the caller wants is to read or inspect previously persisted runs.
-HydroModPy ships two catalog entry points for that purpose.
+HydroModPy ships a single catalog entry point for that purpose.
 
 hmp.open
 --------
@@ -11,8 +11,12 @@ hmp.open
 :func:`hydromodpy.open` returns a
 :class:`hydromodpy.results.catalog.SimulationCatalog` rooted at the
 given workspace. It is the read-side complement of
-:meth:`Project.run` and mirrors the ``xarray.open_dataset`` intent: one
-call, a ready-to-query object.
+:meth:`Project.simulate` and mirrors the ``xarray.open_dataset`` intent:
+one call, a ready-to-query object.
+
+By default ``create=False``: the call raises ``FileNotFoundError`` when
+no ``catalog.duckdb`` exists at the workspace. Pass ``create=True`` to
+initialise an empty catalog.
 
 .. code-block:: python
 
@@ -22,30 +26,34 @@ call, a ready-to-query object.
    last = cat.latest()
    da = hmp.read(last, "head")
 
-``cat`` exposes the same query surface as :attr:`Project.runs` but
-without the project-name filter: it sees every simulation persisted in
-the workspace.
+``cat`` exposes the workspace query surface without a project-name
+filter: it sees every simulation persisted in the workspace.
 
-hmp.open_catalog
-----------------
+Query surface
+-------------
 
-:func:`hydromodpy.open_catalog` returns the V1
-:class:`hydromodpy.catalog.CatalogFacade`. The facade fronts the three
-DuckDB files (``simulations``, ``inputs``, ``projects``) behind matching
-namespaces so the call site reads close to the query intent.
+The catalog is the single door. :meth:`cat.find` is the one filtered
+entry point and returns a ``SimulationGroup``; an unknown filter key
+raises ``ValueError`` listing the valid filters. :attr:`cat.frame`
+returns the full ``DataFrame``. Federation across workspaces lives on
+:func:`hmp.index`. Inputs are reached via
+:class:`hydromodpy.catalog.InputsNamespace` or the ``hmp data`` CLI.
 
 .. code-block:: python
 
    import hydromodpy as hmp
 
-   with hmp.open_catalog("~/proj/naizin") as cat:
-       sims = cat.simulations.find(solver="modflow6")
-       inputs = cat.inputs.list()
-       projects = cat.projects.list()
+   cat = hmp.open("~/proj/naizin")
+   sims = cat.find(solver="modflow6")
+   frame = cat.frame
+   projects = hmp.index()
 
-The context-manager form is preferred: the facade owns DuckDB
-connections that should be released on exit. The bare call form is also
-supported for short scripts and notebooks.
+Schema discovery and selectors live on the same object:
+:meth:`cat.describe`/:meth:`cat.tables`/:meth:`cat.columns`/
+:meth:`cat.variables`/:meth:`cat.metrics`/:meth:`cat.stations`, plus
+:meth:`cat.latest`/:meth:`cat.best`/:meth:`cat.worst`/:meth:`cat.rank`,
+``cat[ref]``, :meth:`cat.resolve`, :meth:`cat.sql`, and
+:meth:`cat.read` for the by-id read path.
 
 Notebook pattern
 ----------------
@@ -72,6 +80,5 @@ See Also
 --------
 
 - :func:`hydromodpy.open` -- workspace-level catalog.
-- :func:`hydromodpy.open_catalog` -- V1 catalog facade with namespaces.
 - :func:`hydromodpy.read` -- read a variable from a persisted run.
 - :func:`hydromodpy.index` -- machine-wide federation of workspaces.

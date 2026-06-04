@@ -8,7 +8,7 @@ import sys
 from hydromodpy.cli.helpers import EXIT_VALIDATION
 
 NAME: str = "check"
-HELP: str = "Validate the drag-and-drop <variable>_custom/ folders without ingesting"
+HELP: str = "Validate the custom files in data/<variable>/ without ingesting"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

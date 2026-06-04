@@ -14,8 +14,7 @@ Top-level facade
    hydromodpy/
    |-- __init__.py             Lazy public exports plus PROJ bootstrap.
    |-- _api.py                 Top-level helpers (open, run, calibrate,
-   |                           open_catalog, index, overview,
-   |                           compare_pair, mesh, testbed, report,
+   |                           index, compare_pair, report,
    |                           audit_prune, doctor).
    |-- _bootstrap.py           PROJ database setup at import time.
    |-- _lazy.py                Lazy-export tables (LAZY_IMPORTS,
@@ -27,9 +26,7 @@ Top-level facade
        |-- accessors.py        Read-only accessors on Project.
        |-- catalog.py          Project-level catalog binding.
        |-- phases.py           Lazy-phase Project orchestration.
-       |-- prepared_run.py     Prepared-run primitives.
        |-- runner.py           Project execution wrapper.
-       |-- session.py          Run-phase session facade.
        `-- dispatch/           Workflow / calibration adapters bound to
                                ``Project`` (workflow.py, calibration.py).
 
@@ -58,9 +55,11 @@ Subpackages
        diagnostics, runnable cases. Entry: ``calibration/cli_runner.py``.
        See :doc:`packages/calibration`.
    * - ``catalog/``
-     - V1 facade over the three DuckDB scopes: data cache, project
-       catalog, and machine-wide index. Entry: ``catalog/facade.py``.
-       See :doc:`packages/catalog`.
+     - Read-only view over the workspace data cache. The simulation
+       catalog itself is opened with ``hmp.open`` (returns a
+       ``SimulationCatalog``); the machine-wide index is reached via
+       ``hmp.index()``. Entry: ``catalog/inputs.py``. See
+       :doc:`packages/catalog`.
    * - ``cli/``
      - ``hmp`` and ``hydromodpy`` console entry points. One module per
        verb under ``cli/commands/``, registered through ``ALL_COMMANDS``

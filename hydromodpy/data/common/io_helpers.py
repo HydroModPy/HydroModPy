@@ -34,6 +34,18 @@ def parse_loc_filename(filename: str) -> dict[str, str] | None:
     return m.groupdict() if m else None
 
 
+def is_scaffold_example(path: str | Path) -> bool:
+    """True for the format templates shipped by ``hmp workspace init``.
+
+    These files carry the ``EXAMPLE`` id token (e.g.
+    ``hydrometry_custom_EXAMPLE_20000101_20000131_D.csv`` or
+    ``geology_custom_EXAMPLE.gpkg``) and must never be ingested or loaded as
+    real data.
+    """
+    stem = Path(path).stem.upper()
+    return stem == "EXAMPLE" or "_CUSTOM_EXAMPLE" in stem
+
+
 def safe_file_token(value: str) -> str:
     """Replace non-alphanumeric chars with underscore for safe filenames."""
     return "".join(c if c.isalnum() else "_" for c in str(value))

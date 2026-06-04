@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
@@ -15,17 +13,7 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_mixed_common import (
     _fischer_burmeister_residual_and_derivatives,
     _fischer_burmeister_residual_and_gap_derivatives,
 )
-
-
-@dataclass
-class _MiniMesh:
-    cell_area_m2: np.ndarray
-    z_top_m: np.ndarray
-    z_bottom_m: np.ndarray
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.cell_area_m2.size)
+from tests._helpers.mesh_doubles import _MiniMesh
 
 
 def _assembly(residual_m3_s: np.ndarray) -> BoussinesqAssembly:

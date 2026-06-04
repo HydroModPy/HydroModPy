@@ -23,7 +23,7 @@ def main() -> None:
     """Build the project, run one simulation, and print its catalog id."""
     cfg = build_config()
     with hmp.Project(cfg) as project:
-        run = project.run()
+        run = project.simulate()
         if run is not None:
             print(f"sim_id={run.sim_id} name={run.name}")
 

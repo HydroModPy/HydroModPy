@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import json
 import platform
-from dataclasses import dataclass
 
 import numpy as np
 import pytest
@@ -23,36 +22,13 @@ from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
     build_ts_vi_obstacle_runtime_summary,
     write_ts_vi_obstacle_diagnostic_files,
 )
+from tests._helpers.mesh_doubles import _MiniMesh
 
 
 def _require_linux_petsc4py() -> None:
     if platform.system().strip().lower() != "linux":
         pytest.skip("Boussinesq PETSc runtime is Linux-only.")
     pytest.importorskip("petsc4py")
-
-
-@dataclass
-class _MiniMesh:
-    cell_area_m2: np.ndarray
-    z_top_m: np.ndarray
-    z_bottom_m: np.ndarray
-    hydraulic_conductivity_m_s: np.ndarray
-    storage_coefficient: np.ndarray
-    edge_ids: np.ndarray
-    edge_cell_a: np.ndarray
-    edge_cell_b: np.ndarray
-    edge_length_m: np.ndarray
-    edge_distance_m: np.ndarray
-    edge_midpoint_distance_to_cell_a_m: np.ndarray
-    edge_midpoint_distance_to_cell_b_m: np.ndarray
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.cell_area_m2.size)
-
-    @property
-    def n_edges(self) -> int:
-        return int(self.edge_ids.size)
 
 
 def _single_cell_mesh() -> _MiniMesh:

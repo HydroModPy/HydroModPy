@@ -104,7 +104,7 @@ The CLI dispatch is intentionally simple:
         +-- read [workflow].mode = "..."
         |
         +-- dispatch to one launcher
-              simulation  -> Project(config).run()
+              simulation  -> Project(config).simulate()
               overview    -> DataOverviewLauncher
               testbed     -> TestbedLauncher (or regional_lab profile)
               calibration -> calibration ask/tell loop
@@ -169,7 +169,7 @@ The mode is the entry interface used to drive the chosen workflow.
      - ``examples/projects/02_nancon_watershed/run_transient_nwt.toml``
    * - 2
      - Frontend or external tool
-     - ``Project.from_json(payload)``
+     - ``Project(payload)``
      - ``hydromodpy/schema/`` JSON exports
    * - 3
      - Multiple runs sharing one base TOML
@@ -181,11 +181,11 @@ The mode is the entry interface used to drive the chosen workflow.
      - ``examples/projects/02_nancon_watershed/run_full_python.py``
    * - 5
      - Step-by-step debug run
-     - ``project.prepare/execute/ingest/render``
+     - ``project.build_geographic/load_data/build_mesh/simulate``
      - ``examples/projects/02_nancon_watershed/run_transient_prototype.py``
    * - 6
      - Notebook with phase reload
-     - ``Project.lazy(cfg)``
+     - ``Project(cfg)``
      - ``examples/projects/02_nancon_watershed/run_cellular.py``
    * - 7
      - Primitive objects without ``Project``
@@ -232,8 +232,8 @@ schema as the TOML loader.
 
    import hydromodpy as hmp
 
-   project = hmp.Project.from_json(payload)
-   project.run()
+   project = hmp.Project(payload)
+   project.simulate()
 
 JSON Schema definitions live under ``hydromodpy/schema/`` and are kept in
 sync with the Pydantic models.
@@ -251,7 +251,7 @@ mode 4.
 
    project = hmp.Project("examples/projects/02_nancon_watershed/project.toml")
    for sy in [0.01, 0.05, 0.3]:
-       project.run(Sy=sy, name=f"sy_{sy}")
+       project.simulate(Sy=sy, name=f"sy_{sy}")
 
 Mode 4. Python API
 ~~~~~~~~~~~~~~~~~~
@@ -266,21 +266,20 @@ model, holds it in memory, and hands it to ``Project``.
    from hydromodpy.config import HydroModPyConfig
 
    cfg = HydroModPyConfig.from_toml(Path("run_transient_nwt.toml"))
-   hmp.Project(cfg).run()
+   hmp.Project(cfg).simulate()
 
 Mode 5. Step by step
 ~~~~~~~~~~~~~~~~~~~~
 
-The pipeline can be driven one verb at a time. Useful for debugging,
+The model phase can be driven one verb at a time. Useful for debugging,
 inspecting intermediate state, or inserting custom code between two phases.
 
 .. code-block:: python
 
-   sim_id = project.prepare(K=5e-5)
-   project.execute(sim_id)
-   project.ingest(sim_id)
-   project.render(sim_id)
-   project.cleanup(sim_id)
+   project.build_geographic()
+   project.load_data()
+   project.build_mesh()
+   project.simulate(K=5e-5)
 
 Mode 6. Cellular notebook
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -291,11 +290,11 @@ simulation can iterate without re-downloading data.
 
 .. code-block:: python
 
-   project = hmp.Project.lazy(cfg)
+   project = hmp.Project(cfg)
    project.build_geographic()  # slow, runs once
    project.load_data()         # slow, runs once
    project.build_mesh()
-   project.run()
+   project.simulate()
 
 Mode 7. Primitive objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~

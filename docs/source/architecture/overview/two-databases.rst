@@ -3,9 +3,11 @@ The three workspace databases
 
 HydroModPy splits SQL state across three scopes: machine, workspace,
 project. Each scope owns a DuckDB file with a focused role and an
-independent lifecycle. End-user code never has to know which file holds
-a given row; the :mod:`hydromodpy.catalog` facade routes every query to
-the right scope.
+independent lifecycle. The :mod:`hydromodpy.catalog` layer exposes each
+scope through its own door: ``hmp.open(ws)`` for the project catalog,
+``hmp.index()`` for the machine-wide federation, and
+:class:`~hydromodpy.catalog.InputsNamespace` (or the ``hmp data`` CLI)
+for the input cache.
 
 For the complete layout, see :doc:`../storage-layout`. For the migration
 policy applied to every database below, see :doc:`schema-evolution`.
@@ -23,8 +25,7 @@ Tables: ``workspaces``, ``projects``, ``simulations_cache``,
 Exposed through:
 
 - :class:`hydromodpy.core.state.global_index.GlobalIndex`
-- ``hmp.catalog.projects`` namespace (machine-wide discovery)
-- ``hmp.index()`` legacy facade
+- ``hmp.index()`` (machine-wide discovery and federation)
 - CLI verbs ``hmp index search / forget / prune``
 
 Workspace input cache -- ``<workspace>/data/cache.duckdb``
@@ -41,7 +42,7 @@ the view ``v_entries_summary``.
 Exposed through:
 
 - :class:`hydromodpy.data.registry.DataCatalogDuckDB` (low-level)
-- ``hmp.catalog.inputs`` namespace
+- :class:`hydromodpy.catalog.InputsNamespace` (or the ``hmp data`` CLI)
 - ``project.data`` / ``workspace.data`` accessors
 
 Each row carries a workspace-relative POSIX ``file_path`` so caches
@@ -69,8 +70,8 @@ Exposed through:
 - :class:`hydromodpy.results.catalog.SimulationCatalog`
 - :class:`hydromodpy.results.run.Run`
 - :class:`hydromodpy.results.simulation_group.SimulationGroup`
-- ``hmp.catalog.simulations`` namespace
-- ``hmp.open(project_path)`` accessor
+- ``hmp.open(project_path)`` door (returns the ``SimulationCatalog``;
+  ``cat.find(...)``, ``cat.frame``, ``cat.latest()``, ``cat[ref]``)
 - CLI verb ``hmp catalog ...``
 
 Provenance bridge
@@ -108,11 +109,13 @@ A single set of patterns governs the three databases:
   ``<db_path>.lock`` filelock to serialise concurrent callers) and is
   used by all three databases. Each scope owns a flat ``migrations/``
   directory containing one ``0001_initial.sql``.
-- **High-level facade**:
-  :class:`hydromodpy.catalog.CatalogFacade` exposes the three databases
-  through ``simulations``, ``inputs`` and ``projects`` namespaces. Users
-  write ``cat.simulations.find(solver="modflow6")`` without knowing
-  which file holds the row.
+- **Per-scope doors**:
+  :mod:`hydromodpy.catalog` exposes each database through its own door:
+  ``hmp.open(ws)`` returns the project ``SimulationCatalog``,
+  ``hmp.index()`` federates the machine-wide scope, and
+  :class:`~hydromodpy.catalog.InputsNamespace` reaches the input cache.
+  Users write ``hmp.open(ws).find(solver="modflow6")`` on the catalog
+  itself.
 - **Backend Protocol**:
   :class:`hydromodpy.results.catalog.ports.CatalogBackend` is a
   ``typing.Protocol`` with ``execute / query / fetch_one / fetch_all /

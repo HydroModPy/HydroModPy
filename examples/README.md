@@ -41,15 +41,18 @@ C'est le cas notamment de `07_mesh_gallery`, `08_mesh_viewer`,
 de references stables pour la documentation, les exemples inspectables et
 les tests de contrat.
 
-## Catalog facade Python
+## Catalog door Python
 
-| Appel | Retour | Namespaces |
+| Appel | Retour | Rôle |
 |---|---|---|
-| `hmp.open(workspace)` | `SimulationCatalog` | API simulations historique (legacy, mais stable). |
-| `hmp.open_catalog(workspace)` | `CatalogFacade` | `.simulations`, `.inputs`, `.projects`. |
+| `hmp.open(workspace)` | `SimulationCatalog` | porte unique sur le catalogue (`cat.find(...)`, `cat.frame`, `cat.latest()`, `cat[ref]`, `cat.read(ref, var)`). |
+| `hmp.index()` | fédération | registre des workspaces (anciennement `.projects`). |
+| `hydromodpy.catalog.InputsNamespace(workspace)` | namespace inputs | cache d'inputs (anciennement `.inputs`, sinon `hmp data` en CLI). |
 
-`hmp.open_catalog(...)` est le point d'entrée recommandé dès qu'on
-touche au cache d'inputs ou au registre projets.
+`hmp.open(...)` lève `FileNotFoundError` si aucun `catalog.duckdb`
+n'existe (`create=False` par défaut) ; passer `create=True` pour
+initialiser un catalogue vide. C'est le point d'entrée recommandé pour
+inspecter les runs passés (`cat.frame`, `cat.latest()`, `cat[ref]`).
 
 ## CLI - verbs clés
 
@@ -114,9 +117,9 @@ Liste à jour via `hmp --help`. Les nouveautés à connaître :
 8. **09_capability_gallery** : figures de référence publiées.
 
 Parcours data-scientist : `00` → `01` → explorer
-`hmp.open_catalog("examples/")` (table `simulations`, namespace
-`inputs`, namespace `projects`) puis `SimulationGroup` pour les
-exports ML-ready.
+`hmp.open("examples/")` (`cat.frame`, `cat.find(...)`, `cat.read(ref,
+var)`, `hmp.index()` pour la fédération) puis `SimulationGroup` pour
+les exports ML-ready.
 
 ## État courant après migration
 
@@ -143,9 +146,9 @@ exports ML-ready.
   valider les TOML avec `hmp config check` puis vérifier la
   résolution avec `hmp run --dry-run`.
 - `02_nancon_watershed/run_sweep_sy.toml` est un **draft de design**
-  documenté : `sweep` reste Python-only en V1 via
-  `project.session().sweep(...)` et n'est pas accepté par
-  `[workflow].mode`.
+  documenté : `sweep` reste Python-only en V1 via une boucle
+  `for v in values: project.simulate(name=..., Sy=v)` et n'est pas
+  accepté par `[workflow].mode`.
 - Les **overlays** `11_nancon_watershed/overlays/*.toml` sont des
   fragments minimaux et ne valident **pas** en standalone. Usage :
   `hmp run base.toml --overlay overlays/X.toml`.

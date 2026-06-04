@@ -17,7 +17,6 @@ from tests.regression.golden_utils import (
     collect_store_json_signatures,
     collect_store_modpath_signatures,
     collect_store_npz_signatures,
-    require_url_available,
     resolve_model_workspace,
     resolve_tiered_golden_file,
     resolve_tiered_results_dir,
@@ -100,59 +99,21 @@ BOUSSINESQ_STATE_HISTORY_NAMES = [
     "saturation_excess_history_m_s",
 ]
 
-SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
 SHOM_TIDE_GAUGE_ID = "152"
-SHOM_START_DATE = "2003-01-01"
-SHOM_END_DATE = "2003-01-30"
 OCEANIC_DATA_DIR = REPO_ROOT / "examples" / "data" / "oceanic"
 OCEANIC_LOCAL_CSV = OCEANIC_DATA_DIR / "sealevel_shom_152_20030101_20030130_H.csv"
 
 
 def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
-    """Ensure local SHOM seed and custom-format files exist for oceanic."""
-    oceanic_dir = csv_path.parent
+    """Use the committed SHOM seed CSV; never reach the network."""
+    if not (csv_path.exists() and csv_path.stat().st_size > 0):
+        raise FileNotFoundError(
+            f"Committed oceanic SHOM seed CSV missing or empty: {csv_path}. "
+            "This regression helper requires the seed to be present on disk; "
+            "it never downloads from SHOM."
+        )
 
-    if csv_path.exists() and csv_path.stat().st_size > 0:
-        _ensure_custom_format_files(oceanic_dir, csv_path)
-        return
-
-    require_url_available(SHOM_HEALTHCHECK_URL)
-
-    import pandas as pd
-    import requests
-
-    info_url = (
-        f"https://services.data.shom.fr/maregraphie/service/completetidegauge/{SHOM_TIDE_GAUGE_ID}"
-    )
-    info_resp = requests.get(info_url, timeout=60)
-    info_resp.raise_for_status()
-    info_payload = info_resp.json()
-    zh_ref = float(info_payload["verticalRef"]["zh_ref"])
-
-    dt_start = f"{SHOM_START_DATE}T00%3A00%3A00Z"
-    dt_end = f"{SHOM_END_DATE}T00%3A00%3A00Z"
-    data_url = (
-        "https://services.data.shom.fr/maregraphie/observation/json/"
-        f"{SHOM_TIDE_GAUGE_ID}?sources=3&dtStart={dt_start}&dtEnd={dt_end}&interval=60"
-    )
-    data_resp = requests.get(data_url, timeout=120)
-    data_resp.raise_for_status()
-    payload = data_resp.json()
-    rows = payload.get("data", [])
-    if not rows:
-        raise AssertionError("SHOM returned no rows for local oceanic seed generation.")
-
-    df = pd.DataFrame(rows)[["timestamp", "value"]].copy()
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df["value"] = df["value"] + zh_ref
-    df = df.dropna(subset=["timestamp", "value"]).reset_index(drop=True)
-    if df.empty:
-        raise AssertionError("Generated SHOM seed CSV is empty after cleaning.")
-
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(csv_path, index=False)
-
-    _ensure_custom_format_files(oceanic_dir, csv_path)
+    _ensure_custom_format_files(csv_path.parent, csv_path)
 
 
 def _ensure_custom_format_files(oceanic_dir: Path, source_csv: Path) -> None:

@@ -16,7 +16,7 @@ HERE = Path(__file__).resolve().parent
 CONFIG_PATH = HERE / "run_transient_nwt.toml"
 
 cfg = hmp.HydroModPyConfig.from_toml(CONFIG_PATH)
-project = hmp.Project.lazy(cfg)
+project = hmp.Project(cfg)
 
 
 try:
@@ -45,7 +45,7 @@ try:
         print(f"cell_size={label} -> n_cells={n_cells:>6} (mesh in {dt:.2f} s)")
 
     # %% Run one simulation on the last mesh
-    run = project.run(name="cellular_final")
+    run = project.simulate(name="cellular_final")
     if run is not None:
         print(f"run sim_id={run.sim_id} status={run.status}")
 finally:

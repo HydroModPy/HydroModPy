@@ -12,9 +12,10 @@ from pathlib import Path
 from hydromodpy.core.state.paths import find_catalog_root
 
 # ---------------------------------------------------------------------------
-# Standardised exit codes (interface refactor, see reports/99_target_architecture.md §5.3).
-# Typed codes 10..19 map onto specific exception classes; 0/1/2 keep their
-# POSIX-conventional meaning; 130 is the standard SIGINT termination code.
+# Standardised exit codes for the hmp CLI. The shared grammar that emits them
+# lives in ``hydromodpy/cli/_conventions.py``. Typed codes 10..19 map onto
+# specific exception classes; 0/1/2 keep their POSIX-conventional meaning;
+# 130 is the standard SIGINT termination code.
 # ---------------------------------------------------------------------------
 
 EXIT_OK = 0
@@ -91,11 +92,14 @@ def find_workspace_root(project_dir: Path) -> Path:
 
 
 def find_data_workspace(start: Path) -> Path | None:
-    """Walk up from ``start`` to find a workspace containing ``*_custom/``."""
+    """Walk up from ``start`` to find a workspace root (has a ``data/`` folder)."""
     for parent in [start] + list(start.parents):
-        for child in parent.iterdir() if parent.is_dir() else []:
-            if child.is_dir() and child.name.endswith("_custom"):
-                return parent
+        if not parent.is_dir():
+            continue
+        if (parent / "data").is_dir() and (
+            (parent / "projects").is_dir() or (parent / "workspace.toml").exists()
+        ):
+            return parent
     return None
 
 

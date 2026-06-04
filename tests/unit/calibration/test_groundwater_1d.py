@@ -12,6 +12,7 @@ from hydromodpy.calibration.cases.groundwater_1d import (
     default_parameter_space,
     make_groundwater_simulator,
 )
+from tests._helpers.tolerances import tol
 
 # Compact chronicle config tuned for a fast calibration test (<5s).
 _FAST_CONFIG = {
@@ -70,7 +71,10 @@ class TestSyntheticChronicle:
         simulator = make_groundwater_simulator(chronicle)
         sim_vec = simulator(chronicle["true_params"])
         truth_vec = chronicle["obs_true_matrix"].ravel(order="C")
-        np.testing.assert_allclose(sim_vec, truth_vec, rtol=1e-8, atol=1e-8)
+        # Well-posed direct simulator output: rtol from TOLERANCES.md row 18.
+        # atol matches rtol at the float64 noise floor (machine-epsilon companion).
+        direct_rtol = tol("direct_solver_outputs__rtol")
+        np.testing.assert_allclose(sim_vec, truth_vec, rtol=direct_rtol, atol=direct_rtol)
 
 
 class TestCalibrate:

@@ -1540,7 +1540,7 @@ def synthesize_truth_observations_via_project_api(
 
     project = _Project(overlay_path, headless=True)
     try:
-        run = project.run()
+        run = project.simulate()
         selected = extract_outputs(run, definition.output_specs)
     finally:
         project.close()

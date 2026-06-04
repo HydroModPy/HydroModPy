@@ -109,7 +109,7 @@ Node by node:
   of ``calibration_sessions`` finalized at the end.
 - **``promote_trial`` (top-N)**: if ``save_runs != "none"``, the
   chosen trials are replayed through the *full* pipeline (steps
-  ``00..11``) by ``hydromodpy.Project(cfg_path).run(**values)``. Each
+  ``00..11``) by ``hydromodpy.Project(cfg_path).simulate(**values)``. Each
   promotion creates a Zarr store, a Parquet directory, and a
   ``simulations`` row, and back-fills the corresponding
   ``calibration_iterations.sim_id``.

@@ -20,7 +20,7 @@ import hydromodpy as hmp
 project = hmp.Project(Path(__file__).parent / "project.toml")
 print(f"Catchment area: {project.geographic.catch_area:.1f} km2")
 
-r = project.run(name="canut_steady")
+r = project.simulate(name="canut_steady")
 print(f"Run completed: {r.name}")
 
 catalog = project.store

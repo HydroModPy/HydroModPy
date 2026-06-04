@@ -282,7 +282,7 @@ class TestRunCalibrationProgrammatic:
                     },
                 }
 
-        project.cfg = _Config()
+        project.config = _Config()
 
         report = run_calibration_programmatic(
             _baseline_cfg(),

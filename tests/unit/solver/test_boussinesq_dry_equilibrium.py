@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 import pytest
 
@@ -17,49 +15,11 @@ from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
     physical_saturated_thickness,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi_obstacle import solve_steady_problem
+from tests._helpers.mesh_doubles import _MiniMesh, line_mesh
 
 
-@dataclass
-class _LineMesh:
-    cell_area_m2: np.ndarray
-    z_top_m: np.ndarray
-    z_bottom_m: np.ndarray
-    hydraulic_conductivity_m_s: np.ndarray
-    edge_ids: np.ndarray
-    edge_cell_a: np.ndarray
-    edge_cell_b: np.ndarray
-    edge_length_m: np.ndarray
-    edge_distance_m: np.ndarray
-    edge_midpoint_distance_to_cell_a_m: np.ndarray
-    edge_midpoint_distance_to_cell_b_m: np.ndarray
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.cell_area_m2.size)
-
-    @property
-    def n_edges(self) -> int:
-        return int(self.edge_ids.size)
-
-
-def _mesh(z_bottom: list[float], *, k_m_s: float = 1.0e-5) -> _LineMesh:
-    n_cells = len(z_bottom)
-    n_edges = max(n_cells - 1, 0)
-    edge_cell_a = np.arange(n_edges, dtype=int)
-    edge_cell_b = np.arange(1, n_cells, dtype=int)
-    return _LineMesh(
-        cell_area_m2=np.ones(n_cells, dtype=float),
-        z_bottom_m=np.asarray(z_bottom, dtype=float),
-        z_top_m=np.asarray(z_bottom, dtype=float) + 10.0,
-        hydraulic_conductivity_m_s=np.full(n_cells, float(k_m_s), dtype=float),
-        edge_ids=np.arange(n_edges, dtype=int),
-        edge_cell_a=edge_cell_a,
-        edge_cell_b=edge_cell_b,
-        edge_length_m=np.ones(n_edges, dtype=float),
-        edge_distance_m=np.ones(n_edges, dtype=float),
-        edge_midpoint_distance_to_cell_a_m=0.5 * np.ones(n_edges, dtype=float),
-        edge_midpoint_distance_to_cell_b_m=0.5 * np.ones(n_edges, dtype=float),
-    )
+def _mesh(z_bottom: list[float], *, k_m_s: float = 1.0e-5) -> _MiniMesh:
+    return line_mesh(z_bottom, k_m_s=k_m_s)
 
 
 def test_single_cell_zero_recharge_is_dry_equilibrium_without_floor() -> None:

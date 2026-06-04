@@ -618,3 +618,14 @@ class HydroModPyConfig(HydroModelBase):
         """
         merged = _deep_merge(snapshot, overrides) if overrides else dict(snapshot)
         return cls.model_validate(merged)
+
+
+# Resolve the config forward references (and wire the DI graph) lazily, the first
+# time this module is loaded. ``import hydromodpy`` does not import this module
+# (it is lazy), so the package import stays cheap; any real config use loads this
+# module and triggers the full bootstrap once.
+from hydromodpy.core.bootstrap_hook import (  # noqa: E402
+    ensure_bootstrapped as _ensure_bootstrapped,
+)
+
+_ensure_bootstrapped()
