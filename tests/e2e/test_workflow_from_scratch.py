@@ -217,9 +217,10 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
         with hmp.open(workspace, create=True) as catalog:
             catalog.export(sim_id, ExportSpec(var="head", fmt="netcdf", dest=nc_out))
     except KeyError as exc:
+        # export_netcdf raises KeyError (not ValueError) when the store has no
+        # UGRID mesh; the synthetic fixture seeds a head field but no mesh.
+        # Any other exception is a real failure and must not be swallowed.
         pytest.skip(f"NetCDF export needs a UGRID mesh, not present on this synthetic sim: {exc}")
-    except Exception as exc:  # pragma: no cover - guarded for missing optional dep
-        pytest.skip(f"NetCDF export skipped: {exc}")
 
     assert nc_out.is_file(), "NetCDF file should be produced"
     import xarray as xr
