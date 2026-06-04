@@ -12,6 +12,7 @@ from tests.regression.simulation_regression_helpers import run_simulation_regres
 @pytest.mark.slow
 @pytest.mark.coverage
 @pytest.mark.nwt
+@pytest.mark.timeout(7200)
 def test_simulation_regression_extensive_nwt_regression(update_goldens) -> None:
     run_simulation_regression(
         test_file=__file__,
