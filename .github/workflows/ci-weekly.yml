@@ -104,20 +104,15 @@ jobs:
 
       - name: Run e2e tests
         run: |
-          coverage run --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT" \
-            -m pytest tests/e2e/ -q
+          python -m pytest tests/e2e/ \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
 
       - name: Report coverage
         if: always()
         run: |
-          coverage report --rcfile=/dev/null --show-missing \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
-          coverage xml --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
 
       - name: Upload coverage to Codecov
         if: always()

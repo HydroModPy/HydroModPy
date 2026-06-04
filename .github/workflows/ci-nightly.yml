@@ -57,9 +57,10 @@ jobs:
           "
 
       - name: Run extensive regression
-        env:
-          HYDROMODPY_COVERAGE: "1"
-        run: python -m pytest tests/regression/extensive/ -n auto --dist loadgroup -q
+        run: |
+          python -m pytest tests/regression/extensive/ \
+            -n auto --dist loadgroup \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
 
       - name: Combine and report coverage
         if: always()
@@ -115,20 +116,16 @@ jobs:
       # Skip PETSc-only validation tests here; they live in the petsc-smoke workflow.
       - name: Run validation tests
         run: |
-          coverage run --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT" \
-            -m pytest tests/validation/ -m "not petsc" -n auto --dist loadgroup -q
+          python -m pytest tests/validation/ -m "not petsc" \
+            -n auto --dist loadgroup \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
 
       - name: Report coverage
         if: always()
         run: |
-          coverage report --rcfile=/dev/null --show-missing \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
-          coverage xml --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
 
       - name: Upload coverage to Codecov
         if: always()
@@ -176,20 +173,16 @@ jobs:
 
       - name: Run integration tests
         run: |
-          coverage run --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT" \
-            -m pytest tests/integration/ -n auto --dist loadgroup -q
+          python -m pytest tests/integration/ \
+            -n auto --dist loadgroup \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
 
       - name: Report coverage
         if: always()
         run: |
-          coverage report --rcfile=/dev/null --show-missing \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
-          coverage xml --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
 
       - name: Upload coverage to Codecov
         if: always()
