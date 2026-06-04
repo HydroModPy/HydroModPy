@@ -113,10 +113,12 @@ class Modflow6Transport:
             )
 
         disv_kwargs = self.model_modflow.solver_mesh.to_disv_kwargs()
+        # GWT must share the GWF active domain for a valid GWF6-GWT6 exchange.
         self.gwtdis = flopy.mf6.ModflowGwtdisv(
             self.gwt,
             nlay=self.model_modflow.nlay,
             **disv_kwargs,
+            idomain=self.model_modflow.solver_mesh.idomain(),
         )
         self.gwtic = flopy.mf6.ModflowGwtic(self.gwt, strt=self.sconc_init)
         self.adv = flopy.mf6.ModflowGwtadv(self.gwt, scheme="upstream")

@@ -145,6 +145,10 @@ class SolverMesh:
         centers_z = 0.5 * (tops + self.botm)
         return self.top.reshape(1, -1) - centers_z
 
+    def idomain(self) -> np.ndarray:
+        """Return MODFLOW IDOMAIN, shape (nlay, n_cells): 1 active, 0 inactive."""
+        return np.where(self.inactive_mask, 0, 1).astype(int)
+
     # -- Reshape helpers (structured only) ------------------------------------
 
     def reshape_to_grid(self, flat_values: np.ndarray) -> np.ndarray:

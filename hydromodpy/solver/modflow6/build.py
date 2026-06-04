@@ -348,7 +348,7 @@ def run_pre_processing(  # noqa: PLR0915
         newtonoptions=newtonoptions,
     )
     model.sim.register_ims_package(model.ims, [model.gwf.name])
-    idomain = np.where(solver_mesh.inactive_mask, 0, 1).astype(int)
+    idomain = solver_mesh.idomain()
 
     disv_kwargs = solver_mesh.to_disv_kwargs()
     # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),

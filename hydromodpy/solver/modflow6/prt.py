@@ -297,7 +297,7 @@ class Modflow6Prt:
         sim = self.model_modflow.sim
         self.gwf = self.model_modflow.gwf
         solver_mesh = self.model_modflow.solver_mesh
-        idomain = np.where(solver_mesh.inactive_mask, 0, 1).astype(int)
+        idomain = solver_mesh.idomain()
 
         self.prt = flopy.mf6.ModflowPrt(
             sim,
