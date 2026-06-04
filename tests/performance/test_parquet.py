@@ -1,7 +1,9 @@
-"""Parquet write/scan baseline benchmarks.
+"""Timeseries write/query baseline benchmarks (SimulationCatalog Parquet backend).
 
-Covers pyarrow zstd write (50_000 rows, single row group) and a polars
-lazy scan with predicate pushdown.
+Guards the thin HydroModPy tabular wrapper (``write_timeseries`` /
+``query_timeseries``) backed by Parquet that the calibration and extraction
+layers call. A regression in the Parquet timeseries round-trip shows up here
+as a pairwise-ratio drift in ``perf.yml``.
 """
 
 from __future__ import annotations
@@ -9,70 +11,55 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
+import pandas as pd
 import pytest
 
+from tests._helpers.fixtures_catalog import simulation_catalog
+
 pytestmark = pytest.mark.performance
-pl = pytest.importorskip("polars")
 
-
-def _build_table(n_rows: int) -> pa.Table:
-    """Return a pyarrow Table with id INT64, ts TIMESTAMP, val DOUBLE."""
-    rng = np.random.default_rng(seed=42)
-    ids = np.arange(n_rows, dtype=np.int64)
-    base = np.datetime64("2026-01-01T00:00:00", "us")
-    ts = base + np.arange(n_rows, dtype="int64") * np.timedelta64(1, "s")
-    val = rng.random(n_rows, dtype=np.float64)
-    return pa.table(
-        {
-            "id": pa.array(ids, type=pa.int64()),
-            "ts": pa.array(ts, type=pa.timestamp("us")),
-            "val": pa.array(val, type=pa.float64()),
-        }
-    )
+N_STEPS = 8_760  # one year of hourly steps
+SID = "00000000-0000-0000-0000-0000000000b2"
 
 
 @pytest.fixture(scope="function")
-def parquet_table() -> pa.Table:
-    """Build a 50_000 row pyarrow Table once per benchmark function."""
-    return _build_table(n_rows=50_000)
+def series() -> pd.Series:
+    """Return an 8_760-step hourly discharge series."""
+    idx = pd.date_range("2020-01-01", periods=N_STEPS, freq="h")
+    val = np.random.default_rng(seed=42).random(N_STEPS)
+    return pd.Series(val, index=idx, name="discharge")
 
 
 @pytest.fixture(scope="function")
-def parquet_path(tmp_path: Path, parquet_table: pa.Table) -> Path:
-    """Write a 50_000 row Parquet file with zstd + 1 row group."""
-    path = tmp_path / "data.parquet"
-    pq.write_table(
-        parquet_table,
-        str(path),
-        compression="zstd",
-        row_group_size=50_000,
-    )
-    return path
+def timeseries_catalog(tmp_path: Path, series: pd.Series):
+    """Catalog holding one simulation with the discharge series written."""
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        reg = cat.register_simulation(SID, project="perf", solver="gr4j")
+        if reg.zarr is not None:
+            reg.zarr.close()
+        cat.write_timeseries(SID, "outlet", "discharge", series, unit="m3/s")
+        yield cat
 
 
 @pytest.mark.benchmark(group="parquet")
-def test_parquet_write_atomic(benchmark, tmp_path: Path, parquet_table: pa.Table) -> None:
-    """Write 50_000 rows to Parquet with zstd + 50_000-row group."""
-    out = tmp_path / "out.parquet"
+def test_parquet_write_timeseries(benchmark, tmp_path: Path, series: pd.Series) -> None:
+    """Write an 8_760-step timeseries through the catalog Parquet wrapper."""
+    with simulation_catalog(tmp_path / "ws_write") as cat:
+        reg = cat.register_simulation(SID, project="perf", solver="gr4j")
+        if reg.zarr is not None:
+            reg.zarr.close()
 
-    def _write() -> None:
-        pq.write_table(
-            parquet_table,
-            str(out),
-            compression="zstd",
-            row_group_size=50_000,
-        )
+        def _write() -> None:
+            cat.write_timeseries(SID, "outlet", "discharge", series, unit="m3/s")
 
-    benchmark(_write)
+        benchmark(_write)
 
 
 @pytest.mark.benchmark(group="parquet")
-def test_parquet_scan_polars(benchmark, parquet_path: Path) -> None:
-    """Scan + filter the 50_000-row Parquet via polars lazy."""
+def test_parquet_query_timeseries(benchmark, timeseries_catalog) -> None:
+    """Query an 8_760-step timeseries through the catalog Parquet wrapper."""
 
-    def _scan() -> int:
-        return pl.scan_parquet(parquet_path).filter(pl.col("val") > 0.5).collect().height
+    def _query() -> int:
+        return len(timeseries_catalog.query_timeseries(SID, "outlet", "discharge"))
 
-    benchmark(_scan)
+    benchmark(_query)

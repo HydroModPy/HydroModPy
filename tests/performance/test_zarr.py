@@ -1,7 +1,9 @@
-"""Zarr v3 cold-open and slice-read baseline benchmarks.
+"""Field write/read baseline benchmarks (SimulationCatalog Zarr backend).
 
-Self-contained fixtures: xarray dataset (10 timesteps, 100x100 grid)
-serialized through ``xarray.to_zarr`` with consolidated metadata.
+Guards the thin HydroModPy field-array wrapper (``write_field`` /
+``query_field``) backed by Zarr that the solver extraction layer calls per
+timestep. A regression in the Zarr field round-trip shows up here as a
+pairwise-ratio drift in ``perf.yml``.
 """
 
 from __future__ import annotations
@@ -10,54 +12,47 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import xarray as xr
+
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 pytestmark = pytest.mark.performance
 
-
-def _build_dataset(n_time: int, n_y: int, n_x: int) -> xr.Dataset:
-    """Return a synthetic xarray Dataset with one variable ``data``."""
-    rng = np.random.default_rng(seed=42)
-    arr = rng.random((n_time, n_y, n_x), dtype=np.float64)
-    return xr.Dataset(
-        {"data": (("time", "y", "x"), arr)},
-        coords={
-            "time": np.arange(n_time, dtype=np.int64),
-            "y": np.arange(n_y, dtype=np.int64),
-            "x": np.arange(n_x, dtype=np.int64),
-        },
-    )
+GRID = (100, 100)
+N_TIME = 10
+SID = "00000000-0000-0000-0000-0000000000a1"
 
 
 @pytest.fixture(scope="function")
-def zarr_path(tmp_path: Path) -> Path:
-    """Write a consolidated Zarr v3 store with a 10x100x100 array."""
-    ds = _build_dataset(n_time=10, n_y=100, n_x=100)
-    store_path = tmp_path / "test.zarr"
-    ds.to_zarr(store_path, mode="w", consolidated=True, zarr_format=3)
-    return store_path
+def field_catalog(tmp_path: Path):
+    """Catalog holding one simulation with a 10x100x100 head field."""
+    rng = np.random.default_rng(seed=42)
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        reg = cat.register_simulation(SID, project="perf", solver="modflow6")
+        if reg.zarr is not None:
+            reg.zarr.close()
+        for t in range(N_TIME):
+            cat.write_field(
+                SID, "head", t, rng.random(GRID), n_timesteps=N_TIME if t == 0 else None
+            )
+        yield cat
 
 
 @pytest.mark.benchmark(group="zarr")
-def test_zarr_open_consolidated(benchmark, zarr_path: Path) -> None:
-    """Cold open a consolidated Zarr v3 store via xarray."""
+def test_zarr_write_field(benchmark, field_catalog) -> None:
+    """Overwrite one field timestep slice (100x100) via the catalog wrapper."""
+    arr = np.random.default_rng(seed=0).random(GRID)
 
-    def _open() -> None:
-        ds = xr.open_zarr(zarr_path, consolidated=True)
-        ds.close()
+    def _write() -> None:
+        field_catalog.write_field(SID, "head", 0, arr)
 
-    benchmark(_open)
+    benchmark(_write)
 
 
 @pytest.mark.benchmark(group="zarr")
-def test_zarr_read_slice(benchmark, zarr_path: Path) -> None:
-    """Materialize one timestep slice of the full 100x100 grid."""
-    ds = xr.open_zarr(zarr_path, consolidated=True)
-    try:
+def test_zarr_read_field(benchmark, field_catalog) -> None:
+    """Read one field timestep slice (100x100) via the catalog wrapper."""
 
-        def _slice() -> np.ndarray:
-            return ds["data"].isel(time=0).load().values
+    def _read() -> np.ndarray:
+        return field_catalog.query_field(SID, "head", 0)
 
-        benchmark(_slice)
-    finally:
-        ds.close()
+    benchmark(_read)
