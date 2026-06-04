@@ -89,13 +89,28 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
         default=0.0,
         description="Molecular diffusion coefficient [L2/T].",
     )
-    react_order: Annotated[int | None, Profile.DEV] = Field(
+    react_order: Annotated[Literal[None, 0, 1], Profile.DEV] = Field(
         default=None,
-        description="Reaction order for MT3DMS: None, 0, or 1.",
+        description=(
+            "Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 "
+            "(zero-order, constant rate mass/volume/T), or 1 (first-order, "
+            "proportional to concentration, 1/T)."
+        ),
+    )
+    scheme: Annotated[Literal["upstream", "central", "TVD"], Profile.DEV] = Field(
+        default="upstream",
+        description=(
+            "Advection scheme for MODFLOW 6 GWT. upstream: robust but diffusive "
+            "(default). central: least diffusive, may oscillate. TVD: accurate "
+            "sharp fronts (Ogata-Banks)."
+        ),
     )
     rate_decay: Annotated[float, Profile.DEV] = Field(
         default=0.0,
-        description="Decay rate value (can be overridden at runtime).",
+        description=(
+            "Decay rate. Units depend on react_order: 1/T for first-order, mass per "
+            "volume per time for zero-order. Can be overridden at runtime."
+        ),
     )
     porosity: Annotated[float | None, Profile.DEV] = Field(
         default=None,

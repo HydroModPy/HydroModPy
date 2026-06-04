@@ -11,6 +11,7 @@ import flopy
 import numpy as np
 
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
+from hydromodpy.solver.modflow6.build import optional_ims_kwargs
 from hydromodpy.solver.modflow6.postprocess import run_transport_post_processing
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
@@ -32,7 +33,14 @@ def _mf6_safe_name(name: str, max_len: int = 16) -> str:
 
 
 class Modflow6Transport:
-    """Transport solver based on MODFLOW 6 GWT and `transport.modflow6gwt.parameters`."""
+    """Transport solver based on MODFLOW 6 GWT and `transport.modflow6gwt.parameters`.
+
+    Recharge (RCHA) is the only solute-injecting boundary: its concentration is
+    carried as an auxiliary variable and wired into SSM. CHD and WEL inflows enter
+    at concentration 0. Adding a solute source on those boundaries would edit the
+    flow-side package construction; it is a deliberate future enhancement, not an
+    oversight.
+    """
 
     def __init__(
         self,
@@ -73,6 +81,7 @@ class Modflow6Transport:
         self.react_order = conc_params.get("react_order", None)
         self.rate_decay = conc_params.get("rate_decay", 0.0)
         self.porosity = conc_params.get("porosity", None)
+        self.scheme = conc_params.get("scheme", "upstream")
         self.plot_conc = bool(conc_params.get("plot_conc", True))
 
     def _resolve_mst_porosity(self):
@@ -118,12 +127,19 @@ class Modflow6Transport:
     def pre_processing(self):
         sim = self.model_modflow.sim
         self.gwf = self.model_modflow.gwf
+        runtime = self.model_modflow.modflow_config.runtime
         self.ims = flopy.mf6.ModflowIms(
             sim,
-            print_option="SUMMARY",
-            complexity="COMPLEX",
+            print_option="SUMMARY" if runtime.mf_verbose else "NONE",
+            # Transport is linear: use the configured complexity, no Newton promotion.
+            complexity=runtime.mf6_ims_complexity,
+            outer_dvclose=float(runtime.mf6_outer_dvclose),
+            inner_dvclose=float(runtime.mf6_inner_dvclose),
+            outer_maximum=int(runtime.mf6_outer_maximum),
+            inner_maximum=int(runtime.mf6_inner_maximum),
             filename=f"{self.model_name_mt_mf6}.ims",
             pname="IMS_GWT",
+            **optional_ims_kwargs(runtime),
         )
         self.gwt = flopy.mf6.ModflowGwt(sim, modelname=self.model_name_mt_mf6, save_flows=True)
         sim.register_ims_package(self.ims, [self.gwt.name])
@@ -145,7 +161,7 @@ class Modflow6Transport:
             idomain=self.model_modflow.solver_mesh.idomain(),
         )
         self.gwtic = flopy.mf6.ModflowGwtic(self.gwt, strt=self.sconc_init)
-        self.adv = flopy.mf6.ModflowGwtadv(self.gwt, scheme="upstream")
+        self.adv = flopy.mf6.ModflowGwtadv(self.gwt, scheme=self.scheme)
         self.dsp = flopy.mf6.ModflowGwtdsp(
             self.gwt,
             alh=self.disp_long,
@@ -154,13 +170,18 @@ class Modflow6Transport:
             diffc=self.diffu_coeff,
         )
 
-        decay = self.rate_decay if self.react_order in {0, 1} else None
-        self.mst = flopy.mf6.ModflowGwtmst(
-            self.gwt,
-            porosity=self._resolve_mst_porosity(),
-            first_order_decay=bool(self.react_order == 1),
-            decay=decay,
-        )
+        # MF6 selects the decay model with distinct flags; pick exactly one.
+        mst_porosity = self._resolve_mst_porosity()
+        if self.react_order == 0:
+            self.mst = flopy.mf6.ModflowGwtmst(
+                self.gwt, porosity=mst_porosity, zero_order_decay=True, decay=self.rate_decay
+            )
+        elif self.react_order == 1:
+            self.mst = flopy.mf6.ModflowGwtmst(
+                self.gwt, porosity=mst_porosity, first_order_decay=True, decay=self.rate_decay
+            )
+        else:
+            self.mst = flopy.mf6.ModflowGwtmst(self.gwt, porosity=mst_porosity)
 
         if not hasattr(self.model_modflow, "rch") or self.model_modflow.rch is None:
             raise RuntimeError("Modflow6Transport requires an existing GWF recharge package.")

@@ -14,6 +14,7 @@ import flopy
 import numpy as np
 
 from hydromodpy.physics.transport.transport import Transport
+from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
@@ -116,6 +117,7 @@ def test_gwt_disv_receives_idomain_with_inactive_cell(tmp_path: Path) -> None:
         sy=np.array([[0.25, 0.25, 0.25]]),
         model_name="flow",
         exe="mf6",
+        modflow_config=_coerce_modflow6_config(None),
     )
     transport = Transport({"modflow6gwt": {"parameters": {"sconc_input": 0.0}}})
 
