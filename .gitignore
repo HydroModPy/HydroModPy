@@ -164,6 +164,7 @@ examples/data/etp/etp_sim2_*.nc
 examples/data/precipitation/precipitation_*_sim2_*.nc
 examples/data/recharge/recharge_sim2_*.nc
 examples/projects/**/data/cache.duckdb*
+tests/regression/fixtures/**/cache.duckdb*
 
 # Generated reports and run outputs from example workflows.
 # Documentation galleries and named fixtures live outside outputs/ and remain
