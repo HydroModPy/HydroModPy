@@ -164,10 +164,6 @@ def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> No
         budget_file_cls,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
-        lambda head, nodata: np.asarray(head[0], dtype=float),
-    )
-    monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
