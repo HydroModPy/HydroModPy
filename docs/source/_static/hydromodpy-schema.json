@@ -9681,7 +9681,7 @@
             }
           ],
           "default": null,
-          "description": "Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days.",
+          "description": "Optional particle release times in days.",
           "title": "Release Times Days",
           "x-hmp-profile": "dev"
         },
@@ -9698,7 +9698,7 @@
             }
           ],
           "default": null,
-          "description": "Optional user tracking output times in model time units.",
+          "description": "Optional user tracking output times in days.",
           "title": "Track Times Days",
           "x-hmp-profile": "dev"
         },
@@ -9728,7 +9728,7 @@
             }
           ],
           "default": null,
-          "description": "Optional absolute particle stop time in model time units.",
+          "description": "Optional absolute particle stop time in days.",
           "title": "Stop Time Days",
           "x-hmp-profile": "dev"
         },
@@ -9743,7 +9743,7 @@
             }
           ],
           "default": null,
-          "description": "Optional maximum particle travel time in model time units.",
+          "description": "Optional maximum particle travel time in days.",
           "title": "Stop Travel Time Days",
           "x-hmp-profile": "dev"
         },
@@ -9773,10 +9773,10 @@
           "x-hmp-profile": "dev"
         },
         "exit_solve_tolerance": {
-          "default": 1e-10,
-          "description": "PRT generalized Pollock exit solve tolerance.",
+          "default": 1e-05,
+          "description": "PRT generalized Pollock exit solve tolerance. Matches the MF6 prt-prp.dfn default (1e-5), which works well for many problems.",
           "examples": [
-            1e-10
+            1e-05
           ],
           "exclusiveMinimum": 0.0,
           "title": "Exit Solve Tolerance",

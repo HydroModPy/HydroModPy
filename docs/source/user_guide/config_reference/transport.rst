@@ -806,7 +806,7 @@ Fields
 
                :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L222>`__
 
-                  Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days.
+                  Optional particle release times in days.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -818,9 +818,9 @@ Fields
                     <code class="hmp-field-name">track_times_days</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L229>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L226>`__
 
-                  Optional user tracking output times in model time units.
+                  Optional user tracking output times in days.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -832,7 +832,7 @@ Fields
                     <code class="hmp-field-name">track_time_step_days</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L233>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L230>`__
 
                   Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted.
 
@@ -846,9 +846,9 @@ Fields
                     <code class="hmp-field-name">stop_time_days</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L241>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L238>`__
 
-                  Optional absolute particle stop time in model time units.
+                  Optional absolute particle stop time in days.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -860,9 +860,9 @@ Fields
                     <code class="hmp-field-name">stop_travel_time_days</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L246>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L243>`__
 
-                  Optional maximum particle travel time in model time units.
+                  Optional maximum particle travel time in days.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -874,7 +874,7 @@ Fields
                     <code class="hmp-field-name">extend_tracking</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L251>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
 
                   Track particles beyond the final flow time step when MF6 permits it.
 
@@ -888,7 +888,7 @@ Fields
                     <code class="hmp-field-name">dry_tracking_method</code>
                   </div>
 
-               :bdg-primary:`Literal['drop', 'stop', 'stay']` :bdg-secondary:`default = "drop"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L255>`__
+               :bdg-primary:`Literal['drop', 'stop', 'stay']` :bdg-secondary:`default = "drop"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L252>`__
 
                   MF6 PRT behavior for dry-but-active cells.
 
@@ -902,9 +902,9 @@ Fields
                     <code class="hmp-field-name">exit_solve_tolerance</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1e-10` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L259>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1e-05` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L256>`__
 
-                  PRT generalized Pollock exit solve tolerance.
+                  PRT generalized Pollock exit solve tolerance. Matches the MF6 prt-prp.dfn default (1e-5), which works well for many problems.
 
 
             .. container:: hmp-field hmp-field-level-dev

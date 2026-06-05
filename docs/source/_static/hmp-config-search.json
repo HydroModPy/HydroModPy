@@ -7690,7 +7690,7 @@
     "anchor": "transport-modflow6prt-parameters-release-times-days",
     "page": "transport.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L222",
-    "description": "Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days."
+    "description": "Optional particle release times in days."
   },
   {
     "path": "transport.modflow6prt.parameters.track_times_days",
@@ -7701,8 +7701,8 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-track-times-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L229",
-    "description": "Optional user tracking output times in model time units."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L226",
+    "description": "Optional user tracking output times in days."
   },
   {
     "path": "transport.modflow6prt.parameters.track_time_step_days",
@@ -7713,7 +7713,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-track-time-step-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L233",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L230",
     "description": "Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted."
   },
   {
@@ -7725,8 +7725,8 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-stop-time-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L241",
-    "description": "Optional absolute particle stop time in model time units."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L238",
+    "description": "Optional absolute particle stop time in days."
   },
   {
     "path": "transport.modflow6prt.parameters.stop_travel_time_days",
@@ -7737,8 +7737,8 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-stop-travel-time-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L246",
-    "description": "Optional maximum particle travel time in model time units."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L243",
+    "description": "Optional maximum particle travel time in days."
   },
   {
     "path": "transport.modflow6prt.parameters.extend_tracking",
@@ -7749,7 +7749,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-extend-tracking",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L251",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248",
     "description": "Track particles beyond the final flow time step when MF6 permits it."
   },
   {
@@ -7761,7 +7761,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-dry-tracking-method",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L255",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L252",
     "description": "MF6 PRT behavior for dry-but-active cells."
   },
   {
@@ -7773,8 +7773,8 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-exit-solve-tolerance",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L259",
-    "description": "PRT generalized Pollock exit solve tolerance."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L256",
+    "description": "PRT generalized Pollock exit solve tolerance. Matches the MF6 prt-prp.dfn default (1e-5), which works well for many problems."
   },
   {
     "path": "transport.modflow6prt.parameters.write_track_csv",
