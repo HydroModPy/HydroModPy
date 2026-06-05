@@ -9509,19 +9509,6 @@
           "$ref": "#/$defs/SolverSGridConfig",
           "description": "Solver-grid payload split into planar and vertical sections.",
           "x-hmp-profile": "user"
-        },
-        "tgrid": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TMeshConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.",
-          "x-hmp-profile": "user"
         }
       },
       "title": "Modflow6Config",

@@ -4747,139 +4747,139 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L139>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L138>`__
    * - ``modflow6.runtime.mf6_executable_name``
      - ``str``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-executable-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L21>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L20>`__
    * - ``modflow6.runtime.mf6_ims_complexity``
      - ``Literal['SIMPLE', 'MODERATE', 'COMPLEX']``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-ims-complexity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L25>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L24>`__
    * - ``modflow6.runtime.mf_verbose``
      - ``bool``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf-verbose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L29>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L28>`__
    * - ``modflow6.runtime.mf6_outer_dvclose``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-outer-dvclose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L33>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L32>`__
    * - ``modflow6.runtime.mf6_inner_dvclose``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-inner-dvclose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L37>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L36>`__
    * - ``modflow6.runtime.mf6_outer_maximum``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-outer-maximum>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L40>`__
    * - ``modflow6.runtime.mf6_inner_maximum``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-inner-maximum>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L45>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L44>`__
    * - ``modflow6.runtime.mf6_inner_rclose``
      - ``Optional[float]``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-inner-rclose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L48>`__
    * - ``modflow6.runtime.mf6_linear_acceleration``
      - ``Optional[Literal['CG', 'BICGSTAB']]``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-linear-acceleration>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L56>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L55>`__
    * - ``modflow6.runtime.mf6_under_relaxation``
      - ``Optional[Literal['NONE', 'SIMPLE', 'COOLEY', 'DBD']]``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-under-relaxation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L63>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L62>`__
    * - ``modflow6.runtime.mf6_enable_rewet``
      - ``bool | None``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-enable-rewet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L72>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L71>`__
    * - ``modflow6.runtime.mf6_newton``
      - ``bool``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-newton>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L79>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L78>`__
    * - ``modflow6.runtime.mf6_newton_under_relaxation``
      - ``bool``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-newton-under-relaxation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L87>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L86>`__
    * - ``modflow6.runtime.mf6_enable_xt3d``
      - ``bool | None``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-enable-xt3d>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L91>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L90>`__
    * - ``modflow6.runtime.mf6_rewet_wetfct``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-wetfct>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L99>`__
    * - ``modflow6.runtime.mf6_rewet_iwetit``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-iwetit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L104>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L103>`__
    * - ``modflow6.runtime.mf6_rewet_ihdwet``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-ihdwet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L107>`__
    * - ``modflow6.runtime.mf6_rewet_wetdry``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-wetdry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L112>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L111>`__
    * - ``modflow6.process_specific``
      - ``Modflow6ProcessSpecificConfig``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L142>`__
    * - ``modflow6.process_specific.vka``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-vka>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L121>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L120>`__
    * - ``modflow6.process_specific.evt_extinction_depth``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-evt-extinction-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L125>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L124>`__
    * - ``modflow6.sgrid``
      - ``SolverSGridConfig``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L147>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L146>`__
    * - ``modflow6.sgrid.planar``
      - ``PlanarGridConfig``
      - user
@@ -4946,90 +4946,6 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical-nodata>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79>`__
-   * - ``modflow6.tgrid``
-     - ``TMeshConfig | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L151>`__
-   * - ``modflow6.tgrid.itmuni``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-itmuni>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25>`__
-   * - ``modflow6.tgrid.genmtd``
-     - ``Literal['synthetic_regular', 'from_chron']``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-genmtd>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
-   * - ``modflow6.tgrid.nper``
-     - ``int``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-nper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39>`__
-   * - ``modflow6.tgrid.lenper``
-     - ``float | int | list[int] | list[float] | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-lenper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46>`__
-   * - ``modflow6.tgrid.chron_path``
-     - ``str | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L55>`__
-   * - ``modflow6.tgrid.chron_dateformat``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-dateformat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62>`__
-   * - ``modflow6.tgrid.chron_colsep``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-colsep>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L66>`__
-   * - ``modflow6.tgrid.chron_time_col``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-time-col>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L70>`__
-   * - ``modflow6.tgrid.start_datetime``
-     - ``Any | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-start-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L74>`__
-   * - ``modflow6.tgrid.end_datetime``
-     - ``Any | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-end-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81>`__
-   * - ``modflow6.tgrid.tsmult``
-     - ``int | float | list[int] | list[float]``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-tsmult>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88>`__
-   * - ``modflow6.tgrid.ntsp``
-     - ``int | list[int]``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-ntsp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95>`__
-   * - ``modflow6.tgrid.temporal_nodata``
-     - ``float``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-temporal-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102>`__
    * - ``display.enabled``
      - ``bool``
      - user
