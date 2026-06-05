@@ -8,19 +8,19 @@
     "observable": "watertable_elevation",
     "profile_pair": {
       "n_points": 40,
-      "bias": 0.013814032467094695,
-      "mae": 0.014811357764874567,
-      "rmse": 0.016610533327393255,
-      "max_abs_error": 0.03312759338724547
+      "bias": 0.014247226230761667,
+      "mae": 0.015114517813471284,
+      "rmse": 0.016924855950962346,
+      "max_abs_error": 0.03286344331072044
     },
     "reference_against_analytical": {
-      "rmse": 0.04057485773073824,
-      "max_abs_error": 0.05469460844572094,
-      "row_spread": 1.743479866482619e-06
+      "rmse": 0.047321523934103084,
+      "max_abs_error": 0.0628131483271055,
+      "row_spread": 1.362156638023992e-06
     },
     "candidate_against_analytical": {
-      "rmse": 0.029479603842457177,
-      "max_abs_error": 0.04640402112449138,
+      "rmse": 0.0353981835434502,
+      "max_abs_error": 0.053353942920234765,
       "row_spread": 0.0
     }
   }
