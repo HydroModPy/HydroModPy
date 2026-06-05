@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 35 tolerances enforced today. Every tolerance
+The table below records the 39 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -39,7 +39,7 @@ must carry a rationale before it is merged.
 | 9 | MMS diffusion transient 1D (space) | log-log slope | `\|p - 2\| < 0.2`  (∈ [1.8, 2.2]) | Second-order centred-FV, Crank-Nicolson in time | Time error saturated by fine Δt |
 | 10 | MMS diffusion transient 1D (time) | log-log slope | `\|p - 1\| < 0.2`  (∈ [0.8, 1.2]) | Backward Euler, first-order in time | Spatial error saturated by fine Δx |
 | 11 | Dupuit fixed-head 1D (NWT) | head RMSE | `< 0.05 m` | First-order finite-volume grid and NWT head tolerance | Looser than MF6 because NWT uses coarser legacy DIS setup in this case |
-| 12 | Dupuit fixed-head 1D (MF6) | head RMSE | `< 0.02 m` | Anderson et al. 2015 §6 | Well-posed analytical solution |
+| 12 | Dupuit fixed-head 1D (MF6) | head RMSE | `< 0.02 m` | Anderson et al. 2015 §6 | Newton default (`mf6_newton`): ~5 mm smoothed-saturation bias vs the idealized Dupuit profile (0.1% of the 5 m drop). Documented literature value; the prior 2e-4 m override fit the old standard formulation and was removed. `max-abs` tolerance 0.03 m |
 | 13 | Boussinesq vs Marçais 2017 | recession slope error | `< 5 %` | Published benchmark | Marçais et al. 2017 Fig. 4 |
 | 14 | Regression goldens (arrays) | `rtol` | `1e-4` | Cross-platform BLAS variability | Pre-v0.5 convention |
 | 15 | Regression goldens (arrays) | `atol` | `1e-6` | Machine epsilon for float64 | Pre-v0.5 convention |
@@ -63,6 +63,10 @@ must carry a rationale before it is merged.
 | 33 | Reservoir calibration validation | recovered `log10(k)` and `n` drift from truth | `< 0.3` | Fixed-iteration optimizer recovery envelope on deterministic synthetic reservoirs | Wide enough for optimizer path variance, tight enough to reject wrong-order parameters |
 | 34 | MF6 PRT uniform-velocity streamline | max relative position error `\|x-x_exp\|/\|x_exp-x0\|` | `< 1 %` | Pollock's method is exact for a uniform velocity field; small allowance for cell-crossing arithmetic | `x(t) = x0 + v*t`, `v = q / porosity`; single-layer constant-gradient flow |
 | 35 | MF6 GWT first-order decay 0D | max relative concentration error vs `C0*exp(-k t)` | `< 1 %` | First-order decay is exact in MF6 MST with no advection or dispersion; small allowance for finite time-stepping | Guards the per-second decay contract: `rate_decay` is `1/s` on the SECONDS clock |
+| 36 | Dupuit uniform-recharge 1D (MF6, Newton) | head RMSE / max-abs | `< 0.05 m` / `< 0.10 m` | 1.5x Newton bias, capped at the case benchmark (`tolerances.toml`) | Recharge bulge on a 40-cell grid; Newton 4.7 cm RMSE / 6.3 cm max-abs. RMSE sits at the benchmark ceiling |
+| 37 | Dupuit circular-island ocean 2D (MF6, Newton) | radial RMSE / max-abs | `< 0.25 m` / `< 0.40 m` | 1.5x Newton bias, capped at the case benchmark (`tolerances.toml`) | 200 m island on a 10 m Cartesian grid; staircased coast dominates. Newton 0.22 m RMSE / 0.26 m max-abs. RMSE sits at the benchmark ceiling; azimuthal, ocean, and freeboard guards stay tighter |
+| 38 | Boussinesq circular-island piecewise-K 2D (MF6, Newton) | radial RMSE / max-abs | `< 0.17 m` / `< 0.24 m` | 1.5x Newton bias (within the case benchmark) | Concentric-K coarse-grid radial regime; Newton 0.11 m RMSE / 0.16 m max-abs, well below the 0.35 m benchmark |
+| 39 | Boussinesq divide fixed-head piecewise-K 1D (MF6, Newton) | head RMSE / max-abs | `< 0.05 m` / `< 0.08 m` | 1.5x Newton bias, capped at the case benchmark (`tolerances.toml`) | Divide with piecewise K on a 40-cell grid; Newton 3.8 cm RMSE / 5.1 cm max-abs |
 
 ## Update policy
 
@@ -71,6 +75,15 @@ must carry a rationale before it is merged.
 - Relaxing a tolerance **requires** a new rationale line.
 - When a new benchmark is introduced, add its tolerance(s) here before
   merging the test.
+- 2026-06: MODFLOW 6 adopted the Newton formulation by default
+  (`mf6_newton=True`), the robust choice for unconfined catchment cells. The
+  per-case MF6 analytical overrides that had been fit to the old standard
+  formulation (sub-mm to cm) were re-derived to the case benchmark
+  (`tolerances.toml`, shared with the NWT and Boussinesq backends) or the
+  documented literature value. Newton's smoothed saturated thickness adds a
+  bias of ~0.1% of head range on 1D cases and a few percent on the coarse-grid
+  2D radial cases. Determinism is guaranteed by the pinned solver release
+  (`DEFAULT_RELEASE = "23.0"`), so these benchmark margins stay stable.
 
 ## Cross-platform determinism
 

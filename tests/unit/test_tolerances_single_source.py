@@ -195,15 +195,15 @@ def test_every_inline_row_is_referenced_by_a_tol_call() -> None:
 
 
 @pytest.mark.fast
-def test_known_case_toml_vs_doc_disagreement_is_documented() -> None:
-    """Flag the one CASE_TOML doc-vs-TOML disagreement so it stays visible.
+def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
+    """The Dupuit fixed-head head-RMSE doc rows match their enforced case-TOML.
 
-    TOLERANCES.md row 12 documents the Dupuit MF6 head RMSE as ``0.02 m`` but the
-    enforced case-TOML value (validation_cases/.../dupuit_fixed_head_1d/
-    tolerances_modflow6.toml ``head_profile.rmse``) is ``2e-4`` (100x tighter).
-    The NWT row 11 (0.05) agrees with its case-TOML. Neither value is changed by
-    W5; this assertion records the documented mismatch so a silent edit to either
-    store surfaces here.
+    MODFLOW 6 now runs the Newton default; its ``tolerances_modflow6.toml``
+    ``head_profile.rmse`` was re-aligned to the documented literature value
+    (0.02 m, TOLERANCES.md row 12), closing the old 100x doc-vs-TOML gap (the
+    override used to enforce 2e-4 to fit the standard formulation). NWT (row 11)
+    stays at 0.05 m. This keeps both stores in sync: a silent edit to either side
+    surfaces here.
     """
     doc_mf6 = tol("dupuit_fixed_head_1d_mf6__head_rmse")
     doc_nwt = tol("dupuit_fixed_head_1d_nwt__head_rmse")
@@ -215,7 +215,7 @@ def test_known_case_toml_vs_doc_disagreement_is_documented() -> None:
     )
     mf6_toml = (case_root / "tolerances_modflow6.toml").read_text(encoding="utf-8")
     nwt_toml = (case_root / "tolerances.toml").read_text(encoding="utf-8")
-    # Enforced MF6 head_profile.rmse is tighter than the documented 0.02.
-    assert "rmse = 2e-4" in mf6_toml, "dupuit MF6 case-TOML rmse changed; revisit row 12"
-    # Enforced NWT head_profile.rmse agrees with the documented 0.05.
+    # Enforced MF6 head_profile.rmse now matches the documented 0.02 m.
+    assert "rmse = 0.02" in mf6_toml, "dupuit MF6 case-TOML rmse changed; revisit row 12"
+    # Enforced NWT head_profile.rmse agrees with the documented 0.05 m.
     assert "rmse = 0.05" in nwt_toml, "dupuit NWT case-TOML rmse changed; revisit row 11"
