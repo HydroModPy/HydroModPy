@@ -1,0 +1,111 @@
+# Build the multi-version documentation with sphinx-polyversion and publish it
+# to the org site repository HydroModPy/hydromodpy.github.io, served at the
+# root URL https://hydromodpy.github.io/.
+#
+# poly.py builds every matched branch (main, dev, archive-v1, maint/N.x) and
+# tag (vX.Y.Z) into one merged tree under docs/build/html, one subfolder per
+# version. This job runs that build on a full GitHub Actions runner (no 15 min
+# wall) and pushes the result with a deploy key.
+#
+# One-time setup (see docs PR / how-to):
+#   1. Create the public repo HydroModPy/hydromodpy.github.io.
+#   2. ssh-keygen an ed25519 pair.
+#   3. Public key -> hydromodpy.github.io repo, Deploy keys, allow write.
+#   4. Private key -> this repo, Actions secret ACTIONS_DEPLOY_KEY.
+#   5. After the first run, set hydromodpy.github.io Pages source to the
+#      gh-pages branch.
+
+name: Docs / Deploy Pages (multi-version)
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/docs-deploy-pages.yml"
+      - "poly.py"
+      - "docs/**"
+      - "hydromodpy/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-deploy-pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  build-deploy:
+    name: Build all versions and publish to root URL
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # polyversion checks out every published branch and tag, so the
+          # runner needs the full history, all branches, and all tags.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config pandoc plantuml
+
+      - name: Install package and docs extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Materialize published branches as local refs
+        # polyversion (remote=None in poly.py) builds local refs only. A fresh
+        # runner checkout has just the triggering branch as a local head, so
+        # create local branches for every origin branch poly.py wants to build.
+        run: |
+          git fetch origin --tags --prune --force "+refs/heads/*:refs/remotes/origin/*"
+          current=$(git rev-parse --abbrev-ref HEAD)
+          for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); do
+            name="${ref#origin/}"
+            [ "$name" = "$current" ] && continue
+            case "$name" in
+              main|dev|archive-v1|maint/*.x) git branch --force "$name" "$ref" ;;
+            esac
+          done
+          echo "Local branches to build:"
+          git for-each-ref --format='  %(refname:short)' refs/heads
+
+      - name: Build every version with sphinx-polyversion
+        run: python -m sphinx_polyversion poly.py
+
+      - name: Add a root redirect to the default version
+        run: >
+          [ -f docs/build/html/index.html ] ||
+          printf '%s'
+          '<!doctype html><meta charset="utf-8">'
+          '<meta http-equiv="refresh" content="0; url=./main/">'
+          '<link rel="canonical" href="https://hydromodpy.github.io/main/">'
+          '<title>HydroModPy documentation</title>'
+          '<a href="./main/">HydroModPy documentation</a>'
+          > docs/build/html/index.html
+
+      - name: Publish to hydromodpy.github.io
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          external_repository: HydroModPy/hydromodpy.github.io
+          publish_branch: gh-pages
+          publish_dir: ./docs/build/html
+          force_orphan: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: "docs: deploy multi-version site"
