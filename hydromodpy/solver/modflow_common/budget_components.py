@@ -5,7 +5,8 @@ from __future__ import annotations
 # Records that are NOT scalar volumetric stress/storage fluxes. FLOW-JA-FACE and
 # the directional FACE flows are antisymmetric intercell fluxes that net to ~0
 # (they belong to the vector flow field, not a budget total). DATA-SPDIS is the
-# specific-discharge velocity (m/s), not a volumetric flux, and must never be
+# specific-discharge velocity (m/s) and DATA-SAT is the dimensionless cell
+# saturation fraction; neither is a volumetric flux, so they must never be
 # summed or reduced into a scalar budget term.
 _EXCLUDED_BUDGET_COMPONENTS: frozenset[str] = frozenset(
     {
@@ -16,6 +17,8 @@ _EXCLUDED_BUDGET_COMPONENTS: frozenset[str] = frozenset(
         "FLOW LOWER FACE",
         # specific-discharge velocity vector (m/s)
         "DATA-SPDIS",
+        # cell saturation fraction (dimensionless), not a flux
+        "DATA-SAT",
     }
 )
 

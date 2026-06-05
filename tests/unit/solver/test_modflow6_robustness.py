@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.solver.modflow6.build import (
+    guard_newton_linear_acceleration,
     guard_newton_rewet,
     newton_options,
     optional_ims_kwargs,
@@ -78,6 +79,16 @@ def test_modflow6_optional_ims_fields_default_none_and_omitted() -> None:
         Modflow6RuntimeConfig(mf6_linear_acceleration="XX")
     with pytest.raises(ValidationError):
         Modflow6RuntimeConfig(mf6_under_relaxation="FAST")
+
+
+def test_modflow6_newton_cg_conflict_raises() -> None:
+    runtime = _runtime(mf6_newton=True, mf6_linear_acceleration="CG")
+    with pytest.raises(ValueError, match="E406"):
+        guard_newton_linear_acceleration(runtime)
+    # BICGSTAB under Newton, CG without Newton, or unset are all fine.
+    guard_newton_linear_acceleration(_runtime(mf6_newton=True, mf6_linear_acceleration="BICGSTAB"))
+    guard_newton_linear_acceleration(_runtime(mf6_newton=False, mf6_linear_acceleration="CG"))
+    guard_newton_linear_acceleration(_runtime(mf6_newton=True))
 
 
 def test_modflow6_newton_rewet_conflict_raises() -> None:

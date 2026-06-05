@@ -55,6 +55,15 @@ def _modflow_config_for_steady_initialization(model: object) -> object:
             ),
             "mf6_newton": True,
             "mf6_newton_under_relaxation": True,
+            # The auxiliary solve forces Newton, which MF6 forbids with NPF
+            # rewetting. Disable rewet here so a user-valid newton=False +
+            # rewet=True transient config does not trip the NEWTON+REWET guard
+            # during steady spin-up.
+            "mf6_enable_rewet": False,
+            # Forcing Newton also makes the Jacobian non-symmetric, so a
+            # user-valid newton=False + linear_acceleration='CG' config must not
+            # inherit CG here (it would trip the NEWTON+CG guard). Force BICGSTAB.
+            "mf6_linear_acceleration": "BICGSTAB",
         }
     )
     return config.model_copy(update={"runtime": runtime_copy})
