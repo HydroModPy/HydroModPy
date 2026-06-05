@@ -105,7 +105,10 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
             "hydromodpy_version": "2.0.0",
             "git_commit": "abc1234",
             "rng_seed": 42,
-            "mf6_version_text": "MODFLOW 6.5.0",
+            # Canonical runs_environment column names (must match what
+            # lifecycle._fetch_runs_environment_row maps the DB row to).
+            "solver_version_text": "MODFLOW 6.5.0",
+            "solver_binary_sha256": "deadbeefcafe",
         },
     )
     for key in HIGHLY_RECOMMENDED:
@@ -115,6 +118,10 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
     assert attrs["creator_name"] == "alice"
     assert attrs["creator_email"] == "alice@example.org"
     assert attrs["time_coverage_resolution"] == "P1D"
+    # The solver binary identity and version must flow through under the
+    # canonical keys (guards the lifecycle/acdd key-mismatch regression).
+    assert attrs["hydromodpy_solver_binary_sha256"] == "deadbeefcafe"
+    assert "MODFLOW 6.5.0" in attrs["source"]
 
 
 def test_cf_fillvalue_attached_to_head(fresh_store: SimulationZarr) -> None:

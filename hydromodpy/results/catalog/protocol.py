@@ -227,7 +227,9 @@ class SimulationStore(Protocol):
         sim_id: str | UUID,
         *,
         project_root: Path | str | None = None,
-        mf6_binary_path: Path | str | None = None,
+        solver_name: str | None = None,
+        solver_binary_path: Path | str | None = None,
+        rng_seed: int | None = None,
     ) -> None:
         """Capture and persist host environment snapshot for ``sim_id``."""
 
