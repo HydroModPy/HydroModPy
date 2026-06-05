@@ -49,6 +49,18 @@ from ._watertable import compute_watertable_depth, compute_watertable_elevation
 logger = get_logger(__name__)
 
 
+def _close_quietly(reader: object) -> None:
+    """Close a flopy binary reader if it exposes close(). Releasing the file
+    handle is pure cleanup, so a reader without close() (or a failing close) must
+    never abort post-processing."""
+    closer = getattr(reader, "close", None)
+    if callable(closer):
+        try:
+            closer()
+        except Exception:
+            logger.debug("Failed to close reader %r", reader, exc_info=True)
+
+
 def run_flow_post_processing(
     model: FlowPostprocessModel,
     options: ModflowPostprocessOptions | None = None,
@@ -200,6 +212,9 @@ def run_flow_post_processing(
             accumulated_flow[dem_mask_flat] = float(NODATA)
             dict_accumulation_flux[item] = model._to_export_array(accumulated_flow)
 
+    _close_quietly(head_fpu)
+    _close_quietly(cbb)
+
     if options.watertable_elevation:
         np.save(os.path.join(model.save_file, "watertable_elevation"), dict_watertable_elevation)
     if options.watertable_depth:
@@ -314,7 +329,9 @@ def run_transport_post_processing(
     n_steps = min(n_conc, n_seep) if n_seep else n_conc
 
     for i in range(n_steps):
-        the_time = str(i + 1)
+        # Label TIFs by the 0-based output index, matching the flow rasters and
+        # the per-index dict keys (was i+1, off by one from the dicts).
+        the_time = str(i)
         seep = outflow_drain.get(i, np.zeros(int(transport_model.model_modflow.ncpl), dtype=float))
         seep = np.asarray(seep, dtype=float).reshape(-1)
         mass_surf = None
@@ -393,6 +410,7 @@ def run_transport_post_processing(
         np.save(os.path.join(transport_model.save_file, "mass_seepage"), dict_mass_seepage)
     if mass_accumulated:
         np.save(os.path.join(transport_model.save_file, "mass_accumulated"), dict_mass_accumulated)
+    _close_quietly(conc_reader)
     transport_model.model_modflow.save_file = transport_model.save_file
     export_native_mesh_outputs(
         transport_model.model_modflow,

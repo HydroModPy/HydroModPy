@@ -36,7 +36,14 @@ class _DummyGeographic:
         self.watershed_buff_dem = "dummy_buff.tif"
 
 
-class _DummyHeadFile:
+class _ClosableReader:
+    """Test double for a flopy binary reader; supports close() like the real one."""
+
+    def close(self) -> None:
+        return None
+
+
+class _DummyHeadFile(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
@@ -51,7 +58,7 @@ class _DummyHeadFile:
         return np.array([[[9.0, 8.5], [8.0, 7.5]]], dtype=float)
 
 
-class _DummyHeadFileUnstructured:
+class _DummyHeadFileUnstructured(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
@@ -66,7 +73,7 @@ class _DummyHeadFileUnstructured:
         return np.array([[9.0, 8.5]], dtype=float)
 
 
-class _DummyUcnFileUnstructured:
+class _DummyUcnFileUnstructured(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
@@ -78,7 +85,7 @@ class _DummyUcnFileUnstructured:
         return np.array([[[0.2, 0.4]]], dtype=float)
 
 
-class _DummyBudgetFile:
+class _DummyBudgetFile(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
@@ -87,7 +94,7 @@ class _DummyBudgetFile:
         raise ValueError("The specified text string is not in the budget file")
 
 
-class _DummyBudgetFileWithDrn:
+class _DummyBudgetFileWithDrn(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
@@ -97,7 +104,7 @@ class _DummyBudgetFileWithDrn:
         return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
 
 
-class _DummyBudgetFileWithDrnAndChd:
+class _DummyBudgetFileWithDrnAndChd(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
@@ -121,7 +128,7 @@ class _DummyBudgetFileWithDrnAndChd:
         raise ValueError("The specified text string is not in the budget file")
 
 
-class _DummyBudgetFileUnexpectedValueError:
+class _DummyBudgetFileUnexpectedValueError(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
