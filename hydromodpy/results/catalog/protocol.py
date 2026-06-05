@@ -233,6 +233,26 @@ class SimulationStore(Protocol):
     ) -> None:
         """Capture and persist host environment snapshot for ``sim_id``."""
 
+    def update_simulation_grid_metadata(
+        self,
+        sim_id: str | UUID,
+        *,
+        n_cells: int | None = None,
+        n_layers: int | None = None,
+        mesh_hash: str | None = None,
+        mesh_topology: str | None = None,
+        bbox: tuple[float, float, float, float] | list[float] | None = None,
+    ) -> None:
+        """Backfill grid metadata known only once the solver grid is built."""
+
+    def update_run_environment_solver_binary(
+        self,
+        sim_id: str | UUID,
+        *,
+        solver_binary_path: Path | str | None,
+    ) -> None:
+        """Refine the recorded solver binary identity with the path that ran."""
+
     def register_tracked_files(
         self,
         sim_id: str | UUID,
