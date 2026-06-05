@@ -41,9 +41,6 @@ def _make_cfg_with_time(
         modflownwt=SimpleNamespace(
             tgrid=SimpleNamespace(start_datetime=None, end_datetime=None),
         ),
-        modflow6=SimpleNamespace(
-            tgrid=SimpleNamespace(start_datetime=None, end_datetime=None),
-        ),
         flow=SimpleNamespace(flow_regime="transient"),
     )
 
@@ -60,13 +57,8 @@ def test_apply_simulation_time_window_updates_solver_tgrids() -> None:
     assert cfg.modflownwt.tgrid.itmuni == "seconds"
     assert cfg.modflownwt.tgrid.ntsp == 1
     assert cfg.modflownwt.tgrid.tsmult == 1.0
-    assert str(cfg.modflow6.tgrid.start_datetime).startswith("2020-01-01")
-    assert str(cfg.modflow6.tgrid.end_datetime).startswith("2020-01-03")
-    assert cfg.modflow6.tgrid.nper == 3
-    assert cfg.modflow6.tgrid.lenper == [86400.0, 86400.0, 86400.0]
-    assert cfg.modflow6.tgrid.itmuni == "seconds"
-    assert cfg.modflow6.tgrid.ntsp == 1
-    assert cfg.modflow6.tgrid.tsmult == 1.0
+    # MODFLOW 6 has no tgrid section: it reads stress periods from [simulation.time].
+    assert not hasattr(cfg, "modflow6")
 
 
 def test_get_simulation_time_window_rejects_from_modflow_mode() -> None:
