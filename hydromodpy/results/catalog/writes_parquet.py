@@ -294,6 +294,8 @@ class WritesMixinParquet:
         for r in records:
             row = dict(r)
             row.setdefault("sim_id", sid)
+            # 'water' is the GWF volume budget; GWT solute rows set quantity='solute'.
+            row.setdefault("quantity", "water")
             row.setdefault("unit", "m3/s")
             row.setdefault("storage_in", 0.0)
             row.setdefault("storage_out", 0.0)
@@ -303,7 +305,7 @@ class WritesMixinParquet:
             target=self._paths.parquet_path_for(sid, "mass_balance"),
             records=normalised,
             schema=MASS_BALANCE_SCHEMA,
-            pk_cols=("sim_id", "timestep"),
+            pk_cols=("sim_id", "timestep", "quantity"),
             sim_id=sid,
         )
 

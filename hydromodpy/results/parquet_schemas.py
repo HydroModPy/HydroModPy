@@ -171,6 +171,15 @@ MASS_BALANCE_SCHEMA: Final[pa.Schema] = pa.schema(
             metadata=_field_meta(description="Integer time index"),
         ),
         pa.field(
+            "quantity",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Balanced quantity: 'water' (GWF volume budget) or "
+                "'solute' (GWT mass budget)"
+            ),
+        ),
+        pa.field(
             "total_in",
             pa.float64(),
             nullable=True,
@@ -212,10 +221,10 @@ MASS_BALANCE_SCHEMA: Final[pa.Schema] = pa.schema(
     ],
     metadata=_schema_metadata(
         "mass_balance",
-        pk=("sim_id", "timestep"),
+        pk=("sim_id", "timestep", "quantity"),
     ),
 )
-"""Per-simulation global mass balance summary."""
+"""Per-simulation global mass balance summary (water and solute budgets)."""
 
 
 METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
