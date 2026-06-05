@@ -70,8 +70,10 @@ def test_modflow6_optional_ims_fields_default_none_and_omitted() -> None:
     set_runtime = _runtime(
         mf6_inner_rclose=1e-3, mf6_linear_acceleration="BICGSTAB", mf6_under_relaxation="DBD"
     )
+    # inner_rclose must go through the rcloserecord record: flopy has no
+    # standalone inner_rclose kwarg and rejects it as extraneous.
     assert optional_ims_kwargs(set_runtime) == {
-        "inner_rclose": 1e-3,
+        "rcloserecord": [(1e-3, "")],
         "linear_acceleration": "BICGSTAB",
         "under_relaxation": "DBD",
     }
@@ -79,6 +81,26 @@ def test_modflow6_optional_ims_fields_default_none_and_omitted() -> None:
         Modflow6RuntimeConfig(mf6_linear_acceleration="XX")
     with pytest.raises(ValidationError):
         Modflow6RuntimeConfig(mf6_under_relaxation="FAST")
+
+
+def test_modflow6_optional_ims_kwargs_accepted_by_flopy_ims() -> None:
+    """Guard the inner_rclose fix at the flopy layer: a bare inner_rclose kwarg
+    raises FlopyException, so the kwargs optional_ims_kwargs emits must build a
+    real ModflowIms package."""
+    import flopy
+
+    set_runtime = _runtime(
+        mf6_inner_rclose=1e-3, mf6_linear_acceleration="BICGSTAB", mf6_under_relaxation="DBD"
+    )
+    sim = flopy.mf6.MFSimulation()
+    flopy.mf6.ModflowTdis(sim)
+    ims = flopy.mf6.ModflowIms(sim, complexity="COMPLEX", **optional_ims_kwargs(set_runtime))
+    record = ims.rcloserecord.get_data()
+    values = [float(x) for x in tuple(record[0]) if isinstance(x, (int, float))]
+    assert any(abs(v - 1e-3) < 1e-12 for v in values)
+    # A bare inner_rclose kwarg is the regression this guards against.
+    with pytest.raises(flopy.mf6.mfbase.FlopyException):
+        flopy.mf6.ModflowIms(sim, complexity="COMPLEX", inner_rclose=1e-3, pname="ims_bad")
 
 
 def test_modflow6_newton_cg_conflict_raises() -> None:

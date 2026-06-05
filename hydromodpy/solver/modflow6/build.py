@@ -140,7 +140,10 @@ def optional_ims_kwargs(runtime) -> dict[str, object]:
     """Return the optional IMS knobs that are set; None values keep flopy presets."""
     kwargs: dict[str, object] = {}
     if runtime.mf6_inner_rclose is not None:
-        kwargs["inner_rclose"] = float(runtime.mf6_inner_rclose)
+        # flopy exposes inner_rclose only through the rcloserecord record
+        # (inner_rclose + rclose_option). The empty option keeps MF6's default
+        # absolute infinity-norm criterion (sln-ims.dfn: no option = infinity).
+        kwargs["rcloserecord"] = [(float(runtime.mf6_inner_rclose), "")]
     if runtime.mf6_linear_acceleration is not None:
         kwargs["linear_acceleration"] = runtime.mf6_linear_acceleration
     if runtime.mf6_under_relaxation is not None:
