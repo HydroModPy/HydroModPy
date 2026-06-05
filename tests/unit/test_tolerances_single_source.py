@@ -62,6 +62,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "signature_stats_post_v0_5__rtol",
         "signature_stats_post_v0_5__atol",
         "mf6_prt_uniform_velocity_streamline__max_relative_position_error_x_x_exp_x_exp_x0",
+        "mf6_gwt_first_order_decay_0d__max_relative_concentration_error_vs_c0_exp_k_t",
     }
 )
 
@@ -152,10 +153,10 @@ def _resolve(slug: str) -> str:
 
 @pytest.mark.fast
 def test_classification_partitions_all_loadable_rows() -> None:
-    """INLINE, CASE_TOML and UNUSED partition exactly the 22 loadable rows."""
+    """INLINE, CASE_TOML and UNUSED partition exactly the 23 loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 22, sorted(loadable)
+    assert len(loadable) == 23, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

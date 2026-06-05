@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 34 tolerances enforced today. Every tolerance
+The table below records the 35 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -62,6 +62,7 @@ must carry a rationale before it is merged.
 | 32 | Boussinesq headwater 100 km2 PETSc validation | active surface threshold and complementarity diagnostics | `peak cells > 50`, `peak total > 1e3 m3/d`, complementarity floors `>= -1e-6` | Numerical-regime smoke envelope for the regional headwater benchmark | Ensures the PETSc surface interaction is active and respects non-negative gap/rate to solver precision |
 | 33 | Reservoir calibration validation | recovered `log10(k)` and `n` drift from truth | `< 0.3` | Fixed-iteration optimizer recovery envelope on deterministic synthetic reservoirs | Wide enough for optimizer path variance, tight enough to reject wrong-order parameters |
 | 34 | MF6 PRT uniform-velocity streamline | max relative position error `\|x-x_exp\|/\|x_exp-x0\|` | `< 1 %` | Pollock's method is exact for a uniform velocity field; small allowance for cell-crossing arithmetic | `x(t) = x0 + v*t`, `v = q / porosity`; single-layer constant-gradient flow |
+| 35 | MF6 GWT first-order decay 0D | max relative concentration error vs `C0*exp(-k t)` | `< 1 %` | First-order decay is exact in MF6 MST with no advection or dispersion; small allowance for finite time-stepping | Guards the per-second decay contract: `rate_decay` is `1/s` on the SECONDS clock |
 
 ## Update policy
 
