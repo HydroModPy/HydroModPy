@@ -58,7 +58,13 @@ def test_prt_uniform_velocity_streamline(tmp_path) -> None:
     flopy.mf6.ModflowPrtdis(prt, nlay=1, nrow=1, ncol=ncol, delr=dx, delc=1.0, top=1.0, botm=0.0)
     flopy.mf6.ModflowPrtmip(prt, porosity=porosity)
     flopy.mf6.ModflowPrtprp(
-        prt, nreleasepts=1, packagedata=[(0, (0, 0, 2), x0, 0.5, 0.5)], perioddata={0: ["FIRST"]}
+        prt,
+        nreleasepts=1,
+        packagedata=[(0, (0, 0, 2), x0, 0.5, 0.5)],
+        perioddata={0: ["FIRST"]},
+        # flopy defaults COORDINATE_CHECK_METHOD to the dev-only "eager" tag,
+        # which the release MF6 binary rejects; None suppresses it.
+        coordinate_check_method=None,
     )
     flopy.mf6.ModflowPrtoc(
         prt,
@@ -77,9 +83,6 @@ def test_prt_uniform_velocity_streamline(tmp_path) -> None:
     sim.write_simulation(silent=True)
     success, _ = sim.run_simulation(silent=True)
     if not success:
-        listing = (tmp_path / "mfsim.lst").read_text(encoding="utf-8", errors="ignore").lower()
-        if "under development" in listing or "coordinate_check_method" in listing:
-            pytest.skip("Installed MF6 binary does not support the PRT PRP options yet.")
         raise AssertionError("PRT validation run did not terminate normally.")
 
     import flopy.utils.binaryfile as bf

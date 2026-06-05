@@ -171,28 +171,49 @@ MASS_BALANCE_SCHEMA: Final[pa.Schema] = pa.schema(
             metadata=_field_meta(description="Integer time index"),
         ),
         pa.field(
+            "quantity",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Balanced quantity: 'water' (GWF volume budget) or "
+                "'solute' (GWT mass budget)"
+            ),
+        ),
+        pa.field(
             "total_in",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Total inflow"),
+            metadata=_field_meta(
+                description="Total inflow; per-row unit in the 'unit' column "
+                "(m3/s for water, mass/s for solute)"
+            ),
         ),
         pa.field(
             "total_out",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Total outflow"),
+            metadata=_field_meta(
+                description="Total outflow; per-row unit in the 'unit' column "
+                "(m3/s for water, mass/s for solute)"
+            ),
         ),
         pa.field(
             "storage_in",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Storage gain"),
+            metadata=_field_meta(
+                description="Storage gain; per-row unit in the 'unit' column. "
+                "Left 0.0 for solute (GWT STORAGE-AQUEOUS not split out)"
+            ),
         ),
         pa.field(
             "storage_out",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Storage loss"),
+            metadata=_field_meta(
+                description="Storage loss; per-row unit in the 'unit' column. "
+                "Left 0.0 for solute (GWT STORAGE-AQUEOUS not split out)"
+            ),
         ),
         pa.field(
             "percent_error",
@@ -212,10 +233,10 @@ MASS_BALANCE_SCHEMA: Final[pa.Schema] = pa.schema(
     ],
     metadata=_schema_metadata(
         "mass_balance",
-        pk=("sim_id", "timestep"),
+        pk=("sim_id", "timestep", "quantity"),
     ),
 )
-"""Per-simulation global mass balance summary."""
+"""Per-simulation global mass balance summary (water and solute budgets)."""
 
 
 METRICS_SCHEMA: Final[pa.Schema] = pa.schema(

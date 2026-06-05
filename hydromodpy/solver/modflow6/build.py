@@ -123,11 +123,27 @@ def guard_newton_rewet(runtime, rewet_record) -> None:
         )
 
 
+def guard_newton_linear_acceleration(runtime) -> None:
+    """Reject CG linear acceleration under Newton: the Newton formulation builds
+    a non-symmetric Jacobian, which the conjugate-gradient solver (symmetric
+    matrices only) cannot solve. BICGSTAB is required."""
+    if runtime.mf6_newton and runtime.mf6_linear_acceleration == "CG":
+        raise ValueError(
+            "[HMPY.E406] mf6_linear_acceleration='CG' is invalid with "
+            "mf6_newton=True: the MODFLOW 6 Newton formulation produces a "
+            "non-symmetric Jacobian that CG cannot solve. Use BICGSTAB, or leave "
+            "mf6_linear_acceleration unset to keep the preset default."
+        )
+
+
 def optional_ims_kwargs(runtime) -> dict[str, object]:
     """Return the optional IMS knobs that are set; None values keep flopy presets."""
     kwargs: dict[str, object] = {}
     if runtime.mf6_inner_rclose is not None:
-        kwargs["inner_rclose"] = float(runtime.mf6_inner_rclose)
+        # flopy exposes inner_rclose only through the rcloserecord record
+        # (inner_rclose + rclose_option). The empty option keeps MF6's default
+        # absolute infinity-norm criterion (sln-ims.dfn: no option = infinity).
+        kwargs["rcloserecord"] = [(float(runtime.mf6_inner_rclose), "")]
     if runtime.mf6_linear_acceleration is not None:
         kwargs["linear_acceleration"] = runtime.mf6_linear_acceleration
     if runtime.mf6_under_relaxation is not None:
@@ -260,6 +276,8 @@ def run_pre_processing(  # noqa: PLR0915
     active_options = model.preprocess_options if options is None else options
     apply_preprocess_options(model, active_options)
     validate_pre_processing_inputs(model)
+    # Reject invalid solver-config combinations before any expensive grid build.
+    guard_newton_linear_acceleration(model.modflow_config.runtime)
     bind_recharge_from_flow(model)
     model._calibration_raw_output_payload_cache = {}
 

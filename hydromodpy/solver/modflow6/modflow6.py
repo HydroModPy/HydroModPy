@@ -2,7 +2,7 @@
 
 This module exposes the :class:`Modflow6` adapter. Concern-specific helpers
 live in ``build`` (pre_processing), ``run`` (processing), ``postprocess``
-(water table, budget, native exports) and ``render`` (matplotlib overlays).
+(water table, budget, native exports) and ``diagnostics`` (matplotlib overlays).
 The class methods are thin delegators so this module stays under the 1500 LOC
 architectural limit.
 """
@@ -35,13 +35,6 @@ from hydromodpy.solver.modflow6.modflow6_config import (
     _coerce_modflow6_config,
 )
 from hydromodpy.solver.modflow6.postprocess import run_flow_post_processing
-from hydromodpy.solver.modflow6.render import (
-    export_runtime_support_overview,
-    support_cell_polygons,
-    support_edge_segments,
-    support_overlay_specs,
-    well_overlay_specs,
-)
 from hydromodpy.solver.modflow6.run import run_processing
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
@@ -87,9 +80,7 @@ class Modflow6:
 
         self.modflow_config = _coerce_modflow6_config(modflow_config)
         runtime = self.modflow_config.runtime
-        exe_name = getattr(runtime, "mf6_executable_name", None) or getattr(
-            runtime, "executable_name", None
-        )
+        exe_name = runtime.mf6_executable_name
         if exe_name and os.path.isabs(exe_name):
             self.exe = str(ensure_platform_executable(exe_name))
         elif not exe_name or exe_name in ("mf6", "mf6.exe"):
@@ -180,23 +171,6 @@ class Modflow6:
 
     def processing(self, options: ModflowRunOptions | None = None):
         return run_processing(self, options)
-
-    # render -----------------------------------------------------------
-
-    def _support_edge_segments(self, support: object, edge_indices: np.ndarray) -> list[np.ndarray]:
-        return support_edge_segments(self, support, edge_indices)
-
-    def _support_cell_polygons(self, support: object, cell_ids: np.ndarray) -> list[np.ndarray]:
-        return support_cell_polygons(self, support, cell_ids)
-
-    def _support_overlay_specs(self) -> list[tuple[str, np.ndarray, str]]:
-        return support_overlay_specs(self)
-
-    def _well_overlay_specs(self) -> list[dict[str, object]]:
-        return well_overlay_specs(self)
-
-    def _export_runtime_support_overview(self, *, options: ModflowPostprocessOptions) -> None:
-        export_runtime_support_overview(self, options=options)
 
     # post_processing --------------------------------------------------
 

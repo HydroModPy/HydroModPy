@@ -38,6 +38,27 @@ def test_modflow6_steady_initialization_relaxes_auxiliary_solver_only() -> None:
     assert config.runtime.mf6_inner_dvclose == 1e-4
 
 
+def test_modflow6_steady_initialization_disables_rewet_when_forcing_newton() -> None:
+    # A user-valid newton=False + rewet=True + CG transient config must not trip
+    # the NEWTON+REWET or NEWTON+CG guard during the steady spin-up (forces Newton).
+    config = Modflow6Config(
+        runtime=Modflow6RuntimeConfig(
+            mf6_newton=False, mf6_enable_rewet=True, mf6_linear_acceleration="CG"
+        )
+    )
+    model = SimpleNamespace(modflow_config=config, exe="mf6")
+
+    steady_config = _modflow_config_for_steady_initialization(model)
+
+    assert steady_config.runtime.mf6_newton is True
+    assert steady_config.runtime.mf6_enable_rewet is False
+    assert steady_config.runtime.mf6_linear_acceleration == "BICGSTAB"
+    # The user's transient config is untouched.
+    assert config.runtime.mf6_newton is False
+    assert config.runtime.mf6_enable_rewet is True
+    assert config.runtime.mf6_linear_acceleration == "CG"
+
+
 def test_modflow6_steady_initialization_preserves_looser_user_settings() -> None:
     config = Modflow6Config(
         runtime=Modflow6RuntimeConfig(

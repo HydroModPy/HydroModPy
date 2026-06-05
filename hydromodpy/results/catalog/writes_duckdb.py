@@ -299,6 +299,80 @@ class WritesMixinDuckDB:
             ],
         )
 
+    @with_lock_retry()
+    def update_simulation_grid_metadata(
+        self,
+        sim_id: str | UUID,
+        *,
+        n_cells: int | None = None,
+        n_layers: int | None = None,
+        mesh_hash: str | None = None,
+        mesh_topology: str | None = None,
+        bbox: tuple[float, float, float, float] | list[float] | None = None,
+    ) -> None:
+        """Backfill grid metadata known only once the solver grid is built.
+
+        DISV-from-raster runs register before the grid exists, so n_cells/
+        n_layers/bbox/mesh_hash/mesh_topology start NULL; this fills them post-run.
+        COALESCE keeps any value already present, so passing None never clobbers.
+        """
+        if not self._persistence.save_catalog:
+            return
+        bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
+        if bbox is not None and len(bbox) == 4:
+            bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax = (float(v) for v in bbox)
+        self._backend.execute(
+            """UPDATE simulations SET
+                   n_cells = COALESCE(?, n_cells),
+                   n_layers = COALESCE(?, n_layers),
+                   mesh_hash = COALESCE(?, mesh_hash),
+                   mesh_topology_id = COALESCE(
+                       (SELECT id FROM mesh_topologies WHERE code = ?), mesh_topology_id),
+                   bbox_xmin = COALESCE(?, bbox_xmin),
+                   bbox_ymin = COALESCE(?, bbox_ymin),
+                   bbox_xmax = COALESCE(?, bbox_xmax),
+                   bbox_ymax = COALESCE(?, bbox_ymax),
+                   updated_at = current_timestamp
+               WHERE sim_id = ?""",
+            [
+                None if n_cells is None else int(n_cells),
+                None if n_layers is None else int(n_layers),
+                mesh_hash,
+                mesh_topology,
+                bbox_xmin,
+                bbox_ymin,
+                bbox_xmax,
+                bbox_ymax,
+                str(sim_id),
+            ],
+        )
+
+    @with_lock_retry()
+    def update_run_environment_solver_binary(
+        self,
+        sim_id: str | UUID,
+        *,
+        solver_binary_path: Path | str | None,
+    ) -> None:
+        """Refine the recorded binary identity with the path the solver ran.
+
+        Registration records a best-guess managed-cache binary; this overwrites
+        it with the exact binary used, honouring a custom ``mf6_executable_name``.
+        """
+        if not self._persistence.save_catalog or solver_binary_path is None:
+            return
+        from hydromodpy.results.run_environment import solver_binary_identity
+
+        sha256, version_text = solver_binary_identity(solver_binary_path)
+        self._backend.execute(
+            """UPDATE runs_environment SET
+                   solver_binary_path = ?,
+                   solver_binary_sha256 = COALESCE(?, solver_binary_sha256),
+                   solver_version_text = COALESCE(?, solver_version_text)
+               WHERE sim_id = ?""",
+            [str(solver_binary_path), sha256, version_text, str(sim_id)],
+        )
+
     @audited("objective.set", payload_keys=("objective", "study_area_name"))
     @with_lock_retry()
     def write_scientific_objective(

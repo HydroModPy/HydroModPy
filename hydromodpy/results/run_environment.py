@@ -193,6 +193,17 @@ def _conda_env_hash() -> str | None:
     return None
 
 
+def solver_binary_identity(
+    solver_binary_path: Path | str | None,
+) -> tuple[str | None, str | None]:
+    """Return ``(sha256, version_text)`` for a solver binary, or ``(None, None)``.
+
+    Used to refine the recorded binary identity post-run with the exact binary
+    the solver executed (honouring a custom ``mf6_executable_name``).
+    """
+    return _binary_sha256(solver_binary_path), _solver_version_text(solver_binary_path)
+
+
 def capture_environment(
     *,
     project_root: Path | str | None = None,

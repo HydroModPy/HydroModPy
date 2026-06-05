@@ -259,13 +259,18 @@ def build_well_stress_period_data(
             parsed = np.asarray(raw_flux_seq, dtype=float)
             if parsed.size == 1:
                 flux_vector = np.full((n_stress_periods,), float(parsed[0]), dtype=float)
-            else:
-                if parsed.size != int(n_stress_periods):
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.flux length ({parsed.size}) "
-                        f"must be 1 or match nper ({int(n_stress_periods)})."
-                    )
+            elif parsed.size == int(n_stress_periods):
                 flux_vector = parsed.astype(float)
+            elif int(n_stress_periods) == 1:
+                # The steady spin-up collapses the transient window to one
+                # period. Carry the time-mean well flux, like recharge/EVT,
+                # instead of the first-period value.
+                flux_vector = np.full((1,), float(np.mean(parsed)), dtype=float)
+            else:
+                raise ValueError(
+                    f"flow.sinks_sources.wells.{well_id}.flux length ({parsed.size}) "
+                    f"must be 1 or match nper ({int(n_stress_periods)})."
+                )
         if not np.all(np.isfinite(flux_vector)):
             raise ValueError(f"flow.sinks_sources.wells.{well_id}.flux must be finite.")
         normalized_wells.append((cell, flux_vector))

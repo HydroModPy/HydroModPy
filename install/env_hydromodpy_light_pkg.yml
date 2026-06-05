@@ -40,4 +40,4 @@ dependencies:
       - gmsh
       - meshio
       - whitebox-workflows
-      - -e "..[docs,test]"
+      - -e "..[docs,docs-uml,test]"

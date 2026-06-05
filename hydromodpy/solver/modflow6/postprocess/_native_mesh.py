@@ -179,12 +179,12 @@ def _write_png(
     field_styles = {
         "watertable_elevation": ("Hydraulic head", "Head [m]", "viridis"),
         "watertable_depth": ("Water-table depth", "Top - h [m]", "Blues"),
-        "seepage_areas": ("Seepage areas", "Seepage [m/day]", "Reds"),
-        "outflow_drain": ("Drain discharge", "Discharge [m/day]", "magma"),
-        "accumulation_flux": ("Accumulation flux", "Accumulated flow [m/day]", "plasma"),
-        "concentration_seepage": ("Seepage concentration", "Concentration [-]", "viridis"),
-        "mass_seepage": ("Seepage mass", "Mass [-]", "cividis"),
-        "mass_accumulated": ("Accumulated mass", "Accumulated mass [-]", "inferno"),
+        "seepage_areas": ("Seepage areas", "Seepage [-]", "Reds"),
+        "outflow_drain": ("Drain discharge", "Discharge [m3/s]", "magma"),
+        "accumulation_flux": ("Accumulation flux", "Accumulated discharge [m3/s]", "plasma"),
+        "concentration_seepage": ("Seepage concentration", "Concentration [kg/m3]", "viridis"),
+        "mass_seepage": ("Seepage mass flux", "Mass flux [kg/s]", "cividis"),
+        "mass_accumulated": ("Accumulated mass flux", "Accumulated mass flux [kg/s]", "inferno"),
     }
 
     for name, values in cell_series.items():

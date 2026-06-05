@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
 
 logger = get_logger(__name__)
 
@@ -31,6 +32,8 @@ class BoussinesqOutputAdapter:
         sim_id: str,
         solver_output_dir: Path,
         store: Any,
+        *,
+        start_datetime: object | None = None,
     ) -> None:
         """Read .npz state history and write head fields to the store."""
         solver_output_dir = Path(solver_output_dir)
@@ -60,12 +63,16 @@ class BoussinesqOutputAdapter:
             time_values = payload.get("snapshot_elapsed_seconds")
             if time_values is None or len(time_values) < n_timesteps:
                 raise KeyError(f"No snapshot_elapsed_seconds time axis in {npz_path}")
+            # Write /time at snapshot resolution (one entry per head slice). The
+            # payload carries relative elapsed seconds, so anchor to the launcher
+            # start_datetime for a real calendar axis instead of seconds since 1970.
             writer = getattr(store, "write_time", None)
             if writer is None:
                 raise TypeError("Simulation store must implement write_time().")
-            writer(
-                sim_id, np.rint(np.asarray(time_values[:n_timesteps], dtype=float)).astype("int64")
+            values = cf_time_axis_seconds(
+                np.asarray(time_values[:n_timesteps], dtype=float), start_datetime
             )
+            writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
             logger.info(
                 "Extracting Boussinesq results: %d timesteps, %d cells",

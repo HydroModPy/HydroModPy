@@ -87,14 +87,19 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
     )
     diffu_coeff: Annotated[float, Profile.DEV] = Field(
         default=0.0,
-        description="Molecular diffusion coefficient [L2/T].",
+        description=(
+            "Molecular diffusion coefficient in m2/s. The MODFLOW 6 GWT backend "
+            "runs on the SI SECONDS clock, so this value is consumed per second "
+            "(a per-day value is ~86400x too large)."
+        ),
     )
     react_order: Annotated[Literal[None, 0, 1], Profile.DEV] = Field(
         default=None,
         description=(
             "Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 "
-            "(zero-order, constant rate mass/volume/T), or 1 (first-order, "
-            "proportional to concentration, 1/T)."
+            "(zero-order, constant rate in mass per volume per second), or 1 "
+            "(first-order, proportional to concentration, in 1/s). Rates are on "
+            "the SI SECONDS clock used by the GWT backend."
         ),
     )
     scheme: Annotated[Literal["upstream", "central", "TVD"], Profile.DEV] = Field(
@@ -108,8 +113,10 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
     rate_decay: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description=(
-            "Decay rate. Units depend on react_order: 1/T for first-order, mass per "
-            "volume per time for zero-order. Can be overridden at runtime."
+            "Decay rate on the SI SECONDS clock used by the MODFLOW 6 GWT backend: "
+            "1/s for first-order (react_order=1), mass per volume per second for "
+            "zero-order (react_order=0). A per-day value is ~86400x too large and "
+            "annihilates the solute. Can be overridden at runtime."
         ),
     )
     porosity: Annotated[float | None, Profile.DEV] = Field(
@@ -214,14 +221,11 @@ class Modflow6PrtParametersConfig(HydroModelBase):
     )
     release_times_days: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
-        description=(
-            "Optional particle release times in model time units. Existing "
-            "MODFLOW 6 models in HydroModPy use days."
-        ),
+        description="Optional particle release times in days.",
     )
     track_times_days: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
-        description="Optional user tracking output times in model time units.",
+        description="Optional user tracking output times in days.",
     )
     track_time_step_days: Annotated[float | None, Profile.DEV] = Field(
         default=None,
@@ -234,12 +238,12 @@ class Modflow6PrtParametersConfig(HydroModelBase):
     stop_time_days: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         gt=0.0,
-        description="Optional absolute particle stop time in model time units.",
+        description="Optional absolute particle stop time in days.",
     )
     stop_travel_time_days: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         gt=0.0,
-        description="Optional maximum particle travel time in model time units.",
+        description="Optional maximum particle travel time in days.",
     )
     extend_tracking: Annotated[bool, Profile.DEV] = Field(
         default=True,
@@ -250,9 +254,12 @@ class Modflow6PrtParametersConfig(HydroModelBase):
         description="MF6 PRT behavior for dry-but-active cells.",
     )
     exit_solve_tolerance: Annotated[float, Profile.DEV] = Field(
-        default=1.0e-10,
+        default=1.0e-5,
         gt=0.0,
-        description="PRT generalized Pollock exit solve tolerance.",
+        description=(
+            "PRT generalized Pollock exit solve tolerance. Matches the MF6 "
+            "prt-prp.dfn default (1e-5), which works well for many problems."
+        ),
     )
     write_track_csv: Annotated[bool, Profile.DEV] = Field(
         default=True,
