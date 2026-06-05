@@ -143,6 +143,10 @@ def test_mf6_prt_release_point_uses_absolute_centroid(tmp_path: Path) -> None:
     assert "1002.5" in prp_text
     # Neither the doubled (2002.5) nor the relative (2.5) coordinate may appear.
     assert "2002.5" not in prp_text
+    # The dev-only COORDINATE_CHECK_METHOD tag must stay suppressed (None), or
+    # the release MF6 binary rejects every PRT run.
+    assert prt.prp.coordinate_check_method.get_data() is None
+    assert "coordinate_check_method" not in prp_text.lower()
 
 
 @pytest.mark.integration

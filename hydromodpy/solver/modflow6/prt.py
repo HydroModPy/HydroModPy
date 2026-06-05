@@ -11,7 +11,7 @@ import numpy as np
 
 from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.transport import _mf6_safe_name
+from hydromodpy.solver.modflow6.build import mf6_safe_name
 
 
 def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
@@ -81,7 +81,7 @@ class Modflow6Prt:
         self.model_name = model_name
         self.suffix_name = suffix_name
         self.model_name_prt = model_name + suffix_name
-        self.model_name_prt_mf6 = _mf6_safe_name(self.model_name_prt)
+        self.model_name_prt_mf6 = mf6_safe_name(self.model_name_prt)
         self.full_path = os.path.join(model_folder, model_name)
         self.exe = getattr(model_modflow, "exe", "mf6")
 
@@ -278,6 +278,19 @@ class Modflow6Prt:
             raise ValueError(f"MODFLOW 6 PRT release zone {self.release_zone!r} selected no cells.")
         return selected
 
+    def _topmost_active_layer(self, cell_id: int) -> int:
+        """Return the highest (smallest index) active layer for a planar cell.
+
+        Releasing in layer 0 fails when layer 0 is inactive (idomain<=0) but a
+        deeper layer is active, so the release layer follows the cell column.
+        """
+        inactive = np.asarray(self.model_modflow.solver_mesh.inactive_mask, dtype=bool)
+        if inactive.ndim == 2:
+            active_layers = np.flatnonzero(~inactive[:, int(cell_id)])
+            if active_layers.size:
+                return int(active_layers[0])
+        return 0
+
     def _build_packagedata(self) -> list[tuple]:
         centroids = np.asarray(
             self.model_modflow.solver_mesh.cell_centroids(), dtype=float
@@ -286,10 +299,11 @@ class Modflow6Prt:
         packagedata: list[tuple] = []
         for iprt, cell_id in enumerate(cells):
             x, y = centroids[int(cell_id)]
+            lay = self._topmost_active_layer(int(cell_id))
             packagedata.append(
                 (
                     int(iprt),
-                    (0, int(cell_id)),
+                    (lay, int(cell_id)),
                     float(x),
                     float(y),
                     float(self.local_z),
@@ -361,7 +375,10 @@ class Modflow6Prt:
             else None,
             dry_tracking_method=self.dry_tracking_method,
             exit_solve_tolerance=self.exit_solve_tolerance,
-            coordinate_check_method="eager",
+            # COORDINATE_CHECK_METHOD is a dev-only PRP tag (IDEVELOPMODE=1); the
+            # release MF6 6.6.x binary rejects it. flopy defaults this option to
+            # "eager", so an explicit None is required to suppress the tag.
+            coordinate_check_method=None,
             nreleasepts=len(packagedata),
             nreleasetimes=len(releasetimes) if releasetimes is not None else None,
             packagedata=packagedata,
