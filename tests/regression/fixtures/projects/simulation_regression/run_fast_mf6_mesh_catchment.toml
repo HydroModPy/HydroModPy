@@ -65,14 +65,13 @@ value = "0.12 -"
 [mesh_catchment.hydraulic_properties.storage_coefficient]
 default_value = 0.08
 
-[modflow6.tgrid]
-
 [transport.modflow6gwt.parameters]
 sconc_init = 0.1
 sconc_input = 0.05
-diffu_coeff = 8.64e-06
+# MF6 GWT clock is SECONDS: diffu_coeff in m2/s, rate_decay in 1/s (506-day half-life).
+diffu_coeff = 1e-10
 react_order = 1
-rate_decay = 0.00136986301369863
+rate_decay = 1.585489599e-08
 
 [modflow6.sgrid.vertical]
 genmtd_lay = "decay"
