@@ -3505,19 +3505,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `transport <transport.html#transport-active-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L276>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283>`__
    * - ``transport.active_bc``
      - ``list[str]``
      - user
      - -
      - `transport <transport.html#transport-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L276>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283>`__
    * - ``transport.modpath``
      - ``TransportModpathConfig``
      - user
      - -
      - `transport <transport.html#transport-modpath>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L307>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L314>`__
    * - ``transport.modpath.parameters``
      - ``ModpathParametersConfig``
      - user
@@ -3571,13 +3571,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `transport <transport.html#transport-mt3dms>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L311>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L318>`__
    * - ``transport.mt3dms.parameters``
      - ``ConcentrationTransportParametersConfig``
      - user
      - -
      - `transport <transport.html#transport-mt3dms-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L135>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L142>`__
    * - ``transport.mt3dms.parameters.spc_name``
      - ``str``
      - dev
@@ -3625,43 +3625,43 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-react-order>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
    * - ``transport.mt3dms.parameters.scheme``
      - ``Literal['upstream', 'central', 'TVD']``
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-scheme>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
    * - ``transport.mt3dms.parameters.rate_decay``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-rate-decay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L113>`__
    * - ``transport.mt3dms.parameters.porosity``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-porosity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L122>`__
    * - ``transport.mt3dms.parameters.plot_conc``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-plot-conc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L126>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L133>`__
    * - ``transport.modflow6gwt``
      - ``TransportModflow6GwtConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6gwt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L315>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L322>`__
    * - ``transport.modflow6gwt.parameters``
      - ``ConcentrationTransportParametersConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L144>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L151>`__
    * - ``transport.modflow6gwt.parameters.spc_name``
      - ``str``
      - dev
@@ -3709,157 +3709,157 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-react-order>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
    * - ``transport.modflow6gwt.parameters.scheme``
      - ``Literal['upstream', 'central', 'TVD']``
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-scheme>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
    * - ``transport.modflow6gwt.parameters.rate_decay``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-rate-decay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L113>`__
    * - ``transport.modflow6gwt.parameters.porosity``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-porosity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L122>`__
    * - ``transport.modflow6gwt.parameters.plot_conc``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-plot-conc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L126>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L133>`__
    * - ``transport.modflow6prt``
      - ``TransportModflow6PrtConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6prt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L319>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L326>`__
    * - ``transport.modflow6prt.parameters``
      - ``Modflow6PrtParametersConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6prt-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L270>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L277>`__
    * - ``transport.modflow6prt.parameters.release_zone``
      - ``str``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-release-zone>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L153>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L160>`__
    * - ``transport.modflow6prt.parameters.upstream_top_quantile``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-upstream-top-quantile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L160>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L167>`__
    * - ``transport.modflow6prt.parameters.outlet_bottom_quantile``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-outlet-bottom-quantile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L169>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L176>`__
    * - ``transport.modflow6prt.parameters.track_dir``
      - ``Literal['forward']``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-track-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L178>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L185>`__
    * - ``transport.modflow6prt.parameters.porosity``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-porosity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L182>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L189>`__
    * - ``transport.modflow6prt.parameters.local_z``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-local-z>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L192>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L199>`__
    * - ``transport.modflow6prt.parameters.particle_cell_ids``
      - ``list[int] | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-particle-cell-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L198>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L205>`__
    * - ``transport.modflow6prt.parameters.max_particles``
      - ``int | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-max-particles>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L205>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L212>`__
    * - ``transport.modflow6prt.parameters.sel_slice``
      - ``int | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-sel-slice>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L210>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L217>`__
    * - ``transport.modflow6prt.parameters.release_times_days``
      - ``list[float] | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-release-times-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L215>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L222>`__
    * - ``transport.modflow6prt.parameters.track_times_days``
      - ``list[float] | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-track-times-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L222>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L229>`__
    * - ``transport.modflow6prt.parameters.track_time_step_days``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-track-time-step-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L226>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L233>`__
    * - ``transport.modflow6prt.parameters.stop_time_days``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-stop-time-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L234>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L241>`__
    * - ``transport.modflow6prt.parameters.stop_travel_time_days``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-stop-travel-time-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L239>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L246>`__
    * - ``transport.modflow6prt.parameters.extend_tracking``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-extend-tracking>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L244>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L251>`__
    * - ``transport.modflow6prt.parameters.dry_tracking_method``
      - ``Literal['drop', 'stop', 'stay']``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-dry-tracking-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L255>`__
    * - ``transport.modflow6prt.parameters.exit_solve_tolerance``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-exit-solve-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L252>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L259>`__
    * - ``transport.modflow6prt.parameters.write_track_csv``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-write-track-csv>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L257>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L264>`__
    * - ``transport.modflow6prt.parameters.write_track_binary``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-write-track-binary>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L261>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L268>`__
    * - ``simulation.name``
      - ``str``
      - user

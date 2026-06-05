@@ -7089,7 +7089,7 @@
     "section": "transport",
     "anchor": "transport-active-sinks-sources",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L276",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283",
     "description": "Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values."
   },
   {
@@ -7101,7 +7101,7 @@
     "section": "transport",
     "anchor": "transport-active-bc",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L276",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283",
     "description": "Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values."
   },
   {
@@ -7113,7 +7113,7 @@
     "section": "transport",
     "anchor": "transport-modpath",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L307",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L314",
     "description": "Modpath solver configuration block."
   },
   {
@@ -7221,7 +7221,7 @@
     "section": "transport",
     "anchor": "transport-mt3dms",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L311",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L318",
     "description": "MT3DMS solver configuration block."
   },
   {
@@ -7233,7 +7233,7 @@
     "section": "transport",
     "anchor": "transport-mt3dms-parameters",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L135",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L142",
     "description": "Solver parameter block used by Mt3dms."
   },
   {
@@ -7318,7 +7318,7 @@
     "anchor": "transport-mt3dms-parameters-diffu-coeff",
     "page": "transport.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L88",
-    "description": "Molecular diffusion coefficient [L2/T]."
+    "description": "Molecular diffusion coefficient in m2/s. The MODFLOW 6 GWT backend runs on the SI SECONDS clock, so this value is consumed per second (a per-day value is ~86400x too large)."
   },
   {
     "path": "transport.mt3dms.parameters.react_order",
@@ -7329,8 +7329,8 @@
     "section": "transport",
     "anchor": "transport-mt3dms-parameters-react-order",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92",
-    "description": "Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 (zero-order, constant rate mass/volume/T), or 1 (first-order, proportional to concentration, 1/T)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96",
+    "description": "Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 (zero-order, constant rate in mass per volume per second), or 1 (first-order, proportional to concentration, in 1/s). Rates are on the SI SECONDS clock used by the GWT backend."
   },
   {
     "path": "transport.mt3dms.parameters.scheme",
@@ -7341,7 +7341,7 @@
     "section": "transport",
     "anchor": "transport-mt3dms-parameters-scheme",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105",
     "description": "Advection scheme for MODFLOW 6 GWT. upstream: robust but diffusive (default). central: least diffusive, may oscillate. TVD: accurate sharp fronts (Ogata-Banks)."
   },
   {
@@ -7353,8 +7353,8 @@
     "section": "transport",
     "anchor": "transport-mt3dms-parameters-rate-decay",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L108",
-    "description": "Decay rate. Units depend on react_order: 1/T for first-order, mass per volume per time for zero-order. Can be overridden at runtime."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L113",
+    "description": "Decay rate on the SI SECONDS clock used by the MODFLOW 6 GWT backend: 1/s for first-order (react_order=1), mass per volume per second for zero-order (react_order=0). A per-day value is ~86400x too large and annihilates the solute. Can be ov"
   },
   {
     "path": "transport.mt3dms.parameters.porosity",
@@ -7365,7 +7365,7 @@
     "section": "transport",
     "anchor": "transport-mt3dms-parameters-porosity",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L122",
     "description": "Effective (total) porosity [-], the dimensionless volume of interconnected pores per bulk volume. Drives MST pore volume and pore velocity. When omitted, the flow model specific yield is used, which underestimates pore volume and biases tra"
   },
   {
@@ -7377,7 +7377,7 @@
     "section": "transport",
     "anchor": "transport-mt3dms-parameters-plot-conc",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L126",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L133",
     "description": "Enable concentration plotting outputs."
   },
   {
@@ -7389,7 +7389,7 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L315",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L322",
     "description": "MODFLOW 6 GWT solver configuration block."
   },
   {
@@ -7401,7 +7401,7 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt-parameters",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L144",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L151",
     "description": "Solver parameter block used by Modflow6Transport."
   },
   {
@@ -7486,7 +7486,7 @@
     "anchor": "transport-modflow6gwt-parameters-diffu-coeff",
     "page": "transport.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L88",
-    "description": "Molecular diffusion coefficient [L2/T]."
+    "description": "Molecular diffusion coefficient in m2/s. The MODFLOW 6 GWT backend runs on the SI SECONDS clock, so this value is consumed per second (a per-day value is ~86400x too large)."
   },
   {
     "path": "transport.modflow6gwt.parameters.react_order",
@@ -7497,8 +7497,8 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt-parameters-react-order",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92",
-    "description": "Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 (zero-order, constant rate mass/volume/T), or 1 (first-order, proportional to concentration, 1/T)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96",
+    "description": "Reaction order for MODFLOW 6 GWT and MT3DMS: None (no decay), 0 (zero-order, constant rate in mass per volume per second), or 1 (first-order, proportional to concentration, in 1/s). Rates are on the SI SECONDS clock used by the GWT backend."
   },
   {
     "path": "transport.modflow6gwt.parameters.scheme",
@@ -7509,7 +7509,7 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt-parameters-scheme",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105",
     "description": "Advection scheme for MODFLOW 6 GWT. upstream: robust but diffusive (default). central: least diffusive, may oscillate. TVD: accurate sharp fronts (Ogata-Banks)."
   },
   {
@@ -7521,8 +7521,8 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt-parameters-rate-decay",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L108",
-    "description": "Decay rate. Units depend on react_order: 1/T for first-order, mass per volume per time for zero-order. Can be overridden at runtime."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L113",
+    "description": "Decay rate on the SI SECONDS clock used by the MODFLOW 6 GWT backend: 1/s for first-order (react_order=1), mass per volume per second for zero-order (react_order=0). A per-day value is ~86400x too large and annihilates the solute. Can be ov"
   },
   {
     "path": "transport.modflow6gwt.parameters.porosity",
@@ -7533,7 +7533,7 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt-parameters-porosity",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L122",
     "description": "Effective (total) porosity [-], the dimensionless volume of interconnected pores per bulk volume. Drives MST pore volume and pore velocity. When omitted, the flow model specific yield is used, which underestimates pore volume and biases tra"
   },
   {
@@ -7545,7 +7545,7 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt-parameters-plot-conc",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L126",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L133",
     "description": "Enable concentration plotting outputs."
   },
   {
@@ -7557,7 +7557,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L319",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L326",
     "description": "MODFLOW 6 PRT particle-tracking solver configuration block."
   },
   {
@@ -7569,7 +7569,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L270",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L277",
     "description": "Solver parameter block used by Modflow6Prt."
   },
   {
@@ -7581,7 +7581,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-release-zone",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L153",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L160",
     "description": "Particle release selector: 'domain', 'domain_nonriver', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'."
   },
   {
@@ -7593,7 +7593,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-upstream-top-quantile",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L167",
     "description": "Top-elevation quantile used by upstream release zones. A value of 0.90 selects cells in the highest 10 percent of active cell-top elevations."
   },
   {
@@ -7605,7 +7605,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-outlet-bottom-quantile",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L169",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L176",
     "description": "Bottom-elevation quantile used by the 'outlet' release zone. A value of 0.10 selects cells in the lowest 10 percent of active cell-top elevations."
   },
   {
@@ -7617,7 +7617,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-track-dir",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L178",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L185",
     "description": "Particle tracking direction. MF6 PRT support is currently forward only."
   },
   {
@@ -7629,7 +7629,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-porosity",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L182",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L189",
     "description": "Effective (total) porosity [-] for particle tracking (v = q / porosity). When omitted, the flow model specific yield is used where positive, with a warning, since specific yield underestimates pore volume."
   },
   {
@@ -7641,7 +7641,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-local-z",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L192",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L199",
     "description": "Local vertical release coordinate within the cell."
   },
   {
@@ -7653,7 +7653,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-particle-cell-ids",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L198",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L205",
     "description": "Optional zero-based DISV cell2d ids for explicit particle release. Used when release_zone is 'custom'."
   },
   {
@@ -7665,7 +7665,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-max-particles",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L205",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L212",
     "description": "Optional maximum number of release cells after zone selection."
   },
   {
@@ -7677,7 +7677,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-sel-slice",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L210",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L217",
     "description": "Optional deterministic slicing step for selected release cells."
   },
   {
@@ -7689,7 +7689,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-release-times-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L215",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L222",
     "description": "Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days."
   },
   {
@@ -7701,7 +7701,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-track-times-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L222",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L229",
     "description": "Optional user tracking output times in model time units."
   },
   {
@@ -7713,7 +7713,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-track-time-step-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L226",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L233",
     "description": "Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted."
   },
   {
@@ -7725,7 +7725,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-stop-time-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L234",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L241",
     "description": "Optional absolute particle stop time in model time units."
   },
   {
@@ -7737,7 +7737,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-stop-travel-time-days",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L239",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L246",
     "description": "Optional maximum particle travel time in model time units."
   },
   {
@@ -7749,7 +7749,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-extend-tracking",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L244",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L251",
     "description": "Track particles beyond the final flow time step when MF6 permits it."
   },
   {
@@ -7761,7 +7761,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-dry-tracking-method",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L255",
     "description": "MF6 PRT behavior for dry-but-active cells."
   },
   {
@@ -7773,7 +7773,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-exit-solve-tolerance",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L252",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L259",
     "description": "PRT generalized Pollock exit solve tolerance."
   },
   {
@@ -7785,7 +7785,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-write-track-csv",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L257",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L264",
     "description": "Write the PRT track CSV file used by the HydroModPy extractor."
   },
   {
@@ -7797,7 +7797,7 @@
     "section": "transport",
     "anchor": "transport-modflow6prt-parameters-write-track-binary",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L261",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L268",
     "description": "Write the binary PRT track file."
   },
   {
