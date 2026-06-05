@@ -90,6 +90,75 @@ def test_mf6_disv_does_not_double_apply_grid_origin(tmp_path: Path) -> None:
     assert np.nanmax(gwf_wrong.modelgrid.xvertices) == pytest.approx(2010.0)
 
 
+@pytest.mark.integration
+@pytest.mark.mf6
+@pytest.mark.slow
+@pytest.mark.allow_subprocess
+def test_modflow6_prt_end_to_end_produces_tracks(tmp_path: Path) -> None:
+    """Run the real Modflow6Prt class against the binary end-to-end.
+
+    Guards the coordinate_check_method=None fix at the class level: re-introducing
+    the dev-only 'eager' tag makes the release binary reject the run, so SUCCESS
+    flips to False and no track CSV is produced.
+    """
+    import pandas as pd
+
+    exe = str(ensure_solver_binary("mf6"))
+    mesh = _offset_two_cell_mesh()
+
+    sim = flopy.mf6.MFSimulation(sim_name="sim", sim_ws=str(tmp_path), exe_name=exe)
+    tdis = flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(86400.0, 1, 1.0)], time_units="SECONDS")
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="flow", save_flows=True)
+    ims = flopy.mf6.ModflowIms(sim, complexity="SIMPLE", filename="flow.ims")
+    sim.register_ims_package(ims, [gwf.name])
+    idomain = np.where(mesh.inactive_mask, 0, 1).astype(int)
+    flopy.mf6.ModflowGwfdisv(
+        gwf,
+        nlay=mesh.nlay,
+        **mesh.to_disv_kwargs(),
+        idomain=idomain,
+        xorigin=0.0,
+        yorigin=0.0,
+        length_units="METERS",
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=9.0)
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=0, k=1.0, save_specific_discharge=True)
+    # A head gradient across the two cells drives the flow PRT tracks.
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data={0: [[(0, 0), 9.5], [(0, 1), 8.5]]})
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        head_filerecord="flow.hds",
+        budget_filerecord="flow.cbc",
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+    )
+
+    flow_model = SimpleNamespace(
+        sim=sim,
+        gwf=gwf,
+        ims=ims,
+        tdis=tdis,
+        solver_mesh=mesh,
+        nlay=1,
+        ncpl=2,
+        sy=np.array([[0.25, 0.25]]),
+        model_name="flow",
+        exe=exe,
+    )
+    transport = Transport(
+        {"modflow6prt": {"parameters": {"release_zone": "domain", "porosity": 0.25}}}
+    )
+    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model, str(tmp_path), "flow")
+    prt.pre_processing()
+    success = prt.processing(write_model=True, run_model=True, verbose=False)
+
+    assert success, "Modflow6Prt run did not terminate normally (binary may reject PRP tags)"
+    track_csv = tmp_path / "flow_prt.trk.csv"
+    assert track_csv.exists(), "no PRT track CSV was produced"
+    track = pd.read_csv(track_csv)
+    assert len(track) > 0
+    assert "x" in track.columns
+
+
 def test_solver_mesh_xoffset_matches_disv_vertices_no_offset() -> None:
     mesh = _offset_two_cell_mesh()
     disv_kwargs = mesh.to_disv_kwargs()
