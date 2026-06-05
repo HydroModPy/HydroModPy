@@ -352,6 +352,9 @@ def run_transport_post_processing(
                 )
 
         if mass_seepage or mass_accumulated:
+            # mass_seepage is a mass-flux RATE in kg/s (concentration kg/m3 times
+            # drain seepage m3/s), despite the "mass" name; mass_accumulated below
+            # is the integrated kg quantity routed downstream.
             mass_surf = np.asarray(concobj_1c[i][0], dtype=float).reshape(-1).copy()
             mass_surf[seep <= 0] = np.nan
             mass_surf = mass_surf * seep

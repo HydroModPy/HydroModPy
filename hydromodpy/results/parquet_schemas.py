@@ -183,25 +183,37 @@ MASS_BALANCE_SCHEMA: Final[pa.Schema] = pa.schema(
             "total_in",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Total inflow"),
+            metadata=_field_meta(
+                description="Total inflow; per-row unit in the 'unit' column "
+                "(m3/s for water, mass/s for solute)"
+            ),
         ),
         pa.field(
             "total_out",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Total outflow"),
+            metadata=_field_meta(
+                description="Total outflow; per-row unit in the 'unit' column "
+                "(m3/s for water, mass/s for solute)"
+            ),
         ),
         pa.field(
             "storage_in",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Storage gain"),
+            metadata=_field_meta(
+                description="Storage gain; per-row unit in the 'unit' column. "
+                "Left 0.0 for solute (GWT STORAGE-AQUEOUS not split out)"
+            ),
         ),
         pa.field(
             "storage_out",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Storage loss"),
+            metadata=_field_meta(
+                description="Storage loss; per-row unit in the 'unit' column. "
+                "Left 0.0 for solute (GWT STORAGE-AQUEOUS not split out)"
+            ),
         ),
         pa.field(
             "percent_error",
