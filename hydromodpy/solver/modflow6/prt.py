@@ -107,7 +107,7 @@ class Modflow6Prt:
         self.stop_travel_time_days = prt_params.get("stop_travel_time_days")
         self.extend_tracking = bool(prt_params.get("extend_tracking", True))
         self.dry_tracking_method = str(prt_params.get("dry_tracking_method", "drop"))
-        self.exit_solve_tolerance = float(prt_params.get("exit_solve_tolerance", 1.0e-10))
+        self.exit_solve_tolerance = float(prt_params.get("exit_solve_tolerance", 1.0e-5))
         self.write_track_csv = bool(prt_params.get("write_track_csv", True))
         self.write_track_binary = bool(prt_params.get("write_track_binary", True))
 
@@ -375,9 +375,10 @@ class Modflow6Prt:
             else None,
             dry_tracking_method=self.dry_tracking_method,
             exit_solve_tolerance=self.exit_solve_tolerance,
-            # COORDINATE_CHECK_METHOD is a dev-only PRP tag (IDEVELOPMODE=1); the
-            # release MF6 6.6.x binary rejects it. flopy defaults this option to
-            # "eager", so an explicit None is required to suppress the tag.
+            # COORDINATE_CHECK_METHOD is a regular PRP option in MF6 6.7.0
+            # (prt-prp.dfn) but was added after 6.6.3, so the installed release
+            # binary rejects it. flopy defaults this option to "eager" and writes
+            # the tag, so an explicit None is required to suppress it.
             coordinate_check_method=None,
             nreleasepts=len(packagedata),
             nreleasetimes=len(releasetimes) if releasetimes is not None else None,
