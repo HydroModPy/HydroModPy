@@ -174,3 +174,29 @@ def timedelta_to_seconds(delta: object, *, label: str = "delta") -> float:
     if hasattr(delta, "total_seconds"):
         return float(delta.total_seconds())
     raise TypeError(f"{label} must provide a total_seconds() method.")
+
+
+CF_EPOCH = "1970-01-01T00:00:00Z"
+CF_TIME_UNITS = "seconds since 1970-01-01T00:00:00Z"
+
+
+def cf_time_axis_seconds(relative_seconds, start_datetime: object | None):
+    """Return an int64 CF time axis (seconds since the 1970 epoch).
+
+    ``relative_seconds`` are the per-output elapsed seconds on the model clock.
+    When ``start_datetime`` is given, the axis is anchored to that calendar start
+    (``start + relative``); otherwise the relative seconds are kept as-is (no
+    calendar anchor, reference epoch 1970). The result always has the same length
+    as ``relative_seconds`` so it matches the field time axis.
+    """
+    import numpy as np
+
+    relative = np.rint(np.asarray(relative_seconds, dtype=float)).astype("int64")
+    if start_datetime is None:
+        return relative
+    import pandas as pd
+
+    start = pd.Timestamp(start_datetime)
+    start = start.tz_localize("UTC") if start.tz is None else start.tz_convert("UTC")
+    start_seconds = int((start - pd.Timestamp(CF_EPOCH)).total_seconds())
+    return (relative + start_seconds).astype("int64")

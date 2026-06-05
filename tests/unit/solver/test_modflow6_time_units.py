@@ -30,8 +30,9 @@ class _FakeStore:
         self.budgets: list | None = None
         self.mass: list | None = None
 
-    def write_time(self, sim_id, values) -> None:
+    def write_time(self, sim_id, values, *, epoch=None, calendar=None, units=None) -> None:
         self.times = np.asarray(values)
+        self.time_units = units
 
     def write_field(self, sim_id, name, t, values, n_timesteps=None, subgroup=None) -> None:
         self.fields.append((name, t, np.asarray(values)))

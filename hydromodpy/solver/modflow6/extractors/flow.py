@@ -8,7 +8,12 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.time import factor_to_seconds
+from hydromodpy.core.units.time import (
+    CF_EPOCH,
+    CF_TIME_UNITS,
+    cf_time_axis_seconds,
+    factor_to_seconds,
+)
 from hydromodpy.solver.modflow_common.budget_components import is_scalar_budget_component
 
 logger = get_logger(__name__)
@@ -42,14 +47,46 @@ def _read_time_units(tdis_path: Path) -> str:
     return "SECONDS"
 
 
-def _write_time_coordinate(store: Any, sim_id: str, times: list[float], time_units: str) -> None:
-    """Persist solver times as CF seconds since epoch."""
+def _read_start_datetime(tdis_path: Path) -> str | None:
+    """Return the MF6 TDIS START_DATE_TIME option, or None when absent."""
+    if not tdis_path.is_file():
+        return None
+    try:
+        with tdis_path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                tokens = raw.strip().split()
+                if len(tokens) >= 2 and tokens[0].upper() == "START_DATE_TIME":
+                    return tokens[1]
+    except OSError:
+        return None
+    return None
+
+
+def _write_time_coordinate(
+    store: Any,
+    sim_id: str,
+    times: list[float],
+    time_units: str,
+    tdis_path: Path,
+    start_datetime: object | None = None,
+) -> None:
+    """Persist solver times as a CF axis at field-array resolution.
+
+    MF6 reports relative ``totim`` on the TDIS clock, one value per saved output
+    time, so the axis must keep the same length as the head/budget arrays. We
+    anchor it to the model START_DATE_TIME (TDIS, else the launcher start) so the
+    CF ``/time`` axis decodes to real calendar dates; writing relative totim under
+    a 'seconds since 1970' label would decode ~33 years too early. With no
+    calendar anchor the relative seconds are kept (reference epoch 1970).
+    """
     writer = getattr(store, "write_time", None)
     if writer is None:
         raise TypeError("Simulation store must implement write_time().")
+    start = _read_start_datetime(tdis_path) or start_datetime
     factor = _seconds_per_time_unit(time_units)
-    values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
-    writer(sim_id, values)
+    relative = np.asarray(times, dtype=float) * factor
+    values = cf_time_axis_seconds(relative, start)
+    writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
 
 class Modflow6OutputAdapter:
@@ -70,6 +107,7 @@ class Modflow6OutputAdapter:
         *,
         model_name: str | None = None,
         budget_spatial_fields: bool = False,
+        start_datetime: object | None = None,
     ) -> None:
         """Read MF6 .hds and .cbc files and write into the store."""
         import flopy.utils.binaryfile as bf
@@ -94,7 +132,7 @@ class Modflow6OutputAdapter:
         time_units = _read_time_units(tdis_path)
         # MF6 emits fluxes in length^3 per TDIS time unit; convert to m3/s.
         seconds_per_time_unit = _seconds_per_time_unit(time_units)
-        _write_time_coordinate(store, sim_id, times, time_units)
+        _write_time_coordinate(store, sim_id, times, time_units, tdis_path, start_datetime)
 
         head0 = head_file.get_data(totim=times[0])
         grid_shape: tuple[int, int] | None = None
@@ -356,10 +394,7 @@ class Modflow6OutputAdapter:
             vertices = None
             face_node_connectivity = None
             if grb_files:
-                try:
-                    from flopy.mf6.utils import MfGrdFile
-                except ImportError:
-                    from flopy.utils import MfGrdFile
+                from flopy.mf6.utils import MfGrdFile
 
                 grd = MfGrdFile(str(grb_files[0]))
                 grid_type = str(getattr(grd, "grid_type", "") or "").lower() or None
@@ -399,9 +434,15 @@ class Modflow6OutputAdapter:
             if vertices is None or face_node_connectivity is None:
                 return
             structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
+            # Only fall back to a real 2D rectangle. For DISV the head array is
+            # (nlay, 1, ncpl), so grid_shape is the degenerate (1, ncpl); applying
+            # it would persist a bogus structured_shape=(1, ncpl) for genuinely
+            # unstructured meshes. Leaving it None makes them persist as null.
             if (
                 structured_shape is None
                 and grid_shape is not None
+                and int(grid_shape[0]) > 1
+                and int(grid_shape[1]) > 1
                 and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
             ):
                 structured_shape = (int(grid_shape[0]), int(grid_shape[1]))

@@ -142,7 +142,35 @@ def extract_run_outputs(
         "budget_spatial_fields",
     ):
         extract_kwargs["budget_spatial_fields"] = True
+    start_datetime = _resolve_run_start_datetime(ctx)
+    if start_datetime is not None and _accepts_kwarg(extractor.extract, "start_datetime"):
+        extract_kwargs["start_datetime"] = start_datetime
     extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
+
+
+def _resolve_run_start_datetime(ctx: RunContext) -> str | None:
+    """Return the simulation start as an ISO string, or None.
+
+    The /time CF coordinate is written by each extractor at field-array
+    resolution (one entry per solver output time). Backends whose output carries
+    no calendar (MODFLOW-2005/NWT, Boussinesq) anchor it to this start so the
+    axis decodes to real dates instead of relative seconds since 1970.
+    """
+    setup = getattr(getattr(ctx, "state", None), "setup", None)
+    time_grid = getattr(setup, "time_grid", None)
+    if time_grid is None:
+        return None
+    boundaries = getattr(time_grid, "boundaries", None)
+    if boundaries:
+        return str(boundaries[0])
+    window = getattr(time_grid, "window", None)
+    start = getattr(window, "start", None)
+    if start is not None:
+        return str(start)
+    datetimes = getattr(time_grid, "datetimes", None)
+    if datetimes:
+        return str(datetimes[0])
+    return None
 
 
 def derive_run_outputs(
