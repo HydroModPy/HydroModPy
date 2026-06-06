@@ -203,10 +203,10 @@ def _river_products_from_cache(
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
     network_path = Path(paths.hydrographic_network_generated_shp)
-    generated_network_shp = str(network_path) if _vector_artifact_exists(network_path) else None
+    dem_network_shp = str(network_path) if _vector_artifact_exists(network_path) else None
     network_gdf = None
-    if generated_network_shp is not None:
-        network_gdf = gpd.read_file(generated_network_shp)
+    if dem_network_shp is not None:
+        network_gdf = gpd.read_file(dem_network_shp)
     river_mesh_trace = (
         None
         if network_gdf is None
@@ -243,7 +243,7 @@ def _river_products_from_cache(
             if bool(config.river_network.compute_stream_links)
             else None
         ),
-        hydrographic_network_generated_shp=generated_network_shp,
+        hydrographic_network_generated_shp=dem_network_shp,
         network_crs=crs_project,
         river_mesh_trace=river_mesh_trace,
         hydrographic_network_generated_summary_json=(

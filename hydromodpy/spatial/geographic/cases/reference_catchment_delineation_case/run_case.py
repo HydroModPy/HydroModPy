@@ -242,7 +242,7 @@ def run_geographic_cases_from_toml(
         geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)
         metrics = compute_catchment_metrics(geographic)
         river_network_summary_path, river_network_summary = _load_river_network_summary(geographic)
-        generated_network_shp = (
+        dem_network_shp = (
             str(getattr(geographic, "hydrographic_network_generated_shp", "")).strip() or None
         )
         fig_path = None
@@ -265,7 +265,7 @@ def run_geographic_cases_from_toml(
                 int(geographic.dem_box_buff_data.shape[0]),
                 int(geographic.dem_box_buff_data.shape[1]),
             ),
-            "hydrographic_network_generated_shp": generated_network_shp,
+            "hydrographic_network_generated_shp": dem_network_shp,
             "hydrographic_network_generated_summary_json": river_network_summary_path,
             "river_network_summary": river_network_summary,
             "figure": None if fig_path is None else str(fig_path),

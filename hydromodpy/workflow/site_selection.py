@@ -75,7 +75,7 @@ from hydromodpy.spatial.site_selection.outputs.report_artifacts import (
 from hydromodpy.spatial.site_selection.pipelines.build import (
     SiteSelectionBuildResult,
     build_site_selection_from_dem_area_target,
-    build_site_selection_from_generated_network,
+    build_site_selection_from_dem_network_sampling,
     build_site_selection_from_point_records,
 )
 from hydromodpy.workflow.site_selection_data import (
@@ -792,7 +792,7 @@ def _resolve_dem_path_for_observed_selection(
         raise ConfigError(_data_access_error("DEM", data_root=data_root, detail=exc)) from exc
 
 
-def _resolve_dem_path_for_generated_selection(
+def _resolve_dem_path_for_dem_candidate_selection(
     *,
     config: SiteSelectionConfig,
     config_path: str | Path | None,
@@ -1262,7 +1262,7 @@ def build_dem_network_sampling_site_selection_from_toml(
         data_root,
     )
     _emit_progress(progress_callback, f"{cfg.selection_id}: resolving calculation DEM")
-    dem_path = _resolve_dem_path_for_generated_selection(
+    dem_path = _resolve_dem_path_for_dem_candidate_selection(
         config=cfg,
         config_path=path,
         workspace_root=workspace_root or cfg.input.workspace_root,
@@ -1274,7 +1274,7 @@ def build_dem_network_sampling_site_selection_from_toml(
         progress_callback,
         f"{cfg.selection_id}: generating candidates, catchments and report artifacts",
     )
-    result = build_site_selection_from_generated_network(
+    result = build_site_selection_from_dem_network_sampling(
         config=cfg,
         dem_init_path=dem_path,
         backend=backend,
@@ -1320,7 +1320,7 @@ def build_dem_area_target_site_selection_from_toml(
         data_root,
     )
     _emit_progress(progress_callback, f"{cfg.selection_id}: resolving calculation DEM")
-    dem_path = _resolve_dem_path_for_generated_selection(
+    dem_path = _resolve_dem_path_for_dem_candidate_selection(
         config=cfg,
         config_path=path,
         workspace_root=workspace_root or cfg.input.workspace_root,

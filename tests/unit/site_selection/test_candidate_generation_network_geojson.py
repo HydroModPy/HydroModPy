@@ -6,9 +6,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.candidates.generation import (
-    write_generated_network_geojson,
-)
+from hydromodpy.spatial.site_selection.candidates.generation import write_dem_network_geojson
 from hydromodpy.spatial.site_selection.config import HydrologyConfig
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
@@ -24,7 +22,7 @@ def _feature_points(geometry: dict) -> list[list[float]]:
 
 
 @pytest.mark.fast
-def test_generated_network_geojson_exports_dem_stream_segments(tmp_path):
+def test_dem_network_geojson_exports_dem_stream_segments(tmp_path):
     acc_path = write_accumulation_raster(
         tmp_path / "acc.tif",
         np.array(
@@ -38,27 +36,26 @@ def test_generated_network_geojson_exports_dem_stream_segments(tmp_path):
     )
     flow_products = SiteSelectionFlowProducts(
         products=FlowProducts(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
-        method="dem_only",
         flow_algorithm="d8",
         dem_correction_type="fill",
         network_threshold_area_km2=0.0001,
         compute_strahler=True,
     )
 
-    path = write_generated_network_geojson(
-        tmp_path / "generated_dem_network.geojson",
+    path = write_dem_network_geojson(
+        tmp_path / "dem_network.geojson",
         flow_products=flow_products,
         hydrology=HydrologyConfig(network_threshold_area_km2=0.0001),
     )
 
     payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["hydromodpy_geometry_role"] == "generated_dem_network"
+    assert payload["hydromodpy_geometry_role"] == "dem_network"
     assert payload["hydromodpy_coordinate_crs"] == "EPSG:2154"
     assert any(feature["geometry"]["type"] == "LineString" for feature in payload["features"])
 
 
 @pytest.mark.fast
-def test_generated_network_geojson_honors_search_geometry(tmp_path):
+def test_dem_network_geojson_honors_search_geometry(tmp_path):
     box = pytest.importorskip("shapely.geometry").box
     acc_path = write_accumulation_raster(
         tmp_path / "acc.tif",
@@ -73,15 +70,14 @@ def test_generated_network_geojson_honors_search_geometry(tmp_path):
     )
     flow_products = SiteSelectionFlowProducts(
         products=FlowProducts(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
-        method="dem_only",
         flow_algorithm="d8",
         dem_correction_type="fill",
         network_threshold_area_km2=0.0001,
         compute_strahler=True,
     )
 
-    path = write_generated_network_geojson(
-        tmp_path / "generated_dem_network.geojson",
+    path = write_dem_network_geojson(
+        tmp_path / "dem_network.geojson",
         flow_products=flow_products,
         hydrology=HydrologyConfig(network_threshold_area_km2=0.0001),
         search_geometry=box(20.0, 0.0, 30.0, 20.0),

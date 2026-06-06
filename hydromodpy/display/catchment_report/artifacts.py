@@ -368,7 +368,7 @@ def write_manifest(
     data_overview_figures: Path,
     simulation_figures: Path,
     geographic_scratch: Path,
-    generated_network_root: Path,
+    dem_network_root: Path,
     figure_provenance: Mapping[str, CopiedReportFigure] | None = None,
     expected_figure_ids: Iterable[str] = (),
 ) -> Path:
@@ -389,7 +389,7 @@ def write_manifest(
             "data_overview_figures": rel(data_overview_figures),
             "simulation_figures": rel(simulation_figures),
             "geographic_scratch": rel(geographic_scratch),
-            "generated_network_root": rel(generated_network_root),
+            "dem_network_root": rel(dem_network_root),
         },
         "copied_figures": {key: rel(path) for key, path in sorted(copied.items())},
         "figure_source_summary": _figure_source_summary(figure_provenance),

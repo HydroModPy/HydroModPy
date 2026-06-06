@@ -38,7 +38,6 @@ def test_generate_network_candidate_outlets_samples_high_accumulation_cells(tmp_
     )
     flow_products = SiteSelectionFlowProducts(
         products=FlowProducts(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
-        method="dem_only",
         flow_algorithm="d8",
         dem_correction_type="fill",
         network_threshold_area_km2=0.0001,
@@ -49,7 +48,7 @@ def test_generate_network_candidate_outlets_samples_high_accumulation_cells(tmp_
         flow_products=flow_products,
         outlets=OutletsConfig(
             min_distance_between_outlets_km=0.03,
-            max_generated_candidates=2,
+            max_network_candidates=2,
         ),
         hydrology=HydrologyConfig(network_threshold_area_km2=0.0001),
     )
@@ -83,7 +82,7 @@ def test_generate_network_candidate_outlets_samples_high_accumulation_cells(tmp_
         if '"status": "rejected"' in line
     ]
     assert {row["rejection_reason"] for row in rejected_rows} == {
-        "max_generated_candidates_reached",
+        "max_network_candidates_reached",
     }
     geojson = json.loads(geojson_path.read_text(encoding="utf-8"))
     assert geojson["hydromodpy_geometry_role"] == "candidate_outlets"

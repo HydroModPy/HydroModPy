@@ -28,7 +28,7 @@ class CatchmentReportInputs:
     simulation_figures: Path
     simulation_export: Path
     geographic_scratch: Path
-    generated_network_root: Path
+    dem_network_root: Path
     context_html: Path
     overview_standard_html: Path
     transient_config: Path
@@ -126,7 +126,7 @@ class CatchmentReportInputs:
             geographic_scratch=(
                 simulation_workspace_dir / ".solver_scratch" / "_preprocessing" / "geographic"
             ),
-            generated_network_root=simulation_workspace_dir / "simulations",
+            dem_network_root=simulation_workspace_dir / "simulations",
             context_html=context_outputs_dir / "web" / "index.html",
             overview_standard_html=(
                 data_overview_project_dir / "web_review" / "standard" / "index.html"

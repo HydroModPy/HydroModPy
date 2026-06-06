@@ -9,8 +9,8 @@ import pytest
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.workflow.site_selection import (
-    build_dem_area_light_site_selection_from_toml,
-    build_generated_site_selection_from_toml,
+    build_dem_area_target_site_selection_from_toml,
+    build_dem_network_sampling_site_selection_from_toml,
 )
 
 from ._geojson import write_square_geojson
@@ -18,7 +18,7 @@ from ._test_candidate_generation_builders import write_accumulation_raster
 
 
 @pytest.mark.fast
-def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
+def test_dem_network_sampling_workflow_writes_candidate_audit_outputs(tmp_path):
     acc_path = write_accumulation_raster(
         tmp_path / "acc.tif",
         np.array(
@@ -39,11 +39,11 @@ def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
         "\n".join(
             [
                 "[site_selection]",
-                'selection_id = "generated_demo"',
+                'selection_id = "dem_network_demo"',
                 'output_root = "out"',
                 "",
                 "[site_selection.input]",
-                'mode = "generated_candidates"',
+                'mode = "dem_network_sampling"',
                 "",
                 "[site_selection.dem]",
                 'path = "dem.tif"',
@@ -61,7 +61,7 @@ def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
                 "network_threshold_area_km2 = 0.0001",
                 "",
                 "[site_selection.outlets]",
-                "max_generated_candidates = 2",
+                "max_network_candidates = 2",
                 "min_distance_between_outlets_km = 0.01",
                 "",
                 "[site_selection.criteria.area]",
@@ -89,7 +89,7 @@ def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
             watershed_shp=str(watershed),
         )
 
-    result = build_generated_site_selection_from_toml(
+    result = build_dem_network_sampling_site_selection_from_toml(
         config_path=config_path,
         flow_products_builder=fake_flow_builder,
         delineation_builder=fake_delineation_builder,
@@ -104,18 +104,18 @@ def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
     ]
     assert result.output_paths["candidate_generation_jsonl"].is_file()
     assert result.output_paths["candidate_outlets_geojson"].is_file()
-    assert result.output_paths["generated_network_geojson"].is_file()
+    assert result.output_paths["dem_network_geojson"].is_file()
     assert result.output_paths["selected_sites_csv"].is_file()
     manifest = json.loads(
         result.output_paths["site_selection_manifest_json"].read_text(encoding="utf-8")
     )
-    assert manifest["action"] == "generated_candidates"
+    assert manifest["action"] == "dem_network_sampling"
     assert manifest["outputs"]["candidate_generation_jsonl"] == "candidate_generation.jsonl"
-    assert manifest["outputs"]["generated_network_geojson"] == "generated_dem_network.geojson"
+    assert manifest["outputs"]["dem_network_geojson"] == "dem_network.geojson"
 
 
 @pytest.mark.fast
-def test_dem_area_light_workflow_writes_outputs_and_diagnostics(tmp_path):
+def test_dem_area_target_workflow_writes_outputs_and_diagnostics(tmp_path):
     acc = np.ones((10, 10), dtype="float64")
     acc[0, 0] = 100.0
     acc[9, 9] = 99.0
@@ -134,7 +134,7 @@ def test_dem_area_light_workflow_writes_outputs_and_diagnostics(tmp_path):
                 'output_root = "out"',
                 "",
                 "[site_selection.input]",
-                'mode = "dem_area_light"',
+                'mode = "dem_area_target"',
                 "",
                 "[site_selection.strategy]",
                 'principle = "criteria_crossing"',
@@ -159,7 +159,7 @@ def test_dem_area_light_workflow_writes_outputs_and_diagnostics(tmp_path):
                 "[site_selection.hydrology]",
                 "network_threshold_area_km2 = 1.0",
                 "",
-                "[site_selection.dem_area_light]",
+                "[site_selection.dem_area_target]",
                 "target_area_km2 = 100.0",
                 "min_area_km2 = 75.0",
                 "max_area_km2 = 125.0",
@@ -185,7 +185,7 @@ def test_dem_area_light_workflow_writes_outputs_and_diagnostics(tmp_path):
             watershed_shp=str(watershed),
         )
 
-    result = build_dem_area_light_site_selection_from_toml(
+    result = build_dem_area_target_site_selection_from_toml(
         config_path=config_path,
         flow_products_builder=fake_flow_builder,
         raw_accumulation_builder=lambda **_kwargs: acc_path,
@@ -201,5 +201,5 @@ def test_dem_area_light_workflow_writes_outputs_and_diagnostics(tmp_path):
     manifest = json.loads(
         result.output_paths["site_selection_manifest_json"].read_text(encoding="utf-8")
     )
-    assert manifest["action"] == "dem_area_light"
+    assert manifest["action"] == "dem_area_target"
     assert manifest["outputs"]["diagnostics_csv"] == "diagnostics.csv"

@@ -158,7 +158,7 @@ def _inputs_from_source_artifact_manifest(
             simulation_export=(
                 inferred_workspace / "exports" / simulation_name / "timeseries.csv"
             ),
-            generated_network_root=inferred_workspace / "simulations",
+            dem_network_root=inferred_workspace / "simulations",
         )
     if simulation_config_path is not None:
         updates["transient_config"] = Path(simulation_config_path).expanduser().resolve()

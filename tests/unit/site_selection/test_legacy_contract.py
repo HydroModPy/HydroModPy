@@ -35,6 +35,11 @@ FORBIDDEN_LEGACY_SNIPPETS = (
     "reference_network_max_distance_m",
     "snap_dist_m =",
     "reference_network_snap_tolerance_m =",
+    "max_generated_candidates",
+    "max_rejected_candidate_audit_records",
+    "max_generated_network_cells",
+    "snap_to_generated_stream",
+    "generated_dem_network",
     'source = "data"',
     '"source": "data"',
     "same_mainstem_policy",
@@ -81,6 +86,10 @@ def test_removed_legacy_literals_stay_removed():
     assert "reference_network_max_distance_m" not in OutletsConfig.model_fields
     assert "snap_dist_m" not in OutletsConfig.model_fields
     assert "reference_network_snap_tolerance_m" not in OutletsConfig.model_fields
+    assert "max_generated_candidates" not in OutletsConfig.model_fields
+    assert "max_rejected_candidate_audit_records" not in OutletsConfig.model_fields
+    assert "max_generated_network_cells" not in OutletsConfig.model_fields
+    assert "snap_to_generated_stream" not in OutletsConfig.model_fields
 
 
 @pytest.mark.fast

@@ -183,7 +183,7 @@ campaigns: candidate outlets are ranked by their distance to
 `site_selection.dem_area_target.target_area_km2`, then delineated and selected
 with the normal area and spatial criteria.
 
-DEM/network-generated runs use `site_selection.input.mode =
+DEM network sampling runs use `site_selection.input.mode =
 "dem_network_sampling"` with `site_selection.outlets.candidate_mode =
 "network_sampling"`. This is the lower-level stream-network sampling path: it
 exposes outlet-generation controls such as spacing, candidate caps and optional
@@ -198,7 +198,7 @@ outputs plus:
 These candidates come from high-accumulation DEM cells, constrained by
 `min_distance_between_outlets_km` and `max_network_candidates`, then pass
 through the same delineation and selection stages as imported or station-led
-candidates. The generation audit includes accepted and rejected candidate cells,
+candidates. The candidate audit includes accepted and rejected candidate cells,
 with rejection reasons such as spacing or candidate-count caps. When a BD
 Topage/custom reference network is loaded, candidates also carry
 `reference_network_distance_m`, `reference_network_score` and
@@ -241,7 +241,7 @@ The HTML map is a figure of control. It is generated from the manifest-declared
 GeoJSON artifacts, colors selected basin contours by area class with light
 fills and thin edges, and uses separate symbols for selected outlets, rejected
 outlets when present, flow stations, piezometers and future observation point
-types. For generated-candidate runs, it also draws the vectorized DEM network
+types. For DEM-network runs, it also draws the vectorized DEM network
 from `dem_network.geojson`. When outlets were snapped, the map draws
 the snapped outlet and a dashed station-to-outlet link for visible
 displacements.

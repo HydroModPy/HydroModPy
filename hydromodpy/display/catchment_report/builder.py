@@ -48,7 +48,7 @@ class CatchmentReportConfig:
     data_overview_figures: Path
     simulation_figures: Path
     geographic_scratch: Path
-    generated_network_root: Path
+    dem_network_root: Path
     context_html: Path
     overview_standard_html: Path
     transient_config: Path
@@ -88,7 +88,7 @@ class CatchmentReportConfig:
             data_overview_figures=inputs.data_overview_figures,
             simulation_figures=inputs.simulation_figures,
             geographic_scratch=inputs.geographic_scratch,
-            generated_network_root=inputs.generated_network_root,
+            dem_network_root=inputs.dem_network_root,
             context_html=inputs.context_html,
             overview_standard_html=inputs.overview_standard_html,
             transient_config=inputs.transient_config,
@@ -134,7 +134,7 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         data_overview_figures=config.data_overview_figures,
         simulation_figures=config.simulation_figures,
         geographic_scratch=config.geographic_scratch,
-        generated_network_root=config.generated_network_root,
+        dem_network_root=config.dem_network_root,
         figure_provenance=figure_provenance,
     )
     write_catchment_artifact_manifest(

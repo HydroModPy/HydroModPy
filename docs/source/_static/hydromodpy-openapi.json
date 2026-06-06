@@ -11174,11 +11174,11 @@
       },
       "OutletsConfig": {
         "additionalProperties": false,
-        "description": "Candidate outlet generation settings.",
+        "description": "Candidate outlet construction settings.",
         "properties": {
           "candidate_mode": {
             "default": "network_sampling",
-            "description": "Concrete outlet generation mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells.",
+            "description": "Concrete outlet construction mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells.",
             "enum": [
               "network_sampling",
               "station_outlets"
@@ -11226,7 +11226,7 @@
               }
             ],
             "default": 200,
-            "description": "Maximum number of DEM/network-generated candidates to delineate.",
+            "description": "Maximum number of DEM network candidates to delineate.",
             "examples": [
               200
             ],
@@ -11244,7 +11244,7 @@
               }
             ],
             "default": 5000,
-            "description": "Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL.",
+            "description": "Maximum number of rejected DEM/network candidate cells written to the candidate audit JSONL.",
             "examples": [
               5000
             ],
@@ -11262,20 +11262,20 @@
               }
             ],
             "default": 50000,
-            "description": "Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first.",
+            "description": "Maximum number of DEM-derived stream cells exported to the DEM network vector layer. Highest-accumulation cells are kept first.",
             "examples": [
               50000
             ],
             "title": "Max Dem Network Cells",
             "x-hmp-profile": "user"
           },
-          "snap_to_generated_stream": {
+          "snap_to_dem_network": {
             "default": true,
             "description": "Snap outlets to the DEM-derived stream network when applicable.",
             "examples": [
               true
             ],
-            "title": "Snap To Generated Stream",
+            "title": "Snap To Dem Network",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
@@ -14925,6 +14925,7 @@
           },
           "outlets": {
             "$ref": "#/components/schemas/OutletsConfig",
+            "description": "Candidate outlet generation settings.",
             "x-hmp-profile": "user"
           },
           "spatial_selection": {
@@ -15586,7 +15587,7 @@
               }
             ],
             "default": null,
-            "description": "Effective selection principle, usually inferred from profile. 'observation_led' loads the declared primary observation family first, creates candidate outlets from those records, delineates their basins, then applies criteria. 'criteria_crossing' starts from imported or generated candidate basins first; observations are evaluated only as criteria/evidence on that inventory.",
+            "description": "Effective selection principle, usually inferred from profile. 'observation_led' loads the declared primary observation family first, creates candidate outlets from those records, delineates their basins, then applies criteria. 'criteria_crossing' starts from imported or DEM-derived candidate basins first; observations are evaluated only as criteria/evidence on that inventory.",
             "title": "Principle",
             "x-hmp-profile": "user"
           },

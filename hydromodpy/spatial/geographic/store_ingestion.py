@@ -148,30 +148,30 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
         logger.debug("geopandas not available, skipping river network ingestion")
         return
 
-    generated_network = None
-    generated_network_crs = None
+    dem_network = None
+    dem_network_crs = None
     path = getattr(geographic, _GENERATED_HYDROGRAPHIC_NETWORK_ATTR, None)
     if path is None:
         products = getattr(geographic, "_river_network_products", None)
         if products is not None:
             path = getattr(products, "hydrographic_network_generated_shp", None)
-            generated_network_crs = getattr(products, "network_crs", None)
+            dem_network_crs = getattr(products, "network_crs", None)
     features = getattr(geographic, "get_geographic_derived_features", None)
     if callable(features):
         try:
             derived = features()
             if derived is not None:
-                generated_network = derived.generated_hydrographic_network
-                if path is None and generated_network is not None:
-                    path = generated_network.vector_path
-                if generated_network is not None:
-                    generated_network_crs = generated_network_crs or getattr(
-                        generated_network, "crs", None
+                dem_network = derived.generated_hydrographic_network
+                if path is None and dem_network is not None:
+                    path = dem_network.vector_path
+                if dem_network is not None:
+                    dem_network_crs = dem_network_crs or getattr(
+                        dem_network, "crs", None
                     )
                 if path is None and derived.rivers is not None:
                     path = derived.rivers.hydrographic_network_generated_shp
                 if derived.rivers is not None:
-                    generated_network_crs = generated_network_crs or getattr(
+                    dem_network_crs = dem_network_crs or getattr(
                         derived.rivers, "network_crs", None
                     )
         except Exception:
@@ -185,7 +185,7 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
     if gdf.empty:
         return
     if gdf.crs is None:
-        fallback_crs = generated_network_crs or _geographic_crs(geographic)
+        fallback_crs = dem_network_crs or _geographic_crs(geographic)
         if fallback_crs not in (None, ""):
             gdf = gdf.set_crs(str(fallback_crs), allow_override=True)
 

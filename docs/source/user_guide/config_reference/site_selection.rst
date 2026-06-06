@@ -99,7 +99,7 @@ Fields
 
          :bdg-primary:`Optional[Literal['observation_led', 'criteria_crossing']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L53>`__
 
-            Effective selection principle, usually inferred from profile. 'observation_led' loads the declared primary observation family first, creates candidate outlets from those records, delineates their basins, then applies criteria. 'criteria_crossing' starts from imported or generated candidate basins first; observations are evaluated only as criteria/evidence on that inventory.
+            Effective selection principle, usually inferred from profile. 'observation_led' loads the declared primary observation family first, creates candidate outlets from those records, delineates their basins, then applies criteria. 'criteria_crossing' starts from imported or DEM-derived candidate basins first; observations are evaluated only as criteria/evidence on that inventory.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -769,7 +769,7 @@ Fields
 
          :bdg-primary:`Literal['network_sampling', 'station_outlets']` :bdg-secondary:`default = "network_sampling"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L362>`__
 
-            Concrete outlet generation mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells.
+            Concrete outlet construction mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -811,7 +811,7 @@ Fields
 
          :bdg-primary:`int | None` :bdg-secondary:`default = 200` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L383>`__
 
-            Maximum number of DEM/network-generated candidates to delineate.
+            Maximum number of DEM network candidates to delineate.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -825,7 +825,7 @@ Fields
 
          :bdg-primary:`int | None` :bdg-secondary:`default = 5000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L388>`__
 
-            Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL.
+            Maximum number of rejected DEM/network candidate cells written to the candidate audit JSONL.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -839,19 +839,19 @@ Fields
 
          :bdg-primary:`int | None` :bdg-secondary:`default = 50000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L396>`__
 
-            Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first.
+            Maximum number of DEM-derived stream cells exported to the DEM network vector layer. Highest-accumulation cells are kept first.
 
 
       .. container:: hmp-field hmp-field-level-user
-         :name: site-selection-outlets-snap-to-generated-stream
+         :name: site-selection-outlets-snap-to-dem-network
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="site_selection.outlets.snap_to_generated_stream">
-              <code class="hmp-field-name">snap_to_generated_stream</code>
+            <div class="hmp-field-header" data-toml-path="site_selection.outlets.snap_to_dem_network">
+              <code class="hmp-field-name">snap_to_dem_network</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L359>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L404>`__
 
             Snap outlets to the DEM-derived stream network when applicable.
 
@@ -2452,7 +2452,7 @@ Starter TOML snippet
       # max_network_candidates = 200
       # max_rejected_network_candidate_audit_records = 5000
       # max_dem_network_cells = 50000
-      # snap_to_generated_stream = true
+      # snap_to_dem_network = true
       # snap_strategy = "dem_accumulation"
       # dem_snap_max_distance_m = 150
       # reference_network_source = "bdtopage"
