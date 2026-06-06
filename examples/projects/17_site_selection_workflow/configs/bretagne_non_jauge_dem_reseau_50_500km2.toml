@@ -50,7 +50,7 @@ hydrologic_conditioning = "fill"
 network_threshold_area_km2 = 5.0
 
 [site_selection.outlets]
-# Outlet generation mode.
+# Outlet construction mode.
 # station_outlets uses loaded observation/outlet records.
 # network_sampling samples DEM-derived stream cells.
 candidate_mode = "network_sampling"
