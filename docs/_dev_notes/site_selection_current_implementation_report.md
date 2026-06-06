@@ -114,14 +114,14 @@ Deux entrees sont disponibles:
 
 - `delineated_catchments`, pour appliquer les criteres a un inventaire deja
   delimite;
-- `dem_area_light`, pour generer un nombre borne de candidats depuis le DEM
+- `dem_area_target`, pour generer un nombre borne de candidats depuis le DEM
   autour d'une surface cible, les delimiter, puis garder les meilleurs sites
   non redondants.
 
 Exemple de configuration maintenue:
 
 ```text
-examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
+examples/projects/17_site_selection_workflow/configs/calvados_non_jauge_dem_10bassins_100km2.toml
 ```
 
 ### Criteres et preuves
@@ -252,8 +252,8 @@ Les candidats peuvent venir de trois sources:
 
 - stations hydrometriques normalisees;
 - CSV de bassins ou d'exutoires deja connus;
-- generation depuis le DEM pour les modes `dem_area_light` et
-  `generated_candidates`.
+- generation depuis le DEM pour les modes `dem_area_target` et
+  `dem_network_sampling`.
 
 Les candidats portent leur provenance, leurs coordonnees, les informations de
 snap et, quand un reseau de reference est utilise, la distance et le statut par
@@ -323,7 +323,7 @@ Les modes de generation DEM peuvent aussi ecrire:
 - `candidate_outlets.geojson`;
 - `generated_dem_network.geojson`.
 
-Quand `write_report_html = true`, le run ecrit:
+Quand `[report.html] build_at_end = true`, le run ecrit:
 
 - `review/index.html`;
 - `review/site_selection_map.png`.
@@ -336,13 +336,13 @@ Les commandes CLI disponibles sont:
 hmp site-selection plan CONFIG
 hmp site-selection select-catchments CONFIG CATCHMENTS_CSV
 hmp site-selection build-observed CONFIG
-hmp site-selection build-generated CONFIG
+hmp site-selection build-dem-network CONFIG
 hmp site-selection report SITE_SELECTION_MANIFEST
 hmp run CONFIG
 ```
 
-La commande `build-generated` expose le chemin autonome
-`generated_candidates`. Elle est conservee comme capacite de controle et comme
+La commande `build-dem-network` expose le chemin autonome
+`dem_network_sampling`. Elle est conservee comme capacite de controle et comme
 base d'evolution, mais elle ne fait pas partie des deux profils stabilises du
 contrat court terme.
 
@@ -357,29 +357,29 @@ mode = "site_selection"
 
 Profil `area_only`:
 
-- `examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml`;
-- `examples/projects/17_site_selection_workflow/configs/manche_dem_area_light_100km2_fast.toml`;
-- `examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_area_only.toml`.
+- `examples/projects/17_site_selection_workflow/configs/calvados_non_jauge_dem_10bassins_100km2.toml`;
+- `examples/projects/17_site_selection_workflow/configs/manche_non_jauge_dem_10bassins_100km2.toml`;
+- `examples/projects/17_site_selection_workflow/configs/aura_non_jauge_csv_50_150km2.toml`.
 
 Profil `gauged_downstream_station`:
 
-- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml`;
-- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small.toml`;
-- `examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_hydrometry_preview.toml`.
+- `examples/projects/17_site_selection_workflow/configs/bretagne_jauge_7stations.toml`;
+- `examples/projects/17_site_selection_workflow/configs/finistere_jauge_elorn_dem.toml`;
+- `examples/projects/17_site_selection_workflow/configs/aura_jauge_5stations.toml`.
 
 ## Validation actuelle
 
 Validation effectuee le 2026-05-26:
 
-- `calvados_dem_area_light_100km2_fast.toml`: profil effectif `area_only`, 26
+- `calvados_non_jauge_dem_10bassins_100km2.toml`: profil effectif `area_only`, 26
   bassins delimites, 10 sites selectionnes, 16 rejetes, manifest valide,
   rapport HTML:
-  `examples/projects/17_site_selection_workflow/outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`;
-- `bretagne_hydrometry_50_500_small_bdtopage.toml`: profil effectif
+  `examples/projects/17_site_selection_workflow/outputs/calvados_non_jauge_dem_100km2_v1/review/index.html`;
+- `bretagne_jauge_7stations.toml`: profil effectif
   `gauged_downstream_station`, 7 stations chargees, 6 candidats apres
   espacement, 6 sites selectionnes, 0 rejete, preuves normalisees ecrites,
   manifest valide, rapport HTML:
-  `examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`;
+  `examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/index.html`;
 - sonde Hub'Eau autour de Lecousse/Nancon: l'emprise retourne la station
   `J001401001`, avec `influence_locale_station = 1`; le critere
   `station_influence` en `hard_reject` produit bien un rejet bloquant.
@@ -399,7 +399,7 @@ validation dediee.
 Les points suivants ne font pas partie de l'implementation stabilisee:
 
 - carte interactive;
-- selection autonome generique par `generated_candidates` comme capacite metier
+- selection autonome generique par `dem_network_sampling` comme capacite metier
   stabilisee;
 - selection automatique avancee par sous-bassins, confluences ou ordre de
   Strahler;
@@ -424,7 +424,7 @@ classes ici, avec leur document de rattachement courant.
 | Sujet | Statut courant | Suite a ouvrir |
 | --- | --- | --- |
 | Export aval `regional_lab` | `regional_lab_sites.csv` est produit et reste le pont maintenu vers les workflows aval. | Ajouter seulement des tests de relecture aval si un nouveau consommateur apparait. |
-| Candidats generes depuis DEM | `dem_area_light` est stabilise pour `area_only`; `generated_candidates` reste une capacite de controle. | Ouvrir un chantier separe avant toute promesse produit sur confluences, sous-bassins ou ordre de Strahler. |
+| Candidats generes depuis DEM | `dem_area_target` est stabilise pour `area_only`; `dem_network_sampling` reste une capacite de controle. | Ouvrir un chantier separe avant toute promesse produit sur confluences, sous-bassins ou ordre de Strahler. |
 | Donnees d'influence | `station_influence` exploite les champs Hub'Eau hydrometriques explicites; les couches vectorielles locales peuvent deja fournir des preuves. | Provider ROE/obstacles et BNPE/prelevements a traiter comme providers de donnees separes. |
 | Observations piezometriques et assecs | Les preuves piezometriques fichier sont supportees; ADES complet et ONDE ne sont pas branches. | Definir un contrat de preuve avant d'ajouter des clients fournisseurs. |
 | Geologie et hydrogeologie | Les couches configurees peuvent alimenter les preuves et le rapport; pas de nomenclature publique finale. | Ouvrir un lot BRGM/BDLISA si la selection doit stratifier par typologie nationale. |

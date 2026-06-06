@@ -494,10 +494,10 @@ rapports.
 
 Exemples maintenus dans le depot:
 
-- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_primary.toml`
+- `examples/projects/17_site_selection_workflow/configs/bretagne_jauge_csv_bassins_predelimites_10_1000km2.toml`
   illustre une strategie `observation_led` ou les stations hydrometriques
   pilotent d'abord la generation des candidats ;
-- `examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_area_only.toml`
+- `examples/projects/17_site_selection_workflow/configs/aura_non_jauge_csv_bassins_50_150km2.toml`
   illustre une strategie `criteria_crossing` avec profil `area_only`, ou la
   surface est le seul critere actif.
 
@@ -663,7 +663,7 @@ land_cover_source = "theia_oso"
 # exporte pour que deux selections puissent etre comparees.
 ruleset = "france_site_selection_v1"
 hard_reject = ["dem_coverage", "geometry_validity"]
-soft_score = [
+ranking_preference = [
   "area_preference",
   "observation_support",
   "geology_diversity",
@@ -764,7 +764,7 @@ hard_reject = [
   "flow_station_not_strongly_influenced",
 ]
 warning = ["area_outside_preference", "geology_missing", "piezometry_missing"]
-soft_score = [
+ranking_preference = [
   "record_length",
   "area_preference",
   "geology_diversity",
@@ -848,7 +848,7 @@ hard_reject = [
   "flow_station_not_strongly_influenced",
 ]
 warning = ["area_outside_preference", "geology_missing", "piezometry_missing"]
-soft_score = [
+ranking_preference = [
   "record_length",
   "area_preference",
   "spatial_balance",

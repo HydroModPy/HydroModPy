@@ -52,8 +52,9 @@ la decision court terme.
 
 ### Modes d'entree acceptes
 
-- `site_selection.input.mode = "dem_area_light"` pour generer des candidats
-  depuis le DEM autour d'une surface cible;
+- `site_selection.input.mode = "dem_area_target"` pour le chemin DEM simplifie:
+  chercher des exutoires dont la surface amont est proche d'une surface cible,
+  puis delimiter et selectionner les bassins;
 - `site_selection.input.mode = "delineated_catchments"` pour rejouer un
   inventaire de bassins deja delimites, par exemple une fixture ou un catalogue
   fige.
@@ -64,9 +65,7 @@ Pour un CSV de bassins deja delimites:
 
 ```toml
 [site_selection.strategy]
-principle = "criteria_crossing"
 profile = "area_only"
-primary_axes = ["area"]
 observation_role = "report_only"
 geology_role = "report_only"
 
@@ -79,20 +78,18 @@ min_area_km2 = 75.0
 max_area_km2 = 125.0
 ```
 
-Pour le mode DEM leger:
+Pour le mode DEM par surface cible:
 
 ```toml
 [site_selection.input]
-mode = "dem_area_light"
+mode = "dem_area_target"
 
 [site_selection.strategy]
-principle = "criteria_crossing"
 profile = "area_only"
-primary_axes = ["area"]
 observation_role = "report_only"
 geology_role = "report_only"
 
-[site_selection.dem_area_light]
+[site_selection.dem_area_target]
 target_area_km2 = 100.0
 min_area_km2 = 75.0
 max_area_km2 = 125.0
@@ -100,8 +97,12 @@ n_basins = 10
 max_candidates_before_delineation = 30
 ```
 
-`dem_area_light` doit declarer `strategy.profile = "area_only"` explicitement.
-Le manifest reprend ce profil dans `strategy.effective_profile`.
+`dem_area_target` doit declarer `strategy.profile = "area_only"` explicitement.
+Ce profil infere `principle = "criteria_crossing"` et
+`primary_axes = ["area"]`; le manifest les expose comme valeurs effectives.
+Le manifest reprend aussi ce profil dans `strategy.effective_profile`.
+`region_id` n'est pas requis pour un territoire administratif simple: il est
+derive depuis une seule region ou un seul departement, sauf override explicite.
 
 ### Criteres actifs
 
@@ -114,11 +115,11 @@ optionnelles et non obligatoires dans ce profil.
 
 ### Exemples maintenus
 
-- `examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml`
-- `examples/projects/17_site_selection_workflow/configs/manche_dem_area_light_100km2_fast.toml`
-- `examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_area_only.toml`
+- `examples/projects/17_site_selection_workflow/configs/calvados_non_jauge_dem_10bassins_100km2.toml`
+- `examples/projects/17_site_selection_workflow/configs/manche_non_jauge_dem_10bassins_100km2.toml`
+- `examples/projects/17_site_selection_workflow/configs/aura_non_jauge_csv_50_150km2.toml`
 
-`normandie_dem_area_light_100km2.toml` reste un cas theorique plus lourd. Il ne
+`normandie_non_jauge_dem_50bassins_100km2.toml` reste un cas theorique plus lourd. Il ne
 doit pas etre utilise comme test rapide de non-regression.
 
 ## Profil `gauged_downstream_station`
@@ -144,18 +145,16 @@ station restent coherents.
 [site_selection.input]
 mode = "hydrometry"
 
-[site_selection.strategy]
-principle = "observation_led"
-profile = "gauged_downstream_station"
-primary_observation_type = "flow_station"
-observation_source = "hubeau_hydrometrie"
-candidate_mode = "station_outlets"
-
 [site_selection.outlets]
-candidate_mode = "station_outlets"
 snap_strategy = "dem_accumulation"
-snap_dist_m = 150
+dem_snap_max_distance_m = 150
 ```
+
+Le mode `hydrometry` infere `profile = "gauged_downstream_station"`,
+`principle = "observation_led"`,
+`primary_observation_type = "flow_station"` et
+`candidate_mode = "station_outlets"`; ces champs restent exposes dans les
+manifests et les audits comme valeurs effectives.
 
 Le profil accepte aussi:
 
@@ -163,7 +162,7 @@ Le profil accepte aussi:
 [site_selection.outlets]
 snap_strategy = "bdtopage_then_dem"
 reference_network_source = "bdtopage"
-reference_network_max_distance_m = 100.0
+reference_network_snap_max_distance_m = 100.0
 ```
 
 BD Topage est alors un support technique de localisation de l'exutoire avant le
@@ -217,9 +216,9 @@ metadonnees Hub'Eau hydrometriques. Sa doctrine est volontairement stricte:
 
 ### Exemples maintenus
 
-- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml`
-- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small.toml`
-- `examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_hydrometry_preview.toml`
+- `examples/projects/17_site_selection_workflow/configs/bretagne_jauge_7stations.toml`
+- `examples/projects/17_site_selection_workflow/configs/finistere_jauge_elorn_dem.toml`
+- `examples/projects/17_site_selection_workflow/configs/aura_jauge_5stations.toml`
 
 Les variantes Corse et AURA completes sont utiles, mais elles ne doivent pas
 etre les tests rapides de stabilisation car elles peuvent etre plus longues ou
@@ -242,7 +241,7 @@ Un run execute doit produire:
 - `selected_basins.geojson`;
 - `rejected_basins.geojson`;
 - `review/index.html` et `review/site_selection_map.png` quand
-  `write_report_html = true`.
+  `[report.html] build_at_end = true`.
 
 Les sorties GPKG et GeoParquet sont des sorties de production optionnelles. Les
 tests unitaires doivent continuer a verifier qu'elles s'ecrivent quand les
@@ -261,9 +260,9 @@ Le contrat d'audit court terme est:
   `EvidenceRecord` dans `site_selection_evidence.jsonl`;
 - les decisions peuvent porter un `evidence_ref` quand une preuve concrete
   existe;
-- le manifest expose `strategy.effective_profile`; les runs maintenus doivent
-  declarer leur profil explicitement (`area_only` ou
-  `gauged_downstream_station`).
+- le manifest expose `strategy.effective_profile`; les runs `area_only`
+  declarent leur profil explicitement, tandis que `mode = "hydrometry"`
+  infere `gauged_downstream_station`.
 
 ## Hors perimetre immediat
 
@@ -309,12 +308,12 @@ Validation executee le 2026-05-26:
 - lint cible `site_selection` passe;
 - `tests/unit/site_selection` passe;
 - `tests/unit/launchers/test_site_selection_bridge_examples.py` passe;
-- l'exemple `calvados_dem_area_light_100km2_fast.toml` produit 26 candidats,
+- l'exemple `calvados_non_jauge_dem_10bassins_100km2.toml` produit 26 candidats,
   10 sites selectionnes, 16 rejetes et le rapport
-  `examples/projects/17_site_selection_workflow/outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`;
-- l'exemple `bretagne_hydrometry_50_500_small_bdtopage.toml` produit 6
+  `examples/projects/17_site_selection_workflow/outputs/calvados_non_jauge_dem_100km2_v1/review/index.html`;
+- l'exemple `bretagne_jauge_7stations.toml` produit 6
   candidats, 6 sites selectionnes, 0 rejete et le rapport
-  `examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`.
+  `examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/index.html`.
 
 Les deux manifests exposent `strategy.effective_profile`. La refonte de
 structure et la suppression des alias historiques peuvent donc etre considerees
