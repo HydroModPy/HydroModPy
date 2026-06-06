@@ -40,7 +40,7 @@ un exutoire candidat, puis un bassin est delimite autour de cet exutoire.
   automatiquement des exutoires dont le bassin amont est proche d'une surface
   cible, puis retient les bassins les mieux classes.
 - `dem_network_sampling`: echantillonnage avance du reseau DEM. Le workflow
-  expose les controles de generation d'exutoires (`candidate_mode`,
+  expose les controles de construction d'exutoires (`candidate_mode`,
   distances, nombre maximal de candidats) avant la delimitation et la selection.
 - `dry_run`: le workflow valide la configuration et ecrit le plan
   d'execution/rapport, sans charger les observations, generer de candidats ni
@@ -151,7 +151,7 @@ Principe:
   `max_area_km2`, pour que la configuration reste lisible ;
 - les contours de bassins sont recalcules depuis les exutoires avec le DEM IGN
   BD ALTI ;
-- le DEM de calcul reste limite aux exutoires pour eviter une generation de
+- le DEM de calcul reste limite aux exutoires pour eviter la construction de
   produits hydrologiques sur toute la Bretagne ;
 - le rapport cartographique recharge le DEM regional pour replacer les bassins
   dans leur contexte ;
@@ -419,7 +419,7 @@ Les piezometres dans le bassin, ou proches de l'exutoire si
 `piezometer_evidence.jsonl`, `observation_evidence.jsonl` et
 `observation_points.geojson`.
 
-Un mode avance de generation de candidats existe pour les campagnes sans CSV de
+Un mode avance de construction de candidats existe pour les campagnes sans CSV de
 bassins et sans stations comme entrees. Contrairement a `dem_area_target`, il ne
 cherche pas directement une surface cible: il echantillonne des cellules du
 reseau DEM selon les controles de `[site_selection.outlets]`. Il reste teste,
@@ -503,7 +503,7 @@ examples/projects/17_site_selection_workflow/outputs/calvados_non_jauge_dem_100k
 
 Cet exemple sert a tester rapidement le chemin DEM automatique sur un domaine
 reel plus petit que la Normandie. Il ne garantit pas encore une selection
-hydrologiquement optimale: il sert surtout a verifier que la generation de
+hydrologiquement optimale: il sert surtout a verifier que la construction de
 candidats, la delimitation, les rejets et le rapport tournent sans lancer un
 cas regional lourd.
 

@@ -14925,7 +14925,6 @@
           },
           "outlets": {
             "$ref": "#/components/schemas/OutletsConfig",
-            "description": "Candidate outlet generation settings.",
             "x-hmp-profile": "user"
           },
           "spatial_selection": {
@@ -15571,7 +15570,7 @@
       },
       "StrategyConfig": {
         "additionalProperties": false,
-        "description": "High-level strategy controlling candidate generation and criterion order.",
+        "description": "High-level strategy controlling candidate construction and criterion order.",
         "properties": {
           "principle": {
             "anyOf": [
@@ -15682,7 +15681,7 @@
               }
             ],
             "default": null,
-            "description": "Effective strategy-level outlet generation mode. Inferred as 'station_outlets' for observation-led workflows that use already loaded observation/outlet point records; otherwise leave unset to use [site_selection.outlets].candidate_mode.",
+            "description": "Effective strategy-level outlet construction mode. Inferred as 'station_outlets' for observation-led workflows that use already loaded observation/outlet point records; otherwise leave unset to use [site_selection.outlets].candidate_mode.",
             "title": "Candidate Mode",
             "x-hmp-profile": "user"
           }

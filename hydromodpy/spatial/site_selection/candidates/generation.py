@@ -1,4 +1,4 @@
-"""DEM-network candidate generation for site selection."""
+"""DEM-network candidate construction for site selection."""
 
 from __future__ import annotations
 

@@ -17,7 +17,7 @@ The package is responsible for:
 - the official `site_selection_manifest.json` contract;
 - the generic `report_artifact_manifest.json` report-artifact contract;
 - downstream hand-off references for catalog consumers;
-- an optional static HTML review page generated from the manifest.
+- an optional static HTML review page built from the manifest.
 
 The package is not responsible for:
 
@@ -82,7 +82,7 @@ only stable workflow entrypoints, manifest helpers and report renderers.
 
 - `config/`: Pydantic configuration and validation models.
 - `domain/`: shared domain records that are not tied to one processing phase.
-- `candidates/`: candidate outlet records, DEM/network generation,
+- `candidates/`: candidate outlet records, DEM/network candidate builders,
   station-led candidate building, thinning, and reference-network snapping.
 - `hydrology/`: thin adapters to existing DEM flow-product and
   catchment-from-point utilities, plus batch delineation.
@@ -186,7 +186,7 @@ with the normal area and spatial criteria.
 DEM network sampling runs use `site_selection.input.mode =
 "dem_network_sampling"` with `site_selection.outlets.candidate_mode =
 "network_sampling"`. This is the lower-level stream-network sampling path: it
-exposes outlet-generation controls such as spacing, candidate caps and optional
+exposes outlet-construction controls such as spacing, candidate caps and optional
 reference-network scoring. It remains outside the short-term stable business
 contract, but it is kept as a tested capability. It writes the normal selection
 outputs plus:
@@ -204,7 +204,7 @@ Topage/custom reference network is loaded, candidates also carry
 `reference_network_distance_m`, `reference_network_score` and
 `reference_network_status`.
 
-Generated DEM candidates and their exported DEM network are clipped to the
+DEM-derived candidates and their exported DEM network are clipped to the
 configured territory by default (`territory.clip_to_territory = true`). For
 French administrative territories, this uses the union of department or region
 geometries rather than only the rectangular DEM extent, which avoids sampling
@@ -237,7 +237,7 @@ Observation points are derived from normalized evidence, not from provider-
 specific raw schemas. This allows the same review map to symbolize flow stations,
 piezometers or future observation types once their coordinates are available.
 
-The HTML map is a figure of control. It is generated from the manifest-declared
+The HTML map is a figure of control. It is built from the manifest-declared
 GeoJSON artifacts, colors selected basin contours by area class with light
 fills and thin edges, and uses separate symbols for selected outlets, rejected
 outlets when present, flow stations, piezometers and future observation point

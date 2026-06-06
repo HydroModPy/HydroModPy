@@ -588,7 +588,7 @@ Sub-models are linked back to their per-section page.
       # dem_area_target = ...  # default = None
       # Execution input selector used by the site-selection workflow.
       # input = ...  # uses factory default
-      # Candidate outlet generation settings.
+      # Candidate outlet construction settings.
       # outlets = ...  # uses factory default
       # Spatial thinning and overlap policy.
       # spatial_selection = ...  # uses factory default

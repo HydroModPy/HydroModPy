@@ -21,7 +21,7 @@ from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCa
 
 @dataclass(frozen=True)
 class CatchmentAnnotationResult:
-    """Annotated catchments and the evidence generated during annotation."""
+    """Annotated catchments and the evidence produced during annotation."""
 
     catchments: list[DelineatedCatchment]
     influence_evidence: list[InfluenceEvidence]

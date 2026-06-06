@@ -7453,25 +7453,25 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-selection-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1167>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1168>`__
    * - ``site_selection.output_root``
      - ``Path``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1175>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1176>`__
    * - ``site_selection.random_seed``
      - ``int | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-random-seed>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1184>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1185>`__
    * - ``site_selection.strategy``
      - ``StrategyConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-strategy>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1188>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1189>`__
    * - ``site_selection.strategy.principle``
      - ``Optional[Literal['observation_led', 'criteria_crossing']]``
      - user
@@ -7519,7 +7519,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-territory>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1189>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1190>`__
    * - ``site_selection.territory.mode``
      - ``Literal['admin_regions', 'admin_departments', 'polygon_file', 'bbox']``
      - user
@@ -7567,7 +7567,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-dem>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1193>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1194>`__
    * - ``site_selection.dem.source``
      - ``Optional[Literal['custom', 'data_manager', 'ign_geoplateforme_dem']]``
      - user
@@ -7621,7 +7621,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-hydrology>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1197>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1198>`__
    * - ``site_selection.hydrology.flow_algorithm``
      - ``Literal['d8']``
      - user
@@ -7651,7 +7651,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-dem-area-target>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1201>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1202>`__
    * - ``site_selection.dem_area_target.target_area_km2``
      - ``float``
      - user
@@ -7687,7 +7687,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-input>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1205>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1206>`__
    * - ``site_selection.input.mode``
      - ``Literal['dry_run', 'hydrometry', 'delineated_catchments', 'dem_network_sampling', 'dem_area_target']``
      - user
@@ -7699,43 +7699,43 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-input-catchments-csv>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L579>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L580>`__
    * - ``site_selection.input.region_id``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-input-region-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L583>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L584>`__
    * - ``site_selection.input.workspace_root``
      - ``Path | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-input-workspace-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L593>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L594>`__
    * - ``site_selection.input.data_root``
      - ``Path | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-input-data-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L597>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L598>`__
    * - ``site_selection.input.write_plan_manifest``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-input-write-plan-manifest>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L601>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L602>`__
    * - ``site_selection.input.delineate_from_outlets``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-input-delineate-from-outlets>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L605>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L606>`__
    * - ``site_selection.outlets``
      - ``OutletsConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-outlets>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1209>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1210>`__
    * - ``site_selection.outlets.candidate_mode``
      - ``Literal['network_sampling', 'station_outlets']``
      - user
@@ -7831,7 +7831,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-spatial-selection>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1213>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1214>`__
    * - ``site_selection.spatial_selection.max_selected_sites``
      - ``int | None``
      - user
@@ -7891,487 +7891,487 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1217>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1218>`__
    * - ``site_selection.criteria.ruleset``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-ruleset>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1003>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1004>`__
    * - ``site_selection.criteria.hard_reject``
      - ``list[str]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-hard-reject>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1010>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1011>`__
    * - ``site_selection.criteria.warning``
      - ``list[str]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-warning>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1018>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1019>`__
    * - ``site_selection.criteria.ranking_preference``
      - ``list[str]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-ranking-preference>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1026>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1027>`__
    * - ``site_selection.criteria.report_only``
      - ``list[str]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-report-only>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1033>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1034>`__
    * - ``site_selection.criteria.area``
      - ``AreaCriteriaConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1040>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1041>`__
    * - ``site_selection.criteria.area.mode``
      - ``Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L652>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L653>`__
    * - ``site_selection.criteria.area.target_area_km2``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-target-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L656>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L657>`__
    * - ``site_selection.criteria.area.preferred_area_km2``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-preferred-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L661>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L662>`__
    * - ``site_selection.criteria.area.score_half_width_fraction``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-score-half-width-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L666>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L667>`__
    * - ``site_selection.criteria.area.hard_min_area_km2``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-hard-min-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L671>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L672>`__
    * - ``site_selection.criteria.area.hard_max_area_km2``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-hard-max-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L676>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L677>`__
    * - ``site_selection.criteria.area.ranges``
      - ``list[AreaRangeConfig]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-ranges>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L681>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L682>`__
    * - ``site_selection.criteria.area.ranges.range_id``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-ranges-range-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L623>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L624>`__
    * - ``site_selection.criteria.area.ranges.label``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-ranges-label>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L627>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L628>`__
    * - ``site_selection.criteria.area.ranges.min_area_km2``
      - ``float``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-ranges-min-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L631>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L632>`__
    * - ``site_selection.criteria.area.ranges.max_area_km2``
      - ``float``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-area-ranges-max-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L636>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L637>`__
    * - ``site_selection.criteria.observations``
      - ``ObservationsCriteriaConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1044>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1045>`__
    * - ``site_selection.criteria.observations.flow_station_mode``
      - ``Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-flow-station-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L847>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L848>`__
    * - ``site_selection.criteria.observations.flow_station_max_distance_km``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-flow-station-max-distance-km>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L854>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L855>`__
    * - ``site_selection.criteria.observations.piezometer_mode``
      - ``Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L862>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L863>`__
    * - ``site_selection.criteria.observations.piezometer_max_distance_km``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-max-distance-km>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L866>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L867>`__
    * - ``site_selection.criteria.observations.flow_station``
      - ``FlowStationCriteriaConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-flow-station>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L871>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L872>`__
    * - ``site_selection.criteria.observations.flow_station.mode``
      - ``Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-flow-station-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L717>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L718>`__
    * - ``site_selection.criteria.observations.flow_station.min_record_years``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-flow-station-min-record-years>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L726>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L727>`__
    * - ``site_selection.criteria.observations.flow_station.max_station_to_outlet_distance_km``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-flow-station-max-station-to-outlet-distance-km>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L731>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L732>`__
    * - ``site_selection.criteria.observations.flow_station.require_station_inside_or_at_outlet``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-flow-station-require-station-inside-or-at-outlet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L739>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L740>`__
    * - ``site_selection.criteria.observations.station_influence``
      - ``StationInfluenceCriteriaConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L879>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L880>`__
    * - ``site_selection.criteria.observations.station_influence.mode``
      - ``Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L751>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L752>`__
    * - ``site_selection.criteria.observations.station_influence.source``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L758>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L759>`__
    * - ``site_selection.criteria.observations.station_influence.warn_if_general_influence``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence-warn-if-general-influence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L765>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L766>`__
    * - ``site_selection.criteria.observations.station_influence.warn_if_local_influence``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence-warn-if-local-influence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L772>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L773>`__
    * - ``site_selection.criteria.observations.station_influence.warn_if_comment_keyword``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence-warn-if-comment-keyword>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L779>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L780>`__
    * - ``site_selection.criteria.observations.station_influence.unknown_policy``
      - ``Literal['neutral', 'warning']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence-unknown-policy>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L786>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L787>`__
    * - ``site_selection.criteria.observations.station_influence.comment_keywords``
      - ``list[str]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-station-influence-comment-keywords>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L794>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L795>`__
    * - ``site_selection.criteria.observations.piezometer_layers``
      - ``list[PiezometerLayerConfig]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-layers>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L883>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L884>`__
    * - ``site_selection.criteria.observations.piezometer_layers.name``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-layers-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L817>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L818>`__
    * - ``site_selection.criteria.observations.piezometer_layers.path``
      - ``Path``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-layers-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L822>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L823>`__
    * - ``site_selection.criteria.observations.piezometer_layers.id_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-layers-id-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L826>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L827>`__
    * - ``site_selection.criteria.observations.piezometer_layers.label_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-layers-label-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L830>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L831>`__
    * - ``site_selection.criteria.observations.piezometer_layers.record_years_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-layers-record-years-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L834>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L835>`__
    * - ``site_selection.criteria.observations.piezometer_layers.quality_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-observations-piezometer-layers-quality-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L838>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L839>`__
    * - ``site_selection.criteria.influence``
      - ``InfluenceCriteriaConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1048>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1049>`__
    * - ``site_selection.criteria.influence.mode``
      - ``Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L929>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L930>`__
    * - ``site_selection.criteria.influence.reject_major_dam_upstream``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-reject-major-dam-upstream>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L933>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L934>`__
    * - ``site_selection.criteria.influence.reject_major_withdrawal_upstream``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-reject-major-withdrawal-upstream>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L937>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L938>`__
    * - ``site_selection.criteria.influence.reject_major_regulated_reach``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-reject-major-regulated-reach>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L941>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L942>`__
    * - ``site_selection.criteria.influence.influence_search_radius_km``
      - ``float | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-influence-search-radius-km>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L945>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L946>`__
    * - ``site_selection.criteria.influence.layers``
      - ``list[InfluenceLayerConfig]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L950>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L951>`__
    * - ``site_selection.criteria.influence.layers.name``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L892>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L893>`__
    * - ``site_selection.criteria.influence.layers.path``
      - ``Path``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L897>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L898>`__
    * - ``site_selection.criteria.influence.layers.influence_type``
      - ``Literal['major_dam_upstream', 'major_withdrawal_upstream', 'major_regulated_reach']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers-influence-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L901>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L902>`__
    * - ``site_selection.criteria.influence.layers.id_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers-id-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L905>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L906>`__
    * - ``site_selection.criteria.influence.layers.label_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers-label-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L909>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L910>`__
    * - ``site_selection.criteria.influence.layers.severity_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers-severity-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L913>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L914>`__
    * - ``site_selection.criteria.influence.layers.major_values``
      - ``list[str]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-influence-layers-major-values>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L917>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L918>`__
    * - ``site_selection.criteria.geology``
      - ``GeologyCriteriaConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1052>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1053>`__
    * - ``site_selection.criteria.geology.mode``
      - ``Literal['hard_reject', 'warning', 'score', 'stratify', 'report_only']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L986>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L987>`__
    * - ``site_selection.criteria.geology.prefer_diversity``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-prefer-diversity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L990>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L991>`__
    * - ``site_selection.criteria.geology.layers``
      - ``list[GeologyLayerConfig]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-layers>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L994>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L995>`__
    * - ``site_selection.criteria.geology.layers.name``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-layers-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L959>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L960>`__
    * - ``site_selection.criteria.geology.layers.path``
      - ``Path``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-layers-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L964>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L965>`__
    * - ``site_selection.criteria.geology.layers.class_field``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-layers-class-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L968>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L969>`__
    * - ``site_selection.criteria.geology.layers.id_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-layers-id-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L973>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L974>`__
    * - ``site_selection.criteria.geology.layers.label_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-criteria-geology-layers-label-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L977>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L978>`__
    * - ``site_selection.output``
      - ``OutputConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1221>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1222>`__
    * - ``site_selection.output.write_rejected``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-write-rejected>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1080>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1081>`__
    * - ``site_selection.output.write_selected``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-write-selected>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1084>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1085>`__
    * - ``site_selection.output.write_geojson``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-write-geojson>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1088>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1089>`__
    * - ``site_selection.output.write_geoparquet``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-write-geoparquet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1092>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1093>`__
    * - ``site_selection.output.write_geopackage``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-write-geopackage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1096>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1097>`__
    * - ``site_selection.output.write_csv``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-write-csv>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1101>`__
    * - ``site_selection.output.write_regional_lab_csv``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-write-regional-lab-csv>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1104>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1105>`__
    * - ``site_selection.output.keep_intermediate_rasters``
      - ``bool``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-output-keep-intermediate-rasters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1109>`__
    * - ``site_selection.map_context``
      - ``MapContextConfig``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-map-context>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1225>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1226>`__
    * - ``site_selection.map_context.layers``
      - ``list[MapContextLayerConfig]``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-map-context-layers>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1142>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1143>`__
    * - ``site_selection.map_context.layers.name``
      - ``str``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-map-context-layers-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1120>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1121>`__
    * - ``site_selection.map_context.layers.path``
      - ``Path``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-map-context-layers-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1125>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1126>`__
    * - ``site_selection.map_context.layers.role``
      - ``Literal['territory', 'hydrography', 'geology', 'other']``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-map-context-layers-role>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1129>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1130>`__
    * - ``site_selection.map_context.layers.label_field``
      - ``str | None``
      - user
      - -
      - `site_selection <site_selection.html#site-selection-map-context-layers-label-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1133>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1134>`__
    * - ``hydrometry.date_start``
      - ``str | None``
      - user

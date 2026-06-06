@@ -1,3 +1,3 @@
-"""Candidate outlet construction and generation."""
+"""Candidate outlet construction."""
 
 __all__ = []
