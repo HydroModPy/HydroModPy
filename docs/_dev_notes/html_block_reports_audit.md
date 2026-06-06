@@ -62,7 +62,7 @@ et verifier que la chaine produit les donnees, les figures et les HTML.
 Configuration testee:
 
 ```text
-examples/projects/17_site_selection_workflow/configs/corse_hydrometry_preview_block_probe.toml
+examples/projects/17_site_selection_workflow/configs/corse_jauge_5stations_block_probe.toml
 ```
 
 La configuration ne fixe plus de `data_root` explicite et ne pointe pas vers un
@@ -76,15 +76,15 @@ DEM prepare a la main. Elle demande:
 Commandes relancees:
 
 ```powershell
-python -m hydromodpy dev config check examples\projects\17_site_selection_workflow\configs\corse_hydrometry_preview_block_probe.toml
-python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_hydrometry_preview_block_probe.toml --dry-run --no-lock
-python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_hydrometry_preview_block_probe.toml --no-lock
+python -m hydromodpy dev config check examples\projects\17_site_selection_workflow\configs\corse_jauge_5stations_block_probe.toml
+python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_jauge_5stations_block_probe.toml --dry-run --no-lock
+python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_jauge_5stations_block_probe.toml --no-lock
 ```
 
 Resultat:
 
 ```text
-selection_id: corse_hydrometry_preview_block_probe_v2
+selection_id: corse_jauge_5stations_blocks_v1
 candidates: 5
 selected: 4
 rejected: 1
@@ -93,7 +93,7 @@ rejected: 1
 Sortie principale:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/corse_hydrometry_preview_block_probe_v2/review/index.html
+examples/projects/17_site_selection_workflow/outputs/corse_jauge_5stations_blocks_v1/review/index.html
 ```
 
 Verification HTML:
@@ -111,13 +111,13 @@ Verification HTML:
 Le manifest expose maintenant le `data_root` effectivement utilise:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/corse_hydrometry_preview_block_probe_v2/data
+examples/projects/17_site_selection_workflow/outputs/corse_jauge_5stations_blocks_v1/data
 ```
 
 Le DEM traite utilise par le run est egalement sous ce dossier de sortie:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/corse_hydrometry_preview_block_probe_v2/data/dem/processed/
+examples/projects/17_site_selection_workflow/outputs/corse_jauge_5stations_blocks_v1/data/dem/processed/
 ```
 
 Corrections de code realisees pour rendre ce test autonome:
@@ -183,11 +183,11 @@ Cas relances completement et HTML produits:
 
 | Cas | Selection | Rejet | HTML |
 | --- | ---: | ---: | --- |
-| Bretagne small DEM | 7 | 0 | `outputs/bretagne_hydrometry_50_500_small_v1/review/index.html` |
-| Bretagne small BD Topage | 7 | 0 | `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html` |
-| Corse hydrometrie | 4 | 1 | `outputs/corse_hydrometry_preview_block_probe_v2/review/index.html` |
-| Corse surface | 3 | 2 | `outputs/corse_surface_probe_v1/review/index.html` |
-| AURA surface | 20 | 0 | `outputs/aura_area_only_v1/review/index.html` |
+| Finistere DEM | 1 | 0 | `outputs/finistere_jauge_elorn_dem_v1/review/index.html` |
+| Bretagne BD Topage | 7 | 0 | `outputs/bretagne_jauge_7stations_v1/review/index.html` |
+| Corse hydrometrie | 4 | 1 | `outputs/corse_jauge_5stations_blocks_v1/review/index.html` |
+| Corse CSV | 3 | 2 | `outputs/corse_non_jauge_csv_30_500km2_v1/review/index.html` |
+| AURA surface | 20 | 0 | `outputs/aura_non_jauge_csv_50_150km2_v1/review/index.html` |
 
 Verification des cinq HTML:
 
@@ -200,17 +200,17 @@ Verification des cinq HTML:
 
 Cas non valide dans cette relance:
 
-- `aura_hydrometry_preview_v1` possede une ancienne sortie HTML globale, mais
+- `aura_jauge_5stations_v1` possede une ancienne sortie HTML globale, mais
   le run actuel n'a pas abouti dans la fenetre de temps disponible. Sa
-  configuration utilise `request_extent = "territory"` pour la preparation
+  configuration utilisait `delineation_dem_extent_source = "selection_territory"` pour la preparation
   hydrologique, ce qui rend le preview trop lourd. Pour en faire un vrai cas de
   demonstration rapide, il faut le rapprocher du pattern Corse/Bretagne:
-  `request_extent = "outlets"` pour la delimitation et
-  `map_background_extent = "territory"` pour la carte.
+  `delineation_dem_extent_source = "candidate_outlets_bbox"` pour la delimitation et
+  `site_selection.review_map.dem_background = "territory_dem"` pour la carte.
 
 Travaux site-selection restants:
 
-- rendre `auvergne_rhone_alpes_hydrometry_preview.toml` vraiment preview;
+- rendre `aura_jauge_5stations.toml` vraiment demonstratif;
 - decider si les gros inventaires regionaux doivent etre des exemples
   interactifs ou des jobs longs/nightly;
 - ajouter un smoke test optionnel qui verifie, pour les exemples courts, la
@@ -260,10 +260,10 @@ hydromodpy/spatial/site_selection/plan_report.py
 Le rapport execute Bretagne a ete regenere:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/index.html
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/compact/index.html
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/standard/index.html
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/audit/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/compact/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/standard/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/audit/index.html
 ```
 
 Verification HTML:

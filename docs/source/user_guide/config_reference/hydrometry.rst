@@ -9,7 +9,7 @@ TOML section: ``[hydrometry]``
 
 Pydantic model: ``HydrometryConfig`` defined in ``hydromodpy.data.variables.hydrometry.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L72>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L73>`__
 
 Top-level hydrometry configuration.
 
@@ -40,9 +40,9 @@ Fields
         <code class="hmp-field-name">date_start</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
 
-      Project start date (ISO format, e.g. '2019-01-01').
+      Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
    **Example:** ``"2019-01-01"``
 
@@ -56,9 +56,9 @@ Fields
         <code class="hmp-field-name">date_end</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L107>`__
 
-      Project end date (ISO format, e.g. '2025-12-31').
+      End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
    **Example:** ``"2025-12-31"``
 
@@ -74,7 +74,7 @@ Fields
         <code class="hmp-field-toml">[[hydrometry.sources]]</code>
       </div>
 
-   :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82>`__
+   :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L83>`__
 
       At least one data source.
 
@@ -109,7 +109,7 @@ Fields
 
          :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
-            Explicit station identifiers to load (custom source).
+            Explicit station identifiers to load from the selected provider.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -308,7 +308,7 @@ Fields
             Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').
 
 
-      .. container:: hmp-field hmp-field-level-dev
+      .. container:: hmp-field hmp-field-level-user
          :name: hydrometry-sources-require-observations
 
          .. raw:: html
@@ -317,9 +317,9 @@ Fields
               <code class="hmp-field-name">require_observations</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
 
-            Only keep stations that have observations in the period.
+            Only keep stations that have observations in the configured period.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -331,7 +331,7 @@ Fields
               <code class="hmp-field-name">max_stations</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L51>`__
 
             Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory.
 
@@ -363,6 +363,7 @@ Starter TOML snippet
       # source = ""  # REQUIRED
       # path = ...  # default = None
       # product = ...  # default = None
+      # require_observations = true
       # max_stations = ...  # default = None
 
 Entity-relationship diagram

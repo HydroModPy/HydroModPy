@@ -8,8 +8,8 @@
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L94",
-    "description": "Workflow mode dispatched by `hmp run`."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L96",
+    "description": "Workflow entry point used by `hmp run`: selects which workflow implementation parses the rest of the TOML, for example 'simulation', 'comparison', 'testbed', or 'site_selection'."
   },
   {
     "path": "workspace.project_root",
@@ -1109,7 +1109,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L144",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L147",
     "description": "At least one DEM data source."
   },
   {
@@ -1181,7 +1181,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-mask-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81",
     "description": ""
   },
   {
@@ -1193,7 +1193,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-extent",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81",
     "description": ""
   },
   {
@@ -1205,7 +1205,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-force-refresh",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81",
     "description": ""
   },
   {
@@ -1217,7 +1217,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-departments",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81",
     "description": ""
   },
   {
@@ -1229,7 +1229,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-country",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81",
     "description": ""
   },
   {
@@ -1241,7 +1241,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-regions",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81",
     "description": ""
   },
   {
@@ -1253,7 +1253,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-source",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L84",
     "description": ""
   },
   {
@@ -1265,7 +1265,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-dataset",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L85",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L88",
     "description": ""
   },
   {
@@ -1277,31 +1277,31 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-resolution-m",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L96",
     "description": ""
   },
   {
     "path": "data.dem.sources.ign_geoplateforme_dem.file_format",
     "name": "file_format",
     "type": "str",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-file-format",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L103",
     "description": ""
   },
   {
     "path": "data.dem.sources.ign_geoplateforme_dem.crs",
     "name": "crs",
     "type": "str | None",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L104",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L107",
     "description": ""
   },
   {
@@ -1733,8 +1733,8 @@
     "section": "data",
     "anchor": "data-hydrometry-date-start",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -1748,8 +1748,8 @@
     "section": "data",
     "anchor": "data-hydrometry-date-end",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L107",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -1763,7 +1763,7 @@
     "section": "data",
     "anchor": "data-hydrometry-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L83",
     "description": "At least one data source."
   },
   {
@@ -1788,7 +1788,7 @@
     "anchor": "data-hydrometry-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.hydrometry.sources.extent",
@@ -1962,13 +1962,13 @@
     "path": "data.hydrometry.sources.require_observations",
     "name": "require_observations",
     "type": "bool",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "data",
     "anchor": "data-hydrometry-sources-require-observations",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47",
-    "description": "Only keep stations that have observations in the period."
+    "description": "Only keep stations that have observations in the configured period."
   },
   {
     "path": "data.hydrometry.sources.max_stations",
@@ -1979,7 +1979,7 @@
     "section": "data",
     "anchor": "data-hydrometry-sources-max-stations",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L51",
     "description": "Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory."
   },
   {
@@ -2004,7 +2004,7 @@
     "anchor": "data-intermittency-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L61",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -2019,7 +2019,7 @@
     "anchor": "data-intermittency-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L61",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -2058,7 +2058,7 @@
     "anchor": "data-intermittency-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.intermittency.sources.extent",
@@ -2262,7 +2262,7 @@
     "anchor": "data-oceanic-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -2277,7 +2277,7 @@
     "anchor": "data-oceanic-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -2316,7 +2316,7 @@
     "anchor": "data-oceanic-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.oceanic.sources.extent",
@@ -2532,7 +2532,7 @@
     "anchor": "data-piezometry-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L66",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -2547,7 +2547,7 @@
     "anchor": "data-piezometry-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L66",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -2586,7 +2586,7 @@
     "anchor": "data-piezometry-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.piezometry.sources.extent",
@@ -2802,7 +2802,7 @@
     "anchor": "data-water-quality-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L69",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -2817,7 +2817,7 @@
     "anchor": "data-water-quality-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L69",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -2856,7 +2856,7 @@
     "anchor": "data-water-quality-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.water_quality.sources.extent",
@@ -3072,7 +3072,7 @@
     "anchor": "data-recharge-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L129",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3087,7 +3087,7 @@
     "anchor": "data-recharge-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L130",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3114,7 +3114,7 @@
     "anchor": "data-recharge-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.recharge.sources.extent",
@@ -3390,7 +3390,7 @@
     "anchor": "data-runoff-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3405,7 +3405,7 @@
     "anchor": "data-runoff-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3432,7 +3432,7 @@
     "anchor": "data-runoff-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.runoff.sources.extent",
@@ -3612,7 +3612,7 @@
     "anchor": "data-precipitation-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3627,7 +3627,7 @@
     "anchor": "data-precipitation-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3654,7 +3654,7 @@
     "anchor": "data-precipitation-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.precipitation.sources.extent",
@@ -3846,7 +3846,7 @@
     "anchor": "data-etp-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -3861,7 +3861,7 @@
     "anchor": "data-etp-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -3888,7 +3888,7 @@
     "anchor": "data-etp-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.etp.sources.extent",
@@ -4092,7 +4092,7 @@
     "anchor": "data-temperature-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4107,7 +4107,7 @@
     "anchor": "data-temperature-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4134,7 +4134,7 @@
     "anchor": "data-temperature-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.temperature.sources.extent",
@@ -4314,7 +4314,7 @@
     "anchor": "data-wind-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4329,7 +4329,7 @@
     "anchor": "data-wind-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4356,7 +4356,7 @@
     "anchor": "data-wind-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.wind.sources.extent",
@@ -4536,7 +4536,7 @@
     "anchor": "data-humidity-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4551,7 +4551,7 @@
     "anchor": "data-humidity-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4578,7 +4578,7 @@
     "anchor": "data-humidity-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.humidity.sources.extent",
@@ -4758,7 +4758,7 @@
     "anchor": "data-radiation-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L59",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -4773,7 +4773,7 @@
     "anchor": "data-radiation-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L59",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -4800,7 +4800,7 @@
     "anchor": "data-radiation-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.radiation.sources.extent",
@@ -4992,7 +4992,7 @@
     "anchor": "data-soil-moisture-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -5007,7 +5007,7 @@
     "anchor": "data-soil-moisture-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -5034,7 +5034,7 @@
     "anchor": "data-soil-moisture-sources-station-ids",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "data.soil_moisture.sources.extent",
@@ -10370,6 +10370,78 @@
     "description": "Export browser-friendly concentration animation."
   },
   {
+    "path": "report.html",
+    "name": "html",
+    "type": "HtmlReportConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "report",
+    "anchor": "report-html",
+    "page": "report.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/report_config.py#L63",
+    "description": "Optional HTML report intent and artifact contract."
+  },
+  {
+    "path": "report.html.enabled",
+    "name": "enabled",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "report",
+    "anchor": "report-html-enabled",
+    "page": "report.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/report_config.py#L19",
+    "description": "Prepare artifacts required by the selected HTML report profile. When omitted, build_at_end=true also enables artifact preparation."
+  },
+  {
+    "path": "report.html.build_at_end",
+    "name": "build_at_end",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "report",
+    "anchor": "report-html-build-at-end",
+    "page": "report.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/report_config.py#L26",
+    "description": "Request end-of-run report handling. This implies enabled=true; workflow-specific builders can use it to write the final HTML."
+  },
+  {
+    "path": "report.html.profile",
+    "name": "profile",
+    "type": "Literal['catchment_gauged', 'generic_simulation', 'site_selection']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "report",
+    "anchor": "report-html-profile",
+    "page": "report.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/report_config.py#L33",
+    "description": "Report profile declaring the required and optional artifacts."
+  },
+  {
+    "path": "report.html.config_path",
+    "name": "config_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "report",
+    "anchor": "report-html-config-path",
+    "page": "report.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/report_config.py#L37",
+    "description": "Optional workflow-specific report TOML. For profile='catchment_gauged', this points to the catchment report layout/config used after the simulation has produced its artifacts."
+  },
+  {
+    "path": "report.html.strict",
+    "name": "strict",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "report",
+    "anchor": "report-html-strict",
+    "page": "report.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/report_config.py#L45",
+    "description": "Fail report postflight when required artifacts are missing. Defaults to false so ordinary runs can produce partial reports."
+  },
+  {
     "path": "persistence.save_catalog",
     "name": "save_catalog",
     "type": "bool",
@@ -14926,8 +14998,8 @@
     "section": "site_selection",
     "anchor": "site-selection-selection-id",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L882",
-    "description": "Stable identifier for this selection campaign."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1167",
+    "description": "Stable campaign identifier copied to manifests, decision exports, and downstream regional-lab/testbed hand-offs."
   },
   {
     "path": "site_selection.output_root",
@@ -14938,8 +15010,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-root",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L887",
-    "description": "Output directory for all site-selection artifacts."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1175",
+    "description": "Directory where site-selection artifacts are written, resolved relative to the TOML file when a relative path is provided. Contains manifests, decision tables, spatial layers, reports, and optional intermediate files."
   },
   {
     "path": "site_selection.random_seed",
@@ -14950,7 +15022,7 @@
     "section": "site_selection",
     "anchor": "site-selection-random-seed",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L891",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1184",
     "description": "Optional seed used by stochastic candidate thinning."
   },
   {
@@ -14962,20 +15034,20 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L895",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1188",
     "description": ""
   },
   {
     "path": "site_selection.strategy.principle",
     "name": "principle",
-    "type": "Literal['observation_led', 'criteria_crossing']",
+    "type": "Optional[Literal['observation_led', 'criteria_crossing']]",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
     "anchor": "site-selection-strategy-principle",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L53",
-    "description": "Selection principle: observation-led or direct criteria crossing."
+    "description": "Effective selection principle, usually inferred from profile. 'observation_led' loads the declared primary observation family first, creates candidate outlets from those records, delineates their basins, then applies criteria. 'criteria_cro"
   },
   {
     "path": "site_selection.strategy.profile",
@@ -14986,8 +15058,8 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy-profile",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L57",
-    "description": "Optional selection profile. Short-term supported profiles are 'area_only' and 'gauged_downstream_station'."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L64",
+    "description": "Optional workflow preset. 'area_only' selects basins primarily by area; 'gauged_downstream_station' selects catchments attached to flow stations. Hydrometry input infers 'gauged_downstream_station' when the profile is omitted. Presets infer"
   },
   {
     "path": "site_selection.strategy.primary_axes",
@@ -14998,8 +15070,8 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy-primary-axes",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L64",
-    "description": "Physical or spatial axes that drive a criteria_crossing selection."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L75",
+    "description": "Physical or spatial axes that drive a criteria_crossing selection. Inferred as ['area'] when profile='area_only'."
   },
   {
     "path": "site_selection.strategy.observation_role",
@@ -15010,7 +15082,7 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy-observation-role",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L68",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L82",
     "description": "How observations influence a criteria_crossing campaign."
   },
   {
@@ -15022,7 +15094,7 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy-geology-role",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L86",
     "description": "How geology influences a criteria_crossing campaign."
   },
   {
@@ -15034,20 +15106,8 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy-primary-observation-type",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L76",
-    "description": "Observation family required by an observation_led strategy."
-  },
-  {
-    "path": "site_selection.strategy.observation_source",
-    "name": "observation_source",
-    "type": "str | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "site_selection",
-    "anchor": "site-selection-strategy-observation-source",
-    "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L80",
-    "description": "Provider or normalized source used for primary observations."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L90",
+    "description": "Effective observation family that defines candidate records for an observation_led strategy. Inferred as 'flow_station' when profile='gauged_downstream_station'."
   },
   {
     "path": "site_selection.strategy.candidate_mode",
@@ -15058,8 +15118,8 @@
     "section": "site_selection",
     "anchor": "site-selection-strategy-candidate-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L84",
-    "description": "Optional strategy-level candidate generation mode."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L98",
+    "description": "Effective strategy-level outlet generation mode. Inferred as 'station_outlets' for observation-led workflows that use already loaded observation/outlet point records; otherwise leave unset to use [site_selection.outlets].candidate_mode."
   },
   {
     "path": "site_selection.territory",
@@ -15070,7 +15130,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L896",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1189",
     "description": "Territory where candidate basins are searched."
   },
   {
@@ -15082,7 +15142,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L150",
     "description": "Territory resolver mode."
   },
   {
@@ -15094,7 +15154,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory-country",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L141",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L159",
     "description": "Country code used by administrative territory modes."
   },
   {
@@ -15106,7 +15166,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory-regions",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L145",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L163",
     "description": "Administrative regions used when mode='admin_regions'."
   },
   {
@@ -15118,7 +15178,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory-departments",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L149",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L167",
     "description": "Administrative departments used when mode='admin_departments'."
   },
   {
@@ -15130,7 +15190,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory-polygon-file",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L153",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L171",
     "description": "User polygon file used when mode='polygon_file'."
   },
   {
@@ -15142,7 +15202,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory-bbox",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L157",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L175",
     "description": "Territory bounds as xmin, ymin, xmax, ymax."
   },
   {
@@ -15154,7 +15214,7 @@
     "section": "site_selection",
     "anchor": "site-selection-territory-clip-to-territory",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L161",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L179",
     "description": "Clip candidate basins or outlets to the requested territory."
   },
   {
@@ -15166,20 +15226,20 @@
     "section": "site_selection",
     "anchor": "site-selection-dem",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L900",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1193",
+    "description": "DEM source requested by site selection."
   },
   {
     "path": "site_selection.dem.source",
     "name": "source",
-    "type": "Literal['custom', 'data', 'ign_geoplateforme_dem']",
+    "type": "Optional[Literal['custom', 'data_manager', 'ign_geoplateforme_dem']]",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
     "anchor": "site-selection-dem-source",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L184",
-    "description": "DEM source identifier: custom path, data section, or ign_geoplateforme_dem."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L202",
+    "description": "Optional DEM resolver override. When omitted, site_selection uses site_selection.dem.path if provided, otherwise the HydroModPy data manager configured in [data.dem]. Explicit values are: 'custom' for site_selection.dem.path only, 'data_man"
   },
   {
     "path": "site_selection.dem.path",
@@ -15190,8 +15250,8 @@
     "section": "site_selection",
     "anchor": "site-selection-dem-path",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L188",
-    "description": "Local DEM path when source='custom'."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L216",
+    "description": "Local DEM file or directory when source='custom'. A directory with several TIF/TIFF/ASC tiles is mosaicked into a cached GeoTIFF."
   },
   {
     "path": "site_selection.dem.resolution_m",
@@ -15202,8 +15262,8 @@
     "section": "site_selection",
     "anchor": "site-selection-dem-resolution-m",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L192",
-    "description": "DEM resolution in metres."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L223",
+    "description": "Effective DEM resolution in metres. For data-manager DEM sources, prefer data.dem.sources[].resolution_m; site-selection derives this value for manifests and reports. Keep this field only for custom DEM paths or provider shortcuts without ["
   },
   {
     "path": "site_selection.dem.cache_policy",
@@ -15214,55 +15274,55 @@
     "section": "site_selection",
     "anchor": "site-selection-dem-cache-policy",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L233",
     "description": "Data cache policy."
   },
   {
-    "path": "site_selection.dem.margin_km",
-    "name": "margin_km",
+    "path": "site_selection.dem.delineation_buffer_km",
+    "name": "delineation_buffer_km",
     "type": "float",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-margin-km",
+    "anchor": "site-selection-dem-delineation-buffer-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L201",
-    "description": "DEM request margin around the territory in kilometres."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L237",
+    "description": "Buffer added to the DEM used for flow directions and basin delineation, in kilometres. With delineation_dem_extent_source='candidate_outlets_bbox', this expands the bounding box of candidate outlets; with delineation_dem_extent_source='sele"
   },
   {
-    "path": "site_selection.dem.request_extent",
-    "name": "request_extent",
-    "type": "Literal['territory', 'outlets']",
+    "path": "site_selection.dem.delineation_dem_extent_source",
+    "name": "delineation_dem_extent_source",
+    "type": "Literal['selection_territory', 'candidate_outlets_bbox']",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-request-extent",
+    "anchor": "site-selection-dem-delineation-dem-extent-source",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L206",
-    "description": "Spatial extent used when a DEM is loaded through [data.dem]. 'territory' requests the configured selection territory; 'outlets' requests the bounding box of imported outlets expanded by margin_km."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L249",
+    "description": "Source used to build the extent of the DEM loaded for hydrologic calculations: flow direction, accumulation, outlet snapping, and catchment delineation. 'selection_territory' loads the DEM over the configured territory and is the safer opti"
   },
   {
-    "path": "site_selection.dem.map_background_extent",
-    "name": "map_background_extent",
-    "type": "Literal['none', 'delineation', 'territory']",
+    "path": "site_selection.dem.review_map_dem_background",
+    "name": "review_map_dem_background",
+    "type": "Literal['none', 'delineation_dem', 'territory_dem']",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-map-background-extent",
+    "anchor": "site-selection-dem-review-map-dem-background",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L214",
-    "description": "DEM extent used only for review-map background. 'delineation' reuses the DEM used to calculate basin contours; 'territory' loads a regional DEM through [data.dem] without using it for delineation."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L266",
+    "description": "DEM used as the HTML review-map background. 'delineation_dem' reuses the DEM used to calculate basin contours; 'territory_dem' loads a territory-scale DEM through [data.dem] without using it for delineation; 'none' disables the DEM map back"
   },
   {
     "path": "site_selection.dem.force_refresh",
     "name": "force_refresh",
     "type": "bool",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "site_selection",
     "anchor": "site-selection-dem-force-refresh",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L225",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L278",
     "description": "Ignore existing cached data when supported by the provider."
   },
   {
@@ -15274,20 +15334,8 @@
     "section": "site_selection",
     "anchor": "site-selection-hydrology",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L901",
-    "description": ""
-  },
-  {
-    "path": "site_selection.hydrology.method",
-    "name": "method",
-    "type": "Literal['dem_only']",
-    "profile": "user",
-    "stability": "stable",
-    "section": "site_selection",
-    "anchor": "site-selection-hydrology-method",
-    "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L234",
-    "description": "Hydrologic product generation method."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1197",
+    "description": "DEM-derived hydrologic products requested by the selection workflow."
   },
   {
     "path": "site_selection.hydrology.flow_algorithm",
@@ -15298,7 +15346,7 @@
     "section": "site_selection",
     "anchor": "site-selection-hydrology-flow-algorithm",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L238",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L287",
     "description": "Flow routing algorithm used by existing spatial products."
   },
   {
@@ -15310,7 +15358,7 @@
     "section": "site_selection",
     "anchor": "site-selection-hydrology-hydrologic-conditioning",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L242",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L291",
     "description": "DEM conditioning strategy forwarded to existing flow products."
   },
   {
@@ -15322,91 +15370,91 @@
     "section": "site_selection",
     "anchor": "site-selection-hydrology-network-threshold-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L249",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L298",
     "description": "Contributing-area threshold used to extract the stream network."
   },
   {
     "path": "site_selection.hydrology.compute_strahler",
     "name": "compute_strahler",
     "type": "bool",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "site_selection",
     "anchor": "site-selection-hydrology-compute-strahler",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L254",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L303",
     "description": "Request Strahler diagnostics if existing spatial primitives support them."
   },
   {
-    "path": "site_selection.dem_area_light",
-    "name": "dem_area_light",
-    "type": "DemAreaLightConfig | None",
+    "path": "site_selection.dem_area_target",
+    "name": "dem_area_target",
+    "type": "DemAreaTargetConfig | None",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-area-light",
+    "anchor": "site-selection-dem-area-target",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L902",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1201",
     "description": "Compact settings for DEM-only automatic small-basin selection."
   },
   {
-    "path": "site_selection.dem_area_light.target_area_km2",
+    "path": "site_selection.dem_area_target.target_area_km2",
     "name": "target_area_km2",
     "type": "float",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-area-light-target-area-km2",
+    "anchor": "site-selection-dem-area-target-target-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L320",
     "description": "Preferred upstream basin area for DEM-only candidate outlets."
   },
   {
-    "path": "site_selection.dem_area_light.min_area_km2",
+    "path": "site_selection.dem_area_target.min_area_km2",
     "name": "min_area_km2",
     "type": "float",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-area-light-min-area-km2",
+    "anchor": "site-selection-dem-area-target-min-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L276",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L325",
     "description": "Minimum accepted upstream basin area."
   },
   {
-    "path": "site_selection.dem_area_light.max_area_km2",
+    "path": "site_selection.dem_area_target.max_area_km2",
     "name": "max_area_km2",
     "type": "float",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-area-light-max-area-km2",
+    "anchor": "site-selection-dem-area-target-max-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L281",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L330",
     "description": "Maximum accepted upstream basin area."
   },
   {
-    "path": "site_selection.dem_area_light.n_basins",
+    "path": "site_selection.dem_area_target.n_basins",
     "name": "n_basins",
     "type": "int",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-area-light-n-basins",
+    "anchor": "site-selection-dem-area-target-n-basins",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L286",
-    "description": "Target number of basins selected by the greedy light workflow."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L335",
+    "description": "Target number of basins selected by the DEM target-area workflow."
   },
   {
-    "path": "site_selection.dem_area_light.max_candidates_before_delineation",
+    "path": "site_selection.dem_area_target.max_candidates_before_delineation",
     "name": "max_candidates_before_delineation",
     "type": "int | None",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-dem-area-light-max-candidates-before-delineation",
+    "anchor": "site-selection-dem-area-target-max-candidates-before-delineation",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L291",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L340",
     "description": "Optional cap on DEM-area outlet candidates delineated before final selection. Lower values make examples faster but can leave fewer accepted basins after spatial filtering."
   },
   {
@@ -15418,20 +15466,20 @@
     "section": "site_selection",
     "anchor": "site-selection-input",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L906",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1205",
+    "description": "Execution input selector used by the site-selection workflow."
   },
   {
     "path": "site_selection.input.mode",
     "name": "mode",
-    "type": "Literal['plan_only', 'hydrometry', 'delineated_catchments', 'generated_candidates', 'dem_area_light']",
+    "type": "Literal['dry_run', 'hydrometry', 'delineated_catchments', 'dem_network_sampling', 'dem_area_target']",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
     "anchor": "site-selection-input-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L461",
-    "description": "Explicit workflow input mode."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L566",
+    "description": "Execution path used by site_selection. 'dry_run' validates and documents the selection campaign without loading candidates, delineating basins or selecting/rejecting sites. 'hydrometry' loads observation stations from [hydrometry] and uses "
   },
   {
     "path": "site_selection.input.catchments_csv",
@@ -15442,7 +15490,7 @@
     "section": "site_selection",
     "anchor": "site-selection-input-catchments-csv",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L465",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L579",
     "description": "Pre-delineated catchments CSV used when mode='delineated_catchments'."
   },
   {
@@ -15454,8 +15502,8 @@
     "section": "site_selection",
     "anchor": "site-selection-input-region-id",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L469",
-    "description": "Optional region identifier written to regional-lab CSV outputs."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L583",
+    "description": "Optional output grouping label copied to regional-lab CSV and manifest outputs. When omitted, it is derived from a single administrative region or department in [site_selection.territory]. Set it only to override the exported label for mult"
   },
   {
     "path": "site_selection.input.workspace_root",
@@ -15466,7 +15514,7 @@
     "section": "site_selection",
     "anchor": "site-selection-input-workspace-root",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L473",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L593",
     "description": "Optional workspace root forwarded to data-manager based loading."
   },
   {
@@ -15478,7 +15526,7 @@
     "section": "site_selection",
     "anchor": "site-selection-input-data-root",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L477",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L597",
     "description": "Optional data root forwarded to data-manager based loading."
   },
   {
@@ -15490,8 +15538,8 @@
     "section": "site_selection",
     "anchor": "site-selection-input-write-plan-manifest",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L481",
-    "description": "Write site_selection_plan.json when the workflow is run in plan mode."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L601",
+    "description": "Write site_selection_plan.json when the workflow is run in dry_run mode."
   },
   {
     "path": "site_selection.input.delineate_from_outlets",
@@ -15502,7 +15550,7 @@
     "section": "site_selection",
     "anchor": "site-selection-input-delineate-from-outlets",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L485",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L605",
     "description": "When using catchments_csv, compute watershed contours from outlet coordinates and DEM flow products instead of trusting watershed_shp."
   },
   {
@@ -15514,8 +15562,8 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L909",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1209",
+    "description": "Candidate outlet generation settings."
   },
   {
     "path": "site_selection.outlets.candidate_mode",
@@ -15526,8 +15574,8 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-candidate-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L313",
-    "description": "How candidate outlets are generated."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L362",
+    "description": "Concrete outlet generation mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells."
   },
   {
     "path": "site_selection.outlets.min_distance_between_outlets_km",
@@ -15538,8 +15586,8 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-min-distance-between-outlets-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L317",
-    "description": "Minimum distance between generated outlets."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L370",
+    "description": "Minimum spacing used to thin candidate outlets before basin delineation. In station-led workflows, stations closer than this compete and only one outlet is kept."
   },
   {
     "path": "site_selection.outlets.allow_nested_basins",
@@ -15550,7 +15598,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-allow-nested-basins",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L322",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L379",
     "description": "Allow nested candidate basins before final selection."
   },
   {
@@ -15562,7 +15610,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-max-generated-candidates",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L326",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L383",
     "description": "Maximum number of DEM/network-generated candidates to delineate."
   },
   {
@@ -15574,7 +15622,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-max-rejected-candidate-audit-records",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L331",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L388",
     "description": "Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL."
   },
   {
@@ -15586,7 +15634,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-max-generated-network-cells",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L339",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L396",
     "description": "Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first."
   },
   {
@@ -15598,7 +15646,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-snap-to-generated-stream",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L347",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L404",
     "description": "Snap outlets to the DEM-derived stream network when applicable."
   },
   {
@@ -15610,20 +15658,20 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-snap-strategy",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L351",
-    "description": "Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived accumulation raster. 'bdtopage_then_dem' first projects the station to BD Topage, then snaps locally on the DEM raster."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L408",
+    "description": "Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived accumulation raster. 'bdtopage_then_dem' first snaps the original station/candidate outlet to the reference network, then runs the local DEM snap."
   },
   {
-    "path": "site_selection.outlets.snap_dist_m",
-    "name": "snap_dist_m",
+    "path": "site_selection.outlets.dem_snap_max_distance_m",
+    "name": "dem_snap_max_distance_m",
     "type": "int",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-outlets-snap-dist-m",
+    "anchor": "site-selection-outlets-dem-snap-max-distance-m",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L359",
-    "description": "Maximum snapping distance in metres for outlet-based delineation."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L417",
+    "description": "Maximum distance, in metres, allowed for the final local snap on the DEM-derived accumulation raster. This snap is the point used for basin delineation and is separate from any preliminary reference-network snap."
   },
   {
     "path": "site_selection.outlets.reference_network_source",
@@ -15634,8 +15682,8 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-reference-network-source",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L364",
-    "description": "Reference hydrographic network used by bdtopage_then_dem."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L427",
+    "description": "Reference hydrographic network used before the DEM snap when snap_strategy='bdtopage_then_dem'."
   },
   {
     "path": "site_selection.outlets.reference_network_path",
@@ -15646,32 +15694,32 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-reference-network-path",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L368",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L434",
     "description": "Local vector network used when reference_network_source='custom'."
   },
   {
-    "path": "site_selection.outlets.reference_network_max_distance_m",
-    "name": "reference_network_max_distance_m",
+    "path": "site_selection.outlets.reference_network_snap_max_distance_m",
+    "name": "reference_network_snap_max_distance_m",
     "type": "float",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-outlets-reference-network-max-distance-m",
+    "anchor": "site-selection-outlets-reference-network-snap-max-distance-m",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L372",
-    "description": "Maximum accepted distance from candidate outlet to the reference network."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L438",
+    "description": "Maximum distance, in metres, allowed between the original station or candidate outlet and the nearest reference-network line before snapping to that line. With snap_strategy='bdtopage_then_dem', candidates farther than this from BD Topage f"
   },
   {
     "path": "site_selection.outlets.reference_network_fetch_margin_m",
     "name": "reference_network_fetch_margin_m",
     "type": "float",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "site_selection",
     "anchor": "site-selection-outlets-reference-network-fetch-margin-m",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L377",
-    "description": "Extra margin around outlets when downloading a BD Topage reference network."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L449",
+    "description": "Extra margin, in metres, around candidate outlets when downloading the reference network. It only affects the download/search window, not the accepted snap distance."
   },
   {
     "path": "site_selection.outlets.reference_network_page_size",
@@ -15682,7 +15730,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-reference-network-page-size",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L382",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L458",
     "description": "BD Topage WFS page size used for the reference network download."
   },
   {
@@ -15694,7 +15742,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-reference-network-force-refresh",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L387",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L463",
     "description": "Redownload BD Topage even if the run output already contains a network file."
   },
   {
@@ -15706,8 +15754,8 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L910",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1213",
+    "description": "Spatial thinning and overlap policy."
   },
   {
     "path": "site_selection.spatial_selection.max_selected_sites",
@@ -15718,7 +15766,7 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-max-selected-sites",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L409",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L484",
     "description": "Maximum number of catchments kept after ranking and spatial thinning."
   },
   {
@@ -15730,8 +15778,8 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-allow-nested-basins",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L414",
-    "description": "Allow selected basins to be nested."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L489",
+    "description": "Allow the final selection to keep catchments that contain one another. When false, nested upstream/downstream basins compete during spatial thinning; when true, they can both be selected."
   },
   {
     "path": "site_selection.spatial_selection.min_outlet_distance_km",
@@ -15742,7 +15790,7 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-min-outlet-distance-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L418",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L497",
     "description": "Minimum spacing between selected outlets."
   },
   {
@@ -15754,8 +15802,8 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-max-pairwise-basin-overlap-fraction",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L423",
-    "description": "Maximum allowed overlap fraction between selected basins."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L502",
+    "description": "Maximum allowed area overlap between two selected basins, expressed as a fraction of overlap_reference. Use 0.20 to allow up to 20% overlap; null disables this pairwise overlap check."
   },
   {
     "path": "site_selection.spatial_selection.overlap_reference",
@@ -15766,8 +15814,8 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-overlap-reference",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L429",
-    "description": "Denominator used for overlap fraction."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L512",
+    "description": "Area used as denominator for pairwise overlap fraction. 'smaller_basin' measures the shared area relative to the smaller basin; 'candidate' or 'selected' use one side of the selection comparison."
   },
   {
     "path": "site_selection.spatial_selection.overlap_mode",
@@ -15778,8 +15826,8 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-overlap-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L432",
-    "description": "How overlap violations affect selection."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L523",
+    "description": "How pairwise basin-overlap violations affect selection. 'hard_reject' blocks the lower-ranked overlapping basin; 'warning' keeps it selected and records the overlap as a warning."
   },
   {
     "path": "site_selection.spatial_selection.spatial_quota_mode",
@@ -15790,7 +15838,7 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-spatial-quota-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L436",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L531",
     "description": "Optional coarse spatial quota applied after ranking."
   },
   {
@@ -15802,7 +15850,7 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-spatial-quota-cell-size-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L440",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L535",
     "description": "Grid cell size used when spatial_quota_mode='grid'."
   },
   {
@@ -15814,7 +15862,7 @@
     "section": "site_selection",
     "anchor": "site-selection-spatial-selection-spatial-quota-max-sites-per-cell",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L445",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L540",
     "description": "Maximum selected sites allowed in one spatial quota cell."
   },
   {
@@ -15826,8 +15874,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L913",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1217",
+    "description": "Selection criteria and criterion-mode lists."
   },
   {
     "path": "site_selection.criteria.ruleset",
@@ -15838,8 +15886,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-ruleset",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L790",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1003",
+    "description": "Optional stable name of the criterion set used for audit outputs. When omitted, site_selection derives it from selection_id."
   },
   {
     "path": "site_selection.criteria.hard_reject",
@@ -15850,8 +15898,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-hard-reject",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L791",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1010",
+    "description": "Blocking criteria: when one fails, the candidate is not retained. Keep 'delineation_failure' here to document that a basin that cannot be delineated is unusable."
   },
   {
     "path": "site_selection.criteria.warning",
@@ -15862,20 +15910,20 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-warning",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L792",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1018",
+    "description": "Review warnings: the candidate can still be selected, but the issue is highlighted in the site-selection report for expert review before final acceptance."
   },
   {
-    "path": "site_selection.criteria.soft_score",
-    "name": "soft_score",
+    "path": "site_selection.criteria.ranking_preference",
+    "name": "ranking_preference",
     "type": "list[str]",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-criteria-soft-score",
+    "anchor": "site-selection-criteria-ranking-preference",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L793",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1026",
+    "description": "Preference criteria used to rank otherwise acceptable candidates without rejecting them directly."
   },
   {
     "path": "site_selection.criteria.report_only",
@@ -15886,8 +15934,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-report-only",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L794",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1033",
+    "description": "Context-only evidence exported for human review or audit, without automatic decision impact."
   },
   {
     "path": "site_selection.criteria.area",
@@ -15898,8 +15946,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L795",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1040",
+    "description": "Area criterion settings."
   },
   {
     "path": "site_selection.criteria.area.mode",
@@ -15910,7 +15958,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L532",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L652",
     "description": "How basin area contributes to selection."
   },
   {
@@ -15922,7 +15970,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-target-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L536",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L656",
     "description": "Named target area used for reporting or strict area profiles."
   },
   {
@@ -15934,7 +15982,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-preferred-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L541",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L661",
     "description": "Preferred area used by score-based campaigns."
   },
   {
@@ -15946,7 +15994,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-score-half-width-fraction",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L546",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L666",
     "description": "Relative half-width of the area score around preferred_area_km2."
   },
   {
@@ -15958,7 +16006,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-hard-min-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L551",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L671",
     "description": "Hard lower area bound when configured."
   },
   {
@@ -15970,7 +16018,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-hard-max-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L556",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L676",
     "description": "Hard upper area bound when configured."
   },
   {
@@ -15982,7 +16030,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-ranges",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L561",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L681",
     "description": "Explicit area ranges used for hard rejection, warnings or stratification. Prefer this over target/preferred area fields when the campaign is defined by minimum and maximum basin sizes."
   },
   {
@@ -15994,7 +16042,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-ranges-range-id",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L503",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L623",
     "description": "Stable identifier for the area range."
   },
   {
@@ -16006,7 +16054,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-ranges-label",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L507",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L627",
     "description": "Human-readable area range label."
   },
   {
@@ -16018,7 +16066,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-ranges-min-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L511",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L631",
     "description": "Minimum basin area for this range."
   },
   {
@@ -16030,7 +16078,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-area-ranges-max-area-km2",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L516",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L636",
     "description": "Maximum basin area for this range."
   },
   {
@@ -16042,8 +16090,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L796",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1044",
+    "description": "Observation criterion settings."
   },
   {
     "path": "site_selection.criteria.observations.flow_station_mode",
@@ -16054,8 +16102,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-flow-station-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L673",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L847",
+    "description": "Default mode for gauging-station suitability checks when the detailed flow_station block does not override it."
   },
   {
     "path": "site_selection.criteria.observations.flow_station_max_distance_km",
@@ -16066,8 +16114,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-flow-station-max-distance-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L674",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L854",
+    "description": "Default maximum distance between gauging stations and final basin outlets."
   },
   {
     "path": "site_selection.criteria.observations.piezometer_mode",
@@ -16078,8 +16126,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L678",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L862",
+    "description": "Default mode for piezometer observation checks."
   },
   {
     "path": "site_selection.criteria.observations.piezometer_max_distance_km",
@@ -16090,8 +16138,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-max-distance-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L679",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L866",
+    "description": "Maximum distance used when matching piezometers to basins or outlets."
   },
   {
     "path": "site_selection.criteria.observations.flow_station",
@@ -16102,8 +16150,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-flow-station",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L683",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L871",
+    "description": "Detailed gauging-station suitability settings. The TOML key stays 'flow_station' because it is also the internal observation-family identifier."
   },
   {
     "path": "site_selection.criteria.observations.flow_station.mode",
@@ -16114,8 +16162,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-flow-station-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L597",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L717",
+    "description": "How gauging-station suitability affects the final decision. This criterion checks the available discharge record, the distance between the station and the final outlet, and optionally whether the station is inside the basin or at the outlet"
   },
   {
     "path": "site_selection.criteria.observations.flow_station.min_record_years",
@@ -16126,8 +16174,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-flow-station-min-record-years",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L598",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L726",
+    "description": "Minimum required discharge-record length in years."
   },
   {
     "path": "site_selection.criteria.observations.flow_station.max_station_to_outlet_distance_km",
@@ -16138,8 +16186,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-flow-station-max-station-to-outlet-distance-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L599",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L731",
+    "description": "Maximum allowed distance between the gauging station and the final basin outlet."
   },
   {
     "path": "site_selection.criteria.observations.flow_station.require_station_inside_or_at_outlet",
@@ -16150,8 +16198,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-flow-station-require-station-inside-or-at-outlet",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L603",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L739",
+    "description": "Require the gauging station to be inside the delineated basin or at the final outlet."
   },
   {
     "path": "site_selection.criteria.observations.station_influence",
@@ -16162,8 +16210,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L686",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L879",
+    "description": "Station metadata influence criterion settings."
   },
   {
     "path": "site_selection.criteria.observations.station_influence.mode",
@@ -16174,8 +16222,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L609",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L751",
+    "description": "How flow-station hydrologic influence metadata affects the final decision."
   },
   {
     "path": "site_selection.criteria.observations.station_influence.source",
@@ -16186,8 +16234,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence-source",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L610",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L758",
+    "description": "Metadata source used to evaluate station influence, for example Hub'Eau station metadata fields."
   },
   {
     "path": "site_selection.criteria.observations.station_influence.warn_if_general_influence",
@@ -16198,8 +16246,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence-warn-if-general-influence",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L611",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L765",
+    "description": "Flag Hub'Eau general site influence metadata, such as site-scale hydrologic alteration, when it is present."
   },
   {
     "path": "site_selection.criteria.observations.station_influence.warn_if_local_influence",
@@ -16210,8 +16258,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence-warn-if-local-influence",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L612",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L772",
+    "description": "Flag Hub'Eau local station influence metadata, such as local hydraulic alteration near the station, when it is present."
   },
   {
     "path": "site_selection.criteria.observations.station_influence.warn_if_comment_keyword",
@@ -16222,7 +16270,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence-warn-if-comment-keyword",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L613",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L779",
     "description": "Report comment keyword matches as warnings. Comment keywords are not treated as hard-reject evidence."
   },
   {
@@ -16234,8 +16282,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence-unknown-policy",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L620",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L786",
+    "description": "How missing or unknown station influence metadata is handled. 'neutral' keeps it from blocking by itself; 'warning' records a review warning."
   },
   {
     "path": "site_selection.criteria.observations.station_influence.comment_keywords",
@@ -16246,8 +16294,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-station-influence-comment-keywords",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L623",
-    "description": "Keywords searched in station influence comments."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L794",
+    "description": "Keywords searched in station comments to flag possible hydraulic influence for review."
   },
   {
     "path": "site_selection.criteria.observations.piezometer_layers",
@@ -16258,7 +16306,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-layers",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L689",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L883",
     "description": "Optional vector layers used to compute piezometer evidence."
   },
   {
@@ -16270,7 +16318,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-layers-name",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L643",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L817",
     "description": "Human-readable piezometer layer name."
   },
   {
@@ -16282,7 +16330,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-layers-path",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L648",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L822",
     "description": "Vector file containing piezometer features."
   },
   {
@@ -16294,7 +16342,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-layers-id-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L652",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L826",
     "description": "Optional source-feature identifier field."
   },
   {
@@ -16306,7 +16354,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-layers-label-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L656",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L830",
     "description": "Optional source-feature label field."
   },
   {
@@ -16318,7 +16366,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-layers-record-years-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L660",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L834",
     "description": "Optional field containing available record length in years."
   },
   {
@@ -16330,7 +16378,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-observations-piezometer-layers-quality-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L664",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L838",
     "description": "Optional field containing a quality/status label."
   },
   {
@@ -16342,8 +16390,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L799",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1048",
+    "description": "Anthropic influence criterion settings."
   },
   {
     "path": "site_selection.criteria.influence.mode",
@@ -16354,8 +16402,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L735",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L929",
+    "description": "How anthropic influence evidence affects the final decision."
   },
   {
     "path": "site_selection.criteria.influence.reject_major_dam_upstream",
@@ -16366,8 +16414,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-reject-major-dam-upstream",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L736",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L933",
+    "description": "Reject sites when evidence reports a major upstream dam."
   },
   {
     "path": "site_selection.criteria.influence.reject_major_withdrawal_upstream",
@@ -16378,8 +16426,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-reject-major-withdrawal-upstream",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L737",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L937",
+    "description": "Reject sites when evidence reports a major upstream withdrawal."
   },
   {
     "path": "site_selection.criteria.influence.reject_major_regulated_reach",
@@ -16390,8 +16438,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-reject-major-regulated-reach",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L738",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L941",
+    "description": "Reject sites when evidence reports a major regulated reach."
   },
   {
     "path": "site_selection.criteria.influence.influence_search_radius_km",
@@ -16402,8 +16450,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-influence-search-radius-km",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L739",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L945",
+    "description": "Optional search radius in kilometres for influence layers."
   },
   {
     "path": "site_selection.criteria.influence.layers",
@@ -16414,7 +16462,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L743",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L950",
     "description": "Optional vector layers used to compute influence flags automatically."
   },
   {
@@ -16426,7 +16474,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers-name",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L698",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L892",
     "description": "Human-readable influence layer name."
   },
   {
@@ -16438,7 +16486,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers-path",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L703",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L897",
     "description": "Vector file containing influence features."
   },
   {
@@ -16450,7 +16498,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers-influence-type",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L707",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L901",
     "description": "Normalized influence flag filled when features match a basin."
   },
   {
@@ -16462,7 +16510,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers-id-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L711",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L905",
     "description": "Optional source-feature identifier field."
   },
   {
@@ -16474,7 +16522,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers-label-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L715",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L909",
     "description": "Optional source-feature label field."
   },
   {
@@ -16486,7 +16534,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers-severity-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L719",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L913",
     "description": "Optional field used to classify major features."
   },
   {
@@ -16498,7 +16546,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-influence-layers-major-values",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L723",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L917",
     "description": "Values considered major in severity_field. When empty, every matched feature is considered major."
   },
   {
@@ -16510,8 +16558,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L802",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1052",
+    "description": "Geology criterion settings."
   },
   {
     "path": "site_selection.criteria.geology.mode",
@@ -16522,8 +16570,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-mode",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L779",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L986",
+    "description": "How geology evidence affects the final decision."
   },
   {
     "path": "site_selection.criteria.geology.prefer_diversity",
@@ -16534,8 +16582,8 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-prefer-diversity",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L780",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L990",
+    "description": "Prefer or highlight basins with more diverse geology classes."
   },
   {
     "path": "site_selection.criteria.geology.layers",
@@ -16546,7 +16594,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-layers",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L781",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L994",
     "description": "Optional polygon layers used to compute geology evidence."
   },
   {
@@ -16558,7 +16606,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-layers-name",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L752",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L959",
     "description": "Human-readable geology layer name."
   },
   {
@@ -16570,7 +16618,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-layers-path",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L757",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L964",
     "description": "Vector polygon file containing geology units."
   },
   {
@@ -16582,7 +16630,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-layers-class-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L761",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L968",
     "description": "Feature field containing the geology class."
   },
   {
@@ -16594,7 +16642,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-layers-id-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L766",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L973",
     "description": "Optional source-feature identifier field."
   },
   {
@@ -16606,7 +16654,7 @@
     "section": "site_selection",
     "anchor": "site-selection-criteria-geology-layers-label-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L770",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L977",
     "description": "Optional source-feature label field."
   },
   {
@@ -16618,8 +16666,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L914",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1221",
+    "description": "Output artifact switches."
   },
   {
     "path": "site_selection.output.write_rejected",
@@ -16630,8 +16678,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-write-rejected",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L829",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1080",
+    "description": "Write rejected site tables and spatial layers."
   },
   {
     "path": "site_selection.output.write_selected",
@@ -16642,8 +16690,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-write-selected",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L830",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1084",
+    "description": "Write selected site tables and spatial layers."
   },
   {
     "path": "site_selection.output.write_geojson",
@@ -16654,8 +16702,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-write-geojson",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L831",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1088",
+    "description": "Write GeoJSON spatial outputs for outlets, basins and observations."
   },
   {
     "path": "site_selection.output.write_geoparquet",
@@ -16666,8 +16714,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-write-geoparquet",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L832",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1092",
+    "description": "Write GeoParquet spatial outputs when supported."
   },
   {
     "path": "site_selection.output.write_geopackage",
@@ -16678,8 +16726,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-write-geopackage",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L833",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1096",
+    "description": "Write a GeoPackage with site-selection spatial layers."
   },
   {
     "path": "site_selection.output.write_csv",
@@ -16690,8 +16738,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-write-csv",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L834",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1100",
+    "description": "Write selected, rejected and decision CSV tables."
   },
   {
     "path": "site_selection.output.write_regional_lab_csv",
@@ -16702,20 +16750,8 @@
     "section": "site_selection",
     "anchor": "site-selection-output-write-regional-lab-csv",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L835",
-    "description": ""
-  },
-  {
-    "path": "site_selection.output.write_report_html",
-    "name": "write_report_html",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "site_selection",
-    "anchor": "site-selection-output-write-report-html",
-    "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L836",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1104",
+    "description": "Write regional_lab_sites.csv for downstream regional-lab workflows."
   },
   {
     "path": "site_selection.output.keep_intermediate_rasters",
@@ -16726,7 +16762,7 @@
     "section": "site_selection",
     "anchor": "site-selection-output-keep-intermediate-rasters",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L837",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1108",
     "description": "Keep intermediate GeoTIFF rasters such as flow products and per-candidate watershed masks after final outputs are written."
   },
   {
@@ -16738,8 +16774,8 @@
     "section": "site_selection",
     "anchor": "site-selection-map-context",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L915",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1225",
+    "description": "Optional static context layers for review figures."
   },
   {
     "path": "site_selection.map_context.layers",
@@ -16750,7 +16786,7 @@
     "section": "site_selection",
     "anchor": "site-selection-map-context-layers",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L871",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1142",
     "description": "Context vector layers drawn behind selection artifacts."
   },
   {
@@ -16762,7 +16798,7 @@
     "section": "site_selection",
     "anchor": "site-selection-map-context-layers-name",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L849",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1120",
     "description": "Human-readable layer name used in the map/report manifest."
   },
   {
@@ -16774,7 +16810,7 @@
     "section": "site_selection",
     "anchor": "site-selection-map-context-layers-path",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L854",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1125",
     "description": "GeoJSON file used as static map context."
   },
   {
@@ -16786,7 +16822,7 @@
     "section": "site_selection",
     "anchor": "site-selection-map-context-layers-role",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L858",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1129",
     "description": "Visual role controlling the default map style."
   },
   {
@@ -16798,7 +16834,7 @@
     "section": "site_selection",
     "anchor": "site-selection-map-context-layers-label-field",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L862",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L1133",
     "description": "Optional feature-property field used for future labels."
   },
   {
@@ -16810,8 +16846,8 @@
     "section": "hydrometry",
     "anchor": "hydrometry-date-start",
     "page": "hydrometry.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105",
-    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106",
+    "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
     ]
@@ -16825,8 +16861,8 @@
     "section": "hydrometry",
     "anchor": "hydrometry-date-end",
     "page": "hydrometry.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106",
-    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L107",
+    "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
     ]
@@ -16840,7 +16876,7 @@
     "section": "hydrometry",
     "anchor": "hydrometry-sources",
     "page": "hydrometry.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L83",
     "description": "At least one data source."
   },
   {
@@ -16865,7 +16901,7 @@
     "anchor": "hydrometry-sources-station-ids",
     "page": "hydrometry.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20",
-    "description": "Explicit station identifiers to load (custom source)."
+    "description": "Explicit station identifiers to load from the selected provider."
   },
   {
     "path": "hydrometry.sources.extent",
@@ -17039,13 +17075,13 @@
     "path": "hydrometry.sources.require_observations",
     "name": "require_observations",
     "type": "bool",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "hydrometry",
     "anchor": "hydrometry-sources-require-observations",
     "page": "hydrometry.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47",
-    "description": "Only keep stations that have observations in the period."
+    "description": "Only keep stations that have observations in the configured period."
   },
   {
     "path": "hydrometry.sources.max_stations",
@@ -17056,7 +17092,7 @@
     "section": "hydrometry",
     "anchor": "hydrometry-sources-max-stations",
     "page": "hydrometry.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L51",
     "description": "Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory."
   }
 ]

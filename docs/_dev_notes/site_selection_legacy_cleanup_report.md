@@ -111,7 +111,7 @@ Ce lot retire la compatibilite restante dans le contrat executable
 - suppression de l'alias de mode de critere `report` vers `report_only`;
 - retrait des profils de strategie non supportes `dem_only` et
   `multicriteria`;
-- retrait des modes candidats non branches `dem_area_light` et
+- retrait des modes candidats non branches `dem_area_target` et
   `imported_points` dans `strategy.candidate_mode` / `outlets.candidate_mode`;
 - retrait des modes de territoire non branches `site_catalog_extent` et
   `geoparquet_filter`;
@@ -125,7 +125,7 @@ Ce lot retire la compatibilite restante dans le contrat executable
   `principle = "observation_led"`;
 - suppression du mode implicite `site_selection.input.mode = "auto"`;
 - obligation de declarer explicitement `profile = "area_only"` pour les runs
-  `site_selection.input.mode = "dem_area_light"`; `effective_profile` ne deduit
+  `site_selection.input.mode = "dem_area_target"`; `effective_profile` ne deduit
   plus ce profil depuis le mode d'entree.
 
 Les contrats et rapports courants ont ete alignes. Le plan long
@@ -136,7 +136,7 @@ supportees par les modeles Pydantic.
 L'audit des duplications potentielles est documente dans
 `docs/_dev_notes/site_selection_duplication_audit.md`.
 
-Decision de perimetre 2026-05-27: `generated_candidates` est conserve comme
+Decision de perimetre 2026-05-27: `dem_network_sampling` est conserve comme
 capacite experimentale testee. Il ne fait pas partie du contrat metier court
 terme stabilise, mais il n'est pas supprime comme legacy morte.
 
@@ -170,11 +170,11 @@ Resultats:
 Validation exemples executee depuis le checkout local:
 
 ```powershell
-python -m hydromodpy run examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
-python -m hydromodpy run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+python -m hydromodpy run examples/projects/17_site_selection_workflow/configs/calvados_non_jauge_dem_10bassins_100km2.toml
+python -m hydromodpy run examples/projects/17_site_selection_workflow/configs/bretagne_jauge_7stations.toml
 ```
 
 Resultats:
 
-- Calvados DEM-light: 26 candidats, 10 selectionnes, 16 rejetes;
+- Calvados DEM target-area: 26 candidats, 10 selectionnes, 16 rejetes;
 - Bretagne hydrometrie BD Topage: 6 candidats, 6 selectionnes, 0 rejete.

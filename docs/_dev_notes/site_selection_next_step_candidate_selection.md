@@ -16,7 +16,7 @@ deja produits et delimites.
 - configurations dediees;
 - profils courts termes `area_only` et `gauged_downstream_station`;
 - chargement des donnees via les gestionnaires existants;
-- construction d'exutoires candidats depuis stations, CSV ou DEM leger;
+- construction d'exutoires candidats depuis stations, CSV ou DEM par surface cible;
 - delimitation des bassins;
 - criteres auditables;
 - decisions normalisees;
@@ -103,8 +103,8 @@ propre, sans ouvrir un refactoring hydrographique lourd.
 - traces de decision pour les rejets par quota, recouvrement ou classement;
 - tests unitaires sur bassins synthetiques;
 - validation sur les deux exemples courts termes:
-  - `calvados_dem_area_light_100km2_fast.toml`;
-  - `bretagne_hydrometry_50_500_small_bdtopage.toml`.
+  - `calvados_non_jauge_dem_10bassins_100km2.toml`;
+  - `bretagne_jauge_7stations.toml`.
 
 ### Exclu
 
@@ -163,7 +163,7 @@ La mise en oeuvre est volontairement localisee:
 - `select_delineated_catchments()` applique maintenant, apres les criteres
   metier, le plafonnement global, le recouvrement, la distance minimale entre
   exutoires et le quota spatial;
-- `dem_area_light` utilise `max_selected_sites = n_basins` dans cette phase
+- `dem_area_target` utilise `max_selected_sites = n_basins` dans cette phase
   commune, au lieu d'un post-traitement separe;
 - chaque rejet produit un composant auditable: `target_count`,
   `basin_overlap`, `outlet_spacing` ou `spatial_quota`.
@@ -206,10 +206,10 @@ et expliquer chaque decision dans ses sorties.
 
 Cloture verifiee le 2026-05-26:
 
-- `calvados_dem_area_light_100km2_fast.toml` tourne et produit
-  `outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`;
-- `bretagne_hydrometry_50_500_small_bdtopage.toml` tourne et produit
-  `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`;
+- `calvados_non_jauge_dem_10bassins_100km2.toml` tourne et produit
+  `outputs/calvados_non_jauge_dem_100km2_v1/review/index.html`;
+- `bretagne_jauge_7stations.toml` tourne et produit
+  `outputs/bretagne_jauge_7stations_v1/review/index.html`;
 - les tests unitaires `tests/unit/site_selection` et les tests de bridge
   exemples passent;
 - l'index API local pointe maintenant vers les sous-packages

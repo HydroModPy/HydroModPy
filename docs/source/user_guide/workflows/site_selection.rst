@@ -23,28 +23,21 @@ Minimal structure
    mode = "site_selection"
 
    [site_selection]
-   selection_id = "bretagne_hydrometry_50_500_small_v1"
-   output_root = "../outputs/bretagne_hydrometry_50_500_small_v1"
+   selection_id = "finistere_jauge_elorn_dem_v1"
+   output_root = "../outputs/finistere_jauge_elorn_dem_v1"
 
    [site_selection.input]
    mode = "hydrometry"
-   region_id = "Bretagne"
-
-   [site_selection.strategy]
-   principle = "observation_led"
-   profile = "gauged_downstream_station"
-   primary_observation_type = "flow_station"
-   candidate_mode = "station_outlets"
 
    [site_selection.territory]
-   mode = "admin_regions"
+   mode = "admin_departments"
    country = "FR"
-   regions = ["Bretagne"]
+   departments = ["029"]
 
    [site_selection.dem]
-   source = "data"
-   request_extent = "outlets"
-   map_background_extent = "territory"
+   delineation_buffer_km = 5.0
+   delineation_dem_extent_source = "candidate_outlets_bbox"
+   review_map_dem_background = "territory_dem"
 
    [hydrometry]
    date_start = "2015-01-01"
@@ -64,14 +57,16 @@ Minimal structure
    source = "ign_geoplateforme_dem"
    dataset = "bd-alti"
    resolution_m = 25.0
-   file_format = "ASC"
-   regions = ["Bretagne"]
 
 The DEM is deliberately declared under ``[data.dem]``. In hydrometry mode, the
-workflow loads the stations first. With ``site_selection.dem.request_extent =
-"outlets"``, it uses those projected station outlets to bound the DEM request
-before building flow products, delineating catchments, and handing the spatial
-artifacts to the selection/reporting layer.
+workflow loads the stations first. With ``site_selection.dem.delineation_dem_extent_source =
+"candidate_outlets_bbox"``, it builds the calculation DEM extent from the bounding
+box of projected station outlets, expanded by ``delineation_buffer_km``. This is
+useful for previews because it avoids loading a regional DEM, but the buffer must
+be large enough to include the upstream area needed for catchment delineation.
+Use ``"selection_territory"`` when the safer choice is to load the DEM over the
+configured territory before building flow products, delineating catchments, and
+handing the spatial artifacts to the selection/reporting layer.
 
 Short-term profiles
 -------------------
@@ -91,7 +86,7 @@ multi-criteria extensions.
      - The goal is to find DEM-delineated catchments around a target drainage
        area, without using observations as selection evidence.
      - ``principle = "criteria_crossing"``, ``primary_axes = ["area"]``, and a
-       DEM-driven input such as ``site_selection.input.mode = "dem_area_light"``.
+       DEM-driven input such as ``site_selection.input.mode = "dem_area_target"``.
    * - ``gauged_downstream_station``
      - The goal is to select gauged catchments whose outlet is represented by a
        downstream flow station.
@@ -133,7 +128,7 @@ basins.
        BDLISA is a relevant later source when the question is
        hydrogeological units rather than geological formations.
    * - DEM candidate generation
-     - The ``dem_area_light`` mode generates area-driven candidate outlets and
+     - The ``dem_area_target`` mode generates area-driven candidate outlets and
        caps the number of DEM delineations before final selection.
      - A future network-aware generator could favor hydrologically meaningful
        outlets, reduce nested or near-duplicate basins, improve coastal
@@ -182,12 +177,12 @@ network-driven candidate discovery.
      - Stations should be loaded directly through HydroModPy data managers,
        usually Hub'Eau hydrometry over a territory or explicit station list.
      - ``[hydrometry]`` plus ``[data.dem]``.
-   * - ``dem_area_light``
+   * - ``dem_area_target``
      - The campaign should discover DEM-derived outlets around a target basin
        area, with a bounded number of delineations for fast review.
      - ``strategy.profile = "area_only"``, ``primary_axes = ["area"]``,
-       ``[site_selection.dem_area_light]`` and ``[data.dem]``.
-   * - ``generated_candidates``
+       ``[site_selection.dem_area_target]`` and ``[data.dem]``.
+   * - ``dem_network_sampling``
      - The campaign should sample high-accumulation DEM/network cells before
        normal delineation and selection. This mode is experimental compared
        with the two short-term supported profiles.
@@ -202,9 +197,11 @@ The workflow keeps data-provider access outside the spatial selection package:
 - DEM loading goes through ``hydromodpy.data.variables.dem`` and should be
   configured in ``[data.dem]``.
 - Hub'Eau station loading goes through the hydrometry data manager.
-- In hydrometry mode, ``request_extent = "outlets"`` limits the calculation DEM
-  to the station envelope plus ``margin_km``; the map background can still use
-  a broader territory DEM.
+- In hydrometry mode, ``delineation_dem_extent_source = "candidate_outlets_bbox"``
+  limits the calculation DEM to the station/outlet bounding box plus
+  ``delineation_buffer_km``. This is faster for previews but requires a buffer
+  large enough to cover the upstream basin area; the map background can still
+  use a broader territory DEM.
 - French administrative regions are resolved to departments by the data layer.
 - Hub'Eau station coordinates are requested in WGS84 for provider queries, then
   projected to Lambert-93 for DEM delineation. When Hub'Eau exposes official
@@ -227,7 +224,7 @@ Two snapping strategies are available:
      - Behavior
    * - ``dem_accumulation``
      - Snap the candidate outlet directly to the DEM-derived accumulation
-       raster within ``snap_dist_m``.
+       raster within ``dem_snap_max_distance_m``.
    * - ``bdtopage_then_dem``
      - First project the outlet to BD Topage or a custom reference network,
        reject it if that reference line is too far, then apply the local DEM
@@ -287,17 +284,18 @@ profiles, plus broader regional previews:
 
 .. code-block:: bash
 
-   hmp run examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
-   hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small.toml
-   hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
-   hmp run examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_hydrometry_preview.toml
-   hmp run examples/projects/17_site_selection_workflow/configs/corse_hydrometry_preview.toml
+   hmp run examples/projects/17_site_selection_workflow/configs/calvados_non_jauge_dem_10bassins_100km2.toml
+   hmp run examples/projects/17_site_selection_workflow/configs/finistere_jauge_elorn_dem.toml
+   hmp run examples/projects/17_site_selection_workflow/configs/bretagne_jauge_7stations.toml
+   hmp run examples/projects/17_site_selection_workflow/configs/aura_jauge_5stations.toml
+   hmp run examples/projects/17_site_selection_workflow/configs/bretagne_jauge_50_500km2.toml
+   hmp run examples/projects/17_site_selection_workflow/configs/corse_jauge_5stations.toml
 
-Use the direct DEM snap example to check the normal map layout. Use the BD
-Topage variant only to inspect outlet-location sensitivity; the reference
-network remains an internal snapping support.
+Use the Finistere direct DEM snap example to check the normal map layout. Use
+the BD Topage variant only to inspect outlet-location sensitivity; the
+reference network remains an internal snapping support.
 
-The two closure examples for the stabilized contract are:
+The closure examples for the stabilized contract are:
 
 .. list-table::
    :header-rows: 1
@@ -307,14 +305,18 @@ The two closure examples for the stabilized contract are:
      - Effective profile
      - Expected result
      - Review HTML
-   * - ``calvados_dem_area_light_100km2_fast.toml``
+   * - ``calvados_non_jauge_dem_10bassins_100km2.toml``
      - ``area_only``
      - 26 candidates, 10 selected, 16 rejected
-     - ``outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html``
-   * - ``bretagne_hydrometry_50_500_small_bdtopage.toml``
+     - ``outputs/calvados_non_jauge_dem_100km2_v1/review/index.html``
+   * - ``finistere_jauge_elorn_dem.toml``
+     - ``gauged_downstream_station``
+     - 1 candidate, 1 selected with warnings, 0 rejected
+     - ``outputs/finistere_jauge_elorn_dem_v1/review/index.html``
+   * - ``bretagne_jauge_7stations.toml``
      - ``gauged_downstream_station``
      - 6 candidates, 6 selected, 0 rejected
-     - ``outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html``
+     - ``outputs/bretagne_jauge_7stations/review/index.html``
 
 Both paths above are relative to
 ``examples/projects/17_site_selection_workflow/``. The associated map file is
@@ -326,7 +328,7 @@ Troubleshooting
 - If selected sites appear on a regular grid, check whether the input is a
   synthetic ``area_only`` fixture rather than real hydrometry stations.
 - If the DEM is absent from the map, verify ``[data.dem]`` and
-  ``site_selection.dem.map_background_extent``.
+  ``site_selection.dem.review_map_dem_background``.
 - If station points and basins are offset, inspect CRS metadata and prefer
   provider Lambert-93 coordinates when available.
 - If ``hmp run`` fails while opening an old ``cache.duckdb``, open the cache
