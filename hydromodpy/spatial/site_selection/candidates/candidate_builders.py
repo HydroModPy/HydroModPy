@@ -26,7 +26,7 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelect
 
 
 @dataclass(frozen=True)
-class CandidateGenerationEvidence:
+class CandidateAuditEvidence:
     """Audit record explaining one DEM network candidate."""
 
     candidate_id: str
@@ -85,14 +85,14 @@ class CandidateGenerationEvidence:
         }
 
 
-def generate_network_candidate_outlets(
+def build_network_candidate_outlets(
     *,
     flow_products: SiteSelectionFlowProducts,
     outlets: OutletsConfig,
     hydrology: HydrologyConfig,
     search_geometry: object | None = None,
     candidate_prefix: str = "network",
-) -> tuple[list[CandidateOutlet], list[CandidateGenerationEvidence]]:
+) -> tuple[list[CandidateOutlet], list[CandidateAuditEvidence]]:
     """Generate candidate outlets from the DEM accumulation raster.
 
     The current implementation samples high-accumulation raster cells. It is a
@@ -133,7 +133,7 @@ def generate_network_candidate_outlets(
     rejected_audit_count = 0
 
     candidates: list[CandidateOutlet] = []
-    evidence: list[CandidateGenerationEvidence] = []
+    evidence: list[CandidateAuditEvidence] = []
     for accumulation_value, row, col in scored_cells:
         x, y = raster.xy(row, col)
         nearest_candidate_id, nearest_distance_m = _nearest_candidate_distance(
@@ -191,8 +191,8 @@ def generate_network_candidate_outlets(
         rank = len(candidates) + 1
         candidate_id = f"{candidate_prefix}_{rank:05d}"
         attributes = {
-            "candidate_generation_source": "dem_accumulation",
-            "candidate_generation_rank": rank,
+            "candidate_audit_source": "dem_accumulation",
+            "candidate_audit_rank": rank,
             "flow_accumulation_value": accumulation_value,
             "flow_accumulation_row": row,
             "flow_accumulation_col": col,
@@ -231,7 +231,7 @@ def generate_network_candidate_outlets(
     return candidates, evidence
 
 
-def generate_dem_area_target_candidate_outlets(
+def build_dem_area_target_candidate_outlets(
     *,
     flow_products: SiteSelectionFlowProducts,
     dem_area_target: DemAreaTargetConfig,
@@ -240,7 +240,7 @@ def generate_dem_area_target_candidate_outlets(
     search_geometry: object | None = None,
     candidate_prefix: str = "dem_area",
     max_candidates_before_delineation: int | None = None,
-) -> tuple[list[CandidateOutlet], list[CandidateGenerationEvidence]]:
+) -> tuple[list[CandidateOutlet], list[CandidateAuditEvidence]]:
     """Generate DEM-only outlet candidates from raw upstream area."""
 
     acc_path = accumulation_cells_path or flow_products.products.acc
@@ -286,7 +286,7 @@ def generate_dem_area_target_candidate_outlets(
         max_count = max(int(dem_area_target.n_basins) * 20, int(dem_area_target.n_basins))
 
     candidates: list[CandidateOutlet] = []
-    evidence: list[CandidateGenerationEvidence] = []
+    evidence: list[CandidateAuditEvidence] = []
     rejected_audit_count = 0
     max_rejected_audit = 200
     for area_error_km2, _neg_area, row, col in scored_cells:
@@ -359,8 +359,8 @@ def generate_dem_area_target_candidate_outlets(
             max_area_km2=dem_area_target.max_area_km2,
         )
         attributes = {
-            "candidate_generation_source": "dem_area_target",
-            "candidate_generation_rank": rank,
+            "candidate_audit_source": "dem_area_target",
+            "candidate_audit_rank": rank,
             "flow_accumulation_cells": accumulation_value,
             "flow_accumulation_row": row,
             "flow_accumulation_col": col,
@@ -469,14 +469,14 @@ def ensure_raw_accumulation_cells(
     return destination
 
 
-def candidate_generation_evidence_with_candidate_attributes(
-    evidence: Iterable[CandidateGenerationEvidence],
+def candidate_audit_evidence_with_candidate_attributes(
+    evidence: Iterable[CandidateAuditEvidence],
     candidates: Iterable[CandidateOutlet],
-) -> list[CandidateGenerationEvidence]:
+) -> list[CandidateAuditEvidence]:
     """Copy reference-network scoring attributes from candidates to audit rows."""
 
     attributes_by_id = {candidate.candidate_id: candidate.attributes for candidate in candidates}
-    updated: list[CandidateGenerationEvidence] = []
+    updated: list[CandidateAuditEvidence] = []
     for row in evidence:
         attributes = attributes_by_id.get(row.candidate_id)
         if not attributes:
@@ -500,9 +500,9 @@ def candidate_generation_evidence_with_candidate_attributes(
     return updated
 
 
-def write_candidate_generation_jsonl(
+def write_candidate_audit_jsonl(
     path: str | Path,
-    evidence: Iterable[CandidateGenerationEvidence],
+    evidence: Iterable[CandidateAuditEvidence],
 ) -> Path:
     """Write candidate-audit evidence as JSONL."""
 
@@ -722,8 +722,8 @@ def _candidate_evidence(
     nearest_selected_candidate_id: str = "",
     nearest_selected_distance_m: float | None = None,
     rank: int = 0,
-) -> CandidateGenerationEvidence:
-    return CandidateGenerationEvidence(
+) -> CandidateAuditEvidence:
+    return CandidateAuditEvidence(
         candidate_id=candidate_id,
         x=x,
         y=y,
@@ -769,8 +769,8 @@ def _dem_area_candidate_evidence(
     nearest_selected_candidate_id: str = "",
     nearest_selected_distance_m: float | None = None,
     rank: int = 0,
-) -> CandidateGenerationEvidence:
-    return CandidateGenerationEvidence(
+) -> CandidateAuditEvidence:
+    return CandidateAuditEvidence(
         candidate_id=candidate_id,
         x=x,
         y=y,
@@ -975,13 +975,13 @@ def _optional_float(value: object) -> float | None:
 
 
 __all__ = [
-    "CandidateGenerationEvidence",
+    "CandidateAuditEvidence",
     "accumulation_to_area_km2",
-    "candidate_generation_evidence_with_candidate_attributes",
+    "candidate_audit_evidence_with_candidate_attributes",
     "ensure_raw_accumulation_cells",
-    "generate_dem_area_target_candidate_outlets",
-    "generate_network_candidate_outlets",
-    "write_candidate_generation_jsonl",
+    "build_dem_area_target_candidate_outlets",
+    "build_network_candidate_outlets",
+    "write_candidate_audit_jsonl",
     "write_candidate_outlets_geojson",
     "write_dem_network_geojson",
 ]

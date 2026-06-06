@@ -14,7 +14,7 @@ from hydromodpy.workflow.site_selection import (
 )
 
 from ._geojson import write_square_geojson
-from ._test_candidate_generation_builders import write_accumulation_raster
+from ._test_candidate_audit_builders import write_accumulation_raster
 
 
 @pytest.mark.fast
@@ -102,7 +102,7 @@ def test_dem_network_sampling_workflow_writes_candidate_audit_outputs(tmp_path):
         "network_00001",
         "network_00002",
     ]
-    assert result.output_paths["candidate_generation_jsonl"].is_file()
+    assert result.output_paths["candidate_audit_jsonl"].is_file()
     assert result.output_paths["candidate_outlets_geojson"].is_file()
     assert result.output_paths["dem_network_geojson"].is_file()
     assert result.output_paths["selected_sites_csv"].is_file()
@@ -110,7 +110,7 @@ def test_dem_network_sampling_workflow_writes_candidate_audit_outputs(tmp_path):
         result.output_paths["site_selection_manifest_json"].read_text(encoding="utf-8")
     )
     assert manifest["action"] == "dem_network_sampling"
-    assert manifest["outputs"]["candidate_generation_jsonl"] == "candidate_generation.jsonl"
+    assert manifest["outputs"]["candidate_audit_jsonl"] == "candidate_audit.jsonl"
     assert manifest["outputs"]["dem_network_geojson"] == "dem_network.geojson"
 
 

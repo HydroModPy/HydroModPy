@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.candidates.generation import (
-    candidate_generation_evidence_with_candidate_attributes,
-    generate_network_candidate_outlets,
+from hydromodpy.spatial.site_selection.candidates.candidate_builders import (
+    build_network_candidate_outlets,
+    candidate_audit_evidence_with_candidate_attributes,
 )
 from hydromodpy.spatial.site_selection.candidates.reference_network import (
     score_outlets_against_reference_network,
@@ -17,7 +17,7 @@ from hydromodpy.spatial.site_selection.config import (
 )
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
-from ._test_candidate_generation_builders import write_accumulation_raster
+from ._test_candidate_audit_builders import write_accumulation_raster
 
 
 @pytest.mark.fast
@@ -35,7 +35,7 @@ def test_reference_network_scores_dem_network_candidates_and_updates_audit(tmp_p
         network_threshold_area_km2=0.0001,
         compute_strahler=True,
     )
-    candidates, evidence = generate_network_candidate_outlets(
+    candidates, evidence = build_network_candidate_outlets(
         flow_products=flow_products,
         outlets=OutletsConfig(max_network_candidates=1),
         hydrology=HydrologyConfig(network_threshold_area_km2=0.0001),
@@ -52,7 +52,7 @@ def test_reference_network_scores_dem_network_candidates_and_updates_audit(tmp_p
         max_distance_m=100.0,
         source="bdtopage",
     )
-    updated = candidate_generation_evidence_with_candidate_attributes(evidence, scored)
+    updated = candidate_audit_evidence_with_candidate_attributes(evidence, scored)
 
     assert scored[0].attributes["reference_network_source"] == "bdtopage"
     assert scored[0].attributes["reference_network_distance_m"] == pytest.approx(0.0)

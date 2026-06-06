@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
-from hydromodpy.spatial.site_selection.candidates.generation import (
-    CandidateGenerationEvidence,
-    write_candidate_generation_jsonl,
+from hydromodpy.spatial.site_selection.candidates.candidate_builders import (
+    CandidateAuditEvidence,
+    write_candidate_audit_jsonl,
     write_candidate_outlets_geojson,
     write_dem_network_geojson,
 )
@@ -67,7 +67,7 @@ class SiteSelectionBuildResult:
     selection: SelectionResult
     output_paths: dict[str, Path]
     flow_products: SiteSelectionFlowProducts
-    candidate_generation_evidence: list[CandidateGenerationEvidence] | None = None
+    candidate_audit_evidence: list[CandidateAuditEvidence] | None = None
 
 
 def build_site_selection_from_point_records(
@@ -131,7 +131,7 @@ def build_site_selection_from_point_records(
         candidates,
         flow_products=flow_products,
         output_root=root / "catchments",
-        snap_dist_m=config.outlets.dem_snap_max_distance_m,
+        dem_snap_max_distance_m=config.outlets.dem_snap_max_distance_m,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
         delineation_builder=delineation_builder,
@@ -244,13 +244,13 @@ def build_site_selection_from_dem_network_sampling(
         search_geometry=search_geometry,
     )
     candidates = candidate_result.candidates
-    candidate_generation_evidence = candidate_result.evidence
+    candidate_audit_evidence = candidate_result.evidence
     reference_bundle = candidate_result.reference_bundle
     delineated = delineate_site_selection_candidates(
         candidates,
         flow_products=flow_products,
         output_root=root / "catchments",
-        snap_dist_m=config.outlets.dem_snap_max_distance_m,
+        dem_snap_max_distance_m=config.outlets.dem_snap_max_distance_m,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
         delineation_builder=delineation_builder,
@@ -287,9 +287,9 @@ def build_site_selection_from_dem_network_sampling(
             influence_evidence=annotations.influence_evidence,
             geology_evidence=annotations.geology_evidence,
         )
-        output_paths["candidate_generation_jsonl"] = write_candidate_generation_jsonl(
-            root / "candidate_generation.jsonl",
-            candidate_generation_evidence,
+        output_paths["candidate_audit_jsonl"] = write_candidate_audit_jsonl(
+            root / "candidate_audit.jsonl",
+            candidate_audit_evidence,
         )
         if config.output.write_geojson:
             output_paths["candidate_outlets_geojson"] = write_candidate_outlets_geojson(
@@ -333,7 +333,7 @@ def build_site_selection_from_dem_network_sampling(
         selection=selection,
         output_paths=output_paths,
         flow_products=flow_products,
-        candidate_generation_evidence=candidate_generation_evidence,
+        candidate_audit_evidence=candidate_audit_evidence,
     )
 
 
@@ -386,13 +386,13 @@ def build_site_selection_from_dem_area_target(
         raw_accumulation_builder=raw_accumulation_builder,
     )
     candidates = candidate_result.candidates
-    candidate_generation_evidence = candidate_result.evidence
+    candidate_audit_evidence = candidate_result.evidence
     raw_accumulation_path = candidate_result.raw_accumulation_path
     delineated = delineate_site_selection_candidates(
         candidates,
         flow_products=flow_products,
         output_root=root / "catchments",
-        snap_dist_m=1,
+        dem_snap_max_distance_m=1,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
         delineation_builder=delineation_builder,
@@ -426,15 +426,15 @@ def build_site_selection_from_dem_area_target(
             write_observation_vectors=False,
             write_context_vectors=False,
         )
-        output_paths["candidate_generation_jsonl"] = write_candidate_generation_jsonl(
-            root / "candidate_generation.jsonl",
-            candidate_generation_evidence,
+        output_paths["candidate_audit_jsonl"] = write_candidate_audit_jsonl(
+            root / "candidate_audit.jsonl",
+            candidate_audit_evidence,
         )
         output_paths["diagnostics_csv"] = write_csv(
             root / "diagnostics.csv",
             _dem_area_target_diagnostic_rows(
                 candidates=candidates,
-                evidence=candidate_generation_evidence,
+                evidence=candidate_audit_evidence,
                 delineated=delineated,
                 selection=selection,
             ),
@@ -482,7 +482,7 @@ def build_site_selection_from_dem_area_target(
         selection=selection,
         output_paths=output_paths,
         flow_products=flow_products,
-        candidate_generation_evidence=candidate_generation_evidence,
+        candidate_audit_evidence=candidate_audit_evidence,
     )
 
 
@@ -589,7 +589,7 @@ def _load_basin_geometries(catchments: list[DelineatedCatchment]) -> dict[str, o
 def _dem_area_target_diagnostic_rows(
     *,
     candidates: list[CandidateOutlet],
-    evidence: list[CandidateGenerationEvidence],
+    evidence: list[CandidateAuditEvidence],
     delineated: list[DelineatedCatchment],
     selection: SelectionResult,
 ) -> list[dict[str, int | str]]:

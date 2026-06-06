@@ -87,7 +87,7 @@ def delineate_candidate_outlet(
     outlet: CandidateOutlet,
     flow_products: SiteSelectionFlowProducts | FlowProducts,
     output_root: str | Path,
-    snap_dist_m: int,
+    dem_snap_max_distance_m: int,
     crs_project: str | None = None,
     site_id: str | None = None,
     backend: object | None = None,
@@ -99,8 +99,8 @@ def delineate_candidate_outlet(
 ) -> DelineatedCatchment:
     """Delineate one candidate by delegating to existing geographic code."""
 
-    if snap_dist_m <= 0:
-        raise ValueError("snap_dist_m must be > 0.")
+    if dem_snap_max_distance_m <= 0:
+        raise ValueError("dem_snap_max_distance_m must be > 0.")
     products = _flow_products(flow_products)
     target_site_id = site_id or outlet.candidate_id
     working_outlet = outlet
@@ -108,14 +108,16 @@ def delineate_candidate_outlet(
         working_outlet = snap_outlet_to_reference_network(
             outlet,
             reference_network,
-            max_distance_m=float(reference_network_snap_tolerance_m or snap_dist_m),
+            max_distance_m=float(
+                reference_network_snap_tolerance_m or dem_snap_max_distance_m
+            ),
             source=reference_network_source,
         )
     output_dir = Path(output_root) / _safe_path_name(target_site_id)
     result = builder(
         x_outlet=float(working_outlet.x),
         y_outlet=float(working_outlet.y),
-        snap_dist=int(snap_dist_m),
+        snap_dist=int(dem_snap_max_distance_m),
         acc_path=products.acc,
         direc_path=products.direc,
         output_dir=output_dir,
@@ -141,7 +143,7 @@ def try_delineate_candidate_outlet(
     outlet: CandidateOutlet,
     flow_products: SiteSelectionFlowProducts | FlowProducts,
     output_root: str | Path,
-    snap_dist_m: int,
+    dem_snap_max_distance_m: int,
     crs_project: str | None = None,
     site_id: str | None = None,
     backend: object | None = None,
@@ -158,7 +160,7 @@ def try_delineate_candidate_outlet(
             outlet=outlet,
             flow_products=flow_products,
             output_root=output_root,
-            snap_dist_m=snap_dist_m,
+            dem_snap_max_distance_m=dem_snap_max_distance_m,
             crs_project=crs_project,
             site_id=site_id,
             backend=backend,

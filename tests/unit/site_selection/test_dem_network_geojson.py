@@ -6,11 +6,13 @@ import numpy as np
 import pytest
 
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.candidates.generation import write_dem_network_geojson
+from hydromodpy.spatial.site_selection.candidates.candidate_builders import (
+    write_dem_network_geojson,
+)
 from hydromodpy.spatial.site_selection.config import HydrologyConfig
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
-from ._test_candidate_generation_builders import write_accumulation_raster
+from ._test_candidate_audit_builders import write_accumulation_raster
 
 
 def _feature_points(geometry: dict) -> list[list[float]]:

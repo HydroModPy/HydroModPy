@@ -296,7 +296,7 @@ Additional outputs follow the configured switches:
   true;
 - GeoPackage and GeoParquet layers when their corresponding switches are true.
 
-DEM-derived modes also write the candidate audit ``candidate_generation.jsonl``. When
+DEM-derived modes also write the candidate audit ``candidate_audit.jsonl``. When
 ``write_geojson`` is true, they write ``candidate_outlets.geojson`` and
 ``dem_network.geojson`` as review artifacts.
 

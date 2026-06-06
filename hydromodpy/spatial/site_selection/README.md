@@ -191,7 +191,7 @@ reference-network scoring. It remains outside the short-term stable business
 contract, but it is kept as a tested capability. It writes the normal selection
 outputs plus:
 
-- `candidate_generation.jsonl`
+- `candidate_audit.jsonl`
 - `candidate_outlets.geojson` when `write_geojson = true`
 - `dem_network.geojson` when `write_geojson = true`
 

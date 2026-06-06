@@ -317,9 +317,9 @@ Les sorties de production optionnelles sont:
 - fichiers GeoParquet par couche disponible;
 - couches d'evidence influence, geologie et observation quand elles existent.
 
-Les modes de generation DEM peuvent aussi ecrire:
+Les modes DEM peuvent aussi ecrire:
 
-- `candidate_generation.jsonl`;
+- `candidate_audit.jsonl`;
 - `candidate_outlets.geojson`;
 - `dem_network.geojson`.
 
