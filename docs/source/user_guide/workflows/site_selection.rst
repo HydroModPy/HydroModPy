@@ -316,6 +316,40 @@ scientific review, and ``audit`` exposes provenance, detailed criteria tables,
 and artifact links. The main ``review/index.html`` page lets each block choose
 its own level.
 
+Reading the HTML review
+-----------------------
+
+Open ``review/index.html`` first. It is the mixed-detail page: each block can
+show the level that is most useful for review without forcing the whole page to
+be compact or fully auditable.
+
+Use the report in this order:
+
+#. Start with the summary block to check the selection id, territory, input
+   mode, selected count and rejected count.
+#. Inspect the map block. It should show selected and rejected basins, final
+   outlets, observation points when available, and the DEM background requested
+   by ``site_selection.dem.review_map_dem_background``.
+#. Read the selected and rejected tables to confirm that the hard decisions
+   match the campaign intent.
+#. Open the criteria block when a decision needs explanation. It lists the
+   individual criterion components that produced rejections, warnings or
+   ranking evidence.
+#. For DEM-derived modes, inspect the candidate audit block. It explains which
+   DEM cells became outlet candidates and why other cells were rejected before
+   expensive delineation.
+
+The three fixed views are useful for sharing:
+
+- ``review/compact/index.html`` for a short plausibility check;
+- ``review/standard/index.html`` for normal scientific review;
+- ``review/audit/index.html`` for provenance and detailed evidence.
+
+The HTML pages are intentionally static. They should not rerun providers,
+recompute criteria, or mutate outputs. If a value in the report is surprising,
+inspect ``site_selection_manifest.json`` and the artifact referenced by the
+manifest first.
+
 Examples
 --------
 
