@@ -11,9 +11,9 @@ a HydroModPy run. It records:
 - ``[[artefact]]`` rows: legacy per-artefact detail (``variable``, ``source``,
   ``station_id``) used by frozen-mode replay.
 
-Writes are atomic: payload lands in a sibling ``<dest>.tmp.<uuid>`` file
-which is ``fsync``'d before ``os.replace`` swaps it into place. A crash
-mid-write leaves the previous lockfile untouched.
+Writes are atomic: payload lands in a sibling temporary file which is
+``fsync``'d before being promoted into place. A crash mid-write leaves the
+previous lockfile untouched.
 
 Verification has two modes:
 
@@ -31,7 +31,6 @@ import hashlib
 import io
 import os
 import tarfile
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,6 +38,7 @@ from typing import Any
 
 import tomlkit
 
+from hydromodpy.core.io.atomic import atomic_write_text
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.data.registry.migrations import target_version as _cache_target_version
@@ -205,35 +205,6 @@ def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArt
     )
 
 
-def _atomic_write_text(dest: Path, text: str) -> None:
-    """Write *text* to *dest* atomically (tmp + fsync + replace)."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.parent / f".{dest.name}.tmp.{uuid.uuid4().hex}"
-    try:
-        fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
-        try:
-            os.write(fd, text.encode("utf-8"))
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-        os.replace(tmp, dest)
-        try:
-            dir_fd = os.open(str(dest.parent), os.O_RDONLY)
-            try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
-        except OSError:
-            # Directory fsync not supported (Windows/tmpfs); best-effort only.
-            pass
-    finally:
-        if tmp.exists():
-            try:
-                tmp.unlink()
-            except OSError:
-                pass
-
-
 # ---------------------------------------------------------------------- collect
 
 
@@ -295,7 +266,7 @@ def write_lockfile(
 ) -> Path:
     """Freeze the current run environment + catalog inputs into ``dest``.
 
-    The file is written atomically (tmp + ``fsync`` + ``os.replace``). The
+    The file is written atomically through the shared filesystem helper. The
     four mandatory sections are always emitted:
 
     - ``[hydromodpy]`` with version, git commit, python version, schema
@@ -381,7 +352,7 @@ def write_lockfile(
         artefacts.append(table)
     doc["artefact"] = artefacts
 
-    _atomic_write_text(dest, tomlkit.dumps(doc))
+    atomic_write_text(dest, tomlkit.dumps(doc))
     return dest
 
 

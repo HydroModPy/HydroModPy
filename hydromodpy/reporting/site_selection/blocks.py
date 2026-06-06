@@ -185,6 +185,7 @@ def build_site_selection_result_blocks(
     territory = _mapping(manifest.get("territory"))
     criteria = _mapping(manifest.get("criteria"))
     dem = _mapping(manifest.get("dem"))
+    review_map = _mapping(manifest.get("review_map"))
     flow_products = _mapping(manifest.get("flow_products"))
     outputs = _mapping(manifest.get("outputs"))
     map_context = _mapping(manifest.get("map_context"))
@@ -238,7 +239,7 @@ def build_site_selection_result_blocks(
                 item
                 for item in (
                     _principle_explanation(strategy, criteria),
-                    _dem_explanation(dem, flow_products),
+                    _dem_explanation(dem, flow_products, review_map),
                 )
                 if item
             ),
@@ -720,7 +721,7 @@ def _criteria_items(criteria: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
         ("Ruleset", criteria.get("ruleset")),
         ("Hard reject", _format_value(criteria.get("hard_reject"))),
         ("Warning", _format_value(criteria.get("warning"))),
-        ("Soft score", _format_value(criteria.get("soft_score"))),
+        ("Ranking preference", _format_value(criteria.get("ranking_preference"))),
         ("Report only", _format_value(criteria.get("report_only"))),
         ("Surface", criteria.get("area_mode")),
         ("Plages surface", _format_value(criteria.get("area_ranges"))),
@@ -860,14 +861,21 @@ def _area_ranges_label(value: object) -> str:
 def _dem_explanation(
     dem: Mapping[str, Any],
     flow_products: Mapping[str, Any],
+    review_map: Mapping[str, Any] | None = None,
 ) -> str:
-    request_extent = str(dem.get("request_extent") or "")
-    map_extent = str(dem.get("map_background_extent") or "")
+    delineation_dem_extent_source = str(dem.get("delineation_dem_extent_source") or "")
+    dem_background = str(_mapping(review_map).get("dem_background") or "")
     has_map_dem = bool(flow_products.get("map_dem_path"))
-    if has_map_dem and request_extent == "outlets" and map_extent == "territory":
+    if (
+        has_map_dem
+        and delineation_dem_extent_source
+        == "candidate_outlets_bbox"
+        and dem_background == "territory_dem"
+    ):
         return (
-            "Le calcul hydrologique utilise un DEM limite aux exutoires, tandis que "
-            "la carte recharge un DEM regional pour le contexte visuel complet."
+            "Le calcul hydrologique utilise un DEM limite a la boite englobante "
+            "des exutoires, tandis que la carte recharge un DEM regional pour "
+            "le contexte visuel complet."
         )
     if has_map_dem:
         return "La carte utilise un DEM de fond dedie au controle visuel des bassins."

@@ -8,6 +8,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.json_safe import json_safe_mapping
 from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
 from hydromodpy.spatial.site_selection.outputs.schemas import (
     REGIONAL_LAB_SITES_FIELDS,
@@ -95,7 +96,9 @@ def write_jsonl(path: str | Path, rows: Iterable[Mapping[str, Any]]) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w", encoding="utf-8") as handle:
         for row in rows:
-            handle.write(json.dumps(dict(row), ensure_ascii=True, sort_keys=True) + "\n")
+            handle.write(
+                json.dumps(json_safe_mapping(row), ensure_ascii=True, sort_keys=True) + "\n"
+            )
     return destination
 
 

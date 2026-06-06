@@ -70,7 +70,7 @@ class TimeseriesSelectionMixin(HydroModelBase):
 
     station_ids: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,
-        description="Explicit station identifiers to load (custom source).",
+        description="Explicit station identifiers to load from the selected provider.",
     )
     extent: Annotated[
         Literal["watershed", "study_area"] | None,

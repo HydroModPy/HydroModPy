@@ -40,8 +40,8 @@ def test_candidate_outlets_from_hubeau_records_use_lambert93_metadata_when_reque
         crs="EPSG:4326",
         metadata={
             "station_name": "Station HubEau",
-            "x_l93": "352000.5",
-            "y_l93": "6812000.25",
+            "x_l93": "354200.0",
+            "y_l93": "6790140.0",
             "influence_generale_site": "0",
         },
     )
@@ -53,11 +53,37 @@ def test_candidate_outlets_from_hubeau_records_use_lambert93_metadata_when_reque
     )
 
     assert len(candidates) == 1
-    assert candidates[0].x == pytest.approx(352000.5)
-    assert candidates[0].y == pytest.approx(6812000.25)
+    assert candidates[0].x == pytest.approx(354200.0)
+    assert candidates[0].y == pytest.approx(6790140.0)
     assert candidates[0].crs == "EPSG:2154"
     assert candidates[0].attributes["source_location_crs"] == "EPSG:4326"
     assert candidates[0].attributes["flow_station_influence_generale_site"] == "0"
+
+
+@pytest.mark.fast
+def test_candidate_outlets_fall_back_when_lambert93_metadata_is_inconsistent():
+    record = make_point_record(
+        "I923301301",
+        x=-1.233497944,
+        y=48.579264655,
+        crs="EPSG:4326",
+        metadata={
+            "station_name": "La Selune a Ducey",
+            "x_l93": "336576.0",
+            "y_l93": "2403827.0",
+        },
+    )
+
+    candidates = candidate_outlets_from_point_records(
+        [record],
+        candidate_prefix="station",
+        target_crs="EPSG:2154",
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0].x == pytest.approx(387868.83, abs=0.01)
+    assert candidates[0].y == pytest.approx(6839375.02, abs=0.01)
+    assert candidates[0].crs == "EPSG:2154"
 
 
 @pytest.mark.fast

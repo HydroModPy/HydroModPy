@@ -311,6 +311,7 @@ def standard_steps() -> tuple:
         DisplayStep,
         ExportStep,
         ExtractStep,
+        HtmlReportStep,
         LoadDataStep,
         PrepareSolverStep,
         ResolveStep,
@@ -332,6 +333,7 @@ def standard_steps() -> tuple:
         DeriveStep(),
         ExportStep(),
         DisplayStep(),
+        HtmlReportStep(),
     )
 
 

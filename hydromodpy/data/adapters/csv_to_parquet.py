@@ -21,6 +21,8 @@ from datetime import datetime
 from pathlib import Path
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.io.atomic import replace_with_retry
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.data.schemas import (
     StationCollectionSchema,
     TimeSeriesSchema,
@@ -158,7 +160,6 @@ def convert_timeseries_csv_to_parquet(
     The output respects the v2 Parquet write defaults (ZSTD-5, page index,
     row-group 50k) without crossing the layer boundary into ``results``.
     """
-    import os
     import uuid as _uuid
 
     src = Path(src)
@@ -193,10 +194,12 @@ def convert_timeseries_csv_to_parquet(
     )
     table = pa.Table.from_pandas(frame, schema=schema, preserve_index=False)
     tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    tmp_io = native_io_path(tmp)
+    dest_io = native_io_path(dest)
     try:
         pq.write_table(
             table,
-            tmp,
+            tmp_io,
             compression="zstd",
             compression_level=5,
             row_group_size=50_000,
@@ -209,7 +212,7 @@ def convert_timeseries_csv_to_parquet(
         if tmp.exists():
             tmp.unlink()
         raise
-    os.replace(tmp, dest)
+    replace_with_retry(tmp_io, dest_io)
     return dest
 
 
@@ -299,7 +302,6 @@ def convert_locations_csv_to_geoparquet(
     Uses :meth:`geopandas.GeoDataFrame.to_parquet` with the v2 contract
     (``schema_version=1.1.0``, WKB encoding, covering bbox) inline.
     """
-    import os
     import uuid as _uuid
 
     src = Path(src)
@@ -338,9 +340,11 @@ def convert_locations_csv_to_geoparquet(
             schema_name=f"StationCollectionSchema[{src.name}]",
         )
     tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    tmp_io = native_io_path(tmp)
+    dest_io = native_io_path(dest)
     try:
         gdf.to_parquet(
-            tmp,
+            tmp_io,
             compression="zstd",
             compression_level=5,
             schema_version="1.1.0",
@@ -352,7 +356,7 @@ def convert_locations_csv_to_geoparquet(
         if tmp.exists():
             tmp.unlink()
         raise
-    os.replace(tmp, dest)
+    replace_with_retry(tmp_io, dest_io)
     return dest
 
 

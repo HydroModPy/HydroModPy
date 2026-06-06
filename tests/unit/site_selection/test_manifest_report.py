@@ -42,8 +42,9 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
                 "hard_min_area_km2 = 75.0",
                 "hard_max_area_km2 = 125.0",
                 "",
-                "[site_selection.output]",
-                "write_report_html = true",
+                "[report.html]",
+                'profile = "site_selection"',
+                "build_at_end = true",
             ]
         ),
         encoding="utf-8",
@@ -71,6 +72,7 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
     assert paths["site_selection_manifest_json"].is_file()
     assert paths["site_selection_report_html"].is_file()
     assert paths["site_selection_map_png"].is_file()
+    assert paths["report_artifact_manifest_json"].is_file()
 
     manifest = json.loads(paths["site_selection_manifest_json"].read_text(encoding="utf-8"))
     assert manifest["selection_id"] == "report_demo"
@@ -94,6 +96,21 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
     assert (paths["site_selection_report_html"].parent / "compact" / "index.html").is_file()
     assert (paths["site_selection_report_html"].parent / "standard" / "index.html").is_file()
     assert (paths["site_selection_report_html"].parent / "audit" / "index.html").is_file()
+
+    artifact_manifest = json.loads(
+        paths["report_artifact_manifest_json"].read_text(encoding="utf-8")
+    )
+    artifacts = {
+        artifact["artifact_id"]: artifact
+        for artifact in artifact_manifest["artifacts"]
+    }
+    assert artifact_manifest["profile"] == "site_selection"
+    assert artifact_manifest["source_manifest"] == "site_selection_manifest.json"
+    assert artifacts["site_selection_manifest_json"]["status"] == "present"
+    assert artifacts["site_selection_report_html"]["status"] == "present"
+    assert artifacts["site_selection_map_png"]["metadata"]["display_figure"] == (
+        "site_selection_map"
+    )
 
 
 @pytest.mark.fast
@@ -123,8 +140,9 @@ def test_render_site_selection_html_report_supports_custom_output(tmp_path):
                 "hard_min_area_km2 = 75.0",
                 "hard_max_area_km2 = 125.0",
                 "",
-                "[site_selection.output]",
-                "write_report_html = true",
+                "[report.html]",
+                'profile = "site_selection"',
+                "build_at_end = true",
             ]
         ),
         encoding="utf-8",

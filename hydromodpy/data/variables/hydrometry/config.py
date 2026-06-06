@@ -44,8 +44,9 @@ class HydrometrySourceConfig(
         default=None,
         description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
     )
-    require_observations: Annotated[bool, Profile.DEV] = Field(
-        default=True, description="Only keep stations that have observations in the period."
+    require_observations: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Only keep stations that have observations in the configured period.",
     )
     max_stations: Annotated[int | None, Profile.USER] = Field(
         default=None,

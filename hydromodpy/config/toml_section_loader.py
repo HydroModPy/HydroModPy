@@ -15,6 +15,7 @@ from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.display.overview.config import OverviewConfig
+from hydromodpy.display.report_config import ReportConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
@@ -129,6 +130,26 @@ def load_standard_section(
     payload = dict(section_data)
     _resolve_section_paths(payload, model_cls, base, workspace_data_dir=workspace_data_dir)
     return model_cls.model_validate(payload)
+
+
+def load_report_section(section_data: Any, base: Path) -> ReportConfig:
+    """Load [report], resolving nested [report.html].config_path."""
+
+    if section_data is None:
+        section_data = {}
+    if not isinstance(section_data, Mapping):
+        raise ValueError("TOML section must be a mapping for ReportConfig")
+    payload = dict(section_data)
+    html = payload.get("html")
+    if isinstance(html, Mapping):
+        html_payload = dict(html)
+        config_path = html_payload.get("config_path")
+        if isinstance(config_path, str) and config_path:
+            html_payload["config_path"] = str(
+                resolve_declared_path(config_path, base_dir=base)
+            )
+        payload["html"] = html_payload
+    return ReportConfig.model_validate(payload)
 
 
 def _raw_declares_dem_source(section_data: Any) -> bool:

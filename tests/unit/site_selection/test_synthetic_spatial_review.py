@@ -107,9 +107,8 @@ def test_synthetic_spatial_review_contains_basins_observations_map_and_html(tmp_
                     "hard_max_area_km2": 30.0,
                 }
             },
-            "output": {"write_report_html": True},
         }
-    )
+    ).with_report_html_build_at_end(True)
 
     output_paths = write_selection_result(
         cfg.output_root,
@@ -166,7 +165,8 @@ def test_display_bounds_can_honor_requested_regional_dem_extent():
 @pytest.mark.fast
 def test_manifest_prefers_dem_extent_for_territory_background():
     manifest = {
-        "dem": {"request_extent": "territory", "map_background_extent": "territory"},
+        "dem": {"delineation_dem_extent_source": "selection_territory"},
+        "review_map": {"dem_background": "territory_dem"},
         "flow_products": {"dem_path": "regional_dem.tif"},
     }
 

@@ -10,6 +10,8 @@ is left empty.
 Resolution order for a single source:
 
 - ``source = "custom"`` resolves ``path`` against the TOML directory.
+  If the path is a directory with several raster tiles, they are mosaicked in
+  the DEM cache and the mosaic path is returned.
 - ``source = "ign_geoplateforme_dem"`` uses the IGN Geoplateforme DEM client
   with an outlet-buffer bootstrap bbox.
 
@@ -48,7 +50,7 @@ def resolve_dem_path_from_data_sources(
     for source_cfg in sources:
         source_kind = str(getattr(source_cfg, "source", "")).strip()
         if source_kind == "custom":
-            resolved = _resolve_custom_path(source_cfg, config_dir)
+            resolved = _resolve_custom_path(source_cfg, config_dir, cache_dir=cache_dir)
             if resolved is not None:
                 return resolved
         elif source_kind in _API_SOURCES:
@@ -60,7 +62,12 @@ def resolve_dem_path_from_data_sources(
     return None
 
 
-def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
+def _resolve_custom_path(
+    source_cfg: Any,
+    config_dir: Path,
+    *,
+    cache_dir: Path | None,
+) -> Path | None:
     raw_path = getattr(source_cfg, "path", None)
     if raw_path is None:
         return None
@@ -70,9 +77,21 @@ def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
     if not candidate.exists():
         raise FileNotFoundError(f"[data.dem] custom source path not found: {candidate}")
     if candidate.is_dir():
-        from hydromodpy.data.variables.dem.custom import _find_dem_file_in_dir
+        from hydromodpy.data.variables.dem.custom import (
+            _find_dem_files_in_dir,
+            load_custom_dem,
+        )
 
-        candidate = _find_dem_file_in_dir(candidate)
+        paths = _find_dem_files_in_dir(candidate)
+        if len(paths) == 1:
+            return paths[0]
+        output_dir = cache_dir or (_hmp_cache_dir() / "dem")
+        if hasattr(source_cfg, "model_copy"):
+            source_cfg = source_cfg.model_copy(update={"path": candidate})
+        records = load_custom_dem(source_cfg, data_dir=output_dir)
+        if not records:
+            return None
+        return Path(records[0].data).expanduser().resolve()
     return candidate
 
 

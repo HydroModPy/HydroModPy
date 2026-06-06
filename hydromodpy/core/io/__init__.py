@@ -11,6 +11,7 @@ http_client     HTTP client with retry / backoff / timeout / SHA-256 streaming.
 
 from __future__ import annotations
 
+from hydromodpy.core.io.atomic import atomic_write_json, atomic_write_text, write_text_if_changed
 from hydromodpy.core.io.canonical_json import dumps as json_dumps
 from hydromodpy.core.io.canonical_json import loads as json_loads
 from hydromodpy.core.io.http_client import (
@@ -22,6 +23,9 @@ from hydromodpy.core.io.http_client import (
 __all__ = [
     "json_dumps",
     "json_loads",
+    "atomic_write_json",
+    "atomic_write_text",
+    "write_text_if_changed",
     "HTTPClient",
     "StreamResult",
     "get_default_client",

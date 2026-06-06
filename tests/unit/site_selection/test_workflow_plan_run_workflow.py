@@ -38,8 +38,9 @@ def test_run_site_selection_workflow_plan_mode_writes_manifest(tmp_path):
                 "hard_min_area_km2 = 75.0",
                 "hard_max_area_km2 = 125.0",
                 "",
-                "[site_selection.output]",
-                "write_report_html = true",
+                "[report.html]",
+                'profile = "site_selection"',
+                "build_at_end = true",
             ]
         ),
         encoding="utf-8",

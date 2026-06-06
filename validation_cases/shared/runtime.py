@@ -685,16 +685,40 @@ def _format_subprocess_failure(
     completed: subprocess.CompletedProcess[str],
     workspace_error: AssertionError | None = None,
 ) -> str:
+    phase_hint = _infer_subprocess_failure_phase(completed)
+    phase_line = f"Failure phase hint: {phase_hint}\n" if phase_hint else ""
     message = (
         f"{script_path.name} failed.\n"
         f"Command: {' '.join(command)}\n"
         f"Return code: {completed.returncode}\n"
+        f"{phase_line}"
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
     )
     if workspace_error is not None:
         message += f"\nWorkspace resolution failed: {workspace_error}"
     return message
+
+
+def _infer_subprocess_failure_phase(completed: subprocess.CompletedProcess[str]) -> str | None:
+    stdout = str(completed.stdout or "")
+
+    if "Normal termination of simulation." in stdout:
+        return (
+            "MODFLOW reported normal termination; the failure happened afterwards "
+            "during HydroModPy post-processing, result registration, or workspace resolution."
+        )
+    if (
+        "writing simulation..." in stdout
+        or "MODFLOW 6" in stdout
+        or "Solving:" in stdout
+        or "Run start date and time" in stdout
+    ):
+        return (
+            "the solver run started but did not reach normal termination; inspect "
+            "the solver stdout/stderr above first."
+        )
+    return None
 
 
 def _build_validation_launcher_config(

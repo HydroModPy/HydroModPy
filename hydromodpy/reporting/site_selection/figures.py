@@ -930,14 +930,15 @@ def _dem_path_from_manifest(manifest: Mapping[str, Any]) -> Path | None:
 
 
 def _prefer_dem_extent_from_manifest(manifest: Mapping[str, Any]) -> bool:
-    dem = _mapping(manifest.get("dem"))
+    review_map = _mapping(manifest.get("review_map"))
     flow_products = _mapping(manifest.get("flow_products"))
     has_dem_background = bool(
         flow_products.get("map_dem_path")
         or flow_products.get("dem_path")
         or flow_products.get("dem_corrected_path")
     )
-    return has_dem_background and str(dem.get("map_background_extent") or "") == "territory"
+    dem_background = str(review_map.get("dem_background") or "")
+    return has_dem_background and dem_background == "territory_dem"
 
 
 def _features(collection: Mapping[str, Any]) -> list[dict[str, Any]]:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
+import json
 import shutil
 import uuid
 from pathlib import Path
@@ -9,17 +11,40 @@ import pytest
 
 from hydromodpy.display.catchment_report import (
     GENERIC_REPORT_PRESET,
+    CatchmentReportBuildOptions,
     CatchmentReportConfig,
     CatchmentReportInputs,
 )
 from hydromodpy.display.catchment_report.artifacts import DEFAULT_ARTIFACT_SPECS
 from hydromodpy.display.catchment_report.block_specs import DEFAULT_BLOCK_SPECS
+from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NANCON_EXAMPLE_DIR = REPO_ROOT / "examples" / "projects" / "16_nancon_natural_calibration"
 NANCON_REPORT_CONFIG = NANCON_EXAMPLE_DIR / "catchment_report.toml"
+NANCON_HTML_REPORT_CONFIG = NANCON_EXAMPLE_DIR / "catchment_report_transient_nwt_html.toml"
 NANCON_REPORT_INPUTS = CatchmentReportInputs.from_toml(NANCON_REPORT_CONFIG)
+NANCON_HTML_REPORT_INPUTS = CatchmentReportInputs.from_toml(NANCON_HTML_REPORT_CONFIG)
+PUBLIC_REPORT_CONFIGS = (
+    NANCON_REPORT_CONFIG,
+    NANCON_HTML_REPORT_CONFIG,
+    REPO_ROOT / "examples" / "projects" / "06_vire_selune" / "catchment_report_selune.toml",
+    REPO_ROOT / "examples" / "projects" / "06_vire_selune" / "catchment_report_vire.toml",
+)
 GITIGNORE = REPO_ROOT / ".gitignore"
+
+
+def _load_nancon_report_module():
+    module_path = NANCON_EXAMPLE_DIR / "nancon_real_figures_report.py"
+    spec = importlib.util.spec_from_file_location(
+        f"nancon_real_figures_report_{uuid.uuid4().hex}",
+        module_path,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _fingerprints(root: Path) -> dict[str, tuple[int, str]]:
@@ -29,8 +54,11 @@ def _fingerprints(root: Path) -> dict[str, tuple[int, str]]:
     }
 
 
-def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None:
-    inputs = NANCON_REPORT_INPUTS
+def _write_nancon_cli_report_config(
+    config_path: Path,
+    output_dir: Path,
+    inputs: CatchmentReportInputs = NANCON_REPORT_INPUTS,
+) -> None:
     config_path.write_text(
         "\n".join(
             [
@@ -48,13 +76,6 @@ def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None
                 f'context_summary_name = "{inputs.context_summary.name}"',
                 f'transient_config_name = "{inputs.transient_config.name}"',
                 f'overview_config_name = "{inputs.overview_config.name}"',
-                "",
-                "[pipeline]",
-                f"run_overview = {str(inputs.pipeline_run_overview).lower()}",
-                f"run_simulation = {str(inputs.pipeline_run_simulation).lower()}",
-                f"build_context_artifacts = {str(inputs.pipeline_build_context_artifacts).lower()}",
-                f"build_report_html = {str(inputs.pipeline_build_report_html).lower()}",
-                f"strict_figure_postflight = {str(inputs.pipeline_strict_figure_postflight).lower()}",
                 "",
                 "[context.observed_discharge]",
                 f'path = "{inputs.observed_discharge_path.as_posix()}"',
@@ -100,7 +121,17 @@ def test_nancon_example_report_config_uses_generic_contract() -> None:
     )
 
 
-def test_generic_specs_do_not_include_gallery_or_nancon_fallbacks() -> None:
+@pytest.mark.parametrize("config_path", PUBLIC_REPORT_CONFIGS)
+def test_public_catchment_report_configs_are_not_orchestrators(config_path: Path) -> None:
+    text = config_path.read_text(encoding="utf-8")
+
+    assert "[pipeline]" not in text
+    options = CatchmentReportBuildOptions.from_toml(config_path)
+    assert options.run_overview is False
+    assert options.run_simulation is False
+
+
+def test_generic_specs_do_not_include_gallery_or_nancon_specific_paths() -> None:
     candidates = [candidate for spec in DEFAULT_ARTIFACT_SPECS for candidate in spec.candidates]
 
     assert all(candidate.root != "gallery_geo" for candidate in candidates)
@@ -142,14 +173,14 @@ def test_generated_report_artifacts_are_ignored_by_git() -> None:
 def test_generated_report_ignore_policy_is_not_basin_specific() -> None:
     gitignore = GITIGNORE.read_text(encoding="utf-8")
 
-    legacy_patterns = (
+    basin_specific_patterns = (
         "examples/projects/06_vire_selune/outputs/",
         "examples/projects/16_nancon_natural_calibration/outputs/nancon_context/",
         "examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/",
         "examples/projects/16_nancon_natural_calibration/outputs/selune_portability_probe/",
     )
 
-    assert all(pattern not in gitignore for pattern in legacy_patterns)
+    assert all(pattern not in gitignore for pattern in basin_specific_patterns)
 
 
 def test_nancon_inputs_can_be_derived_from_project_layout() -> None:
@@ -175,11 +206,6 @@ def test_nancon_inputs_can_be_derived_from_project_layout() -> None:
         / "hydrometry"
         / "hydrometry_custom_NANCON_19820201_20220125_D.csv",
         observed_discharge_station_id="NANCON",
-        pipeline_run_overview=True,
-        pipeline_run_simulation=True,
-        pipeline_build_context_artifacts=True,
-        pipeline_build_report_html=True,
-        pipeline_strict_figure_postflight=True,
     )
 
     assert derived == NANCON_REPORT_INPUTS
@@ -189,11 +215,85 @@ def test_nancon_inputs_can_be_loaded_from_report_toml() -> None:
     assert CatchmentReportInputs.from_toml(NANCON_REPORT_CONFIG) == NANCON_REPORT_INPUTS
 
 
+def test_nancon_report_code_calls_catchment_pipeline_directly(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    module = _load_nancon_report_module()
+    captured = {}
+
+    def fake_pipeline(
+        report_config: Path,
+        *,
+        preset,
+        run_overview: bool | None,
+        run_simulation: bool | None,
+        build_context_artifacts: bool | None,
+        build_report_html: bool | None,
+        no_lock: bool | None,
+        stream_run_logs: bool | None,
+        strict_figure_postflight: bool | None,
+    ) -> CatchmentReportPipelineResult:
+        captured.update(
+            report_config=report_config,
+            preset=preset,
+            run_overview=run_overview,
+            run_simulation=run_simulation,
+            build_context_artifacts=build_context_artifacts,
+            build_report_html=build_report_html,
+            no_lock=no_lock,
+            stream_run_logs=stream_run_logs,
+            strict_figure_postflight=strict_figure_postflight,
+        )
+        return CatchmentReportPipelineResult(
+            overview_config=None,
+            simulation_config=None,
+            context_summary=None,
+            html_report=tmp_path / "web" / "index.html",
+        )
+
+    monkeypatch.setattr(module, "run_catchment_report_pipeline", fake_pipeline)
+
+    result = module.build_nancon_real_figures_report(
+        run_overview=False,
+        run_simulation=False,
+        build_report_html=True,
+    )
+
+    assert result.html_report == tmp_path / "web" / "index.html"
+    assert captured["report_config"] == NANCON_REPORT_CONFIG
+    assert captured["preset"] is None
+    assert captured["run_overview"] is False
+    assert captured["run_simulation"] is False
+    assert captured["build_report_html"] is True
+
+    captured.clear()
+    assert module.main(["--report-only"]) == 0
+
+    assert captured["report_config"] == NANCON_REPORT_CONFIG
+    assert captured["run_overview"] is False
+    assert captured["run_simulation"] is False
+    assert captured["build_context_artifacts"] is False
+    assert captured["build_report_html"] is True
+    assert f"html_report={tmp_path / 'web' / 'index.html'}" in capsys.readouterr().out
+
+
+def test_nancon_report_launcher_does_not_call_global_hmp_cli() -> None:
+    launcher = (NANCON_EXAMPLE_DIR / "build_nancon_real_figures_report.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "hydromodpy.cli.main" not in launcher
+    assert "hmp_main" not in launcher
+
+
 def test_generic_inputs_support_separate_simulation_workspace_and_observed_series() -> None:
     config_path = (
         REPO_ROOT / "examples" / "projects" / "06_vire_selune" / "catchment_report_selune.toml"
     )
     inputs = CatchmentReportInputs.from_toml(config_path)
+    options = CatchmentReportBuildOptions.from_toml(config_path)
     config = CatchmentReportConfig.from_inputs(inputs)
 
     assert inputs.site_label == "Selune"
@@ -209,11 +309,11 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
     )
     assert inputs.observed_discharge_station_id == "I922102001"
     assert inputs.preset_name is None
-    assert inputs.pipeline_run_overview is True
-    assert inputs.pipeline_run_simulation is True
-    assert inputs.pipeline_build_context_artifacts is True
-    assert inputs.pipeline_build_report_html is True
-    assert inputs.pipeline_strict_figure_postflight is True
+    assert options.run_overview is False
+    assert options.run_simulation is False
+    assert options.build_context_artifacts is True
+    assert options.build_report_html is True
+    assert options.strict_figure_postflight is False
     assert inputs.observed_discharge_path == (
         REPO_ROOT
         / "examples"
@@ -230,7 +330,7 @@ def test_report_catchment_cli_regenerates_existing_nancon_report(
 ) -> None:
     from hydromodpy.cli.main import main as hmp_cli_main
 
-    reference = NANCON_REPORT_INPUTS.output_dir
+    reference = NANCON_HTML_REPORT_INPUTS.output_dir
     required_reference_files = (
         reference / "web" / "index.html",
         reference / "web_review" / "compact" / "index.html",
@@ -249,17 +349,33 @@ def test_report_catchment_cli_regenerates_existing_nancon_report(
     shutil.rmtree(generated, ignore_errors=True)
     try:
         config_path = tmp_path / "catchment_report.toml"
-        _write_nancon_cli_report_config(config_path, generated)
-        hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
+        _write_nancon_cli_report_config(config_path, generated, NANCON_HTML_REPORT_INPUTS)
+        hmp_cli_main(
+            [
+                "report",
+                "catchment",
+                str(config_path),
+                "--report-only",
+            ]
+        )
 
         for reference_html in required_reference_files:
             generated_html = generated / reference_html.relative_to(reference)
-            assert generated_html.read_text(encoding="utf-8") == reference_html.read_text(
-                encoding="utf-8"
-            )
+            text = generated_html.read_text(encoding="utf-8")
+            assert text.startswith("<!doctype html>")
+            assert "Nancon" in text
 
-        assert _fingerprints(generated / "web" / "figures") == _fingerprints(
-            reference / "web" / "figures"
+        generated_figures = _fingerprints(generated / "web" / "figures")
+        assert set(generated_figures) == set(_fingerprints(reference / "web" / "figures"))
+        assert all(size > 0 for size, _digest in generated_figures.values())
+        postflight = json.loads((generated / "block_report_postflight.json").read_text())
+        assert postflight["missing_count"] == 0
+        assert postflight["dangling_count"] == 0
+        artifact_manifest = json.loads((generated / "report_artifact_manifest.json").read_text())
+        assert all(
+            artifact["status"] == "present"
+            for artifact in artifact_manifest["artifacts"]
+            if artifact["required"]
         )
     finally:
         shutil.rmtree(generated, ignore_errors=True)

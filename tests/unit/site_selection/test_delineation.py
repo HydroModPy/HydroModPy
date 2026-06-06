@@ -96,7 +96,7 @@ def test_delineate_candidate_outlet_can_snap_to_reference_network_before_dem(tmp
         area_reader=lambda _path: 123.4,
         reference_network=reference_network,
         reference_network_source="bdtopage",
-        reference_network_max_distance_m=100.0,
+        reference_network_snap_tolerance_m=100.0,
     )
 
     assert calls["x_outlet"] == pytest.approx(350010.0)

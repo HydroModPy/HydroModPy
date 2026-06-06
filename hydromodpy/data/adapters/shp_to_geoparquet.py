@@ -6,12 +6,13 @@ GeoPackage (``*.gpkg``) and already-GeoParquet files (passthrough).
 
 from __future__ import annotations
 
-import os
 import shutil
 import uuid
 from pathlib import Path
 
 from hydromodpy.core.exceptions import DataError
+from hydromodpy.core.io.atomic import replace_with_retry
+from hydromodpy.core.io.filesystem import native_io_path
 
 VECTOR_SUFFIXES = frozenset({".shp", ".geojson", ".json", ".gpkg", ".parquet"})
 
@@ -60,7 +61,16 @@ def convert_vector_to_geoparquet(
         import geopandas as gpd  # type: ignore
     except ModuleNotFoundError:
         if src.suffix.lower() == ".parquet":
-            shutil.copyfile(src, dest)
+            tmp = dest.with_name(f"{dest.name}.tmp-{uuid.uuid4().hex}")
+            tmp_io = native_io_path(tmp)
+            dest_io = native_io_path(dest)
+            try:
+                shutil.copyfile(src, tmp_io)
+            except Exception:
+                if tmp.exists():
+                    tmp.unlink()
+                raise
+            replace_with_retry(tmp_io, dest_io)
             return dest
         raise VectorConversionError(
             f"geopandas is required to convert non-Parquet vector files; cannot convert {src.name}"
@@ -73,11 +83,13 @@ def convert_vector_to_geoparquet(
             f"{src} has no CRS; add a .prj sidecar or set gdf.crs before ingest"
         )
     tmp = dest.with_name(f"{dest.name}.tmp-{uuid.uuid4().hex}")
+    tmp_io = native_io_path(tmp)
+    dest_io = native_io_path(dest)
     try:
-        gdf.to_parquet(tmp, **_GEOPARQUET_OPTIONS)
+        gdf.to_parquet(tmp_io, **_GEOPARQUET_OPTIONS)
     except Exception:
         if tmp.exists():
             tmp.unlink()
         raise
-    os.replace(tmp, dest)
+    replace_with_retry(tmp_io, dest_io)
     return dest

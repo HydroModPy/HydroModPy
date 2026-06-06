@@ -21,7 +21,6 @@ class SiteSelectionFlowProducts:
     """Flow-product bundle plus the parameters used by site selection."""
 
     products: FlowProducts
-    method: str
     flow_algorithm: str
     dem_correction_type: str
     network_threshold_area_km2: float
@@ -31,7 +30,6 @@ class SiteSelectionFlowProducts:
         """Return a small manifest entry for reproducibility."""
 
         return {
-            "method": self.method,
             "flow_algorithm": self.flow_algorithm,
             "dem_correction_type": self.dem_correction_type,
             "network_threshold_area_km2": self.network_threshold_area_km2,
@@ -58,8 +56,6 @@ def build_site_selection_flow_products(
     D8, filling/breaching, or accumulation logic.
     """
 
-    if hydrology.method != "dem_only":
-        raise ValueError("site selection currently supports hydrology.method='dem_only' only.")
     if hydrology.flow_algorithm != "d8":
         raise ValueError("site selection currently supports flow_algorithm='d8' only.")
 
@@ -73,7 +69,6 @@ def build_site_selection_flow_products(
     )
     return SiteSelectionFlowProducts(
         products=products,
-        method=hydrology.method,
         flow_algorithm=hydrology.flow_algorithm,
         dem_correction_type=dem_correction_type,
         network_threshold_area_km2=hydrology.network_threshold_area_km2,

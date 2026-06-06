@@ -94,7 +94,7 @@ class Pipeline:
 
         ``parallel`` (default True) consumes the Kahn cohort layout: a
         multi-step cohort is dispatched through a thread pool. The
-        default 12-step pipeline only produces singleton cohorts so the
+        default pipeline currently only produces singleton cohorts so the
         behaviour is identical to the strict for-loop. Pass
         ``parallel=False`` to fall back to the legacy sequential path.
         """

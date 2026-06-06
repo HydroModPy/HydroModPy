@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from hydromodpy.core.json_safe import json_safe_value
 from hydromodpy.spatial.site_selection.decisions.models import (
     DecisionRecord,
     DecisionValue,
@@ -151,9 +152,10 @@ def _component_decision(component: CriteriaComponent) -> DecisionValue:
 def _metric_value(value: object) -> MetricValue:
     if value is None:
         return None
-    if isinstance(value, (str, bool, int, float)):
-        return value
-    return str(value)
+    safe_value = json_safe_value(value)
+    if isinstance(safe_value, (str, bool, int, float)) or safe_value is None:
+        return safe_value
+    return str(safe_value)
 
 
 def _first_text(mapping: dict[str, Any], *keys: str) -> str | None:

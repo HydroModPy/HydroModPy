@@ -78,8 +78,31 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test]"
 
+      - name: Verify editable test environment
+        run: python install/verify_dev_env.py --require-tests --expected-editable-root "$GITHUB_WORKSPACE"
+
       - name: Run architecture contract tests
         run: python -m pytest tests/unit/architecture/ -q
+
+  generated-docs:
+    name: Docs / generated config reference
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Check generated config-reference assets
+        run: python -m tools.doc_config --check
 
   fast:
     name: Tests / fast marker py${{ matrix.python-version }}

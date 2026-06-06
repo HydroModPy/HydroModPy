@@ -2,7 +2,11 @@ name: hydromodpy-dev
 channels:
   - conda-forge
 dependencies:
+  - argcomplete
   - contextily
+  - coverage
+  - duckdb
+  - filelock
   - flopy
   - geopandas
   - graphviz
@@ -14,13 +18,22 @@ dependencies:
   - netcdf4
   - numpy>=2.0
   - pandas<3.0
+  - polars>=1.0,<2
   - pandera>=0.31.1,<1
   - dask
+  - pillow
+  - platformdirs
   - pint
+  - py7zr>=1.0,<2
+  - pyarrow
   - pydantic
   - pydantic-pint
   - pytest
+  - pytest-cov
+  - pytest-timeout
   - pytest-xdist
+  - pyyaml
+  - jsonschema>=4.0
   - pygraphviz
   - sphinx
   - plotly
@@ -29,21 +42,29 @@ dependencies:
   - pyvista
   - python>=3.11,<3.14
   - rasterio
+  - requests
   - rioxarray
   - cma
   - cmaes>=0.12
   - optuna>=4.8
   - scikit-learn
   - scipy
+  - shapely
   - spyder-kernels
   - spyder
+  - tomli-w
+  - tomlkit
+  - tqdm
   - xarray
   - xugrid
+  - zarr
+  - zstandard
   - pyside6
   - pysheds
   - pip
   - pip:
       - gmsh
       - meshio
+      - universal_pathlib>=0.2,<1
       - whitebox-workflows
       - -e "..[docs,docs-uml,test]"

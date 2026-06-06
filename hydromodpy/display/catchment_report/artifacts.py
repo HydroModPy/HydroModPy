@@ -13,6 +13,8 @@ from hydromodpy.display.catchment_report.resources import (
     GEOLOGY_DATA_ROOT,
     REPO_ROOT,
 )
+from hydromodpy.display.catchment_report.semantic_artifacts import semantic_artifact_id
+from hydromodpy.display.report_artifacts import ReportArtifactIndex
 
 
 @dataclass(frozen=True)
@@ -22,36 +24,73 @@ class ArtifactCandidate:
 
 
 @dataclass(frozen=True)
-class ArtifactPathContext:
-    context_assets: Path
-    overview_figures: Path
-    data_overview_figures: Path
-    simulation_figures: Path
+class ResolvedArtifactSource:
+    path: Path
+    origin: str
+    source_key: str = ""
+    source_manifest: Path | None = None
 
-    def root_path(self, root: str) -> Path:
-        roots = {
-            "context_assets": self.context_assets,
-            "overview_figures": self.overview_figures,
-            "data_overview_figures": self.data_overview_figures,
-            "simulation_figures": self.simulation_figures,
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "origin": self.origin,
+            "source_path": rel(self.path),
         }
-        try:
-            return roots[root]
-        except KeyError as exc:
-            raise ValueError(f"Unknown artifact root: {root!r}") from exc
+        if self.source_key:
+            payload["source_key"] = self.source_key
+        if self.source_manifest is not None:
+            payload["source_manifest"] = rel(self.source_manifest)
+        return payload
+
+
+@dataclass(frozen=True)
+class CopiedReportFigure:
+    figure_id: str
+    source: ResolvedArtifactSource
+    target: Path
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "figure_id": self.figure_id,
+            "target_path": rel(self.target),
+            **self.source.to_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class ArtifactPathContext:
+    source_artifacts: ReportArtifactIndex | None = None
 
 
 @dataclass(frozen=True)
 class ReportArtifactSpec:
     figure_id: str
     candidates: tuple[ArtifactCandidate, ...]
+    artifact_keys: tuple[str, ...] = ()
 
-    def resolve(self, context: ArtifactPathContext) -> Path:
-        candidates = [
-            context.root_path(candidate.root) / candidate.relative_path
-            for candidate in self.candidates
-        ]
-        return prefer(*candidates)
+    def resolve_source(
+        self,
+        context: ArtifactPathContext,
+    ) -> ResolvedArtifactSource | None:
+        source = self._resolve_source_artifact(context)
+        if source is not None:
+            return source
+        return None
+
+    def _resolve_source_artifact(
+        self,
+        context: ArtifactPathContext,
+    ) -> ResolvedArtifactSource | None:
+        if context.source_artifacts is None:
+            return None
+        entry = context.source_artifacts.find((self.figure_id, *self.artifact_keys))
+        if entry is not None and entry.path.exists():
+            return ResolvedArtifactSource(
+                path=entry.path,
+                origin="manifest",
+                source_key=entry.key,
+                source_manifest=entry.manifest_path,
+            )
+        return None
 
 
 def artifact_candidate(
@@ -64,8 +103,14 @@ def artifact_candidate(
 def artifact_spec(
     figure_id: str,
     *candidates: ArtifactCandidate,
+    artifact_keys: Iterable[str] = (),
 ) -> ReportArtifactSpec:
-    return ReportArtifactSpec(figure_id, candidates)
+    keys = (
+        semantic_artifact_id(figure_id),
+        *artifact_keys,
+        *(Path(candidate.relative_path).stem for candidate in candidates),
+    )
+    return ReportArtifactSpec(figure_id, candidates, tuple(dict.fromkeys(keys)))
 
 
 DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
@@ -132,14 +177,21 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
         ),
     ),
     artifact_spec(
-        "piezometric_map", artifact_candidate("simulation_figures", "piezometric_map.png")
+        "piezometric_map",
+        artifact_candidate("simulation_figures", "piezometric_map.png"),
     ),
-    artifact_spec("seepage_map", artifact_candidate("simulation_figures", "seepage_map.png")),
+    artifact_spec(
+        "seepage_map",
+        artifact_candidate("simulation_figures", "seepage_map.png"),
+    ),
     artifact_spec(
         "simulated_hydrograph",
         artifact_candidate("simulation_figures", "hydrograph.png"),
     ),
-    artifact_spec("water_budget", artifact_candidate("simulation_figures", "water_budget.png")),
+    artifact_spec(
+        "water_budget",
+        artifact_candidate("simulation_figures", "water_budget.png"),
+    ),
 )
 
 
@@ -151,106 +203,77 @@ def copy_real_figures(
     data_overview_figures: Path,
     simulation_figures: Path,
     artifact_specs: Iterable[ReportArtifactSpec] = DEFAULT_ARTIFACT_SPECS,
+    source_artifact_manifest: Path | None = None,
+    source_artifact_manifests: Iterable[Path] = (),
 ) -> dict[str, Path]:
-    context = ArtifactPathContext(
+    copied, _provenance = copy_real_figures_with_provenance(
+        figures_dir,
         context_assets=context_assets,
         overview_figures=overview_figures,
         data_overview_figures=data_overview_figures,
         simulation_figures=simulation_figures,
+        artifact_specs=artifact_specs,
+        source_artifact_manifest=source_artifact_manifest,
+        source_artifact_manifests=source_artifact_manifests,
     )
-    copied: dict[str, Path] = {}
-    for spec in artifact_specs:
-        source = spec.resolve(context)
-        if not source.exists():
-            continue
-        target = figures_dir / source.name
-        shutil.copy2(source, target)
-        copied[spec.figure_id] = target
     return copied
 
 
-def generate_generated_network_context_figure(
-    copied: dict[str, Path],
-    *,
+def copy_real_figures_with_provenance(
     figures_dir: Path,
-    config: dict[str, Any],
-    generated_network_root: Path,
-    geographic_scratch: Path,
-) -> None:
-    network_path = latest_generated_network_parquet(generated_network_root)
-    dem_path = context_dem_path(config, geographic_scratch)
-    watershed_path = geographic_scratch / "watershed.shp"
-    if network_path is None or not dem_path.exists() or not watershed_path.exists():
-        return
-    try:
-        import geopandas as gpd
-        import matplotlib
-        import matplotlib.pyplot as plt
-        import rasterio
-
-        from hydromodpy.display.overview.panels import render_dem_map
-    except Exception:
-        return
-
-    try:
-        streams_gdf = gpd.read_parquet(network_path)
-        with rasterio.open(dem_path) as src:
-            target_crs = src.crs
-        if target_crs is not None and streams_gdf.crs is not None:
-            streams_gdf = streams_gdf.to_crs(target_crs)
-    except Exception:
-        return
-
-    matplotlib.use("Agg")
-    fig, ax = plt.subplots(figsize=(7, 6))
-    render_dem_map(
-        ax,
-        dem_path=str(dem_path),
-        watershed_shp=str(watershed_path),
-        streams_gdf=streams_gdf,
-        outlet_xy=outlet_xy_from_config(config),
-        relative_ticks=True,
-        stream_label="Reseau genere DEM",
-        title="Reseau genere DEM",
+    *,
+    context_assets: Path,
+    overview_figures: Path,
+    data_overview_figures: Path,
+    simulation_figures: Path,
+    artifact_specs: Iterable[ReportArtifactSpec] = DEFAULT_ARTIFACT_SPECS,
+    source_artifact_manifest: Path | None = None,
+    source_artifact_manifests: Iterable[Path] = (),
+) -> tuple[dict[str, Path], dict[str, CopiedReportFigure]]:
+    source_manifests = _source_manifest_paths(
+        source_artifact_manifest,
+        source_artifact_manifests,
     )
-    fig.tight_layout()
-    target = figures_dir / "hydrographic_network_generated_context.png"
-    fig.savefig(target, dpi=160)
-    plt.close(fig)
-    copied["network_generated"] = target
-
-
-def latest_generated_network_parquet(generated_network_root: Path) -> Path | None:
-    candidates = [
-        path
-        for path in generated_network_root.glob(
-            "*/geographic_hydrographic_network_generated.parquet"
+    source_artifacts = (
+        ReportArtifactIndex.from_manifests(source_manifests, base_dir=REPO_ROOT)
+        if source_manifests
+        else None
+    )
+    context = ArtifactPathContext(source_artifacts=source_artifacts)
+    copied: dict[str, Path] = {}
+    provenance: dict[str, CopiedReportFigure] = {}
+    for spec in artifact_specs:
+        source = spec.resolve_source(context)
+        if source is None or not source.path.exists():
+            continue
+        target = figures_dir / source.path.name
+        shutil.copy2(source.path, target)
+        copied[spec.figure_id] = target
+        provenance[spec.figure_id] = CopiedReportFigure(
+            figure_id=spec.figure_id,
+            source=source,
+            target=target,
         )
-        if path.is_file()
-    ]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    return copied, provenance
 
 
-def context_dem_path(config: dict[str, Any], geographic_scratch: Path) -> Path:
-    scratch_dem = geographic_scratch / "watershed_box_buff_dem.tif"
-    if scratch_dem.exists():
-        return scratch_dem
-    dem_value = config.get("dem")
-    if dem_value:
-        dem_path = Path(str(dem_value))
-        if not dem_path.is_absolute():
-            dem_path = REPO_ROOT / dem_path
-        return dem_path
-    return scratch_dem
-
-
-def outlet_xy_from_config(config: dict[str, Any]) -> tuple[float, float] | None:
-    try:
-        return (float(config["x_outlet"]), float(config["y_outlet"]))
-    except Exception:
-        return None
+def _source_manifest_paths(
+    source_artifact_manifest: Path | None,
+    source_artifact_manifests: Iterable[Path],
+) -> tuple[Path, ...]:
+    paths: list[Path] = []
+    if source_artifact_manifest is not None:
+        paths.append(Path(source_artifact_manifest))
+    paths.extend(Path(path) for path in source_artifact_manifests)
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for path in paths:
+        resolved = path.expanduser().resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append(resolved)
+    return tuple(deduped)
 
 
 def geology_legend_rows(geographic_scratch: Path) -> tuple[Mapping[str, Any], ...]:
@@ -334,13 +357,6 @@ def first_present(frame: Any, names: Iterable[str]) -> str | None:
     return None
 
 
-def prefer(*paths: Path) -> Path:
-    for path in paths:
-        if path.exists():
-            return path
-    return paths[0]
-
-
 def write_manifest(
     output_dir: Path,
     copied: dict[str, Path],
@@ -353,8 +369,10 @@ def write_manifest(
     simulation_figures: Path,
     geographic_scratch: Path,
     generated_network_root: Path,
+    figure_provenance: Mapping[str, CopiedReportFigure] | None = None,
     expected_figure_ids: Iterable[str] = (),
 ) -> Path:
+    figure_provenance = figure_provenance or {}
     manifest = output_dir / "block_report_manifest.json"
     payload = {
         "report_type": "real_figures_block_report",
@@ -374,9 +392,27 @@ def write_manifest(
             "generated_network_root": rel(generated_network_root),
         },
         "copied_figures": {key: rel(path) for key, path in sorted(copied.items())},
+        "figure_source_summary": _figure_source_summary(figure_provenance),
+        "figure_sources": {
+            key: item.to_dict()
+            for key, item in sorted(figure_provenance.items())
+        },
     }
     manifest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return manifest
+
+
+def _figure_source_summary(
+    provenance: Mapping[str, CopiedReportFigure],
+) -> dict[str, Any]:
+    origins: dict[str, int] = {}
+    for item in provenance.values():
+        origins[item.source.origin] = origins.get(item.source.origin, 0) + 1
+    return {
+        "figure_count": len(provenance),
+        "origin_counts": dict(sorted(origins.items())),
+        "manifest_count": origins.get("manifest", 0),
+    }
 
 
 def artifact_paths(

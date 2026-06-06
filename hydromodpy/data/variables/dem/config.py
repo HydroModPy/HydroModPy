@@ -42,7 +42,10 @@ class CustomDemSource(_DemSourceBase):
         InputFile(role="dem", category="data"),
     ] = Field(
         ...,
-        description="Path to custom DEM file or directory (TIF, ASC, NC).",
+        description=(
+            "Path to custom DEM file or directory (TIF, ASC, NC). A directory "
+            "with several TIF/TIFF/ASC tiles is mosaicked into a cached GeoTIFF."
+        ),
     )
 
 
@@ -97,11 +100,11 @@ class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
             "from the selected dataset."
         ),
     )
-    file_format: Annotated[str, Profile.USER] = Field(
+    file_format: Annotated[str, Profile.DEV] = Field(
         default="ASC",
         description="Requested archive payload format when exposed by Geoplateforme.",
     )
-    crs: Annotated[str | None, Profile.USER] = Field(
+    crs: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional CRS filter forwarded to Geoplateforme discovery.",
     )
