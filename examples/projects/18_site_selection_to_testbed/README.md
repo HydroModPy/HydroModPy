@@ -62,13 +62,13 @@ tags_field = "tags"
 Run a site-selection workflow first:
 
 ```bash
-hmp run examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_area_only.toml
+hmp run examples/projects/17_site_selection_workflow/configs/aura_non_jauge_csv_50_150km2.toml
 ```
 
 Then point either catalog section to the generated manifest:
 
 ```toml
-from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_area_only_v1/site_selection_manifest.json"
+from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_non_jauge_csv_50_150km2_v1/site_selection_manifest.json"
 ```
 
 The downstream config no longer needs to hard-code

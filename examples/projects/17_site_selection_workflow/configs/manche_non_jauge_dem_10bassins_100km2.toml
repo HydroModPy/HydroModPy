@@ -1,0 +1,80 @@
+﻿# Purpose:
+# Department-scale non-gauged DEM example for site selection in Manche. The
+# workflow loads the department DEM, searches for outlet candidates near a
+# 100 km2 upstream area target, caps candidates for speed, and selects 10 basins
+# with hard area limits.
+# Expected result: quick 100 km2 basin sample, selected/rejected tables, spatial
+# outputs, and HTML report for a department-scale automatic DEM run.
+
+[workflow]
+# Workflow entry point for `hmp run`.
+# `site_selection` dispatches to the site-selection workflow.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign id copied into manifests, decision tables, and downstream
+# hand-off files.
+selection_id = "manche_non_jauge_dem_100km2_v1"
+# Output directory for manifests, tables, spatial layers, reports, and optional
+# intermediates.
+output_root = "../outputs/manche_non_jauge_dem_100km2_v1"
+
+[site_selection.input]
+# Execution path for this run.
+# dem_area_target is the simplified DEM target-area search: find outlet candidates
+# whose upstream area is close to [site_selection.dem_area_target].target_area_km2.
+mode = "dem_area_target"
+# Optional output label override. The territory is a department code, so this keeps
+# regional-lab CSV and manifest labels human-readable.
+region_id = "Manche"
+
+[site_selection.strategy]
+# Workflow preset.
+# area_only infers criteria_crossing and the area axis.
+profile = "area_only"
+primary_axes = ["area"]
+observation_role = "report_only"
+geology_role = "report_only"
+
+[site_selection.territory]
+mode = "admin_departments"
+country = "FR"
+departments = ["050"]
+
+[site_selection.dem]
+cache_policy = "use_cache_else_download"
+delineation_dem_extent_source = "selection_territory"
+
+# DEM used as the HTML review-map background.
+review_map_dem_background = "delineation_dem"
+
+[site_selection.hydrology]
+hydrologic_conditioning = "fill"
+network_threshold_area_km2 = 1.0
+
+[site_selection.dem_area_target]
+target_area_km2 = 100.0
+min_area_km2 = 75.0
+max_area_km2 = 125.0
+n_basins = 10
+max_candidates_before_delineation = 30
+
+[site_selection.criteria.area]
+mode = "hard_reject"
+hard_min_area_km2 = 75.0
+hard_max_area_km2 = 125.0
+
+[site_selection.output]
+write_geopackage = false
+
+[report.html]
+profile = "site_selection"
+build_at_end = true
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0

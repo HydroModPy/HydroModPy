@@ -1,0 +1,114 @@
+﻿# Purpose:
+# Fast DEM target-area example for non-gauged site selection in Calvados. The
+# workflow loads the department DEM, finds outlet candidates whose upstream area
+# is close to 100 km2, delineates at most a capped candidate set, and selects up
+# to 10 basins using hard area and spatial filters.
+# Expected result: small selected/rejected basin inventory and HTML report for
+# validating the automatic DEM-only 100 km2 workflow.
+
+[workflow]
+# Workflow entry point for `hmp run`.
+# `site_selection` dispatches to the site-selection workflow.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign id copied into manifests, decision tables, and downstream
+# hand-off files.
+selection_id = "calvados_non_jauge_dem_100km2_v1"
+# Output directory for manifests, tables, spatial layers, reports, and optional
+# intermediates.
+output_root = "../outputs/calvados_non_jauge_dem_100km2_v1"
+
+[site_selection.input]
+# Execution path for this run.
+# dem_area_target is the simplified DEM target-area search: find outlet candidates
+# whose upstream area is close to [site_selection.dem_area_target].target_area_km2.
+mode = "dem_area_target"
+# Optional output label override. The territory is a department code, so this keeps
+# regional-lab CSV and manifest labels human-readable.
+region_id = "Calvados"
+
+[site_selection.strategy]
+# Workflow preset.
+# area_only infers criteria_crossing and the area axis.
+profile = "area_only"
+# How observations influence a criteria_crossing campaign.
+observation_role = "report_only"
+# How geology influences a criteria_crossing campaign.
+geology_role = "report_only"
+
+[site_selection.territory]
+# Territory resolver mode.
+mode = "admin_departments"
+# Country code used by administrative territory modes.
+country = "FR"
+# Administrative departments used when mode='admin_departments'.
+departments = ["014"]
+
+[site_selection.dem]
+# Data cache policy.
+cache_policy = "use_cache_else_download"
+# Source used to build the DEM extent for flow direction, accumulation,
+# outlet snapping, and basin delineation.
+# 'selection_territory' loads the full configured territory and is safer when
+# upstream basins may extend far from outlets.
+# 'candidate_outlets_bbox' loads only the candidate/station outlet bounding box,
+# expanded by delineation_buffer_km; faster for previews, but the buffer must
+# cover the upstream area needed for delineation.
+delineation_dem_extent_source = "selection_territory"
+# DEM used as the HTML review-map background.
+review_map_dem_background = "delineation_dem"
+
+[site_selection.hydrology]
+# DEM conditioning strategy forwarded to existing flow products.
+hydrologic_conditioning = "fill"
+# Contributing-area threshold used to extract the stream network.
+network_threshold_area_km2 = 1.0
+
+[site_selection.dem_area_target]
+# Preferred upstream basin area for DEM-only candidate outlets.
+target_area_km2 = 100.0
+# Minimum accepted upstream basin area.
+min_area_km2 = 75.0
+# Maximum accepted upstream basin area.
+max_area_km2 = 125.0
+# Target number of basins selected by the DEM target-area workflow.
+n_basins = 10
+# Optional cap on DEM-area outlet candidates delineated before final selection. Lower values
+# make examples faster but can leave fewer accepted basins after spatial filtering.
+max_candidates_before_delineation = 30
+
+[site_selection.criteria.area]
+# How basin area contributes to selection.
+mode = "hard_reject"
+# Hard lower area bound when configured.
+hard_min_area_km2 = 75.0
+# Hard upper area bound when configured.
+hard_max_area_km2 = 125.0
+
+[site_selection.output]
+# Write a GeoPackage with site-selection spatial layers.
+write_geopackage = false
+
+[report.html]
+# Build the static site-selection HTML review report at the end of the run.
+profile = "site_selection"
+build_at_end = true
+
+[data]
+# Ordered list of data-manager types explicitly requested in [data]. The launcher may append
+# inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
+# Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry',
+# 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge',
+# 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+types = ["dem"]
+
+[[data.dem.sources]]
+# Discriminator tag selecting the IGN Geoplateforme DEM provider.
+source = "ign_geoplateforme_dem"
+# IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an
+# assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives.
+dataset = "bd-alti"
+# Requested DEM resolution in metres. Defaults are resolved by the manager from the selected
+# dataset.
+resolution_m = 25.0

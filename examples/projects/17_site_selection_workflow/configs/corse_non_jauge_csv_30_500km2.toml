@@ -1,0 +1,103 @@
+# Purpose:
+# Corse non-gauged CSV outlet selection using a fixture instead of Hub'Eau station
+# discovery. The workflow reads outlet records, recomputes/delineates basins from
+# DEM flow products, applies area-only criteria for 30-500 km2 basins, and keeps
+# observations, piezometry, geology, and land cover as report-only context.
+# Expected result: selected/rejected basins and an HTML report for
+# checking outlet-driven delineation and map context over Corse.
+
+[workflow]
+# Workflow entry point for `hmp run`.
+# `site_selection` dispatches to the site-selection workflow.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign id copied into manifests, decision tables, and downstream
+# hand-off files.
+selection_id = "corse_non_jauge_csv_30_500km2_v1"
+# Output directory for manifests, tables, spatial layers, reports, and optional
+# intermediates.
+output_root = "../outputs/corse_non_jauge_csv_30_500km2_v1"
+
+[site_selection.input]
+# Execution path for this run.
+# delineated_catchments reads catchments_csv, then applies the configured
+# criteria and writes selected/rejected outputs.
+mode = "delineated_catchments"
+catchments_csv = "../fixtures/corse_non_jauge_csv_outlets.csv"
+delineate_from_outlets = true
+
+[site_selection.strategy]
+# Workflow preset.
+# area_only infers criteria_crossing and the area axis.
+profile = "area_only"
+primary_axes = ["area"]
+observation_role = "report_only"
+geology_role = "report_only"
+
+[site_selection.territory]
+mode = "admin_regions"
+country = "FR"
+regions = ["Corse"]
+
+[site_selection.dem]
+cache_policy = "use_cache_else_download"
+delineation_buffer_km = 10.0
+delineation_dem_extent_source = "candidate_outlets_bbox"
+
+# DEM used as the HTML review-map background.
+review_map_dem_background = "territory_dem"
+
+[site_selection.hydrology]
+hydrologic_conditioning = "breach"
+network_threshold_area_km2 = 1.0
+
+[site_selection.outlets]
+snap_strategy = "dem_accumulation"
+dem_snap_max_distance_m = 1000
+min_distance_between_outlets_km = 5.0
+
+[site_selection.spatial_selection]
+allow_nested_basins = true
+max_pairwise_basin_overlap_fraction = 0.20
+overlap_mode = "warning"
+
+[site_selection.criteria]
+# Audit-facing summary of the selection doctrine.
+# These lists are copied to reports/manifests to explain which criteria reject,
+# warn, rank, or only document candidate sites.
+#
+# Blocking criteria: when one fails, the candidate is not retained.
+# Keep delineation_failure here to document that a basin that cannot be
+# delineated is unusable.
+hard_reject = ["area_range", "delineation_failure"]
+# Review warnings: the candidate can still be selected; the issue is highlighted
+# in the site-selection report for expert review before final acceptance.
+warning = ["basin_overlap"]
+# Context-only evidence: exported for human review/audit without automatic
+# decision impact.
+report_only = ["hydrometry", "piezometry", "geology", "land_cover"]
+
+[site_selection.criteria.area]
+mode = "hard_reject"
+
+[[site_selection.criteria.area.ranges]]
+range_id = "corse_30_500"
+label = "Bassins corses 30-500 km2"
+min_area_km2 = 30.0
+max_area_km2 = 500.0
+
+[site_selection.criteria.geology]
+mode = "report_only"
+
+[report.html]
+profile = "site_selection"
+build_at_end = true
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0

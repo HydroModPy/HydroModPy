@@ -21,13 +21,13 @@ solvers = ["modflow6"]
 [[simulation.process]]
 id = "prt_main"
 type = "transport"
-solvers = ["modflow6prt"]
+solvers = ["modflow6_prt"]
 
 [simulation.results]
 keep_solver_files = true
 
 [modflow6.runtime]
-mf6_executable_name = "/home/dreuzy/.local/bin/mf6"
+mf6_executable_name = "mf6"
 mf6_ims_complexity = "COMPLEX"
 mf6_outer_dvclose = 0.0001
 mf6_inner_dvclose = 0.0001
@@ -38,9 +38,6 @@ mf_verbose = false
 
 [modflow6.process_specific]
 vka = 1.0
-
-[modflow6.tgrid]
-firstpersteady = true
 
 [modflow6.sgrid.vertical]
 nlay = 1

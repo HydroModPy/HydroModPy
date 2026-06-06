@@ -11,6 +11,7 @@ route and the Python API.
 02_nancon_watershed/
 |-- project.toml
 |-- run_transient_nwt.toml
+|-- run_transient_nwt_html_report.toml
 |-- run_hydrographic_network_comparison.toml
 |-- run_calibration_k.toml
 |-- run_sweep_sy.toml                       # design draft (sweep workflow non câblé)
@@ -59,12 +60,13 @@ All commands assume your working directory is the repository root.
 | Command | What it does |
 | --- | --- |
 | `hmp run examples/projects/02_nancon_watershed/run_transient_nwt.toml` | One transient MODFLOW-NWT run, monthly steps, 2000-2002. |
+| `hmp run examples/projects/02_nancon_watershed/run_transient_nwt_html_report.toml` | Same transient run pattern, with `[report.html].build_at_end = true`; the final HTML report consumes the produced artifacts after the simulation and display steps. |
 | `hmp run examples/projects/02_nancon_watershed/run_hydrographic_network_comparison.toml` | Same Nancon base case, but with DEM-derived river-network extraction enabled and the standard `hydrographic_network_comparison` figure rendered at the end. |
 | `hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml` | Optuna calibration on K against observed discharge (NSE objective). Sy / Ss / thickness frozen. |
 | `hmp run examples/projects/02_nancon_watershed/run_sweep_sy.toml` | Design draft for a Sy sweep. Not runnable: the `sweep` workflow is not wired into the v1 dispatcher. See `11_nancon_watershed/python/05_sweep_sy.py` for the supported Python-driven sweep. |
 
 To validate any TOML without running it:
-`hmp config check examples/projects/02_nancon_watershed/<file>.toml`.
+`hmp dev config check examples/projects/02_nancon_watershed/<file>.toml`.
 
 ### Python scripts
 
@@ -94,6 +96,8 @@ Running any of the entries above creates or updates:
 - `<workspace>/data/cache.duckdb` - shared input cache (DEM, hydrography, BRGM, ...).
 - `<workspace>/simulations/<sim_id>.zarr/` - per-run gridded outputs (CF-1.11 + UGRID-1.0).
 - `figures/<run_name>/` - figures listed in `[display].figures`.
+- for `run_transient_nwt_html_report.toml`, the optional HTML report under
+  `../16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web/index.html`.
 
 Open `hmp.open_catalog(<workspace>)` from Python to reach the three
 namespaces (`.simulations`, `.inputs`, `.projects`). The legacy

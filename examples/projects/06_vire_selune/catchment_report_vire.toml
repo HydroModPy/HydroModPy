@@ -13,14 +13,6 @@ context_summary_name = "vire_catchment_context_summary.json"
 transient_config_name = "run_vire_nwt_report.toml"
 overview_config_name = "../../overview_vire.toml"
 
-[pipeline]
-run_overview = true
-run_simulation = true
-build_context_artifacts = true
-build_report_html = true
-stream_run_logs = false
-strict_figure_postflight = true
-
 [context.observed_discharge]
 path = "../../data/hydrometry/hydrometry_hubeau_I522101001_20200101_20201231_D.csv"
 station_id = "I522101001"

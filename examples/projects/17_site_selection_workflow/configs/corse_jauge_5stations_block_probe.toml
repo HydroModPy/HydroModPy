@@ -1,0 +1,132 @@
+# Purpose:
+# Corse gauged-site report-block probe. It uses the same fixed Hub'Eau station
+# set and DEM-based gauged workflow as the standard Corse gauged example,
+# but writes to a separate output id so HTML block/report changes can be inspected
+# without overwriting the main preview outputs.
+# Expected result: selected/rejected outputs plus an HTML review report focused on
+# validating report blocks, map context, and station/catchment summaries.
+
+[workflow]
+# Workflow entry point for `hmp run`.
+# `site_selection` dispatches to the site-selection workflow.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign id copied into manifests, decision tables, and downstream
+# hand-off files.
+selection_id = "corse_jauge_5stations_blocks_v1"
+# Output directory for manifests, tables, spatial layers, reports, and optional
+# intermediates.
+output_root = "../outputs/corse_jauge_5stations_blocks_v1"
+
+[site_selection.input]
+# Execution path for this run.
+# hydrometry loads stations from [hydrometry], uses station outlets as candidates,
+# and infers the gauged_downstream_station selection profile.
+mode = "hydrometry"
+
+[site_selection.territory]
+mode = "admin_regions"
+country = "FR"
+regions = ["Corse"]
+
+[site_selection.dem]
+cache_policy = "use_cache_else_download"
+delineation_buffer_km = 10.0
+delineation_dem_extent_source = "candidate_outlets_bbox"
+
+# DEM used as the HTML review-map background.
+review_map_dem_background = "territory_dem"
+
+[site_selection.hydrology]
+hydrologic_conditioning = "breach"
+network_threshold_area_km2 = 1.0
+
+[site_selection.outlets]
+snap_strategy = "dem_accumulation"
+dem_snap_max_distance_m = 1000
+min_distance_between_outlets_km = 5.0
+
+[site_selection.spatial_selection]
+allow_nested_basins = true
+max_pairwise_basin_overlap_fraction = 0.20
+overlap_mode = "warning"
+
+[site_selection.criteria]
+# Audit-facing summary of the selection doctrine.
+# These lists are copied to reports/manifests to explain which criteria reject,
+# warn, rank, or only document candidate sites.
+#
+# Blocking criteria: when one fails, the candidate is not retained.
+# Keep delineation_failure here to document that a basin that cannot be
+# delineated is unusable.
+# flow_station means gauging-station suitability: enough discharge record,
+# close enough to the final outlet, and inside the basin or at the outlet.
+# station_influence means hydrologic influence metadata attached to that station.
+hard_reject = ["delineation_failure", "flow_station", "station_influence"]
+# Review warnings: the candidate can still be selected; the issue is highlighted
+# in the site-selection report for expert review before final acceptance.
+warning = ["area_range", "basin_overlap", "geology"]
+# Ranking preferences: used to order otherwise acceptable candidates without
+# rejecting them directly.
+ranking_preference = ["record_length", "station_to_outlet_distance"]
+# Context-only evidence: exported for human review/audit without automatic
+# decision impact.
+report_only = ["piezometry", "land_cover"]
+
+[site_selection.criteria.observations.flow_station]
+mode = "hard_reject"
+min_record_years = 5.0
+max_station_to_outlet_distance_km = 1.0
+require_station_inside_or_at_outlet = true
+
+[site_selection.criteria.observations.station_influence]
+mode = "hard_reject"
+unknown_policy = "neutral"
+
+[site_selection.criteria.influence]
+mode = "hard_reject"
+reject_major_dam_upstream = true
+reject_major_withdrawal_upstream = true
+reject_major_regulated_reach = true
+
+[site_selection.criteria.area]
+mode = "warning"
+
+[[site_selection.criteria.area.ranges]]
+range_id = "corse_30_500"
+label = "Stations hydro Corse, bassins 30-500 km2"
+min_area_km2 = 30.0
+max_area_km2 = 500.0
+
+[site_selection.criteria.geology]
+mode = "warning"
+prefer_diversity = true
+
+[report.html]
+profile = "site_selection"
+build_at_end = true
+
+[hydrometry]
+date_start = "2015-01-01"
+date_end = "2024-12-31"
+
+[[hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+station_ids = [
+  "Y702000201",
+  "Y711000201",
+  "Y721000101",
+  "Y731000301",
+  "Y750000202",
+]
+require_observations = true
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0
