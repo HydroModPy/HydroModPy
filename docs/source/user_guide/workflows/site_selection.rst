@@ -258,7 +258,7 @@ Additional outputs follow the configured switches:
 
 Generated DEM modes also write ``candidate_generation.jsonl``. When
 ``write_geojson`` is true, they write ``candidate_outlets.geojson`` and
-``generated_dem_network.geojson`` as review artifacts.
+``dem_network.geojson`` as review artifacts.
 
 When HTML reporting is enabled, the run also writes:
 

@@ -377,11 +377,11 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "candidate_mode": cfg.outlets.candidate_mode,
             "snap_strategy": cfg.outlets.snap_strategy,
             "dem_snap_max_distance_m": cfg.outlets.dem_snap_max_distance_m,
-            "max_generated_candidates": cfg.outlets.max_generated_candidates,
-            "max_rejected_candidate_audit_records": (
-                cfg.outlets.max_rejected_candidate_audit_records
+            "max_network_candidates": cfg.outlets.max_network_candidates,
+            "max_rejected_network_candidate_audit_records": (
+                cfg.outlets.max_rejected_network_candidate_audit_records
             ),
-            "max_generated_network_cells": cfg.outlets.max_generated_network_cells,
+            "max_dem_network_cells": cfg.outlets.max_dem_network_cells,
             "reference_network_source": cfg.outlets.reference_network_source,
             "reference_network_path": _path_or_none(cfg.outlets.reference_network_path),
             "reference_network_snap_max_distance_m": (
@@ -1441,8 +1441,8 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "candidate_outlets_geojson": str(
                 result.output_paths.get("candidate_outlets_geojson", "")
             ),
-            "generated_network_geojson": str(
-                result.output_paths.get("generated_network_geojson", "")
+            "dem_network_geojson": str(
+                result.output_paths.get("dem_network_geojson", "")
             ),
             "selected_sites_csv": str(result.output_paths.get("selected_sites_csv", "")),
             "regional_lab_sites_csv": str(result.output_paths.get("regional_lab_sites_csv", "")),

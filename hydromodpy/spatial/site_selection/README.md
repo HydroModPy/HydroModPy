@@ -193,10 +193,10 @@ outputs plus:
 
 - `candidate_generation.jsonl`
 - `candidate_outlets.geojson` when `write_geojson = true`
-- `generated_dem_network.geojson` when `write_geojson = true`
+- `dem_network.geojson` when `write_geojson = true`
 
 These candidates come from high-accumulation DEM cells, constrained by
-`min_distance_between_outlets_km` and `max_generated_candidates`, then pass
+`min_distance_between_outlets_km` and `max_network_candidates`, then pass
 through the same delineation and selection stages as imported or station-led
 candidates. The generation audit includes accepted and rejected candidate cells,
 with rejection reasons such as spacing or candidate-count caps. When a BD
@@ -242,7 +242,7 @@ GeoJSON artifacts, colors selected basin contours by area class with light
 fills and thin edges, and uses separate symbols for selected outlets, rejected
 outlets when present, flow stations, piezometers and future observation point
 types. For generated-candidate runs, it also draws the vectorized DEM network
-from `generated_dem_network.geojson`. When outlets were snapped, the map draws
+from `dem_network.geojson`. When outlets were snapped, the map draws
 the snapped outlet and a dashed station-to-outlet link for visible
 displacements.
 Optional `site_selection.map_context.layers` can add static context layers such

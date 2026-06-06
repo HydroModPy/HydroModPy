@@ -31,7 +31,7 @@ RawAccumulationBuilder = Callable[..., str | Path]
 
 
 @dataclass(frozen=True)
-class GeneratedCandidateResult:
+class CandidateBuildResult:
     """Generated candidates and the optional context used to build them."""
 
     candidates: list[CandidateOutlet]
@@ -65,14 +65,14 @@ def build_station_candidate_outlets(
     )
 
 
-def build_generated_network_candidates(
+def build_dem_network_candidates(
     *,
     config: SiteSelectionConfig,
     flow_products: SiteSelectionFlowProducts,
     target_crs: str | None,
     root: Path,
     search_geometry: object | None,
-) -> GeneratedCandidateResult:
+) -> CandidateBuildResult:
     """Build DEM-network candidates and optionally score them against a reference network."""
 
     candidates, evidence = generate_network_candidate_outlets(
@@ -81,7 +81,7 @@ def build_generated_network_candidates(
         hydrology=config.hydrology,
         search_geometry=search_geometry,
     )
-    reference_network, reference_bundle = load_reference_network_for_generated_candidates(
+    reference_network, reference_bundle = load_reference_network_for_dem_network_candidates(
         config=config,
         candidates=candidates,
         target_crs=target_crs or first_candidate_crs(candidates),
@@ -98,7 +98,7 @@ def build_generated_network_candidates(
             evidence,
             candidates,
         )
-    return GeneratedCandidateResult(
+    return CandidateBuildResult(
         candidates=candidates,
         evidence=evidence,
         search_geometry=search_geometry,
@@ -116,7 +116,7 @@ def build_dem_area_target_candidates(
     search_geometry: object | None,
     backend: object | None = None,
     raw_accumulation_builder: RawAccumulationBuilder | None = None,
-) -> GeneratedCandidateResult:
+) -> CandidateBuildResult:
     """Build DEM outlet candidates around the configured target area."""
 
     if config.dem_area_target is None:
@@ -147,7 +147,7 @@ def build_dem_area_target_candidates(
         search_geometry=search_geometry,
         max_candidates_before_delineation=config.dem_area_target.max_candidates_before_delineation,
     )
-    return GeneratedCandidateResult(
+    return CandidateBuildResult(
         candidates=candidates,
         evidence=evidence,
         search_geometry=search_geometry,
@@ -175,7 +175,7 @@ def load_reference_network_for_station_candidates(
     )
 
 
-def load_reference_network_for_generated_candidates(
+def load_reference_network_for_dem_network_candidates(
     *,
     config: SiteSelectionConfig,
     candidates: list[CandidateOutlet],
@@ -295,12 +295,12 @@ def _make_search_geometry_valid(geometry: object | None) -> object | None:
 
 
 __all__ = [
-    "GeneratedCandidateResult",
+    "CandidateBuildResult",
     "build_dem_area_target_candidates",
-    "build_generated_network_candidates",
+    "build_dem_network_candidates",
     "build_station_candidate_outlets",
     "first_candidate_crs",
-    "load_reference_network_for_generated_candidates",
+    "load_reference_network_for_dem_network_candidates",
     "load_reference_network_for_station_candidates",
     "site_selection_search_geometry",
 ]

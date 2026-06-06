@@ -321,7 +321,7 @@ Les modes de generation DEM peuvent aussi ecrire:
 
 - `candidate_generation.jsonl`;
 - `candidate_outlets.geojson`;
-- `generated_dem_network.geojson`.
+- `dem_network.geojson`.
 
 Quand `[report.html] build_at_end = true`, le run ecrit:
 

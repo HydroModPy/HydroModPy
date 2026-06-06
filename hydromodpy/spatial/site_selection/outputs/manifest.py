@@ -77,11 +77,11 @@ def build_selection_manifest(
             "candidate_mode": config.outlets.candidate_mode,
             "snap_strategy": config.outlets.snap_strategy,
             "dem_snap_max_distance_m": config.outlets.dem_snap_max_distance_m,
-            "max_generated_candidates": config.outlets.max_generated_candidates,
-            "max_rejected_candidate_audit_records": (
-                config.outlets.max_rejected_candidate_audit_records
+            "max_network_candidates": config.outlets.max_network_candidates,
+            "max_rejected_network_candidate_audit_records": (
+                config.outlets.max_rejected_network_candidate_audit_records
             ),
-            "max_generated_network_cells": config.outlets.max_generated_network_cells,
+            "max_dem_network_cells": config.outlets.max_dem_network_cells,
             "reference_network_source": config.outlets.reference_network_source,
             "reference_network_path": _path_or_none(config.outlets.reference_network_path),
             "reference_network_snap_max_distance_m": (

@@ -801,12 +801,12 @@ Fields
 
 
       .. container:: hmp-field hmp-field-level-user
-         :name: site-selection-outlets-max-generated-candidates
+         :name: site-selection-outlets-max-network-candidates
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="site_selection.outlets.max_generated_candidates">
-              <code class="hmp-field-name">max_generated_candidates</code>
+            <div class="hmp-field-header" data-toml-path="site_selection.outlets.max_network_candidates">
+              <code class="hmp-field-name">max_network_candidates</code>
             </div>
 
          :bdg-primary:`int | None` :bdg-secondary:`default = 200` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L383>`__
@@ -815,12 +815,12 @@ Fields
 
 
       .. container:: hmp-field hmp-field-level-user
-         :name: site-selection-outlets-max-rejected-candidate-audit-records
+         :name: site-selection-outlets-max-rejected-network-candidate-audit-records
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="site_selection.outlets.max_rejected_candidate_audit_records">
-              <code class="hmp-field-name">max_rejected_candidate_audit_records</code>
+            <div class="hmp-field-header" data-toml-path="site_selection.outlets.max_rejected_network_candidate_audit_records">
+              <code class="hmp-field-name">max_rejected_network_candidate_audit_records</code>
             </div>
 
          :bdg-primary:`int | None` :bdg-secondary:`default = 5000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L388>`__
@@ -829,12 +829,12 @@ Fields
 
 
       .. container:: hmp-field hmp-field-level-user
-         :name: site-selection-outlets-max-generated-network-cells
+         :name: site-selection-outlets-max-dem-network-cells
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="site_selection.outlets.max_generated_network_cells">
-              <code class="hmp-field-name">max_generated_network_cells</code>
+            <div class="hmp-field-header" data-toml-path="site_selection.outlets.max_dem_network_cells">
+              <code class="hmp-field-name">max_dem_network_cells</code>
             </div>
 
          :bdg-primary:`int | None` :bdg-secondary:`default = 50000` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L396>`__
@@ -851,7 +851,7 @@ Fields
               <code class="hmp-field-name">snap_to_generated_stream</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L404>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L359>`__
 
             Snap outlets to the DEM-derived stream network when applicable.
 
@@ -2449,9 +2449,9 @@ Starter TOML snippet
       # candidate_mode = "network_sampling"
       # min_distance_between_outlets_km = ...  # default = None
       # allow_nested_basins = false
-      # max_generated_candidates = 200
-      # max_rejected_candidate_audit_records = 5000
-      # max_generated_network_cells = 50000
+      # max_network_candidates = 200
+      # max_rejected_network_candidate_audit_records = 5000
+      # max_dem_network_cells = 50000
       # snap_to_generated_stream = true
       # snap_strategy = "dem_accumulation"
       # dem_snap_max_distance_m = 150

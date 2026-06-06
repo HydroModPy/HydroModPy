@@ -15602,37 +15602,37 @@
     "description": "Allow nested candidate basins before final selection."
   },
   {
-    "path": "site_selection.outlets.max_generated_candidates",
-    "name": "max_generated_candidates",
+    "path": "site_selection.outlets.max_network_candidates",
+    "name": "max_network_candidates",
     "type": "int | None",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-outlets-max-generated-candidates",
+    "anchor": "site-selection-outlets-max-network-candidates",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L383",
     "description": "Maximum number of DEM/network-generated candidates to delineate."
   },
   {
-    "path": "site_selection.outlets.max_rejected_candidate_audit_records",
-    "name": "max_rejected_candidate_audit_records",
+    "path": "site_selection.outlets.max_rejected_network_candidate_audit_records",
+    "name": "max_rejected_network_candidate_audit_records",
     "type": "int | None",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-outlets-max-rejected-candidate-audit-records",
+    "anchor": "site-selection-outlets-max-rejected-network-candidate-audit-records",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L388",
     "description": "Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL."
   },
   {
-    "path": "site_selection.outlets.max_generated_network_cells",
-    "name": "max_generated_network_cells",
+    "path": "site_selection.outlets.max_dem_network_cells",
+    "name": "max_dem_network_cells",
     "type": "int | None",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-outlets-max-generated-network-cells",
+    "anchor": "site-selection-outlets-max-dem-network-cells",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L396",
     "description": "Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first."
@@ -15646,7 +15646,7 @@
     "section": "site_selection",
     "anchor": "site-selection-outlets-snap-to-generated-stream",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L404",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L359",
     "description": "Snap outlets to the DEM-derived stream network when applicable."
   },
   {

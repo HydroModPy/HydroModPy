@@ -27,7 +27,7 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelect
 
 @dataclass(frozen=True)
 class CandidateGenerationEvidence:
-    """Audit record explaining one generated network candidate."""
+    """Audit record explaining one DEM-network candidate."""
 
     candidate_id: str
     x: float
@@ -128,8 +128,8 @@ def generate_network_candidate_outlets(
     min_distance_m = None
     if outlets.min_distance_between_outlets_km is not None:
         min_distance_m = float(outlets.min_distance_between_outlets_km) * 1000.0
-    max_count = outlets.max_generated_candidates
-    max_rejected_audit = outlets.max_rejected_candidate_audit_records
+    max_count = outlets.max_network_candidates
+    max_rejected_audit = outlets.max_rejected_network_candidate_audit_records
     rejected_audit_count = 0
 
     candidates: list[CandidateOutlet] = []
@@ -156,7 +156,7 @@ def generate_network_candidate_outlets(
                         hydrology=hydrology,
                         outlets=outlets,
                         status="rejected",
-                        rejection_reason="max_generated_candidates_reached",
+                        rejection_reason="max_network_candidates_reached",
                         nearest_selected_candidate_id=nearest_candidate_id,
                         nearest_selected_distance_m=nearest_distance_m,
                     )
@@ -504,7 +504,7 @@ def write_candidate_generation_jsonl(
     path: str | Path,
     evidence: Iterable[CandidateGenerationEvidence],
 ) -> Path:
-    """Write generated-candidate evidence as JSONL."""
+    """Write candidate-audit evidence as JSONL."""
 
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -514,7 +514,7 @@ def write_candidate_generation_jsonl(
     return destination
 
 
-def write_generated_network_geojson(
+def write_dem_network_geojson(
     path: str | Path,
     *,
     flow_products: SiteSelectionFlowProducts,
@@ -545,7 +545,7 @@ def write_generated_network_geojson(
     collection = {
         "type": "FeatureCollection",
         "name": Path(path).stem,
-        "hydromodpy_geometry_role": "generated_dem_network",
+        "hydromodpy_geometry_role": "dem_network",
         "hydromodpy_coordinate_crs": raster.crs,
         "hydromodpy_network_threshold_area_km2": hydrology.network_threshold_area_km2,
         "hydromodpy_threshold_value_used": threshold,
@@ -571,7 +571,7 @@ def write_candidate_outlets_geojson(
     path: str | Path,
     candidates: Iterable[CandidateOutlet],
 ) -> Path:
-    """Write generated candidate outlets as a lightweight GeoJSON."""
+    """Write candidate outlets as a lightweight GeoJSON."""
 
     materialized = list(candidates)
     crs_values = {candidate.crs for candidate in materialized if candidate.crs}
@@ -889,7 +889,7 @@ def _network_line_features(
             features.append(
                 {
                     "type": "Feature",
-                    "id": f"generated_network_{len(features) + 1:07d}",
+                    "id": f"dem_network_{len(features) + 1:07d}",
                     "geometry": {
                         "type": "LineString",
                         "coordinates": [[x0, y0], [x1, y1]],
@@ -931,7 +931,7 @@ def _isolated_network_point_features(
         features.append(
             {
                 "type": "Feature",
-                "id": f"generated_network_{start_index + len(features):07d}",
+                "id": f"dem_network_{start_index + len(features):07d}",
                 "geometry": {"type": "Point", "coordinates": [x, y]},
                 "properties": {
                     "feature_kind": "isolated_network_cell",
@@ -983,5 +983,5 @@ __all__ = [
     "generate_network_candidate_outlets",
     "write_candidate_generation_jsonl",
     "write_candidate_outlets_geojson",
-    "write_generated_network_geojson",
+    "write_dem_network_geojson",
 ]

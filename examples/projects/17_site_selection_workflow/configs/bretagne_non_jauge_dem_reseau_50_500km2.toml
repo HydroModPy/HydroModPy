@@ -55,13 +55,13 @@ network_threshold_area_km2 = 5.0
 # network_sampling samples DEM-derived stream cells.
 candidate_mode = "network_sampling"
 # Maximum number of DEM/network-generated candidates to delineate.
-max_generated_candidates = 12
+max_network_candidates = 12
 # Maximum number of rejected DEM/network candidate cells written to the candidate-generation
 # audit JSONL.
-max_rejected_candidate_audit_records = 200
+max_rejected_network_candidate_audit_records = 200
 # Maximum number of DEM-derived stream cells exported to the generated network vector layer.
 # Highest-accumulation cells are kept first.
-max_generated_network_cells = 25000
+max_dem_network_cells = 25000
 # Minimum spacing used to thin candidate outlets before basin delineation.
 min_distance_between_outlets_km = 3.0
 # Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived
