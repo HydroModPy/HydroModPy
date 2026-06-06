@@ -27,7 +27,7 @@ def delineate_site_selection_candidates(
     area_reader: AreaReader | None = None,
     reference_network: object | None = None,
     reference_network_source: str = "",
-    reference_network_max_distance_m: float | None = None,
+    reference_network_snap_tolerance_m: float | None = None,
 ) -> list[DelineatedCatchment]:
     """Delineate all candidate outlets with the same DEM products and settings."""
 
@@ -47,7 +47,7 @@ def delineate_site_selection_candidates(
             area_reader=area_reader,
             reference_network=reference_network,
             reference_network_source=reference_network_source,
-            reference_network_max_distance_m=reference_network_max_distance_m,
+            reference_network_snap_tolerance_m=reference_network_snap_tolerance_m,
             **builder_kwargs,
         )
         for candidate in candidates

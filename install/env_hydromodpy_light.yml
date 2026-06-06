@@ -3,7 +3,11 @@ channels:
   - conda-forge
 dependencies:
   - python>=3.11,<3.14
+  - argcomplete
   - contextily
+  - coverage
+  - duckdb
+  - filelock
   - flopy
   - geopandas
   - h5py
@@ -12,29 +16,47 @@ dependencies:
   - netcdf4
   - numpy>=2.0
   - pandas
+  - polars>=1.0,<2
   - pandera>=0.31.1,<1
+  - pillow
+  - platformdirs
   - pint
+  - plotly
+  - py7zr>=1.0,<2
+  - pyarrow
   - pydantic
   - pydantic-pint
   - pytest
+  - pytest-cov
+  - pytest-timeout
   - pytest-xdist
+  - pyyaml
+  - jsonschema>=4.0
   - sphinx
   - pyproj
   - pyshp
   - pyvista
   - rasterio
+  - requests
   - rioxarray
   - cma
   - cmaes>=0.12
   - optuna>=4.8
   - scikit-learn
   - scipy
+  - shapely
+  - tomli-w
+  - tomlkit
+  - tqdm
   - xarray
   - xugrid
+  - zarr
+  - zstandard
   - pysheds
   - dask
   - pip
   - pip:
       - gmsh
       - meshio
+      - universal_pathlib>=0.2,<1
       - whitebox-workflows

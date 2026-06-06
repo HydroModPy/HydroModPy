@@ -33,7 +33,7 @@ def _config(tmp_path: Path, *, min_distance_km: float | None = None) -> SiteSele
         },
         "outlets": {
             "candidate_mode": "station_outlets",
-            "snap_dist_m": 150,
+            "dem_snap_max_distance_m": 150,
             "min_distance_between_outlets_km": min_distance_km,
         },
     }

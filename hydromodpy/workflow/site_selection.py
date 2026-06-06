@@ -5,12 +5,14 @@ from __future__ import annotations
 import csv
 import json
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
+from hydromodpy.config.toml_section_loader import load_report_section
 from hydromodpy.core.exceptions import (
     ConfigError,
     ConfigMissingError,
@@ -22,6 +24,9 @@ from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
+from hydromodpy.reporting.site_selection.intent import (
+    site_selection_report_html_requested,
+)
 from hydromodpy.reporting.site_selection.plan import (
     render_site_selection_plan_html_report,
 )
@@ -63,15 +68,20 @@ from hydromodpy.spatial.site_selection.outputs.cleanup import (
 from hydromodpy.spatial.site_selection.outputs.pipeline import (
     write_core_site_selection_outputs,
 )
+from hydromodpy.spatial.site_selection.outputs.report_artifacts import (
+    REPORT_ARTIFACT_MANIFEST_OUTPUT_KEY,
+    write_site_selection_plan_report_artifact_manifest,
+)
 from hydromodpy.spatial.site_selection.pipelines.build import (
     SiteSelectionBuildResult,
-    build_site_selection_from_dem_area_light,
+    build_site_selection_from_dem_area_target,
     build_site_selection_from_generated_network,
     build_site_selection_from_point_records,
 )
 from hydromodpy.workflow.site_selection_data import (
     DemLoader,
     HydrometryLoader,
+    default_site_selection_data_root,
     load_dem_path,
     load_hydrometry_records,
 )
@@ -110,7 +120,49 @@ def load_site_selection_config(path: str | Path) -> SiteSelectionConfig:
     if not isinstance(section, dict):
         raise ConfigMissingError("TOML file must contain a [site_selection] section.")
     cfg = SiteSelectionConfig.model_validate(section)
-    return _resolve_paths(cfg, base_dir=config_path.parent)
+    cfg = _apply_site_selection_report_html_intent(
+        cfg,
+        raw,
+        base_dir=config_path.parent,
+    )
+    cfg = _resolve_paths(cfg, base_dir=config_path.parent)
+    data_cfg = DataManagersConfig.from_toml_section(
+        raw.get("data", {}),
+        base_dir=config_path.parent,
+    )
+    return _with_effective_dem_resolution(cfg, data_cfg.dem)
+
+
+def _apply_site_selection_report_html_intent(
+    cfg: SiteSelectionConfig,
+    raw: Mapping[str, Any],
+    *,
+    base_dir: Path,
+) -> SiteSelectionConfig:
+    """Attach generic [report.html] intent to the site-selection config."""
+
+    report_cfg = load_report_section(raw.get("report", {}), base_dir)
+    html = report_cfg.html
+    if not html.build_at_end:
+        return cfg
+    explicit_profile = _explicit_report_html_profile(raw)
+    if explicit_profile not in {None, "site_selection"}:
+        raise ConfigError(
+            "[report.html].profile must be 'site_selection' when "
+            "workflow.mode='site_selection'."
+        )
+    return cfg.with_report_html_build_at_end(True)
+
+
+def _explicit_report_html_profile(raw: Mapping[str, Any]) -> str | None:
+    report_section = raw.get("report")
+    if not isinstance(report_section, Mapping):
+        return None
+    html_section = report_section.get("html")
+    if not isinstance(html_section, Mapping):
+        return None
+    profile = html_section.get("profile")
+    return None if profile in {None, ""} else str(profile)
 
 
 def load_hydrometry_config_for_site_selection(path: str | Path) -> HydrometryConfig:
@@ -142,7 +194,113 @@ def load_data_dem_config_for_site_selection(path: str | Path) -> DataDemConfig |
         raw.get("data", {}),
         base_dir=config_path.parent,
     )
-    return data_cfg.dem
+    if data_cfg.dem is None:
+        return None
+    site_cfg = _site_selection_config_from_raw(
+        raw.get("site_selection"),
+        base_dir=config_path.parent,
+    )
+    if site_cfg is None:
+        return data_cfg.dem
+    return _infer_dem_administrative_selectors_from_territory(
+        data_cfg.dem,
+        site_cfg,
+    )
+
+
+def _site_selection_config_from_raw(
+    section: Any,
+    *,
+    base_dir: Path,
+) -> SiteSelectionConfig | None:
+    if not isinstance(section, Mapping):
+        return None
+    cfg = SiteSelectionConfig.model_validate(section)
+    return _resolve_paths(cfg, base_dir=base_dir)
+
+
+def _infer_dem_administrative_selectors_from_territory(
+    dem_config: DataDemConfig,
+    site_config: SiteSelectionConfig,
+) -> DataDemConfig:
+    """Fill missing IGN DEM administrative selectors from site-selection territory."""
+
+    territory = site_config.territory
+    if str(territory.country or "").upper() not in {"", "FR"}:
+        return dem_config
+
+    sources = []
+    changed = False
+    for source in dem_config.sources:
+        if getattr(source, "source", None) != "ign_geoplateforme_dem":
+            sources.append(source)
+            continue
+        if getattr(source, "departments", None) or getattr(source, "regions", None):
+            sources.append(source)
+            continue
+        if territory.mode == "admin_departments":
+            source = source.model_copy(
+                update={
+                    "country": territory.country or "FR",
+                    "departments": list(territory.departments),
+                }
+            )
+            changed = True
+        elif territory.mode == "admin_regions":
+            source = source.model_copy(
+                update={
+                    "country": territory.country or "FR",
+                    "regions": list(territory.regions),
+                }
+            )
+            changed = True
+        sources.append(source)
+    if not changed:
+        return dem_config
+    return dem_config.model_copy(update={"sources": sources})
+
+
+def _with_effective_dem_resolution(
+    site_config: SiteSelectionConfig,
+    data_dem_config: DataDemConfig | None,
+) -> SiteSelectionConfig:
+    """Expose the effective DEM source resolution on site-selection metadata."""
+
+    data_resolution_m = _effective_data_dem_resolution_m(data_dem_config)
+    site_resolution_m = site_config.dem.resolution_m
+    if site_resolution_m is not None:
+        if data_resolution_m is not None and float(site_resolution_m) != data_resolution_m:
+            raise ConfigError(
+                "site_selection.dem.resolution_m conflicts with "
+                "data.dem.sources[].resolution_m. Keep the DEM resolution in "
+                "[data.dem] or use matching values."
+            )
+        return site_config
+    if data_resolution_m is None and site_config.dem.source == "ign_geoplateforme_dem":
+        data_resolution_m = 25.0
+    if data_resolution_m is None:
+        return site_config
+    return site_config.model_copy(
+        update={
+            "dem": site_config.dem.model_copy(
+                update={"resolution_m": data_resolution_m}
+            )
+        }
+    )
+
+
+def _effective_data_dem_resolution_m(data_dem_config: DataDemConfig | None) -> float | None:
+    if data_dem_config is None:
+        return None
+    for source in data_dem_config.sources:
+        resolution_m = getattr(source, "resolution_m", None)
+        if resolution_m is not None:
+            return float(resolution_m)
+        if getattr(source, "source", None) == "ign_geoplateforme_dem":
+            dataset = str(getattr(source, "dataset", "bd-alti") or "bd-alti")
+            if dataset == "bd-alti":
+                return 25.0
+    return None
 
 
 def _data_dem_config_for_site_selection(
@@ -150,14 +308,17 @@ def _data_dem_config_for_site_selection(
     config: SiteSelectionConfig,
     config_path: str | Path | None,
 ) -> DataDemConfig | None:
-    """Return the explicit ``[data.dem]`` config or the source shorthand fallback."""
+    """Return the DEM data-manager config selected by ``site_selection.dem.source``."""
 
-    if config_path is not None:
+    if config.dem.source in {None, "data_manager"} and config_path is not None:
         data_dem_config = load_data_dem_config_for_site_selection(config_path)
         if data_dem_config is not None:
             return data_dem_config
     if config.dem.source == "ign_geoplateforme_dem":
-        return DataDemConfig.ign_geoplateforme_dem(force_refresh=config.dem.force_refresh)
+        overrides: dict[str, Any] = {"force_refresh": config.dem.force_refresh}
+        if config.dem.resolution_m is not None:
+            overrides["resolution_m"] = config.dem.resolution_m
+        return DataDemConfig.ign_geoplateforme_dem(**overrides)
     return None
 
 
@@ -189,10 +350,13 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "path": _path_or_none(cfg.dem.path),
             "resolution_m": cfg.dem.resolution_m,
             "cache_policy": cfg.dem.cache_policy,
-            "margin_km": cfg.dem.margin_km,
-            "request_extent": cfg.dem.request_extent,
-            "map_background_extent": cfg.dem.map_background_extent,
+            "delineation_buffer_km": cfg.dem.delineation_buffer_km,
+            "delineation_dem_extent_source": cfg.dem.delineation_dem_extent_source,
+            "review_map_dem_background": cfg.dem.review_map_dem_background,
             "force_refresh": cfg.dem.force_refresh,
+        },
+        "review_map": {
+            "dem_background": cfg.dem.review_map_dem_background,
         },
         "input": {
             "mode": cfg.input.mode,
@@ -204,7 +368,6 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "delineate_from_outlets": cfg.input.delineate_from_outlets,
         },
         "hydrology": {
-            "method": cfg.hydrology.method,
             "flow_algorithm": cfg.hydrology.flow_algorithm,
             "dem_correction_type": cfg.hydrology.dem_correction_type,
             "network_threshold_area_km2": cfg.hydrology.network_threshold_area_km2,
@@ -213,7 +376,7 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
         "outlets": {
             "candidate_mode": cfg.outlets.candidate_mode,
             "snap_strategy": cfg.outlets.snap_strategy,
-            "snap_dist_m": cfg.outlets.snap_dist_m,
+            "dem_snap_max_distance_m": cfg.outlets.dem_snap_max_distance_m,
             "max_generated_candidates": cfg.outlets.max_generated_candidates,
             "max_rejected_candidate_audit_records": (
                 cfg.outlets.max_rejected_candidate_audit_records
@@ -221,14 +384,16 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "max_generated_network_cells": cfg.outlets.max_generated_network_cells,
             "reference_network_source": cfg.outlets.reference_network_source,
             "reference_network_path": _path_or_none(cfg.outlets.reference_network_path),
-            "reference_network_max_distance_m": cfg.outlets.reference_network_max_distance_m,
+            "reference_network_snap_max_distance_m": (
+                cfg.outlets.reference_network_snap_max_distance_m
+            ),
             "reference_network_fetch_margin_m": cfg.outlets.reference_network_fetch_margin_m,
         },
         "criteria": {
             "ruleset": cfg.criteria.ruleset,
             "hard_reject": list(cfg.criteria.hard_reject),
             "warning": list(cfg.criteria.warning),
-            "soft_score": list(cfg.criteria.soft_score),
+            "ranking_preference": list(cfg.criteria.ranking_preference),
             "report_only": list(cfg.criteria.report_only),
             "area_mode": cfg.criteria.area.mode,
             "geology_mode": cfg.criteria.geology.mode,
@@ -427,15 +592,19 @@ def _maybe_delineate_from_outlets(
             outlet=catchment.outlet,
             flow_products=flow_products,
             output_root=config.output_root / "catchments",
-            snap_dist_m=config.outlets.snap_dist_m,
+            snap_dist_m=config.outlets.dem_snap_max_distance_m,
             crs_project=catchment.outlet.crs,
             site_id=catchment.site_id,
             backend=backend,
             builder=delineation_builder or extract_catchment_from_point,
             area_reader=area_reader,
             reference_network=reference_network,
-            reference_network_source=("" if reference_bundle is None else reference_bundle.source),
-            reference_network_max_distance_m=config.outlets.reference_network_max_distance_m,
+            reference_network_source=(
+                "" if reference_bundle is None else reference_bundle.source
+            ),
+            reference_network_snap_tolerance_m=(
+                config.outlets.reference_network_snap_max_distance_m
+            ),
         )
         for catchment in catchments
     ]
@@ -489,11 +658,21 @@ def _maybe_resolve_map_dem_for_review(
 ) -> dict[str, Any]:
     """Resolve a regional DEM background even when basins are pre-delineated."""
 
-    if config.dem.map_background_extent == "none":
+    if config.dem.review_map_dem_background in {"none", "delineation_dem"}:
         return {}
     if config.dem.path is not None:
+        map_dem_path = _resolve_local_site_selection_dem_path(
+            config.dem.path,
+            workspace_root=config.input.workspace_root,
+            data_root=config.input.data_root,
+            project_extent=_dem_request_bbox(
+                config=config,
+                catchments=catchments,
+                delineation_dem_extent_source="selection_territory",
+            ),
+        )
         return {
-            "map_dem_path": str(Path(config.dem.path).expanduser().resolve()),
+            "map_dem_path": str(map_dem_path),
             "dem_source": config.dem.source,
             "dem_usage": "review_map_background",
         }
@@ -510,7 +689,7 @@ def _maybe_resolve_map_dem_for_review(
         project_extent=_dem_request_bbox(
             config=config,
             catchments=catchments,
-            request_extent="territory",
+            delineation_dem_extent_source="selection_territory",
         ),
         loader=dem_loader,
     )
@@ -529,7 +708,16 @@ def _resolve_dem_path_for_delineation(
     dem_loader: DemLoader | None,
 ) -> Path:
     if config.dem.path is not None:
-        return Path(config.dem.path).expanduser().resolve()
+        return _resolve_local_site_selection_dem_path(
+            config.dem.path,
+            workspace_root=config.input.workspace_root,
+            data_root=config.input.data_root,
+            project_extent=_dem_request_bbox(
+                config=config,
+                catchments=catchments,
+                delineation_dem_extent_source=config.dem.delineation_dem_extent_source,
+            ),
+        )
 
     data_dem_config = _data_dem_config_for_site_selection(
         config=config,
@@ -538,8 +726,8 @@ def _resolve_dem_path_for_delineation(
 
     if data_dem_config is None:
         raise ConfigMissingError(
-            "site_selection.input.delineate_from_outlets=true requires either "
-            "site_selection.dem.path or a [data.dem] source."
+            "site_selection.input.delineate_from_outlets=true requires "
+            f"{_dem_source_guidance(config)}."
         )
 
     return load_dem_path(
@@ -549,7 +737,7 @@ def _resolve_dem_path_for_delineation(
         project_extent=_dem_request_bbox(
             config=config,
             catchments=catchments,
-            request_extent=config.dem.request_extent,
+            delineation_dem_extent_source=config.dem.delineation_dem_extent_source,
         ),
         loader=dem_loader,
     )
@@ -567,7 +755,15 @@ def _resolve_dem_path_for_observed_selection(
     """Resolve the DEM used to derive flow products for station-led selection."""
 
     if config.dem.path is not None:
-        return Path(config.dem.path).expanduser().resolve()
+        return _resolve_local_site_selection_dem_path(
+            config.dem.path,
+            workspace_root=workspace_root,
+            data_root=data_root,
+            project_extent=_observed_dem_request_bbox(
+                config=config,
+                candidate_outlets=candidate_outlets or [],
+            ),
+        )
 
     data_dem_config = _data_dem_config_for_site_selection(
         config=config,
@@ -576,8 +772,8 @@ def _resolve_dem_path_for_observed_selection(
 
     if data_dem_config is None:
         raise ConfigMissingError(
-            "site_selection.input.mode='hydrometry' requires either "
-            "site_selection.dem.path or a [data.dem] source so station outlets "
+            "site_selection.input.mode='hydrometry' requires "
+            f"{_dem_source_guidance(config)} so station outlets "
             "can be delineated from a DEM."
         )
 
@@ -607,7 +803,16 @@ def _resolve_dem_path_for_generated_selection(
     """Resolve the DEM used to generate network candidates."""
 
     if config.dem.path is not None:
-        return Path(config.dem.path).expanduser().resolve()
+        return _resolve_local_site_selection_dem_path(
+            config.dem.path,
+            workspace_root=workspace_root,
+            data_root=data_root,
+            project_extent=_dem_request_bbox(
+                config=config,
+                catchments=[],
+                delineation_dem_extent_source="selection_territory",
+            ),
+        )
 
     data_dem_config = _data_dem_config_for_site_selection(
         config=config,
@@ -616,8 +821,8 @@ def _resolve_dem_path_for_generated_selection(
 
     if data_dem_config is None:
         raise ConfigMissingError(
-            "site_selection.input.mode='generated_candidates' or 'dem_area_light' requires either "
-            "site_selection.dem.path or a [data.dem] source."
+            "site_selection.input.mode='dem_network_sampling' or 'dem_area_target' requires "
+            f"{_dem_source_guidance(config)}."
         )
 
     try:
@@ -628,7 +833,7 @@ def _resolve_dem_path_for_generated_selection(
             project_extent=_dem_request_bbox(
                 config=config,
                 catchments=[],
-                request_extent="territory",
+                delineation_dem_extent_source="selection_territory",
             ),
             loader=dem_loader,
         )
@@ -644,10 +849,10 @@ def _resolve_map_dem_path_for_review(
     delineation_dem_path: Path,
     dem_loader: DemLoader | None,
 ) -> Path | None:
-    mode = config.dem.map_background_extent
+    mode = config.dem.review_map_dem_background
     if mode == "none":
         return None
-    if mode == "delineation":
+    if mode == "delineation_dem":
         return delineation_dem_path
 
     data_dem_config = _data_dem_config_for_site_selection(
@@ -664,43 +869,92 @@ def _resolve_map_dem_path_for_review(
         project_extent=_dem_request_bbox(
             config=config,
             catchments=catchments,
-            request_extent="territory",
+            delineation_dem_extent_source="selection_territory",
         ),
         loader=dem_loader,
     )
+
+
+def _resolve_local_site_selection_dem_path(
+    path: str | Path,
+    *,
+    workspace_root: str | Path | None,
+    data_root: str | Path | None,
+    project_extent: tuple | None,
+) -> Path:
+    """Resolve a direct local DEM path, mosaicking directories when needed."""
+
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.is_dir():
+        return resolved
+
+    from hydromodpy.data.variables.dem.custom import load_custom_dem
+
+    records = load_custom_dem(
+        SimpleNamespace(path=resolved),
+        bbox=project_extent,
+        data_dir=_site_selection_dem_cache_dir(
+            workspace_root=workspace_root,
+            data_root=data_root,
+        ),
+    )
+    if not records:
+        raise DataContractViolation(f"Custom DEM directory returned no raster: {resolved}")
+    data = records[0].data
+    if not isinstance(data, (str, Path)):
+        raise DataContractViolation(
+            "Custom DEM directory returned an in-memory field; a file path is required."
+        )
+    return Path(data).expanduser().resolve()
+
+
+def _site_selection_dem_cache_dir(
+    *,
+    workspace_root: str | Path | None,
+    data_root: str | Path | None,
+) -> Path:
+    if data_root is not None:
+        root = Path(data_root).expanduser().resolve()
+    elif workspace_root is not None:
+        root = Path(workspace_root).expanduser().resolve() / "data"
+    else:
+        root = default_site_selection_data_root()
+    dem_dir = root / "dem"
+    dem_dir.mkdir(parents=True, exist_ok=True)
+    return dem_dir
 
 
 def _dem_request_bbox(
     *,
     config: SiteSelectionConfig,
     catchments: list[DelineatedCatchment],
-    request_extent: str,
+    delineation_dem_extent_source: str,
 ) -> tuple[float, float, float, float] | None:
-    margin_m = float(config.dem.margin_km or 0.0) * 1000.0
-    if request_extent == "outlets" and catchments:
-        return _outlet_bbox(catchments, margin_m=margin_m)
+    buffer_m = float(config.dem.delineation_buffer_km or 0.0) * 1000.0
+    if delineation_dem_extent_source == "candidate_outlets_bbox" and catchments:
+        return _outlet_bbox(catchments, margin_m=buffer_m)
 
     territory = config.territory
     if territory.mode == "bbox" and territory.bbox is not None:
-        return _expand_projected_bbox(tuple(territory.bbox), margin_m)
+        return _expand_projected_bbox(tuple(territory.bbox), buffer_m)
     if territory.country in {None, "", "FR"}:
         if territory.mode == "admin_regions":
             from hydromodpy.data.common.administrative.france import bbox_for_regions
 
-            return bbox_for_regions(territory.regions, margin_m=margin_m)
+            return bbox_for_regions(territory.regions, margin_m=buffer_m)
         if territory.mode == "admin_departments":
             from hydromodpy.data.common.administrative.france import bbox_for_departments
 
-            return bbox_for_departments(territory.departments, margin_m=margin_m)
+            return bbox_for_departments(territory.departments, margin_m=buffer_m)
     if territory.mode == "polygon_file" and territory.polygon_file is not None:
         import geopandas as gpd
 
         gdf = gpd.read_file(territory.polygon_file)
         if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
             gdf = gdf.to_crs("EPSG:2154")
-        return _expand_projected_bbox(tuple(float(v) for v in gdf.total_bounds), margin_m)
+        return _expand_projected_bbox(tuple(float(v) for v in gdf.total_bounds), buffer_m)
     if catchments:
-        return _outlet_bbox(catchments, margin_m=margin_m)
+        return _outlet_bbox(catchments, margin_m=buffer_m)
     return None
 
 
@@ -709,13 +963,16 @@ def _observed_dem_request_bbox(
     config: SiteSelectionConfig,
     candidate_outlets: list[CandidateOutlet],
 ) -> tuple[float, float, float, float] | None:
-    margin_m = float(config.dem.margin_km or 0.0) * 1000.0
-    if config.dem.request_extent == "outlets" and candidate_outlets:
-        return _candidate_outlet_bbox(candidate_outlets, margin_m=margin_m)
+    buffer_m = float(config.dem.delineation_buffer_km or 0.0) * 1000.0
+    if (
+        config.dem.delineation_dem_extent_source == "candidate_outlets_bbox"
+        and candidate_outlets
+    ):
+        return _candidate_outlet_bbox(candidate_outlets, margin_m=buffer_m)
     return _dem_request_bbox(
         config=config,
         catchments=[],
-        request_extent=config.dem.request_extent,
+        delineation_dem_extent_source=config.dem.delineation_dem_extent_source,
     )
 
 
@@ -723,7 +980,7 @@ def _candidate_outlets_for_dem_request(
     config: SiteSelectionConfig,
     records: list[Any],
 ) -> list[CandidateOutlet]:
-    if config.dem.request_extent != "outlets":
+    if config.dem.delineation_dem_extent_source != "candidate_outlets_bbox":
         return []
     target_crs = _default_project_crs_for_selection(config)
     if target_crs is None:
@@ -747,7 +1004,11 @@ def _observation_request_bbox_wgs84(
 ) -> tuple[float, float, float, float] | None:
     """Return a WGS84 bbox for observation APIs from the project territory."""
 
-    bbox = _dem_request_bbox(config=config, catchments=[], request_extent="territory")
+    bbox = _dem_request_bbox(
+        config=config,
+        catchments=[],
+        delineation_dem_extent_source="selection_territory",
+    )
     if bbox is None:
         return None
     return _bbox_projected_to_wgs84(bbox)
@@ -857,6 +1118,10 @@ def build_site_selection_from_hydrometry_config(
         raise ConfigError(
             _data_access_error("hydrometry", data_root=data_root, detail=exc)
         ) from exc
+    build_kwargs.setdefault(
+        "preserve_station_candidates",
+        _hydrometry_has_declared_station_ids(hydrometry_config),
+    )
     return build_site_selection_from_point_records(
         config=config,
         point_records=records,
@@ -924,7 +1189,7 @@ def build_observed_site_selection_from_toml(
                 f"station outlets {_format_project_extent(dem_extent)}"
             ),
         )
-    elif cfg.dem.request_extent == "outlets":
+    elif cfg.dem.delineation_dem_extent_source == "candidate_outlets_bbox":
         _emit_progress(
             progress_callback,
             (
@@ -956,6 +1221,7 @@ def build_observed_site_selection_from_toml(
         area_reader=area_reader,
         write_outputs=write_outputs,
         report_renderer=render_site_selection_html_report,
+        preserve_station_candidates=_hydrometry_has_declared_station_ids(hydrometry_cfg),
     )
     _emit_progress(
         progress_callback,
@@ -968,7 +1234,11 @@ def build_observed_site_selection_from_toml(
     return result
 
 
-def build_generated_site_selection_from_toml(
+def _hydrometry_has_declared_station_ids(config: HydrometryConfig) -> bool:
+    return any(bool(source.station_ids) for source in config.sources)
+
+
+def build_dem_network_sampling_site_selection_from_toml(
     *,
     config_path: str | Path,
     output_root: str | Path | None = None,
@@ -982,7 +1252,7 @@ def build_generated_site_selection_from_toml(
     write_outputs: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> SiteSelectionBuildResult:
-    """Build a site selection from DEM/network-generated candidates."""
+    """Build a site selection from DEM network sampling."""
 
     path = Path(config_path).expanduser().resolve()
     cfg = load_site_selection_config(path)
@@ -1025,7 +1295,7 @@ def build_generated_site_selection_from_toml(
     return result
 
 
-def build_dem_area_light_site_selection_from_toml(
+def build_dem_area_target_site_selection_from_toml(
     *,
     config_path: str | Path,
     output_root: str | Path | None = None,
@@ -1040,7 +1310,7 @@ def build_dem_area_light_site_selection_from_toml(
     write_outputs: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> SiteSelectionBuildResult:
-    """Build a DEM-only light area-based site selection."""
+    """Build a DEM target-area site selection."""
 
     path = Path(config_path).expanduser().resolve()
     cfg = load_site_selection_config(path)
@@ -1062,7 +1332,7 @@ def build_dem_area_light_site_selection_from_toml(
         progress_callback,
         f"{cfg.selection_id}: scanning DEM area candidates and building report artifacts",
     )
-    result = build_site_selection_from_dem_area_light(
+    result = build_site_selection_from_dem_area_target(
         config=cfg,
         dem_init_path=dem_path,
         backend=backend,
@@ -1096,16 +1366,27 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
         plan = plan_site_selection(path)
         manifest_path = plan.write_manifest() if cfg.input.write_plan_manifest else None
         report_path = None
-        if cfg.output.write_report_html:
+        if site_selection_report_html_requested(cfg):
             if manifest_path is None:
                 manifest_path = plan.write_manifest()
             report_path = render_site_selection_plan_html_report(manifest_path)
+        artifact_manifest_path = (
+            write_site_selection_plan_report_artifact_manifest(
+                manifest_path,
+                report_path=report_path,
+            )
+            if manifest_path is not None
+            else None
+        )
         return {
             "action": "plan",
             "selection_id": cfg.selection_id,
             "output_root": str(cfg.output_root),
             "plan_manifest": "" if manifest_path is None else str(manifest_path),
             "site_selection_report_html": "" if report_path is None else str(report_path),
+            "report_artifact_manifest_json": (
+                "" if artifact_manifest_path is None else str(artifact_manifest_path)
+            ),
         }
 
     if action == "delineated_catchments":
@@ -1114,7 +1395,7 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
         result, paths = select_delineated_catchments_from_csv(
             config_path=path,
             catchments_csv=cfg.input.catchments_csv,
-            region_id=cfg.input.region_id,
+            region_id=cfg.resolved_region_id,
         )
         return {
             "action": "delineated_catchments",
@@ -1131,22 +1412,25 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "site_selection_manifest_json": str(paths.get("site_selection_manifest_json", "")),
             "site_selection_report_html": str(paths.get("site_selection_report_html", "")),
             "site_selection_map_png": str(paths.get("site_selection_map_png", "")),
+            "report_artifact_manifest_json": str(
+                paths.get(REPORT_ARTIFACT_MANIFEST_OUTPUT_KEY, "")
+            ),
         }
 
-    if action == "generated_candidates":
+    if action == "dem_network_sampling":
         if cfg.outlets.candidate_mode != "network_sampling":
             raise ConfigError(
-                "site_selection.input.mode='generated_candidates' requires "
+                "site_selection.input.mode='dem_network_sampling' requires "
                 "site_selection.outlets.candidate_mode='network_sampling'."
             )
-        result = build_generated_site_selection_from_toml(
+        result = build_dem_network_sampling_site_selection_from_toml(
             config_path=path,
             workspace_root=cfg.input.workspace_root,
             data_root=cfg.input.data_root,
             progress_callback=_stderr_progress,
         )
         return {
-            "action": "generated_candidates",
+            "action": "dem_network_sampling",
             "selection_id": cfg.selection_id,
             "candidates": len(result.candidates),
             "selected": len(result.selection.selected),
@@ -1172,18 +1456,23 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "site_selection_report_html": str(
                 result.output_paths.get("site_selection_report_html", "")
             ),
-            "site_selection_map_png": str(result.output_paths.get("site_selection_map_png", "")),
+            "site_selection_map_png": str(
+                result.output_paths.get("site_selection_map_png", "")
+            ),
+            "report_artifact_manifest_json": str(
+                result.output_paths.get(REPORT_ARTIFACT_MANIFEST_OUTPUT_KEY, "")
+            ),
         }
 
-    if action == "dem_area_light":
-        result = build_dem_area_light_site_selection_from_toml(
+    if action == "dem_area_target":
+        result = build_dem_area_target_site_selection_from_toml(
             config_path=path,
             workspace_root=cfg.input.workspace_root,
             data_root=cfg.input.data_root,
             progress_callback=_stderr_progress,
         )
         return {
-            "action": "dem_area_light",
+            "action": "dem_area_target",
             "selection_id": cfg.selection_id,
             "candidates": len(result.candidates),
             "selected": len(result.selection.selected),
@@ -1207,13 +1496,20 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "site_selection_report_html": str(
                 result.output_paths.get("site_selection_report_html", "")
             ),
-            "site_selection_map_png": str(result.output_paths.get("site_selection_map_png", "")),
+            "site_selection_map_png": str(
+                result.output_paths.get("site_selection_map_png", "")
+            ),
+            "report_artifact_manifest_json": str(
+                result.output_paths.get(REPORT_ARTIFACT_MANIFEST_OUTPUT_KEY, "")
+            ),
         }
 
     if cfg.strategy.principle != "observation_led":
         raise ConfigError(
             "site_selection input mode 'hydrometry' currently requires "
-            "strategy.principle='observation_led'."
+            "an observation-led station strategy. This is inferred from "
+            "site_selection.input.mode='hydrometry' unless contradicted "
+            "explicitly."
         )
     result = build_observed_site_selection_from_toml(
         config_path=path,
@@ -1243,6 +1539,9 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             result.output_paths.get("site_selection_report_html", "")
         ),
         "site_selection_map_png": str(result.output_paths.get("site_selection_map_png", "")),
+        "report_artifact_manifest_json": str(
+            result.output_paths.get(REPORT_ARTIFACT_MANIFEST_OUTPUT_KEY, "")
+        ),
     }
 
 
@@ -1343,6 +1642,27 @@ def _data_access_error(
     )
 
 
+def _dem_source_guidance(config: SiteSelectionConfig) -> str:
+    """Describe the configured DEM source contract for actionable errors."""
+
+    source = config.dem.source
+    if source is None:
+        return (
+            "site_selection.dem.path or [data.dem] because "
+            "site_selection.dem.source is omitted"
+        )
+    if source == "custom":
+        return "site_selection.dem.path because site_selection.dem.source='custom'"
+    if source == "data_manager":
+        return "[data.dem] because site_selection.dem.source='data_manager'"
+    if source == "ign_geoplateforme_dem":
+        return (
+            "a reachable IGN Geoplateforme DEM provider because "
+            "site_selection.dem.source='ign_geoplateforme_dem'"
+        )
+    return f"a supported DEM source, got site_selection.dem.source={source!r}"
+
+
 def _resolve_optional_path(path: Path | None, *, base_dir: Path) -> Path | None:
     if path is None:
         return None
@@ -1369,14 +1689,14 @@ def _path_or_none(path: Path | None) -> str | None:
 def _resolve_workflow_action(cfg: SiteSelectionConfig, raw: dict[str, Any]) -> str:
     mode = cfg.input.mode
 
-    if mode == "plan_only":
+    if mode == "dry_run":
         return "plan"
     if mode == "delineated_catchments":
         return "delineated_catchments"
-    if mode == "generated_candidates":
-        return "generated_candidates"
-    if mode == "dem_area_light":
-        return "dem_area_light"
+    if mode == "dem_network_sampling":
+        return "dem_network_sampling"
+    if mode == "dem_area_target":
+        return "dem_area_target"
     if mode == "hydrometry":
         if not isinstance(raw.get("hydrometry"), dict):
             raise ConfigMissingError(
@@ -1403,7 +1723,8 @@ def _planned_outputs(cfg: SiteSelectionConfig) -> list[str]:
         outputs.append("csv")
     if cfg.output.write_regional_lab_csv:
         outputs.append("regional_lab_csv")
-    if cfg.output.write_report_html:
+    outputs.append("report_artifact_manifest")
+    if site_selection_report_html_requested(cfg):
         outputs.append("report_html")
     return outputs
 
@@ -1448,8 +1769,8 @@ def _optional_float(value: object) -> float | None:
 __all__ = [
     "PLAN_MANIFEST_NAME",
     "SiteSelectionPlan",
-    "build_dem_area_light_site_selection_from_toml",
-    "build_generated_site_selection_from_toml",
+    "build_dem_area_target_site_selection_from_toml",
+    "build_dem_network_sampling_site_selection_from_toml",
     "build_observed_site_selection_from_toml",
     "build_site_selection_from_hydrometry_config",
     "load_data_dem_config_for_site_selection",

@@ -139,7 +139,8 @@ def load_toml_with_base_config(
         base_path = (resolved.parent / base_path).resolve()
 
     base_payload = load_toml_with_base_config(base_path, _stack=(*_stack, resolved))
-    return _strip_empty_strings(merge_toml_payloads(base_payload, current))
+    merged = merge_toml_payloads(base_payload, current)
+    return _strip_empty_strings(merged)
 
 
 def validate_toml(

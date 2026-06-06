@@ -292,22 +292,29 @@ class Modflow6Prt:
         return 0
 
     def _build_packagedata(self) -> list[tuple]:
+        solver_mesh = self.model_modflow.solver_mesh
         centroids = np.asarray(
-            self.model_modflow.solver_mesh.cell_centroids(), dtype=float
+            solver_mesh.cell_centroids(), dtype=float
         ).reshape(int(self.model_modflow.ncpl), 2)
+        top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+        botm = np.asarray(solver_mesh.botm, dtype=float).reshape(int(self.model_modflow.nlay), -1)
         cells = self._select_release_cells()
         packagedata: list[tuple] = []
         for iprt, cell_id in enumerate(cells):
+            cell = int(cell_id)
             x, y = centroids[int(cell_id)]
-            lay = self._topmost_active_layer(int(cell_id))
+            lay = self._topmost_active_layer(cell)
+            z_top = float(top[cell]) if lay == 0 else float(botm[lay - 1, cell])
+            z_bot = float(botm[lay, cell])
+            release_z = z_bot + float(self.local_z) * (z_top - z_bot)
             packagedata.append(
                 (
                     int(iprt),
-                    (lay, int(cell_id)),
+                    (lay, cell),
                     float(x),
                     float(y),
-                    float(self.local_z),
-                    f"prt_{int(cell_id)}",
+                    float(release_z),
+                    f"prt_{cell}",
                 )
             )
         return packagedata
@@ -365,7 +372,6 @@ class Modflow6Prt:
         self.prp = flopy.mf6.ModflowPrtprp(
             self.prt,
             boundnames=True,
-            local_z=True,
             extend_tracking=self.extend_tracking,
             stoptime=self._days_to_model_time(float(self.stop_time_days))
             if self.stop_time_days is not None

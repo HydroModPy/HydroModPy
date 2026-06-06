@@ -17,6 +17,14 @@ import pandas as pd
 
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
+from hydromodpy.display.catchment_report.semantic_artifacts import semantic_artifact_id
+from hydromodpy.display.report_artifacts import (
+    ReportArtifact,
+    ReportArtifactManifest,
+    ReportArtifactRequirement,
+)
+
+REPORT_ARTIFACT_MANIFEST_NAME = "report_artifact_manifest.json"
 
 
 @dataclass(frozen=True)
@@ -124,7 +132,131 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
         encoding="utf-8",
     )
     _write_context_html(web_dir, inputs, summary)
+    _write_context_artifact_manifest(
+        inputs,
+        context_summary=inputs.context_summary,
+        context_html=web_dir / "index.html",
+        network_assets=network_assets,
+    )
     return inputs.context_summary
+
+
+def context_artifact_manifest_path(inputs: CatchmentReportInputs) -> Path:
+    return inputs.context_outputs_dir / REPORT_ARTIFACT_MANIFEST_NAME
+
+
+def _write_context_artifact_manifest(
+    inputs: CatchmentReportInputs,
+    *,
+    context_summary: Path,
+    context_html: Path,
+    network_assets: Mapping[str, str],
+) -> Path:
+    assets_dir = inputs.context_assets
+    figure_paths: dict[str, Path | None] = {
+        "observed_discharge_full": assets_dir / "observed_discharge_full.png",
+        "forcing_window": assets_dir / "forcing_window.png",
+        "baseline_discharge_comparison": assets_dir / "baseline_discharge_comparison.png",
+        "network_reference": _network_asset_path(
+            assets_dir,
+            network_assets,
+            "hydrographic_network_reference",
+        ),
+        "network_generated": _network_asset_path(
+            assets_dir,
+            network_assets,
+            "hydrographic_network_generated",
+        ),
+        "network_comparison": _network_asset_path(
+            assets_dir,
+            network_assets,
+            "hydrographic_network_comparison",
+        ),
+        "network_missing": _network_asset_path(
+            assets_dir,
+            network_assets,
+            "hydrographic_network_reference_missing_only",
+        ),
+        "network_extra": _network_asset_path(
+            assets_dir,
+            network_assets,
+            "hydrographic_network_generated_extra_only",
+        ),
+    }
+    requirements = (
+        ReportArtifactRequirement(
+            "context.summary",
+            kind="json",
+            required=True,
+            title="Resume contexte bassin",
+            producer="catchment.context",
+        ),
+        ReportArtifactRequirement(
+            "context.html",
+            kind="html",
+            required=False,
+            title="Page HTML contexte",
+            producer="catchment.context",
+        ),
+        *(
+            ReportArtifactRequirement(
+                semantic_artifact_id(figure_id),
+                kind="figure",
+                required=_context_figure_is_required(figure_id),
+                title=figure_id,
+                producer="catchment.context",
+                metadata={"display_figure": figure_id},
+            )
+            for figure_id in figure_paths
+        ),
+    )
+    paths_by_id = {
+        "context.summary": context_summary,
+        "context.html": context_html,
+        **{
+            semantic_artifact_id(figure_id): path
+            for figure_id, path in figure_paths.items()
+        },
+    }
+    manifest = ReportArtifactManifest(
+        profile="catchment_gauged",
+        requirements=requirements,
+        artifacts=tuple(
+            ReportArtifact.from_requirement(
+                requirement,
+                path=paths_by_id.get(requirement.artifact_id),
+            )
+            for requirement in requirements
+        ),
+        metadata={
+            "artifact_scope": "catchment.context",
+            "site_label": inputs.site_label,
+            "context_outputs_dir": _rel(inputs.context_outputs_dir),
+        },
+    )
+    return manifest.write_json(
+        context_artifact_manifest_path(inputs),
+        base_dir=REPO_ROOT,
+    )
+
+
+def _context_figure_is_required(figure_id: str) -> bool:
+    return figure_id in {
+        "observed_discharge_full",
+        "forcing_window",
+        "baseline_discharge_comparison",
+    }
+
+
+def _network_asset_path(
+    assets_dir: Path,
+    network_assets: Mapping[str, str],
+    asset_key: str,
+) -> Path | None:
+    value = network_assets.get(asset_key)
+    if not value:
+        return None
+    return assets_dir / Path(value).name
 
 
 def _load_resolved_toml(path: Path) -> dict[str, Any]:

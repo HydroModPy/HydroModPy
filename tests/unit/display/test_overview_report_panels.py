@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -404,3 +405,9 @@ def test_generate_overview_report_writes_enabled_panel_pngs(tmp_path, mpl) -> No
     assert [path.name for path in paths] == ["timeseries_discharge.png", "stats_card.png"]
     assert all(path.parent == tmp_path / "figures" / "overview" for path in paths)
     assert all(path.exists() and path.stat().st_size > 0 for path in paths)
+    manifest_path = tmp_path / "figures" / "overview" / "report_artifact_manifest.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    by_id = {artifact["artifact_id"]: artifact for artifact in payload["artifacts"]}
+    assert payload["metadata"]["artifact_scope"] == "data_overview.display"
+    assert by_id["observation.discharge.overview"]["status"] == "present"
+    assert by_id["catchment.identity.stats"]["status"] == "present"

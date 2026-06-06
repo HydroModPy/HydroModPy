@@ -7,6 +7,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from hydromodpy.core.json_safe import json_safe_value
+
 STATION_INFLUENCE_FIELDS: tuple[str, ...] = (
     "influence_generale_site",
     "commentaire_influence_generale_site",
@@ -198,7 +200,7 @@ def _station_influence_raw_fields(attributes: Mapping[str, Any]) -> dict[str, An
             key = f"{prefix}{suffix}"
             value = attributes.get(key)
             if value not in (None, ""):
-                fields[key] = value
+                fields[key] = json_safe_value(value)
     return fields
 
 

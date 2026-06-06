@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.json_safe import json_safe_mapping
 from hydromodpy.spatial.site_selection.hydrology.delineation import (
     DelineatedCatchment,
     outlet_display_xy,
@@ -210,7 +211,13 @@ def _write_geojson(path: str | Path, collection: Mapping[str, Any]) -> Path:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
-        json.dumps(dict(collection), ensure_ascii=True, indent=2, sort_keys=True) + "\n",
+        json.dumps(
+            json_safe_mapping(collection),
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
     return destination

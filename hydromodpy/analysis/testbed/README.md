@@ -141,7 +141,7 @@ Generic testbed catalog:
 
 ```toml
 [testbed.catalog]
-from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_area_only_v1/site_selection_manifest.json"
+from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_non_jauge_csv_50_150km2_v1/site_selection_manifest.json"
 output = "regional_lab_sites_csv"
 id_field = "site_id"
 label_field = "site_label"
@@ -153,7 +153,7 @@ Regional-lab catalog:
 
 ```toml
 [regional_lab.catalog]
-from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_area_only_v1/site_selection_manifest.json"
+from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_non_jauge_csv_50_150km2_v1/site_selection_manifest.json"
 output = "regional_lab_sites_csv"
 site_id_field = "site_id"
 site_label_field = "site_label"

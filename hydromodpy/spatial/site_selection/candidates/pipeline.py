@@ -11,7 +11,7 @@ from hydromodpy.spatial.site_selection.candidates.generation import (
     CandidateGenerationEvidence,
     candidate_generation_evidence_with_candidate_attributes,
     ensure_raw_accumulation_cells,
-    generate_dem_area_light_candidate_outlets,
+    generate_dem_area_target_candidate_outlets,
     generate_network_candidate_outlets,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import (
@@ -47,6 +47,7 @@ def build_station_candidate_outlets(
     *,
     config: SiteSelectionConfig,
     target_crs: str | None,
+    preserve_all: bool = False,
 ) -> list[CandidateOutlet]:
     """Build candidate outlets from already-loaded station records."""
 
@@ -56,7 +57,7 @@ def build_station_candidate_outlets(
         source="station_outlets",
         target_crs=target_crs,
     )
-    if config.outlets.min_distance_between_outlets_km is None:
+    if preserve_all or config.outlets.min_distance_between_outlets_km is None:
         return candidates
     return thin_candidate_outlets(
         candidates,
@@ -90,7 +91,7 @@ def build_generated_network_candidates(
         candidates = score_outlets_against_reference_network(
             candidates,
             reference_network,
-            max_distance_m=config.outlets.reference_network_max_distance_m,
+            max_distance_m=config.outlets.reference_network_snap_max_distance_m,
             source=reference_bundle.source,
         )
         evidence = candidate_generation_evidence_with_candidate_attributes(
@@ -106,7 +107,7 @@ def build_generated_network_candidates(
     )
 
 
-def build_dem_area_light_candidates(
+def build_dem_area_target_candidates(
     *,
     config: SiteSelectionConfig,
     flow_products: SiteSelectionFlowProducts,
@@ -116,10 +117,10 @@ def build_dem_area_light_candidates(
     backend: object | None = None,
     raw_accumulation_builder: RawAccumulationBuilder | None = None,
 ) -> GeneratedCandidateResult:
-    """Build lightweight DEM-area candidates around the configured target area."""
+    """Build DEM outlet candidates around the configured target area."""
 
-    if config.dem_area_light is None:
-        raise ValueError("build_dem_area_light_candidates requires dem_area_light config.")
+    if config.dem_area_target is None:
+        raise ValueError("build_dem_area_target_candidates requires dem_area_target config.")
 
     raw_accumulation_path = (
         Path(
@@ -138,13 +139,13 @@ def build_dem_area_light_candidates(
             crs_project=target_crs,
         )
     )
-    candidates, evidence = generate_dem_area_light_candidate_outlets(
+    candidates, evidence = generate_dem_area_target_candidate_outlets(
         flow_products=flow_products,
-        dem_area_light=config.dem_area_light,
+        dem_area_target=config.dem_area_target,
         hydrology=config.hydrology,
         accumulation_cells_path=raw_accumulation_path,
         search_geometry=search_geometry,
-        max_candidates_before_delineation=config.dem_area_light.max_candidates_before_delineation,
+        max_candidates_before_delineation=config.dem_area_target.max_candidates_before_delineation,
     )
     return GeneratedCandidateResult(
         candidates=candidates,
@@ -295,7 +296,7 @@ def _make_search_geometry_valid(geometry: object | None) -> object | None:
 
 __all__ = [
     "GeneratedCandidateResult",
-    "build_dem_area_light_candidates",
+    "build_dem_area_target_candidates",
     "build_generated_network_candidates",
     "build_station_candidate_outlets",
     "first_candidate_crs",

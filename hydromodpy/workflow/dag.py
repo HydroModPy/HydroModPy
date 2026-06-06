@@ -7,8 +7,7 @@ predecessor steps. Cycles raise :class:`WorkflowDAGCycleError`.
 
 A cohort is a tuple of steps that can be executed concurrently because
 all their predecessors live in earlier cohorts. The default
-``standard_steps()`` declaration produces 11 cohorts (only
-``build_geographic`` and ``load_data`` form a 2-step cohort today).
+``standard_steps()`` declaration currently produces singleton cohorts.
 """
 
 from __future__ import annotations

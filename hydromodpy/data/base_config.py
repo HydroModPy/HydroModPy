@@ -31,12 +31,12 @@ class BaseVariableConfig(HydroModelBase):
 
     date_start: Annotated[IsoDateStr, Profile.USER] = Field(
         default=None,
-        description="Project start date (ISO format, e.g. '2019-01-01').",
+        description="Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
         examples=["2019-01-01"],
     )
     date_end: Annotated[IsoDateStr, Profile.USER] = Field(
         default=None,
-        description="Project end date (ISO format, e.g. '2025-12-31').",
+        description="End date of the data extraction window (ISO format, e.g. '2025-12-31').",
         examples=["2025-12-31"],
     )
 

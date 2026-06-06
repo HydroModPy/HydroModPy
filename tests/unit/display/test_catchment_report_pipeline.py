@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ from hydromodpy.display.catchment_report.pipeline import (
     run_catchment_report_pipeline,
 )
 from hydromodpy.display.catchment_report.preflight import CatchmentReportPreflightError
+from hydromodpy.display.report_artifacts import REPORT_ARTIFACT_MANIFEST_SCHEMA
 
 
 class _CompletedRun:
@@ -394,6 +396,116 @@ def test_pipeline_writes_postflight_report_after_html(
     assert captured["strict"] is True
 
 
+def test_pipeline_source_manifest_overrides_simulation_artifact_inputs(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    config_path = tmp_path / "catchment_report.toml"
+    _write_report_config(config_path)
+    source_manifest = (
+        tmp_path / "workspace" / "figures" / "manifest_run" / "report_artifact_manifest.json"
+    )
+    source_manifest.parent.mkdir(parents=True)
+    source_manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": REPORT_ARTIFACT_MANIFEST_SCHEMA,
+                "profile": "catchment_gauged",
+                "metadata": {"simulation_name": "manifest_run"},
+                "artifacts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    run_config = tmp_path / "workspace" / "run_manifest.toml"
+    run_config.parent.mkdir(parents=True, exist_ok=True)
+    run_config.write_text("[simulation]\n", encoding="utf-8")
+    (tmp_path / "workspace" / "exports" / "manifest_run").mkdir(parents=True)
+    (tmp_path / "workspace" / "exports" / "manifest_run" / "timeseries.csv").write_text(
+        "datetime,value\n2020-01-01,1.0\n",
+        encoding="utf-8",
+    )
+    overview_manifest = tmp_path / "figures" / "overview" / "report_artifact_manifest.json"
+    overview_manifest.parent.mkdir(parents=True, exist_ok=True)
+    overview_manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": REPORT_ARTIFACT_MANIFEST_SCHEMA,
+                "profile": "catchment_gauged",
+                "metadata": {"artifact_scope": "data_overview.display"},
+                "artifacts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    captured = {}
+
+    def fake_build_context(inputs):
+        captured["context_inputs"] = inputs
+        inputs.context_summary.parent.mkdir(parents=True, exist_ok=True)
+        inputs.context_summary.write_text("{}\n", encoding="utf-8")
+        context_manifest = inputs.context_outputs_dir / "report_artifact_manifest.json"
+        context_manifest.parent.mkdir(parents=True, exist_ok=True)
+        context_manifest.write_text(
+            json.dumps(
+                {
+                    "schema_version": REPORT_ARTIFACT_MANIFEST_SCHEMA,
+                    "profile": "catchment_gauged",
+                    "metadata": {"artifact_scope": "catchment.context"},
+                    "artifacts": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return inputs.context_summary
+
+    def fake_build(config):
+        captured["report_config"] = config
+        html_path = config.output_dir / "web" / "index.html"
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+        html_path.write_text("<html></html>\n", encoding="utf-8")
+        return html_path
+
+    monkeypatch.setattr(
+        "hydromodpy.display.catchment_report.pipeline.build_context",
+        fake_build_context,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.display.catchment_report.pipeline.build_catchment_report",
+        fake_build,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.display.catchment_report.pipeline.write_figure_postflight_report",
+        lambda config, *, strict: config.output_dir / "block_report_postflight.json",
+    )
+
+    result = run_catchment_report_pipeline(
+        config_path,
+        run_simulation=False,
+        build_context_artifacts=True,
+        build_report_html=True,
+        source_artifact_manifest=source_manifest,
+        simulation_config_path=run_config,
+    )
+    context_manifest = tmp_path / "context" / "report_artifact_manifest.json"
+
+    context_inputs = captured["context_inputs"]
+    assert context_inputs.simulation_name == "manifest_run"
+    assert context_inputs.simulation_figures == source_manifest.parent
+    assert context_inputs.simulation_export == (
+        tmp_path / "workspace" / "exports" / "manifest_run" / "timeseries.csv"
+    )
+    assert context_inputs.transient_config == run_config.resolve()
+    assert captured["report_config"].upstream_artifact_manifest == source_manifest
+    assert captured["report_config"].upstream_artifact_manifests == (
+        source_manifest,
+        overview_manifest,
+        context_manifest,
+    )
+    assert result.context_artifact_manifest == context_manifest
+    assert result.overview_artifact_manifest == overview_manifest
+
+
 def test_pipeline_main_uses_shared_report_only_arguments(
     monkeypatch,
     capsys,
@@ -454,15 +566,15 @@ def test_pipeline_main_uses_shared_report_only_arguments(
     assert f"html_report={tmp_path / 'web' / 'index.html'}" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("legacy_flag", ["--no-context", "--no-report"])
-def test_pipeline_main_rejects_legacy_skip_aliases(
+@pytest.mark.parametrize("removed_flag", ["--no-context", "--no-report"])
+def test_pipeline_main_rejects_removed_skip_aliases(
     capsys,
-    legacy_flag: str,
+    removed_flag: str,
     tmp_path,
 ) -> None:
     config_path = tmp_path / "catchment_report.toml"
 
     with pytest.raises(SystemExit):
-        pipeline_module.main(["--report-config", str(config_path), legacy_flag])
+        pipeline_module.main(["--report-config", str(config_path), removed_flag])
 
-    assert f"unrecognized arguments: {legacy_flag}" in capsys.readouterr().err
+    assert f"unrecognized arguments: {removed_flag}" in capsys.readouterr().err

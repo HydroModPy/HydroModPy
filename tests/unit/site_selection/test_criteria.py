@@ -1,5 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+import json
+
+import numpy as np
 import pytest
 
 from hydromodpy.spatial.site_selection.config import (
@@ -189,6 +192,34 @@ def test_evaluate_station_influence_warning_flags_hubeau_general_influence():
     assert component.raw_value == "general_influence"
     assert "general hydrologic influence" in component.reason
     assert component.evidence_json["evidence_ref"] == "flow_station:site_001:J123456701"
+
+
+@pytest.mark.fast
+def test_evaluate_station_influence_keeps_numpy_metadata_json_serializable():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "warning",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={
+            "flow_station_id": "J123456701",
+            "flow_station_influence_locale_station": np.int64(1),
+        },
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "warning"
+    assert component.evidence_json["station_influence_raw_fields"] == {
+        "flow_station_influence_locale_station": 1
+    }
+    json.dumps(component.to_record())
 
 
 @pytest.mark.fast

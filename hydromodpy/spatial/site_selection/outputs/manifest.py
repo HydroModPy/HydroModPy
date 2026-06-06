@@ -65,15 +65,18 @@ def build_selection_manifest(
             "path": _path_or_none(config.dem.path),
             "resolution_m": config.dem.resolution_m,
             "cache_policy": config.dem.cache_policy,
-            "margin_km": config.dem.margin_km,
-            "request_extent": config.dem.request_extent,
-            "map_background_extent": config.dem.map_background_extent,
+            "delineation_buffer_km": config.dem.delineation_buffer_km,
+            "delineation_dem_extent_source": config.dem.delineation_dem_extent_source,
+            "review_map_dem_background": config.dem.review_map_dem_background,
             "force_refresh": config.dem.force_refresh,
+        },
+        "review_map": {
+            "dem_background": config.dem.review_map_dem_background,
         },
         "outlets": {
             "candidate_mode": config.outlets.candidate_mode,
             "snap_strategy": config.outlets.snap_strategy,
-            "snap_dist_m": config.outlets.snap_dist_m,
+            "dem_snap_max_distance_m": config.outlets.dem_snap_max_distance_m,
             "max_generated_candidates": config.outlets.max_generated_candidates,
             "max_rejected_candidate_audit_records": (
                 config.outlets.max_rejected_candidate_audit_records
@@ -81,14 +84,16 @@ def build_selection_manifest(
             "max_generated_network_cells": config.outlets.max_generated_network_cells,
             "reference_network_source": config.outlets.reference_network_source,
             "reference_network_path": _path_or_none(config.outlets.reference_network_path),
-            "reference_network_max_distance_m": config.outlets.reference_network_max_distance_m,
+            "reference_network_snap_max_distance_m": (
+                config.outlets.reference_network_snap_max_distance_m
+            ),
             "reference_network_fetch_margin_m": config.outlets.reference_network_fetch_margin_m,
         },
         "criteria": {
             "ruleset": config.criteria.ruleset,
             "hard_reject": list(config.criteria.hard_reject),
             "warning": list(config.criteria.warning),
-            "soft_score": list(config.criteria.soft_score),
+            "ranking_preference": list(config.criteria.ranking_preference),
             "report_only": list(config.criteria.report_only),
             "area": config.criteria.area.model_dump(mode="json"),
             "observations": config.criteria.observations.model_dump(mode="json"),

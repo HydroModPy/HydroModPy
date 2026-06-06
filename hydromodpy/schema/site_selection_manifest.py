@@ -8,6 +8,8 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.json_safe import json_safe_mapping
+
 SITE_SELECTION_MANIFEST_NAME = "site_selection_manifest.json"
 MANIFEST_SCHEMA_VERSION = "site_selection_manifest_v1"
 REQUIRED_MANIFEST_KEYS = (
@@ -39,7 +41,13 @@ def write_selection_manifest(path: str | Path, manifest: dict[str, Any]) -> Path
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=True, sort_keys=True) + "\n",
+        json.dumps(
+            json_safe_mapping(manifest),
+            indent=2,
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
     return destination

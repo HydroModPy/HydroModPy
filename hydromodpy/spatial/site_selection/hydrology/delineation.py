@@ -95,7 +95,7 @@ def delineate_candidate_outlet(
     area_reader: AreaReader | None = None,
     reference_network: object | None = None,
     reference_network_source: str = "reference_network",
-    reference_network_max_distance_m: float | None = None,
+    reference_network_snap_tolerance_m: float | None = None,
 ) -> DelineatedCatchment:
     """Delineate one candidate by delegating to existing geographic code."""
 
@@ -108,7 +108,7 @@ def delineate_candidate_outlet(
         working_outlet = snap_outlet_to_reference_network(
             outlet,
             reference_network,
-            max_distance_m=float(reference_network_max_distance_m or snap_dist_m),
+            max_distance_m=float(reference_network_snap_tolerance_m or snap_dist_m),
             source=reference_network_source,
         )
     output_dir = Path(output_root) / _safe_path_name(target_site_id)
@@ -149,7 +149,7 @@ def try_delineate_candidate_outlet(
     area_reader: AreaReader | None = None,
     reference_network: object | None = None,
     reference_network_source: str = "reference_network",
-    reference_network_max_distance_m: float | None = None,
+    reference_network_snap_tolerance_m: float | None = None,
 ) -> DelineatedCatchment:
     """Delineate one candidate and return a rejected record on failure."""
 
@@ -166,7 +166,7 @@ def try_delineate_candidate_outlet(
             area_reader=area_reader,
             reference_network=reference_network,
             reference_network_source=reference_network_source,
-            reference_network_max_distance_m=reference_network_max_distance_m,
+            reference_network_snap_tolerance_m=reference_network_snap_tolerance_m,
         )
     except Exception as exc:  # noqa: BLE001 - this is an audit record boundary.
         return DelineatedCatchment(

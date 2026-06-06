@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -318,6 +319,27 @@ def test_run_launcher_validation_case_reports_failure_even_when_outputs_exist(
     assert "partial run" in message
     assert "solver did not converge" in message
     assert model_ws.exists()
+
+
+def test_format_subprocess_failure_identifies_post_solver_failure() -> None:
+    completed = subprocess.CompletedProcess(
+        args=["python", "-m", "hydromodpy"],
+        returncode=1,
+        stdout="writing simulation...\nNormal termination of simulation.\n",
+        stderr="[WinError 5] Acces refuse: resolved_manifest.json.tmp",
+    )
+
+    message = runtime._format_subprocess_failure(
+        script_path=Path("hydromodpy.__main__"),
+        command=["python", "-m", "hydromodpy"],
+        completed=completed,
+        workspace_error=AssertionError("Results folder not found"),
+    )
+
+    assert "Failure phase hint: MODFLOW reported normal termination" in message
+    assert "HydroModPy post-processing" in message
+    assert "[WinError 5]" in message
+    assert "Workspace resolution failed: Results folder not found" in message
 
 
 def test_run_launcher_validation_case_reports_subprocess_failure_when_outputs_missing(

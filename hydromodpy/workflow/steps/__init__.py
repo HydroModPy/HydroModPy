@@ -19,6 +19,7 @@ from hydromodpy.workflow.steps.derive import DeriveStep
 from hydromodpy.workflow.steps.display import DisplayStep
 from hydromodpy.workflow.steps.export import ExportStep
 from hydromodpy.workflow.steps.extract import ExtractStep
+from hydromodpy.workflow.steps.html_report import HtmlReportStep
 from hydromodpy.workflow.steps.mesh import BuildMeshStep
 from hydromodpy.workflow.steps.prepare_solver import PrepareSolverStep
 from hydromodpy.workflow.steps.resolve import ResolveStep
@@ -33,6 +34,7 @@ __all__ = (
     "DisplayStep",
     "ExportStep",
     "ExtractStep",
+    "HtmlReportStep",
     "LoadDataStep",
     "PrepareSolverStep",
     "ResolveStep",

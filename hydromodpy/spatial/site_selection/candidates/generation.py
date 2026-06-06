@@ -18,7 +18,7 @@ from hydromodpy.spatial.geographic.geographic_io import (
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import (
-    DemAreaLightConfig,
+    DemAreaTargetConfig,
     HydrologyConfig,
     OutletsConfig,
 )
@@ -231,10 +231,10 @@ def generate_network_candidate_outlets(
     return candidates, evidence
 
 
-def generate_dem_area_light_candidate_outlets(
+def generate_dem_area_target_candidate_outlets(
     *,
     flow_products: SiteSelectionFlowProducts,
-    dem_area_light: DemAreaLightConfig,
+    dem_area_target: DemAreaTargetConfig,
     hydrology: HydrologyConfig,
     accumulation_cells_path: str | Path | None = None,
     search_geometry: object | None = None,
@@ -247,7 +247,7 @@ def generate_dem_area_light_candidate_outlets(
     raster = _read_accumulation_raster(acc_path)
     if raster.looks_log_scaled:
         raise ValueError(
-            "dem_area_light requires raw D8 accumulation in cell counts. "
+            "dem_area_target requires raw D8 accumulation in cell counts. "
             "The provided accumulation raster looks log-scaled."
         )
 
@@ -261,8 +261,8 @@ def generate_dem_area_light_candidate_outlets(
     )
     candidate_mask = (
         valid_search_mask
-        & (upstream_area >= float(dem_area_light.min_area_km2))
-        & (upstream_area <= float(dem_area_light.max_area_km2))
+        & (upstream_area >= float(dem_area_target.min_area_km2))
+        & (upstream_area <= float(dem_area_target.max_area_km2))
         & (upstream_area >= float(hydrology.network_threshold_area_km2))
     )
     rows, cols = np.where(candidate_mask)
@@ -270,7 +270,7 @@ def generate_dem_area_light_candidate_outlets(
     scored_cells = sorted(
         (
             (
-                abs(float(upstream_area[int(row), int(col)]) - dem_area_light.target_area_km2),
+                abs(float(upstream_area[int(row), int(col)]) - dem_area_target.target_area_km2),
                 -float(upstream_area[int(row), int(col)]),
                 int(row),
                 int(col),
@@ -280,10 +280,10 @@ def generate_dem_area_light_candidate_outlets(
         key=lambda item: (item[0], item[1], item[2], item[3]),
     )
 
-    min_distance_m = _default_dem_area_min_outlet_distance_m(dem_area_light.target_area_km2)
+    min_distance_m = _default_dem_area_min_outlet_distance_m(dem_area_target.target_area_km2)
     max_count = max_candidates_before_delineation
     if max_count is None:
-        max_count = max(int(dem_area_light.n_basins) * 20, int(dem_area_light.n_basins))
+        max_count = max(int(dem_area_target.n_basins) * 20, int(dem_area_target.n_basins))
 
     candidates: list[CandidateOutlet] = []
     evidence: list[CandidateGenerationEvidence] = []
@@ -309,7 +309,7 @@ def generate_dem_area_light_candidate_outlets(
                         accumulation_value=float(raster.array[row, col]),
                         upstream_area_km2=float(upstream_area[row, col]),
                         area_error_km2=float(area_error_km2),
-                        dem_area_light=dem_area_light,
+                        dem_area_target=dem_area_target,
                         hydrology=hydrology,
                         min_distance_m=min_distance_m,
                         raw_candidate_count=raw_candidate_count,
@@ -334,7 +334,7 @@ def generate_dem_area_light_candidate_outlets(
                         accumulation_value=float(raster.array[row, col]),
                         upstream_area_km2=float(upstream_area[row, col]),
                         area_error_km2=float(area_error_km2),
-                        dem_area_light=dem_area_light,
+                        dem_area_target=dem_area_target,
                         hydrology=hydrology,
                         min_distance_m=min_distance_m,
                         raw_candidate_count=raw_candidate_count,
@@ -354,18 +354,18 @@ def generate_dem_area_light_candidate_outlets(
         upstream_area_km2 = float(upstream_area[row, col])
         priority = _area_priority(
             upstream_area_km2,
-            target_area_km2=dem_area_light.target_area_km2,
-            min_area_km2=dem_area_light.min_area_km2,
-            max_area_km2=dem_area_light.max_area_km2,
+            target_area_km2=dem_area_target.target_area_km2,
+            min_area_km2=dem_area_target.min_area_km2,
+            max_area_km2=dem_area_target.max_area_km2,
         )
         attributes = {
-            "candidate_generation_source": "dem_area_light",
+            "candidate_generation_source": "dem_area_target",
             "candidate_generation_rank": rank,
             "flow_accumulation_cells": accumulation_value,
             "flow_accumulation_row": row,
             "flow_accumulation_col": col,
             "upstream_area_km2": upstream_area_km2,
-            "target_area_km2": float(dem_area_light.target_area_km2),
+            "target_area_km2": float(dem_area_target.target_area_km2),
             "area_error_km2": float(area_error_km2),
             "network_threshold_area_km2": float(hydrology.network_threshold_area_km2),
             "min_outlet_distance_m": min_distance_m,
@@ -376,7 +376,7 @@ def generate_dem_area_light_candidate_outlets(
                 x=x,
                 y=y,
                 crs=raster.crs,
-                source="dem_area_light",
+                source="dem_area_target",
                 source_feature_id=candidate_id,
                 source_label=candidate_id,
                 priority=priority,
@@ -394,7 +394,7 @@ def generate_dem_area_light_candidate_outlets(
                 accumulation_value=accumulation_value,
                 upstream_area_km2=upstream_area_km2,
                 area_error_km2=float(area_error_km2),
-                dem_area_light=dem_area_light,
+                dem_area_target=dem_area_target,
                 hydrology=hydrology,
                 min_distance_m=min_distance_m,
                 raw_candidate_count=raw_candidate_count,
@@ -457,7 +457,7 @@ def ensure_raw_accumulation_cells(
     else:
         if not backend_has_callables(tool, "flow", "d8_flow_accumulation"):
             raise TypeError(
-                "dem_area_light requires a delineation backend with "
+                "dem_area_target requires a delineation backend with "
                 "flow.d8_flow_accumulation or flow.d8_flow_accumulation_raster."
             )
         tool.flow.d8_flow_accumulation(
@@ -759,7 +759,7 @@ def _dem_area_candidate_evidence(
     accumulation_value: float,
     upstream_area_km2: float,
     area_error_km2: float,
-    dem_area_light: DemAreaLightConfig,
+    dem_area_target: DemAreaTargetConfig,
     hydrology: HydrologyConfig,
     min_distance_m: float,
     raw_candidate_count: int,
@@ -775,14 +775,14 @@ def _dem_area_candidate_evidence(
         x=x,
         y=y,
         crs=raster.crs,
-        source="dem_area_light",
+        source="dem_area_target",
         raster_row=row,
         raster_col=col,
         accumulation_value=accumulation_value,
         threshold_value_used=hydrology.network_threshold_area_km2,
         network_threshold_area_km2=hydrology.network_threshold_area_km2,
         upstream_area_km2=upstream_area_km2,
-        target_area_km2=dem_area_light.target_area_km2,
+        target_area_km2=dem_area_target.target_area_km2,
         area_error_km2=area_error_km2,
         status=status,
         rejection_reason=rejection_reason,
@@ -979,7 +979,7 @@ __all__ = [
     "accumulation_to_area_km2",
     "candidate_generation_evidence_with_candidate_attributes",
     "ensure_raw_accumulation_cells",
-    "generate_dem_area_light_candidate_outlets",
+    "generate_dem_area_target_candidate_outlets",
     "generate_network_candidate_outlets",
     "write_candidate_generation_jsonl",
     "write_candidate_outlets_geojson",

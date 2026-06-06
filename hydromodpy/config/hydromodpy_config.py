@@ -49,6 +49,7 @@ from hydromodpy.config.toml_section_loader import (
     _raw_declares_dem_source,
     _validation_context,
     load_geographic_section,
+    load_report_section,
     load_standard_section,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -66,6 +67,7 @@ from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
+from hydromodpy.display.report_config import ReportConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
@@ -93,7 +95,11 @@ class WorkflowConfig(HydroModelBase):
 
     mode: Annotated[WorkflowMode, Profile.USER] = Field(
         ...,
-        description="Workflow mode dispatched by `hmp run`.",
+        description=(
+            "Workflow entry point used by `hmp run`: selects which workflow "
+            "implementation parses the rest of the TOML, for example "
+            "'simulation', 'comparison', 'testbed', or 'site_selection'."
+        ),
     )
 
 
@@ -199,6 +205,13 @@ class HydroModPyConfig(HydroModelBase):
     display: Annotated[DisplayConfig, Profile.USER] = Field(
         default_factory=DisplayConfig,
         description=("Optional display and export toggles loaded from the [display] section."),
+    )
+    report: Annotated[ReportConfig, Profile.USER] = Field(
+        default_factory=ReportConfig,
+        description=(
+            "Optional report intent loaded from [report]. The [report.html] "
+            "subsection can request report artifacts and end-of-run HTML."
+        ),
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
@@ -534,6 +547,7 @@ class HydroModPyConfig(HydroModelBase):
             "modflownwt": ({}, _std(ModflowConfig)),
             "modflow6": ({}, _std(Modflow6Config)),
             "display": ({}, _std(DisplayConfig)),
+            "report": ({}, lambda data, b: load_report_section(data, b)),
             "persistence": ({}, _std(PersistenceConfig)),
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),

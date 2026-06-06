@@ -8,6 +8,8 @@ Supports:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +39,10 @@ def load_custom_dem(
         raise FileNotFoundError(f"Custom DEM path not found: {path}")
 
     if path.is_dir():
-        path = _find_dem_file_in_dir(path)
+        paths = _find_dem_files_in_dir(path)
+        if len(paths) > 1:
+            return _load_raster_mosaic(paths, bbox=bbox, data_dir=data_dir)
+        path = paths[0]
 
     ext = path.suffix.strip().lower()
 
@@ -53,18 +58,26 @@ def load_custom_dem(
         )
 
 
-def _find_dem_file_in_dir(directory: Path) -> Path:
-    """Find a single DEM file in a directory, skipping scaffold examples."""
+def _find_dem_files_in_dir(directory: Path) -> list[Path]:
+    """Find DEM files in a directory, skipping scaffold examples."""
     from hydromodpy.data.common.io_helpers import is_scaffold_example
 
+    candidates: list[Path] = []
     for ext in (".tif", ".tiff", ".asc", ".nc"):
-        candidates = [p for p in sorted(directory.glob(f"*{ext}")) if not is_scaffold_example(p)]
-        if candidates:
-            return candidates[0]
+        candidates.extend(
+            p for p in sorted(directory.glob(f"*{ext}")) if not is_scaffold_example(p)
+        )
+    if candidates:
+        return candidates
     raise FileNotFoundError(
         f"No DEM file (TIF, ASC, NC) found in {directory}. "
         "EXAMPLE templates are ignored: add your own file or point 'path' at it."
     )
+
+
+def _find_dem_file_in_dir(directory: Path) -> Path:
+    """Find the first DEM file in a directory."""
+    return _find_dem_files_in_dir(directory)[0]
 
 
 def _load_raster(
@@ -90,6 +103,85 @@ def _load_raster(
             crs=crs,
         )
     ]
+
+
+def _load_raster_mosaic(
+    paths: list[Path],
+    *,
+    bbox: tuple | None = None,
+    data_dir: Path | None = None,
+) -> list[FieldRecord]:
+    """Merge several local raster DEM tiles into a cached GeoTIFF."""
+    raster_paths = [path for path in paths if path.suffix.strip().lower() in {".tif", ".tiff", ".asc"}]
+    unsupported = [path for path in paths if path not in raster_paths]
+    if unsupported:
+        names = ", ".join(path.name for path in unsupported)
+        raise ValueError(
+            "Multiple custom DEM files can only be mosaicked for .tif, .tiff and .asc "
+            f"tiles. Unsupported in multi-file directory: {names}"
+        )
+    if data_dir is None:
+        raise ValueError("Multiple custom DEM files require a data_dir for the cached mosaic.")
+
+    output_path = _mosaic_cache_path(raster_paths, bbox=bbox, data_dir=data_dir)
+    if output_path.exists():
+        return _load_raster(output_path, bbox=bbox)
+
+    import rasterio
+    from rasterio.merge import merge
+
+    datasets = []
+    try:
+        for path in raster_paths:
+            datasets.append(rasterio.open(str(path)))
+        crs_values = {str(dataset.crs) for dataset in datasets if dataset.crs}
+        if len(crs_values) > 1:
+            raise ValueError(
+                "Multiple custom DEM files must share the same CRS before mosaicking. "
+                f"Found: {sorted(crs_values)}"
+            )
+        mosaic, transform = merge(datasets, bounds=bbox)
+        profile = datasets[0].profile.copy()
+    finally:
+        for dataset in datasets:
+            dataset.close()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    profile.update(
+        driver="GTiff",
+        height=mosaic.shape[1],
+        width=mosaic.shape[2],
+        count=mosaic.shape[0],
+        transform=transform,
+        compress="deflate",
+    )
+    with rasterio.open(str(output_path), "w", **profile) as dst:
+        dst.write(mosaic)
+
+    return _load_raster(output_path, bbox=bbox)
+
+
+def _mosaic_cache_path(
+    paths: list[Path],
+    *,
+    bbox: tuple | None,
+    data_dir: Path,
+) -> Path:
+    payload = {
+        "bbox": list(bbox) if bbox is not None else None,
+        "tiles": [
+            {
+                "path": str(path.resolve()),
+                "mtime_ns": path.stat().st_mtime_ns,
+                "size": path.stat().st_size,
+            }
+            for path in paths
+        ],
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
+    return data_dir / "custom_mosaics" / f"dem_custom_mosaic_{digest}.tif"
 
 
 def _load_asc(

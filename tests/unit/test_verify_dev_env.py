@@ -111,5 +111,7 @@ def test_collect_issues_reports_missing_core_and_docs_modules(
         require_docs=True,
     )
 
-    assert any("Missing core runtime modules: zarr, xugrid." == issue for issue in issues)
+    core_issue = next(issue for issue in issues if issue.startswith("Missing core"))
+    assert "zarr" in core_issue
+    assert "xugrid" in core_issue
     assert any("Missing docs modules: nbsphinx." == issue for issue in issues)

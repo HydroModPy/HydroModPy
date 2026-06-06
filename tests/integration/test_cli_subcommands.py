@@ -189,8 +189,10 @@ def test_site_selection_plan_cli_can_write_report(monkeypatch, capsys, tmp_path)
     assert code == 0
     out = capsys.readouterr().out
     assert "site_selection_report_html" in out
+    assert "report_artifact_manifest_json" in out
     assert (tmp_path / "out" / "site_selection_plan.json").is_file()
     assert (tmp_path / "out" / "review" / "index.html").is_file()
+    assert (tmp_path / "out" / "report_artifact_manifest.json").is_file()
 
 
 def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:

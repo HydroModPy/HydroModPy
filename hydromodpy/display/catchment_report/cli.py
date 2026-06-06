@@ -32,10 +32,16 @@ def add_catchment_report_arguments(
     parser: argparse.ArgumentParser,
     *,
     report_config_option: bool,
+    default_report_config: Path | None = None,
 ) -> None:
     """Add the shared catchment report CLI arguments to a parser."""
     if report_config_option:
-        parser.add_argument("--report-config", type=Path, required=True)
+        parser.add_argument(
+            "--report-config",
+            type=Path,
+            required=default_report_config is None,
+            default=default_report_config,
+        )
     else:
         parser.add_argument(
             "report_config",

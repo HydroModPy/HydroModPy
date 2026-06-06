@@ -38,7 +38,11 @@ def render_site_selection_html_report(
     manifest_file = Path(manifest_path).expanduser().resolve()
     validation_errors = validate_selection_manifest(
         manifest_file,
-        skip_output_keys=("site_selection_report_html", "site_selection_map_png"),
+        skip_output_keys=(
+            "site_selection_report_html",
+            "site_selection_map_png",
+            "report_artifact_manifest_json",
+        ),
     )
     if validation_errors:
         raise ValueError("; ".join(validation_errors))

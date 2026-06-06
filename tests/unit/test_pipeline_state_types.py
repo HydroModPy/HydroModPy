@@ -140,8 +140,10 @@ def test_each_step_class_declares_tin_tout() -> None:
         BuildGeographicStep,
         BuildMeshStep,
         DeriveStep,
+        DisplayStep,
         ExportStep,
         ExtractStep,
+        HtmlReportStep,
         LoadDataStep,
         PrepareSolverStep,
         ResolveStep,
@@ -162,6 +164,8 @@ def test_each_step_class_declares_tin_tout() -> None:
         (ExtractStep, SolverRanState, ExtractedState),
         (DeriveStep, ExtractedState, DerivedState),
         (ExportStep, DerivedState, ExportedState),
+        (DisplayStep, ExportedState, ExportedState),
+        (HtmlReportStep, ExportedState, ExportedState),
     ]
     for cls, tin, tout in expected:
         assert cls.tin is tin, f"{cls.__name__}.tin"
