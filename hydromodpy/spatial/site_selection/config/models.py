@@ -48,7 +48,7 @@ StationInfluenceUnknownPolicy = Literal["neutral", "warning"]
 
 
 class StrategyConfig(HydroModelBase):
-    """High-level strategy controlling candidate generation and criterion order."""
+    """High-level strategy controlling candidate construction and criterion order."""
 
     principle: Annotated[SelectionPrinciple | None, Profile.USER] = Field(
         default=None,
@@ -98,7 +98,7 @@ class StrategyConfig(HydroModelBase):
     candidate_mode: Annotated[CandidateMode | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Effective strategy-level outlet generation mode. Inferred as "
+            "Effective strategy-level outlet construction mode. Inferred as "
             "'station_outlets' for observation-led workflows that use already "
             "loaded observation/outlet point records; otherwise leave unset to "
             "use [site_selection.outlets].candidate_mode."
@@ -570,10 +570,11 @@ class SiteSelectionInputConfig(HydroModelBase):
             "documents the selection campaign without loading candidates, "
             "delineating basins or selecting/rejecting sites. 'hydrometry' loads "
             "observation stations from [hydrometry] and uses their outlets as "
-            "candidates. 'delineated_catchments' reads an existing catchments_csv. "
-            "'dem_area_target' runs the simplified DEM target-area search. "
-            "'dem_network_sampling' runs lower-level DEM stream-network sampling. "
-            "Legacy 'plan_only' input is accepted as an alias for 'dry_run'."
+            "candidates. 'delineated_catchments' reads an existing "
+            "catchments_csv. 'dem_area_target' runs the simplified DEM "
+            "target-area search. 'dem_network_sampling' runs lower-level DEM "
+            "stream-network sampling. Legacy 'plan_only' input is accepted as "
+            "an alias for 'dry_run'."
         ),
     )
     catchments_csv: Annotated[Path | None, Profile.USER] = Field(
@@ -1208,7 +1209,7 @@ class SiteSelectionConfig(HydroModelBase):
     )
     outlets: Annotated[OutletsConfig, Profile.USER] = Field(
         default_factory=OutletsConfig,
-        description="Candidate outlet generation settings.",
+        description="Candidate outlet construction settings.",
     )
     spatial_selection: Annotated[SpatialSelectionConfig, Profile.USER] = Field(
         default_factory=SpatialSelectionConfig,

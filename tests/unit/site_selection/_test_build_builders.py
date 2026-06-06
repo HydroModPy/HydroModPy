@@ -13,8 +13,8 @@ def make_record(station_id: str, *, x: float = 350000.0, y: float = 6810000.0):
 def make_wgs84_hubeau_record(station_id: str):
     return make_point_record(
         station_id,
-        x=-1.65,
-        y=48.12,
+        x=-1.696842126001275,
+        y=48.315146335838115,
         crs="EPSG:4326",
         n_values=2,
         metadata={
@@ -46,7 +46,7 @@ def make_config(tmp_path: Path) -> SiteSelectionConfig:
             },
             "outlets": {
                 "candidate_mode": "station_outlets",
-                "snap_dist_m": 150,
+                "dem_snap_max_distance_m": 150,
             },
         }
     )

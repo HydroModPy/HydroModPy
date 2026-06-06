@@ -127,10 +127,10 @@ basins.
      - BRGM ``brgm_1m`` and ``brgm_50k`` already exist in the data package;
        BDLISA is a relevant later source when the question is
        hydrogeological units rather than geological formations.
-   * - DEM candidate generation
-     - The ``dem_area_target`` mode generates area-driven candidate outlets and
+   * - DEM-derived candidate modes
+     - The ``dem_area_target`` mode builds area-driven candidate outlets and
        caps the number of DEM delineations before final selection.
-     - A future network-aware generator could favor hydrologically meaningful
+     - A future network-aware builder could favor hydrologically meaningful
        outlets, reduce nested or near-duplicate basins, improve coastal
        behavior, and make large territories faster to review.
 
@@ -163,7 +163,9 @@ new name.
 
 The mode answers a concrete question: where do the candidate sites come from?
 It also determines which inputs are mandatory and which values the workflow can
-infer safely from the rest of the configuration.
+infer safely from the rest of the configuration. The first three modes are the
+stable day-to-day modes; the DEM-derived modes are useful for area-driven or
+network-driven candidate discovery.
 
 .. list-table::
    :header-rows: 1
@@ -217,15 +219,15 @@ infer safely from the rest of the configuration.
        expose every low-level network-sampling control.
    * - ``dem_network_sampling``
      - Samples the DEM stream network directly, then delineates and selects
-       from the sampled outlets. This is the lower-level DEM generation mode
+       from the sampled outlets. This is the lower-level DEM sampling mode
        when the campaign needs explicit control over network candidate
        sampling.
-     - ``[data.dem]`` or a custom DEM source, plus outlet-generation controls
+     - ``[data.dem]`` or a custom DEM source, plus outlet-construction controls
        such as ``outlets.candidate_mode = "network_sampling"``, spacing,
        accumulation and candidate-count limits.
      - Infers candidate outlets from DEM/network cells according to the
        sampling controls. It gives more control than ``dem_area_target`` but
-       requires more tuning and review of generated candidates.
+       requires more tuning and review of candidate outlets.
 
 DEM and observations
 --------------------
@@ -294,7 +296,7 @@ Additional outputs follow the configured switches:
   true;
 - GeoPackage and GeoParquet layers when their corresponding switches are true.
 
-Generated DEM modes also write ``candidate_generation.jsonl``. When
+DEM-derived modes also write the candidate audit ``candidate_generation.jsonl``. When
 ``write_geojson`` is true, they write ``candidate_outlets.geojson`` and
 ``dem_network.geojson`` as review artifacts.
 

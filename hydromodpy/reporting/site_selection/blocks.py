@@ -51,7 +51,7 @@ def build_site_selection_plan_blocks(
             lead="Synthese du plan avant execution spatiale.",
             metrics=(
                 ReportMetric("Selection", selection_id),
-                ReportMetric("Mode", input_cfg.get("mode") or "plan_only"),
+                ReportMetric("Mode", input_cfg.get("mode") or "dry_run"),
                 ReportMetric("Sorties prevues", len(planned_outputs)),
                 ReportMetric("Racine de sortie", output_root),
             ),
@@ -463,7 +463,7 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
     if not rows:
         return ReportBlock(
             block_id="candidate_generation",
-            title="Generation de candidats",
+            title="Audit des candidats",
             level="audit",
             status="not_applicable",
         )
@@ -493,7 +493,7 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
         )
     return ReportBlock(
         block_id="candidate_generation",
-        title="Generation de candidats",
+        title="Audit des candidats",
         level="audit",
         lead=(
             "Audit des cellules du reseau DEM transformees en exutoires candidats. "
@@ -503,7 +503,7 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
         tables=(
             ReportTable(
                 "candidate_generation_table",
-                "Candidats generes et rejets audites",
+                "Candidats construits et rejets audites",
                 columns=(
                     ("candidate_id", "Candidat"),
                     ("status", "Statut"),
