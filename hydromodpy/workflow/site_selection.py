@@ -592,7 +592,7 @@ def _maybe_delineate_from_outlets(
             outlet=catchment.outlet,
             flow_products=flow_products,
             output_root=config.output_root / "catchments",
-            snap_dist_m=config.outlets.dem_snap_max_distance_m,
+            dem_snap_max_distance_m=config.outlets.dem_snap_max_distance_m,
             crs_project=catchment.outlet.crs,
             site_id=catchment.site_id,
             backend=backend,
@@ -1435,8 +1435,8 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "candidates": len(result.candidates),
             "selected": len(result.selection.selected),
             "rejected": len(result.selection.rejected),
-            "candidate_generation_jsonl": str(
-                result.output_paths.get("candidate_generation_jsonl", "")
+            "candidate_audit_jsonl": str(
+                result.output_paths.get("candidate_audit_jsonl", "")
             ),
             "candidate_outlets_geojson": str(
                 result.output_paths.get("candidate_outlets_geojson", "")
@@ -1477,8 +1477,8 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "candidates": len(result.candidates),
             "selected": len(result.selection.selected),
             "rejected": len(result.selection.rejected),
-            "candidate_generation_jsonl": str(
-                result.output_paths.get("candidate_generation_jsonl", "")
+            "candidate_audit_jsonl": str(
+                result.output_paths.get("candidate_audit_jsonl", "")
             ),
             "candidate_outlets_geojson": str(
                 result.output_paths.get("candidate_outlets_geojson", "")

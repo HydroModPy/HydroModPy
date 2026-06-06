@@ -175,7 +175,7 @@ def build_site_selection_result_blocks(
     decisions: list[dict[str, Any]],
     components: list[dict[str, Any]],
     evidence: list[dict[str, Any]],
-    candidate_generation: list[dict[str, Any]] | None = None,
+    candidate_audit: list[dict[str, Any]] | None = None,
 ) -> list[ReportBlock]:
     """Build blocks for an executed site-selection report."""
 
@@ -198,7 +198,7 @@ def build_site_selection_result_blocks(
 
     decision_by_site = _final_decision_by_site(decisions)
     component_counts, family_counts = _component_counts(components)
-    candidate_generation_rows = candidate_generation or []
+    candidate_audit_rows = candidate_audit or []
 
     return [
         ReportBlock(
@@ -261,7 +261,7 @@ def build_site_selection_result_blocks(
                 ),
             ),
         ),
-        _candidate_generation_block(candidate_generation_rows),
+        _candidate_audit_block(candidate_audit_rows),
         ReportBlock(
             block_id="selected_sites",
             title="Sites retenus",
@@ -353,7 +353,7 @@ def build_site_selection_result_block_variants(
     decisions: list[dict[str, Any]],
     components: list[dict[str, Any]],
     evidence: list[dict[str, Any]],
-    candidate_generation: list[dict[str, Any]] | None = None,
+    candidate_audit: list[dict[str, Any]] | None = None,
 ) -> tuple[tuple[str, dict[str, ReportBlock]], ...]:
     """Build per-block level variants for an executed selection report."""
 
@@ -368,7 +368,7 @@ def build_site_selection_result_block_variants(
             decisions=decisions,
             components=components,
             evidence=evidence,
-            candidate_generation=candidate_generation,
+            candidate_audit=candidate_audit,
         )
     )
 
@@ -459,10 +459,10 @@ def _decision_message(decision: Mapping[str, Any]) -> Any:
     return _decision_value(decision, "decision_reason") or decision.get("message")
 
 
-def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
+def _candidate_audit_block(rows: list[dict[str, Any]]) -> ReportBlock:
     if not rows:
         return ReportBlock(
-            block_id="candidate_generation",
+            block_id="candidate_audit",
             title="Audit des candidats",
             level="audit",
             status="not_applicable",
@@ -492,7 +492,7 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
             )
         )
     return ReportBlock(
-        block_id="candidate_generation",
+        block_id="candidate_audit",
         title="Audit des candidats",
         level="audit",
         lead=(
@@ -502,7 +502,7 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
         metrics=tuple(metrics),
         tables=(
             ReportTable(
-                "candidate_generation_table",
+                "candidate_audit_table",
                 "Candidats construits et rejets audites",
                 columns=(
                     ("candidate_id", "Candidat"),
@@ -513,14 +513,14 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
                     ("reference_network_distance_m", "Distance ref m"),
                     ("reference_network_status", "Statut ref"),
                 ),
-                rows=tuple(_candidate_generation_row(row) for row in rows[:80]),
-                empty_message="Aucun candidat genere.",
+                rows=tuple(_candidate_audit_row(row) for row in rows[:80]),
+                empty_message="Aucun candidat audite.",
             ),
         ),
     )
 
 
-def _candidate_generation_row(row: Mapping[str, Any]) -> dict[str, Any]:
+def _candidate_audit_row(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "candidate_id": row.get("candidate_id"),
         "status": row.get("status"),

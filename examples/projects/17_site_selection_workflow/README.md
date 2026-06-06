@@ -436,7 +436,7 @@ min_distance_between_outlets_km = 2.0
 ```
 
 Ce mode utilise le raster d'accumulation DEM pour proposer des exutoires,
-ecrit `candidate_generation.jsonl`, `candidate_outlets.geojson` et
+ecrit `candidate_audit.jsonl`, `candidate_outlets.geojson` et
 `dem_network.geojson`, puis lance la meme delimitation/selection que
 les autres chemins. L'audit distingue les cellules candidates acceptees et
 rejetees, avec la raison du rejet. Si `bdtopage_then_dem` est actif et qu'un
@@ -460,7 +460,7 @@ hmp run examples/projects/17_site_selection_workflow/configs/bretagne_non_jauge_
 
 Il produit notamment
 `outputs/bretagne_non_jauge_dem_reseau_50_500km2_v1/review/index.html`,
-`candidate_generation.jsonl` et `dem_network.geojson`.
+`candidate_audit.jsonl` et `dem_network.geojson`.
 
 Les tests unitaires associes utilisent parfois des contours synthetiques pour
 aller vite; l'exemple `bretagne_non_jauge_dem_reseau_50_500km2.toml` lance lui une

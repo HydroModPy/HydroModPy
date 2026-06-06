@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.candidates.generation import (
+from hydromodpy.spatial.site_selection.candidates.candidate_builders import (
     accumulation_to_area_km2,
-    generate_network_candidate_outlets,
-    write_candidate_generation_jsonl,
+    build_network_candidate_outlets,
+    write_candidate_audit_jsonl,
     write_candidate_outlets_geojson,
 )
 from hydromodpy.spatial.site_selection.config import (
@@ -18,11 +18,11 @@ from hydromodpy.spatial.site_selection.config import (
 )
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
-from ._test_candidate_generation_builders import write_accumulation_raster
+from ._test_candidate_audit_builders import write_accumulation_raster
 
 
 @pytest.mark.fast
-def test_generate_network_candidate_outlets_samples_high_accumulation_cells(tmp_path):
+def test_build_network_candidate_outlets_samples_high_accumulation_cells(tmp_path):
     acc_path = write_accumulation_raster(
         tmp_path / "acc.tif",
         np.array(
@@ -44,7 +44,7 @@ def test_generate_network_candidate_outlets_samples_high_accumulation_cells(tmp_
         compute_strahler=True,
     )
 
-    candidates, evidence = generate_network_candidate_outlets(
+    candidates, evidence = build_network_candidate_outlets(
         flow_products=flow_products,
         outlets=OutletsConfig(
             min_distance_between_outlets_km=0.03,
@@ -65,8 +65,8 @@ def test_generate_network_candidate_outlets_samples_high_accumulation_cells(tmp_
     assert evidence[0].raster_row == 4
     assert evidence[0].raster_col == 4
 
-    jsonl_path = write_candidate_generation_jsonl(
-        tmp_path / "candidate_generation.jsonl",
+    jsonl_path = write_candidate_audit_jsonl(
+        tmp_path / "candidate_audit.jsonl",
         evidence,
     )
     geojson_path = write_candidate_outlets_geojson(

@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.site_selection.candidates.generation import (
-    CandidateGenerationEvidence,
-    candidate_generation_evidence_with_candidate_attributes,
+from hydromodpy.spatial.site_selection.candidates.candidate_builders import (
+    CandidateAuditEvidence,
+    build_dem_area_target_candidate_outlets,
+    build_network_candidate_outlets,
+    candidate_audit_evidence_with_candidate_attributes,
     ensure_raw_accumulation_cells,
-    generate_dem_area_target_candidate_outlets,
-    generate_network_candidate_outlets,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
@@ -35,7 +35,7 @@ class CandidateBuildResult:
     """Candidate outlets and the optional context used to build them."""
 
     candidates: list[CandidateOutlet]
-    evidence: list[CandidateGenerationEvidence]
+    evidence: list[CandidateAuditEvidence]
     search_geometry: object | None = None
     reference_network: object | None = None
     reference_bundle: ReferenceNetworkBundle | None = None
@@ -75,7 +75,7 @@ def build_dem_network_candidates(
 ) -> CandidateBuildResult:
     """Build DEM-network candidates and optionally score them against a reference network."""
 
-    candidates, evidence = generate_network_candidate_outlets(
+    candidates, evidence = build_network_candidate_outlets(
         flow_products=flow_products,
         outlets=config.outlets,
         hydrology=config.hydrology,
@@ -94,7 +94,7 @@ def build_dem_network_candidates(
             max_distance_m=config.outlets.reference_network_snap_max_distance_m,
             source=reference_bundle.source,
         )
-        evidence = candidate_generation_evidence_with_candidate_attributes(
+        evidence = candidate_audit_evidence_with_candidate_attributes(
             evidence,
             candidates,
         )
@@ -139,7 +139,7 @@ def build_dem_area_target_candidates(
             crs_project=target_crs,
         )
     )
-    candidates, evidence = generate_dem_area_target_candidate_outlets(
+    candidates, evidence = build_dem_area_target_candidate_outlets(
         flow_products=flow_products,
         dem_area_target=config.dem_area_target,
         hydrology=config.hydrology,
