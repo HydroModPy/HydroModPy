@@ -12,14 +12,14 @@ from hydromodpy.spatial.site_selection.candidates.generation import (
     CandidateGenerationEvidence,
     write_candidate_generation_jsonl,
     write_candidate_outlets_geojson,
-    write_generated_network_geojson,
+    write_dem_network_geojson,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
 )
 from hydromodpy.spatial.site_selection.candidates.pipeline import (
     build_dem_area_target_candidates,
-    build_generated_network_candidates,
+    build_dem_network_candidates,
     build_station_candidate_outlets,
     first_candidate_crs,
     load_reference_network_for_station_candidates,
@@ -238,7 +238,7 @@ def build_site_selection_from_generated_network(
         backend=backend,
         builder=flow_products_builder or build_regional_flow_products,
     )
-    candidate_result = build_generated_network_candidates(
+    candidate_result = build_dem_network_candidates(
         config=config,
         flow_products=flow_products,
         target_crs=target_crs,
@@ -298,11 +298,11 @@ def build_site_selection_from_generated_network(
                 root / "candidate_outlets.geojson",
                 candidates,
             )
-            output_paths["generated_network_geojson"] = write_generated_network_geojson(
-                root / "generated_dem_network.geojson",
+            output_paths["dem_network_geojson"] = write_dem_network_geojson(
+                root / "dem_network.geojson",
                 flow_products=flow_products,
                 hydrology=config.hydrology,
-                max_cells=config.outlets.max_generated_network_cells,
+                max_cells=config.outlets.max_dem_network_cells,
                 search_geometry=search_geometry,
             )
         flow_manifest = flow_products.to_manifest_record()
@@ -447,11 +447,11 @@ def build_site_selection_from_dem_area_target(
                 root / "candidate_outlets.geojson",
                 candidates,
             )
-            output_paths["generated_network_geojson"] = write_generated_network_geojson(
-                root / "generated_dem_network.geojson",
+            output_paths["dem_network_geojson"] = write_dem_network_geojson(
+                root / "dem_network.geojson",
                 flow_products=flow_products,
                 hydrology=config.hydrology,
-                max_cells=config.outlets.max_generated_network_cells,
+                max_cells=config.outlets.max_dem_network_cells,
                 search_geometry=search_geometry,
             )
         flow_manifest = flow_products.to_manifest_record()

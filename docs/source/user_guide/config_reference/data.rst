@@ -113,7 +113,7 @@ Fields
               <code class="hmp-field-toml">[[data.dem.sources]]</code>
             </div>
 
-         :bdg-primary:`source = "custom" | "ign_geoplateforme_dem"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L144>`__
+         :bdg-primary:`source = "custom" | "ign_geoplateforme_dem"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L147>`__
 
             At least one DEM data source.
 
@@ -180,7 +180,7 @@ Fields
 
                      :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L39>`__
 
-                        Path to custom DEM file or directory (TIF, ASC, NC).
+                        Path to custom DEM file or directory (TIF, ASC, NC). A directory with several TIF/TIFF/ASC tiles is mosaicked into a cached GeoTIFF.
 
 
 
@@ -199,7 +199,7 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
@@ -213,7 +213,7 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Use project extent for bbox-based data retrieval.
 
@@ -227,7 +227,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Ignore cache and re-download from API.
 
@@ -241,7 +241,7 @@ Fields
                           <code class="hmp-field-name">departments</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.
 
@@ -255,7 +255,7 @@ Fields
                           <code class="hmp-field-name">country</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Country code used for administrative DEM selectors.
 
@@ -269,7 +269,7 @@ Fields
                           <code class="hmp-field-name">regions</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L78>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Optional French administrative regions used to infer department downloads.
 
@@ -283,7 +283,7 @@ Fields
                           <code class="hmp-field-name">dataset</code>
                         </div>
 
-                     :bdg-primary:`Literal['bd-alti']` :bdg-secondary:`default = "bd-alti"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L85>`__
+                     :bdg-primary:`Literal['bd-alti']` :bdg-secondary:`default = "bd-alti"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L88>`__
 
                         IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives.
 
@@ -297,12 +297,12 @@ Fields
                           <code class="hmp-field-name">resolution_m</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L96>`__
 
                         Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset.
 
 
-                  .. container:: hmp-field hmp-field-level-user
+                  .. container:: hmp-field hmp-field-level-dev
                      :name: data-dem-sources-ign-geoplateforme-dem-file-format
 
                      .. raw:: html
@@ -311,12 +311,12 @@ Fields
                           <code class="hmp-field-name">file_format</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "ASC"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L100>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "ASC"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L103>`__
 
                         Requested archive payload format when exposed by Geoplateforme.
 
 
-                  .. container:: hmp-field hmp-field-level-user
+                  .. container:: hmp-field hmp-field-level-dev
                      :name: data-dem-sources-ign-geoplateforme-dem-crs
 
                      .. raw:: html
@@ -325,7 +325,7 @@ Fields
                           <code class="hmp-field-name">crs</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L104>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L107>`__
 
                         Optional CRS filter forwarded to Geoplateforme discovery.
 
@@ -852,9 +852,9 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -868,9 +868,9 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L107>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -886,7 +886,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrometry.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82>`__
+         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L83>`__
 
             At least one data source.
 
@@ -921,7 +921,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1120,7 +1120,7 @@ Fields
                   Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').
 
 
-            .. container:: hmp-field hmp-field-level-dev
+            .. container:: hmp-field hmp-field-level-user
                :name: data-hydrometry-sources-require-observations
 
                .. raw:: html
@@ -1129,9 +1129,9 @@ Fields
                     <code class="hmp-field-name">require_observations</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
 
-                  Only keep stations that have observations in the period.
+                  Only keep stations that have observations in the configured period.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1143,7 +1143,7 @@ Fields
                     <code class="hmp-field-name">max_stations</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L51>`__
 
                   Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory.
 
@@ -1184,7 +1184,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L61>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -1200,7 +1200,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L61>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -1251,7 +1251,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1500,7 +1500,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -1516,7 +1516,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L74>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -1567,7 +1567,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1830,7 +1830,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L66>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -1846,7 +1846,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L66>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -1897,7 +1897,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -2160,7 +2160,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L69>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -2176,7 +2176,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L69>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -2227,7 +2227,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -2490,7 +2490,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L129>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -2506,7 +2506,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L130>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -2543,7 +2543,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/recharge/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -2876,7 +2876,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L52>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -2892,7 +2892,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L52>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -2929,7 +2929,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/runoff/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -3150,7 +3150,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -3166,7 +3166,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -3203,7 +3203,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -3438,7 +3438,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -3454,7 +3454,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -3491,7 +3491,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -3740,7 +3740,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L52>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -3756,7 +3756,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L52>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -3793,7 +3793,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/temperature/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -4014,7 +4014,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L52>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -4030,7 +4030,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L52>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -4067,7 +4067,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/wind/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -4288,7 +4288,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L52>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -4304,7 +4304,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L52>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -4341,7 +4341,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/humidity/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -4562,7 +4562,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L59>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -4578,7 +4578,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L59>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -4615,7 +4615,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/radiation/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -4850,7 +4850,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L52>`__
 
-            Project start date (ISO format, e.g. '2019-01-01').
+            Start date of the data extraction window (ISO format, e.g. '2019-01-01').
 
          **Example:** ``"2019-01-01"``
 
@@ -4866,7 +4866,7 @@ Fields
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L52>`__
 
-            Project end date (ISO format, e.g. '2025-12-31').
+            End date of the data extraction window (ISO format, e.g. '2025-12-31').
 
          **Example:** ``"2025-12-31"``
 
@@ -4903,7 +4903,7 @@ Fields
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
 
-                  Explicit station identifiers to load (custom source).
+                  Explicit station identifiers to load from the selected provider.
 
 
             .. container:: hmp-field hmp-field-level-user

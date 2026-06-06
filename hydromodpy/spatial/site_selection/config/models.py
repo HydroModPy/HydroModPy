@@ -357,12 +357,12 @@ class DemAreaTargetConfig(HydroModelBase):
 
 
 class OutletsConfig(HydroModelBase):
-    """Candidate outlet generation settings."""
+    """Candidate outlet construction settings."""
 
     candidate_mode: Annotated[CandidateMode, Profile.USER] = Field(
         default="network_sampling",
         description=(
-            "Concrete outlet generation mode. 'station_outlets' uses already "
+            "Concrete outlet construction mode. 'station_outlets' uses already "
             "loaded observation/outlet point records; 'network_sampling' "
             "samples DEM-derived stream-network cells."
         ),
@@ -380,28 +380,28 @@ class OutletsConfig(HydroModelBase):
         default=False,
         description="Allow nested candidate basins before final selection.",
     )
-    max_generated_candidates: Annotated[int | None, Profile.USER] = Field(
+    max_network_candidates: Annotated[int | None, Profile.USER] = Field(
         default=200,
         gt=0,
-        description="Maximum number of DEM/network-generated candidates to delineate.",
+        description="Maximum number of DEM-network candidates to delineate.",
     )
-    max_rejected_candidate_audit_records: Annotated[int | None, Profile.USER] = Field(
+    max_rejected_network_candidate_audit_records: Annotated[int | None, Profile.USER] = Field(
         default=5000,
         gt=0,
         description=(
             "Maximum number of rejected DEM/network candidate cells written to the "
-            "candidate-generation audit JSONL."
+            "candidate audit JSONL."
         ),
     )
-    max_generated_network_cells: Annotated[int | None, Profile.USER] = Field(
+    max_dem_network_cells: Annotated[int | None, Profile.USER] = Field(
         default=50000,
         gt=0,
         description=(
-            "Maximum number of DEM-derived stream cells exported to the generated "
+            "Maximum number of DEM-derived stream cells exported to the "
             "network vector layer. Highest-accumulation cells are kept first."
         ),
     )
-    snap_to_generated_stream: Annotated[bool, Profile.USER] = Field(
+    snap_to_dem_network: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Snap outlets to the DEM-derived stream network when applicable.",
     )

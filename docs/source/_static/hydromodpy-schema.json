@@ -11011,7 +11011,7 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
-        "max_generated_candidates": {
+        "max_network_candidates": {
           "anyOf": [
             {
               "exclusiveMinimum": 0,
@@ -11026,10 +11026,10 @@
           "examples": [
             200
           ],
-          "title": "Max Generated Candidates",
+          "title": "Max Network Candidates",
           "x-hmp-profile": "user"
         },
-        "max_rejected_candidate_audit_records": {
+        "max_rejected_network_candidate_audit_records": {
           "anyOf": [
             {
               "exclusiveMinimum": 0,
@@ -11044,10 +11044,10 @@
           "examples": [
             5000
           ],
-          "title": "Max Rejected Candidate Audit Records",
+          "title": "Max Rejected Network Candidate Audit Records",
           "x-hmp-profile": "user"
         },
-        "max_generated_network_cells": {
+        "max_dem_network_cells": {
           "anyOf": [
             {
               "exclusiveMinimum": 0,
@@ -11062,7 +11062,7 @@
           "examples": [
             50000
           ],
-          "title": "Max Generated Network Cells",
+          "title": "Max Dem Network Cells",
           "x-hmp-profile": "user"
         },
         "snap_to_generated_stream": {
@@ -14754,17 +14754,17 @@
       "description": "Execution input selector used by the ``site_selection`` workflow.",
       "properties": {
         "mode": {
-          "default": "plan_only",
-          "description": "Execution path used by site_selection: 'hydrometry' loads observation stations from [hydrometry] and uses their outlets as candidates; 'delineated_catchments' reads an existing catchments_csv; 'dem_area_target' runs the simplified DEM target-area search; 'dem_network_sampling' runs lower-level DEM stream-network sampling; and 'plan_only' validates the config and writes a dry-run plan/report without selecting sites.",
+          "default": "dry_run",
+          "description": "Execution path used by site_selection. 'dry_run' validates and documents the selection campaign without loading candidates, delineating basins or selecting/rejecting sites. 'hydrometry' loads observation stations from [hydrometry] and uses their outlets as candidates. 'delineated_catchments' reads an existing catchments_csv. 'dem_area_target' runs the simplified DEM target-area search. 'dem_network_sampling' runs lower-level DEM stream-network sampling. Legacy 'plan_only' input is accepted as an alias for 'dry_run'.",
           "enum": [
-            "plan_only",
+            "dry_run",
             "hydrometry",
             "delineated_catchments",
             "dem_network_sampling",
             "dem_area_target"
           ],
           "examples": [
-            "plan_only"
+            "dry_run"
           ],
           "title": "Mode",
           "type": "string",
@@ -14827,7 +14827,7 @@
         },
         "write_plan_manifest": {
           "default": true,
-          "description": "Write site_selection_plan.json when the workflow is run in plan mode.",
+          "description": "Write site_selection_plan.json when the workflow is run in dry_run mode.",
           "examples": [
             true
           ],
