@@ -7772,11 +7772,11 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `site_selection <site_selection.html#site-selection-outlets-max-dem-network-cells>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L396>`__
-   * - ``site_selection.outlets.snap_to_generated_stream``
+   * - ``site_selection.outlets.snap_to_dem_network``
      - ``bool``
      - user
      - -
-     - `site_selection <site_selection.html#site-selection-outlets-snap-to-generated-stream>`__
+     - `site_selection <site_selection.html#site-selection-outlets-snap-to-dem-network>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L404>`__
    * - ``site_selection.outlets.snap_strategy``
      - ``Literal['dem_accumulation', 'bdtopage_then_dem']``

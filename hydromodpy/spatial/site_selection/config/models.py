@@ -57,7 +57,7 @@ class StrategyConfig(HydroModelBase):
             "'observation_led' loads the declared primary observation family "
             "first, creates candidate outlets from those records, delineates "
             "their basins, then applies criteria. 'criteria_crossing' starts "
-            "from imported or generated candidate basins first; observations "
+            "from imported or DEM-derived candidate basins first; observations "
             "are evaluated only as criteria/evidence on that inventory."
         ),
     )
@@ -383,7 +383,7 @@ class OutletsConfig(HydroModelBase):
     max_network_candidates: Annotated[int | None, Profile.USER] = Field(
         default=200,
         gt=0,
-        description="Maximum number of DEM-network candidates to delineate.",
+        description="Maximum number of DEM network candidates to delineate.",
     )
     max_rejected_network_candidate_audit_records: Annotated[int | None, Profile.USER] = Field(
         default=5000,
@@ -397,7 +397,7 @@ class OutletsConfig(HydroModelBase):
         default=50000,
         gt=0,
         description=(
-            "Maximum number of DEM-derived stream cells exported to the "
+            "Maximum number of DEM-derived stream cells exported to the DEM "
             "network vector layer. Highest-accumulation cells are kept first."
         ),
     )

@@ -154,40 +154,78 @@ treated as hard-reject evidence.
 Input modes
 -----------
 
-``site_selection`` has five explicit input modes. The first three are the
-stable day-to-day modes; the generated DEM modes are useful for area-driven or
-network-driven candidate discovery.
+``site_selection.input.mode`` is a typed execution selector. Its default value
+is ``dry_run``. The accepted values are ``dry_run``, ``hydrometry``,
+``delineated_catchments``, ``dem_area_target`` and
+``dem_network_sampling``. Legacy configurations that still use ``plan_only``
+are accepted as an alias for ``dry_run``, but new configurations should use the
+new name.
+
+The mode answers a concrete question: where do the candidate sites come from?
+It also determines which inputs are mandatory and which values the workflow can
+infer safely from the rest of the configuration.
 
 .. list-table::
    :header-rows: 1
-   :widths: 24 38 38
+   :widths: 18 29 29 24
 
    * - Mode
-     - Use when
-     - Main inputs
-   * - ``plan_only``
-     - The team needs to review strategy, territory, data needs, and outputs
-       before loading observations or delineating basins.
-     - ``[site_selection]`` only.
+     - What it does
+     - Required inputs
+     - Inferences and limits
+   * - ``dry_run``
+     - Validates the selection campaign and writes a readable execution plan.
+       It is meant for checking the strategy, territory, criteria, expected
+       outputs and report configuration before running data access or spatial
+       processing.
+     - ``[site_selection]`` with enough information to describe the campaign:
+       selection id, territory, strategy, criteria and output/report settings.
+       No candidate source is required.
+     - Infers defaults and derived labels exactly as a real run would. It does
+       not load candidates, query observations, generate DEM outlets, delineate
+       basins, rank sites or mark sites as selected/rejected.
    * - ``delineated_catchments``
-     - Candidate outlets or pre-normalized catchments already exist as a CSV,
-       often from a fixture, frozen inventory, or previous provider query.
-     - ``catchments_csv`` and optionally ``delineate_from_outlets = true``.
+     - Starts from an existing catchments table. This is the mode to replay a
+       frozen inventory, a fixture, or a provider extract that has already been
+       normalized as candidate basins.
+     - ``site_selection.input.catchments_csv``. If the CSV contains outlets
+       rather than final basin geometries, set ``delineate_from_outlets = true``
+       and provide DEM settings.
+     - Infers the selection run from the CSV schema and applies the configured
+       criteria. It does not discover new candidate outlets. Optional DEM
+       delineation is only used to rebuild basin geometry from supplied outlets.
    * - ``hydrometry``
-     - Stations should be loaded directly through HydroModPy data managers,
-       usually Hub'Eau hydrometry over a territory or explicit station list.
-     - ``[hydrometry]`` plus ``[data.dem]``.
+     - Loads gauging stations through HydroModPy hydrometry data managers,
+       usually Hub'Eau, then treats station locations as candidate outlets
+       before DEM delineation and selection.
+     - ``[hydrometry]`` for station discovery or explicit station ids, plus
+       ``[data.dem]`` for basin delineation. A territory is normally required
+       unless the station list fully defines the campaign.
+     - Infers station-derived candidates and, for French IGN DEM sources, can
+       infer administrative DEM selectors from the site-selection territory.
+       It does not infer hydrometric filters that are not declared in
+       ``[hydrometry]``.
    * - ``dem_area_target``
-     - The campaign should discover DEM-derived outlets around a target basin
-       area, with a bounded number of delineations for fast review.
-     - ``strategy.profile = "area_only"``, ``primary_axes = ["area"]``,
-       ``[site_selection.dem_area_target]`` and ``[data.dem]``.
+     - Generates DEM-derived candidate outlets by searching for basins close to
+       a target drainage area. This is the simpler ungauged discovery mode for
+       fast area-driven campaigns.
+     - ``[data.dem]``, ``[site_selection.dem_area_target]`` and an area-driven
+       strategy, typically ``strategy.profile = "area_only"`` with
+       ``primary_axes = ["area"]``.
+     - Infers candidate outlets from the DEM and caps the number of
+       delineations with the configured search limits. It is not intended to
+       expose every low-level network-sampling control.
    * - ``dem_network_sampling``
-     - The campaign should sample high-accumulation DEM/network cells before
-       normal delineation and selection. This mode is experimental compared
-       with the two short-term supported profiles.
-     - ``outlets.candidate_mode = "network_sampling"`` plus ``[data.dem]`` or
-       a custom DEM.
+     - Samples the DEM stream network directly, then delineates and selects
+       from the sampled outlets. This is the lower-level DEM generation mode
+       when the campaign needs explicit control over network candidate
+       sampling.
+     - ``[data.dem]`` or a custom DEM source, plus outlet-generation controls
+       such as ``outlets.candidate_mode = "network_sampling"``, spacing,
+       accumulation and candidate-count limits.
+     - Infers candidate outlets from DEM/network cells according to the
+       sampling controls. It gives more control than ``dem_area_target`` but
+       requires more tuning and review of generated candidates.
 
 DEM and observations
 --------------------

@@ -42,9 +42,10 @@ un exutoire candidat, puis un bassin est delimite autour de cet exutoire.
 - `dem_network_sampling`: echantillonnage avance du reseau DEM. Le workflow
   expose les controles de generation d'exutoires (`candidate_mode`,
   distances, nombre maximal de candidats) avant la delimitation et la selection.
-- `plan_only`: dry-run. Le workflow valide la configuration et ecrit le plan
+- `dry_run`: le workflow valide la configuration et ecrit le plan
   d'execution/rapport, sans charger les observations, generer de candidats ni
-  selectionner de sites.
+  selectionner de sites. L'ancien nom `plan_only` reste accepte comme alias de
+  compatibilite, mais les nouvelles configurations doivent utiliser `dry_run`.
 
 `region_id` n'est pas un filtre spatial. Quand le territoire contient une seule
 region administrative, il est derive automatiquement depuis

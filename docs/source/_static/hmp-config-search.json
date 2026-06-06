@@ -15575,7 +15575,7 @@
     "anchor": "site-selection-outlets-candidate-mode",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L362",
-    "description": "Concrete outlet generation mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells."
+    "description": "Concrete outlet construction mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells."
   },
   {
     "path": "site_selection.outlets.min_distance_between_outlets_km",
@@ -15611,7 +15611,7 @@
     "anchor": "site-selection-outlets-max-network-candidates",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L383",
-    "description": "Maximum number of DEM/network-generated candidates to delineate."
+    "description": "Maximum number of DEM network candidates to delineate."
   },
   {
     "path": "site_selection.outlets.max_rejected_network_candidate_audit_records",
@@ -15623,7 +15623,7 @@
     "anchor": "site-selection-outlets-max-rejected-network-candidate-audit-records",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L388",
-    "description": "Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL."
+    "description": "Maximum number of rejected DEM/network candidate cells written to the candidate audit JSONL."
   },
   {
     "path": "site_selection.outlets.max_dem_network_cells",
@@ -15635,18 +15635,18 @@
     "anchor": "site-selection-outlets-max-dem-network-cells",
     "page": "site_selection.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L396",
-    "description": "Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first."
+    "description": "Maximum number of DEM-derived stream cells exported to the DEM network vector layer. Highest-accumulation cells are kept first."
   },
   {
-    "path": "site_selection.outlets.snap_to_generated_stream",
-    "name": "snap_to_generated_stream",
+    "path": "site_selection.outlets.snap_to_dem_network",
+    "name": "snap_to_dem_network",
     "type": "bool",
     "profile": "user",
     "stability": "stable",
     "section": "site_selection",
-    "anchor": "site-selection-outlets-snap-to-generated-stream",
+    "anchor": "site-selection-outlets-snap-to-dem-network",
     "page": "site_selection.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L359",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/site_selection/config/models.py#L404",
     "description": "Snap outlets to the DEM-derived stream network when applicable."
   },
   {

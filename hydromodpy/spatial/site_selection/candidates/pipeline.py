@@ -32,7 +32,7 @@ RawAccumulationBuilder = Callable[..., str | Path]
 
 @dataclass(frozen=True)
 class CandidateBuildResult:
-    """Generated candidates and the optional context used to build them."""
+    """Candidate outlets and the optional context used to build them."""
 
     candidates: list[CandidateOutlet]
     evidence: list[CandidateGenerationEvidence]
@@ -182,7 +182,7 @@ def load_reference_network_for_dem_network_candidates(
     target_crs: str | None,
     root: Path,
 ) -> tuple[object | None, ReferenceNetworkBundle | None]:
-    """Load a reference network for generated candidates when snapping or scoring needs it."""
+    """Load a reference network for DEM-network candidates when snapping/scoring needs it."""
 
     should_load_for_snap = config.outlets.snap_strategy == "bdtopage_then_dem"
     should_load_for_score_only = (

@@ -201,7 +201,7 @@ def build_site_selection_from_point_records(
     )
 
 
-def build_site_selection_from_generated_network(
+def build_site_selection_from_dem_network_sampling(
     *,
     config: SiteSelectionConfig,
     dem_init_path: str | Path | None = None,
@@ -214,7 +214,7 @@ def build_site_selection_from_generated_network(
     write_outputs: bool = True,
     report_renderer: Callable[[str | Path], Path] | None = None,
 ) -> SiteSelectionBuildResult:
-    """Run DEM/network-generated site selection without station or CSV candidates."""
+    """Run DEM network sampling site selection without station or CSV candidates."""
 
     root = Path(output_root) if output_root is not None else config.output_root
     root = root.expanduser().resolve()
@@ -224,9 +224,7 @@ def build_site_selection_from_generated_network(
         else None
     )
     if dem_path is None:
-        raise ValueError(
-            "build_site_selection_from_generated_network requires dem_init_path or dem.path."
-        )
+        raise ValueError("build_site_selection_from_dem_network_sampling requires dem_init_path or dem.path.")
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
     search_geometry = site_selection_search_geometry(config, target_crs=target_crs)
 
@@ -639,6 +637,6 @@ def _default_project_crs(config: SiteSelectionConfig) -> str | None:
 __all__ = [
     "SiteSelectionBuildResult",
     "build_site_selection_from_dem_area_target",
-    "build_site_selection_from_generated_network",
+    "build_site_selection_from_dem_network_sampling",
     "build_site_selection_from_point_records",
 ]

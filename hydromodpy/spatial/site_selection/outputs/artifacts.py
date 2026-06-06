@@ -42,7 +42,7 @@ def write_manifest_and_optional_report(
     manifest_path = root / SITE_SELECTION_MANIFEST_NAME
     report_path = root / REVIEW_DIR_NAME / REVIEW_HTML_NAME
     map_path = root / REVIEW_DIR_NAME / REVIEW_MAP_PNG_NAME
-    render = report_renderer if config.output.write_report_html else None
+    render = report_renderer if config.report_html_build_at_end else None
     manifest_output_paths = {
         **output_paths,
         "site_selection_manifest_json": manifest_path,

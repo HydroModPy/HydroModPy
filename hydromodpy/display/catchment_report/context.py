@@ -429,7 +429,7 @@ def _copy_network_assets(source_dir: Path, assets_dir: Path) -> dict[str, str]:
 def _simulation_parquet_dir(inputs: CatchmentReportInputs) -> Path | None:
     candidates = [
         path
-        for path in inputs.generated_network_root.glob(f"*__{inputs.simulation_name}__*.parquet")
+        for path in inputs.dem_network_root.glob(f"*__{inputs.simulation_name}__*.parquet")
         if path.is_dir() and (path / "timeseries.parquet").exists()
     ]
     if not candidates:

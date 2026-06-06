@@ -21,7 +21,7 @@ from ._test_candidate_generation_builders import write_accumulation_raster
 
 
 @pytest.mark.fast
-def test_reference_network_scores_generated_candidates_and_updates_audit(tmp_path):
+def test_reference_network_scores_dem_network_candidates_and_updates_audit(tmp_path):
     gpd = pytest.importorskip("geopandas")
     LineString = pytest.importorskip("shapely.geometry").LineString
     acc_path = write_accumulation_raster(
@@ -30,7 +30,6 @@ def test_reference_network_scores_generated_candidates_and_updates_audit(tmp_pat
     )
     flow_products = SiteSelectionFlowProducts(
         products=FlowProducts(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
-        method="dem_only",
         flow_algorithm="d8",
         dem_correction_type="fill",
         network_threshold_area_km2=0.0001,
@@ -38,7 +37,7 @@ def test_reference_network_scores_generated_candidates_and_updates_audit(tmp_pat
     )
     candidates, evidence = generate_network_candidate_outlets(
         flow_products=flow_products,
-        outlets=OutletsConfig(max_generated_candidates=1),
+        outlets=OutletsConfig(max_network_candidates=1),
         hydrology=HydrologyConfig(network_threshold_area_km2=0.0001),
     )
     network = gpd.GeoDataFrame(

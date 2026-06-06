@@ -27,7 +27,7 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelect
 
 @dataclass(frozen=True)
 class CandidateGenerationEvidence:
-    """Audit record explaining one DEM-network candidate."""
+    """Audit record explaining one DEM network candidate."""
 
     candidate_id: str
     x: float

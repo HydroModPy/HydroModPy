@@ -257,7 +257,7 @@ def build_geographic_derived_features(
     )
 
     surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
-    generated_network = HydrographicNetwork.from_river_network_products(
+    dem_network = HydrographicNetwork.from_river_network_products(
         generated_hydrographic_network_products,
         watershed_shp=setup.paths.watershed_shp,
     )
@@ -294,5 +294,5 @@ def build_geographic_derived_features(
         watershed_box_buff_dem=setup.paths.watershed_box_buff_dem,
         zone_kind="catchment",
         regional_dem_path=setup.dem_init_path,
-        hydrographic_networks=HydrographicNetworks(generated=generated_network),
+        hydrographic_networks=HydrographicNetworks(generated=dem_network),
     )
