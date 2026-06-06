@@ -1,0 +1,112 @@
+﻿# Purpose:
+# Bretagne preview for 7 explicit flow stations. The station list is already the
+# accepted inventory: this run checks data loading, outlet snapping, DEM extent,
+# basin delineation and the HTML review output. It does not rank stations,
+# compare basin overlap, apply geology criteria or reject stations based on
+# influence metadata.
+
+[workflow]
+# Workflow entry point for hmp run.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign identifier copied to manifests, decision exports, and downstream hand-offs.
+selection_id = "bretagne_jauge_7stations"
+# Directory where site-selection artifacts are written.
+output_root = "../outputs/bretagne_jauge_7stations"
+
+[site_selection.input]
+# Execution input selector used by the site-selection workflow. Here, hydrometry
+# loads the explicit stations declared in [hydrometry] and uses their outlets as
+# the candidate outlets.
+mode = "hydrometry"
+
+[site_selection.territory]
+# Territory resolver mode.
+mode = "admin_regions"
+# Country code used by administrative territory modes.
+country = "FR"
+# Administrative regions used when mode='admin_regions'.
+regions = ["Bretagne"]
+
+[site_selection.dem]
+# Buffer added to the DEM used for flow directions and basin delineation, in
+# kilometres. With delineation_dem_extent_source='candidate_outlets_bbox', this
+# expands the bounding box of candidate outlets.
+delineation_buffer_km = 30.0
+# Source used to build the extent of the DEM loaded for hydrologic calculations:
+# flow direction, accumulation, outlet snapping, and catchment delineation.
+# 'candidate_outlets_bbox' loads only the bounding box of station outlets,
+# expanded by delineation_buffer_km; this is faster for previews, but the buffer
+# must be large enough to contain the upstream area needed for delineation.
+delineation_dem_extent_source = "candidate_outlets_bbox"
+# DEM used as the HTML review-map background.
+review_map_dem_background = "territory_dem"
+
+[site_selection.outlets]
+# Outlet snapping strategy. 'bdtopage_then_dem' first snaps the original station
+# outlet to the reference hydrographic network, then runs the local DEM snap.
+snap_strategy = "bdtopage_then_dem"
+# Maximum distance, in metres, allowed for the final local snap on the DEM-derived
+# accumulation raster. This final snapped point is used for basin delineation.
+dem_snap_max_distance_m = 150
+# Maximum distance, in metres, allowed between the original station outlet and
+# the nearest reference-network line before snapping to that line.
+reference_network_snap_max_distance_m = 100.0
+
+[site_selection.spatial_selection]
+# Allow nested basins; explicit stations are accepted without overlap filtering.
+allow_nested_basins = true
+
+[site_selection.criteria]
+# The stations are already chosen. The run keeps only the non-negotiable
+# technical failure mode: a station cannot be reviewed if its basin cannot be
+# delineated.
+hard_reject = ["delineation_failure"]
+
+[report.html]
+# Report rendering profile.
+profile = "site_selection"
+# Build the static HTML report at the end of the workflow.
+build_at_end = true
+
+[hydrometry]
+# Start date of the data extraction window.
+date_start = "2015-01-01"
+# End date of the data extraction window.
+date_end = "2025-01-01"
+
+[[hydrometry.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+source = "hubeau"
+# Hub'Eau variable code.
+product = "QmnJ"
+# Only keep stations that have observations in the configured period.
+require_observations = true
+# Explicit Hub'Eau station identifiers. These station IDs are the selected input
+# inventory for this preview; no additional regional station discovery or station
+# ranking is requested.
+station_ids = [
+  "J061161001",
+  "J062661001",
+  "J110301001",
+  "J111401001",
+  "J131301001",
+  "J132401001",
+  "J151301001",
+]
+
+[data]
+# Ordered list of data-manager types explicitly requested in [data]. The launcher
+# may append inferred types deduced from other sections; this example requests
+# only the DEM manager because hydrometry is configured directly below.
+types = ["dem"]
+
+[[data.dem.sources]]
+# Discriminator tag selecting the IGN Geoplateforme DEM provider.
+source = "ign_geoplateforme_dem"
+# IGN DEM product assembled by the data manager.
+dataset = "bd-alti"
+# Requested DEM resolution in metres. The resolution belongs to the DEM source
+# under [data.dem], not to [site_selection.dem].
+resolution_m = 25.0

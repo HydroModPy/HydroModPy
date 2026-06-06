@@ -1,0 +1,187 @@
+# Purpose:
+# Bretagne gauged-site selection starting from a CSV of pre-delineated or
+# pre-listed catchments. The workflow reads outlet/catchment records from the
+# fixture, can recompute basin contours from outlet coordinates and the BD ALTI
+# DEM, then applies hydrometry, area, overlap, influence, and geology checks.
+# Expected result: audited selected/rejected basins in the 10-1000 km2 range,
+# with regional-lab CSV, spatial layers, manifests, and an HTML review report.
+
+[workflow]
+# Workflow entry point for `hmp run`.
+# `site_selection` dispatches to the site-selection workflow.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign id copied into manifests, decision tables, and downstream
+# hand-off files.
+selection_id = "bretagne_jauge_csv_10_1000km2_v1"
+# Output directory for manifests, tables, spatial layers, reports, and optional
+# intermediates.
+output_root = "../outputs/bretagne_jauge_csv_10_1000km2_v1"
+
+[site_selection.input]
+# Execution path for this run.
+# delineated_catchments reads catchments_csv, then applies the configured
+# criteria and writes selected/rejected outputs.
+mode = "delineated_catchments"
+# Pre-delineated catchments CSV used when mode='delineated_catchments'.
+catchments_csv = "../fixtures/bretagne_hydro_predelineated_catchments.csv"
+# When using catchments_csv, compute watershed contours from outlet coordinates and DEM flow
+# products instead of trusting watershed_shp.
+delineate_from_outlets = true
+
+[site_selection.strategy]
+# Selection preset for this CSV replay.
+# delineated_catchments cannot infer whether imported basins are gauged or
+# area-only, so this keeps station-led evidence and criteria active.
+profile = "gauged_downstream_station"
+
+[site_selection.territory]
+# Territory resolver mode.
+mode = "admin_regions"
+# Country code used by administrative territory modes.
+country = "FR"
+# Administrative regions used when mode='admin_regions'.
+regions = ["Bretagne"]
+
+[site_selection.dem]
+# Data cache policy.
+cache_policy = "use_cache_else_download"
+# Margin around the DEM used for flow directions and basin contours, in kilometres.
+delineation_buffer_km = 20.0
+# Source used to build the DEM extent for flow direction, accumulation,
+# outlet snapping, and basin delineation.
+# 'selection_territory' loads the full configured territory and is safer when
+# upstream basins may extend far from outlets.
+# 'candidate_outlets_bbox' loads only the candidate/station outlet bounding box,
+# expanded by delineation_buffer_km; faster for previews, but the buffer must
+# cover the upstream area needed for delineation.
+delineation_dem_extent_source = "candidate_outlets_bbox"
+# DEM used as the HTML review-map background.
+review_map_dem_background = "territory_dem"
+
+[site_selection.hydrology]
+# DEM conditioning strategy forwarded to existing flow products.
+hydrologic_conditioning = "fill"
+# Contributing-area threshold used to extract the stream network.
+network_threshold_area_km2 = 1.0
+
+[site_selection.outlets]
+# Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived
+# accumulation raster. 'bdtopage_then_dem' first snaps the station/candidate to
+# the reference network, then runs the local DEM snap.
+snap_strategy = "dem_accumulation"
+# Maximum distance in metres for the final DEM snap used for basin delineation.
+dem_snap_max_distance_m = 150
+# Minimum spacing used to thin candidate outlets before basin delineation.
+min_distance_between_outlets_km = 5.0
+
+[site_selection.spatial_selection]
+# Allow selected basins to contain one another, e.g. upstream/downstream nested catchments.
+allow_nested_basins = true
+# Maximum allowed pairwise basin overlap. 0.20 means 20% of the overlap_reference area.
+max_pairwise_basin_overlap_fraction = 0.20
+# How overlap violations are handled: warning keeps the site; hard_reject blocks it.
+overlap_mode = "warning"
+
+[site_selection.criteria]
+# Audit-facing summary of the selection doctrine.
+# These lists are copied to reports/manifests to explain which criteria reject,
+# warn, rank, or only document candidate sites.
+#
+# Blocking criteria: when one fails, the candidate is not retained.
+# Keep delineation_failure here to document that a basin that cannot be
+# delineated is unusable.
+hard_reject = ["delineation_failure", "station_influence"]
+# Review warnings: the candidate can still be selected; the issue is highlighted
+# in the site-selection report for expert review before final acceptance.
+warning = ["area_range", "basin_overlap", "geology"]
+# Ranking preferences: used to order otherwise acceptable candidates without
+# rejecting them directly.
+ranking_preference = ["record_length", "station_to_outlet_distance"]
+# Context-only evidence: exported for human review/audit without automatic
+# decision impact.
+report_only = ["piezometry", "land_cover"]
+
+[site_selection.criteria.observations.flow_station]
+# How gauging-station suitability affects the final decision.
+mode = "hard_reject"
+# Minimum required discharge-record length in years.
+min_record_years = 5.0
+# Maximum allowed distance between the gauging station and final basin outlet.
+max_station_to_outlet_distance_km = 1.0
+# Require the gauging station to be inside the basin or at the outlet.
+require_station_inside_or_at_outlet = true
+
+[site_selection.criteria.observations.station_influence]
+# How station influence metadata affects the final decision.
+mode = "hard_reject"
+# How missing or unknown station influence metadata is handled.
+unknown_policy = "neutral"
+
+[site_selection.criteria.influence]
+# How anthropic influence evidence affects the final decision.
+mode = "hard_reject"
+# Reject sites when evidence reports a major upstream dam.
+reject_major_dam_upstream = true
+# Reject sites when evidence reports a major upstream withdrawal.
+reject_major_withdrawal_upstream = true
+# Reject sites when evidence reports a major regulated reach.
+reject_major_regulated_reach = true
+
+[site_selection.criteria.area]
+# How basin area contributes to selection.
+mode = "warning"
+
+[[site_selection.criteria.area.ranges]]
+# Stable identifier for the area range.
+range_id = "broad_screening"
+# Human-readable area range label.
+label = "Controle large"
+# Minimum basin area for this range.
+min_area_km2 = 10.0
+# Maximum basin area for this range.
+max_area_km2 = 1000.0
+
+[site_selection.criteria.geology]
+# How geology evidence affects the final decision.
+mode = "warning"
+# Prefer or highlight basins with more diverse geology classes.
+prefer_diversity = true
+
+[report.html]
+# Build the static site-selection HTML review report at the end of the run.
+profile = "site_selection"
+build_at_end = true
+
+[hydrometry]
+# Start date of the data extraction window (ISO format, e.g. '2019-01-01').
+date_start = "2015-01-01"
+# End date of the data extraction window (ISO format, e.g. '2025-12-31').
+date_end = "2025-01-01"
+
+[[hydrometry.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+source = "hubeau"
+# Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').
+product = "QmnJ"
+# Only keep stations that have observations in the period.
+require_observations = true
+
+[data]
+# Ordered list of data-manager types explicitly requested in [data]. The launcher may append
+# inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
+# Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry',
+# 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge',
+# 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+types = ["dem"]
+
+[[data.dem.sources]]
+# Discriminator tag selecting the IGN Geoplateforme DEM provider.
+source = "ign_geoplateforme_dem"
+# IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an
+# assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives.
+dataset = "bd-alti"
+# Requested DEM resolution in metres. Defaults are resolved by the manager from the selected
+# dataset.
+resolution_m = 25.0

@@ -1,0 +1,124 @@
+# Purpose:
+# Non-gauged Bretagne candidate-generation run from DEM-derived stream cells.
+# The workflow uses a local DEM, samples high-accumulation network cells, thins
+# outlet candidates by spacing, optionally compares them to a custom reference
+# hydrographic network, delineates basins, and applies area/overlap criteria.
+# Expected result: generated-candidate audit files, selected/rejected 50-500 km2
+# basins, generated network layers, manifests, and an HTML review report.
+
+[workflow]
+# Workflow entry point for `hmp run`.
+# `site_selection` dispatches to the site-selection workflow.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign id copied into manifests, decision tables, and downstream
+# hand-off files.
+selection_id = "bretagne_non_jauge_dem_reseau_50_500km2_v1"
+# Output directory for manifests, tables, spatial layers, reports, and optional
+# intermediates.
+output_root = "../outputs/bretagne_non_jauge_dem_reseau_50_500km2_v1"
+
+[site_selection.input]
+# Execution path for this run.
+# dem_network_sampling runs advanced DEM stream-network sampling, then delineates
+# and filters the sampled outlet candidates.
+mode = "dem_network_sampling"
+
+[site_selection.territory]
+# Territory resolver mode.
+mode = "admin_regions"
+# Country code used by administrative territory modes.
+country = "FR"
+# Administrative regions used when mode='admin_regions'.
+regions = ["Bretagne"]
+
+[site_selection.dem]
+# Use a local DEM file declared by site_selection.dem.path.
+source = "custom"
+# Local DEM path when source='custom'.
+path = "../../../data/dem/dem_bdalti_25m_2f609f91.tif"
+# DEM resolution in metres.
+resolution_m = 25.0
+# DEM used as the HTML review-map background.
+review_map_dem_background = "delineation_dem"
+
+[site_selection.hydrology]
+# DEM conditioning strategy forwarded to existing flow products.
+hydrologic_conditioning = "fill"
+# Contributing-area threshold used to extract the stream network.
+network_threshold_area_km2 = 5.0
+
+[site_selection.outlets]
+# Outlet generation mode.
+# station_outlets uses loaded observation/outlet records.
+# network_sampling samples DEM-derived stream cells.
+candidate_mode = "network_sampling"
+# Maximum number of DEM/network-generated candidates to delineate.
+max_generated_candidates = 12
+# Maximum number of rejected DEM/network candidate cells written to the candidate-generation
+# audit JSONL.
+max_rejected_candidate_audit_records = 200
+# Maximum number of DEM-derived stream cells exported to the generated network vector layer.
+# Highest-accumulation cells are kept first.
+max_generated_network_cells = 25000
+# Minimum spacing used to thin candidate outlets before basin delineation.
+min_distance_between_outlets_km = 3.0
+# Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived
+# accumulation raster. 'bdtopage_then_dem' first snaps the station/candidate to
+# the reference network, then runs the local DEM snap.
+snap_strategy = "dem_accumulation"
+# Maximum distance in metres for the final DEM snap used for basin delineation.
+dem_snap_max_distance_m = 150
+# Reference hydrographic network used before the DEM snap.
+reference_network_source = "custom"
+# Local vector network used when reference_network_source='custom'.
+reference_network_path = "../outputs/bretagne_jauge_7stations/reference_network/bdtopage_reference_network.gpkg"
+# Maximum distance allowed from the original outlet to the reference network before snapping.
+reference_network_snap_max_distance_m = 300.0
+
+[site_selection.spatial_selection]
+# Allow selected basins to contain one another, e.g. upstream/downstream nested catchments.
+allow_nested_basins = true
+# Maximum allowed pairwise basin overlap. 0.20 means 20% of the overlap_reference area.
+max_pairwise_basin_overlap_fraction = 0.20
+# How overlap violations are handled: warning keeps the site; hard_reject blocks it.
+overlap_mode = "warning"
+
+[site_selection.criteria]
+# Audit-facing summary of the selection doctrine.
+# These lists are copied to reports/manifests to explain which criteria reject,
+# warn, rank, or only document candidate sites.
+#
+# Blocking criteria: when one fails, the candidate is not retained.
+# Keep delineation_failure here to document that a basin that cannot be
+# delineated is unusable.
+hard_reject = ["delineation_failure"]
+# Review warnings: the candidate can still be selected; the issue is highlighted
+# in the site-selection report for expert review before final acceptance.
+warning = ["area_range", "basin_overlap"]
+# Ranking preferences: used to order otherwise acceptable candidates without
+# rejecting them directly.
+ranking_preference = ["area"]
+# Context-only evidence: exported for human review/audit without automatic
+# decision impact.
+report_only = ["reference_network"]
+
+[site_selection.criteria.area]
+# How basin area contributes to selection.
+mode = "warning"
+
+[[site_selection.criteria.area.ranges]]
+# Stable identifier for the area range.
+range_id = "bretagne_50_500"
+# Human-readable area range label.
+label = "Bretagne 50-500 km2"
+# Minimum basin area for this range.
+min_area_km2 = 50.0
+# Maximum basin area for this range.
+max_area_km2 = 500.0
+
+[report.html]
+# Build the static site-selection HTML review report at the end of the run.
+profile = "site_selection"
+build_at_end = true
