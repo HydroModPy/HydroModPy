@@ -119,6 +119,27 @@ de rapport manuel `catchment_report.toml`, cible `simulation_name =
 `[report.html]` de fin de simulation. Il peut signaler des figures manquantes
 car il ne cible pas le run `transient_nwt_html_report`.
 
+Cloture legacy hors testbed:
+
+- les anciens wrappers `semantic_artifacts.py` et `site_selection/intent.py`
+  sont absents du code actif;
+- le scan des anciens noms HTML hors testbed ne remonte plus que les tests de
+  garde qui interdisent leur retour;
+- le rapport testbed reste explicitement hors lot.
+
+Validation finale relancee:
+
+```powershell
+python -m pytest tests/unit/display/test_catchment_report_docs_contract.py tests/unit/test_pipeline_html_report_step.py tests/unit/site_selection/test_legacy_contract.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_config.py -q
+python -m ruff check hydromodpy/display/catchment_report/artifacts.py hydromodpy/display/catchment_report/context.py hydromodpy/display/catchment_report/contract.py hydromodpy/workflow/site_selection.py tests/unit/display/test_catchment_report_docs_contract.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_legacy_contract.py tests/unit/test_pipeline_html_report_step.py
+git diff --check -- docs/source/architecture/site_selection/html-report-generation.rst docs/_dev_notes/html_block_reports_audit.md docs/source/user_guide/catchment-report.rst hydromodpy/display/catchment_report/artifacts.py hydromodpy/display/catchment_report/context.py hydromodpy/display/catchment_report/contract.py hydromodpy/reporting/site_selection/README.md hydromodpy/workflow/site_selection.py tests/unit/display/test_catchment_report_docs_contract.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_legacy_contract.py tests/unit/test_pipeline_html_report_step.py
+```
+
+Resultats: `72 passed`, ruff OK, diff-check OK. La build Sphinx complete
+locale ne termine pas dans une fenetre de 10 minutes et n'a pas produit de HTML
+exploitable dans `.tmp/sphinx_html_report_delivery`; elle reste donc a refaire
+en CI ou dans une passe doc dediee.
+
 ## Validation plug-and-play au 2026-05-24
 
 Objectif teste: prendre un autre site que Nancon, changer seulement le TOML,
