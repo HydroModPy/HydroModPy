@@ -213,6 +213,83 @@ def test_site_selection_report_blocks_show_station_influence(tmp_path):
 
 
 @pytest.mark.fast
+def test_site_selection_report_warns_when_basin_touches_calculation_dem_boundary(tmp_path):
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    root = tmp_path / "out"
+    root.mkdir()
+    dem_path = root / "dem.tif"
+    with rasterio.open(
+        dem_path,
+        "w",
+        driver="GTiff",
+        width=10,
+        height=10,
+        count=1,
+        dtype="uint8",
+        crs="EPSG:2154",
+        transform=from_origin(0, 10, 1, 1),
+    ) as dataset:
+        dataset.write(np.zeros((1, 10, 10), dtype="uint8"))
+
+    basins_path = root / "selected_basins.geojson"
+    basins_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"site_id": "site_edge"},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [2, 2],
+                                    [10, 2],
+                                    [10, 8],
+                                    [2, 8],
+                                    [2, 2],
+                                ]
+                            ],
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    blocks = build_site_selection_result_blocks(
+        {
+            "selection_id": "edge_warning_report",
+            "counts": {},
+            "strategy": {},
+            "territory": {},
+            "criteria": {},
+            "dem": {},
+            "flow_products": {"dem_path": "dem.tif"},
+            "outputs": {"selected_basins_geojson": "selected_basins.geojson"},
+        },
+        manifest_path=root / "site_selection_manifest.json",
+        output_root=root,
+        map_path=root / "site_selection_map.png",
+        selected=[],
+        rejected=[],
+        decisions=[],
+        evidence=[],
+        components=[],
+    )
+
+    block = next(item for item in blocks if item.block_id == "selection_map")
+
+    assert "site_edge" in block.warnings[0]
+    assert "delineation_buffer_km" in block.warnings[0]
+
+
+@pytest.mark.fast
 def test_validate_selection_manifest_checks_schema_and_outputs(tmp_path):
     root = tmp_path / "out"
     root.mkdir()

@@ -195,6 +195,11 @@ def build_site_selection_result_blocks(
         output_root=output_root,
         outputs=outputs,
     )
+    dem_boundary_warnings = _dem_boundary_warnings(
+        manifest,
+        output_root=output_root,
+        outputs=outputs,
+    )
 
     decision_by_site = _final_decision_by_site(decisions)
     component_counts, family_counts = _component_counts(components)
@@ -248,6 +253,7 @@ def build_site_selection_result_blocks(
             block_id="selection_map",
             title="Carte de controle",
             level="compact",
+            warnings=dem_boundary_warnings,
             figures=(
                 ReportFigure(
                     "site_selection_map",
@@ -630,6 +636,147 @@ def _provenance_warnings(
         "Cette selection utilise des entrees de fixture ou synthetiques "
         f"({labels}). Les positions et bassins servent au controle du workflow "
         "et du rendu; ils ne doivent pas etre interpretes comme des sites reels.",
+    )
+
+
+def _dem_boundary_warnings(
+    manifest: Mapping[str, Any],
+    *,
+    output_root: Path,
+    outputs: Mapping[str, Any],
+) -> tuple[str, ...]:
+    flow_products = _mapping(manifest.get("flow_products"))
+    dem_path = _resolve_output_path(
+        flow_products.get("dem_path") or flow_products.get("dem_corrected_path"),
+        output_root=output_root,
+    )
+    if dem_path is None or not dem_path.is_file():
+        return ()
+    try:
+        import rasterio
+
+        with rasterio.open(dem_path) as dataset:
+            dem_bounds = (
+                float(dataset.bounds.left),
+                float(dataset.bounds.bottom),
+                float(dataset.bounds.right),
+                float(dataset.bounds.top),
+            )
+            pixel_size = max(
+                abs(float(dataset.transform.a)),
+                abs(float(dataset.transform.e)),
+                1.0,
+            )
+    except Exception:  # noqa: BLE001 - report diagnostics must not block rendering.
+        return ()
+
+    tolerance_m = max(pixel_size * 2.0, 1.0)
+    touched_sites: list[str] = []
+    for key in ("selected_basins_geojson", "rejected_basins_geojson"):
+        path = _resolve_output_path(outputs.get(key), output_root=output_root)
+        if path is not None:
+            touched_sites.extend(
+                _basins_touching_dem_boundary(
+                    path,
+                    dem_bounds=dem_bounds,
+                    tolerance_m=tolerance_m,
+                )
+            )
+
+    if not touched_sites:
+        return ()
+    sites = ", ".join(sorted(set(touched_sites)))
+    return (
+        "Controle emprise DEM: le ou les bassins suivants touchent la limite "
+        f"du DEM de calcul ({sites}). Cela peut indiquer un bassin tronque et "
+        "une surface sous-estimee. Augmenter site_selection.dem.delineation_buffer_km "
+        "ou utiliser delineation_dem_extent_source = \"selection_territory\" pour "
+        "un recalcul plus sur.",
+    )
+
+
+def _basins_touching_dem_boundary(
+    path: Path,
+    *,
+    dem_bounds: tuple[float, float, float, float],
+    tolerance_m: float,
+) -> list[str]:
+    if not path.is_file():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    features = _sequence(payload.get("features")) if isinstance(payload, Mapping) else []
+    touched: list[str] = []
+    for index, feature in enumerate(features, start=1):
+        if not isinstance(feature, Mapping):
+            continue
+        bounds = _geojson_geometry_bounds(feature.get("geometry"))
+        if bounds is None:
+            continue
+        if _touches_dem_boundary(bounds, dem_bounds=dem_bounds, tolerance_m=tolerance_m):
+            properties = _mapping(feature.get("properties"))
+            touched.append(str(properties.get("site_id") or f"feature_{index}"))
+    return touched
+
+
+def _geojson_geometry_bounds(
+    geometry: object,
+) -> tuple[float, float, float, float] | None:
+    geom = _mapping(geometry)
+    if not geom:
+        return None
+    coordinates: list[tuple[float, float]] = []
+    if geom.get("type") == "GeometryCollection":
+        for child in _sequence(geom.get("geometries")):
+            child_bounds = _geojson_geometry_bounds(child)
+            if child_bounds is not None:
+                coordinates.extend(
+                    (
+                        (child_bounds[0], child_bounds[1]),
+                        (child_bounds[2], child_bounds[3]),
+                    )
+                )
+    else:
+        _collect_geojson_coordinates(geom.get("coordinates"), coordinates)
+    if not coordinates:
+        return None
+    xs = [point[0] for point in coordinates]
+    ys = [point[1] for point in coordinates]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _collect_geojson_coordinates(
+    value: object,
+    coordinates: list[tuple[float, float]],
+) -> None:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return
+    if (
+        len(value) >= 2
+        and isinstance(value[0], (int, float))
+        and isinstance(value[1], (int, float))
+    ):
+        coordinates.append((float(value[0]), float(value[1])))
+        return
+    for item in value:
+        _collect_geojson_coordinates(item, coordinates)
+
+
+def _touches_dem_boundary(
+    bounds: tuple[float, float, float, float],
+    *,
+    dem_bounds: tuple[float, float, float, float],
+    tolerance_m: float,
+) -> bool:
+    left, bottom, right, top = bounds
+    dem_left, dem_bottom, dem_right, dem_top = dem_bounds
+    return (
+        left <= dem_left + tolerance_m
+        or bottom <= dem_bottom + tolerance_m
+        or right >= dem_right - tolerance_m
+        or top >= dem_top - tolerance_m
     )
 
 
