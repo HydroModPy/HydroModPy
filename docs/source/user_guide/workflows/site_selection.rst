@@ -85,6 +85,13 @@ catchment-area window of 40 to 500 km2.
    min_area_km2 = 40.0
    max_area_km2 = 500.0
 
+   [site_selection.map_context]
+
+   [[site_selection.map_context.layers]]
+   name = "Finistere department outline"
+   path = "../fixtures/context/finistere_department_outline.geojson"
+   role = "territory"
+
    [report.html]
    profile = "site_selection"
    build_at_end = true
@@ -133,7 +140,10 @@ it builds the calculation DEM extent from the bounding box of projected station
 outlets, expanded by ``delineation_buffer_km``. The buffer must be large enough
 to include the upstream area needed for catchment delineation. The example uses
 ``review_map_dem_background = "territory_dem"`` so the HTML map can still show
-the candidate basin in a wider departmental context. Use
+the candidate basin in a wider departmental context, and
+``site_selection.map_context`` overlays the department outline. The report also
+warns when a selected or rejected basin touches the calculation DEM boundary,
+because that usually means the basin may be clipped and its area underestimated. Use
 ``"selection_territory"`` for delineation only when the safer choice is to run
 flow products over the full configured territory.
 
