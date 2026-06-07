@@ -29,6 +29,9 @@ Minimal structure
    [site_selection.input]
    mode = "hydrometry"
 
+   [site_selection.strategy]
+   profile = "gauged_downstream_station"
+
    [site_selection.territory]
    mode = "admin_departments"
    country = "FR"
@@ -38,6 +41,36 @@ Minimal structure
    delineation_buffer_km = 5.0
    delineation_dem_extent_source = "candidate_outlets_bbox"
    review_map_dem_background = "territory_dem"
+
+   [site_selection.outlets]
+   snap_strategy = "dem_accumulation"
+   dem_snap_max_distance_m = 150
+   min_distance_between_outlets_km = 5.0
+
+   [site_selection.spatial_selection]
+   allow_nested_basins = true
+   max_pairwise_basin_overlap_fraction = 0.20
+   overlap_mode = "warning"
+
+   [site_selection.criteria]
+   hard_reject = ["delineation_failure", "flow_station"]
+   warning = ["basin_overlap", "geology", "station_influence"]
+   ranking_preference = ["record_length", "station_to_outlet_distance"]
+   report_only = ["piezometry", "land_cover"]
+
+   [site_selection.criteria.observations.flow_station]
+   mode = "hard_reject"
+   min_record_years = 5.0
+   max_station_to_outlet_distance_km = 1.0
+   require_station_inside_or_at_outlet = true
+
+   [site_selection.criteria.observations.station_influence]
+   mode = "warning"
+   unknown_policy = "neutral"
+
+   [report.html]
+   profile = "site_selection"
+   build_at_end = true
 
    [hydrometry]
    date_start = "2015-01-01"
@@ -57,6 +90,13 @@ Minimal structure
    source = "ign_geoplateforme_dem"
    dataset = "bd-alti"
    resolution_m = 25.0
+
+The selection doctrine is split in two layers. ``[site_selection.strategy]``
+declares the campaign intent; here ``profile = "gauged_downstream_station"``
+means that flow stations define the candidate outlets. ``[site_selection.criteria]``
+then lists which criterion families reject, warn, rank, or only document a site.
+The concrete thresholds live in the corresponding criterion subsections, for
+example ``[site_selection.criteria.observations.flow_station]``.
 
 The DEM is deliberately declared under ``[data.dem]``. In hydrometry mode, the
 workflow loads the stations first. With ``site_selection.dem.delineation_dem_extent_source =
