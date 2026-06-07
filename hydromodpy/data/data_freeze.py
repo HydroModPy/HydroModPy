@@ -95,10 +95,26 @@ class LockMismatch:
 def sha256_of(path: Path, *, chunk: int = 64 * 1024) -> str:
     """Compute the SHA-256 digest of a file on disk."""
     hasher = hashlib.sha256()
-    with open(path, "rb") as fh:
+    with open(_fs_path(path), "rb") as fh:
         for buf in iter(lambda: fh.read(chunk), b""):
             hasher.update(buf)
     return hasher.hexdigest()
+
+
+def _fs_path(path: Path) -> str:
+    """Return a filesystem path string, preserving long Windows paths."""
+    if os.name != "nt":
+        return str(path)
+    value = str(path.resolve())
+    if value.startswith("\\\\?\\"):
+        return value
+    if value.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + value[2:]
+    return "\\\\?\\" + value
+
+
+def _path_is_file(path: Path) -> bool:
+    return os.path.isfile(_fs_path(path))
 
 
 def _now_iso() -> str:
@@ -177,18 +193,18 @@ def _resolve_artifact_path(
         candidates.extend((base_dir / path, base_dir.parent / path))
     candidates.append(path)
     for candidate in candidates:
-        if candidate.is_file():
+        if _path_is_file(candidate):
             return candidate
     return candidates[0]
 
 
 def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArtifact | None:
     path = _resolve_artifact_path(row["file_path"], base_dir, variable=row.get("variable"))
-    if not path.is_file():
+    if not _path_is_file(path):
         return None
     size: int | None = None
     try:
-        size = path.stat().st_size
+        size = os.stat(_fs_path(path)).st_size
     except OSError:
         pass
     return LockedArtifact(
@@ -458,7 +474,7 @@ def verify_frozen(
             )
             continue
         p = _resolve_artifact_path(file_path, base_dir, variable=variable)
-        if not p.is_file():
+        if not _path_is_file(p):
             mismatches.append(
                 LockMismatch(
                     kind="missing",
@@ -521,7 +537,7 @@ def verify_inputs_strict(
         if meta is None:
             continue
         p = _resolve_artifact_path(file_path, base_dir, variable=variable)
-        if not p.is_file():
+        if not _path_is_file(p):
             mismatches.append(
                 LockMismatch(
                     kind="missing",
@@ -624,7 +640,19 @@ def restore_archive(archive: Path | str, dest_dir: Path | str) -> Path:
     stream, raw, mode = _open_reader(archive)
     try:
         with tarfile.open(fileobj=stream, mode=mode) as tar:
-            tar.extractall(dest_dir, filter="data")
+            extract_root = _fs_path(dest_dir)
+            for member in tar:
+                filtered = tarfile.data_filter(member, str(dest_dir))
+                if filtered is None:
+                    continue
+                target = dest_dir / filtered.name
+                if not filtered.isdir():
+                    os.makedirs(_fs_path(target.parent), exist_ok=True)
+                tar.extract(
+                    filtered,
+                    path=extract_root,
+                    filter=lambda item, _dest: item,
+                )
     finally:
         if hasattr(stream, "close"):
             stream.close()
@@ -636,7 +664,7 @@ def restore_archive(archive: Path | str, dest_dir: Path | str) -> Path:
         locked = read_lockfile(lockfile_path)
         for la in locked:
             candidate = dest_dir / "artefacts" / la.sha256 / Path(la.file_path).name
-            if candidate.is_file():
+            if _path_is_file(candidate):
                 actual = sha256_of(candidate)
                 if actual != la.sha256:
                     raise RuntimeError(

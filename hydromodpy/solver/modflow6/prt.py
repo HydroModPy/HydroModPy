@@ -11,7 +11,7 @@ import numpy as np
 
 from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.solver.modflow6.build import mf6_safe_name, mf6_workspace_name
 
 
 def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
@@ -79,10 +79,11 @@ class Modflow6Prt:
         self.model_modflow = model_modflow
         self.model_folder = model_folder
         self.model_name = model_name
+        self.model_workspace_name = mf6_workspace_name(model_folder, model_name)
         self.suffix_name = suffix_name
         self.model_name_prt = model_name + suffix_name
         self.model_name_prt_mf6 = mf6_safe_name(self.model_name_prt)
-        self.full_path = os.path.join(model_folder, model_name)
+        self.full_path = os.path.join(model_folder, self.model_workspace_name)
         self.exe = getattr(model_modflow, "exe", "mf6")
 
         prt_params: dict[str, object] = {}

@@ -7,12 +7,15 @@ cleanup → provenance.
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import math
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.storage_naming import sanitize_segment
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
@@ -356,9 +359,32 @@ def _auto_export(
 
     export = config.export
 
-    label = export_label or sim_id[:8]
+    raw_label = export_label or sim_id[:8]
     base_dir = Path(export.output_dir) if export.output_dir else store.project_path / "exports"
-    output_dir = base_dir / label
+    output_dir = base_dir / raw_label
+    specs = _auto_export_specs(export, output_dir)
+    if _auto_export_specs_need_short_label(specs, output_dir=output_dir):
+        output_dir = base_dir / _short_auto_export_label(raw_label)
+        specs = _auto_export_specs(export, output_dir)
+
+    if not specs:
+        return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    failures: list[str] = []
+    for spec in specs:
+        try:
+            store.export(sim_id, spec)
+        except Exception as exc:
+            failures.append(f"{spec.fmt.value}:{spec.var}: {exc}")
+
+    if failures:
+        raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
+
+
+def _auto_export_specs(export: Any, output_dir: Path) -> list[Any]:
+    """Build automated export specs for one output directory."""
+    from hydromodpy.core.config_kit.export_spec import ExportSpec
 
     specs: list[ExportSpec] = []
 
@@ -395,17 +421,32 @@ def _auto_export(
     for art in export.artifacts:
         dest = art.dest if art.dest.is_absolute() else output_dir / art.dest
         specs.append(art.model_copy(update={"dest": dest}))
+    return specs
 
-    if not specs:
-        return
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    failures: list[str] = []
+def _auto_export_specs_need_short_label(
+    specs: list[Any],
+    *,
+    output_dir: Path,
+    max_path: int = 240,
+) -> bool:
+    """Return True when auto-export-generated paths need a shorter label."""
+    if os.name != "nt":
+        return False
     for spec in specs:
+        dest = Path(spec.dest)
         try:
-            store.export(sim_id, spec)
-        except Exception as exc:
-            failures.append(f"{spec.fmt.value}:{spec.var}: {exc}")
+            dest.relative_to(output_dir)
+        except ValueError:
+            continue
+        if len(str(dest.resolve())) >= max_path:
+            return True
+    return False
 
-    if failures:
-        raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
+
+def _short_auto_export_label(label: str, max_prefix_len: int = 32) -> str:
+    """Return a stable short export label for long Windows auto-export paths."""
+    text = str(label or "").strip() or "run"
+    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
+    prefix = sanitize_segment(text, max_len=max_prefix_len)
+    return f"{prefix}__{digest}"

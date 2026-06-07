@@ -3,7 +3,11 @@
 from types import SimpleNamespace
 
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
-from hydromodpy.solver.modflow6.build import mf6_output_name, mf6_safe_name
+from hydromodpy.solver.modflow6.build import (
+    mf6_output_name,
+    mf6_safe_name,
+    mf6_workspace_name,
+)
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_base_model_name,
@@ -90,6 +94,36 @@ def test_mf6_output_name_shortens_long_windows_paths(monkeypatch) -> None:
     monkeypatch.setattr(build_module.os, "name", "nt")
 
     assert mf6_output_name(model) == safe_name
+
+
+def test_mf6_workspace_name_shortens_long_windows_package_paths(monkeypatch) -> None:
+    import hydromodpy.solver.modflow6.build as build_module
+
+    long_name = "natural_mesh_10km2_transient_pulse_mf6_vs_bouss__mf6_ref"
+    long_root = "C:\\" + "\\".join(["hydromodpy_regression_outputs"] * 8)
+
+    monkeypatch.setattr(build_module.os, "name", "nt")
+
+    assert mf6_workspace_name(long_root, long_name) == mf6_safe_name(long_name)
+
+
+def test_mf6_workspace_name_preserves_short_windows_paths(monkeypatch) -> None:
+    import hydromodpy.solver.modflow6.build as build_module
+
+    monkeypatch.setattr(build_module.os, "name", "nt")
+
+    assert mf6_workspace_name("C:\\hmp\\scratch", "demo") == "demo"
+
+
+def test_mf6_workspace_name_preserves_non_windows_paths(monkeypatch) -> None:
+    import hydromodpy.solver.modflow6.build as build_module
+
+    long_name = "natural_mesh_10km2_transient_pulse_mf6_vs_bouss__mf6_ref"
+    long_root = "/tmp/" + "/".join(["hydromodpy_regression_outputs"] * 8)
+
+    monkeypatch.setattr(build_module.os, "name", "posix")
+
+    assert mf6_workspace_name(long_root, long_name) == long_name
 
 
 def test_mf6_output_name_preserves_short_windows_paths(monkeypatch) -> None:

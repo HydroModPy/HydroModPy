@@ -70,6 +70,18 @@ def mf6_safe_name(name: str, max_len: int = 16) -> str:
     return f"{text[:prefix_len]}_{digest}"
 
 
+def mf6_workspace_name(model_folder: str, model_name: str, max_path: int = 240) -> str:
+    """Return the solver workspace folder name, shortened on long Windows paths."""
+    requested = str(model_name)
+    if os.name != "nt":
+        return requested
+    safe_name = mf6_safe_name(requested)
+    package_path = os.path.join(str(model_folder), requested, f"{safe_name}.tdis")
+    if len(os.path.abspath(package_path)) < max_path:
+        return requested
+    return safe_name
+
+
 def mf6_output_name(model, extension: str = ".cbc") -> str:
     """Return an output file stem that keeps MF6 paths usable on Windows."""
     requested = str(getattr(model, "model_name", "") or "model")
