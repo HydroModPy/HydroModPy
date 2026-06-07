@@ -1,0 +1,49 @@
+name: hydromodpy-dev
+channels:
+  - conda-forge
+dependencies:
+  - contextily
+  - flopy
+  - geopandas
+  - graphviz
+  - h5py
+  - imageio
+  - ipykernel
+  - ipython
+  - matplotlib
+  - netcdf4
+  - numpy>=2.0
+  - pandas<3.0
+  - pandera>=0.31.1,<1
+  - dask
+  - pint
+  - pydantic
+  - pydantic-pint
+  - pytest
+  - pytest-xdist
+  - pygraphviz
+  - sphinx
+  - plotly
+  - pyproj
+  - pyshp
+  - pyvista
+  - python>=3.11,<3.14
+  - rasterio
+  - rioxarray
+  - cma
+  - cmaes>=0.12
+  - optuna>=4.8
+  - scikit-learn
+  - scipy
+  - spyder-kernels
+  - spyder
+  - xarray
+  - xugrid
+  - pyside6
+  - pysheds
+  - pip
+  - pip:
+      - gmsh
+      - meshio
+      - whitebox-workflows
+      - -e "..[docs,docs-uml,test]"

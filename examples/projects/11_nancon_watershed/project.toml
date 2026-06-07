@@ -1,0 +1,409 @@
+# ======================================================================
+# HydroModPy Configuration - Nancon watershed (base project)
+# Profile: user | Modules: workflow, workspace, geographic, domain, data,
+#                          flow, simulation, display
+# ----------------------------------------------------------------------
+# This is the canonical, fully annotated TOML for the Nancon watershed
+# example. It is meant to be the SINGLE SOURCE OF TRUTH that every run
+# TOML in this folder inherits from via `base_config = "project.toml"`.
+#
+# Comments come from `hmp config template --profile user` (CLI export).
+# Every key is documented inline so a new user can read the file top to
+# bottom without leaving the editor. Optional keys that we do not use
+# are shown as commented-out lines.
+#
+# Validate this file without running anything:
+#     hmp config check project.toml
+#
+# Export the JSON Schema for an IDE plugin:
+#     hmp config schema > schema.json
+#
+# Regenerate a fresh template (no Nancon values, every option commented):
+#     hmp config template ref.toml --profile user
+# ======================================================================
+
+
+# ----------------------------------------------------------------------
+# Workflow selector configuration.
+# ----------------------------------------------------------------------
+# `[workflow].mode` is the SINGLE dispatcher key read by `hmp run`. Each
+# value maps to one entry of hydromodpy.project.dispatch.workflow.DISPATCH.
+# Run TOMLs override it; the base value is "simulation" because most of
+# the time we just compute one MODFLOW run.
+
+[workflow]
+# Workflow mode dispatched by `hmp run`.
+# Type: Literal['simulation', 'calibration', 'overview', 'comparison', 'testbed'] | REQUIRED
+mode = "simulation"
+
+
+# ----------------------------------------------------------------------
+# Strict-binary workspace configuration.
+# ----------------------------------------------------------------------
+# `project_root = "."` means "the folder that contains THIS TOML".
+# `data_dir` is auto-derived: HydroModPy walks up from project_root and
+# looks for a sibling `data/` folder. For this project (located at
+# `examples/projects/11_nancon_watershed/`) it resolves to
+# `examples/data/`, which is shipped with the repo.
+
+[workspace]
+# Path to the project directory.
+# Required in TOML configs.
+# Type: path | REQUIRED | Examples: "."
+project_root = "."
+
+# Explicit shared data workspace root.
+# When set, derives data_dir unless it is overridden.
+# Result catalogs stay project-local by default.
+# Type: path (optional) | Optional | Examples: "../.."
+# root = "../.."
+
+# Root directory for per-project outputs (.solver_scratch/, figures/).
+# Defaults to project_root when not set.
+# Use this to redirect heavy outputs to a separate disk.
+# Type: path (optional) | Optional | Examples: "outputs/run_a"
+# output_root = "outputs/run_a"
+
+
+# ----------------------------------------------------------------------
+# Geographic configuration for watershed delineation.
+# ----------------------------------------------------------------------
+# `standard` uses a real DEM. `synthetic` would build an analytical
+# domain (academic toy cases). We rely on a real DEM here.
+
+[geographic]
+# Geographic runtime mode.
+# 'standard' keeps the historical DEM/outlet/polygon workflow.
+# 'synthetic' builds one analytical support from [geographic.synthetic].
+# Type: Literal['standard', 'synthetic'] | Default: "standard"
+source_mode = "standard"
+
+# Project CRS. Lambert-93 (EPSG:2154) is the official French metric CRS.
+crs_project = "EPSG:2154"
+
+# DEM depression correction method.
+# 'breach' (recommended) preserves natural flow paths.
+# 'fill' raises sinks to their pour point.
+# Type: Literal['breach', 'fill'] | Default: "breach"
+dem_correc_type = "breach"
+
+# Reuse cached geographic outputs when nothing changed (DEM/outlet).
+# Speeds up reruns of the same project. Safe to keep on.
+# Type: bool | Default: false
+reuse_existing_outputs = false
+
+
+# Optional DEM-derived river-network extraction settings. Disabled here
+# because the base project relies on the BD TOPAGE reference network.
+# Activate this block to compare a generated network vs the reference
+# (see run_hydrographic_compare.toml for a working example).
+
+[geographic.catchment]
+# Catchment built from an outlet point. The DEM is used for flow
+# accumulation; the outlet is snapped to the nearest stream cell.
+catch_def = "from_outlet_coord"
+
+# Regional DEM used for flow analysis. Path resolution: explicit
+# relative to this TOML (workspace convention auto-resolve is bypassed
+# by the comparison launcher running child workspaces in isolation).
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+
+# Outlet coordinates of the Nancon gauging station, in EPSG:2154.
+x_outlet = 389285.91
+y_outlet = 6816518.749
+
+# Maximum distance to snap the outlet to a stream cell. 150 m is a
+# safe default for a 25 m DEM: enough to forgive a small offset in the
+# input coordinates without jumping into a different reach.
+snap_dist = "150 m"
+
+# Buffer kept around the watershed polygon. "10%" scales with the
+# catchment area; large enough to keep boundary cells but small enough
+# to avoid wasting cells outside the basin.
+buff_area = "10%"
+
+[geographic.river_network]
+# Enable DEM-based river-network extraction during geographic preprocessing.
+# Type: bool | Default: false
+enabled = false
+
+
+# ----------------------------------------------------------------------
+# Domain configuration - vertical discretization and spatial supports.
+# ----------------------------------------------------------------------
+
+[domain]
+# Geology is the only zonation we use. It feeds the spatial-support
+# registry when heterogeneous parameter fields are needed.
+zone_ids = ["geology"]
+
+# No named heterogeneous spatial support declared at this level.
+supports = {}
+
+[domain.depth_model]
+# Aquifer described as a constant-thickness layer below topography.
+# 30 m is a reasonable baseline for the Armorican fractured aquifer.
+# Type: Literal['constant_thickness'] | Default: "constant_thickness"
+kind = "constant_thickness"
+# Constant aquifer thickness (m) applied below topography.
+# Type: float | > 0.0 | Default: 50.0
+thickness = 30.0
+
+
+# ----------------------------------------------------------------------
+# Data - external forcings and observations.
+# ----------------------------------------------------------------------
+# Each [data.<family>] block declares the time window + one or more
+# [[data.<family>.sources]] entries (custom files or remote APIs).
+
+[data]
+# EPSG code or WKT string of the project coordinate reference system.
+# When set, all loaded data is reprojected to this CRS.
+# Type: string (optional) | Optional
+project_crs = "EPSG:2154"
+
+# Ordered list of data-manager types explicitly requested in [data].
+# Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography',
+# 'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation',
+# 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature',
+# 'water_quality', 'wind'.
+# Type: list[str] | REQUIRED
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "etp"]
+
+
+# DEM source. `custom` points to the same file as [geographic]. The
+# bare filename is auto-resolved against `<workspace>/data/dem/`.
+
+[[data.dem.sources]]
+# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for
+# IGN DEM discovery.
+# Type: Literal['custom', 'ign_geoplateforme_dem'] | REQUIRED
+source = "custom"
+path = "DEM_armorican_massif.tif"
+
+
+# Geology source. BRGM 1:1M is the national French geological map.
+# Good first-pass zonation, no extra files needed.
+
+[[data.geology.sources]]
+# Type: Literal['custom', 'brgm_1m', 'brgm_50k'] | REQUIRED
+source = "brgm_1m"
+
+
+# Stream network for figures. BD TOPAGE is the official French dataset.
+
+[[data.hydrography.sources]]
+# Type: Literal['custom', 'osm', 'bdtopage', 'euhydro'] | REQUIRED
+source = "bdtopage"
+# Attribute field used when rasterising the vector layer.
+# Type: string | Default: "FID"
+rasterize_field = "FID"
+
+
+# Observed discharge time-series.
+
+[data.hydrometry]
+# Window we will simulate. Other dates in the source files are ignored.
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.hydrometry.sources]]
+# Type: Literal['custom', 'hubeau'] | REQUIRED
+source = "custom"
+# Bare folder name resolved under `<workspace>/data/hydrometry/`.
+path = "hydrometry"
+# `extent = "watershed"` filters stations with the catchment polygon.
+extent = "watershed"
+station_ids = []
+
+
+# Recharge time-series.
+
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.recharge.sources]]
+# Type: Literal['custom', 'sim2', 'synthetic'] | REQUIRED
+source = "custom"
+# Bare folder name resolved under `<workspace>/data/recharge/`.
+path = "recharge"
+# `EX04` is the Nancon-area sample station shipped with the examples.
+station_ids = ["EX04"]
+
+
+# Runoff time-series. Used by the calibration metric to add the surface
+# component to the simulated DRN baseflow (discharge = DRN + runoff).
+# Skipping this block emits a runtime warning and falls back to
+# baseflow-only comparison.
+
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.runoff.sources]]
+# Type: Literal['custom', 'sim2'] | REQUIRED
+source = "custom"
+path = "runoff"
+station_ids = ["EX04"]
+
+
+# ETP time-series (potential evapotranspiration). Loaded from the SIM2
+# NetCDF shipped with the repo so the runs stay offline.
+
+[data.etp]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+
+[[data.etp.sources]]
+# Type: Literal['custom', 'sim2'] | REQUIRED
+source = "custom"
+# Bare filename resolved under `<workspace>/data/etp/`.
+path = "etp_sim2_5347fa22_20000101_20251231.nc"
+
+
+# ----------------------------------------------------------------------
+# Flow-process configuration.
+# ----------------------------------------------------------------------
+
+[flow]
+# Three homogeneous parameters: hydraulic conductivity (K), specific
+# yield (Sy), specific storage (Ss). Run TOMLs override their values.
+# Type: list[str] | REQUIRED | Examples: ["K", "Sy", "Ss"]
+param_list = ["K", "Sy", "Ss"]
+
+# Diffuse recharge applied at the top of the aquifer; ETP applied as an
+# EVT package (legacy behaviour). Drop "etp" here to disable EVT.
+# Allowed values: 'recharge', 'wells'.
+# Type: list[Annotated] | REQUIRED | Examples: ["recharge"], ["recharge", "wells"]
+active_sinks_sources = ["recharge", "etp"]
+
+# `drainage` lets water leave the aquifer when the watertable reaches
+# the surface (Cauchy boundary on the top face).
+# Allowed values: 'ocean', 'stream', 'north_side', 'south_side',
+# 'east_side', 'west_side', 'drainage'.
+# Type: list[Annotated] | REQUIRED
+active_bc = ["drainage"]
+
+# Time-marching regime. `transient` is required for the monthly window.
+# Type: Literal['steady', 'transient'] | Default: "transient"
+flow_regime = "transient"
+
+
+[flow.ic]
+# Initial watertable at the topographic surface. `top` is the safe
+# transient warm-up start.
+type = "top"
+description = "Watertable initialised at the topographic surface."
+
+
+# Hydraulic conductivity. Homogeneous = one scalar applied everywhere.
+
+[flow.param.K.field]
+id = "K"
+# Type: Literal['homogeneous'] | Default: "homogeneous"
+kind = "homogeneous"
+# Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+
+# Cauchy drainage on the aquifer top face (DRN package in MODFLOW).
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+# Type: Literal['dirichlet', 'cauchy', 'robin'] | Default: "dirichlet"
+kind = "cauchy"
+# Supported values: top, north side, south side, east side, west side.
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = 0.0
+
+
+# Diffuse recharge payload. Actual values come from [data.recharge];
+# this block only declares the slot in the flow registry.
+
+[flow.sinks_sources.recharge]
+# Recharge payload: scalar, list (one per stress period), mapping
+# {kper: value}, or runtime series.
+# Type: Any | Default: 0.0
+values = 0.0
+
+
+# ----------------------------------------------------------------------
+# Simulation - orchestration.
+# ----------------------------------------------------------------------
+
+[simulation]
+# Default name for runs that inherit from this base TOML without
+# overriding it. Run TOMLs always set their own name.
+name = "nancon_base"
+description = "Nancon watershed - shared base config for runs."
+# `replace` overwrites a run with the same name in the catalog.
+# Type: Literal['replace', 'fail', 'version'] | Default: "replace"
+on_collision = "replace"
+scientific_objective = "groundwater_flow"
+study_area_name = "Nancon (Brittany, France)"
+outlet_x = 389285.91
+outlet_y = 6816518.749
+
+
+[simulation.time]
+# Simulation window. Run TOMLs may shorten it.
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+# Stress period length. "1 month" matches the recharge sampling.
+# Type: UnionType[int, float, str] | Default: "1 month"
+step_value = "1 month"
+
+
+# One process: groundwater flow, solved by MODFLOW-NWT.
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+
+# ----------------------------------------------------------------------
+# Display - figures auto-rendered at the end of each run.
+# ----------------------------------------------------------------------
+
+[display]
+# Master switch. `false` would disable every figure.
+# Type: bool | Default: true
+enabled = true
+# Named theme applied before rendering any figure.
+# Type: Literal['default', 'print', 'dark'] | Default: "default"
+preset = "default"
+# `show = false` to keep `hmp run` non-interactive (no popup window).
+show = false
+# Save to disk under <project_root>/<output_dir>/<run_name>/.
+save = true
+output_dir = "figures"
+cmap = "viridis"
+
+# Figures rendered automatically. Comment any out to skip rendering.
+# Disable globally with `hmp run --no-display` or
+# `Project(..., no_display=True)`.
+# Type: list[str] | REQUIRED
+figures = [
+    "watershed_id_card",
+    "piezometric_map",
+    "water_budget",
+    "hydrograph",
+    "recharge_map",
+    "seepage_map",
+]

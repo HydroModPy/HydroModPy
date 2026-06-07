@@ -1,0 +1,22 @@
+# Contract stub for one B0 candidate transient run.
+
+[b0]
+role = "candidate_transient_discharge"
+site_id = "site_05"
+solver = "modflow6"
+regime = "transient"
+output_root = "../outputs/candidates/{trial_id}/transient_discharge"
+
+[candidate.parameters]
+mK = "{mK}"
+Sy = "{Sy}"
+
+[candidate.time]
+frequency = "MS"
+periods = 48
+warmup_periods = 12
+scored_periods = 36
+
+[candidate.outputs]
+q_total_release = true
+

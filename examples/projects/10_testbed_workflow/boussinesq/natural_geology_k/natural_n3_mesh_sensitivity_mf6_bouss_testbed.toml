@@ -1,0 +1,259 @@
+# Workflow selector: this file orchestrates a catalog-driven testbed.
+[workflow]
+mode = "testbed"
+
+# Main testbed declaration. It expands N3 regional-lab anchor sites into mesh variants.
+[testbed]
+# Stable id used for output folders, manifests and HTML synthesis pages.
+id = "natural_n3_mesh_sensitivity_mf6_bouss_catalog"
+# Scientific subject delegated to the child runner.
+subject = "flow"
+# Free-text campaign purpose reported in manifests and pages.
+purpose = "boussinesq_modflow6_natural_n3_mesh_sensitivity"
+# Base comparison TOML reused for every selected site and mesh variant.
+base_config = "compare_natural_n3_mesh_sensitivity_mf6_bouss_base.toml"
+# Root directory for generated child configs, manifests, comparison outputs and HTML synthesis.
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed"
+# False generates the comparison TOMLs and plan only; true delegates execution to the comparison runner.
+execute = false
+# Keep processing later variants when one variant fails.
+continue_on_error = true
+
+# Child workflow runner used by this testbed.
+[testbed.runner]
+# Runner type: each variant is a full solver comparison.
+type = "comparison"
+# Do not open interactive display windows from delegated child workflows.
+no_display = true
+
+# Regional-lab site catalog used to generate variants.
+[testbed.catalog]
+# CSV file containing one row per candidate watershed outlet/site.
+path = "natural_regional_lab_sites.csv"
+# Catalog file format.
+format = "csv"
+# Column used as unique variant id.
+id_field = "site_id"
+# Column used as human-readable site label.
+label_field = "site_label"
+# Column used as grouping axis in summaries.
+axis_field = "cluster_scale"
+# Column containing semicolon-separated tags.
+tags_field = "tags"
+# Column controlling whether a row is selected.
+enabled_field = "enabled"
+# Columns required at catalog level before any variant rule is applied.
+required_fields = [
+  "site_id",
+  "site_label",
+  "cluster_scale",
+  "x_outlet",
+  "y_outlet",
+  "target_area_km2",
+]
+# Keep only anchor rows selected for N3 mesh/discretization checks.
+tags = ["n3_anchor", "comparison"]
+
+# N3 10 km2 coarse mesh variant.
+[[testbed.case_from_catalog]]
+id_template = "{site_id}_mesh_coarse"
+label_template = "{site_label} / 10 km2 coarse mesh"
+axis_template = "10km2_coarse"
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+field_equals = { cluster_scale = "10km2" }
+tags = ["n3_anchor"]
+
+[testbed.case_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_natural_n3_10km2_mesh_coarse_mf6_bouss"
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed/comparisons/{site_id}_natural_n3_10km2_mesh_coarse_mf6_bouss"
+
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
+resolution = 120.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_natural_n3_10km2_mesh_coarse_shared_case"
+description = "Regional-lab N3 natural 10 km2 coarse-mesh MF6/Boussinesq comparison case."
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+snap_dist = "150.0 m"
+buff_area = "900.0 m"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+threshold_area_km2 = 0.2
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+global_size = 180.0
+min_size = 60.0
+interface_size = 95.0
+
+# N3 10 km2 reference mesh variant.
+[[testbed.case_from_catalog]]
+id_template = "{site_id}_mesh_reference"
+label_template = "{site_label} / 10 km2 reference mesh"
+axis_template = "10km2_reference"
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+field_equals = { cluster_scale = "10km2" }
+tags = ["n3_anchor"]
+
+[testbed.case_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_natural_n3_10km2_mesh_reference_mf6_bouss"
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed/comparisons/{site_id}_natural_n3_10km2_mesh_reference_mf6_bouss"
+
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
+resolution = 80.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_natural_n3_10km2_mesh_reference_shared_case"
+description = "Regional-lab N3 natural 10 km2 reference-mesh MF6/Boussinesq comparison case."
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+snap_dist = "150.0 m"
+buff_area = "900.0 m"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+threshold_area_km2 = 0.2
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+global_size = 130.0
+min_size = 45.0
+interface_size = 70.0
+
+# N3 10 km2 refined mesh variant.
+[[testbed.case_from_catalog]]
+id_template = "{site_id}_mesh_refined"
+label_template = "{site_label} / 10 km2 refined mesh"
+axis_template = "10km2_refined"
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+field_equals = { cluster_scale = "10km2" }
+tags = ["n3_anchor"]
+
+[testbed.case_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_natural_n3_10km2_mesh_refined_mf6_bouss"
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed/comparisons/{site_id}_natural_n3_10km2_mesh_refined_mf6_bouss"
+
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
+resolution = 60.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_natural_n3_10km2_mesh_refined_shared_case"
+description = "Regional-lab N3 natural 10 km2 refined-mesh MF6/Boussinesq comparison case."
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+snap_dist = "150.0 m"
+buff_area = "900.0 m"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+threshold_area_km2 = 0.2
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+global_size = 95.0
+min_size = 35.0
+interface_size = 50.0
+
+# N3 100 km2 coarse mesh variant.
+[[testbed.case_from_catalog]]
+id_template = "{site_id}_mesh_coarse"
+label_template = "{site_label} / 100 km2 coarse mesh"
+axis_template = "100km2_coarse"
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+field_equals = { cluster_scale = "100km2" }
+tags = ["n3_anchor"]
+
+[testbed.case_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_natural_n3_100km2_mesh_coarse_mf6_bouss"
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed/comparisons/{site_id}_natural_n3_100km2_mesh_coarse_mf6_bouss"
+
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
+resolution = 220.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_natural_n3_100km2_mesh_coarse_shared_case"
+description = "Regional-lab N3 natural 100 km2 coarse-mesh MF6/Boussinesq comparison case."
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+snap_dist = "300.0 m"
+buff_area = "1800.0 m"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+threshold_area_km2 = 1.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+global_size = 360.0
+min_size = 120.0
+interface_size = 190.0
+
+# N3 100 km2 reference mesh variant.
+[[testbed.case_from_catalog]]
+id_template = "{site_id}_mesh_reference"
+label_template = "{site_label} / 100 km2 reference mesh"
+axis_template = "100km2_reference"
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+field_equals = { cluster_scale = "100km2" }
+tags = ["n3_anchor"]
+
+[testbed.case_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_natural_n3_100km2_mesh_reference_mf6_bouss"
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed/comparisons/{site_id}_natural_n3_100km2_mesh_reference_mf6_bouss"
+
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
+resolution = 160.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_natural_n3_100km2_mesh_reference_shared_case"
+description = "Regional-lab N3 natural 100 km2 reference-mesh MF6/Boussinesq comparison case."
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+snap_dist = "300.0 m"
+buff_area = "1800.0 m"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+threshold_area_km2 = 1.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+global_size = 260.0
+min_size = 90.0
+interface_size = 140.0
+
+# N3 100 km2 refined mesh variant.
+[[testbed.case_from_catalog]]
+id_template = "{site_id}_mesh_refined"
+label_template = "{site_label} / 100 km2 refined mesh"
+axis_template = "100km2_refined"
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+field_equals = { cluster_scale = "100km2" }
+tags = ["n3_anchor"]
+
+[testbed.case_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_natural_n3_100km2_mesh_refined_mf6_bouss"
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed/comparisons/{site_id}_natural_n3_100km2_mesh_refined_mf6_bouss"
+
+[testbed.case_from_catalog.overlay.comparison.fine_raster]
+resolution = 120.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_natural_n3_100km2_mesh_refined_shared_case"
+description = "Regional-lab N3 natural 100 km2 refined-mesh MF6/Boussinesq comparison case."
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+snap_dist = "300.0 m"
+buff_area = "1800.0 m"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+threshold_area_km2 = 1.0
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+global_size = 190.0
+min_size = 70.0
+interface_size = 100.0

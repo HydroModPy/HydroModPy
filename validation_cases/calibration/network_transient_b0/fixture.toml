@@ -1,0 +1,45 @@
+# Validation fixture: B0 transient network calibration paths.
+#
+# Promoted from the hardcoded constants in
+# hydromodpy/calibration/reporting/network_transient_html.py. This versioned
+# fixture is the source of truth for the default paths used by
+# build_network_transient_html when run without --root override. The HTML
+# builder consumes this file via
+# hydromodpy.calibration.reporting.network_transient.fixtures.load_b0_fixture
+# at module import time.
+
+schema = "hydromodpy.validation.calibration.network_transient_b0.v1"
+case_id = "12_calibration_network_transient_b0"
+
+[paths]
+# Example project root (relative to repo root).
+example_root = "examples/projects/12_calibration_network_transient_b0"
+# Transient TOML used by the steady -> transient calibration workflow.
+source_transient_config = "examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/base_site_01_mf6_bouss_transient.toml"
+# Real-runs subdirectory inside example_root.
+real_runs_subdir = "outputs/real_runs"
+# Web HTML subdirectory inside real_runs.
+web_subdir = "web"
+# Reference run name inside real_runs.
+reference_run_name = "candidate_mK_0p65_Sy_0p05_steady_mf6"
+# Steady summary CSV name inside real_runs.
+steady_summary_csv = "steady_mK_network_extent_summary.csv"
+
+[report]
+page_title = "B0 - calibration MF6 reseau permanent + debit transitoire"
+
+[truth_packages]
+# Candidate truth-package directories under real_runs (first existing wins).
+candidates = [
+    "site_01_truth_package_mK_0p65",
+    "site_01_truth_package",
+]
+
+[score_tables]
+# Candidate score-table CSV files under real_runs (first existing wins).
+candidates = [
+    "site_01_parameter_grid_scores_mK_0p65.csv",
+    "site_01_candidate_scores_mK_0p65.csv",
+    "site_01_candidate_scores.csv",
+    "site_01_parameter_grid_light_scores_mK_0p65.csv",
+]

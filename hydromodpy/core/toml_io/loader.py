@@ -1,0 +1,192 @@
+"""TOML loading helpers with optional hierarchical ``base_config`` support."""
+
+from __future__ import annotations
+
+import re
+import tomllib
+from collections.abc import Callable, Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypeVar
+
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.merge import merge_toml_payloads
+from hydromodpy.core.toml_io.paths import is_declared_absolute_path
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
+    M = TypeVar("M", bound=BaseModel)
+else:
+    M = TypeVar("M")
+
+_BASIC_STRING_ASSIGNMENT_RE = re.compile(
+    r'^(?P<prefix>\s*[^#=\n]+?=\s*)"(?P<value>[^"\n]*)"(?P<suffix>\s*(?:#.*)?)$'
+)
+_LOG = get_logger(__name__)
+
+
+def _read_toml(path: Path) -> dict[str, Any]:
+    """Read one TOML file and return its raw mapping."""
+    raw_text = path.read_text(encoding="utf-8-sig")
+    try:
+        return tomllib.loads(raw_text)
+    except tomllib.TOMLDecodeError:
+        repaired_text = _repair_path_like_basic_strings(raw_text)
+        if repaired_text == raw_text:
+            raise
+        _LOG.warning(
+            "Retried TOML parse after escaping path-like backslashes in %s",
+            path,
+        )
+        return tomllib.loads(repaired_text)
+
+
+def _looks_like_path_key(key: str) -> bool:
+    token = str(key).strip().strip("'\"").split(".")[-1].lower()
+    if token == "base_config":
+        return True
+    return any(hint in token for hint in ("path", "root", "dir", "folder", "file", "mask"))
+
+
+def _repair_path_like_basic_strings(text: str) -> str:
+    repaired_lines: list[str] = []
+    for line in text.splitlines(keepends=True):
+        newline = ""
+        if line.endswith("\r\n"):
+            line_body = line[:-2]
+            newline = "\r\n"
+        elif line.endswith("\n"):
+            line_body = line[:-1]
+            newline = "\n"
+        else:
+            line_body = line
+        match = _BASIC_STRING_ASSIGNMENT_RE.match(line_body)
+        if match is None:
+            repaired_lines.append(line)
+            continue
+        prefix = match.group("prefix")
+        key = prefix.split("=", 1)[0].strip()
+        value = match.group("value")
+        if ("\\" not in value) or (not _looks_like_path_key(key)):
+            repaired_lines.append(line)
+            continue
+        repaired_value = value.replace("\\", "\\\\")
+        repaired_lines.append(f'{prefix}"{repaired_value}"{match.group("suffix")}{newline}')
+    return "".join(repaired_lines)
+
+
+def _strip_empty_strings(data: dict[str, Any], *, _path: str = "") -> dict[str, Any]:
+    """Recursively remove keys whose value is the empty string ``""``.
+
+    Empty strings cannot represent ``None`` in TOML (no native null), so the
+    auto-generated templates emit ``key = ""`` as a placeholder for optional
+    fields.  Stripping them before Pydantic validation lets the model fall
+    back to ``default=None``, which is the intended semantics.
+
+    Caveat
+    ------
+    A field where ``""`` is a meaningful value (e.g. a string with
+    ``min_length=0`` semantics) cannot be expressed in TOML under this
+    loader. Use a sentinel like ``"<empty>"`` or omit the key entirely.
+
+    Only plain ``""`` values on leaf keys are affected -- non-empty strings,
+    nested dicts, and lists are traversed but never removed. Each strip is
+    logged at debug level so unexpected drops can be diagnosed.
+    """
+    cleaned: dict[str, Any] = {}
+    for key, value in data.items():
+        sub_path = f"{_path}.{key}" if _path else str(key)
+        if isinstance(value, dict):
+            cleaned[key] = _strip_empty_strings(value, _path=sub_path)
+        elif isinstance(value, list):
+            cleaned[key] = [
+                _strip_empty_strings(item, _path=f"{sub_path}[{idx}]")
+                if isinstance(item, dict)
+                else item
+                for idx, item in enumerate(value)
+            ]
+        elif value == "":
+            _LOG.debug("Stripped empty-string placeholder at %s", sub_path)
+            continue
+        else:
+            cleaned[key] = value
+    return cleaned
+
+
+def load_toml_with_base_config(
+    toml_path: str | Path,
+    *,
+    _stack: tuple[Path, ...] = (),
+) -> dict[str, Any]:
+    """Load one TOML file with recursive ``base_config`` inheritance."""
+    resolved = Path(toml_path).resolve()
+    if resolved in _stack:
+        cycle = " -> ".join(str(path) for path in (*_stack, resolved))
+        raise ValueError(f"Detected circular base_config chain: {cycle}")
+
+    raw = _read_toml(resolved)
+    base_config_name = raw.get("base_config")
+    current = dict(raw)
+    current.pop("base_config", None)
+
+    if base_config_name in (None, ""):
+        return _strip_empty_strings(current)
+    if not isinstance(base_config_name, str):
+        raise TypeError("base_config must be a TOML string path when provided")
+
+    base_path = Path(base_config_name).expanduser()
+    if not is_declared_absolute_path(base_path):
+        base_path = (resolved.parent / base_path).resolve()
+
+    base_payload = load_toml_with_base_config(base_path, _stack=(*_stack, resolved))
+    return _strip_empty_strings(merge_toml_payloads(base_payload, current))
+
+
+def validate_toml(
+    model_cls: type[M],
+    path: Path | str,
+    *,
+    section: str | None = None,
+    context: dict[str, Any] | None = None,
+    base_dir_resolver: Callable[[M, Path], M | None] | None = None,
+) -> M:
+    """Load *path* through ``load_toml_with_base_config`` then validate against *model_cls*.
+
+    Single entry point that replaces ad-hoc ``tomllib.load + model_validate``
+    duplications scattered across sub-config modules.
+
+    Parameters
+    ----------
+    model_cls
+        Pydantic ``BaseModel`` subclass to validate the payload through.
+    path
+        Path to the input TOML file. Expanded and resolved.
+    section
+        Optional dotted section path (e.g. ``"data.precipitation"``) to
+        extract from the raw payload before validation. When the section is
+        missing, an empty mapping is used so subclasses can still validate
+        with their declared defaults.
+    context
+        Optional context dict forwarded to :meth:`model_validate`.
+    base_dir_resolver
+        Optional callback invoked with ``(instance, toml_dir)`` after
+        validation. Returning a new instance overrides the default; returning
+        ``None`` keeps the original. Used by callers that resolve relative
+        paths post-validation.
+    """
+    resolved = Path(path).expanduser().resolve()
+    payload: Any = load_toml_with_base_config(resolved)
+    if section is not None:
+        for key in section.split("."):
+            if not isinstance(payload, Mapping) or key not in payload:
+                payload = {}
+                break
+            payload = payload[key]
+        if not isinstance(payload, Mapping):
+            payload = {}
+    cfg = model_cls.model_validate(payload, context=context)
+    if base_dir_resolver is not None:
+        replaced = base_dir_resolver(cfg, resolved.parent)
+        if replaced is not None:
+            cfg = replaced
+    return cfg

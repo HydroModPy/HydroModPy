@@ -1,0 +1,111 @@
+
+[workflow]
+mode = "comparison"
+
+[comparison]
+comparison_id = "vire_natural_mf6_vs_nwt"
+base_simulation_config = "base_vire_natural_structured_steady.toml"
+output_root = "outputs/vire_natural_mf6_vs_nwt"
+reference_simulation = "mf6_ref"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 500.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 natural reference"
+solver = "modflow6"
+mesh_label = "vire_structured_40x40"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf6_enable_rewet = false
+
+[comparison.simulation.overlay.modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 40
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[[comparison.simulation]]
+id = "nwt_candidate"
+label = "MODFLOW-NWT natural candidate"
+solver = "modflow_nwt"
+mesh_label = "vire_structured_40x40"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.modflownwt.runtime]
+
+[comparison.simulation.overlay.modflownwt.runtime.nwt]
+version = "mfnwt"
+headtol = 1e-6
+fluxtol = 1e-4
+maxiterout = 500
+options = "SIMPLE"
+continue_run = false
+
+[comparison.simulation.overlay.modflownwt.runtime.dis]
+itmuni = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[comparison.simulation.overlay.modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.oc]
+compact = true
+
+[comparison.simulation.overlay.modflownwt.runtime.wel]
+ipakcb = 1
+[comparison.simulation.overlay.modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 40
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflownwt.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflownwt.tgrid]
+itmuni = "days"
+genmtd = "synthetic_regular"
+nper = 1
+lenper = 1.0
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"

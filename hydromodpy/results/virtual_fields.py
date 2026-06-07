@@ -1,0 +1,153 @@
+"""On-the-fly derived fields computed from stored primary variables.
+
+The store only persists primary variables (head, budget spatial fields,
+topography). Derived quantities like watertable_elevation and seepage_mask
+are computed transparently by ``query_field()`` when not found in Zarr.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import numpy as np
+
+from hydromodpy.core.field_routing import (
+    drain_budget_to_positive_outflow,
+    find_drain_budget_key,
+)
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def _get_topography(store: Any, sim_id: str) -> np.ndarray:
+    """Read per-cell surface elevation from mesh group."""
+    sz = store.open_zarr(sim_id)
+    try:
+        mesh = sz.root["mesh"]
+        if "topography" in mesh:
+            return np.asarray(mesh["topography"][:], dtype="float64")
+        if "z_interfaces" in mesh:
+            z = mesh["z_interfaces"][:]
+            n_cells = int(mesh.attrs.get("n_cells", 1))
+            return np.full(n_cells, float(z[0]), dtype="float64")
+        raise KeyError(f"No surface elevation data for sim={sim_id}")
+    finally:
+        sz.close()
+
+
+def _watertable_elevation(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """Water-table elevation: head at the uppermost saturated layer."""
+    head = store.query_field(sim_id, "head", timestep)
+    if head.ndim == 1:
+        return head.copy()
+    n_layers, n_cells = head.shape
+    wt = np.full(n_cells, np.nan, dtype="float64")
+    for lay in range(n_layers):
+        mask = np.isfinite(head[lay]) & np.isnan(wt)
+        wt[mask] = head[lay, mask]
+    return wt
+
+
+def _watertable_depth(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """Depth to water table: topography - watertable_elevation, clipped >= 0."""
+    wt = store.query_field(sim_id, "watertable_elevation", timestep)
+    top = _get_topography(store, sim_id)
+    return np.maximum(top - wt, 0.0)
+
+
+def _seepage_mask(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """Binary seepage indicator.
+
+    Method dispatched on what the producing solver wrote to the store:
+
+    * Boussinesq runs store ``budget/surface_excess`` and we read it
+      directly. Constrained formulations can clamp the head at the surface
+      obstacle over broad areas while actual seepage flows through that
+      surface-excess flux, so the geometric criterion would over-report
+      seepage for those runs.
+    * MODFLOW 6 / MODFLOW-NWT runs do not write a surface-excess field;
+      seepage is then derived from the geometric criterion
+      ``head >= topography``.
+    """
+    top = _get_topography(store, sim_id)
+    excess = _surface_excess_mask(store, sim_id, timestep, top.size)
+    if excess is not None:
+        return excess.astype("float64")
+    wt = store.query_field(sim_id, "watertable_elevation", timestep)
+    mask = wt >= top
+    return mask.astype("float64")
+
+
+def _surface_excess_mask(
+    store: Any,
+    sim_id: str,
+    timestep: int,
+    n_cells: int,
+) -> np.ndarray | None:
+    """Return solver-declared seepage from ``budget/surface_excess``.
+
+    Returns ``None`` for solvers that do not write that field (MODFLOW 6,
+    MODFLOW-NWT); the caller is responsible for the geometric fallback.
+    """
+    sz = store.open_zarr(sim_id)
+    try:
+        budget = sz.root.get("budget")
+        if budget is None or "surface_excess" not in budget:
+            return None
+        values = np.asarray(budget["surface_excess"][timestep], dtype="float64")
+        return values.reshape(-1)[:n_cells] > 0.0
+    finally:
+        sz.close()
+
+
+def _drn_budget_field(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """Read raw DRN budget spatial field, raise KeyError if absent."""
+    sz = store.open_zarr(sim_id)
+    try:
+        budget = sz.root.get("budget")
+        if budget is None:
+            raise KeyError("No budget spatial fields stored - enable budget.spatial_fields")
+        key = find_drain_budget_key(budget)
+        if key is not None:
+            return np.asarray(budget[key][timestep], dtype="float64")
+        raise KeyError("No drain budget field (DRN/DRAINS) in store")
+    finally:
+        sz.close()
+
+
+def _outflow_drain(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """Positive per-cell drain outflow summed over layers."""
+    drn = _drn_budget_field(store, sim_id, timestep)
+    n_cells = None
+    try:
+        head = store.query_field(sim_id, "head", timestep)
+    except Exception:
+        head = None
+    if head is not None:
+        n_cells = int(np.asarray(head).shape[-1])
+    return drain_budget_to_positive_outflow(drn, n_cells=n_cells)
+
+
+# Registry: variable name -> computation function(store, sim_id, timestep)
+# Only cheap derivations belong here.  accumulation_flux requires whitebox D8
+# routing and must be pre-computed in the derive phase (see derived.py).
+VIRTUAL_FIELDS: dict[str, Any] = {
+    "watertable_elevation": _watertable_elevation,
+    "watertable_depth": _watertable_depth,
+    "seepage_mask": _seepage_mask,
+    "outflow_drain": _outflow_drain,
+}
+
+
+def compute_virtual_field(
+    store: Any,
+    sim_id: str,
+    variable: str,
+    timestep: int,
+) -> np.ndarray | None:
+    """Compute a virtual field on-the-fly, or return None if unknown."""
+    fn = VIRTUAL_FIELDS.get(variable)
+    if fn is None:
+        return None
+    return fn(store, sim_id, timestep)

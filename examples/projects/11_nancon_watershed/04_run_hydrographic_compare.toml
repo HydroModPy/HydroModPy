@@ -1,0 +1,59 @@
+# ======================================================================
+# Nancon - 04 - Hydrographic network comparison demo
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "simulation"
+# Solver:         none (figure-only; the simulation step is short on
+#                 purpose because we only care about the geographic
+#                 stage outputs).
+#
+# What this TOML demonstrates:
+#   * loading a reference stream network from [data.hydrography]
+#   * generating a DEM-derived network from [geographic.river_network]
+#   * rendering the canonical `hydrographic_network_comparison` figure
+#   * exposing the reference / generated networks in the run catalog
+#     so they can be inspected later from Python:
+#         run.hydrographic_network_comparison_metrics()
+#         run.hydrographic_network_naming("reference" | "generated")
+#         run.available_hydrographic_network_roles()
+#         run.has_hydrographic_network("reference" | "generated")
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/04_run_hydrographic_compare.toml
+#
+# Re-render the comparison figure later from the catalog:
+#   hmp display 04_run_hydrographic_compare.toml --only hydrographic_network_comparison
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "nancon_hydrographic_compare"
+description = "Nancon - reference vs DEM-generated stream network."
+
+
+# Enable DEM-based river-network extraction during geographic prep.
+[geographic.river_network]
+enabled = true
+# 'area_km2' uses contributing area; 'cells' uses cell count.
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+
+
+# Override the auto-rendered figure list. The base TOML asks for
+# watertable / hydrograph figures we do not care about here.
+[display]
+figures = [
+    "hydrographic_network_reference",
+    "hydrographic_network_generated",
+    "hydrographic_network_comparison",
+    "hydrographic_network_reference_missing_only",
+    "hydrographic_network_generated_extra_only",
+]

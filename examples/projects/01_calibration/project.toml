@@ -1,0 +1,164 @@
+# ======================================================================
+# HydroModPy - example 01 : calibration (twin-synthetic Dupuit)
+# ======================================================================
+# Same synthetic Dupuit aquifer as 00_getting_started + an Optuna
+# calibration loop that recovers the hydraulic conductivity K.
+#
+# Twin-synthetic pattern: the "observation" is the analytical Dupuit
+# head h(L/2) computed for the truth K = 1e-4 m/s. Optuna searches K
+# in [1e-6, 1e-3] m/s and minimises RMSE between the simulated head
+# at the midpoint cell and that single hard-coded target. No external
+# data, no piezometry source needed.
+#
+# Analytical truth (steady, symmetric Dirichlet h_b = 5 m, uniform
+# recharge R, length L, conductivity K):
+#     h(x)^2 = h_b^2 + R * x * (L - x) / K
+#     h(L/2) = sqrt( 25 + R * L^2 / (4 K) )
+# With R = 3 mm/day = 3.47e-8 m/s, L = 400 m, K_true = 1e-4 m/s:
+#     h(L/2) ~= 6.235 m
+#
+# Run:
+#   hmp run examples/projects/01_calibration/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "calibration_dupuit"
+description = "Calibration Optuna de K sur aquifère Dupuit synthétique."
+
+[[simulation.process]]
+id = "flow"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+# --- Domaine géographique (synthétique, hors-ligne) ------------------
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "calibration_dupuit"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+
+# --- Géométrie verticale --------------------------------------------
+
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "20.0 m"
+
+# --- Processus d'écoulement -----------------------------------------
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["west_side", "east_side"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-4 m/s"
+
+[flow.ic]
+type = "custom"
+value = "5.0 m"
+
+[flow.bc.dirichlet.west_side]
+kind = "dirichlet"
+value = "5.0 m"
+
+[flow.bc.dirichlet.east_side]
+kind = "dirichlet"
+value = "5.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+# --- Données (recharge synthétique, hors-ligne) ---------------------
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [3.0]
+runoff_ratio = 0.0
+
+# --- Solveur (MODFLOW-NWT) ------------------------------------------
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+# --- Affichage (headless par défaut) --------------------------------
+
+[display]
+enabled = false
+
+# --- Calibration ----------------------------------------------------
+# `[workflow].mode = "calibration"` plus the [calibration] block below trigger
+# the ask/tell loop. The [simulation] section above is the plan replayed
+# by the evaluator at each iteration.
+#
+# Twin-synthetic wiring:
+#   [calibration.parameters.K_aquifer]   parameter searched by Optuna
+#   [calibration.outputs.head]           simulated observable at (x, y)
+#   observed_values                      hard-coded analytical target
+#
+# When `objective_blocks` is omitted, an implicit block is built from
+# (objective, variable): the output whose dict key matches `variable`
+# is paired with the `objective` metric.
+
+[calibration]
+method = "optuna"
+max_iter = 20
+save_runs = "best_n"
+save_best_n = 3
+seed = 42
+# Single-point / single-time observation: NSE is undefined (zero
+# variance) so we use RMSE which is well defined for a 1-element
+# series and minimised at the truth.
+objective = "rmse"
+variable = "head"
+
+[calibration.parameters.K_aquifer]
+bounds = [1e-6, 1e-3]
+transform = "log"
+# Native flow parameters keep the TOML subsection path.
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# Observable at the centre cell (x = L/2, y = W/2). The dict key 'head'
+# matches `variable` above, so the implicit objective block is built
+# automatically.
+[calibration.outputs.head]
+variable = "head"
+support = "point"
+x = "200 m"
+y = "25 m"
+time = "last"
+# Analytical Dupuit head for K_true = 1e-4 m/s (see header).
+observed_values = [6.235]

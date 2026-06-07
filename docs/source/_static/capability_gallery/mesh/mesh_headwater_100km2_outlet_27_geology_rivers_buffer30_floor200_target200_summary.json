@@ -1,0 +1,288 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200",
+  "title": "100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m",
+  "category": "mesh",
+  "deck": "Controlled outlet-27 comparison where the river refinement still targets 200 m and the global mesh floor is also lowered to 200 m, so the local river field can actually be expressed.",
+  "summary": "This case is the paired run used to explain the visible river-refinement difference on outlet 27. It keeps the same outlet, the same river input, the same geology interfaces, and the same river refinement target as the 340 m-floor case. The only intended change is that `min_size` is lowered here to 200 m, matching the requested river target, so the gallery can show the refinement that was previously clipped by the global floor.",
+  "case_setup": [
+    "Scale target: 100 km2.",
+    "Outlet identifier: 27.",
+    "Constraints mode: geology_rivers.",
+    "Same input linework as the paired comparison case: 48 river lines, 95 active geology-interface lines.",
+    "River refinement request kept at `interface_size = 200 m` over `interface_distance = 610 m`.",
+    "Global floor lowered to `min_size = 200 m`, matching the requested river target."
+  ],
+  "key_parameters": [
+    "The comparison is controlled: the river target stays at `200 m` in both cases, and the river linework count stays at `48` input lines and `473` embedded river curves.",
+    "Here the global floor is also `200 m`, so the river family field can reach the size it requests near the constrained river curves.",
+    "The resulting bundle is denser than the 340 m-floor run because more of the local river corridor is actually resolved."
+  ],
+  "how_to_read": [
+    "Compare this page directly against the paired `floor 340 m, target 200 m` case; nearly all visible differences should be read as consequences of the lower global floor.",
+    "The important reading is qualitative first: small branches should look more clearly supported by nearby mesh edges once the floor matches the river target.",
+    "Then read the metrics: this run reaches more nodes and cells because the requested river refinement is no longer clipped."
+  ],
+  "next_steps": [
+    "Open :doc:`the paired 340 m-floor case </capability_gallery/cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200>` to see the same outlet with the river target still requested but partially blocked by the global floor."
+  ],
+  "what_it_shows": [
+    "How outlet 27 looks once the global floor no longer blocks the requested `200 m` river refinement.",
+    "That the river geometry is unchanged relative to the 340 m-floor case, so the visible difference comes from mesh sizing only.",
+    "How many extra cells appear when the local river corridor is allowed to reach the requested 200 m size."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/case.json",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/README.md",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/mesh_2d.msh",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/nodes.csv",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/cells.csv",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/edges.csv",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/cell_geology_fractions.csv",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/metadata.json",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/mesh_summary.json",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/README.md",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/figures/mesh_overview.png",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/figures/mesh_regional.png"
+  ],
+  "source_hashes": {
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml": "2fcd6335c8b4c8ea80319de62d4814d9af1a32f9f387f16ab36f1fc8a25b59a4",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/case.json": "d5f897e0a667962fc3ecedd2410bbd0bb53fd9b6990744f0d6fb6c57e245d6af",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/README.md": "13400a2d3c9f7b02887fb0c50aacd8976be9b80f8e1966d273bb1ee2707db899",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/mesh_2d.msh": "917de745a6acfd4bc66587533882d15acb2415f93aa6965c1b7e4062f31ba3bc",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/nodes.csv": "77645bdb934c7e50c0fa19f2cdcfdb81b88424a9a193eefb598b4e23e3ef2f05",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/cells.csv": "824eafeb3e535cbe0dc624d1b889bc6b1e65b68412a086a1c675d4da694f5ba8",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/edges.csv": "d2bd000889603777b2bde7502581e4f854f692d66ffe6c789be770a0a307c79e",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/cell_geology_fractions.csv": "19eafeebf279f745b1acb51c8b258d78169484f0f777d6964527b82a45133231",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/metadata.json": "8f2dc6ddfe715c57a8a338d67a4ac6da8b3c45dc779591cc48b0ae55591e4b6d",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/mesh_summary.json": "2884f8c6e44e2172d9db6265d5164f4ecb15ff1f038269078fa03ab95b2558e8",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/README.md": "577c848d6caac38893f32a38ed94b76c474cfe403753e8c03e08cd06efb22fb0",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/figures/mesh_overview.png": "70b8f086ec8b79b78e7bb29c208825b0c93f0bd3a1fe488863a3323f01d50aaf",
+    "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/figures/mesh_regional.png": "94cb841284490b56bdb5a27dbe3e3f55484b70013fbebd53990bc14a5d1cbbd1"
+  },
+  "docname": "cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200",
+  "images": [
+    {
+      "filename": "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png",
+      "caption": "Original mesh figure copied from the imported meshing run and reused directly in the documentation.",
+      "alt_text": "100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m overview",
+      "doc_path": "/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png",
+      "repo_path": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png"
+    },
+    {
+      "filename": "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png",
+      "caption": "Regional framing figure copied from the imported meshing run.",
+      "alt_text": "100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m regional context",
+      "doc_path": "/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png",
+      "repo_path": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Nodes",
+      "key": "node_count",
+      "value": 1802,
+      "display": "1802"
+    },
+    {
+      "label": "Cells",
+      "key": "cell_count",
+      "value": 3560,
+      "display": "3560"
+    },
+    {
+      "label": "River edges",
+      "key": "river_edge_count",
+      "value": 458,
+      "display": "458"
+    },
+    {
+      "label": "Geology interfaces",
+      "key": "geology_interface_edge_count",
+      "value": 321,
+      "display": "321"
+    }
+  ],
+  "metadata": {
+    "scale": "100km2",
+    "scale_label": "100 km2",
+    "variant": "geology_rivers_buffer30",
+    "variant_label": "Floor 200 m, target 200 m",
+    "outlet_id": "27",
+    "comparison_group": "headwater_100km2::outlet::27",
+    "comparison_group_title": "100 km2, headwater, outlet 27",
+    "config_path": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml",
+    "constraints_mode": "geology_rivers",
+    "case_family_key": "headwater_100km2",
+    "case_family_label": "100 km2, headwater",
+    "case_family_order": 2,
+    "viewer_summary": {
+      "summary_schema_version": "mesh_distribution_v1",
+      "bundle_dir": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle",
+      "mesh_file": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle/mesh_2d.msh",
+      "node_count": 1802,
+      "cell_count": 3560,
+      "edge_count": 5361,
+      "crs": "EPSG:2154",
+      "constraints_mode": "geology_rivers",
+      "geology_available": true,
+      "geology_keys": [
+        "1",
+        "1441",
+        "1561",
+        "1681",
+        "1721",
+        "1841",
+        "2041",
+        "21",
+        "2101",
+        "2121",
+        "2151",
+        "2191"
+      ],
+      "hydraulic_properties_available": true,
+      "hydraulic_conductivity_available": true,
+      "hydraulic_conductivity_cell_count": 3560,
+      "storage_coefficient_available": false,
+      "storage_coefficient_cell_count": 0,
+      "river_edge_count": 458,
+      "boundary_edge_count": 42,
+      "geology_interface_edge_count": 321,
+      "color_field": "geology_key",
+      "show_topography_panel": true,
+      "topography_field": "z_top_mean",
+      "topography_render_mode": "continuous_on_nodes"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json",
+    "image_repo_paths": [
+      "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png",
+      "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "scale_label",
+            "meaning": "Scale bucket used to group repeated mesh gallery cases.",
+            "value": "100 km2",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "outlet_id",
+            "meaning": "Outlet identifier used by the source batch meshing run.",
+            "value": "27",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "variant_label",
+            "meaning": "Gallery variant describing the active constraints and buffering policy.",
+            "value": "Floor 200 m, target 200 m",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "constraints_mode",
+            "meaning": "Constraint family carried by the imported bundle or viewer config.",
+            "value": "geology_rivers",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] color_field",
+            "meaning": "Cell attribute used to color the mesh in the overview figure.",
+            "value": "geology_key",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_topography_panel",
+            "meaning": "Whether a dedicated topography panel is shown alongside the mesh map.",
+            "value": "true",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] topography_field",
+            "meaning": "Node or cell field used to render the topography panel when it is enabled.",
+            "value": "z_top_mean",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_geology_interfaces",
+            "meaning": "Whether geology interfaces are explicitly highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_river_edges",
+            "meaning": "Whether river-constrained edges are highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/viewer_config.toml"
+          }
+        ]
+      },
+      {
+        "title": "Mesh Summary",
+        "rows": [
+          {
+            "field": "crs",
+            "meaning": "Coordinate reference system declared by the imported mesh bundle.",
+            "value": "EPSG:2154",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          },
+          {
+            "field": "node_count",
+            "meaning": "Number of nodes available in the displayed mesh bundle.",
+            "value": "1802",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          },
+          {
+            "field": "cell_count",
+            "meaning": "Number of cells available in the displayed mesh bundle.",
+            "value": "3560",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          },
+          {
+            "field": "edge_count",
+            "meaning": "Number of edges available in the displayed mesh bundle.",
+            "value": "5361",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          },
+          {
+            "field": "river_edge_count",
+            "meaning": "Count of edges tagged as river constraints in the bundle.",
+            "value": "458",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          },
+          {
+            "field": "boundary_edge_count",
+            "meaning": "Count of watershed-boundary edges in the bundle.",
+            "value": "42",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          },
+          {
+            "field": "geology_interface_edge_count",
+            "meaning": "Count of geology-interface edges present in the bundle.",
+            "value": "321",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          },
+          {
+            "field": "geology_keys",
+            "meaning": "Distinct geology codes present in the imported bundle.",
+            "value": "1, 1441, 1561, 1681, 1721, 1841, 2041, 21, 2101, 2121, 2151, 2191",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

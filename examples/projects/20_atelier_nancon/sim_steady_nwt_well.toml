@@ -1,0 +1,42 @@
+# ======================================================================
+# Nancon - run permanent NWT avec un puits de pompage
+# ----------------------------------------------------------------------
+# Variante autonome de sim_steady_nwt.toml qui ajoute un puits, sans
+# passer par le flag --overlay. La chaine d'heritage est :
+#
+#   sim_steady_nwt_well.toml
+#      -> sim_steady_nwt.toml   (regime permanent, solver NWT)
+#         -> project.toml       (geographie, donnees, defauts du flow)
+#
+# A chaque niveau l'enfant gagne sur le parent. Ici on garde tout
+# sim_steady_nwt.toml et on ajoute seulement le puits plus l'entree
+# "wells" dans active_sinks_sources.
+#
+# Equivalent a :
+#   hmp run sim_steady_nwt.toml --overlay overlay_well.toml
+#
+# Lancement :
+#   hmp run examples/projects/20_atelier_nancon/sim_steady_nwt_well.toml
+# ======================================================================
+
+base_config = "sim_steady_nwt.toml"
+
+
+[flow]
+# Redonner la liste ajoute "wells" a cote des sinks/sources herites.
+active_sinks_sources = ["recharge", "etp", "wells"]
+
+# Un puits de pompage. flux en m3/s, convention de signe MODFLOW :
+# negatif = pompage, positif = injection.
+[flow.sinks_sources.wells.W1]
+flux = -0.01
+units = "m3/s"
+description = "Puits de demonstration, pompage de 10 L/s."
+
+[flow.sinks_sources.wells.W1.location]
+# Coordonnees projetees (Lambert-93). Le point doit tomber dans la grille
+# active du bassin. Ici, proche de l'exutoire du Nancon.
+kind = "absolute_xy"
+layer = 0
+x = 389000.0
+y = 6817500.0

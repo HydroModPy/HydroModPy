@@ -1,0 +1,9 @@
+# Analytical Boussinesq validation runs on the steady PETSc VI obstacle backend.
+# The runtime helper also injects these defaults for direct Python execution.
+
+[workflow]
+mode = "simulation"
+
+[flow]
+runtime_backend = "petsc"
+surface_interaction_model = "vi_obstacle"

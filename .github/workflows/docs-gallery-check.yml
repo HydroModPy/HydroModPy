@@ -1,0 +1,69 @@
+# Checks that the committed documentation gallery artifacts match what
+# tools/doc_gallery would regenerate. Runs only when gallery inputs change.
+
+name: Docs / Gallery Sync
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/docs-gallery-check.yml"
+      - "tools/doc_gallery/**"
+      - "examples/projects/07_mesh_gallery/**"
+      - "examples/projects/09_capability_gallery/**"
+      - "validation_cases/README.md"
+      - "validation_cases/analytical/**"
+      - "validation_cases/numerical/**"
+      - "validation_cases/reports/latest/**"
+      - "docs/source/capability_gallery/**"
+      - "docs/source/_static/capability_gallery/**"
+  push:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/docs-gallery-check.yml"
+      - "tools/doc_gallery/**"
+      - "examples/projects/07_mesh_gallery/**"
+      - "examples/projects/09_capability_gallery/**"
+      - "validation_cases/README.md"
+      - "validation_cases/analytical/**"
+      - "validation_cases/numerical/**"
+      - "validation_cases/reports/latest/**"
+      - "docs/source/capability_gallery/**"
+      - "docs/source/_static/capability_gallery/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+
+jobs:
+  docs-gallery-check:
+    name: Docs / gallery artifacts in sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config
+
+      - name: Install package and docs extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs,test]"
+
+      - name: Verify committed gallery artifacts
+        run: >
+          python -m tools.doc_gallery --check
+          --category mesh,geographic,simulation_comparison,code_comparison

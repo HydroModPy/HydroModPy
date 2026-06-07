@@ -1,0 +1,203 @@
+# Nightly Linux checks for main and dev.
+# These tiers are too slow for every push but must stay green daily.
+
+name: Nightly / Linux Suites
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHON_VERSION: "3.12"
+  COVERAGE_OMIT: hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
+
+jobs:
+  regression-extensive:
+    name: Nightly / extensive regression on ${{ matrix.target_branch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [main, dev]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target_branch }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run extensive regression
+        run: |
+          python -m pytest tests/regression/extensive/ \
+            -n auto --dist loadgroup \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
+
+      - name: Combine and report coverage
+        if: always()
+        run: |
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: regression-extensive
+          fail_ci_if_error: false
+
+  validation:
+    name: Nightly / validation no PETSc on ${{ matrix.target_branch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [main, dev]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target_branch }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      # Skip PETSc-only validation tests here; they live in the petsc-smoke workflow.
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run validation tests
+        run: |
+          python -m pytest tests/validation/ -m "not petsc" \
+            -n auto --dist loadgroup \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: validation
+          fail_ci_if_error: false
+
+  integration:
+    name: Nightly / integration coverage on ${{ matrix.target_branch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [main, dev]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target_branch }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run integration tests
+        run: |
+          python -m pytest tests/integration/ \
+            -n auto --dist loadgroup \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: integration
+          fail_ci_if_error: false

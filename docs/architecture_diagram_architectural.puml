@@ -1,0 +1,234 @@
+@startuml
+title HydroModPy - Pure Architectural Design (No Implementation Details)
+top to bottom direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam dpi 140
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+skinparam titleFontSize 16
+skinparam legendFontSize 10
+skinparam packageFontSize 11
+skinparam componentFontSize 10
+skinparam interfaceFontSize 9
+skinparam noteFontSize 9
+
+skinparam package {
+  BackgroundColor #F0F7FF
+  BorderColor #0284C7
+  FontColor #0F172A
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #3B82F6
+  FontColor #0F172A
+}
+skinparam interface {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+  FontColor #0F172A
+}
+
+legend right
+|= Layer |= Role |
+| User Interface | CLI, Notebooks, API |
+| Orchestration | Workflow management |
+| Domain | Business logic |
+| Infrastructure | Storage, compute |
+| Plugin | Extensibility |
+endlegend
+
+package " User Interface Layer" {
+  component "Command Line\nInterface" as CLI
+  component "Programmatic\nAPI" as ProgrammaticAPI
+  component "Interactive\nProject Interface" as ProjectUI
+}
+
+package " Configuration & Startup" {
+  component "Configuration\nLoading" as ConfigLoad
+  component "Runtime\nEnvironment Setup" as RuntimeSetup
+  component "Provider\nRegistration" as ProviderReg
+}
+
+package "Orchestration Layer - Simulation" {
+  component "Workflow\nDispatcher" as WorkflowDispatcher
+  component "Main\nOrchestrator" as MainOrchestrator
+  component "Workflow\nRunner" as WorkflowRunner
+  component "Workflow\nSteps" as WorkflowSteps
+}
+
+package " Orchestration Layer - Calibration" {
+  component "Calibration\nDispatcher" as CalibrationDispatcher
+  component "Calibration\nEngine" as CalibrationEngine
+  component "Trial\nRunner" as TrialRunner
+  component "Optimizer" as Optimizer
+}
+
+package "Project Management" {
+  component "Project\nCatalog" as ProjectCatalog
+  component "Project\nRunner" as ProjectRunner
+  component "Project\nPhases" as ProjectPhases
+}
+
+package "Domain Layer" {
+  component "Geographic\nContext" as GeoContext
+  component "Spatial\nDomain" as SpatialDomain
+  component "Mesh\nGeneration" as MeshGeneration
+  component "Data\nManagement" as DataManagement
+}
+
+package " Simulation Engine" {
+  component "Simulation\nPlanning" as SimulationPlanning
+  component "Simulation\nLauncher" as SimulationLauncher
+  component "Solver\nRegistry &\nAdapters" as SolverAdapters
+}
+
+package "Infrastructure Layer" {
+  component "Data\nStore" as DataStore
+  component "Results\nCatalog" as ResultsCatalog
+  component "File\nStorage" as FileStorage
+}
+
+package "Plugin/Extension Points" {
+  component "Solver\nBackends" as SolverBackends
+  component "Data\nSources" as DataSources
+}
+
+package " Analysis & Display" {
+  component "Analysis\nTools" as AnalysisTools
+
+  component "Visualization\nEngine" as VisualizationEngine
+}
+
+package " Results Processing" {
+  component "Result\nImporters" as ResultImporters
+  component "Result\nExporters" as ResultExporters
+}
+
+' User Layer connections
+CLI -[#0284C7,thickness=3]-> WorkflowDispatcher : submits config
+ProgrammaticAPI -[#0284C7,thickness=3]-> ProjectRunner : calls functions
+ProjectUI -[#0284C7,thickness=3]-> ProjectRunner : interactive commands
+CLI -[#FF6B6B,thickness=3]-> CalibrationDispatcher : submits calibration config
+
+' Configuration flow
+ConfigLoad -[#0284C7,thickness=3]-> RuntimeSetup : loads config
+RuntimeSetup -[#0284C7,thickness=3]-> ProviderReg : prepares environment
+ProviderReg -[#0284C7,thickness=3]-> SolverAdapters : registers solvers
+
+' Orchestration flow - SIMULATION
+WorkflowDispatcher -[#0284C7,thickness=3]-> MainOrchestrator : resolve workflow
+MainOrchestrator -[#0284C7,thickness=3]-> WorkflowRunner : execute steps
+WorkflowRunner -[#0284C7,thickness=3]-> WorkflowSteps : runs each step
+
+' Orchestration flow - CALIBRATION
+CalibrationDispatcher -[#FF6B6B,thickness=3]-> CalibrationEngine : resolve trials
+CalibrationEngine -[#FF6B6B,thickness=3]-> Optimizer : ask/tell pattern
+Optimizer -[#FF6B6B,thickness=3]-> TrialRunner : evaluate suggestions
+TrialRunner -[#FF6B6B,thickness=3]-> SimulationLauncher : run lightweight trial
+
+' Project layer
+ProgrammaticAPI -[#0284C7,thickness=3]-> ProjectCatalog : queries project
+ProjectRunner -[#0284C7,thickness=3]-> MainOrchestrator : delegates execution
+ProjectPhases -[#0284C7,thickness=3]-> ProjectRunner : defines workflow
+
+' Domain orchestration
+MainOrchestrator -[#3B82F6,thickness=2]-> GeoContext : step 1: setup geography
+MainOrchestrator -[#3B82F6,thickness=2]-> MeshGeneration : step 2: build mesh
+MainOrchestrator -[#3B82F6,thickness=2]-> DataManagement : step 0: prepare data
+MainOrchestrator -[#3B82F6,thickness=2]-> SimulationPlanning : step 3: plan simulation
+MainOrchestrator -[#3B82F6,thickness=2]-> SimulationLauncher : step 4: execute
+MainOrchestrator -[#3B82F6,thickness=2]-> ResultsCatalog : step 5: store results
+
+' Domain interconnections
+GeoContext -[#6366F1,thickness=1]-> SpatialDomain : builds on
+MeshGeneration -[#6366F1,thickness=1]-> SpatialDomain : uses spatial
+DataManagement -[#6366F1,thickness=1]-> DataStore : persists to
+
+' Simulation flow
+SimulationPlanning -[#3B82F6,thickness=2]-> SolverAdapters : determines solvers
+SimulationLauncher -[#3B82F6,thickness=2]-> SolverAdapters : dispatches to
+SolverAdapters -[#3B82F6,thickness=2]-> SolverBackends : routes to concrete
+
+' Results flow
+SimulationLauncher -[#3B82F6,thickness=2]-> FileStorage : writes raw output
+FileStorage -[#3B82F6,thickness=2]-> ResultImporters : ingests results
+ResultImporters -[#3B82F6,thickness=2]-> ResultsCatalog : registers in catalog
+
+' Analysis & Display
+ResultsCatalog -[#059669,thickness=2]-> AnalysisTools : reads simulations
+ResultsCatalog -[#059669,thickness=2]-> VisualizationEngine : displays results
+VisualizationEngine -[#059669,thickness=2]-> ResultExporters : exports figures
+
+' Calibration results back to catalog
+TrialRunner -[#FF6B6B,thickness=1]-> ResultsCatalog : stores best trials
+
+' Data sources
+DataManagement -[#8B5CF6,thickness=1]..> DataSources : loads from
+
+note bottom of CLI
+  Entry point for batch/automated execution
+  Parses config TOML, triggers workflow dispatch
+end note
+
+note bottom of MainOrchestrator
+  Central coordinator of 6-phase workflow (SIMULATION):
+  (0) data, (1) geo, (2) mesh, (3) plan, (4) simulate, (5) export
+  All steps orchestrated through this component
+end note
+
+note bottom of CalibrationEngine
+  Optimizer orchestrator (CALIBRATION):
+  Ask/Tell pattern: ask() → evaluate trials → tell(results) → converged()?
+  Manages iterations and parameter exploration
+end note
+
+note bottom of TrialRunner
+  Executes lightweight trials (no full export):
+  - Injects parameters into trial context
+  - Runs simulation steps (extract metric only)
+  - Cached if parameters already evaluated
+end note
+
+note bottom of SolverAdapters
+  Plugin registry: each solver type (MODFLOW, Boussinesq, GR4J)
+  implements same interface for pluggable execution
+end note
+
+note bottom of ResultsCatalog
+  Workspace-level facade for all finished simulations
+  Supports queries, exports, re-runs, and analysis workflows
+end note
+
+note right
+  **ARCHITECTURE PRINCIPLES**
+
+  Layered design: UI → Orchestration → Domain → Infrastructure
+  Dual orchestration paths: Simulation workflow + Calibration workflow
+  Plugin architecture: Solver/DataSource extensibility
+  Separation of concerns: Each layer has clear responsibility
+  Protocol-based contracts: Interfaces decouple layers
+  Immutability of results: Once simulation finishes → frozen in catalog
+
+  **DESIGN PATTERNS**
+
+  • Facade: entry points and catalogs
+  • Orchestrator: MainOrchestrator / CalibrationEngine
+  • Pipeline: ordered workflow steps
+  • Registry: solver and optimizer resolution
+  • Adapter: solver backends and calibration adapters
+  • Ports & Adapters: contracts between layers
+  • Strategy: solver selection and optimizer choice
+
+  **MAIN DATA FLOWS**
+
+  Configuration → Runtime Setup → Provider Registration
+  SIMULATION: User Request → Workflow Dispatch → MainOrchestrator → Sequential steps
+  CALIBRATION: User Request → Calibration Dispatch → CalibrationEngine → Ask/Tell loop
+  Both workflows use SimulationLauncher & SolverAdapters
+  Simulation Output → Result Ingestion → Catalog
+  Catalog → Analysis/Display → User Feedback
+end note
+
+@enduml

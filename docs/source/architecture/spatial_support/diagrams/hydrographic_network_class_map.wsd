@@ -1,0 +1,126 @@
+@startuml
+title Hydrographic Network - Class Responsibilities
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 180
+
+class "LoadResult\nhydrography" as HydrographyLoadResult {
+  +fields
+}
+
+class "FieldRecord\nhydrography_streams" as HydrographyFieldRecord {
+  +data
+  +metadata.raster_path
+  +metadata.vector_path
+}
+
+class RiverNetworkProducts {
+  +streams_tif
+  +active_streams_tif
+  +network_shp
+  +summary_json
+  +river_mesh_trace
+  --
+  +hydrographic_network_generated_shp
+  +hydrographic_network_generated_summary_json
+}
+
+class RiverMeshTrace
+
+class HydrographicNetwork {
+  +role
+  +vector_path
+  +raster_path
+  +crs
+  +metrics
+  +metadata
+  +river_mesh_trace
+  --
+  +from_hydrography_load_result(...)
+  +from_river_network_products(...)
+}
+
+class HydrographicNetworks {
+  +reference
+  +generated
+  +simulated_active
+}
+
+class HydrographicNetworkComparison {
+  +reference_gdf
+  +candidate_gdf
+  +reference_missing_gdf
+  +candidate_extra_gdf
+  +reference_coverage_ratio
+  +candidate_match_ratio
+  +length_f1_ratio
+  +to_metrics_record(...)
+}
+
+class StreamNetworkMetrics {
+  +cell_field_network_distance_metrics(...)
+}
+
+class GeographicDerivedFeatures {
+  +surface_topo
+  +boundaries
+  +rivers
+  +hydrographic_networks
+}
+
+class Run {
+  +available_hydrographic_network_roles()
+  +has_hydrographic_network(role)
+  +hydrographic_network(role)
+  +hydrographic_network_comparison(...)
+  +cell_field_active_mask(...)
+  +cell_field_active_metrics(...)
+  +cell_field_network_overlap_metrics(...)
+  +cell_field_network_distance_metrics(...)
+  +release_flux_network_overlap_metrics(...)
+  +release_flux_network_distance_metrics(...)
+}
+
+HydrographyLoadResult --> HydrographyFieldRecord : contains
+HydrographyFieldRecord --> HydrographicNetwork : converted into\nrole=\"reference\"
+RiverNetworkProducts --> HydrographicNetwork : converted into\nrole=\"generated\"
+RiverNetworkProducts --> RiverMeshTrace : exposes
+HydrographicNetwork --> RiverMeshTrace : may carry one
+HydrographicNetworks o-- HydrographicNetwork : bundles
+GeographicDerivedFeatures o-- RiverNetworkProducts : technical bundle
+GeographicDerivedFeatures o-- HydrographicNetworks : canonical bundle
+Run --> HydrographicNetworks : reads persisted roles
+Run --> HydrographicNetworkComparison : computes
+Run --> StreamNetworkMetrics : delegates distance metrics
+HydrographicNetworkComparison --> HydrographicNetwork : compares two networks
+
+note bottom of RiverNetworkProducts
+Legacy-compatible technical output bundle
+from geographic.river_network preprocessing
+end note
+
+note bottom of HydrographicNetwork
+Canonical cross-layer concept used by
+storage, display and comparison
+end note
+
+note bottom of Run
+User-facing read facade over persisted runs.
+Comparison is only available when both
+reference and generated roles exist.
+end note
+
+note bottom of StreamNetworkMetrics
+Module hydromodpy.results.views (lazy distance metrics).
+The current distance metric is planar and
+cell-based; it is not yet the downslope
+DEM-routing criterion.
+end note
+
+note bottom of StreamNetworkMetrics
+Module hydromodpy.results.views (lazy distance metrics).
+The current distance metric is planar and
+cell-based; it is not yet the downslope
+DEM-routing criterion.
+end note
+@enduml

@@ -1,0 +1,245 @@
+
+[workflow]
+mode = "comparison"
+
+[comparison]
+comparison_id = "nancon_steady_mf6_disv_vs_nwt"
+base_simulation_config = "base_nancon_steady_hydrography_mesh_input.toml"
+output_root = "outputs/nancon_steady_mf6_disv_vs_nwt"
+reference_simulation = "mf6_disv_ref"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = true
+
+[[comparison.simulation]]
+id = "mf6_disv_ref"
+label = "MODFLOW 6 DISV Nancon steady reference, river-constrained mesh"
+solver = "modflow6"
+mesh_label = "nancon_river_constrained_triangular_mesh"
+mesh_mode = "mesh_input"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_steady_mf6_disv_vs_nwt/workspace_mf6_disv"
+root = "outputs/nancon_steady_mf6_disv_vs_nwt/workspace_mf6_disv"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = true
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[[comparison.simulation]]
+id = "nwt_structured_120"
+label = "MODFLOW-NWT structured 120x120 Nancon steady candidate"
+solver = "modflow_nwt"
+mesh_label = "nancon_structured_grid_120x120"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_steady_mf6_disv_vs_nwt/workspace_nwt_120"
+root = "outputs/nancon_steady_mf6_disv_vs_nwt/workspace_nwt_120"
+
+[comparison.simulation.overlay.modflownwt.runtime]
+
+[comparison.simulation.overlay.modflownwt.runtime.nwt]
+version = "mfnwt"
+verbose = false
+headtol = 1e-4
+fluxtol = 500.0
+maxiterout = 5000
+options = "COMPLEX"
+continue_run = false
+
+[comparison.simulation.overlay.modflownwt.runtime.dis]
+itmuni = 4
+
+[comparison.simulation.overlay.modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[comparison.simulation.overlay.modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.oc]
+compact = true
+
+[comparison.simulation.overlay.modflownwt.runtime.wel]
+ipakcb = 1
+[comparison.simulation.overlay.modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 120
+ny = 120
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflownwt.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflownwt.tgrid]
+firstpersteady = true
+itmuni = "days"
+genmtd = "synthetic_regular"
+nper = 1
+lenper = 365.0
+
+[[comparison.simulation]]
+id = "nwt_structured_180"
+label = "MODFLOW-NWT structured 180x180 Nancon steady candidate"
+solver = "modflow_nwt"
+mesh_label = "nancon_structured_grid_180x180"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_steady_mf6_disv_vs_nwt/workspace_nwt_180"
+root = "outputs/nancon_steady_mf6_disv_vs_nwt/workspace_nwt_180"
+
+[comparison.simulation.overlay.modflownwt.runtime]
+
+[comparison.simulation.overlay.modflownwt.runtime.nwt]
+version = "mfnwt"
+verbose = false
+headtol = 1e-4
+fluxtol = 500.0
+maxiterout = 5000
+options = "COMPLEX"
+continue_run = false
+
+[comparison.simulation.overlay.modflownwt.runtime.dis]
+itmuni = 4
+
+[comparison.simulation.overlay.modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[comparison.simulation.overlay.modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.oc]
+compact = true
+
+[comparison.simulation.overlay.modflownwt.runtime.wel]
+ipakcb = 1
+[comparison.simulation.overlay.modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 180
+ny = 180
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflownwt.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflownwt.tgrid]
+firstpersteady = true
+itmuni = "days"
+genmtd = "synthetic_regular"
+nper = 1
+lenper = 365.0
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "watertable_depth_map_last"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "seepage_map_last"
+variable = "seepage_areas"
+support = "map"
+time = "last"
+unit = "-"
+
+[[comparison.observable]]
+name = "outflow_drain_map_last"
+variable = "outflow_drain"
+support = "map"
+time = "last"
+unit = "m/day"
+
+[[comparison.observable]]
+name = "active_network_flux_map_last"
+variable = "accumulation_flux"
+support = "map"
+time = "last"
+unit = "m/day"
+
+[[comparison.observable]]
+name = "outlet_head"
+variable = "watertable_elevation"
+support = "point"
+x = 389273.126405933
+y = 6816556.61306809
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "mid_catchment_head"
+variable = "watertable_elevation"
+support = "point"
+x = 390941.369935479
+y = 6820865.93033605
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "eastern_plateau_head"
+variable = "watertable_elevation"
+support = "point"
+x = 396713.1740067336
+y = 6816807.001469235
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "outlet_accumulated_flux"
+variable = "outlet_flux"
+support = "outlet"
+x = 389273.126405933
+y = 6816556.61306809
+time = "last"
+unit = "m3/s"

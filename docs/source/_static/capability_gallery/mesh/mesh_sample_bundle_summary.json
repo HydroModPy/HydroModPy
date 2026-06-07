@@ -1,0 +1,204 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "mesh_sample_bundle",
+  "title": "Mesh Sample Bundle",
+  "category": "mesh",
+  "deck": "Standalone overview of one bundled catchment mesh, with geology and topography panels.",
+  "summary": "This sample bundle is a versioned catchment mesh illustration shipped with the repository. It is stable enough for documentation and exposes the main viewer concepts: cells, edges, rivers, geology interfaces, and topography rendering.",
+  "case_setup": [],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "How the standalone bundle viewer turns one versioned mesh export into a didactic figure.",
+    "How geology keys, river edges, and topographic information are surfaced in one compact layout.",
+    "What one real exported bundle looks like when used as a reproducible documentation artifact."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m tools.mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/projects/08_mesh_viewer/config_example.toml",
+    "examples/projects/08_mesh_viewer/default_bundle/README.md",
+    "tools/mesh_bundle_viewer/README.md",
+    "tools/mesh_bundle_viewer/runner/visualization_runner.py",
+    "tools/mesh_bundle_viewer/display/figure.py",
+    "tools/mesh_bundle_viewer/display/summary.py"
+  ],
+  "source_hashes": {
+    "examples/projects/08_mesh_viewer/config_example.toml": "3d029b663116ccb877ebb5969950ba7bbb51f46f5b67548e796dd500e2e41ca5",
+    "examples/projects/08_mesh_viewer/default_bundle/README.md": "44d8359209d029cc02d8f9f9d31da522369d090983d4bc12dff6781da6e98bd1",
+    "tools/mesh_bundle_viewer/README.md": "ee221138fdfd22bdca4c3e5dbd1b3b6abab2a8e89c4ad51c5f17355708f72d13",
+    "tools/mesh_bundle_viewer/runner/visualization_runner.py": "a2a5296887c77f6be1d1ce7cfa921393c60a0cf447689585d54349f50f08766e",
+    "tools/mesh_bundle_viewer/display/figure.py": "0df18b1454f263696e5cc7d272e072ddee6cf1fd81cc176b628f9568c787489e",
+    "tools/mesh_bundle_viewer/display/summary.py": "94d0c8de4718a447b459daf5899e8fe92812a90999fee0e7f1c02d28e45fe7b0"
+  },
+  "docname": "cases/mesh_sample_bundle",
+  "images": [
+    {
+      "filename": "mesh_sample_bundle_overview.png",
+      "caption": "Standalone mesh overview generated from the shipped sample bundle and viewer TOML.",
+      "alt_text": "Mesh sample bundle overview with geology and topography panels",
+      "doc_path": "/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png",
+      "repo_path": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Nodes",
+      "key": "node_count",
+      "value": 4,
+      "display": "4"
+    },
+    {
+      "label": "Cells",
+      "key": "cell_count",
+      "value": 2,
+      "display": "2"
+    },
+    {
+      "label": "River edges",
+      "key": "river_edge_count",
+      "value": 1,
+      "display": "1"
+    },
+    {
+      "label": "Geology interfaces",
+      "key": "geology_interface_edge_count",
+      "value": 1,
+      "display": "1"
+    }
+  ],
+  "metadata": {
+    "config_path": "examples/projects/08_mesh_viewer/config_example.toml",
+    "viewer_summary": {
+      "summary_schema_version": "mesh_distribution_v1",
+      "bundle_dir": "examples/projects/08_mesh_viewer/default_bundle",
+      "mesh_file": "examples/projects/08_mesh_viewer/default_bundle/mesh_2d.msh",
+      "node_count": 4,
+      "cell_count": 2,
+      "edge_count": 5,
+      "crs": "EPSG:2154",
+      "constraints_mode": "geology_rivers",
+      "geology_available": true,
+      "geology_keys": [
+        "granite",
+        "schist"
+      ],
+      "hydraulic_properties_available": false,
+      "hydraulic_conductivity_available": false,
+      "hydraulic_conductivity_cell_count": 0,
+      "storage_coefficient_available": false,
+      "storage_coefficient_cell_count": 0,
+      "river_edge_count": 1,
+      "boundary_edge_count": 4,
+      "geology_interface_edge_count": 1,
+      "color_field": "geology_key",
+      "show_topography_panel": true,
+      "topography_field": "z_top_mean",
+      "topography_render_mode": "continuous_on_nodes"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json",
+    "image_repo_paths": [
+      "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "[mesh_distribution.plot] color_field",
+            "meaning": "Cell attribute used to color the mesh in the overview figure.",
+            "value": "geology_key",
+            "source": "examples/projects/08_mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_topography_panel",
+            "meaning": "Whether a dedicated topography panel is shown alongside the mesh map.",
+            "value": "true",
+            "source": "examples/projects/08_mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] topography_field",
+            "meaning": "Node or cell field used to render the topography panel when it is enabled.",
+            "value": "z_top_mean",
+            "source": "examples/projects/08_mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_geology_interfaces",
+            "meaning": "Whether geology interfaces are explicitly highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/projects/08_mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_river_edges",
+            "meaning": "Whether river-constrained edges are highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/projects/08_mesh_viewer/config_example.toml"
+          }
+        ]
+      },
+      {
+        "title": "Mesh Summary",
+        "rows": [
+          {
+            "field": "crs",
+            "meaning": "Coordinate reference system declared by the imported mesh bundle.",
+            "value": "EPSG:2154",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "node_count",
+            "meaning": "Number of nodes available in the displayed mesh bundle.",
+            "value": "4",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "cell_count",
+            "meaning": "Number of cells available in the displayed mesh bundle.",
+            "value": "2",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "edge_count",
+            "meaning": "Number of edges available in the displayed mesh bundle.",
+            "value": "5",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "river_edge_count",
+            "meaning": "Count of edges tagged as river constraints in the bundle.",
+            "value": "1",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "boundary_edge_count",
+            "meaning": "Count of watershed-boundary edges in the bundle.",
+            "value": "4",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "geology_interface_edge_count",
+            "meaning": "Count of geology-interface edges present in the bundle.",
+            "value": "1",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "geology_keys",
+            "meaning": "Distinct geology codes present in the imported bundle.",
+            "value": "granite, schist",
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,153 @@
+@startuml
+title HydroModPy - Workflow Sequence (Simulation + Calibration)
+left to right direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam dpi 140
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+package "Entrées" <<entry>> {
+  component "CLI / hmp" as CLI
+  component "API (hydromodpy.__init__)" as API
+  component "Calibration API\n(hydromodpy.calibration_dispatch)" as CalibAPI
+}
+
+package "Orchestration" {
+  component "Workflow Dispatcher\n(hydromodpy.workflow.dispatch)" as Dispatch
+  component "Orchestrator\n(hydromodpy.workflow.orchestrator)" as Orchestrator
+  component "Pipeline\n(hydromodpy.workflow.runner.Pipeline)" as Pipeline
+  component "Calibration Dispatcher\n(hydromodpy.calibration_dispatch)" as CalibDispatch
+  component "Calibration Engine\n(hydromodpy.calibration.engine)" as CalibEngine
+  component "Trial Runner\n(hydromodpy.calibration.runners.trial)" as TrialRunner
+  component "Optimizer\n(hydromodpy.calibration.optimizer)" as Optimizer
+}
+
+package "Phases Canonicales" {
+  component "01 Validate" as StepValidate
+  component "02 Resolve" as StepResolve
+  component "03 Build Geographic" as StepGeo
+  component "04 Load Data" as StepData
+  component "05 Build Mesh" as StepMesh
+  component "06 Setup Process" as StepSetup
+  component "07 Prepare Solver" as StepPrepare
+  component "08 Run Solver" as StepRun
+  component "09 Extract" as StepExtract
+  component "10 Derive / Postprocess" as StepDerive
+  component "11 Export" as StepExport
+  component "12 Display" as StepDisplay
+}
+
+package "Runtimes & Backends" {
+  component "SimulationRunner\n(hydromodpy.simulation.execution.runner)" as SimRunner <<provider>>
+  component "Solver Adapters\n(hydromodpy.solver.*.adapters)" as Adapters
+  component "Solver Binaries / Backends" as Backends
+  component "SimulationCatalog\n(hydromodpy.results.catalog)" as Catalog <<provider>>
+  component "DuckDB\n(metadata/index)" as CatalogDuck <<provider>>
+  component "Zarr\n(spatial fields)" as CatalogZarr <<provider>>
+  component "Parquet\n(timeseries/budgets)" as CatalogParquet <<provider>>
+  component "DataStore / Managers\n(hydromodpy.data.store)" as DataStore
+}
+
+package "Calibration Outputs" {
+  component "Calibration Catalog\n(hydromodpy.results.catalog)" as CalibCatalog <<provider>>
+  component "Calibration History\n(trials / iterations)" as CalibHistory
+}
+
+' Entrées -> Dispatcher
+CLI --> Dispatch : parse TOML / command
+API --> Dispatch : call run / simulate
+CalibAPI --> CalibDispatch : call calibrate
+
+' Dispatcher -> Orchestrator
+Dispatch --> Orchestrator : dispatch workflow
+CalibDispatch --> CalibEngine : dispatch calibration
+
+' Orchestrator -> Pipeline -> Steps (ordered)
+Orchestrator --> Pipeline : resolve standard_steps()
+Pipeline --> StepValidate
+StepValidate --> StepResolve
+StepResolve --> StepGeo
+StepGeo --> StepData
+StepData --> StepMesh
+StepMesh --> StepSetup
+StepSetup --> StepPrepare
+StepPrepare --> StepRun
+StepRun --> StepExtract
+StepExtract --> StepDerive
+StepDerive --> StepExport
+StepExport --> StepDisplay
+
+' Step implementations call into modules/backends
+StepData -( DataStore : "uses / load_variable / managers")
+StepMesh ..> Catalog : "may persist mesh metadata"
+StepPrepare ..> Catalog : "register_simulation"
+
+' Execution: Run -> SimulationRunner -> Adapters -> Backend
+StepRun -( SimRunner : requires Launcher protocol )
+SimRunner -() Orchestrator : provides execute()
+SimRunner -( Adapters : resolves adapter classes )
+Adapters -() Backends : provides concrete execution
+Adapters --|> Backends : execute / produce outputs
+
+' Both SimRunner and TrialRunner use the same Pipeline infrastructure
+SimRunner -.->Pipeline : uses via standard_steps()
+TrialRunner -.->Pipeline : uses via get_trial_pipeline_provider()
+
+' Calibration path: ask/tell loop + lightweight trials + promotion
+CalibEngine --> Optimizer : ask/tell loop
+CalibEngine --> TrialRunner : evaluate suggestions
+TrialRunner --> SimRunner : run_trial_light()
+TrialRunner --> CalibHistory : record trial metrics
+CalibEngine --> CalibCatalog : cache / convergence / history
+CalibDispatch --> CalibCatalog : promote best runs
+CalibDispatch --> CalibHistory : calibration iterations
+
+' Extraction & ingestion: after-run callbacks write to Catalog
+StepExtract ..> CatalogDuck : write metadata / metrics
+StepExtract ..> CatalogZarr : write fields
+StepExtract ..> CatalogParquet : write timeseries
+CatalogDuck --> Catalog : unified facade
+CatalogZarr --> Catalog
+CatalogParquet --> Catalog
+StepDerive ..> Catalog : compute derived metrics
+StepExport ..> Catalog : finalize / register artifacts
+StepDisplay ..> Catalog : read runs for plotting
+
+note right of Orchestrator
+  Modules:
+  - prepare_runtime / prepare_run / execute_run
+  - standard_steps() defines this sequence
+  (see hydromodpy/workflow/orchestrator.py)
+end note
+
+note bottom of SimRunner
+  Default in-tree Launcher; structurally matches Launcher Protocol
+  (hydromodpy/workflow/launcher_protocol.py)
+end note
+
+note bottom of Catalog
+  SimulationCatalog implements SimulationStore protocol
+  (hydromodpy/results/catalog/facade.py)
+end note
+
+note bottom of CatalogDuck
+  Storage layout (official docs):
+  - DuckDB catalog (metadata)
+  - Zarr stores (field arrays)
+  - Parquet tables (timeseries/budgets)
+end note
+
+
+note right of Pipeline
+  Shared infrastructure used by both:
+  - SimRunner (main execution pipeline)
+  - TrialRunner (lightweight trial evaluation)
+  Access: get_trial_pipeline_provider() / standard_steps()
+end note
+note bottom of CalibCatalog
+  Calibration reuses the same catalog/storage layer
+  for trial history, promoted runs, and final outputs
+end note
+
+@enduml

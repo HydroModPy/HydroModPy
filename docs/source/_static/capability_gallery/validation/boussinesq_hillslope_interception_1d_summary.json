@@ -1,0 +1,335 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "boussinesq_hillslope_interception_1d",
+  "title": "Boussinesq Hillslope Interception 1D",
+  "category": "validation",
+  "deck": "Steady synthetic groundwater-flow case used to validate the PETSc VI obstacle `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.",
+  "summary": "Steady synthetic groundwater-flow case used to validate the PETSc VI obstacle `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.",
+  "case_setup": [
+    "quasi-1D strip (`40 x 3`) with alternating triangle diagonals,",
+    "linear topography descending from `10 m` to `5 m`,",
+    "flat impermeable bottom at `0 m`,",
+    "uniform recharge `2 mm/day`,",
+    "homogeneous hydraulic conductivity `1e-4 m/s`,",
+    "fixed head `5 m` on the east side,",
+    "west side left as the natural divide/no-flow boundary.",
+    "Available solver variants: Boussinesq."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "validate the emergence/interception position on a topographic slope,",
+    "keep a closed-form inland Boussinesq profile on the dry part of the hillslope,",
+    "benchmark the hard surface-obstacle closure with a metric that remains physically meaningful for seepage onset.",
+    "Steady seepage/interception onset on a sloping hillslope with the dense in-house Boussinesq runtime",
+    "Primary metrics: interception-position error, topography-overshoot check, cross-row spread."
+  ],
+  "reference_highlights": [
+    "reference: analytical no-drain steady Boussinesq recharge profile with west divide and east fixed head, intersected with the linear topography,"
+  ],
+  "equations_rst": [
+    "h(x)^2=h_e^2+\\frac{R}{K}\\left(L^2-x^2\\right)",
+    "z_{\\mathrm{top}}(x)=z_{\\mathrm{toe}}+S\\left(L-x\\right),\\qquad h(x_{\\mathrm{int}})=z_{\\mathrm{top}}(x_{\\mathrm{int}})"
+  ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/README.md",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/reference.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/comparison.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/plotting.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/run_case.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/README.md": "80fbf69d28d798a6ad8313511990856b84aff80eeeb67f69530f155c928cd174",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/reference.py": "1b6ad3541cd0dc218bf60835d96d9b8f659a5b6d760200ddaf56a9cb75eecf24",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/comparison.py": "454bee28091f84d6f81431504e2dd40a79b93964a4ee5d95c8213dabc54a1b3d",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/plotting.py": "039aa274d9061904deb04ad6cab464b85cc15fdd1124988c6f9ff83bb4b7cf67",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/run_case.py": "0ce35346489866a4fb873d4ac746686a7c1ddb6dff538ed265d46129c8f63900",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml": "b768f9a7a337acbb0fab032cc76c11edadee4685e46697adbbf2c50e491f44a6",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/runtime_boussinesq.py": "bc5788dbf035f591ab173a764c80f20d2242945bcd7a130e9090abe2a88026ab",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml": "ec7a7dd838f1372ef00db6e3dd12843e1e60eeb5add7a684e985ceb5517ecc9f",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml": "022e5a1579db93397e4415231abc1564f11499af2daf64e658ae60f8a162d0fd"
+  },
+  "docname": "cases/boussinesq_hillslope_interception_1d",
+  "images": [
+    {
+      "filename": "boussinesq_hillslope_interception_1d__boussinesq.png",
+      "caption": "Boussinesq Hillslope Interception 1D rendered with Boussinesq for the analytical gallery.",
+      "alt_text": "Boussinesq Hillslope Interception 1D validation figure for Boussinesq",
+      "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d",
+    "default_solver": "boussinesq",
+    "solver_variants": [
+      "boussinesq"
+    ],
+    "solver_details": {
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml",
+        "expected_output": "Expected shape: 3 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "Strip with west divide, east fixed head, uniform recharge, and linear topography",
+      "analytical_target": "Approximate inland interception point from the dry no-drain Boussinesq profile",
+      "primary_metrics": "interception-position error, topography-overshoot check, cross-row spread",
+      "what_it_validates": "Steady seepage/interception onset on a sloping hillslope with the dense in-house Boussinesq runtime"
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "hillslope_1d",
+    "geometry_family_label": "Hillslope 1D",
+    "reference_type": "semi_analytical",
+    "reference_type_label": "Semi-Analytical / Diagnostic",
+    "validation_family": "steady_1d_boussinesq_topography_sloping_substratum",
+    "validation_family_label": "Steady 1D Boussinesq with Topography or Sloping Substratum",
+    "validation_family_order": 30
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml",
+      "expected_output": "Expected shape: 3 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --no-show",
+      "metric_lines": [
+        "Analytical interception x: 244.776 m",
+        "Numerical interception x: 285.000 m",
+        "Interception x error: 40.224 m",
+        "Diagnostic dry-zone RMSE: 0.1559 m",
+        "Diagnostic dry-zone max abs error: 0.1685 m",
+        "Cross-row head spread: 8.88e-16 m"
+      ],
+      "image": {
+        "filename": "boussinesq_hillslope_interception_1d__boussinesq.png",
+        "caption": "Boussinesq Hillslope Interception 1D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Boussinesq Hillslope Interception 1D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_hillslope_interception_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "simulation_regression",
+          "config_file": "config_boussinesq.toml",
+          "default_solver": "boussinesq",
+          "config_files": {
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              3,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "length_y_m": 30.0,
+            "east_head_m": 5.0,
+            "toe_elevation_m": 5.0,
+            "topography_slope_m_per_m": 0.0125,
+            "recharge_mm_day": 2.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "bottom_elevation_m": 0.0,
+            "profile_axis": 0,
+            "numerical_contact_tolerance_m": 0.05,
+            "interception_search_samples": 20001
+          }
+        },
+        "tolerances": {
+          "interception": {
+            "x_error_m": 45.0
+          },
+          "uniformity": {
+            "row_spread": 0.001
+          },
+          "contact": {
+            "max_positive_clearance_m": 1e-06
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "xmax",
+        "meaning": "Maximum x coordinate of the analytical reference domain.",
+        "value": "400",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "length_y_m",
+        "meaning": "Reference-domain length along the y axis.",
+        "value": "30 m",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "east_head_m",
+        "meaning": "Fixed east-boundary hydraulic head used by the reference solution.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "toe_elevation_m",
+        "meaning": "Toe elevation used by the hillslope reference geometry.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "topography_slope_m_per_m",
+        "meaning": "Topographic slope used by the hillslope reference.",
+        "value": "0.0125 m",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "recharge_mm_day",
+        "meaning": "Recharge rate used by the reference solution.",
+        "value": "2 mm/day",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "bottom_elevation_m",
+        "meaning": "Bottom elevation used by the reference domain.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "profile_axis",
+        "meaning": "Axis along which the validation profile is extracted.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "numerical_contact_tolerance_m",
+        "meaning": "Tolerance used when comparing the numerical contact or interception position.",
+        "value": "0.05 m",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      },
+      {
+        "field": "interception_search_samples",
+        "meaning": "Number of samples used when locating the interception front in the reference helper.",
+        "value": "20001",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "flow.runtime_backend",
+        "meaning": "Runtime backend selected for the in-house solver.",
+        "value": "petsc",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml"
+      },
+      {
+        "field": "flow.surface_interaction_model",
+        "meaning": "Case-specific configuration field `flow.surface_interaction_model` used by the validation benchmark.",
+        "value": "vi_obstacle",
+        "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml"
+      }
+    ],
+    "solver_overrides": {
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "petsc",
+          "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[3, 40]",
+          "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 3 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml"
+          },
+          {
+            "field": "interception.x_error_m",
+            "meaning": "Acceptance threshold for `interception.x_error_m`.",
+            "value": "45 m",
+            "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "0.001",
+            "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml"
+          },
+          {
+            "field": "contact.max_positive_clearance_m",
+            "meaning": "Acceptance threshold for `contact.max_positive_clearance_m`.",
+            "value": "1e-06 m",
+            "source": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml"
+          }
+        ]
+      }
+    }
+  }
+}

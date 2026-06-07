@@ -1,0 +1,33 @@
+# ======================================================================
+# Fragment overlay - ajoute un puits de pompage
+# ----------------------------------------------------------------------
+# Ce fichier n'est PAS une config autonome (pas de bloc workflow /
+# geographic). Il est concu pour etre fusionne par-dessus une config de
+# run complete avec le flag --overlay, pour montrer comment ajouter un
+# seul aspect par couche :
+#
+#   hmp run sim_steady_nwt.toml --overlay overlay_well.toml
+#
+# La fusion garde tout sim_steady_nwt.toml et ajoute seulement le puits
+# plus l'entree "wells" dans active_sinks_sources.
+# ======================================================================
+
+
+[flow]
+# Redonner la liste ajoute "wells" a cote des sinks/sources herites.
+active_sinks_sources = ["recharge", "etp", "wells"]
+
+# Un puits de pompage. flux en m3/s, convention de signe MODFLOW :
+# negatif = pompage, positif = injection.
+[flow.sinks_sources.wells.W1]
+flux = -0.01
+units = "m3/s"
+description = "Puits de demonstration, pompage de 10 L/s."
+
+[flow.sinks_sources.wells.W1.location]
+# Coordonnees projetees (Lambert-93). Le point doit tomber dans la grille
+# active du bassin. Ici, proche de l'exutoire du Nancon.
+kind = "absolute_xy"
+layer = 0
+x = 389000.0
+y = 6817500.0

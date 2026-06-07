@@ -1,0 +1,453 @@
+"""Validate and normalize configuration for zone-conformal meshing workflows.
+
+This module deliberately stays on the "contract" side of the pipeline. Its
+role is to answer:
+
+- which parameters are allowed,
+- what defaults are safe,
+- which combinations are incoherent before any geometry work starts.
+
+Actual geometry cleaning and Gmsh generation live elsewhere.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal
+
+from pydantic import (
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import (
+    NonNegativeFloat,
+    PositiveFloat,
+    PositiveInt,
+    StripLower,
+)
+
+
+class ZoneMeshingRefinementFamilySettings(HydroModelBase):
+    """One family-specific refinement override inside the hotspot policy."""
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If False, this family is parsed but skipped during refinement.",
+    )
+    priority: Annotated[int, Profile.USER] = Field(
+        default=0,
+        description="Application order between families. Higher values win when budgets compete.",
+    )
+    interface_size: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
+        default=None,
+        description="Override target cell size at the family interface, in projected metres.",
+    )
+    interface_distance: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
+        default=None,
+        description="Override influence distance from the family interface, in projected metres.",
+    )
+    interface_sampling: Annotated[int | None, Profile.DEV] = Field(
+        default=None,
+        ge=2,
+        description="Override the number of sampled points along the family interface (>=2).",
+    )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return self.model_dump(mode="python")
+
+
+class ZoneMeshingRefinementFamilies(HydroModelBase):
+    """Validated family-specific refinement policy settings."""
+
+    river: Annotated[ZoneMeshingRefinementFamilySettings, Profile.USER] = Field(
+        default_factory=lambda: ZoneMeshingRefinementFamilySettings(
+            enabled=True,
+            priority=300,
+        ),
+        description="Refinement settings for the river family (highest default priority).",
+    )
+    geology_interface: Annotated[ZoneMeshingRefinementFamilySettings, Profile.USER] = Field(
+        default_factory=lambda: ZoneMeshingRefinementFamilySettings(
+            enabled=True,
+            priority=200,
+        ),
+        description="Refinement settings for the geology-interface family.",
+    )
+    watershed_boundary: Annotated[ZoneMeshingRefinementFamilySettings, Profile.USER] = Field(
+        default_factory=lambda: ZoneMeshingRefinementFamilySettings(
+            enabled=True,
+            priority=100,
+        ),
+        description="Refinement settings for the watershed-boundary family.",
+    )
+
+
+class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
+    """Validated hotspot-detection thresholds for local refinement budgeting."""
+
+    radius: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
+        default=None,
+        description="Hotspot detection radius in projected metres. None lets the mesher derive a default.",
+    )
+    max_curve_count: Annotated[PositiveInt, Profile.DEV] = Field(
+        default=180,
+        description="Maximum number of constraint curves admitted in one hotspot before triggering local refinement.",
+    )
+    max_family_count: Annotated[PositiveInt, Profile.DEV] = Field(
+        default=2,
+        description="Maximum number of distinct constraint families coexisting in one hotspot.",
+    )
+    min_gap: Annotated[NonNegativeFloat, Profile.DEV] = Field(
+        default=80.0,
+        description="Minimum acceptable gap between non-conformal curves in projected metres.",
+    )
+    max_node_degree: Annotated[PositiveInt, Profile.DEV] = Field(
+        default=4,
+        description="Maximum tolerated topological degree at a hotspot junction node.",
+    )
+    short_segment_length: Annotated[NonNegativeFloat, Profile.DEV] = Field(
+        default=120.0,
+        description="Length threshold below which a constraint segment is counted as short, in projected metres.",
+    )
+    max_short_segment_count: Annotated[PositiveInt, Profile.DEV] = Field(
+        default=12,
+        description="Maximum tolerated number of short segments inside one hotspot.",
+    )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return self.model_dump(mode="python")
+
+
+class ZoneMeshingRefinementGridSettings(HydroModelBase):
+    """Validated grid settings for one locality-first refinement policy."""
+
+    cell_size: Annotated[PositiveFloat | None, Profile.USER] = Field(
+        default=None,
+        description="Target cell size in projected metres. None lets the mesher derive a default from constraints.",
+    )
+    neighborhood_rings: Annotated[PositiveInt, Profile.DEV] = Field(
+        default=1,
+        description="Number of cell rings inspected around each hotspot when projecting refinement budget.",
+    )
+    enable_exact_gap_check: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="If True, run the exact pairwise gap check between candidate hotspot curves.",
+    )
+    max_exact_gap_candidates: Annotated[PositiveInt, Profile.DEV] = Field(
+        default=256,
+        description="Cap on the number of curves submitted to the exact gap check before falling back to a heuristic.",
+    )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return self.model_dump(mode="python")
+
+
+_FAMILY_DEFAULTS: dict[str, dict[str, Any]] = {
+    "river": {"enabled": True, "priority": 300},
+    "geology_interface": {"enabled": True, "priority": 200},
+    "watershed_boundary": {"enabled": True, "priority": 100},
+}
+
+
+class ZoneMeshingRefinementPolicy(HydroModelBase):
+    """Local refinement policy for mixed river/geology interfaces."""
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="If True, the local refinement policy runs on top of the global zone meshing.",
+    )
+    mode: Annotated[
+        Literal["family_priority_local_budget", "grid_local_budget"],
+        StripLower,
+        Profile.USER,
+    ] = Field(
+        default="family_priority_local_budget",
+        description=(
+            "Refinement mode selector. One of 'family_priority_local_budget' or "
+            "'grid_local_budget'."
+        ),
+    )
+    hotspot: Annotated[ZoneMeshingRefinementHotspotSettings, Profile.DEV] = Field(
+        default_factory=ZoneMeshingRefinementHotspotSettings,
+        description="Hotspot-detection thresholds used when budgeting local refinement.",
+    )
+    grid: Annotated[ZoneMeshingRefinementGridSettings, Profile.USER] = Field(
+        default_factory=ZoneMeshingRefinementGridSettings,
+        description="Grid settings used by the locality-first refinement policy.",
+    )
+    families: Annotated[dict[str, ZoneMeshingRefinementFamilySettings], Profile.USER] = Field(
+        default_factory=lambda: {
+            name: ZoneMeshingRefinementFamilySettings(**defaults)
+            for name, defaults in _FAMILY_DEFAULTS.items()
+        },
+        description="Per-family refinement settings keyed by family name.",
+    )
+
+    @field_validator("families", mode="before")
+    @classmethod
+    def _normalize_families(cls, value):
+        if isinstance(value, ZoneMeshingRefinementFamilies):
+            return {
+                "river": value.river,
+                "geology_interface": value.geology_interface,
+                "watershed_boundary": value.watershed_boundary,
+            }
+        if isinstance(value, dict):
+            merged: dict[str, Any] = {}
+            for name, defaults in _FAMILY_DEFAULTS.items():
+                if name in value:
+                    merged[name] = value[name]
+                else:
+                    merged[name] = defaults
+            for name in value:
+                if name not in merged:
+                    merged[name] = value[name]
+            return merged
+        return value
+
+    def sorted_families_by_priority(self) -> list[str]:
+        return [
+            family_name
+            for family_name, _ in sorted(
+                self.families.items(),
+                key=lambda item: (
+                    int(item[1].priority),
+                    str(item[0]),
+                ),
+                reverse=True,
+            )
+        ]
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "enabled": bool(self.enabled),
+            "mode": str(self.mode),
+            "hotspot": self.hotspot.to_mapping(),
+            "grid": self.grid.to_mapping(),
+            "families": {
+                family_name: settings.to_mapping()
+                for family_name, settings in sorted(self.families.items())
+            },
+        }
+
+
+class ZoneMeshingSettings(HydroModelBase):
+    """Validated settings for one conformal 2D Gmsh meshing run."""
+
+    algorithm: Annotated[str, Profile.USER] = Field(
+        default="delaunay",
+        description=(
+            "Planar Gmsh algorithm name. "
+            "In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains."
+        ),
+    )
+    global_size: Annotated[NonNegativeFloat, Profile.USER] = Field(
+        default=250.0,
+        description=(
+            "Baseline target cell size in projected metres over the full support domain. "
+            "Think of it as the coarse background resolution before local interface refinement is added."
+        ),
+    )
+    min_size: Annotated[NonNegativeFloat | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Lower bound on local cell size in projected metres. "
+            "Use it to prevent extreme refinement from generating very small cells in narrow features."
+        ),
+    )
+    max_size: Annotated[NonNegativeFloat | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Upper bound on local cell size in projected metres. "
+            "Use it when you want to cap the coarsening far from interfaces."
+        ),
+    )
+    simplify_tolerance: Annotated[NonNegativeFloat, Profile.DEV] = Field(
+        default=0.0,
+        description=(
+            "Geometry simplification tolerance, in projected metres, applied before meshing. "
+            "Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning."
+        ),
+    )
+    heal_tolerance: Annotated[NonNegativeFloat, Profile.DEV] = Field(
+        default=0.0,
+        description=(
+            "Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons. "
+            "Keep it near zero unless the source dataset is known to contain topology artifacts."
+        ),
+    )
+    linear_constraint_snap_tolerance: Annotated[NonNegativeFloat, Profile.DEV] = Field(
+        default=0.0,
+        description=(
+            "Optional global snapping tolerance, in projected metres, applied to internal linear constraints "
+            "such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding."
+        ),
+    )
+    min_polygon_area: Annotated[NonNegativeFloat, Profile.DEV] = Field(
+        default=0.0,
+        description=(
+            "Minimum polygon area, in square metres, kept after cleaning. "
+            "Use it to drop microscopic remnants that would otherwise create meaningless tiny mesh patches."
+        ),
+    )
+    refine_interfaces: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Enable a distance-based size field around geology or river interfaces. "
+            "When false, the mesh uses only the global background size constraints."
+        ),
+    )
+    interface_size: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Target local size, in projected metres, close to constrained interfaces. "
+            "When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size."
+        ),
+    )
+    interface_distance: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Influence distance, in projected metres, over which the local interface refinement fades back to the background size. "
+            "Larger values spread refinement farther away from the interface network."
+        ),
+    )
+    interface_sampling: Annotated[int, Profile.DEV] = Field(
+        default=64,
+        ge=2,
+        description=(
+            "Sampling density used to discretize interface-based distance fields. "
+            "Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost."
+        ),
+    )
+    refinement_policy: Annotated[ZoneMeshingRefinementPolicy | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional local hotspot policy used to selectively thin low-priority "
+            "refinement families when the mixed interface network becomes too "
+            "dense for one robust Gmsh Delaunay run."
+        ),
+    )
+
+    @field_validator("algorithm")
+    @classmethod
+    def _validate_algorithm(cls, value):
+        text = str(value).strip().lower()
+        if not text:
+            raise ValueError("algorithm cannot be empty")
+        return text
+
+    @model_validator(mode="after")
+    def _validate_cross_constraints(self):
+        if self.global_size <= 0.0:
+            raise ValueError("global_size must be > 0")
+        if self.min_size is not None and self.min_size <= 0.0:
+            raise ValueError("min_size must be > 0 when provided")
+        if self.max_size is not None and self.max_size <= 0.0:
+            raise ValueError("max_size must be > 0 when provided")
+        if (
+            self.min_size is not None
+            and self.max_size is not None
+            and self.min_size > self.max_size
+        ):
+            raise ValueError("min_size must be <= max_size")
+
+        if self.refine_interfaces:
+            if self.interface_size is None:
+                self.interface_size = min(
+                    self.min_size if self.min_size is not None else self.global_size * 0.5,
+                    self.global_size,
+                )
+            if self.interface_distance is None:
+                self.interface_distance = max(self.global_size * 3.0, self.interface_size)
+            if self.interface_size <= 0.0:
+                raise ValueError("interface_size must be > 0 when refine_interfaces=true")
+            if self.interface_size > self.global_size:
+                raise ValueError(
+                    "interface_size must be <= global_size when refine_interfaces=true"
+                )
+            if self.interface_distance <= 0.0:
+                raise ValueError("interface_distance must be > 0 when refine_interfaces=true")
+        if self.refinement_policy is not None and self.refinement_policy.enabled:
+            if not self.refine_interfaces:
+                raise ValueError("refinement_policy.enabled requires refine_interfaces=true")
+            if self.refinement_policy.hotspot.radius is None:
+                self.refinement_policy.hotspot.radius = self.interface_distance
+            if (
+                self.refinement_policy.mode == "grid_local_budget"
+                and self.refinement_policy.grid.cell_size is None
+            ):
+                self.refinement_policy.grid.cell_size = max(
+                    float(self.interface_distance) * 0.5,
+                    float(self.interface_size),
+                )
+            for family_name in (
+                "river",
+                "geology_interface",
+                "watershed_boundary",
+            ):
+                family_settings = self.refinement_policy.families[family_name]
+                if family_settings.interface_size is not None:
+                    if family_settings.interface_size <= 0.0:
+                        raise ValueError(f"{family_name}.interface_size must be > 0 when provided")
+                    if family_settings.interface_size > self.global_size:
+                        raise ValueError(f"{family_name}.interface_size must be <= global_size")
+                if family_settings.interface_distance is not None:
+                    if family_settings.interface_distance <= 0.0:
+                        raise ValueError(
+                            f"{family_name}.interface_distance must be > 0 when provided"
+                        )
+        return self
+
+    @classmethod
+    def from_mapping(cls, config_data: Mapping[str, Any]) -> ZoneMeshingSettings:
+        """Validate one raw mapping and return one typed settings contract."""
+        if not isinstance(config_data, Mapping):
+            raise ValueError("zone meshing configuration must be a mapping")
+        try:
+            return cls.model_validate(dict(config_data))
+        except ValidationError as exc:
+            raise ValueError(str(exc)) from exc
+
+    def to_mapping(self) -> dict[str, Any]:
+        """Serialize one typed settings contract to plain Python mapping form."""
+        return {
+            "algorithm": self.algorithm,
+            "global_size": float(self.global_size),
+            "min_size": None if self.min_size is None else float(self.min_size),
+            "max_size": None if self.max_size is None else float(self.max_size),
+            "simplify_tolerance": float(self.simplify_tolerance),
+            "heal_tolerance": float(self.heal_tolerance),
+            "linear_constraint_snap_tolerance": float(self.linear_constraint_snap_tolerance),
+            "min_polygon_area": float(self.min_polygon_area),
+            "refine_interfaces": bool(self.refine_interfaces),
+            "interface_size": (None if self.interface_size is None else float(self.interface_size)),
+            "interface_distance": (
+                None if self.interface_distance is None else float(self.interface_distance)
+            ),
+            "interface_sampling": int(self.interface_sampling),
+            "refinement_policy": (
+                None if self.refinement_policy is None else self.refinement_policy.to_mapping()
+            ),
+        }
+
+
+def parse_zone_meshing_settings(config_data: Mapping[str, Any]) -> ZoneMeshingSettings:
+    """Return one typed zone-meshing settings contract from a raw mapping."""
+
+    return ZoneMeshingSettings.from_mapping(config_data)
+
+
+__all__ = [
+    "parse_zone_meshing_settings",
+    "ZoneMeshingRefinementFamilies",
+    "ZoneMeshingRefinementFamilySettings",
+    "ZoneMeshingRefinementGridSettings",
+    "ZoneMeshingRefinementHotspotSettings",
+    "ZoneMeshingRefinementPolicy",
+    "ZoneMeshingSettings",
+]

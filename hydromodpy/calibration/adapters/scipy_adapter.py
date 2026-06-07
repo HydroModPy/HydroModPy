@@ -1,0 +1,282 @@
+"""SciPy optimizer adapter.
+
+Exposes scipy.optimize methods behind the ask/tell Protocol. SciPy's API is
+push-based (it calls the objective), so we drive it as a generator via a
+queue: ``ask()`` pops the next candidate SciPy wants evaluated, ``tell()``
+feeds the objective value back.
+
+Supported methods:
+    - ``"scipy_de"`` → scipy.optimize.differential_evolution
+    - ``"scipy_nelder_mead"`` → scipy.optimize.minimize(method="Nelder-Mead")
+"""
+
+from __future__ import annotations
+
+import queue
+import threading
+from collections.abc import Callable
+
+import numpy as np
+
+from hydromodpy.calibration.adapters._prior_sampling import (
+    transformed_prior_center,
+    transformed_prior_samples,
+)
+from hydromodpy.calibration.optimizer import (
+    FAILED_EVAL_COST,
+    EvaluationResult,
+    ParamSuggestion,
+    register_optimizer,
+)
+from hydromodpy.calibration.parameters import ParameterSpace
+
+
+class _BridgeClosed(RuntimeError):
+    """Internal signal used to stop a background SciPy worker."""
+
+
+_SENTINEL = object()
+_BRIDGE_EMPTY = object()
+
+
+class _AskTellBridge:
+    """Bridges SciPy's push-style API to an ask/tell pull-style API.
+
+    SciPy runs the optimization in a background thread, pushing candidate
+    vectors via ``_obj``. Calls to ``ask`` pop from ``out_q`` (blocking),
+    calls to ``tell`` push into ``in_q``.
+    """
+
+    def __init__(self, method: Callable[[Callable], object]):
+        self._method = method
+        self._in_q: queue.Queue[float | object] = queue.Queue()
+        self._out_q: queue.Queue[np.ndarray | None] = queue.Queue()
+        self._done = threading.Event()
+        self._thread = threading.Thread(target=self._worker, daemon=True)
+        self._result: object | None = None
+        self._thread.start()
+
+    def _obj(self, x: np.ndarray) -> float:
+        if self._done.is_set():
+            raise _BridgeClosed
+        self._out_q.put(np.array(x, dtype=float))
+        value = self._in_q.get()
+        if value is _SENTINEL:
+            raise _BridgeClosed
+        return float(value)
+
+    def _worker(self) -> None:
+        try:
+            self._result = self._method(self._obj)
+        except _BridgeClosed:
+            self._result = None
+        finally:
+            self._done.set()
+            self._out_q.put(None)
+
+    def next_point(self, timeout: float | None = None) -> np.ndarray | None:
+        """Block until SciPy requests the next evaluation (or finishes)."""
+        return self._out_q.get(timeout=timeout)
+
+    def next_point_nowait(self) -> np.ndarray | None | object:
+        """Return a queued point, or ``_BRIDGE_EMPTY`` when none is ready yet."""
+        try:
+            return self._out_q.get_nowait()
+        except queue.Empty:
+            return _BRIDGE_EMPTY
+
+    def feed(self, value: float) -> None:
+        self._in_q.put(value)
+
+    def finished(self) -> bool:
+        return self._done.is_set()
+
+    def close(self) -> None:
+        self._done.set()
+        self._in_q.put(_SENTINEL)
+        self._out_q.put(None)
+        self._thread.join(timeout=1.0)
+
+
+class _ScipyAdapterBase:
+    name = "scipy"
+
+    def __init__(self, space: ParameterSpace, *, seed: int | None = None):
+        self.space = space
+        self._seed = seed
+        self._history: list[EvaluationResult] = []
+        self._pending: list[tuple[int, np.ndarray]] = []
+        self._trial_id = 0
+        self._bridge = _AskTellBridge(self._make_method())
+
+    def _make_method(self) -> Callable[[Callable], object]:
+        raise NotImplementedError
+
+    def _bounds_transformed(self) -> list[tuple[float, float]]:
+        return [(p.lower_transformed, p.upper_transformed) for p in self.space.parameters]
+
+    def ask(self, n: int = 1) -> list[ParamSuggestion]:
+        out: list[ParamSuggestion] = []
+        for slot in range(n):
+            if slot == 0:
+                point = self._bridge.next_point()
+            else:
+                # SciPy DE / Nelder-Mead are sequential (workers=1): the next
+                # point is only produced after the current one is told back.
+                # Never block here, or ask(n>1) would deadlock; return only the
+                # points already queued (typically one).
+                point = self._bridge.next_point_nowait()
+                if point is _BRIDGE_EMPTY:
+                    break
+            if point is None:
+                break
+            self._trial_id += 1
+            values = {
+                p.name: p.to_physical(float(point[i])) for i, p in enumerate(self.space.parameters)
+            }
+            self._pending.append((self._trial_id, point))
+            out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
+        return out
+
+    def suggest_next(self) -> ParamSuggestion:
+        got = self.ask(1)
+        if not got:
+            raise StopIteration("scipy optimizer finished")
+        return got[0]
+
+    def tell(self, results: list[EvaluationResult]) -> None:
+        for r in results:
+            # Pop matching pending point (FIFO match by trial_id)
+            for i, (tid, _pt) in enumerate(self._pending):
+                if tid == r.trial_id:
+                    self._pending.pop(i)
+                    break
+            value = r.objective_value
+            if r.status != "completed" or not np.isfinite(value):
+                value = FAILED_EVAL_COST
+            self._bridge.feed(float(value))
+            self._history.append(r)
+
+    def best(self) -> EvaluationResult | None:
+        valid = [r for r in self._history if r.status == "completed"]
+        if not valid:
+            return None
+        return min(valid, key=lambda r: r.objective_value)
+
+    def converged(self) -> bool:
+        return self._bridge.finished() and not self._pending
+
+    def close(self) -> None:
+        self._bridge.close()
+
+
+@register_optimizer("scipy_de")
+class ScipyDE(_ScipyAdapterBase):
+    """scipy.optimize.differential_evolution adapter."""
+
+    name = "scipy_de"
+
+    def __init__(
+        self,
+        space: ParameterSpace,
+        *,
+        seed: int | None = None,
+        maxiter: int = 100,
+        popsize: int = 15,
+        tol: float = 0.01,
+    ):
+        self._maxiter = maxiter
+        self._popsize = popsize
+        self._tol = tol
+        super().__init__(space, seed=seed)
+
+    def _make_method(self) -> Callable[[Callable], object]:
+        from scipy.optimize import differential_evolution
+
+        bounds = self._bounds_transformed()
+        rng = np.random.default_rng(self._seed)
+        init = transformed_prior_samples(
+            self.space,
+            rng,
+            max(5, self._popsize * max(1, self.space.dim)),
+        )
+
+        def run(obj: Callable[[np.ndarray], float]) -> object:
+            return differential_evolution(
+                obj,
+                bounds=bounds,
+                seed=self._seed,
+                maxiter=self._maxiter,
+                popsize=self._popsize,
+                tol=self._tol,
+                polish=False,
+                init=init,
+            )
+
+        return run
+
+
+@register_optimizer("scipy_nelder_mead")
+class ScipyNelderMead(_ScipyAdapterBase):
+    """scipy.optimize.minimize(method='Nelder-Mead') adapter."""
+
+    name = "scipy_nelder_mead"
+
+    def __init__(
+        self,
+        space: ParameterSpace,
+        *,
+        seed: int | None = None,
+        maxiter: int | None = None,
+        maxfev: int | None = None,
+        xatol: float | None = None,
+        fatol: float | None = None,
+    ):
+        self._maxiter = 100 if maxiter is None else int(maxiter)
+        self._maxfev = self._maxiter if maxfev is None else int(maxfev)
+        self._xatol = None if xatol is None else float(xatol)
+        self._fatol = None if fatol is None else float(fatol)
+        super().__init__(space, seed=seed)
+
+    def _make_method(self) -> Callable[[Callable], object]:
+        from scipy.optimize import minimize
+
+        bounds = self._bounds_transformed()
+        lower = np.array([b[0] for b in bounds], dtype=float)
+        upper = np.array([b[1] for b in bounds], dtype=float)
+        x0 = transformed_prior_center(self.space)
+        # Bound-scaled initial simplex (10 % of range per axis) gives
+        # Nelder-Mead a wider starting spread than scipy's 5 %-of-x0
+        # default, reducing the iter count needed to reach a tight
+        # tolerance on tight log-scale parameters.
+        n = x0.size
+        delta = 0.1 * (upper - lower)
+        initial_simplex = np.tile(x0, (n + 1, 1))
+        for i in range(n):
+            initial_simplex[i + 1, i] = float(np.clip(x0[i] + delta[i], lower[i], upper[i]))
+
+        def run(obj: Callable[[np.ndarray], float]) -> object:
+            def clipped(x: np.ndarray) -> float:
+                return obj(np.clip(np.asarray(x, dtype=float), lower, upper))
+
+            options: dict[str, object] = {
+                "maxiter": self._maxiter,
+                "maxfev": self._maxfev,
+                "adaptive": True,
+                "initial_simplex": initial_simplex,
+            }
+            if self._xatol is not None:
+                options["xatol"] = self._xatol
+            if self._fatol is not None:
+                options["fatol"] = self._fatol
+            return minimize(
+                clipped,
+                x0,
+                method="Nelder-Mead",
+                options=options,
+            )
+
+        return run
+
+
+__all__ = ["ScipyDE", "ScipyNelderMead"]

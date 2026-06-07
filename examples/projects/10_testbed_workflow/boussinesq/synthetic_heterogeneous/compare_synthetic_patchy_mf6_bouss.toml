@@ -1,0 +1,159 @@
+[workflow]
+mode = "comparison"
+
+[comparison]
+comparison_id = "synthetic_patchy_long_mf6_vs_bouss"
+base_simulation_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
+output_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_long_mf6_vs_bouss"
+reference_simulation = "mf6_ref"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+timeout_seconds = 2400
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 150.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 synthetic patchy reference"
+solver = "modflow6"
+mesh_label = "generated geology-only synthetic catchment mesh"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_long_mf6_vs_bouss/workspace_mf6"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_long_mf6_vs_bouss/workspace_mf6"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq synthetic patchy candidate"
+solver = "boussinesq"
+mesh_label = "generated geology-only synthetic catchment mesh"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_long_mf6_vs_bouss/workspace_bouss"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_long_mf6_vs_bouss/workspace_bouss"
+
+[comparison.simulation.overlay.flow]
+runtime_backend = "petsc"
+surface_interaction_model = "ts_vi_obstacle"
+ts_vi_steps_per_period = 4
+ts_vi_adapt = false
+ts_vi_type = "beuler"
+ts_vi_snes_type = "vinewtonrsls"
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
+
+[[comparison.observable]]
+name = "head_map_first_computed"
+variable = "watertable_elevation"
+support = "map"
+time = "first_computed"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_wet_year1"
+variable = "watertable_elevation"
+support = "map"
+time = 5
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_drought_year2"
+variable = "watertable_elevation"
+support = "map"
+time = 22
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_extreme_recharge"
+variable = "watertable_elevation"
+support = "map"
+time = 28
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_west_low_k_series"
+variable = "watertable_elevation"
+support = "point"
+x = 140900.0
+y = 6847000.0
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_west_interface_series"
+variable = "watertable_elevation"
+support = "point"
+x = 141900.0
+y = 6847000.0
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_central_high_k_series"
+variable = "watertable_elevation"
+support = "point"
+x = 142500.0
+y = 6847000.0
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_east_interface_series"
+variable = "watertable_elevation"
+support = "point"
+x = 143400.0
+y = 6847000.0
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_east_medium_k_series"
+variable = "watertable_elevation"
+support = "point"
+x = 144200.0
+y = 6847000.0
+time = "all"
+unit = "m"

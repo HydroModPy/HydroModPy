@@ -1,0 +1,45 @@
+base_config = "base_nancon_steady_hydrography_structured.toml"
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_steady_mf6_irregular_network_methods/shared_workspace"
+root = "../../"
+
+[simulation]
+name = "nancon_steady_hydrography_mesh_catchment_shared_case"
+description = "Nancon steady comparison case with generated irregular catchment meshes."
+
+[mesh_catchment]
+constraints_mode = "rivers_only"
+output_layout = "flat"
+figures_enabled = false
+figure_dpi = 220
+figure_regional_dpi = 180
+
+[mesh_catchment.watershed_boundary]
+enabled = true
+boundary_refinement_distance = 300.0
+
+[mesh_catchment.watershed_boundary.smoothing]
+enabled = true
+distance = 100.0
+river_buffer_distance = 50.0
+outer_bias_distance = 5.0
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+enabled = true
+size_factor = 2.0
+transition_distance = 500.0
+grid_resolution = 500.0
+
+[mesh_catchment.zone_meshing]
+global_size = 350.0
+min_size = 150.0
+max_size = 800.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 180.0
+interface_distance = 500.0
+interface_sampling = 64

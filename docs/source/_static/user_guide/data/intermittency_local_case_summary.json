@@ -1,0 +1,19 @@
+{
+  "source": "custom",
+  "station_count": 3,
+  "station_ids": [
+    "ONDE001",
+    "ONDE002",
+    "ONDE003"
+  ],
+  "total_observations": 90,
+  "date_start": "2018-05-25",
+  "date_end": "2023-09-25",
+  "flow_code_hist": {
+    "1": 14,
+    "2": 9,
+    "3": 10,
+    "4": 13,
+    "5": 44
+  }
+}

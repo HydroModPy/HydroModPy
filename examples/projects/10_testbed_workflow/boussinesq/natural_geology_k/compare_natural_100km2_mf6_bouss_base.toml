@@ -1,0 +1,45 @@
+# This 100 km2 comparison base inherits the common MF6/Boussinesq methods,
+# observables and physical simulation base from the 10 km2 comparison template.
+base_config = "compare_natural_10km2_mf6_bouss_base.toml"
+
+# Workflow selector: this file remains a reusable solver-comparison template.
+[workflow]
+mode = "comparison"
+
+# Top-level comparison experiment section.
+[comparison]
+# Stable identifier for the reusable 100 km2 natural comparison base.
+comparison_id = "natural_100km2_mf6_bouss_base"
+# Default output root, overridden by the N2 catalog testbed for each site.
+output_root = "../../outputs/boussinesq_natural_n2_100km2_testbed/comparisons/base"
+
+# Execution settings for child simulations.
+[comparison.execution]
+# Larger natural supports need a longer per-child timeout than the 10 km2 pilot.
+timeout_seconds = 7200
+
+# Shared geographic options for the 100 km2 natural campaign.
+[comparison.base_simulation_overlay.geographic.catchment]
+# Larger outlet snapping distance, still small relative to the target basin scale.
+snap_dist = "300.0 m"
+# Larger watershed buffer around each delineated basin.
+buff_area = "1800.0 m"
+
+# Shared DEM-derived river-network extraction settings for 100 km2 sites.
+[comparison.base_simulation_overlay.geographic.river_network]
+# Stream initiation threshold adapted to larger supports.
+threshold_area_km2 = 1.0
+
+# Shared irregular mesh sizing for 100 km2 sites.
+[comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+# Background target cell size in metres.
+global_size = 260.0
+# Minimum allowed local cell size in metres.
+min_size = 90.0
+# Target cell size near rivers, geology interfaces and watershed boundaries.
+interface_size = 140.0
+
+# Common raster support for map comparison between different solver meshes.
+[comparison.fine_raster]
+# Raster resolution in metres, scaled with the larger natural supports.
+resolution = 160.0

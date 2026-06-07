@@ -1,0 +1,53 @@
+base_config = "../06_vire_selune/project_simulation_steady.toml"
+
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "outputs/vire_natural_structured_comparison/workspace"
+root = "../../"
+
+[simulation]
+name = "vire_natural_structured_shared_case"
+description = "Natural Vire catchment steady-flow case on a shared structured grid."
+on_collision = "replace"
+
+[simulation.time]
+start_datetime = "2020-01-01 00:00:00"
+end_datetime = "2020-12-31 00:00:00"
+step_value = "1 year"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic.catchment]
+x_outlet = 400866.1983
+y_outlet = 6923974.693
+buff_area = "10%"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+prune_short_streams = false
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = true
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = "1e-5 m/s"
+values_source__delete = true
+values_csv_file__delete = true
+csv_key_column__delete = true
+csv_value_column__delete = true
+field_spatial_id__delete = true
+
+[display]
+enabled = false

@@ -1,0 +1,93 @@
+# ======================================================================
+# HydroModPy Configuration (data-only example)
+# data-overview launcher: setup + domain + data loading, without process execution.
+# Canonical CLI:
+#   hmp run examples/projects/04_data_overview/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "overview"
+
+[workspace]
+project_root = "."
+
+[geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+x_outlet = 127348.427
+y_outlet = 6835802.564
+snap_dist = "150 m"
+buff_area = "20%"
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+[data]
+types = ["geology", "hydrography", "hydrometry", "intermittency", "oceanic"]
+inference_mode = "strict"
+
+[data.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[data.hydrography]
+
+[[data.hydrography.sources]]
+source = "custom"
+path = "../../data/hydrography/regional_stream_network.shp"
+rasterize_field = "FID"
+
+[data.hydrometry]
+date_start = "2019-01-01"
+date_end = "2025-12-31"
+
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
+
+[data.intermittency]
+date_start = "2019-01-01"
+date_end = "2025-12-31"
+
+[[data.intermittency.sources]]
+source = "hubeau"
+extent = "watershed"
+
+[data.oceanic]
+date_start = "2003-01-01"
+date_end = "2003-01-30"
+
+[[data.oceanic.sources]]
+source = "shom"
+nearest = true
+
+[overview]
+name = "Watershed Data Overview"
+date_start = "2019-01-01"
+date_end = "2025-12-31"
+
+[overview.panels]
+map_dem = true
+map_geology = true
+map_hydrography = true
+stats_card = true
+timeseries_discharge = true
+timeseries_piezometry = false
+climatic_summary = false
+timeseries_intermittency = true
+timeseries_water_quality = false
+station_inventory = true

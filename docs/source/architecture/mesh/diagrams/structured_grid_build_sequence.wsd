@@ -1,0 +1,73 @@
+@startuml
+title StructuredGrid - Build Sequence
+autonumber
+hide footbox
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+legend right
+|= Arrow |= Meaning |
+| ``->`` | call |
+| ``-->`` | returned value |
+| ``alt`` | one branch chosen from config |
+endlegend
+
+actor Caller
+participant "build_sgrid_from_config(...)\n<<module function>>" as Factory
+participant "SGridConfig\n<<config>>" as Cfg
+participant "RasterGridReader" as Reader
+participant "PlanarDiscretizer" as Discretizer
+participant "top_surface : Surface" as TopSurface
+participant "bottom_surface : Surface" as BottomSurface
+participant "VerticalGridConfig\n<<config>>" as VerticalCfg
+participant "StructuredGridBuilder\n<<builder>>" as Builder
+participant "StructuredGrid\n<<external FloPy>>" as Grid
+
+Caller -> Factory: build_sgrid_from_config(config)
+Factory -> Cfg: _coerce_sgrid_config(config)
+Cfg --> Factory: validated cfg
+
+Factory -> Reader: read_top_grid(cfg.top_path)
+Reader --> Factory: source_top_grid
+
+Factory -> Discretizer: discretize_top(source_top_grid,\nplan mode, nx, ny, nodata, crs)
+Discretizer --> Factory: target_top_grid
+
+Factory -> TopSurface: _surface_from_top_grid(target_top_grid)
+TopSurface --> Factory: top_surface
+
+alt cfg.genmtd_bot == "constant_thickness"
+  Factory -> BottomSurface: Surface(top_surface - thick)
+  BottomSurface --> Factory: bottom_surface
+else cfg.genmtd_bot == "constant_altitude"
+  Factory -> BottomSurface: Surface(flat zbot)
+  BottomSurface --> Factory: bottom_surface
+else cfg.genmtd_bot == "filepath"
+  Factory -> Reader: read_band1_with_metadata(cfg.bot_path)
+  Reader --> Factory: bottom band + metadata
+  Factory -> BottomSurface: _surface_from_band_metadata(...)
+  BottomSurface --> Factory: source_bottom_surface
+  opt cfg.plan_discretization_mode == "resample_to_shape"
+    Factory -> BottomSurface: resample_to_shape(target top shape)
+    BottomSurface --> Factory: resampled bottom_surface
+  end
+else cfg.genmtd_bot == "raster"
+  Factory -> BottomSurface: Surface(bot_raster or resampled bot_raster)
+  BottomSurface --> Factory: bottom_surface
+end
+
+Factory -> VerticalCfg: derive from cfg
+VerticalCfg --> Factory: vertical_config
+
+Factory -> Builder: build_from_surfaces(top_surface,\nbottom_surface, vertical_config)
+activate Builder
+Builder -> Builder: validate shared geographic domain
+Builder -> Builder: compute layer proportions
+Builder -> Builder: build botm, delr, delc
+Builder -> Grid: StructuredGrid(...)
+Grid --> Builder: solver grid
+Builder --> Factory: StructuredGrid
+deactivate Builder
+
+Factory --> Caller: StructuredGrid
+@enduml

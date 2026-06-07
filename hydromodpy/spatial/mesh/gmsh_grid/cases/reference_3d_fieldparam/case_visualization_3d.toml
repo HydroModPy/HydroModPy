@@ -1,0 +1,6 @@
+[case]
+reference_3d_postprocess_config = "case_postprocess_3d.toml"
+reference_3d_postprocess_section = "case"
+output_summary_json = "outputs/reference_3d_visualization_summary.json"
+output_layers_png = "outputs/reference_3d_layers.png"
+output_profiles_png = "outputs/reference_3d_profiles.png"

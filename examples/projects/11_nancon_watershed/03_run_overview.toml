@@ -1,0 +1,230 @@
+# ======================================================================
+# Nancon - 03 - Watershed identity card / data overview
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "overview"
+# What it does:   loads every requested data layer, computes basic
+#                 catchment statistics, and renders one PNG panel per
+#                 variable under <project_root>/figures/overview/.
+#
+# Standalone TOML on purpose (no base_config): the goal is to exercise
+# the data-loading pipeline end-to-end on its own time window. Reusing
+# project.toml is fine; we keep this standalone to mirror the legacy
+# "all APIs" example shipped with the repo so it is easy to copy and
+# tweak.
+#
+# Outputs (under <project_root>/figures/overview/):
+#   map_dem.png, map_geology.png, map_hydrography.png,
+#   stats_card.png, station_inventory.png, climatic_summary.png,
+#   timeseries_discharge.png, timeseries_piezometry.png
+#
+# WARNING - hubeau / SIM2 calls hit live APIs (BRGM, BD TOPAGE, Hub'Eau,
+# SIM2). The first run may take several minutes; downloads are cached
+# under examples/data/.
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/03_run_overview.toml
+# ======================================================================
+
+
+[workflow]
+mode = "overview"
+
+[workspace]
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Geographic - same outlet as project.toml.
+# The watershed cannot be delineated without a local DEM here (the IGN
+# BD ALTI WCS endpoint is currently returning HTTP 403, see below).
+# ----------------------------------------------------------------------
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = false
+
+
+# ----------------------------------------------------------------------
+# Data - one entry per variable type. Mix of local + remote sources.
+# ----------------------------------------------------------------------
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+[data]
+project_crs = "EPSG:2154"
+
+# Variable families exercised in this overview.
+# SIM2 families without a panel (temperature, humidity, wind, radiation,
+# soil_moisture, runoff) are intentionally omitted: they download fine
+# on a small bbox but a chained fresh fetch of many SIM2 variables in
+# the same run hits a native-code crash inside the xarray/netCDF4 stack
+# used by sim2_edr.py.
+types = [
+    "dem",
+    "geology",
+    "hydrography",
+    "hydrometry",
+    "piezometry",
+    "intermittency",
+    "water_quality",
+    "precipitation",  # rendered in climatic_summary panel
+    "etp",            # rendered in climatic_summary panel
+    "recharge",
+]
+
+
+# ---- DEM (custom local raster) --------------------------------------
+
+[[data.dem.sources]]
+source = "custom"
+path = "../../data/dem/DEM_armorican_massif.tif"
+
+# Uncomment once IGN BD ALTI access is restored:
+# [[data.dem.sources]]
+# source = "ign_geoplateforme_dem"
+# dataset = "bd-alti"
+# resolution_m = 25.0
+# extent = "watershed"
+
+
+# ---- Geology (BRGM 1:50K via WFS) -----------------------------------
+
+[[data.geology.sources]]
+source = "brgm_50k"
+extent = "watershed"
+
+
+# ---- Hydrography (three providers shown side by side) ---------------
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+rasterize_field = "FID"
+
+[[data.hydrography.sources]]
+source = "euhydro"
+
+[[data.hydrography.sources]]
+source = "osm"
+
+
+# ---- Hydrometry via Hub'Eau ------------------------------------------
+
+[data.hydrometry]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.hydrometry.sources]]
+source = "hubeau"
+# QmnJ = daily mean discharge.
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
+fallback_search_radius_km = 20.0
+
+
+# ---- Piezometry via Hub'Eau -----------------------------------------
+
+[data.piezometry]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.piezometry.sources]]
+source = "hubeau"
+product = "level"
+extent = "watershed"
+nearest = true
+require_observations = true
+fallback_search_radius_km = 25.0
+
+
+# ---- Intermittency (ONDE network) -----------------------------------
+
+[data.intermittency]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.intermittency.sources]]
+source = "hubeau"
+extent = "watershed"
+
+
+# ---- Water quality --------------------------------------------------
+
+[[data.water_quality.sources]]
+source = "hubeau"
+site_type = "river"
+extent = "watershed"
+parameters = ["Temperature", "pH", "Nitrates"]
+
+
+# ---- Precipitation (SIM2 Meteo-France) -------------------------------
+
+[data.precipitation]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.precipitation.sources]]
+source = "sim2"
+components = ["liquid", "solid", "total"]
+extent = "watershed"
+
+
+# ---- ETP ------------------------------------------------------------
+
+[data.etp]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+
+# ---- Recharge (SIM2 grid) -------------------------------------------
+
+[data.recharge]
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+
+# ----------------------------------------------------------------------
+# Overview - one PNG per panel under figures/overview/.
+# ----------------------------------------------------------------------
+
+[overview]
+# Watershed name.
+# Type: string | Default: ""
+name = "Nancon"
+# Global date window for the overview report (independent from data
+# loading windows above, which can be wider).
+date_start = "2018-01-01"
+date_end = "2020-12-31"
+
+[overview.panels]
+# Spatial panels.
+map_dem = true
+map_geology = true
+map_hydrography = true
+# Tabular panels.
+stats_card = true
+station_inventory = true
+# Climatology bars (precipitation + ETP monthly means).
+climatic_summary = true
+# Time-series panels.
+timeseries_discharge = true
+timeseries_piezometry = true
+# Schema accepts these toggles but rendering is not implemented yet:
+timeseries_intermittency = true
+timeseries_water_quality = true

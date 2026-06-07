@@ -1,0 +1,85 @@
+# ======================================================================
+# Nancon - calibration sur une cible de charge piezometrique
+# ----------------------------------------------------------------------
+# `variable = "head"` cale K pour que la nappe simulee colle a une charge
+# observee. Le jeu de donnees fourni n'a pas de piezometre dans le bassin
+# du Nancon (le plus proche, Louvigne-du-Desert, est en dehors), donc
+# cette demo utilise une cible de charge en un point du bassin : la
+# charge produite par K = 5e-5 m/s. Optuna retrouve ce K.
+#
+# C'est le pendant "charge" de calibration_discharge.toml. Pour caler sur
+# de la vraie piezometrie, charger une source [data.piezometry] dont la
+# station tombe dans le bassin et retirer le bloc explicite
+# [calibration.outputs.head] (les valeurs observees sont alors tirees
+# automatiquement de la source de donnees).
+#
+# Lancement :
+#   hmp run examples/projects/20_atelier_nancon/calibration_head.toml
+#   hmp report
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "calib_head"
+description = "Calibration Optuna de K vs RMSE(charge) en un point du bassin."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 year"
+coverage_policy = "warn"
+
+# Regime permanent : un seul champ de charge a l'equilibre, compare a la
+# cible.
+[flow]
+flow_regime = "steady"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+# Parametres geles.
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.Sy.field]
+value = 0.05
+
+[flow.param.Ss.field]
+value = 1e-5
+
+
+[calibration]
+method = "optuna"
+max_iter = 15
+batch_size = 1
+save_runs = "best_n"
+save_best_n = 2
+seed = 42
+# RMSE sur une seule valeur de charge, minimisee a la verite.
+objective = "rmse"
+variable = "head"
+use_cache = true
+
+[calibration.parameters.K]
+bounds = [1e-6, 1e-3]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# Charge observee en un point du bassin (Lambert-93). La valeur est la
+# charge permanente pour K = 5e-5 m/s, donc la recherche retrouve ce K.
+[calibration.outputs.head]
+variable = "head"
+support = "point"
+x = "392175 m"
+y = "6819750 m"
+time = "last"
+observed_values = [146.444]

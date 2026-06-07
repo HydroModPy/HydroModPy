@@ -1,0 +1,556 @@
+# Workflow selector (mandatory). Must be one of 'simulation', 'calibration', 'overview',
+# 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers
+# that instantiate `HydroModPyConfig` from a frontend form.
+
+[workflow]
+mode = "simulation"
+
+# Strict-binary workspace configuration.
+
+[workspace]
+# Path to the project directory. Auto-derived from TOML location when absent.
+project_root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss/base_workspace"
+# Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result
+# catalogs stay project-local by default.
+root = "../../../.."
+# Explicit path to the workspace data directory. Defaults to <root>/data.
+data_dir = "../../outputs/nwt_small_catchment_flux/data_cache"
+
+# Minimal orchestration block declared under ``[simulation]``.
+
+[simulation]
+# Human-readable simulation name.
+name = "site_01_refined_mf6_bouss_shared_case"
+# Short free-text description of the simulation intent.
+description = "Shared refined natural site_01 recharge-response case for MF6 versus Boussinesq comparison."
+# Behavior when registering a simulation whose ``name`` already exists in this project.
+# ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises
+# an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
+on_collision = "replace"
+
+# Optional canonical simulation window used to align solver temporal settings and validate forcing
+# coverage. Required for launcher flow processes and for runtime features that explicitly consume
+# simulation-window dates.
+
+[simulation.time]
+# Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.
+start_datetime = "2000-09-01"
+# Simulation window upper datetime bound, interpreted as inclusive. Must be greater than or equal
+# to start_datetime.
+end_datetime = "2002-08-31"
+# Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day').
+# This controls the temporal aggregation step for forcing series (for example recharge/runoff) and
+# the resulting stress periods.
+step_value = "1 month"
+# Behavior when recharge does not fully cover the declared simulation window bounds
+# [start_datetime, end_datetime]: 'error' raises, 'warn' emits a warning, 'ignore' skips checks.
+coverage_policy = "warn"
+
+# Ordered list of requested processes loaded from [[simulation.process]]. At most one process per
+# type is supported.
+
+[[simulation.process]]
+# User-facing identifier for the process. This id is required and must be unique within the
+# simulation.
+id = "flow_main"
+# Requested process family executed by the launcher.
+type = "flow"
+# Ordered list of active solver names for this process. Each listed solver is executed in order.
+solvers = ["modflow6"]
+
+# Results storage and export configuration loaded from [simulation.results]. Controls
+# SimulationCatalog, derived variables, and automated exports.
+
+[simulation.results]
+# Keep raw solver output files (.hds, .cbc, .lst) after ingestion.
+keep_solver_files = false
+
+# Derived variable computation toggles.
+
+[simulation.results.derived]
+# Positive per-cell drain outflow summed over layers.
+outflow_drain = true
+# Drain flux routed on the drainage network.
+accumulation_flux = true
+# Compute water-table depth (surface minus water-table elevation).
+watertable_depth = true
+# Compute water-table elevation from uppermost saturated layer.
+watertable_elevation = true
+
+# Budget extraction configuration.
+
+[simulation.results.budget]
+# Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.
+spatial_fields = true
+
+# Geographic configuration for watershed delineation.
+
+[geographic]
+# Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow.
+# 'synthetic' builds one analytical support from [geographic.synthetic].
+source_mode = "standard"
+# Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.
+crs_project = "EPSG:2154"
+# DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill'
+# raises sinks to their pour point.
+dem_correc_type = "breach"
+# If true, reuse previously generated geographic artifacts when the cached fingerprint matches the
+# current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated
+# simulation runs in the same workspace.
+reuse_existing_outputs = false
+
+# Optional DEM-derived river-network extraction settings. When disabled, no stream network is
+# generated in geographic preprocessing.
+
+[geographic.catchment]
+# Catchment definition mode used when source_mode='standard'. 'dem' = model domain defined
+# directly from a DEM raster (dem_init_path required). 'txt' = model domain from an XYZ text file
+# (dem_init_path, cell_size required). 'from_outlet_coord' = watershed from outlet coordinates
+# (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required). 'from_polyg_shp' = watershed
+# from a polygon shapefile (dem_init_path, polyg_shp_path, buff_area required).
+catch_def = "from_outlet_coord"
+# Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain
+# directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow
+# analysis.
+dem_init_path = "../../../../data/dem/DEM_armorican_massif.tif"
+# X coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord'
+# mode.
+x_outlet = 131189.100
+# Y coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord'
+# mode.
+y_outlet = 6833784.400
+# Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly
+# values (for example 50, '50 m', '0.05 km'). Required for 'from_outlet_coord' mode.
+snap_dist = "150 m"
+# Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area
+# [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').
+# Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
+buff_area = "10%"
+
+[geographic.river_network]
+# Enable DEM-based river-network extraction from flow accumulation during geographic
+# preprocessing.
+enabled = true
+# Stream-initiation threshold selector. 'area_km2' uses contributing area in km^2. 'cells' uses
+# contributing-cell count directly.
+threshold_mode = "area_km2"
+# Contributing area threshold (km^2), required when threshold_mode='area_km2'.
+threshold_area_km2 = 0.2
+# If true, remove short stream segments after extraction.
+prune_short_streams = false
+# Compute Strahler order raster from extracted streams.
+compute_strahler_order = true
+# Compute stream-link identifier raster from extracted streams.
+compute_stream_links = true
+# Forwarded to Whitebox raster_streams_to_vector. False keeps a lighter vector geometry.
+all_vertices = true
+
+# Domain configuration.
+
+[domain]
+# Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual
+# runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support
+# declarations live under domain.supports.
+zone_ids = ["geology"]
+
+[domain.supports.field_geology]
+kind = "geology"
+
+# Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
+
+[domain.depth_model]
+# Depth-model kind selector. Use 'constant_thickness' to define bottom as top-thickness.
+kind = "constant_thickness"
+# Constant aquifer thickness (m) applied below topography.
+thickness = "30.0 m"
+
+# Top-level ``[data]`` configuration for manager families.
+
+[data]
+# EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is
+# reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
+project_crs = "EPSG:2154"
+# Ordered list of data-manager types explicitly requested in [data]. The launcher may append
+# inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
+# Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry',
+# 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff',
+# 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+types = ["dem", "hydrography", "geology", "recharge"]
+# Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep
+# inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred
+# type has no explicit data.<type> section (except geology, which can use its default typed
+# config).
+inference_mode = "warn"
+
+# At least one DEM data source.
+
+[[data.dem.sources]]
+# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for IGN DEM discovery.
+source = "custom"
+# Path to custom DEM file or directory (TIF, ASC, NC).
+path = "../../../../data/dem/DEM_armorican_massif.tif"
+
+# At least one hydrography data source.
+
+[[data.hydrography.sources]]
+# Data provider.
+source = "custom"
+# Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
+path = "../../../../data/hydrography/regional_stream_network.shp"
+# Attribute field used when rasterising the vector layer.
+rasterize_field = "FID"
+
+# Geology configuration used when 'geology' is listed in data.types.
+
+[data.geology]
+# Identifier of the geology spatial field.
+id = "field_geology"
+# Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower
+# runtime.
+cell_samples_per_axis = 8
+
+# At least one geology data source. Defaults to BRGM 1:1M.
+
+[[data.geology.sources]]
+# Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), 'brgm_1m' for the 1:1M national
+# geological map, 'brgm_50k' for the 1:50K departmental geological maps.
+source = "custom"
+# Path to custom geology file or directory (SHP, GPKG, TIF, CSV).
+path = "../../../../data/geology/GEO1M.shp"
+# Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector
+# sources. Ignored for BRGM sources (always CODE_LEG).
+code_field = "CODE_LEG"
+
+# Recharge configuration (drainage / soil infiltration time series).
+
+[data.recharge]
+# Project start date (ISO format, e.g. '2019-01-01').
+date_start = "2000-09-01"
+# Project end date (ISO format, e.g. '2025-12-31').
+date_end = "2002-08-31"
+
+# At least one data source.
+
+[[data.recharge.sources]]
+# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated
+# series.
+source = "synthetic"
+# Frequency for synthetic series (e.g. 'D', 'ME', 'YE').
+freq = "MS"
+# Start date for synthetic series (ISO format, e.g. '2020-01-01').
+start_date = "2000-09-01"
+# Number of periods for synthetic series.
+periods = 24
+# Recharge values in mm/day. Single value for constant, list for time-varying.
+values = [
+  0.05, 0.12, 0.45, 1.10, 1.90, 2.40, 1.50, 0.65, 0.20, 0.04, 0.00, 0.02,
+  0.03, 0.08, 0.30, 0.90, 1.70, 2.80, 1.20, 0.35, 0.08, 0.01, 0.00, 0.03,
+]
+# Fraction of recharge routed to runoff (0.0 to 1.0).
+runoff_ratio = 0.0
+
+# Flow-process configuration.
+
+[flow]
+# Global flow simulation regime used by solvers consuming [flow] (steady or transient).
+flow_regime = "transient"
+# Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'.
+# An empty list means no sink/source package is assembled by the solver.
+active_sinks_sources = ["recharge"]
+# Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical
+# ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side',
+# 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition
+# package is assembled by the solver.
+active_bc = ["drainage"]
+# Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K',
+# 'Ss', 'Sy']).
+param_list = ["K", "Ss", "Sy"]
+# Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.
+runtime_max_iterations = 240
+# Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime
+# backend.
+runtime_tol_residual_inf = 1.0e-8
+# Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that
+# track it.
+runtime_tol_state_update_inf = 1.0e-8
+
+[flow.param.K.field]
+id = "K"
+kind = "heterogeneous"
+unit = "m/s"
+values_source = "csv"
+values_csv_file = "../../../../data/geology/geology_K_dummy_demo.csv"
+csv_key_column = "zone_key"
+csv_value_column = "K_value"
+field_spatial_id = "field_geology"
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = "1e-5 m-1"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = "0.05 -"
+
+# Validated flow initial-condition structure parsed from [flow.ic]. Stored as
+# FlowInitialConditions(h=FlowInitialCondition).
+
+[flow.ic]
+type = "steady_state"
+source = "mean_recharge"
+recharge_statistic = "time_mean"
+boundary_condition_policy = "first_period"
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = "0.0 m2/s"
+
+# Diffuse recharge configuration. None = zero recharge for all periods.
+
+[flow.sinks_sources.recharge]
+# Period-0 policy for the transient forcing.
+first_clim = "first"
+# When true, negative recharge values are routed to the solver EVT package and RCH receives the
+# non-negative clipped recharge.
+negative_to_evt = true
+
+# Top-level launcher contract for one mono-catchment meshing run.
+
+[mesh_catchment]
+# Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only,
+# 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of
+# constraints in one mesh.
+constraints_mode = "geology_rivers"
+# Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under
+# `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under
+# `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
+output_layout = "flat"
+# If true, generate the overview figure artifacts when figure output paths are configured. Set it
+# to false to skip figure creation entirely, even when default filename patterns are present.
+figures_enabled = true
+# Pixel density used when rendering the main mesh overview figure. Increase it when you need to
+# inspect mesh edges and constraints more closely in the saved PNG.
+figure_dpi = 220
+# Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi
+# when you want detailed local mesh inspection without making the regional PNG too heavy.
+figure_regional_dpi = 180
+
+# Optional watershed-boundary mesh constraint. Enable it to force a conformal mesh line along the
+# catchment boundary while keeping the geology zonation represented on the whole support domain.
+
+[mesh_catchment.watershed_boundary]
+# If true, inject the watershed boundary as one dedicated linear constraint in addition to geology
+# and/or river constraints.
+enabled = true
+# Optional influence distance, in projected metres, used for the watershed-boundary refinement
+# family. When omitted, the mesher derives one conservative distance from the boundary extent.
+boundary_refinement_distance = 150.0
+
+# Optional regularization controls applied before the watershed boundary is converted to a linear
+# constraint.
+
+[mesh_catchment.watershed_boundary.smoothing]
+# If true, apply the smoothing controls below before converting the watershed boundary into one
+# linear constraint.
+enabled = true
+# Optional regularization tolerance, in projected metres, used to simplify the watershed boundary
+# at roughly the target internal mesh scale before it is injected as a linear mesh constraint.
+# When omitted, the mesher reuses zone_meshing.global_size.
+distance = 80.0
+# Optional protective buffer around river traces, in projected metres, merged into the boundary-
+# support polygon before smoothing so the final watershed boundary stays slightly outside river
+# corridors near the basin edge.
+river_buffer_distance = 60.0
+# Optional outward bias, in projected metres, applied after smoothing so the final watershed
+# boundary remains slightly englobing instead of cutting back toward the raw catchment contour.
+outer_bias_distance = 10.0
+
+# Optional coarse-background size field applied outside the regularized watershed while keeping
+# the geology partition unchanged.
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+# If true, add one regional mesh-size field that keeps the current background size inside the
+# watershed and coarsens the mesh outside it.
+enabled = true
+# Multiplicative factor applied to zone_meshing.global_size outside the watershed. Use 2.0 for an
+# outside background roughly twice as coarse as the internal baseline.
+size_factor = 1.4
+# Optional transition width, in projected metres, used to ramp from the internal background size
+# to the coarser outside size away from the watershed boundary.
+transition_distance = 250.0
+# Optional structured-grid resolution, in projected metres, used to discretize the outside
+# coarsening field. When omitted, the mesher reuses zone_meshing.global_size.
+grid_resolution = 180.0
+
+# Optional control of where geology remains conformal relative to the watershed. Keep the default
+# full_domain mode to preserve the current behavior.
+
+[mesh_catchment.watershed_boundary.geology_conformity]
+# Control where geology remains conformal. Use 'full_domain' to keep the current behavior, or
+# 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered
+# envelope around the regularized watershed, without creating one strict partition boundary on
+# that envelope.
+mode = "buffered_watershed_envelope"
+# Optional outward buffer, in projected metres, added around the regularized watershed before
+# selecting where geology interfaces remain active. When omitted in buffered_watershed_envelope
+# mode, the mesher reuses zone_meshing.global_size.
+buffer_distance = 100.0
+
+# Optional geology support used when constraints_mode includes geology. This section defines which
+# polygon source represents lithological zones and how those polygons should be interpreted before
+# conformal meshing. Validated through the geology data-source Protocol; stored as a normalized
+# mapping.
+
+[mesh_catchment.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[mesh_catchment.geology.source]
+path = "../../../../data/geology/GEO1M.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../../../data/dem/DEM_armorican_massif.tif"
+
+# Optional hydraulic-conductivity mapping by geology key. When provided, the bundle exports one
+# `hydraulic_conductivity_m_s` value per cell.
+
+[mesh_catchment.hydraulic_properties.conductivity]
+# Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for
+# an external table.
+values_source = "csv"
+# CSV file used when values_source='csv'. Relative paths are resolved from the launcher TOML
+# directory.
+values_csv_file = "../../../../data/geology/geology_K_dummy_demo.csv"
+# CSV column containing numeric property values.
+csv_value_column = "K_value"
+
+# Optional storage-coefficient mapping by geology key. When provided, the bundle exports one
+# `storage_coefficient` value per cell.
+
+[mesh_catchment.hydraulic_properties.storage_coefficient]
+# Fallback value applied when one geology zone has no explicit mapping. Leave empty to keep
+# exported cell values undefined for unmapped zones.
+default_value = 0.05
+
+# Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and
+# interface refinement. Defaults are valid, but project examples typically override them to target
+# a desired number of cells.
+
+[mesh_catchment.zone_meshing]
+# Baseline target cell size in projected metres over the full support domain. Think of it as the
+# coarse background resolution before local interface refinement is added.
+global_size = 130.0
+# Lower bound on local cell size in projected metres. Use it to prevent extreme refinement from
+# generating very small cells in narrow features.
+min_size = 45.0
+# Upper bound on local cell size in projected metres. Use it when you want to cap the coarsening
+# far from interfaces.
+max_size = 300.0
+# Minimum polygon area, in square metres, kept after cleaning. Use it to drop microscopic remnants
+# that would otherwise create meaningless tiny mesh patches.
+min_polygon_area = 1.0
+# Enable a distance-based size field around geology or river interfaces. When false, the mesh uses
+# only the global background size constraints.
+refine_interfaces = true
+# Target local size, in projected metres, close to constrained interfaces. When omitted and
+# refine_interfaces=true, the schema derives a conservative default from global_size/min_size.
+interface_size = 70.0
+# Influence distance, in projected metres, over which the local interface refinement fades back to
+# the background size. Larger values spread refinement farther away from the interface network.
+interface_distance = 220.0
+# Sampling density used to discretize interface-based distance fields. Higher values better
+# capture long and sinuous interfaces but increase Gmsh preprocessing cost.
+interface_sampling = 128
+
+# Optional local hotspot policy used to selectively thin low-priority refinement families when the
+# mixed interface network becomes too dense for one robust Gmsh Delaunay run.
+
+[mesh_catchment.zone_meshing.refinement_policy]
+enabled = true
+# Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.
+mode = "grid_local_budget"
+
+# Grid settings used by the locality-first refinement policy.
+
+[mesh_catchment.zone_meshing.refinement_policy.grid]
+neighborhood_rings = 1
+enable_exact_gap_check = false
+max_exact_gap_candidates = 128
+
+# Hotspot-detection thresholds used when budgeting local refinement.
+
+[mesh_catchment.zone_meshing.refinement_policy.hotspot]
+radius = 350.0
+max_curve_count = 180
+max_family_count = 2
+min_gap = 60.0
+max_node_degree = 4
+short_segment_length = 120.0
+max_short_segment_count = 20
+
+[mesh_catchment.zone_meshing.refinement_policy.families.river]
+enabled = true
+priority = 300
+
+[mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
+enabled = true
+priority = 200
+
+[mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
+enabled = true
+priority = 100
+
+# Display behaviour resolved from the ``[display]`` TOML section.
+
+[display]
+# Master switch. When False, no figure is rendered or saved.
+enabled = false
+
+# MODFLOW 6 runtime options.
+
+[modflow6.runtime]
+# IMS complexity keyword for MODFLOW 6 (e.g. SIMPLE, MODERATE, COMPLEX).
+mf6_ims_complexity = "COMPLEX"
+# IMS outer-iteration head-change convergence criterion.
+mf6_outer_dvclose = 0.0001
+# IMS inner-iteration head-change convergence criterion.
+mf6_inner_dvclose = 0.0001
+# Maximum number of IMS outer iterations.
+mf6_outer_maximum = 1000
+# Maximum number of IMS inner iterations.
+mf6_inner_maximum = 1000
+# Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless
+# explicitly enabled.
+mf6_enable_rewet = false
+# Enable verbose FloPy logging for MODFLOW 6 setup and execution.
+mf_verbose = false
+
+# Process-specific controls for MODFLOW 6 flow packages.
+
+[modflow6.process_specific]
+# Vertical anisotropy factor used to derive k33 from k.
+vka = 1.0
+
+# Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are
+# driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps
+# `firstpersteady`.
+
+[modflow6.tgrid]
+# Whether the first stress period is treated as steady-state.
+firstpersteady = false
+
+# Vertical layering of the solver grid.
+
+[modflow6.sgrid.vertical]
+# Vertical-layering strategy.
+genmtd_lay = "decay"
+# Number of layers (required for constant/decay, ignored for list).
+nlay = 1
+# Decay exponent (>1) for decay layering.
+lay_decay = 1.2

@@ -1,0 +1,52 @@
+/* HydroModPy: "Was this page helpful?" widget. */
+.hmp-feedback {
+    margin-top: 3rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--pst-color-border, #d1d5db);
+    border-radius: 6px;
+    background: var(--pst-color-surface, #f8f9fa);
+}
+
+.hmp-feedback[data-recorded] {
+    background: var(--pst-color-on-surface, #f1f5f9);
+}
+
+.hmp-feedback-question {
+    margin: 0 0 0.75rem 0;
+    font-weight: 600;
+    color: var(--pst-color-text-base, #111827);
+}
+
+.hmp-feedback-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.hmp-feedback-button {
+    appearance: none;
+    border: 1px solid var(--pst-color-border, #d1d5db);
+    background: var(--pst-color-on-background, #ffffff);
+    color: var(--pst-color-text-base, #111827);
+    padding: 0.4rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.hmp-feedback-button:hover:not(:disabled) {
+    background: var(--pst-color-primary, #2563eb);
+    color: #ffffff;
+    border-color: transparent;
+}
+
+.hmp-feedback-button:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.hmp-feedback-ack {
+    margin: 0.75rem 0 0 0;
+    font-size: 0.875rem;
+    color: var(--pst-color-text-muted, #6b7280);
+}

@@ -1,0 +1,323 @@
+# Main CI gate for pushes and pull requests.
+# Keep this workflow readable in the GitHub checks list: each job name starts
+# with the domain that failed, then the tier and Python version when relevant.
+
+name: CI / Main Gate
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  quality:
+    name: Quality / ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install ruff
+        run: pip install "ruff>=0.15"
+
+      - name: Check lint rules
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+  secrets:
+    name: Security / gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Gitleaks CLI
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.21.2 \
+            detect --no-banner --redact --verbose \
+              --config /repo/.gitleaks.toml \
+              --source /repo
+
+  architecture:
+    name: Architecture / layer matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run architecture contract tests
+        run: python -m pytest tests/unit/architecture/ -q
+
+  fast:
+    name: Tests / fast marker py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,performance,calibration,delineation]"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
+      - name: Install solver binaries for fast tests
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet || true
+
+      - name: Run fast marker suite
+        run: |
+          python -m pytest -m fast \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
+            --timeout=300 \
+            -q
+
+  unit:
+    name: Tests / unit py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
+      - name: Run unit tests in parallel
+        run: |
+          python -m pytest tests/unit/ \
+            --ignore=tests/unit/architecture \
+            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic \
+            --ignore=tests/unit/delineation \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
+            --timeout=300 \
+            --cov=hydromodpy \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
+
+      - name: Run whitebox backend tests
+        run: |
+          python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py \
+            --timeout=300 \
+            --cov=hydromodpy \
+            --cov-append \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
+
+      - name: Run delineation tests in fresh processes
+        run: |
+          for f in tests/unit/delineation/test_*.py; do
+            python -m pytest "$f" \
+              --timeout=300 \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= \
+              --cov-fail-under=0 \
+              -q || exit 1
+          done
+
+      - name: Run geographic tests in fresh processes
+        run: |
+          for f in tests/unit/geographic/test_*.py; do
+            python -m pytest "$f" \
+              --timeout=300 \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= \
+              --cov-fail-under=0 \
+              -q || exit 1
+          done
+
+      - name: Write unit coverage XML
+        if: always()
+        run: |
+          coverage combine || true
+          coverage xml || true
+
+      - name: Upload unit coverage to Codecov
+        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: unit
+          fail_ci_if_error: false
+
+  integration:
+    name: Tests / integration py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Install solver binaries for integration tests
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run integration suite
+        run: |
+          python -m pytest tests/integration/ \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
+            --timeout=600 \
+            -q
+
+  regression-fast:
+    name: Regression / fast solvers py3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Install solver binaries for regression tests
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
+
+      - name: Run fast regression suite
+        run: python -m pytest tests/regression/fast/ -n 2 --dist loadgroup --max-worker-restart=0 --timeout=600 -q
+
+  package-smoke:
+    name: Package / wheel smoke py3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install build tooling
+        run: pip install --upgrade pip "build>=1.2"
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Install wheel into fresh venv
+        run: |
+          python -m venv /tmp/hmp-smoke
+          /tmp/hmp-smoke/bin/pip install --upgrade pip
+          /tmp/hmp-smoke/bin/pip install dist/*.whl
+
+      - name: Run hmp doctor from wheel install
+        run: /tmp/hmp-smoke/bin/hmp doctor --json
+
+  typing:
+    name: Typing / mypy baseline py3.12 (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and mypy
+        run: |
+          pip install --upgrade pip
+          pip install -e "."
+          pip install "mypy>=1.13" "pydantic>=2.13" "types-requests"
+
+      - name: Run mypy baseline
+        run: |
+          set +e
+          mypy hydromodpy
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::mypy advisory baseline failed with exit code $status"
+          fi
+          exit 0

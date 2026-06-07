@@ -1,0 +1,27 @@
+{
+  "_schema_version": "1.0",
+  "intercomparison_expected": {
+    "signature_schema_version": "validation_profile_intercomparison_v1",
+    "case_id": "dupuit_uniform_recharge_1d",
+    "reference_solver": "modflow6",
+    "candidate_solver": "modflow6_irregular_tri",
+    "observable": "watertable_elevation",
+    "profile_pair": {
+      "n_points": 40,
+      "bias": 0.014247226230761667,
+      "mae": 0.015114517813471284,
+      "rmse": 0.016924855950962346,
+      "max_abs_error": 0.03286344331072044
+    },
+    "reference_against_analytical": {
+      "rmse": 0.047321523934103084,
+      "max_abs_error": 0.0628131483271055,
+      "row_spread": 1.362156638023992e-06
+    },
+    "candidate_against_analytical": {
+      "rmse": 0.0353981835434502,
+      "max_abs_error": 0.053353942920234765,
+      "row_spread": 0.0
+    }
+  }
+}

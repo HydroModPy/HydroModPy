@@ -1,0 +1,72 @@
+@startuml
+allowmixing
+title Boussinesq Solver - Core Classes
+
+package "hydromodpy.solver.boussinesq" {
+  class Boussinesq {
+    +pre_processing()
+    +processing()
+    +post_processing()
+    +_resolve_solver_contract()
+    +_run_steady_runtime()
+    +_run_transient_runtime()
+  }
+
+  class BoussinesqSolverContract {
+    +flow_regime: str
+    +runtime_backend_requested: str
+    +surface_interaction_model_requested: str
+    +surface_interaction_model_resolved: str
+    +runtime_backend: BoussinesqRuntimeBackend
+  }
+
+  class BoussinesqMesh
+  class BoussinesqState {
+    +initial(...)
+    +from_runtime(...)
+  }
+
+  class BoussinesqAssembly {
+    +head_m
+    +saturated_thickness_m
+    +transmissivity_m2_s
+    +internal_edge_flux_m3_s
+    +prescribed_head_flux_m3_s
+    +drainage_flux_m3_s
+    +residual_m3_s
+  }
+
+  class TransientStepInputs
+  class SteadySolveInputs
+  class RuntimeSolveResult
+  class BoussinesqRuntimeBackend
+  class BoussinesqMethodSpec
+  class BoussinesqEngineSpec
+}
+
+Boussinesq --> BoussinesqMesh : uses
+Boussinesq --> BoussinesqState : creates/stores
+Boussinesq --> BoussinesqSolverContract : resolves
+BoussinesqSolverContract --> BoussinesqRuntimeBackend
+BoussinesqRuntimeBackend --> BoussinesqMethodSpec
+BoussinesqRuntimeBackend --> BoussinesqEngineSpec
+BoussinesqRuntimeBackend --> TransientStepInputs : consumes
+BoussinesqRuntimeBackend --> SteadySolveInputs : consumes
+BoussinesqRuntimeBackend --> RuntimeSolveResult : returns
+RuntimeSolveResult --> BoussinesqAssembly
+
+note bottom of BoussinesqState
+Canonical accepted state for
+diagnostics and exports.
+Legacy imposed_head_* fields
+still exist here for compatibility.
+end note
+
+note right of BoussinesqSolverContract
+Important clarification layer:
+problem definition
+is separated from
+method and engine resolution.
+end note
+
+@enduml

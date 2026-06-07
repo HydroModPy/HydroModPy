@@ -1,0 +1,29 @@
+@startuml
+title Comparison Workflow Execution Map
+left to right direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 180
+skinparam maxMessageSize 180
+
+rectangle "comparison TOML\nworkflow = \"comparison\"" as Cfg
+rectangle "base simulation TOML\nshared physical case" as Base
+rectangle "_generated_configs/\none child TOML per variant" as Child
+rectangle "public entry point\nhmp run <child.toml>" as Run
+rectangle "child simulation outputs\nnormal HydroModPy result folders" as SimOut
+rectangle "comparison extraction\nobservables + audits + metrics" as Compare
+rectangle "comparison outputs\nreport, metrics, differences,\ntriptych figures, manifest" as Out
+
+Cfg --> Child : variant overlays
+Base --> Child : physical baseline
+Child --> Run
+Run --> SimOut
+SimOut --> Compare
+Compare --> Out
+
+note bottom of Child
+The workflow does not run custom in-memory
+simulation objects. It generates ordinary
+simulation configs, then launches them through
+the public HydroModPy interface.
+end note
+@enduml

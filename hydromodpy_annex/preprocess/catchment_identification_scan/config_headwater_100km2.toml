@@ -1,0 +1,39 @@
+[catchment_identification_scan]
+launcher_script = "run_catchment_identification_case.py"
+
+# Full Brittany DEM in projected metric CRS.
+dem_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
+
+# Dedicated outputs for the 100-basin / 100 km2 scenario.
+output_dir = "~/HydroModPy/catchment_identification_scan/headwater_100km2"
+
+# Keep a low stream threshold so enough candidate outlets are available
+# before the target-area filtering.
+accumulation_area_km2 = 2.0
+
+# Spread selection across the DEM and cap the final candidate count.
+outlet_selection_mode = "scan_global"
+scan_tile_size_km = 25.0
+scan_max_outlets_per_tile = 1
+scan_min_outlet_spacing_km = 6.0
+scan_max_total_outlets = 50
+
+# Select headwater-like basins near the 100 km2 target.
+basin_selection_mode = "headwater_target"
+headwater_max_strahler_order = 4
+headwater_min_target_ratio = 0.50
+target_basin_area_km2 = 100.0
+target_area_tolerance_ratio = 0.50
+max_basin_overlap_ratio = 0.05
+
+dem_correction = "breach"
+snap_dist = 0
+
+gpkg_name = "watersheds_headwater_100km2.gpkg"
+basins_layer = "bassins_headwater_100km2"
+outlets_layer = "exutoires_headwater_100km2"
+outlets_csv_name = "exutoires_headwater_100km2.csv"
+
+save_diagnostic_figures = true
+figures_dir_name = "figures"
+keep_intermediate = true

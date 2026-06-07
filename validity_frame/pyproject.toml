@@ -1,0 +1,13 @@
+[project]
+name = "validity_frame"
+version = "0.1.0"
+description = "Small reusable validity-frame package"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[project.entry-points."validity_frame.frames"]
+default = "validity_frame.validity:ValidityFrame"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

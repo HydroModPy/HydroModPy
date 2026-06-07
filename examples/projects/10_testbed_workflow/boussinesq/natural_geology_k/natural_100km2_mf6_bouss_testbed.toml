@@ -1,0 +1,87 @@
+# Workflow selector: this file orchestrates a catalog-driven testbed.
+[workflow]
+mode = "testbed"
+
+# Main testbed declaration. It expands N2 regional-lab catalog rows into child comparison TOMLs.
+[testbed]
+# Stable id used for output folders, manifests and HTML synthesis pages.
+id = "natural_n2_100km2_mf6_bouss_catalog"
+# Scientific subject delegated to the child runner.
+subject = "flow"
+# Free-text campaign purpose reported in manifests and pages.
+purpose = "boussinesq_modflow6_natural_n2_100km2_comparison"
+# Base comparison TOML reused for every selected 100 km2 site.
+base_config = "compare_natural_100km2_mf6_bouss_base.toml"
+# Root directory for generated child configs, manifests, comparison outputs and HTML synthesis.
+output_root = "../../outputs/boussinesq_natural_n2_100km2_testbed"
+# False generates the comparison TOMLs and plan only; true delegates execution to the comparison runner.
+execute = false
+# Keep processing later variants when one variant fails.
+continue_on_error = true
+
+# Child workflow runner used by this testbed.
+[testbed.runner]
+# Runner type: each variant is a full solver comparison.
+type = "comparison"
+# Do not open interactive display windows from delegated child workflows.
+no_display = true
+
+# Regional-lab site catalog used to generate variants.
+[testbed.catalog]
+# CSV file containing one row per candidate watershed outlet/site.
+path = "natural_regional_lab_sites.csv"
+# Catalog file format.
+format = "csv"
+# Column used as unique variant id.
+id_field = "site_id"
+# Column used as human-readable site label.
+label_field = "site_label"
+# Column used as grouping axis in summaries.
+axis_field = "cluster_family"
+# Column containing semicolon-separated tags.
+tags_field = "tags"
+# Column controlling whether a row is selected.
+enabled_field = "enabled"
+# Columns required at catalog level before any variant rule is applied.
+required_fields = [
+  "site_id",
+  "site_label",
+  "cluster_scale",
+  "x_outlet",
+  "y_outlet",
+  "target_area_km2",
+]
+# Keep only N2 natural comparison rows.
+tags = ["n2_100km2", "comparison"]
+
+# Rule that turns each selected N2 catalog row into one comparison variant.
+[[testbed.case_from_catalog]]
+# Template for the generated variant id.
+id_template = "{site_id}"
+# Template for the generated variant label.
+label_template = "{site_label}"
+# Template for the generated variant axis/group.
+axis_template = "{cluster_family}"
+# Columns required by this generation rule.
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+
+# Comparison-level overlay rendered for each catalog row.
+[testbed.case_from_catalog.overlay.comparison]
+# Generated comparison id for the current site.
+comparison_id = "{site_id}_natural_n2_100km2_mf6_bouss"
+# Generated comparison output folder for the current site.
+output_root = "../../outputs/boussinesq_natural_n2_100km2_testbed/comparisons/{site_id}_natural_n2_100km2_mf6_bouss"
+
+# Shared simulation metadata injected before solver-specific overlays.
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+# Shared simulation name for the site, before child solver suffixes are added.
+name = "{site_id}_natural_n2_100km2_shared_case"
+# Shared simulation description displayed in generated child TOMLs.
+description = "Regional-lab N2 natural 100 km2 MF6/Boussinesq comparison case."
+
+# Shared geographic/site definition injected from the catalog.
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+# Outlet X coordinate in the project CRS.
+x_outlet = "{x_outlet}"
+# Outlet Y coordinate in the project CRS.
+y_outlet = "{y_outlet}"

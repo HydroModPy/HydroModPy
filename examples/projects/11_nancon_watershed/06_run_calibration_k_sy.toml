@@ -1,0 +1,101 @@
+# ======================================================================
+# Nancon - 06 - Two-parameter calibration (K + Sy)
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "calibration"
+# Method:         Optuna
+# Search space:   K in [1e-6, 1e-3] m/s (log-uniform)
+#                 Sy in [0.001, 0.30] (uniform)
+# Frozen:         Ss, thickness
+# Objective:      composite (KGE on discharge, weighted)
+#
+# This TOML demonstrates the composite-objective form via
+# `[[calibration.objective_blocks]]`. With a single block it is
+# functionally identical to setting `objective = "kge"` at the top, but
+# the block form scales to multi-observable objectives (e.g. KGE on
+# discharge + RMSE on piezometry, each with its own weight).
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/06_run_calibration_k_sy.toml
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_calibration_k_sy"
+description = "Optuna calibration of (K, Sy) vs KGE(discharge), Ss frozen."
+scientific_objective = "calibration"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+
+# ---- Frozen parameters -----------------------------------------------
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.Ss.field]
+value = 1e-5
+
+
+# ---- Calibration -----------------------------------------------------
+[calibration]
+method = "optuna"
+max_iter = 3
+batch_size = 1
+save_runs = "best_n"
+save_best_n = 1
+seed = 42
+objective = "kge"
+variable = "discharge"
+use_cache = true
+
+[calibration.parameters.K]
+bounds = [1e-6, 1e-3]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.parameters.Sy]
+bounds = [0.001, 0.30]
+# Type: Literal['identity', 'log', 'logit'] | Default: "identity"
+transform = "identity"
+prior = "uniform"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+
+# ---- Composite objective ---------------------------------------------
+# When [[calibration.objective_blocks]] is omitted, an implicit block is
+# built from (objective, variable) at the top of [calibration]. Declare
+# this block explicitly only when you need weighted multi-observable
+# objectives (e.g. KGE on discharge + RMSE on piezometry).
+#
+# Example (commented) of the explicit form. It requires an [calibration.outputs.X]
+# entry to be referenced via `uses_outputs`:
+#
+#   [calibration.outputs.discharge]
+#   variable = "discharge"
+#   support  = "station"
+#   station_id = "EX04"
+#
+#   [[calibration.objective_blocks]]
+#   name = "discharge_kge"
+#   metric = "kge"
+#   weight = 1.0
+#   uses_outputs = ["discharge"]
+#   normalize_cost = false
+#   transform = "identity"
+#
+# Here we rely on the implicit form to keep the example minimal.

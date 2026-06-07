@@ -1,0 +1,89 @@
+@startuml
+title StructuredGrid - Core Class Diagram
+left to right direction
+hide empty members
+hide circle
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+legend right
+|= Arrow |= Meaning |
+| ``-->`` | stable relation or produced object |
+| ``..>`` | transient usage or read dependency |
+endlegend
+
+package "HydroModPy domain" {
+  class RasterSupport <<domain>> {
+    +crs
+    +dx / dy
+    +xmin / xmax
+    +ymin / ymax
+    +nrows / ncols
+    +nodata
+  }
+
+  class Surface <<domain>> {
+    +name
+    +values
+    +support
+    +as_array()
+    +resample_to_shape(...)
+  }
+}
+
+package "Grid build" {
+  class VerticalGridConfig <<config>> {
+    +genmtd_lay
+    +nlay
+    +lay_decay
+    +lay_proportions
+    +nodata
+  }
+
+  class StructuredGridBuilder <<builder>> {
+    +build_from_surfaces(top_surface, bottom_surface, vertical_config)
+  }
+}
+
+package "FloPy" {
+  class StructuredGrid <<external>> {
+    +nlay / nrow / ncol
+    +delr / delc
+    +top / botm
+    +xoff / yoff
+    +xvertices / yvertices
+  }
+}
+
+package "Downstream adapters" {
+  class SGridMeshAdapter <<adapter>> {
+    +extract_structured_vertices(sgrid)
+    +build_field_mesh_from_sgrid(sgrid)
+  }
+
+  class StructuredFieldMesh <<field mesh>>
+
+  class SGridFieldParamDiscretizer <<adapter>> {
+    +discretize_fieldparam_on_sgrid(..., sgrid, ...)
+  }
+}
+
+note top of StructuredGridBuilder
+Single responsibility:
+- validate top/bottom compatibility
+- compute vertical layering
+- instantiate FloPy StructuredGrid
+end note
+
+Surface --> RasterSupport : carries support metadata
+
+StructuredGridBuilder ..> Surface : reads top_surface\nand bottom_surface
+StructuredGridBuilder ..> VerticalGridConfig : reads layering rules
+StructuredGridBuilder --> StructuredGrid : builds
+
+SGridMeshAdapter ..> StructuredGrid : reads XY geometry
+SGridMeshAdapter --> StructuredFieldMesh : builds planar mesh
+
+SGridFieldParamDiscretizer ..> StructuredGrid : reads top/botm\nand grid dimensions
+
+@enduml

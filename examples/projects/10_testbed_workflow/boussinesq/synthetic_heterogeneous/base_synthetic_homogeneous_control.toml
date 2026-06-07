@@ -1,0 +1,27 @@
+base_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "synthetic_homogeneous_control_mf6_bouss_shared_case"
+description = "Synthetic homogeneous-control 2D recharge-response case for MF6 versus Boussinesq comparison."
+
+[flow.param.K.field]
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "3e-5 m/s"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.06 -"
+
+[mesh_catchment.hydraulic_properties.conductivity]
+values_source = "inline"
+values = { west_low_k = "3e-5", central_high_k = "3e-5", east_medium_k = "3e-5" }
+
+[mesh_catchment.hydraulic_properties.storage_coefficient]
+values_source = "inline"
+values = { west_low_k = 0.06, central_high_k = 0.06, east_medium_k = 0.06 }

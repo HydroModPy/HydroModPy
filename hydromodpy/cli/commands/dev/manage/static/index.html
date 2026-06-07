@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HydroModPy Workspace Manager</title>
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --panel: #fffdf9;
+      --ink: #1d2730;
+      --muted: #6a7680;
+      --line: #d9d0c4;
+      --accent: #0f6b6f;
+      --accent-2: #b44f2b;
+      --warn: #8f2d24;
+      --chip: #e9f4f2;
+      --shadow: 0 16px 36px rgba(34, 44, 52, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Aptos", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(15,107,111,0.08), transparent 26rem),
+        linear-gradient(180deg, #f9f4eb 0%, var(--bg) 100%);
+    }
+    header {
+      padding: 1.4rem 1.6rem 1rem;
+      border-bottom: 1px solid rgba(29,39,48,0.08);
+      backdrop-filter: blur(12px);
+      background: rgba(246, 241, 232, 0.84);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.55rem;
+      letter-spacing: 0.01em;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+    main {
+      padding: 1.25rem;
+      display: grid;
+      gap: 1rem;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .section-head {
+      padding: 1rem 1.1rem 0.8rem;
+      border-bottom: 1px solid rgba(29,39,48,0.08);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    input, select, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid #c9beb2;
+      padding: 0.55rem 0.7rem;
+      background: #fff;
+      color: var(--ink);
+    }
+    input, select {
+      min-width: 12rem;
+    }
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+    button.secondary {
+      background: #ddeceb;
+      color: var(--accent);
+    }
+    button.warn {
+      background: var(--accent-2);
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      gap: 0.75rem;
+      padding: 1rem 1.1rem 1.1rem;
+    }
+    .card {
+      border: 1px solid rgba(15,107,111,0.16);
+      background: linear-gradient(180deg, #ffffff 0%, #f5fbfa 100%);
+      border-radius: 14px;
+      padding: 0.85rem 0.95rem;
+    }
+    .card .label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-bottom: 0.35rem;
+    }
+    .card .value {
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .table-wrap {
+      overflow: auto;
+      max-height: 29rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    th, td {
+      padding: 0.58rem 0.7rem;
+      border-bottom: 1px solid rgba(29,39,48,0.08);
+      vertical-align: top;
+      text-align: left;
+      white-space: nowrap;
+    }
+    td.wrap, th.wrap {
+      white-space: normal;
+      min-width: 14rem;
+    }
+    tbody tr:hover {
+      background: rgba(15,107,111,0.05);
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .chip {
+      display: inline-flex;
+      padding: 0.28rem 0.5rem;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--accent);
+      font-size: 0.8rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3.4rem;
+      padding: 0.22rem 0.48rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .pill.OK {
+      background: #dff1e6;
+      color: #12643b;
+    }
+    .pill.WARN {
+      background: #fff1cf;
+      color: #856200;
+    }
+    .pill.KO {
+      background: #f8dfdc;
+      color: var(--warn);
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .status {
+      padding: 0.7rem 1.1rem 1rem;
+      color: var(--muted);
+      min-height: 2.6rem;
+    }
+    .status.error {
+      color: var(--warn);
+    }
+    .two-col {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: 1.6fr 1fr;
+    }
+    code {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 0.9em;
+    }
+    @media (max-width: 1100px) {
+      .two-col { grid-template-columns: 1fr; }
+      .table-wrap { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HydroModPy Workspace Manager</h1>
+    <p id="workspace-path">Loading workspace...</p>
+  </header>
+  <main>
+    <section>
+      <div class="section-head">
+        <h2>Workspace summary</h2>
+        <div class="controls">
+          <select id="workspace-select"></select>
+          <button class="secondary" id="refresh-all">Refresh all</button>
+        </div>
+      </div>
+      <div class="summary" id="summary-cards"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Result diagnostics</h2>
+        <div class="controls">
+          <button class="secondary" id="diag-refresh">Refresh diagnostics</button>
+          <button class="warn" id="diag-clean">Delete selected cleanup paths</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Status</th>
+              <th>Check</th>
+              <th class="wrap">Detail</th>
+              <th class="wrap">Hint</th>
+              <th>Cleanup</th>
+            </tr>
+          </thead>
+          <tbody id="diag-body"></tbody>
+        </table>
+      </div>
+      <div class="status" id="diag-status"></div>
+    </section>
+
+    <div class="two-col">
+      <section>
+        <div class="section-head">
+          <h2>Simulations</h2>
+          <div class="controls">
+            <input id="sim-filter" placeholder="Filter by name, project, solver, status">
+            <button class="secondary" id="sim-select-visible">Select visible</button>
+            <button class="warn" id="sim-delete">Delete selected</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Project</th>
+                <th>Solver</th>
+                <th>Status</th>
+                <th>Total size</th>
+                <th>Created</th>
+                <th>sim_id</th>
+              </tr>
+            </thead>
+            <tbody id="sim-body"></tbody>
+          </table>
+        </div>
+        <div class="status" id="sim-status"></div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Orphan artefacts</h2>
+          <div class="controls">
+            <button class="secondary" id="orph-select-all">Select all</button>
+            <button class="warn" id="orph-delete">Delete selected</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Kind</th>
+                <th>Size</th>
+                <th class="wrap">Path</th>
+              </tr>
+            </thead>
+            <tbody id="orph-body"></tbody>
+          </table>
+        </div>
+        <div class="status" id="orph-status"></div>
+      </section>
+    </div>
+
+    <section>
+      <div class="section-head">
+        <h2>DuckDB table browser</h2>
+        <div class="controls">
+          <select id="db-select"></select>
+          <select id="table-select"></select>
+          <input id="preview-limit" type="number" min="10" max="500" value="100">
+          <button class="secondary" id="preview-load">Load table</button>
+        </div>
+      </div>
+      <div class="summary" style="padding-top: 0.7rem; padding-bottom: 0.7rem;">
+        <div class="chips" id="table-chips"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="preview-head"></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+      <div class="status" id="preview-status"></div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      currentWorkspace: null,
+      workspaces: [],
+      scanRoot: null,
+      summary: null,
+      simulations: [],
+      orphans: [],
+      diagnostics: [],
+      tables: { catalog: [], cache: [] },
+    };
+
+    function formatBytes(bytes) {
+      const value = Number(bytes || 0);
+      if (!Number.isFinite(value) || value <= 0) return "0 B";
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let size = value;
+      let idx = 0;
+      while (size >= 1024 && idx < units.length - 1) {
+        size /= 1024;
+        idx += 1;
+      }
+      return `${size.toFixed(size >= 100 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+    }
+
+    function setStatus(id, message, isError = false) {
+      const node = document.getElementById(id);
+      node.textContent = message || "";
+      node.className = isError ? "status error" : "status";
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    async function getJson(url) {
+      const response = await fetch(url);
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || `HTTP ${response.status}`);
+      }
+      return payload;
+    }
+
+    async function postJson(url, body) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {}),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || `HTTP ${response.status}`);
+      }
+      return payload;
+    }
+
+    function workspaceQuery() {
+      if (!state.currentWorkspace) return "";
+      return `workspace=${encodeURIComponent(state.currentWorkspace)}`;
+    }
+
+    function simulationMatches(row, query) {
+      if (!query) return true;
+      const haystack = [
+        row.name,
+        row.project,
+        row.solver,
+        row.status,
+        row.sim_id,
+      ].join(" ").toLowerCase();
+      return haystack.includes(query.toLowerCase());
+    }
+
+    function renderSummary() {
+      const cards = document.getElementById("summary-cards");
+      if (!state.summary) {
+        cards.innerHTML = "";
+        return;
+      }
+      document.getElementById("workspace-path").textContent =
+        `${state.summary.workspace_label} - ${state.summary.workspace}`;
+      const entries = [
+        ["Simulations", String(state.summary.simulation_count || 0)],
+        ["Simulation artefacts", formatBytes(state.summary.simulation_bytes || 0)],
+        ["Orphan artefacts", formatBytes(state.summary.orphan_bytes || 0)],
+        ["Diagnostic warnings", String(state.summary.diagnostic_warning_count || 0)],
+        ["Catalog", formatBytes(state.summary.catalog_bytes || 0)],
+        ["Input cache", formatBytes(state.summary.cache_bytes || 0)],
+      ];
+      cards.innerHTML = entries.map(([label, value]) => `
+        <div class="card">
+          <span class="label">${label}</span>
+          <span class="value">${value}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderWorkspaceChoices() {
+      const select = document.getElementById("workspace-select");
+      select.innerHTML = state.workspaces.map((row) => `
+        <option value="${row.id}">${row.label}</option>
+      `).join("");
+      if (state.currentWorkspace) {
+        select.value = state.currentWorkspace;
+      }
+    }
+
+    function renderSimulations() {
+      const tbody = document.getElementById("sim-body");
+      const query = document.getElementById("sim-filter").value.trim();
+      const rows = state.simulations.filter((row) => simulationMatches(row, query));
+      tbody.innerHTML = rows.map((row) => `
+        <tr>
+          <td><input type="checkbox" class="sim-check" value="${row.sim_id}"></td>
+          <td>${row.name || "<span class='muted'>(no name)</span>"}</td>
+          <td>${row.project || ""}</td>
+          <td>${row.solver || ""}</td>
+          <td>${row.status || ""}</td>
+          <td>${formatBytes(row.total_bytes)}</td>
+          <td>${row.created_at || ""}</td>
+          <td><code>${row.sim_id}</code></td>
+        </tr>
+      `).join("");
+      setStatus("sim-status", `${rows.length} simulation(s) shown.`);
+    }
+
+    function renderOrphans() {
+      const tbody = document.getElementById("orph-body");
+      tbody.innerHTML = state.orphans.map((row) => `
+        <tr>
+          <td><input type="checkbox" class="orph-check" value="${row.path}"></td>
+          <td>${row.kind}</td>
+          <td>${formatBytes(row.size_bytes)}</td>
+          <td class="wrap"><code>${row.path}</code></td>
+        </tr>
+      `).join("");
+      const total = state.orphans.reduce((acc, row) => acc + Number(row.size_bytes || 0), 0);
+      setStatus("orph-status", `${state.orphans.length} orphan artefact(s), ${formatBytes(total)} total.`);
+    }
+
+    function renderDiagnostics() {
+      const tbody = document.getElementById("diag-body");
+      tbody.innerHTML = state.diagnostics.map((row) => {
+        const paths = row.paths || [];
+        const encodedPaths = encodeURIComponent(JSON.stringify(paths));
+        const cleanupLabel = paths.length
+          ? `${paths.length} path(s), ${formatBytes(row.cleanup_bytes || 0)}`
+          : "";
+        const disabled = paths.length ? "" : "disabled";
+        return `
+          <tr>
+            <td><input type="checkbox" class="diag-check" data-paths="${encodedPaths}" ${disabled}></td>
+            <td><span class="pill ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td><code>${escapeHtml(row.name)}</code></td>
+            <td class="wrap">${escapeHtml(row.detail)}</td>
+            <td class="wrap">${escapeHtml(row.hint || "")}</td>
+            <td>${escapeHtml(cleanupLabel)}</td>
+          </tr>
+        `;
+      }).join("");
+      const warnings = state.diagnostics.filter((row) => row.status !== "OK").length;
+      const cleanupCount = state.diagnostics.reduce(
+        (acc, row) => acc + Number((row.paths || []).length),
+        0
+      );
+      setStatus(
+        "diag-status",
+        `${state.diagnostics.length} diagnostic check(s), ${warnings} warning/error check(s), ${cleanupCount} cleanup path(s).`,
+        warnings > 0
+      );
+    }
+
+    function renderPreview(payload) {
+      const thead = document.getElementById("preview-head");
+      const tbody = document.getElementById("preview-body");
+      const chips = document.getElementById("table-chips");
+      const tables = state.tables[document.getElementById("db-select").value] || [];
+      chips.innerHTML = tables.map((entry) => `<span class="chip">${entry.name} - ${entry.type}</span>`).join("");
+
+      const columns = payload.columns || [];
+      thead.innerHTML = `<tr>${columns.map((col) => `<th>${col}</th>`).join("")}</tr>`;
+      tbody.innerHTML = (payload.rows || []).map((row) => {
+        return `<tr>${columns.map((col) => `<td class="wrap">${row[col] == null ? "" : String(row[col])}</td>`).join("")}</tr>`;
+      }).join("");
+      setStatus(
+        "preview-status",
+        `${payload.database}: ${payload.table} - ${payload.row_count} row(s) shown.`
+      );
+    }
+
+    async function loadWorkspaceList() {
+      const payload = await getJson("/api/workspaces");
+      state.scanRoot = payload.scan_root || null;
+      state.workspaces = payload.workspaces || [];
+      state.currentWorkspace = state.currentWorkspace || payload.default_workspace || null;
+      renderWorkspaceChoices();
+    }
+
+    async function loadSummary() {
+      state.summary = await getJson(`/api/summary?${workspaceQuery()}`);
+      renderSummary();
+    }
+
+    async function loadSimulations() {
+      const payload = await getJson(`/api/simulations?${workspaceQuery()}`);
+      state.simulations = payload.rows || [];
+      renderSimulations();
+    }
+
+    async function loadOrphans() {
+      const payload = await getJson(`/api/orphans?${workspaceQuery()}`);
+      state.orphans = payload.rows || [];
+      renderOrphans();
+    }
+
+    async function loadDiagnostics() {
+      const payload = await getJson(`/api/diagnostics?${workspaceQuery()}`);
+      state.diagnostics = payload.rows || [];
+      renderDiagnostics();
+    }
+
+    async function loadTables(database) {
+      const payload = await getJson(
+        `/api/tables?database=${encodeURIComponent(database)}&${workspaceQuery()}`
+      );
+      state.tables[database] = payload.tables || [];
+      const select = document.getElementById("table-select");
+      select.innerHTML = state.tables[database].map((entry) => `
+        <option value="${entry.name}">${entry.name} (${entry.type})</option>
+      `).join("");
+      renderPreview({ database, table: "", columns: [], rows: [], row_count: 0 });
+      if (state.tables[database].length) {
+        await previewTable();
+      } else {
+        document.getElementById("preview-head").innerHTML = "";
+        document.getElementById("preview-body").innerHTML = "";
+        setStatus("preview-status", `${database}: no readable tables.`);
+      }
+    }
+
+    async function previewTable() {
+      const database = document.getElementById("db-select").value;
+      const table = document.getElementById("table-select").value;
+      const limit = document.getElementById("preview-limit").value || "100";
+      if (!table) {
+        setStatus("preview-status", `${database}: no table selected.`);
+        return;
+      }
+      const payload = await getJson(
+        `/api/preview?database=${encodeURIComponent(database)}&table=${encodeURIComponent(table)}&limit=${encodeURIComponent(limit)}&${workspaceQuery()}`
+      );
+      renderPreview(payload);
+    }
+
+    function checkedValues(selector) {
+      return Array.from(document.querySelectorAll(selector))
+        .filter((node) => node.checked)
+        .map((node) => node.value);
+    }
+
+    function checkedDiagnosticPaths() {
+      const paths = [];
+      document.querySelectorAll(".diag-check").forEach((node) => {
+        if (!node.checked || node.disabled) return;
+        try {
+          const decoded = JSON.parse(decodeURIComponent(node.dataset.paths || "[]"));
+          decoded.forEach((path) => paths.push(path));
+        } catch (error) {
+          // Ignore malformed client-side state; the server still validates paths.
+        }
+      });
+      return Array.from(new Set(paths));
+    }
+
+    async function deleteSelectedSimulations() {
+      const simIds = checkedValues(".sim-check");
+      if (!simIds.length) {
+        setStatus("sim-status", "Select at least one simulation first.", true);
+        return;
+      }
+      const ok = window.confirm(
+        `Delete ${simIds.length} simulation(s)? This removes DuckDB rows and on-disk .zarr/.parquet artefacts.`
+      );
+      if (!ok) return;
+      const payload = await postJson("/api/delete-simulations", {
+        workspace: state.currentWorkspace,
+        sim_ids: simIds,
+      });
+      setStatus(
+        "sim-status",
+        `Deleted ${payload.deleted.length} simulation(s), freed ${formatBytes(payload.freed_bytes)}.`
+      );
+      await Promise.all([loadSummary(), loadSimulations(), loadOrphans()]);
+    }
+
+    async function deleteSelectedOrphans() {
+      const paths = checkedValues(".orph-check");
+      if (!paths.length) {
+        setStatus("orph-status", "Select at least one orphan artefact first.", true);
+        return;
+      }
+      const ok = window.confirm(
+        `Delete ${paths.length} orphan artefact(s)?`
+      );
+      if (!ok) return;
+      const payload = await postJson("/api/delete-orphans", {
+        workspace: state.currentWorkspace,
+        paths,
+      });
+      setStatus(
+        "orph-status",
+        `Deleted ${payload.deleted.length} orphan artefact(s), freed ${formatBytes(payload.freed_bytes)}.`
+      );
+      await Promise.all([loadSummary(), loadOrphans()]);
+    }
+
+    async function deleteSelectedDiagnosticPaths() {
+      const paths = checkedDiagnosticPaths();
+      if (!paths.length) {
+        setStatus("diag-status", "Select at least one diagnostic with cleanup paths first.", true);
+        return;
+      }
+      const ok = window.confirm(
+        `Delete ${paths.length} cleanup path(s)? Only files under simulations/ can be removed.`
+      );
+      if (!ok) return;
+      const payload = await postJson("/api/delete-orphans", {
+        workspace: state.currentWorkspace,
+        paths,
+      });
+      setStatus(
+        "diag-status",
+        `Deleted ${payload.deleted.length} cleanup path(s), freed ${formatBytes(payload.freed_bytes)}.`
+      );
+      await Promise.all([loadSummary(), loadOrphans(), loadDiagnostics()]);
+    }
+
+    async function refreshAll() {
+      try {
+        await Promise.all([loadSummary(), loadSimulations(), loadOrphans(), loadDiagnostics()]);
+        await loadTables(document.getElementById("db-select").value);
+      } catch (error) {
+        setStatus("preview-status", error.message, true);
+      }
+    }
+
+    document.getElementById("refresh-all").addEventListener("click", refreshAll);
+    document.getElementById("diag-refresh").addEventListener("click", async () => {
+      try {
+        await loadDiagnostics();
+      } catch (error) {
+        setStatus("diag-status", error.message, true);
+      }
+    });
+    document.getElementById("diag-clean").addEventListener("click", async () => {
+      try {
+        await deleteSelectedDiagnosticPaths();
+      } catch (error) {
+        setStatus("diag-status", error.message, true);
+      }
+    });
+    document.getElementById("workspace-select").addEventListener("change", async (event) => {
+      state.currentWorkspace = event.target.value;
+      try {
+        await refreshAll();
+      } catch (error) {
+        setStatus("preview-status", error.message, true);
+        setStatus("sim-status", error.message, true);
+        setStatus("orph-status", error.message, true);
+      }
+    });
+    document.getElementById("sim-filter").addEventListener("input", renderSimulations);
+    document.getElementById("sim-select-visible").addEventListener("click", () => {
+      document.querySelectorAll(".sim-check").forEach((node) => {
+        node.checked = true;
+      });
+    });
+    document.getElementById("sim-delete").addEventListener("click", async () => {
+      try {
+        await deleteSelectedSimulations();
+      } catch (error) {
+        setStatus("sim-status", error.message, true);
+      }
+    });
+    document.getElementById("orph-select-all").addEventListener("click", () => {
+      document.querySelectorAll(".orph-check").forEach((node) => {
+        node.checked = true;
+      });
+    });
+    document.getElementById("orph-delete").addEventListener("click", async () => {
+      try {
+        await deleteSelectedOrphans();
+      } catch (error) {
+        setStatus("orph-status", error.message, true);
+      }
+    });
+    document.getElementById("db-select").addEventListener("change", async (event) => {
+      try {
+        await loadTables(event.target.value);
+      } catch (error) {
+        setStatus("preview-status", error.message, true);
+      }
+    });
+    document.getElementById("preview-load").addEventListener("click", async () => {
+      try {
+        await previewTable();
+      } catch (error) {
+        setStatus("preview-status", error.message, true);
+      }
+    });
+
+    async function boot() {
+      document.getElementById("db-select").innerHTML = `
+        <option value="catalog">catalog</option>
+        <option value="cache">cache</option>
+      `;
+      await loadWorkspaceList();
+      await refreshAll();
+    }
+
+    boot().catch((error) => {
+      setStatus("preview-status", error.message, true);
+      setStatus("sim-status", error.message, true);
+      setStatus("orph-status", error.message, true);
+    });
+  </script>
+</body>
+</html>

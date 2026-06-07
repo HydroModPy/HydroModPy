@@ -1,0 +1,42 @@
+# ======================================================================
+# Nancon - run transient avec MODFLOW-NWT (mensuel, 3 ans)
+# ----------------------------------------------------------------------
+# Herite de project.toml. La base est deja en transient sur 2000-2002
+# avec des periodes de stress mensuelles, donc cet overlay fixe seulement
+# le nom du run, le solver et les valeurs de parametres de reference.
+#
+# Lancement :
+#   hmp run examples/projects/20_atelier_nancon/sim_transient_nwt.toml
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "transient_nwt"
+description = "Nancon transient mensuel, MODFLOW-NWT."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.K.field]
+value = 5e-5
+
+[flow.param.Sy.field]
+value = 0.05
+
+[flow.param.Ss.field]
+value = 1e-5

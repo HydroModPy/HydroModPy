@@ -1,0 +1,85 @@
+{
+  "_schema_version": "1.0",
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 3600,
+      "nodata_count": 0,
+      "mean": 118.48604142063162,
+      "p50": 120.3767434320581,
+      "p95": 128.55217161842052,
+      "shape": [
+        3600
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 426549.7491142738
+    },
+    "watertable_depth": {
+      "count": 3600,
+      "nodata_count": 0,
+      "mean": 3.181538692693375,
+      "p50": 3.33823863133874,
+      "p95": 6.488983910273018,
+      "shape": [
+        3600
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 11453.539293696149
+    },
+    "outflow_drain": {
+      "count": 3600,
+      "nodata_count": 0,
+      "mean": 2.5030860851707656e-05,
+      "p50": 0.0,
+      "p95": 0.00021603717073044414,
+      "shape": [
+        3600
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 0.09011109906614756
+    },
+    "accumulation_flux": {
+      "count": 3600,
+      "nodata_count": 0,
+      "mean": 0.00016013518800313793,
+      "p50": 0.0,
+      "p95": 0.0005293998424582739,
+      "shape": [
+        3600
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 0.5764866768112965
+    }
+  },
+  "transport_expected": {
+    "concentration_seepage": {
+      "count": 328,
+      "nodata_count": 0,
+      "mean": 0.06839757204005509,
+      "p50": 0.068425270405582,
+      "p95": 0.07113139993665725,
+      "shape": [
+        3600
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 22.434403629138068
+    },
+    "mass_seepage": {
+      "count": 328,
+      "nodata_count": 0,
+      "mean": 1.8965494929107635e-05,
+      "p50": 1.6461985534745606e-05,
+      "p95": 4.455998496365858e-05,
+      "shape": [
+        3600
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 0.0062206823367473045
+    }
+  }
+}

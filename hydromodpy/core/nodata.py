@@ -1,0 +1,16 @@
+"""Shared nodata sentinels."""
+
+from __future__ import annotations
+
+RASTER_NODATA = -9999.0
+RESULTS_NODATA = -99999.0
+EXTREME_NODATA = -999999.0
+
+NODATA_SENTINELS = (RASTER_NODATA, RESULTS_NODATA, EXTREME_NODATA)
+
+__all__ = [
+    "EXTREME_NODATA",
+    "NODATA_SENTINELS",
+    "RASTER_NODATA",
+    "RESULTS_NODATA",
+]

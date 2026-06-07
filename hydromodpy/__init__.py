@@ -1,0 +1,81 @@
+"""Public entry points for HydroModPy."""
+
+from __future__ import annotations
+
+import importlib
+
+# Public API facade. This is the single allowed exception to the
+# "no aliases / no re-exports" rule in CLAUDE.md. CLI verbs and Python
+# user code must reach the same canonical symbols through this module,
+# so the verbs in `hydromodpy/_api` are re-exported here on purpose.
+from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
+from hydromodpy._api import (
+    audit_prune,
+    calibrate,
+    compare_pair,
+    doctor,
+    export,
+    index,
+    open,
+    read,
+    report,
+    run,
+)
+from hydromodpy._bootstrap import bootstrap  # noqa: F401  -- import registers the lazy hook
+from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
+from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
+from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
+from hydromodpy.core.logging import LogManager
+from hydromodpy.core.version import __version__
+
+# ``bootstrap()`` is deferred to first real use (config validation, a verb,
+# Project, or the CLI handler) via ``core.bootstrap_hook``. Importing
+# ``_bootstrap`` above only registers the hook, so ``import hydromodpy`` and
+# ``hmp --help`` stay cheap. The symbol is kept public for explicit callers.
+
+__author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
+__email__ = (
+    "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
+)
+
+_log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
+# Public access to log manager for users
+log_manager = _log_manager
+
+_DIRECT_EXPORTS = [
+    "open",
+    "catalog",
+    "read",
+    "export",
+    "run",
+    "calibrate",
+    "index",
+    "compare_pair",
+    "report",
+    "audit_prune",
+    "bootstrap_proj",
+    "doctor",
+    "log_manager",
+    "__version__",
+]
+
+
+def __getattr__(name: str):
+    if name in _MODULE_EXPORTS:
+        module = importlib.import_module(_MODULE_EXPORTS[name])
+        globals()[name] = module
+        return module
+    if name in _LAZY_IMPORTS:
+        target = _LAZY_IMPORTS[name]
+        if ":" in target:
+            module_path, attr_name = target.split(":", 1)
+        else:
+            module_path, attr_name = target, name
+        module = importlib.import_module(module_path)
+        attr = getattr(module, attr_name)
+        globals()[name] = attr
+        return attr
+    raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
+
+
+__all__ = [*_DIRECT_EXPORTS, *_LAZY_IMPORTS, *_MODULE_EXPORTS]
