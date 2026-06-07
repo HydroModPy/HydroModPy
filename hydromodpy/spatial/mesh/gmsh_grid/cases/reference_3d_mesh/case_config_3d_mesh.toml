@@ -1,0 +1,6 @@
+[case]
+reference_2d_config = "../reference_2d_geology_base/case_config_gmsh.toml"
+reference_2d_section = "case"
+top_z = 15.0
+layer_thicknesses = [25.0, 35.0, 40.0]
+output_summary_json = "outputs/reference_3d_mesh_summary.json"

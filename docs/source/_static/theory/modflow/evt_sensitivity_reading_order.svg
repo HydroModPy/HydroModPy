@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
+  <title id="title">EVT sensitivity reading order</title>
+  <desc id="desc">Recommended reading order for comparing Nancon runs with and without EVT.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#344b5b"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f8f4; }
+      .run { fill: #e8f0de; stroke: #6f885b; stroke-width: 2; rx: 18; }
+      .diag { fill: #eaf2fb; stroke: #5c7f9e; stroke-width: 2; rx: 18; }
+      .down { fill: #fff0dd; stroke: #b5843e; stroke-width: 2; rx: 18; }
+      .title { font: 700 26px Georgia, serif; fill: #22313a; }
+      .label { font: 700 18px Georgia, serif; fill: #22313a; }
+      .small { font: 14px Georgia, serif; fill: #43515a; }
+      .mono { font: 13px Consolas, monospace; fill: #2e3d47; }
+      .arrow { stroke: #344b5b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="500"/>
+  <text x="48" y="56" class="title">How to make the effect of EVT visible</text>
+
+  <rect x="70" y="126" width="215" height="112" class="run"/>
+  <text x="98" y="160" class="label">No EVT</text>
+  <text x="98" y="190" class="mono">active = [recharge]</text>
+  <text x="98" y="214" class="small">baseline without ET sink</text>
+
+  <rect x="70" y="278" width="215" height="112" class="run"/>
+  <text x="98" y="312" class="label">With EVT</text>
+  <text x="98" y="342" class="mono">active = [recharge, etp]</text>
+  <text x="98" y="366" class="small">same basin and period</text>
+
+  <path class="arrow" d="M296,182 C340,182 352,182 396,182"/>
+  <path class="arrow" d="M296,334 C340,334 352,334 396,334"/>
+
+  <rect x="410" y="88" width="230" height="84" class="diag"/>
+  <text x="438" y="122" class="label">1. ET and DRN budget</text>
+  <text x="438" y="148" class="small">partition of outflows</text>
+
+  <rect x="410" y="198" width="230" height="84" class="diag"/>
+  <text x="438" y="232" class="label">2. Hydrograph</text>
+  <text x="438" y="258" class="small">basin-integrated response</text>
+
+  <rect x="410" y="308" width="230" height="84" class="diag"/>
+  <text x="438" y="342" class="label">3. Water-table depth</text>
+  <text x="438" y="368" class="small">state change before maps</text>
+
+  <path class="arrow" d="M650,130 C700,130 714,194 764,206"/>
+  <path class="arrow" d="M650,240 C704,240 714,240 764,240"/>
+  <path class="arrow" d="M650,350 C700,350 714,286 764,274"/>
+
+  <rect x="778" y="164" width="260" height="152" class="down"/>
+  <text x="806" y="198" class="label">4. Difference maps</text>
+  <text x="806" y="228" class="mono">watertable_depth</text>
+  <text x="806" y="252" class="mono">outflow_drain</text>
+  <text x="806" y="276" class="mono">seepage_areas</text>
+
+  <path class="arrow" d="M1048,240 C1080,240 1088,240 1120,240"/>
+  <text x="1078" y="220" class="small">then</text>
+  <text x="1078" y="266" class="small">only</text>
+
+  <text x="80" y="446" class="small">Do not start with the active-network overlay: it is downstream of budget partition and groundwater-state changes.</text>
+</svg>

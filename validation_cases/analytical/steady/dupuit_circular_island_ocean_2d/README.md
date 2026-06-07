@@ -1,0 +1,34 @@
+# Dupuit Circular-Island Ocean 2D
+
+Steady synthetic groundwater-flow case used to validate the launcher workflow
+against the axisymmetric Dupuit-Boussinesq solution for a circular island with:
+
+- uniform recharge over the island,
+- one flat impermeable substratum,
+- sea level imposed through HydroModPy's `ocean` boundary condition,
+- no salt wedge and no density correction.
+
+Intent:
+
+- validate the `ocean` boundary condition on a genuinely 2D synthetic geometry,
+- verify that the numerical solution preserves radial symmetry on a Cartesian grid,
+- keep an analytical benchmark where the water table remains below the island topography.
+
+Comparison:
+
+- simulated observable: `watertable_elevation`
+- compared quantity: annular mean head profile on land
+- reference: steady radial Dupuit-Boussinesq solution with fixed coastal head
+
+Direct execution:
+
+```bash
+python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case
+```
+
+The runner saves a PNG figure with:
+
+- the synthetic DEM and shoreline,
+- the final land water-table map,
+- the numerical annular profile against the analytical reference,
+- the residual curve and summary metrics.

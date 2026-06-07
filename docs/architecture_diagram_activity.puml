@@ -1,0 +1,42 @@
+@startuml
+title HydroModPy - Diagramme d'activité (Flux d'exécution)
+|Utilisateur|
+start
+:Soumettre un travail (CLI / API);
+|Orchestrateur|
+:Analyser la configuration / construire le contexte;
+if (Configuration valide ?) then (oui)
+  :Résoudre les étapes du workflow;
+else (non)
+  stop
+endif
+-> "Valider";
+-> "Résoudre les dépendances";
+-> "Construire le contexte géographique";
+-> "Charger les données (DataStore / gestionnaires)";
+-> "Construire ou importer le maillage";
+-> "Configurer les processus et les liaisons";
+-> "Préparer le solveur (register_simulation)";
+fork
+  -> "Exécuter le solveur (SimulationRunner)";
+  note right: SimulationRunner exécute les runs planifiés
+  --> "Extraction post-run";
+fork again
+  -> "Écrire la provenance & métadonnées (catalogue)";
+end fork
+-> "Dériver métriques / post-traitement";
+-> "Exporter artefacts (parquet/zarr)";
+-> "Rendu / affichage des figures";
+:Retourner le résultat / état du job;
+stop
+end
+
+note right
+  Liens code:
+  - prepare_runtime / prepare_run / execute_run: hydromodpy/workflow/orchestrator.py
+  - SimulationRunner: hydromodpy/simulation/execution/runner.py
+  - DataStore: hydromodpy/data/store.py
+  - SimulationCatalog: hydromodpy/results/catalog/facade.py
+end note
+
+@enduml

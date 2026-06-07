@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "name": "aura_fixture_hydrography",
+  "hydromodpy_coordinate_crs": "EPSG:2154",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Fixture main reach"},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[835000, 6502500], [847000, 6512000], [866000, 6504000], [890000, 6531000], [914000, 6540000], [928000, 6550500]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Fixture tributary"},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[875000, 6542000], [890000, 6531000], [904000, 6534500]]
+      }
+    }
+  ]
+}

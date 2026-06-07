@@ -1,0 +1,86 @@
+@startuml
+title Simulation Orchestration Class Diagram
+
+package "hydromodpy" {
+  class Project {
+    +cfg: HydroModPyConfig
+    +run()
+    +prepare(**overrides) : sim_id
+    +execute(sim_id) : runtime
+    +ingest(sim_id)
+    +render(sim_id)
+    +build_geographic()
+    +load_data()
+    +build_mesh()
+  }
+}
+
+package "hydromodpy.simulation" {
+  class SimulationPlanner {
+    +build(config)
+  }
+
+  class SimulationPlan {
+    +name: str
+    +description: str
+    +runs: tuple[ProcessRun, ...]
+  }
+
+  class ProcessRun {
+    +id: str
+    +process_id: str
+    +process_type: str
+    +solver: str
+    +depends_on: tuple[str, ...]
+  }
+
+  class SimulationRunner {
+    +execute(plan, runtime_state)
+  }
+}
+
+package "hydromodpy.physics" {
+  class Flow
+  class Transport
+}
+
+package "hydromodpy.solver" {
+  interface "Flow Solver Adapter" as FlowSolver
+  class ModflowNwt
+  class Modflow6
+  class Boussinesq
+
+  interface "Transport Solver Adapter" as TransportSolver
+  class Modpath
+  class Mt3dms
+  class Modflow6Transport
+}
+
+Project --> SimulationPlanner : builds
+Project --> SimulationRunner : delegates execution
+
+SimulationPlanner ..> SimulationPlan : returns
+SimulationPlanner ..> ProcessRun : produces
+
+SimulationPlan *-- "0..*" ProcessRun : runs
+
+Project --> SimulationPlan : stores active plan
+Project --> ProcessRun : indexes runs by id
+Project --> Flow : prepares runtime process
+Project --> Transport : prepares runtime process
+
+SimulationRunner ..> SimulationPlan : consumes ordered runs
+SimulationRunner ..> ProcessRun : dispatches
+SimulationRunner ..> Flow : uses runtime process
+SimulationRunner ..> Transport : uses runtime process
+SimulationRunner ..> FlowSolver : instantiates from run.solver
+SimulationRunner ..> TransportSolver : instantiates from run.solver
+
+FlowSolver <|.. ModflowNwt
+FlowSolver <|.. Modflow6
+FlowSolver <|.. Boussinesq
+
+TransportSolver <|.. Modpath
+TransportSolver <|.. Mt3dms
+TransportSolver <|.. Modflow6Transport
+@enduml

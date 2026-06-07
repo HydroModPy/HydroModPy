@@ -1,0 +1,447 @@
+{
+  "schema_version": "simulation_comparison_manifest_v1",
+  "comparison_id": "site_08_natural_n1_10km2_mf6_bouss",
+  "config_path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/_generated_configs/site_08.toml",
+  "base_simulation_config": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/base_site_01_mf6_bouss_transient.toml",
+  "base_simulation_overlay": {
+    "geographic": {
+      "snap_dist": "150.0 m",
+      "buff_area": "900.0 m",
+      "x_outlet": 164915.0,
+      "y_outlet": 6861154.3,
+      "river_network": {
+        "threshold_area_km2": 0.2
+      }
+    },
+    "mesh_catchment": {
+      "zone_meshing": {
+        "global_size": 130.0,
+        "min_size": 45.0,
+        "interface_size": 70.0
+      }
+    },
+    "flow": {
+      "runtime_tol_residual_inf": 1e-06,
+      "runtime_tol_state_update_inf": 1e-06
+    },
+    "simulation": {
+      "name": "site_08_natural_10km2_shared_case",
+      "description": "Regional-lab N1 natural 10 km2 MF6/Boussinesq comparison case."
+    }
+  },
+  "comparison_root": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss",
+  "reference_simulation": "mf6_ref",
+  "audit_status": "pass",
+  "observables_csv": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/observables.csv",
+  "comparison_metrics_csv": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.csv",
+  "comparison_differences_csv": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_differences.csv",
+  "comparison_metrics_json": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json",
+  "comparison_audit_json": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_audit.json",
+  "comparison_audit_md": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_audit.md",
+  "comparison_report_md": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_report.md",
+  "comparison_figures_dir": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_figures",
+  "comparison_figures": [
+    {
+      "kind": "case_configuration",
+      "observable": "case_configuration",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_figures/case_configuration.png"
+    },
+    {
+      "kind": "fine_raster_map_comparison",
+      "observable": "head_map_wet_year1",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_figures/head_map_wet_year1__fine_raster_map_comparison.png"
+    },
+    {
+      "kind": "storage_comparison_dashboard",
+      "observable": "storage_change_total_m3_s",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_figures/storage_comparison_dashboard.png"
+    },
+    {
+      "kind": "total_inputs_outputs_dashboard",
+      "observable": "total_inputs_outputs_m3_s",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_figures/total_inputs_outputs_dashboard.png"
+    },
+    {
+      "kind": "simulated_active_network_figure",
+      "simulation_id": "mf6_ref",
+      "figure_name": "simulated_active_network",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/run_figures/mf6_ref/simulated_active_network.png"
+    },
+    {
+      "kind": "simulated_active_network_figure",
+      "simulation_id": "mf6_ref",
+      "figure_name": "simulated_active_network_reference_overlay",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/run_figures/mf6_ref/simulated_active_network_reference_overlay.png"
+    },
+    {
+      "kind": "simulated_active_network_figures_skipped_json",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_figures_skipped.json",
+      "note": "1 simulation(s) skipped for simulated-active network figure export."
+    }
+  ],
+  "comparison_data_artifacts": [
+    {
+      "kind": "comparison_audit_json",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_audit.json"
+    },
+    {
+      "kind": "comparison_audit_md",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_audit.md"
+    },
+    {
+      "kind": "hydrographic_network_metrics_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/hydrographic_network_metrics.csv"
+    },
+    {
+      "kind": "simulated_active_network_metrics_skipped_json",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics_skipped.json",
+      "note": "1 simulation(s) skipped for simulated-active network metrics export."
+    },
+    {
+      "kind": "simulated_active_network_metrics_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics.csv"
+    },
+    {
+      "kind": "simulated_active_network_overlap_metrics_skipped_json",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics_skipped.json",
+      "note": "1 simulation(s) skipped for simulated-active network overlap metrics export."
+    },
+    {
+      "kind": "simulated_active_network_overlap_metrics_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics.csv"
+    },
+    {
+      "kind": "simulated_active_network_distance_metrics_skipped_json",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics_skipped.json",
+      "note": "1 simulation(s) skipped for simulated-active network distance metrics export."
+    },
+    {
+      "kind": "simulated_active_network_distance_metrics_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics.csv"
+    },
+    {
+      "kind": "release_flux_network_overlap_metrics_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_overlap_metrics.csv"
+    },
+    {
+      "kind": "release_flux_network_distance_metrics_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_distance_metrics.csv"
+    },
+    {
+      "kind": "budget_timeseries_long_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/budget_timeseries_long.csv"
+    },
+    {
+      "kind": "budget_timeseries_wide_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/budget_timeseries_wide.csv"
+    },
+    {
+      "kind": "numerical_closure_by_period_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/numerical_closure_by_period.csv"
+    },
+    {
+      "kind": "numerical_closure_summary_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/numerical_closure_summary.csv"
+    },
+    {
+      "kind": "numerical_closure_summary_json",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/numerical_closure_summary.json"
+    },
+    {
+      "kind": "boussinesq_obstacle_diagnostics_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/boussinesq_obstacle_diagnostics.csv"
+    },
+    {
+      "kind": "ts_vi_obstacle_runtime_summary",
+      "simulation_id": "bouss_candidate",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/bouss_candidate__ts_vi_obstacle_runtime_summary.json",
+      "source_path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/workspaces/bouss_candidate/exports/run_0001/solver_diagnostics/ts_vi_obstacle_runtime_summary.json",
+      "summary": {
+        "schema_version": "boussinesq_ts_vi_obstacle_runtime_diagnostics_v1",
+        "runtime_backend": "petsc",
+        "runtime_engine": "petsc",
+        "runtime_engine_id": "petsc_ts_vi_obstacle",
+        "runtime_engine_id_expected": "petsc_ts_vi_obstacle",
+        "surface_interaction_model": "ts_vi_obstacle",
+        "ts_type": "beuler",
+        "ts_adapt_type": "none",
+        "ts_vi_steps_per_period": 4,
+        "ts_vi_adapt": false,
+        "snes_type": "vinewtonrsls",
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "factor_shift_type": "nonzero",
+        "factor_shift_amount": 1e-10,
+        "petsc_options": null,
+        "total_periods": 24,
+        "all_periods_converged": true,
+        "converged_periods": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "failed_periods": [],
+        "total_ts_steps": 96,
+        "total_snes_iterations": 402,
+        "max_snes_iterations_per_ts_step": 9,
+        "total_ksp_iterations": 402,
+        "max_ksp_iterations_per_ts_step": 9,
+        "max_upper_violation": 0.0,
+        "max_lower_violation": 0.0,
+        "max_active_top_count": 10921,
+        "max_active_bottom_count": 34,
+        "final_active_top_count": 5986,
+        "final_active_bottom_count": 34,
+        "final_free_count": 27676,
+        "period_diagnostic_count": 24,
+        "step_diagnostic_count": 96
+      }
+    },
+    {
+      "kind": "ts_vi_obstacle_period_diagnostics",
+      "simulation_id": "bouss_candidate",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/bouss_candidate__ts_vi_obstacle_period_diagnostics.csv",
+      "source_path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/workspaces/bouss_candidate/exports/run_0001/solver_diagnostics/ts_vi_obstacle_period_diagnostics.csv",
+      "summary": {}
+    },
+    {
+      "kind": "ts_vi_obstacle_step_diagnostics",
+      "simulation_id": "bouss_candidate",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/bouss_candidate__ts_vi_obstacle_step_diagnostics.csv",
+      "source_path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/workspaces/bouss_candidate/exports/run_0001/solver_diagnostics/ts_vi_obstacle_step_diagnostics.csv",
+      "summary": {}
+    },
+    {
+      "kind": "execution_times_csv",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/execution_times.csv"
+    },
+    {
+      "kind": "comparison_web_report_html",
+      "path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/web/index.html"
+    }
+  ],
+  "boussinesq_vi_obstacle_diagnostics": {},
+  "boussinesq_ts_vi_obstacle_diagnostics": {
+    "bouss_candidate": {
+      "runtime_summary": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/bouss_candidate__ts_vi_obstacle_runtime_summary.json",
+      "period_diagnostics": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/bouss_candidate__ts_vi_obstacle_period_diagnostics.csv",
+      "step_diagnostics": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/bouss_candidate__ts_vi_obstacle_step_diagnostics.csv"
+    }
+  },
+  "n_observable_rows": 269568,
+  "n_metric_rows": 4,
+  "n_difference_rows": 134758,
+  "wall_time_seconds": 3121.07,
+  "generated_configs_kept": true,
+  "generated_config_paths": [
+    "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/_generated_configs/mf6_ref.toml",
+    "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/_generated_configs/bouss_candidate.toml"
+  ],
+  "generated_config_cleanup_errors": [],
+  "simulations": [
+    {
+      "id": "mf6_ref",
+      "label": "MODFLOW 6 reference",
+      "status": "completed",
+      "enabled": true,
+      "solver": "modflow6",
+      "mesh_label": "generated_geology_river_catchment_mesh",
+      "mesh_mode": "mesh_catchment",
+      "config_path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/_generated_configs/mf6_ref.toml",
+      "run_folder": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/workspaces/mf6_ref",
+      "run_name": "site_08_natural_n1_10km2_mf6_bouss__mf6_ref",
+      "wall_time_seconds": 2348.91,
+      "solvers": [
+        "modflow6"
+      ],
+      "flow_solve_time_seconds": 1983.4589469469793,
+      "n_cells": 33696,
+      "n_timesteps": 24,
+      "metrics": {
+        "flow_solve_time_seconds": 1983.4589469469793,
+        "wall_time_seconds": 2008.8684199650015,
+        "solvers": [
+          "modflow6"
+        ]
+      },
+      "sim_id": "155fd9c7-6d9f-4546-9149-c4e9f3508124",
+      "returncode": 0,
+      "stdout_tail": "           DEM needs to be processed to remove topographic depressions and flats prior to\n            running this tool.\n**********************************************************************************\n**********************************************************************************\nWARNING: Interior pit cells were found within the input DEM. It is likely that the \n            DEM needs to be processed to remove topographic depressions and flats prior to\n            running this tool.\n**********************************************************************************\n\nwriting simulation...\n  writing simulation name file...\n  writing simulation tdis package...\n  writing solution package ims_gwf...\n  writing model run_0001...\n    writing model name file...\n    writing package disv...\n    writing package ic...\n    writing package npf...\n    writing package sto...\n    writing package rcha...\n    writing package drn_0...\nINFORMATION: maxbound in ('', 'drn', 'dimensions') changed to 33696 based on size of stress_period_data\n    writing package oc...\nFloPy is using the following executable to run the model: ../../../../../../../../../../../../../../../home/dreuzy/.cache/hydromodpy/bin/mf6\n                                   MODFLOW 6\n                U.S. GEOLOGICAL SURVEY MODULAR HYDROLOGIC MODEL\n                            VERSION 6.6.3 09/29/2025\n\n   MODFLOW 6 compiled Oct 07 2025 22:51:46 with Intel(R) Fortran Intel(R) 64\n   Compiler Classic for applications running on Intel(R) 64, Version 2021.7.0\n                             Build 20220726_000000\n\nThis software has been approved for release by the U.S. Geological \nSurvey (USGS). Although the software has been subjected to rigorous \nreview, the USGS reserves the right to update the software as needed \npursuant to further analysis and review. No warranty, expressed or \nimplied, is made by the USGS or the U.S. Government as to the \nfunctionality of the software and related material nor shall the \nfact of release constitute any such warranty. Furthermore, the \nsoftware is released on condition that neither the USGS nor the U.S. \nGovernment shall be held liable for any damages resulting from its \nauthorized or unauthorized use. Also refer to the USGS Water \nResources Software User Rights Notice for complete use, copyright, \nand distribution information.\n\n \n MODFLOW runs in SEQUENTIAL mode\n \n Run start date and time (yyyy/mm/dd hh:mm:ss): 2026/05/11 23:23:33\n \n Writing simulation list file: mfsim.lst\n Using Simulation name file: mfsim.nam\n \n    Solving:  Stress period:     1    Time step:     1\n    Solving:  Stress period:     2    Time step:     1\n    Solving:  Stress period:     3    Time step:     1\n    Solving:  Stress period:     4    Time step:     1\n    Solving:  Stress period:     5    Time step:     1\n    Solving:  Stress period:     6    Time step:     1\n    Solving:  Stress period:     7    Time step:     1\n    Solving:  Stress period:     8    Time step:     1\n    Solving:  Stress period:     9    Time step:     1\n    Solving:  Stress period:    10    Time step:     1\n    Solving:  Stress period:    11    Time step:     1\n    Solving:  Stress period:    12    Time step:     1\n    Solving:  Stress period:    13    Time step:     1\n    Solving:  Stress period:    14    Time step:     1\n    Solving:  Stress period:    15    Time step:     1\n    Solving:  Stress period:    16    Time step:     1\n    Solving:  Stress period:    17    Time step:     1\n    Solving:  Stress period:    18    Time step:     1\n    Solving:  Stress period:    19    Time step:     1\n    Solving:  Stress period:    20    Time step:     1\n    Solving:  Stress period:    21    Time step:     1\n    Solving:  Stress period:    22    Time step:     1\n    Solving:  Stress period:    23    Time step:     1\n    Solving:  Stress period:    24    Time step:     1\n \n Run end date and time (yyyy/mm/dd hh:mm:ss): 2026/05/11 23:59:06\n Elapsed run time: 35 Minutes, 33.101 Seconds\n \n Normal termination of simulation.\n",
+      "stderr_tail": "      __  __          __           __  ____          ________     \n     / / / /         / /          /  \\/   /         / / __  /     \n    / /_/ /_  ______/ /________  /       /___  ____/ / /_/ /_  __ \n   / __  / / / / __  / ___/ __ \\/ /\\,-/ / __ \\/ __  / ____/ / / / \n  / / / / /_/ / /_/ / /  / /_/ / /   / / /_/ / /_/ / /   / /_/ /  \n /_/ /_/\\__, /_____/_/   \\____/_/   /_/\\____/_____/_/____\\__, /   \n       /____/ Hydrological Modelling in Python /_____________/    \n                                                                  \n[auto_scan] skipped (PermissionError: [Errno 13] Permission denied: '/mnt/c/DumpStack.log.tmp')\n[INFO] Project configured: mf6_ref.toml\n[INFO] Extracting geographic data for model area\n[INFO] [data] dem\n[INFO] [data] hydrography\n[INFO] Loading custom hydrography vector from /mnt/c/codes/HydroModPy/examples/data/hydrography/regional_stream_network.shp\n[INFO] [data] geology\n[INFO] [data] recharge\n[INFO] Reassigning name 'run_0001' in project 'mf6_ref' (previous sim c70e045a kept, name cleared)\n[INFO] Registered 3 tracked input file(s) for simulation 155fd9c7-6d9f-4546-9149-c4e9f3508124\n[INFO] Wrote 3 provenance records for sim 155fd9c7-6d9f-4546-9149-c4e9f3508124\n[INFO] Persisted 4 forcing datasets for sim 155fd9c7-6d9f-4546-9149-c4e9f3508124\n[INFO] Hydraulic conductivity mapped from flow.K using domain support 'field_geology'\n[INFO] Specific yield mapped from flow.Sy using direct homogeneous mapping\n[INFO] Specific storage mapped from flow.Ss using direct homogeneous mapping\n[INFO] Completed hk for 3806 unstructured cell value(s) from mesh bundle conductivity.\n[INFO] Completed hk_value for 3806 unstructured cell value(s) from mesh bundle conductivity.\n[INFO] MF6 XT3D resolution: mode=auto_unstructured enabled=True structured=False\n[INFO] Extracting MODFLOW 6 results: 24 timesteps, 1 layers, 33696 cells\n[WARNING] catchment discharge: no runoff forcing in Zarr for sim 155fd9c7-6d9f-4546-9149-c4e9f3508124 \u2014 writing DRN baseflow only (mismatch with total streamflow obs).\n[INFO] Wrote 1 catchment-aggregated timeseries for sim 155fd9c7-6d9f-4546-9149-c4e9f3508124\n[INFO] Exported CSV: /mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/workspaces/mf6_ref/exports/run_0001/timeseries.csv (24 rows)\nWorkflow 'simulation' complete: mf6_ref.toml\n  name: run_0001\n  sim_id: 155fd9c7-6d9f-4546-9149-c4e9f3508124\n",
+      "n_observable_rows": 134784
+    },
+    {
+      "id": "bouss_candidate",
+      "label": "Boussinesq PETSc TS/SNESVI candidate",
+      "status": "completed",
+      "enabled": true,
+      "solver": "boussinesq",
+      "mesh_label": "generated_geology_river_catchment_mesh",
+      "mesh_mode": "mesh_catchment",
+      "config_path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/_generated_configs/bouss_candidate.toml",
+      "run_folder": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/workspaces/bouss_candidate",
+      "run_name": "site_08_natural_n1_10km2_mf6_bouss__bouss_candidate",
+      "wall_time_seconds": 668.46,
+      "solvers": [
+        "boussinesq"
+      ],
+      "flow_solve_time_seconds": 420.3923538659874,
+      "n_cells": 33696,
+      "n_timesteps": 24,
+      "metrics": {
+        "flow_solve_time_seconds": 420.3923538659874,
+        "wall_time_seconds": 436.5629147920117,
+        "solvers": [
+          "boussinesq"
+        ]
+      },
+      "sim_id": "5b070bfe-9fc9-4de8-85e8-3165f014c5aa",
+      "returncode": 0,
+      "stdout_tail": "**********************************************************************************\nWARNING: Interior pit cells were found within the input DEM. It is likely that the \n            DEM needs to be processed to remove topographic depressions and flats prior to\n            running this tool.\n**********************************************************************************\n**********************************************************************************\nWARNING: Interior pit cells were found within the input DEM. It is likely that the \n            DEM needs to be processed to remove topographic depressions and flats prior to\n            running this tool.\n**********************************************************************************\n\n",
+      "stderr_tail": "      __  __          __           __  ____          ________     \n     / / / /         / /          /  \\/   /         / / __  /     \n    / /_/ /_  ______/ /________  /       /___  ____/ / /_/ /_  __ \n   / __  / / / / __  / ___/ __ \\/ /\\,-/ / __ \\/ __  / ____/ / / / \n  / / / / /_/ / /_/ / /  / /_/ / /   / / /_/ / /_/ / /   / /_/ /  \n /_/ /_/\\__, /_____/_/   \\____/_/   /_/\\____/_____/_/____\\__, /   \n       /____/ Hydrological Modelling in Python /_____________/    \n                                                                  \n[auto_scan] skipped (PermissionError: [Errno 13] Permission denied: '/mnt/c/DumpStack.log.tmp')\n[INFO] Project configured: bouss_candidate.toml\n[INFO] Extracting geographic data for model area\n[INFO] [data] dem\n[INFO] [data] hydrography\n[INFO] Loading custom hydrography vector from /mnt/c/codes/HydroModPy/examples/data/hydrography/regional_stream_network.shp\n[INFO] [data] geology\n[INFO] [data] recharge\n[INFO] Reassigning name 'run_0001' in project 'bouss_candidate' (previous sim 73e7e2fb kept, name cleared)\n[INFO] Registered 3 tracked input file(s) for simulation 5b070bfe-9fc9-4de8-85e8-3165f014c5aa\n[INFO] Wrote 3 provenance records for sim 5b070bfe-9fc9-4de8-85e8-3165f014c5aa\n[INFO] Persisted 4 forcing datasets for sim 5b070bfe-9fc9-4de8-85e8-3165f014c5aa\n[INFO] Hydraulic conductivity mapped from flow.K using domain support 'field_geology'\n[INFO] Specific yield mapped from flow.Sy using direct homogeneous mapping\n[INFO] Hydraulic conductivity mapped from flow.K using domain support 'field_geology'\n[INFO] Specific yield mapped from flow.Sy using direct homogeneous mapping\n[INFO] Extracting Boussinesq results: 25 timesteps, 33696 cells\n[WARNING] catchment discharge: no runoff forcing in Zarr for sim 5b070bfe-9fc9-4de8-85e8-3165f014c5aa \u2014 writing DRN baseflow only (mismatch with total streamflow obs).\n[INFO] Wrote 1 catchment-aggregated timeseries for sim 5b070bfe-9fc9-4de8-85e8-3165f014c5aa\n[INFO] Exported CSV: /mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/workspaces/bouss_candidate/exports/run_0001/timeseries.csv (25 rows)\nWorkflow 'simulation' complete: bouss_candidate.toml\n  name: run_0001\n  sim_id: 5b070bfe-9fc9-4de8-85e8-3165f014c5aa\n",
+      "n_observable_rows": 134784
+    }
+  ],
+  "observables": [
+    {
+      "name": "head_map_first_computed",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "first_computed",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_map_wet_year1",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": 5,
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_map_dry_late",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": 22,
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_map_last",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "last",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    }
+  ],
+  "numerical_closure": {
+    "schema_version": "numerical_closure_manifest_v1",
+    "diagnostic": "OK",
+    "diagnostic_code": 0.0,
+    "max_abs_closure_m3_s": 4.685355208687717e-07,
+    "max_abs_closure_mm_d": 1.826760484110171e-07,
+    "relative_closure_error_p95": 4.4927297039614865e-08,
+    "rows": [
+      {
+        "simulation_id": "bouss_candidate",
+        "simulation_label": "Boussinesq PETSc TS/SNESVI candidate",
+        "solver": "boussinesq",
+        "n_periods": 24,
+        "area_m2": 221602499.9182129,
+        "max_abs_closure_m3_s": 4.685355208687717e-07,
+        "mean_abs_closure_m3_s": 4.6025315231768055e-08,
+        "rmse_closure_m3_s": 1.1346826973105071e-07,
+        "max_abs_closure_mm_d": 1.826760484110171e-07,
+        "relative_closure_error_p95": 4.4927297039614865e-08,
+        "diagnostic": "OK"
+      },
+      {
+        "simulation_id": "mf6_ref",
+        "simulation_label": "MODFLOW 6 reference",
+        "solver": "modflow6",
+        "n_periods": 24,
+        "area_m2": 221602499.9182129,
+        "max_abs_closure_m3_s": 9.638235476394641e-08,
+        "mean_abs_closure_m3_s": 1.638134791747195e-08,
+        "rmse_closure_m3_s": 2.5690111756117314e-08,
+        "max_abs_closure_mm_d": 3.757825590721398e-08,
+        "relative_closure_error_p95": 4.976659220772544e-09,
+        "diagnostic": "OK"
+      }
+    ]
+  },
+  "closure_max_abs_m3_s": 4.685355208687717e-07,
+  "closure_max_abs_mm_d": 1.826760484110171e-07,
+  "closure_relative_error_p95": 4.4927297039614865e-08,
+  "closure_status": "OK",
+  "closure_status_code": 0.0,
+  "manifest_path": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/comparison_manifest.json",
+  "comparison_web_report": "/mnt/c/codes/HydroModPy/examples/projects/10_testbed_workflow/outputs/boussinesq_natural_n1_10km2_testbed/comparisons/site_08_natural_n1_10km2_mf6_bouss/web/index.html"
+}

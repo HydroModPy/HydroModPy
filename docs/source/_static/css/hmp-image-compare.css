@@ -1,0 +1,88 @@
+/* HydroModPy: image comparison slider. */
+.hmp-image-compare {
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    cursor: ew-resize;
+    line-height: 0;
+    background: var(--pst-color-surface, #f8f9fa);
+    border-radius: 4px;
+}
+
+.hmp-image-compare img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+}
+
+.hmp-image-compare .hmp-before,
+.hmp-image-compare .hmp-after {
+    margin: 0;
+}
+
+.hmp-image-compare .hmp-after {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.hmp-image-compare .hmp-after img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hmp-image-compare-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    margin-left: -1.5px;
+    background: var(--pst-color-primary, #ffffff);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+    cursor: ew-resize;
+    pointer-events: auto;
+}
+
+.hmp-image-compare-handle::before,
+.hmp-image-compare-handle::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    margin-left: -12px;
+    border-radius: 50%;
+    background: var(--pst-color-primary, #ffffff);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+}
+
+.hmp-image-compare-handle::before {
+    top: 50%;
+    margin-top: -12px;
+}
+
+.hmp-image-compare-handle::after {
+    display: none;
+}
+
+.hmp-image-compare-label {
+    position: absolute;
+    top: 0.5rem;
+    padding: 0.15rem 0.5rem;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 0.75rem;
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+.hmp-image-compare-label-before {
+    left: 0.5rem;
+}
+
+.hmp-image-compare-label-after {
+    right: 0.5rem;
+}

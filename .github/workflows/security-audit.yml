@@ -1,0 +1,45 @@
+# Dependency vulnerability audit.
+# Runs only for dependency metadata changes, plus a weekly scheduled refresh.
+
+name: Security / Dependency Audit
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/security-audit.yml"
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - "install/*.yml"
+      - "install/*.yaml"
+      - "docs/readthedocs_requirements.txt"
+  schedule:
+    - cron: "20 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: Security / pip-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pip-audit
+        run: pip install "pip-audit>=2.7"
+
+      - name: Audit declared Python dependencies
+        # PYSEC-2024-277: joblib transitive dep, no fixed release yet.
+        run: pip-audit --strict --vulnerability-service osv --ignore-vuln PYSEC-2024-277 .

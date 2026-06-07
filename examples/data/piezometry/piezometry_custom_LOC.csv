@@ -1,0 +1,7 @@
+id,x,y,crs,name,unit,constant
+PIEZO01,-1.683,48.127,EPSG:4326,Piezometre Canut Amont,m,false
+PIEZO02,-1.674,48.122,EPSG:4326,Piezometre Canut Aval,m,false
+PIEZO_CONST,-1.681,48.124,EPSG:4326,Piezometre Constante,m,true
+PIEZO_GAPS,-1.676,48.131,EPSG:4326,Piezometre avec lacunes,m,false
+PIEZO_CM,-1.688,48.125,EPSG:4326,Piezometre en centimetres,cm,false
+RENNES_P01,-1.752,48.198,EPSG:4326,Piezometre Rennes hors emprise,m,false

@@ -1,0 +1,50 @@
+# Pre-commit: runs ruff automatically at every `git commit`.
+#
+# One-time setup per clone:
+#   pip install -e ".[dev]"      # installs ruff + pre-commit
+#   pre-commit install           # wires the hook into .git/hooks/
+#
+# Manual run on the whole repo:
+#   pre-commit run --all-files
+#
+# Update hook versions periodically:
+#   pre-commit autoupdate
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.9
+    hooks:
+      # 1. Lint - auto-fix what can be fixed (imports, simple rewrites…).
+      - id: ruff-check
+        args: [--fix]
+      # 2. Format - apply ruff's formatter (black-compatible).
+      - id: ruff-format
+
+  # Small, uncontroversial hygiene hooks. Remove any you don't want.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+
+  # Secret scanning. Same engine as the CI gitleaks job, but on staged diff.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # RST linting. The 130-char max accommodates auto-generated gallery paths
+  # (``.. gallery-figure:: /_static/capability_gallery/<long-slug>.png``) and
+  # ``:doc:`` references that span deep ``../../capability_gallery/cases/<slug>``
+  # cross-link targets.
+  - repo: https://github.com/PyCQA/doc8
+    rev: v1.1.2
+    hooks:
+      - id: doc8
+        args: [--max-line-length=130, --ignore=D004]
+        files: ^docs/source/.*\.rst$
+        exclude: ^docs/source/(user_guide/config_reference|capability_gallery)/.*\.rst$

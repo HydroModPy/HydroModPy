@@ -1,0 +1,7 @@
+{
+  "constraints_mode": "geology_only",
+  "generator": "gmsh_irregular_rectangle_refined_center",
+  "n_cells": 2326,
+  "n_nodes": 1180,
+  "seed": 20260503
+}

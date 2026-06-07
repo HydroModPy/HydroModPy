@@ -1,0 +1,14 @@
+base_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "synthetic_patchy_strong_k_mf6_bouss_shared_case"
+description = "Synthetic patchy 2D case with a stronger hydraulic-conductivity contrast for MF6 versus Boussinesq comparison."
+
+[flow.param.K.field_heterogeneous]
+values = { west_low_k = "1e-6 m/s", central_high_k = "1e-4 m/s", east_medium_k = "3e-5 m/s" }
+
+[mesh_catchment.hydraulic_properties.conductivity]
+values_source = "inline"
+values = { west_low_k = "1e-6", central_high_k = "1e-4", east_medium_k = "3e-5" }

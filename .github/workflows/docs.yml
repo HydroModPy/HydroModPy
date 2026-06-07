@@ -1,0 +1,74 @@
+# Sphinx documentation build gate.
+# Runs the docs/ html-strict target (warnings-as-errors, --keep-going) with
+# parallel autosummary writing. Uploads the rendered HTML tree as an artifact
+# so PR reviewers can inspect the produced site.
+
+name: Docs / Sphinx
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/docs.yml"
+      - "docs/**"
+      - "hydromodpy/**"
+      - "pyproject.toml"
+      - "README.md"
+      - "CONTRIBUTING.md"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/docs.yml"
+      - "docs/**"
+      - "hydromodpy/**"
+      - "pyproject.toml"
+      - "README.md"
+      - "CONTRIBUTING.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  html-strict:
+    name: Docs / html-strict py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config
+
+      - name: Install package and docs extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Build Sphinx html-strict
+        run: make -C docs html-strict
+
+      - name: Upload built HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/build/html
+          if-no-files-found: error
+          retention-days: 14

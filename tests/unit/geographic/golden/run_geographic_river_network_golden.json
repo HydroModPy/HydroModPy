@@ -1,0 +1,57 @@
+{
+  "summary": {
+    "enabled": true,
+    "threshold_mode": "area_km2",
+    "threshold_value": 0.5,
+    "threshold_cells": 800.0,
+    "stream_pixel_count": 24,
+    "segment_count": 2,
+    "network_total_length_m": 779.0737725975565,
+    "max_strahler_order": 1.0,
+    "catchment_area_km2": 1.594375,
+    "drainage_density_km_per_km2": 0.4886389792850217
+  },
+  "streams": {
+    "shape": [
+      57,
+      64
+    ],
+    "dtype": "int16",
+    "nodata": -32768.0,
+    "valid_pixel_count": 2551,
+    "nodata_pixel_count": 1097,
+    "active_pixel_count": 24,
+    "sum_active": 24.0,
+    "max_active": 1.0
+  },
+  "stream_order_strahler": {
+    "shape": [
+      57,
+      64
+    ],
+    "dtype": "int16",
+    "nodata": -32768.0,
+    "valid_pixel_count": 2551,
+    "nodata_pixel_count": 1097,
+    "active_pixel_count": 24,
+    "sum_active": 24.0,
+    "max_active": 1.0
+  },
+  "stream_link_id": {
+    "shape": [
+      57,
+      64
+    ],
+    "dtype": "int32",
+    "nodata": -32768.0,
+    "valid_pixel_count": 2551,
+    "nodata_pixel_count": 1097,
+    "active_pixel_count": 24,
+    "sum_active": 96.0,
+    "max_active": 4.0
+  },
+  "network_vector": {
+    "feature_count": 2,
+    "total_length_m": 779.0737725975565
+  }
+}

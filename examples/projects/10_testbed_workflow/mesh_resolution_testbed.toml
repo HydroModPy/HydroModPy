@@ -1,0 +1,59 @@
+
+[workflow]
+mode = "testbed"
+
+[workspace]
+project_root = "."
+
+[testbed]
+id = "mesh_resolution_testbed"
+subject = "mesh"
+purpose = "robustness"
+base_config = "../06_vire_selune/run_vire_mf6_irregular.toml"
+output_root = "outputs/mesh_resolution_testbed"
+execute = false
+
+[testbed.runner]
+type = "simulation"
+
+[[testbed.case]]
+id = "coarse"
+axis = "resolution"
+
+[testbed.case.overlay.workspace]
+project_root = "outputs/mesh_resolution_testbed/coarse_workspace"
+
+[testbed.case.overlay.mesh_catchment.zone_meshing]
+global_size = 3500.0
+min_size = 1800.0
+max_size = 5200.0
+
+[[testbed.case]]
+id = "reference"
+axis = "resolution"
+
+[testbed.case.overlay.workspace]
+project_root = "outputs/mesh_resolution_testbed/reference_workspace"
+
+[testbed.case.overlay.mesh_catchment.zone_meshing]
+global_size = 2500.0
+min_size = 1200.0
+max_size = 4000.0
+
+[[testbed.case]]
+id = "fine"
+axis = "resolution"
+
+[testbed.case.overlay.workspace]
+project_root = "outputs/mesh_resolution_testbed/fine_workspace"
+
+[testbed.case.overlay.mesh_catchment.zone_meshing]
+global_size = 1600.0
+min_size = 700.0
+max_size = 2800.0
+
+[[testbed.metric]]
+name = "n_cells"
+
+[[testbed.metric]]
+name = "n_points"

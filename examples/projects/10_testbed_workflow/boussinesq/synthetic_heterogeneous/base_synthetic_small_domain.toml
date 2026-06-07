@@ -1,0 +1,53 @@
+base_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "synthetic_patchy_small_domain_mf6_bouss_shared_case"
+description = "Synthetic patchy 2D case on a smaller square domain with rescaled geology for MF6 versus Boussinesq comparison."
+
+[geographic.synthetic]
+case_id = "synthetic_patchy_2d_small_domain"
+
+[geographic.synthetic.grid]
+length_x = "2512.5 m"
+length_y = "2512.5 m"
+nx = 45
+ny = 45
+
+[geographic.synthetic.topography]
+right_to_left_amplitude = 10.0
+
+[[data.geology.sources]]
+source = "custom"
+path = "synthetic_geology_zones_small.geojson"
+code_field = "ZONE"
+
+[mesh_catchment.geology.source]
+path = "synthetic_geology_zones_small.geojson"
+kind = "vector"
+code_field = "ZONE"
+reference_raster_path = "../../../../data/dem/conceptual_dem.tif"
+
+[mesh_catchment.watershed_boundary]
+boundary_refinement_distance = 150.0
+
+[mesh_catchment.watershed_boundary.smoothing]
+distance = 40.0
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+transition_distance = 225.0
+grid_resolution = 225.0
+
+[mesh_catchment.zone_meshing]
+global_size = 300.0
+min_size = 120.0
+max_size = 520.0
+interface_size = 150.0
+interface_distance = 320.0
+interface_sampling = 48
+
+[mesh_catchment.zone_meshing.refinement_policy.hotspot]
+radius = 320.0
+short_segment_length = 110.0
+min_gap = 70.0

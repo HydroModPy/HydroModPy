@@ -1,0 +1,93 @@
+# ======================================================================
+# Nancon - overview des donnees (carte d'identite, sans solveur)
+# ----------------------------------------------------------------------
+# TOML autonome (pas de base_config) : le workflow overview a seulement
+# besoin d'un bassin et de sources de donnees, pas de processus de flow.
+# Il delimite le bassin depuis l'exutoire, charge chaque variable
+# declaree, et rend un panneau par variable sous figures/overview/.
+#
+# Melange donnees locales (chronique de debit custom sur 40 ans) et une
+# API en direct (intermittence Hub'Eau), pour montrer les deux voies
+# d'ingestion cote a cote.
+#
+# Lancement :
+#   hmp run examples/projects/20_atelier_nancon/overview.toml
+# ======================================================================
+
+
+[workflow]
+mode = "overview"
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+# Nom de fichier nu resolu sous <workspace>/data/dem/.
+dem_init_path = "DEM_armorican_massif.tif"
+# Exutoire de la station de jaugeage du Nancon, en Lambert-93.
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+[data]
+project_crs = "EPSG:2154"
+types = ["geology", "hydrography", "hydrometry", "intermittency"]
+inference_mode = "warn"
+
+[data.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[[data.geology.sources]]
+source = "brgm_1m"
+
+[data.hydrography]
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+rasterize_field = "FID"
+
+# Debit observe depuis la chronique Nancon de 40 ans fournie (CSV local).
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2020-12-31"
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+extent = "watershed"
+station_ids = []
+
+# Intermittence des cours d'eau depuis Hub'Eau (reseau ONDE), recuperee
+# en direct sur l'emprise du bassin.
+[data.intermittency]
+date_start = "2019-01-01"
+date_end = "2024-12-31"
+
+[[data.intermittency.sources]]
+source = "hubeau"
+extent = "watershed"
+
+[overview]
+name = "Nancon - carte d'identite du bassin"
+date_start = "2000-01-01"
+date_end = "2020-12-31"
+
+[overview.panels]
+map_dem = true
+map_geology = true
+map_hydrography = true
+stats_card = true
+station_inventory = true
+timeseries_discharge = true
+timeseries_intermittency = true
+timeseries_piezometry = false
+climatic_summary = false
+timeseries_water_quality = false

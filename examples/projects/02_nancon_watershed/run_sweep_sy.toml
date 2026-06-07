@@ -1,0 +1,89 @@
+# ======================================================================
+# Nançon - parametric sweep on Sy (forward-looking design)
+# ----------------------------------------------------------------------
+# Overlay TOML. Inherits the project base config and is meant to chain
+# three transient runs with three explicit Sy values, K/Ss/thickness
+# frozen at their baseline.
+#
+# WARNING: `[workflow].mode = "sweep"` is NOT IMPLEMENTED YET. This TOML is a
+# specification / design draft for the future workflow. It will NOT
+# pass the current dispatcher (see KNOWN_WORKFLOWS in
+# `hydromodpy/cli/workflows.py`) until:
+#   1. "sweep" is added to KNOWN_WORKFLOWS,
+#   2. a `hydromodpy/sweep/` package (config + runner) is implemented,
+#   3. `run_sweep()` is wired into DISPATCH.
+#
+# Today the same effect is obtained from Python via
+# `run_transient_prototype.py` or `Project.sweep(...)`.
+#
+# Status: design draft only. Do not launch with `hmp run` in v1.
+# ======================================================================
+
+
+# ---- Orchestration ---------------------------------------------------
+base_config = "project.toml"
+
+# Forward-looking value. Will be rejected by the current CLI until the
+# sweep dispatcher is wired up. Use the Python API in the meantime.
+
+
+[workflow]
+mode = "sweep"
+
+[simulation]
+name = "nancon_sweep_sy"
+description = "Sweep Sy in {0.001, 0.05, 0.30}, K/Ss/thickness frozen."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+
+# ---- Frozen parameters (not swept) ----------------------------------
+
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.K.field]
+value = 5e-5
+
+[flow.param.Ss.field]
+value = 1e-5
+
+
+# ---- Sweep -----------------------------------------------------------
+# Strategies envisioned (forward-looking):
+#   "enumerate" : explicit list of values per parameter (this case)
+#   "grid"      : cartesian product (bounds + points_per_dim)
+#   "lhs"       : Latin Hypercube Sampling (bounds + n_samples)
+#   "sobol"     : quasi-MC Sobol for global sensitivity analysis
+#   "morris"    : Morris elementary-effects design
+#
+# Each parameter declares:
+#   values / bounds : depending on the strategy
+#   path            : dotted path into HydroModPyConfig per run
+#   units           : informative label
+
+[sweep]
+strategy = "enumerate"
+# Template used to derive `simulations.name` for each child run.
+naming = "{param}_{value:.4f}"
+# Persist Zarr + Parquet for every run (full output kept).
+save_runs = "all"
+
+[sweep.parameters.Sy]
+values = [0.001, 0.05, 0.30]
+path = "flow.param.Sy.field.value"
+units = "-"
+
+# Example of a 2D sweep (cartesian product, 3x2 = 6 runs) - commented:
+# [sweep.parameters.K]
+# values = [1e-5, 5e-5]
+# path = "flow.param.K.field.value"
+# units = "m/s"

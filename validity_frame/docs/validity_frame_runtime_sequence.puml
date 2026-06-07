@@ -1,0 +1,51 @@
+@startuml
+title Process - Validity Frame Runtime Sequence
+
+actor User
+participant "Workflow Runner\n(example script / API)" as Runner
+participant "RuntimeAutoCapture" as Capture
+participant "Adapter / Entry-point\n(create_validity_frame / external adapter)" as Adapter
+participant "AutoCaptureCollector" as Collector
+participant "System / Hardware / Runtime / Solver probes" as Probes
+participant "Simulation / Solver" as Simulation
+participant "DuckDB / JSONL sidecar" as Storage
+
+User -> Runner: launch simulation workflow
+Runner -> Capture: initialize context and output_dir
+Runner -> Adapter: resolve collector implementation
+Adapter -> Collector: instantiate collector (entry-point)
+Capture -> Collector: capture_start()
+Collector -> Probes: collect initial system/runtime state
+Probes --> Collector: start snapshot data
+Collector --> Capture: start snapshot
+
+Runner -> Capture: run_with_capture(work)
+Capture -> Simulation: execute simulation
+Simulation --> Capture: results or exception
+
+alt success
+  Capture -> Collector: capture_end(start_time, solver_source, logs)
+  Collector -> Probes: collect end state and solver metrics
+  Probes --> Collector: completed snapshot data
+  Collector --> Capture: completed snapshot
+  Capture -> Runner: return snapshot
+  Runner -> Storage: write runtime_capture_success.json
+  append runtime_capture.jsonl
+else failure
+  Capture -> Collector: capture_exception(start_time, exc, solver_source, logs)
+  Collector -> Probes: collect end state and exception details
+  Probes --> Collector: failed snapshot data
+  Collector --> Capture: failed snapshot
+  Capture -> Runner: return failed snapshot
+  Runner -> Storage: write runtime_capture_failure.json
+  append runtime_capture.jsonl
+end
+
+note right of Capture
+  Collector failures are non-fatal by default: errors are logged and
+  collection is attempted but will not stop the simulation run unless
+  explicitly configured.
+end note
+
+Storage --> User: observability artifacts for inspection
+@enduml

@@ -1,0 +1,370 @@
+# ──────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.so
+
+# ──────────────────────────────────────────────
+# Packaging & distribution
+# ──────────────────────────────────────────────
+.Python
+build/
+dist/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+.installed.cfg
+MANIFEST
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+sdist/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ──────────────────────────────────────────────
+# Environments
+# ──────────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+Pipfile.lock
+__pypackages__/
+
+# ──────────────────────────────────────────────
+# IDE, editor, AI assistants
+# ──────────────────────────────────────────────
+.vscode/
+.idea/
+.claude/
+CLAUDE.md
+.codex
+AGENTS.md
+.orchestrator/
+.spyderproject
+.spyproject
+.ropeproject
+profile_default/
+ipython_config.py
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ──────────────────────────────────────────────
+# Testing & coverage
+# ──────────────────────────────────────────────
+.pytest_cache/
+.pytest*/
+.pytest_tmp*/
+pytest_tmp*/
+pytest*.log
+pytest-cache-*/
+pytestscratch*/
+pytest-temp-root/
+test_tmp*/
+test/results/
+test_*/
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# ──────────────────────────────────────────────
+# Type checking
+# ──────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# ──────────────────────────────────────────────
+# Documentation builds
+# ──────────────────────────────────────────────
+docs/_build*/
+docs/build/
+docs/**/_build/
+docs/**/_autosummary/
+docs/**/.doctrees/
+.jupyter_cache/
+docs/source/api/generated/
+docs/source/_generated/
+!docs/source/_generated/CHANGELOG.md
+
+# ──────────────────────────────────────────────
+# HydroModPy workspace outputs
+# ──────────────────────────────────────────────
+_workspace/
+out/
+**/simulations/
+**/exports/
+!tests/integration/exports/
+!hydromodpy/analysis/comparison/exports/
+**/results_simulations/
+**/results_stable/
+**/projects/**/figures/
+**/project_results.zarr.db
+**/.hmp/
+**/.solver_scratch/
+examples/results/
+catalog.db
+examples/projects/**/catalog.duckdb
+examples/projects/**/catalog.duckdb.bak-*
+hydromodpy.duckdb
+hydromodpy_debug.log
+hydromodpy/data/variables/*/cases/outputs/**
+hydromodpy/data/variables/*/outputs/**
+hydromodpy/spatial/**/cases/outputs/**
+hydromodpy/spatial/**/outputs/**
+!hydromodpy/spatial/site_selection/outputs/
+!hydromodpy/spatial/site_selection/outputs/**
+hydromodpy/spatial/site_selection/outputs/__pycache__/
+hydromodpy/spatial/site_selection/outputs/**/*.pyc
+hydromodpy/solver/**/cases/outputs/**
+**/.ipynb_checkpoints/
+examples/*.duckdb
+examples/data/cache.duckdb
+hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
+
+# Large local provider data generated while preparing examples.
+examples/data/dem/dem_bdalti_*.tif
+examples/data/dem/departments_bdalti/
+examples/data/geology/departments_50k/
+examples/data/geology/geology_brgm_50k_*.gpkg
+examples/data/hydrography/bdtopage_*.gpkg
+examples/data/hydrography/euhydro_*.gpkg
+examples/data/hydrography/osm_*.gpkg
+examples/data/hydrometry/hydrometry_hubeau_*.csv
+examples/data/intermittency/intermittency_hubeau_*.csv
+examples/data/piezometry/piezometry_hubeau_*.csv
+examples/data/water_quality/waterquality_hubeau_*.csv
+examples/data/**/*.csv.json
+examples/data/**/*.gpkg.json
+examples/data/**/*.nc.json
+examples/data/**/*.tif.json
+examples/data/etp/etp_sim2_*.nc
+examples/data/precipitation/precipitation_*_sim2_*.nc
+examples/data/recharge/recharge_sim2_*.nc
+examples/projects/**/data/cache.duckdb*
+tests/regression/fixtures/**/cache.duckdb*
+
+# Generated reports and run outputs from example workflows.
+# Documentation galleries and named fixtures live outside outputs/ and remain
+# versioned intentionally.
+examples/projects/**/web/
+examples/projects/**/web_review/
+examples/projects/**/outputs/**
+!examples/projects/**/outputs/.gitignore
+
+# Lockfiles emitted by validation and regression test runs (``hmp run`` writes
+# ``hydromodpy.lock`` next to the project config; tests should opt out via
+# ``--no-lock`` but this is a safety net).
+examples/projects/**/hydromodpy.lock
+validation_cases/**/hydromodpy.lock
+tests/regression/**/hydromodpy.lock
+
+# Large generated comparison payloads kept out of Git.
+validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support/
+examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json
+examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv
+docs/_dev_notes/diagnostics/boussinesq_*/
+docs/_dev_notes/diagnostics/boussinesq_*.csv
+
+# Generated images from output directories
+**/output/*.png
+**/output/**/*.png
+**/outputs/*.png
+**/outputs/**/*.png
+
+# ──────────────────────────────────────────────
+# MODFLOW solver binaries
+# ──────────────────────────────────────────────
+*.chk
+*.hds
+*.cbc
+*.lst
+*.nam
+!tests/regression/reference/**/*.hds
+!tests/regression/reference/**/*.cbc
+!tests/regression/reference/**/*.nam
+
+# ──────────────────────────────────────────────
+# Temporary files & scratch
+# ──────────────────────────────────────────────
+tmp*/
+.tmp*/
+z/
+*.tmp
+*.bak
+*.old
+*.prof
+tools/vendor/
+.tmp_lock_repro
+.tmp_launcher*
+**/_tmp_outputs_env*
+scratch_*/
+mesh-sim-int-*/
+river_trace_smoke_*/
+hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
+validation_cases/**/.__validation_runtime_*.toml
+hydromodpy_annex/preprocess/catchment_identification_scan/._run*.toml
+
+# Codex CI artifacts
+.codex_*/
+codex_pytest_tmp*/
+codex_validation_*/
+.codex_test_durations.xml
+.codex_test_durations_sorted.csv
+
+# HydroModPy temp prefixes
+hmp_geo_*/
+hmp_wbw_*/
+
+# ──────────────────────────────────────────────
+# Reports & profiling
+# ──────────────────────────────────────────────
+reports*/
+!hydromodpy/spatial/site_selection/reports/
+!hydromodpy/spatial/site_selection/reports/**
+hydromodpy/spatial/site_selection/reports/__pycache__/
+hydromodpy/spatial/site_selection/reports/**/*.pyc
+timing_reports/
+_profile_launcher_*/
+_profiling_out/
+meta_review_output/
+reporting/calibration_profiling_*_after_solver_reuse/
+reporting/**/_postprocess/_rasters/
+
+# Local generated validation outputs
+out/**/validation/**/rch_*_modflownwt/
+out/**/validation/**/transient_modflownwt/
+out/**/validation/**/boussinesq_hillsl_*/mesh_bundle/
+out/**/figures/flux_budget_comparison.png
+out/**/figures/flux_timeseries.png
+out/**/figures/head_point_timeseries.png
+out/**/figures/head_snapshots.png
+out/**/figures/outflow_components.png
+out/**/head_point_timeseries.csv
+out/**/summary_metrics.csv
+
+# ──────────────────────────────────────────────
+# OS / misc
+# ──────────────────────────────────────────────
+downloads/
+lib/
+lib64/
+parts/
+var/
+uv.lock
+
+old/*
+
+# ──────────────────────────────────────────────
+# Tracked-but-locally-modifiable diagrams
+# These .wsd files are intentionally ignored to avoid committing
+# in-progress diagram edits while keeping the canonical versions tracked.
+# ──────────────────────────────────────────────
+docs/source/architecture/mesh/diagrams/catchment_conformal_meshing_class_v2.wsd
+docs/source/architecture/mesh/diagrams/sgrid_fieldparam_discretization_class_v2.wsd
+docs/source/architecture/mesh/diagrams/structured_grid_class_v2.wsd
+docs/source/architecture/overview/global-architecture-component-diagram.rst
+docs/source/architecture/overview/global-architecture-component-traceability-v2.rst
+docs/source/architecture/overview/diagrams/diagram_composant_fin copy.wsd
+docs/source/architecture/overview/diagrams/diagram_composant_fin.wsd
+docs/source/architecture/overview/diagrams/global_architecture_class_as_built_current_state_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_class_complete_traceable_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2_strict_symbols_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_ball_socket_v1.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_strict_symbols_v2.wsd
+docs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_v1.wsd
+docs/source/architecture/process/diagrams/process_config_class_as_built_complete.wsd
+docs/source/architecture/process/diagrams/process_end_to_end_class_as_built_complete.wsd
+docs/source/architecture/process/diagrams/process_layered_components_as_built_complete.wsd
+docs/source/architecture/process/diagrams/process_runtime_class_as_built_complete.wsd
+docs/source/architecture/process/diagrams/runtime_to_solver_sequence_as_built_complete.wsd
+docs/source/architecture/process/diagrams/transport_as_built_complete.wsd
+docs/source/architecture/simulation/diagrams/simulation_time_cycle_class_as_built.wsd
+docs/source/architecture/simulation/diagrams/simulation_time_cycle_sequence_as_built.wsd
+docs/source/architecture/solver/diagrams/boussinesq_core_classes_as_built.wsd
+docs/source/architecture/solver/diagrams/boussinesq_process_to_backend_sequence_as_built.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_build_sequence_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_classes_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_context_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_fieldparam_sequence_v2.wsd
+docs/source/architecture/spatial_support/diagrams/spatial_support_resolution_activity_v2.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_class_as_built_current_state_v2.wsd
+examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif
+examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif.aux.xml
+examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif
+examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif.aux.xml
+examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif
+examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif.aux.xml
+examples/Exemple_11_Imene/11S_short/data/regional dem.tif
+examples/Exemple_11_Imene/11S_short/data/regional dem.tif.aux.xml
+docs/architecture_diagram_corrected.puml
+docs/readthedocs/source/architecture/mesh/diagrams/catchment_conformal_meshing_class_v2.wsd
+docs/readthedocs/source/architecture/mesh/diagrams/sgrid_fieldparam_discretization_class_v2.wsd
+docs/readthedocs/source/architecture/mesh/diagrams/structured_grid_class_v2.wsd
+docs/readthedocs/source/architecture/overview/global-architecture-component-diagram.rst
+docs/readthedocs/source/architecture/overview/global-architecture-component-traceability-v2.rst
+docs/readthedocs/source/architecture/overview/diagrams/diagram_composant_fin copy.wsd
+docs/readthedocs/source/architecture/overview/diagrams/diagram_composant_fin.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_class_complete_traceable_v1.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v1.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_strict_symbols_v2.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2_strict_symbols_v1.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces_traceable_v2.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_ports_interfaces.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_ball_socket_v1.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_strict_symbols_v2.wsd
+docs/readthedocs/source/architecture/overview/diagrams/global_architecture_component_pure_uml_nodes_ports_v1.wsd
+docs/readthedocs/source/architecture/process/diagrams/process_config_class_as_built_complete.wsd
+docs/readthedocs/source/architecture/process/diagrams/process_end_to_end_class_as_built_complete.wsd
+docs/readthedocs/source/architecture/process/diagrams/process_layered_components_as_built_complete.wsd
+docs/readthedocs/source/architecture/process/diagrams/process_runtime_class_as_built_complete.wsd
+docs/readthedocs/source/architecture/process/diagrams/runtime_to_solver_sequence_as_built_complete.wsd
+docs/readthedocs/source/architecture/process/diagrams/transport_as_built_complete.wsd
+docs/readthedocs/source/architecture/simulation/diagrams/simulation_time_cycle_class_as_built.wsd
+docs/readthedocs/source/architecture/simulation/diagrams/simulation_time_cycle_sequence_as_built.wsd
+docs/readthedocs/source/architecture/solver/diagrams/boussinesq_core_classes_as_built.wsd
+docs/readthedocs/source/architecture/solver/diagrams/boussinesq_process_to_backend_sequence_as_built.wsd
+docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_build_sequence_v2.wsd
+docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_classes_v2.wsd
+docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_context_v2.wsd
+docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_fieldparam_sequence_v2.wsd
+docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_resolution_activity_v2.wsd
+examples/projects/00_getting_started/catalog.duckdb
+examples/projects/00_getting_started/execution_knowledge/catalog.duckdb
+examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runtime_capture_failure.json
+examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runtime_capture_success.json
+examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runtime_capture.jsonl
+execution_knowledge/myrun1/raw/runtime_capture_success.json
+execution_knowledge/myrun1/raw/runtime_capture.jsonl
+tests/regression/fixtures/projects/simulation_regression/execution_knowledge/myrun1/raw/runtime_capture_failure.json
+tests/regression/fixtures/projects/launcher_simulation/execution_knowledge/myrun1/raw/runtime_capture_failure.json
+examples/projects/00_getting_started/catalog.duckdb.bak-20260522T115059Z
+
+# Local-only test-suite overhaul working notes (plan/report/continuation).
+docs/_dev_notes/test_suite_overhaul_*.md

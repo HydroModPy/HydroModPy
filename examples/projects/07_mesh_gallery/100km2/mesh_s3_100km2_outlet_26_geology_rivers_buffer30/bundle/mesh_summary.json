@@ -1,0 +1,408 @@
+{
+  "summary_schema_version": "zone_conformal_sidecar_v1",
+  "output_mesh": "C:\\results\\HydromodPy\\mesh_catchment_runs\\s3_100km2\\mesh_outlet_26\\mesh_catchment_outlet_26.msh",
+  "mesh_kind": "gmsh_2d",
+  "cell_type": "triangle",
+  "n_nodes": 1525,
+  "n_cells": 3012,
+  "n_partition_faces": 11,
+  "zone_keys": [
+    "domain"
+  ],
+  "face_counts_by_zone": {
+    "domain": 11
+  },
+  "face_areas_by_zone": {
+    "domain": 319803750.0
+  },
+  "domain_area": 319803750.0,
+  "covered_area": 319803749.99999994,
+  "interface_group_count": 0,
+  "boundary_group_count": 1,
+  "global_size": 680.0,
+  "min_size": 340.0,
+  "max_size": 1080.0,
+  "algorithm": "delaunay",
+  "cleaning_diagnostics": {
+    "cleaning_mode": "tolerant",
+    "tolerances": {
+      "simplify_tolerance": 0.0,
+      "heal_tolerance": 0.0,
+      "min_polygon_area": 1.0,
+      "overlap_tolerance": 1e-12
+    },
+    "operations_enabled": {
+      "repair_invalid_geometries": true,
+      "heal_snap": false,
+      "simplify": false,
+      "drop_small_polygons": true
+    },
+    "source_feature_count": 1,
+    "source_invalid_geometry_count": 0,
+    "invalid_geometries_repaired_count": 0,
+    "features_skipped_empty_zone_key_count": 0,
+    "features_skipped_empty_geometry_count": 0,
+    "features_outside_domain_count": 0,
+    "features_after_domain_clip_count": 1,
+    "features_dropped_after_cleaning_count": 0,
+    "polygon_parts_before_area_filter_count": 1,
+    "polygons_removed_by_area_threshold_count": 0,
+    "polygon_parts_kept_count": 1,
+    "cleaned_zone_polygon_count": 1,
+    "domain_invalid_geometry_count": 0,
+    "domain_invalid_geometries_repaired_count": 0,
+    "domain_polygon_parts_before_area_filter_count": 1,
+    "domain_polygon_parts_removed_by_area_threshold_count": 0,
+    "domain_polygon_parts_kept_count": 1,
+    "constraints_partitioning_enabled": true,
+    "constraint_line_count_input": 73,
+    "constraint_line_count_used": 73,
+    "partition_faces_before_constraints": 1,
+    "partition_faces_after_constraints": 11
+  },
+  "cleaning_summary": {
+    "mode": "tolerant",
+    "source_feature_count": 1,
+    "features_after_domain_clip_count": 1,
+    "invalid_geometries_repaired_count": 0,
+    "polygons_removed_by_area_threshold_count": 0,
+    "simplify_tolerance": 0.0,
+    "heal_tolerance": 0.0,
+    "min_polygon_area": 1.0,
+    "overlap_tolerance": 1e-12
+  },
+  "linear_constraints": {
+    "river::trace": {
+      "provided": true,
+      "kind": "river_trace",
+      "line_count": 45,
+      "curve_count": 514,
+      "embedded_surface_curve_pairs": 514,
+      "embed_failures": 0,
+      "refined_with_interface_field": true,
+      "participates_in_refinement": true
+    },
+    "geology::active_interfaces": {
+      "provided": true,
+      "kind": "geology_interface",
+      "line_count": 28,
+      "curve_count": 19,
+      "embedded_surface_curve_pairs": 19,
+      "embed_failures": 0,
+      "refined_with_interface_field": false,
+      "participates_in_refinement": true
+    }
+  },
+  "river_trace": {
+    "provided": true,
+    "line_count": 45,
+    "curve_count": 514,
+    "embedded_surface_curve_pairs": 514,
+    "embed_failures": 0,
+    "refined_with_interface_field": true
+  },
+  "physical_groups_summary": {
+    "surface_group_count": 1,
+    "curve_group_count": 3,
+    "interface_group_count": 0,
+    "boundary_group_count": 1
+  },
+  "qa_checks": {
+    "coverage_gap": 5.9605e-08,
+    "coverage_tolerance": 1e-09,
+    "coverage_within_tolerance": false,
+    "has_interface_groups": false,
+    "has_zone_surface_groups": true,
+    "constraints_contract_pass": true
+  },
+  "mesh_size_fields": {
+    "interface_refinement": {
+      "enabled": true,
+      "interface_curve_count": 514,
+      "active_families": [
+        "river"
+      ],
+      "stop_at_distance_max": true,
+      "family_fields": {
+        "geology_interface": {
+          "enabled": false,
+          "interface_curve_count": 0
+        },
+        "river": {
+          "enabled": true,
+          "priority": 300,
+          "interface_curve_count": 514,
+          "interface_size": 250.0,
+          "interface_distance": 610.0,
+          "interface_sampling": 96,
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2
+        },
+        "watershed_boundary": {
+          "enabled": false,
+          "interface_curve_count": 0
+        }
+      },
+      "background_field": {
+        "background_field_tag": 2,
+        "threshold_fields": [
+          2
+        ]
+      },
+      "candidate_interface_curve_count": 514,
+      "scope_filtered_interface_curve_count": 514,
+      "refinement_scope_applied": false
+    },
+    "regional_background": {
+      "enabled": true,
+      "fields": [
+        {
+          "enabled": true,
+          "name": "watershed::outside_coarsening",
+          "inside_size": 680.0,
+          "outside_size": 2040.0,
+          "transition_distance": 680.0,
+          "grid_resolution": 680.0,
+          "grid_shape": [
+            30,
+            25,
+            1
+          ],
+          "grid_spacing": [
+            677.5862068965517,
+            678.125,
+            1.0
+          ],
+          "field_tag": 3
+        }
+      ],
+      "final_background_field_tag": 4
+    }
+  },
+  "surface_physical_groups": [
+    {
+      "dimension": 2,
+      "tag": 1,
+      "name": "zone::domain",
+      "group_kind": "zone_surface",
+      "entity_count": 11,
+      "zone_keys": [
+        "domain"
+      ]
+    }
+  ],
+  "curve_physical_groups": [
+    {
+      "dimension": 1,
+      "tag": 2,
+      "name": "boundary::domain",
+      "group_kind": "boundary_curve",
+      "entity_count": 4,
+      "zone_keys": [
+        "domain"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 3,
+      "name": "geology::active_interfaces",
+      "group_kind": "geology_interface_curve",
+      "entity_count": 19,
+      "zone_keys": []
+    },
+    {
+      "dimension": 1,
+      "tag": 4,
+      "name": "river::trace",
+      "group_kind": "river_curve",
+      "entity_count": 514,
+      "zone_keys": []
+    }
+  ],
+  "effective_max_size": 2040.0,
+  "refinement_policy": {
+    "candidate_curve_count": 514,
+    "active_curve_count": 514,
+    "filtered_curve_count": 0,
+    "family_curve_counts_before": {
+      "river": 514
+    },
+    "family_curve_counts_after": {
+      "geology_interface": 0,
+      "river": 514,
+      "watershed_boundary": 0
+    },
+    "family_curve_counts_filtered": {
+      "geology_interface": 0,
+      "river": 0,
+      "watershed_boundary": 0
+    },
+    "detected_hotspot_count": 0,
+    "remaining_hotspot_count": 0,
+    "hotspots_detected": [],
+    "hotspots_remaining": [],
+    "actions": []
+  },
+  "field_id": "field_geology",
+  "source_kind": "vector",
+  "source_path": "C:\\codes\\HydroModPy-GH\\examples\\data\\geology\\GEO1M.shp",
+  "n_source_features_total": 26833,
+  "n_source_features_clipped": 18,
+  "zone_feature_counts": {
+    "1061": 3,
+    "1701": 7,
+    "1841": 4,
+    "2021": 1,
+    "801": 1,
+    "901": 2
+  },
+  "domain_kind": "geographic_box_buffer",
+  "domain_bounds": [
+    421462.5,
+    6879562.5,
+    441112.5,
+    6895837.5
+  ],
+  "domain_geometry_type": "Polygon",
+  "domain_source_path": "C:\\results\\HydromodPy\\mesh_catchment_runs\\s3_100km2\\_mesh_runtime\\mesh_outlet_26\\results_stable\\geographic\\watershed_box_buff.shp",
+  "domain_source_feature_count": 1,
+  "domain_crs": "EPSG:2154",
+  "n_cells_in_watershed": 2578,
+  "n_cells_outside_watershed": 434,
+  "constraints_mode": "geology_rivers",
+  "effective_domain": {
+    "domain_kind": "geographic_box_buffer",
+    "domain_area": 319803750.0,
+    "domain_bounds": [
+      421462.5,
+      6879562.5,
+      441112.5,
+      6895837.5
+    ],
+    "domain_geometry_type": "Polygon",
+    "domain_source_path": "C:\\results\\HydromodPy\\mesh_catchment_runs\\s3_100km2\\_mesh_runtime\\mesh_outlet_26\\results_stable\\geographic\\watershed_box_buff.shp",
+    "domain_source_feature_count": 1,
+    "domain_crs": "EPSG:2154"
+  },
+  "watershed_boundary": {
+    "enabled": false,
+    "configured": true,
+    "explicit_constraint_applied": false,
+    "geometry_mode": "buffered_watershed_envelope",
+    "boundary_length": 50876.91561921946,
+    "boundary_area_source": 115161399.21635047,
+    "boundary_refinement_distance": 500.0,
+    "smoothing": {
+      "distance": 200.0,
+      "river_buffer_distance": 100.0,
+      "outer_bias_distance": 10.0
+    }
+  },
+  "geology_conformity": {
+    "mode": "buffered_watershed_envelope",
+    "buffer_distance": 680.0,
+    "conformity_area": 115161399.21635047,
+    "active_geology_feature_count": 10,
+    "active_geology_zone_count": 4,
+    "constraint_line_count": 28,
+    "mesh_partition_mode": "domain_background_plus_linear_geology_constraints"
+  },
+  "outside_coarsening": {
+    "enabled": true,
+    "inside_size": 680.0,
+    "outside_size": 2040.0,
+    "size_factor": 3.0,
+    "grid_resolution": 680.0,
+    "transition_distance": 680.0
+  },
+  "rivers_config": {
+    "source": "domain_geographic",
+    "path": null,
+    "clip_to_domain": true,
+    "min_segment_length": 0.0,
+    "snap_tolerance": 0.0
+  },
+  "refinement_policy_config": {
+    "enabled": true,
+    "mode": "grid_local_budget",
+    "hotspot": {
+      "radius": 610.0,
+      "max_curve_count": 180,
+      "max_family_count": 2,
+      "min_gap": 80.0,
+      "max_node_degree": 4,
+      "short_segment_length": 120.0,
+      "max_short_segment_count": 12
+    },
+    "grid": {
+      "cell_size": 305.0,
+      "neighborhood_rings": 1,
+      "enable_exact_gap_check": false,
+      "max_exact_gap_candidates": 128
+    },
+    "families": {
+      "geology_interface": {
+        "enabled": true,
+        "priority": 200,
+        "interface_size": null,
+        "interface_distance": null,
+        "interface_sampling": null
+      },
+      "river": {
+        "enabled": true,
+        "priority": 300,
+        "interface_size": null,
+        "interface_distance": null,
+        "interface_sampling": null
+      },
+      "watershed_boundary": {
+        "enabled": true,
+        "priority": 100,
+        "interface_size": null,
+        "interface_distance": null,
+        "interface_sampling": null
+      }
+    }
+  },
+  "constraints_qa": {
+    "contract_version": "constraints_qa_v1",
+    "mode": "geology_rivers",
+    "thresholds": {
+      "min_zone_count": 1,
+      "min_interface_group_count": 1,
+      "min_river_curve_count": 1,
+      "min_embedded_surface_curve_pairs": 1,
+      "require_refinement_when_refine_interfaces_true": true
+    },
+    "metrics": {
+      "zone_count": 1,
+      "interface_group_count": 0,
+      "river_trace_provided": true,
+      "river_line_count": 45,
+      "river_curve_count": 514,
+      "river_curve_group_present": true,
+      "river_embed_success_pairs": 514,
+      "river_embed_failures": 0,
+      "river_embed_attempts": 514,
+      "river_embed_success_rate": 1.0,
+      "river_embed_pairs_per_curve": 1.0,
+      "river_refined_with_interface_field": true,
+      "refine_interfaces_config": true,
+      "geology_constraint_curve_count": 19
+    },
+    "checks": {
+      "has_zone_partition": true,
+      "has_geology_interfaces": true,
+      "river_trace_provided": true,
+      "river_curves_generated": true,
+      "river_curve_group_present": true,
+      "river_embedded_on_surfaces": true,
+      "river_refinement_consistent_with_config": true,
+      "geology_and_river_constraints_coexist": true
+    },
+    "overall_pass": true
+  },
+  "output_figure": "C:\\results\\HydromodPy\\mesh_catchment_runs\\s3_100km2\\mesh_outlet_26\\mesh_catchment_outlet_26.png",
+  "output_figure_regional": "C:\\results\\HydromodPy\\mesh_catchment_runs\\s3_100km2\\mesh_outlet_26\\mesh_catchment_outlet_26_regional.png",
+  "output_summary_json": "C:\\results\\HydromodPy\\mesh_catchment_runs\\s3_100km2\\mesh_outlet_26\\mesh_catchment_outlet_26_summary.json"
+}

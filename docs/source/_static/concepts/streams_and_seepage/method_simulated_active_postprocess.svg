@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 740" width="1280" height="740" role="img">
+
+<defs>
+  <marker id="arrowBlue" viewBox="0 0 10 10" refX="8.6" refY="5"
+          markerWidth="12" markerHeight="12" orient="auto-start-reverse"
+          markerUnits="userSpaceOnUse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f5d86"/>
+  </marker>
+  <marker id="arrowOrange" viewBox="0 0 10 10" refX="8.6" refY="5"
+          markerWidth="12" markerHeight="12" orient="auto-start-reverse"
+          markerUnits="userSpaceOnUse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#a16207"/>
+  </marker>
+  <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+    <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+  </filter>
+  <style>
+    .bg { fill: #f8fafc; }
+    .title { font: 700 32px Segoe UI, Arial, sans-serif; fill: #10253d; }
+    .subtitle { font: 400 18px Segoe UI, Arial, sans-serif; fill: #52657a; }
+    .card { fill: #ffffff; stroke: #cbd8e6; stroke-width: 1.5; filter: url(#shadow); }
+    .card-title { font: 700 15px Segoe UI, Arial, sans-serif; fill: #10253d; letter-spacing: .4px; }
+    .card-text { font: 400 16px Segoe UI, Arial, sans-serif; fill: #26384d; }
+    .eq-card { fill: #10253d; stroke: #10253d; stroke-width: 1.5; filter: url(#shadow); }
+    .eq-title { font: 700 15px Segoe UI, Arial, sans-serif; fill: #dbeafe; letter-spacing: .4px; }
+    .eq-text { font: 600 19px Consolas, Menlo, monospace; fill: #ffffff; }
+    .eq-note { font: 400 14px Segoe UI, Arial, sans-serif; fill: #bfdbfe; }
+    .panel { fill: #ffffff; stroke: #d5e0eb; stroke-width: 1.4; }
+    .soil { fill: #dec99c; }
+    .base { fill: #bec8be; opacity: .82; }
+    .ground { fill: none; stroke: #66583a; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    .head { fill: none; stroke: #1d78b8; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    .surface-support { fill: none; stroke: #0f766e; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+    .stage-line { fill: none; stroke: #1d78b8; stroke-width: 3; stroke-dasharray: 8 7; }
+    .surface-marker { fill: #ffffff; stroke: #0f766e; stroke-width: 3; }
+    .head-marker { fill: #ffffff; stroke: #1d78b8; stroke-width: 3; }
+    .flow { fill: none; stroke: #1f5d86; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .thin-flow { fill: none; stroke: #1f5d86; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .orange-flow { fill: none; stroke: #a16207; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .muted { fill: none; stroke: #94a3b8; stroke-width: 2; }
+    .compare { fill: none; stroke: #1d78b8; stroke-width: 2.5; stroke-dasharray: 5 6; }
+    .dash { fill: none; stroke: #a16207; stroke-width: 3; stroke-dasharray: 9 8; }
+    .label { font: 700 15px Segoe UI, Arial, sans-serif; fill: #10253d; }
+    .small { font: 400 14px Segoe UI, Arial, sans-serif; fill: #334155; }
+    .hint { font: 600 16px Segoe UI, Arial, sans-serif; fill: #10253d; }
+    .tag { fill: #e0f2fe; stroke: #b9dcf2; stroke-width: 1.2; }
+    .tag-orange { fill: #fff7ed; stroke: #fed7aa; stroke-width: 1.2; }
+    .grid { stroke: #dbe5ef; stroke-width: 1.2; }
+    .source { fill: #ffdc73; stroke: #a16207; stroke-width: 3; }
+    .cell-on { fill: #ffdc73; stroke: #a16207; stroke-width: 2.5; }
+    .cell-off { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 2.2; }
+    .mask-active { fill: none; stroke: #1f5d86; stroke-width: 8; stroke-linecap: round; }
+    .mask-inactive { fill: none; stroke: #cbd5e1; stroke-width: 8; stroke-linecap: round; }
+    .concept { fill: #e8f3fb; stroke: #c6def0; stroke-width: 1.3; }
+    .concept-text { font: 700 17px Segoe UI, Arial, sans-serif; fill: #10253d; }
+  </style>
+</defs>
+<rect x="0" y="0" width="1280" height="740" rx="0" class="bg"/>
+<text x="48" y="52" class="title">Simulated active seepage network: routed post-processing</text>
+<text x="48" y="84" class="subtitle">The active network is inferred from surface emergence points, not from a river volume.</text>
+<rect x="48" y="118" width="285" height="158" rx="14" class="card"/>
+<text x="70" y="152" class="card-title">INPUT OBJECT</text>
+<text x="70" y="188" class="card-text"><tspan x="70" dy="0">surface emergence q_i</tspan><tspan x="70" dy="25">q_i+ = max(q_i, 0)</tspan><tspan x="70" dy="25">routing graph upstream(i)</tspan></text>
+<line x1="352" y1="197" x2="405" y2="197" class="thin-flow" marker-end="url(#arrowBlue)"/>
+<rect x="426" y="118" width="365" height="158" rx="14" class="eq-card"/>
+<text x="448" y="152" class="eq-title">CONCEPTUAL LAW</text>
+<text x="448" y="193" class="eq-text"><tspan x="448" dy="0">A_i = q_i+ + sum(A_j)</tspan><tspan x="448" dy="30">m_i = 1[A_i &gt;= Q_thr]</tspan></text>
+<text x="448" y="252" class="eq-note">j runs over upstream cells or faces.</text>
+<line x1="812" y1="197" x2="865" y2="197" class="thin-flow" marker-end="url(#arrowBlue)"/>
+<rect x="886" y="118" width="346" height="158" rx="14" class="card"/>
+<text x="908" y="152" class="card-title">SOLVER OR DIAGNOSTIC OUTPUT</text>
+<text x="908" y="188" class="card-text"><tspan x="908" dy="0">accumulation_flux A_i</tspan><tspan x="908" dy="25">thresholded mask m_i</tspan><tspan x="908" dy="25">comparison to reference lines</tspan></text>
+<rect x="58" y="315" width="495" height="285" rx="14" class="panel"/>
+<text x="86" y="350" class="label">surface seepage outflow</text>
+<line x1="92.0" y1="378" x2="92.0" y2="538" class="grid"/>
+<line x1="137.55555555555554" y1="378" x2="137.55555555555554" y2="538" class="grid"/>
+<line x1="183.11111111111111" y1="378" x2="183.11111111111111" y2="538" class="grid"/>
+<line x1="228.66666666666666" y1="378" x2="228.66666666666666" y2="538" class="grid"/>
+<line x1="274.22222222222223" y1="378" x2="274.22222222222223" y2="538" class="grid"/>
+<line x1="319.77777777777777" y1="378" x2="319.77777777777777" y2="538" class="grid"/>
+<line x1="365.3333333333333" y1="378" x2="365.3333333333333" y2="538" class="grid"/>
+<line x1="410.8888888888889" y1="378" x2="410.8888888888889" y2="538" class="grid"/>
+<line x1="456.44444444444446" y1="378" x2="456.44444444444446" y2="538" class="grid"/>
+<line x1="502.0" y1="378" x2="502.0" y2="538" class="grid"/>
+<line x1="92" y1="378.0" x2="502" y2="378.0" class="grid"/>
+<line x1="92" y1="418.0" x2="502" y2="418.0" class="grid"/>
+<line x1="92" y1="458.0" x2="502" y2="458.0" class="grid"/>
+<line x1="92" y1="498.0" x2="502" y2="498.0" class="grid"/>
+<line x1="92" y1="538.0" x2="502" y2="538.0" class="grid"/>
+<circle cx="150" cy="412" r="16" class="source"/>
+<circle cx="222" cy="455" r="16" class="source"/>
+<circle cx="300" cy="485" r="16" class="source"/>
+<circle cx="383" cy="518" r="16" class="source"/>
+<circle cx="462" cy="530" r="16" class="source"/>
+<line x1="150" y1="412" x2="222" y2="455" class="flow" marker-end="url(#arrowBlue)"/>
+<line x1="222" y1="455" x2="300" y2="485" class="flow" marker-end="url(#arrowBlue)"/>
+<line x1="300" y1="485" x2="383" y2="518" class="flow" marker-end="url(#arrowBlue)"/>
+<line x1="383" y1="518" x2="462" y2="530" class="flow" marker-end="url(#arrowBlue)"/>
+<text x="100" y="572" class="small">q_i+ emergence sources on surface cells or faces</text>
+<line x1="575" y1="458" x2="662" y2="458" class="thin-flow" marker-end="url(#arrowBlue)"/>
+<rect x="690" y="330" width="220" height="244" rx="14" class="panel"/>
+<text x="718" y="365" class="label">route downstream</text>
+<text x="718" y="407" class="card-text"><tspan x="718" dy="0">1. keep positive flux</tspan><tspan x="718" dy="32">2. accumulate on graph</tspan><tspan x="718" dy="32">3. apply threshold</tspan></text>
+<rect x="720" y="505" width="160" height="45" rx="10" class="tag"/>
+<text x="747" y="534" class="label">A_i -&gt; m_i</text>
+<line x1="934" y1="458" x2="992" y2="458" class="thin-flow" marker-end="url(#arrowBlue)"/>
+<rect x="1010" y="335" width="185" height="220" rx="14" class="panel"/>
+<text x="1043" y="370" class="label">active mask</text>
+<line x1="1048" y1="438" x2="1085" y2="466" class="mask-inactive"/>
+<line x1="1085" y1="466" x2="1132" y2="495" class="mask-active"/>
+<line x1="1132" y1="495" x2="1160" y2="523" class="mask-active"/>
+<circle cx="1085" cy="466" r="8" class="source"/>
+<circle cx="1132" cy="495" r="8" class="source"/>
+<text x="1040" y="535" class="small">diagnostic view</text>
+<rect x="48" y="660" width="1184" height="48" rx="12" class="concept"/>
+<text x="74" y="691" class="concept-text">Read this as a view layer: water-budget fields stay raw; active linework is a thresholded diagnostic.</text>
+</svg>

@@ -1,0 +1,45 @@
+@startuml
+title Spatial Support - FieldParam Mapping Sequence Diagram
+
+participant "Solver setup / property mapping" as Solver
+participant "resolve_flow_property_arrays" as PropertyMapping
+participant "Flow.parameters" as FlowParams
+participant "FieldParam" as Param
+participant "Domain" as Domain
+participant "support Field" as SupportField
+participant "discretize_fieldparam_on_sgrid" as Discretizer
+participant "WeightedAverageFieldDiscretization" as FieldDisc
+
+Solver -> PropertyMapping: resolve_flow_property_arrays(flow, domain, sgrid)
+PropertyMapping -> FlowParams: select canonical parameter\n(K / Sy / Ss)
+FlowParams --> PropertyMapping: FieldParam
+
+alt Param.is_homogeneous
+  PropertyMapping -> Discretizer: discretize_fieldparam_on_sgrid(\nfield_param=Param,\nsupport_field=None,\nsgrid)
+  Discretizer -> Param: to_mesh_field(mesh=mesh, depth=0)
+  loop for each SGrid layer
+    Discretizer -> Param: to_mesh_field(mesh=mesh,\ndepth=layer_center_depth)
+  end
+else Param.is_heterogeneous
+  PropertyMapping -> Domain: resolve_spatial_support(Param.field_spatial_id)
+  Domain --> PropertyMapping: support Field
+  PropertyMapping -> Discretizer: discretize_fieldparam_on_sgrid(\nfield_param=Param,\nsupport_field=SupportField,\nsgrid)
+  Discretizer -> SupportField: on_mesh(mesh, cell_samples_per_axis)
+  SupportField --> Discretizer: WeightedAverageFieldDiscretization
+  Discretizer -> Param: to_mesh_field(FieldDisc, depth=0)
+  loop for each SGrid layer
+    Discretizer -> Param: to_mesh_field(FieldDisc,\ndepth=layer_center_depth)
+  end
+end
+
+Discretizer --> PropertyMapping: values_2d + values_3d
+PropertyMapping --> Solver: hk / sy / ss arrays
+
+note right of Discretizer
+Spatial support is discretized on the
+planar mesh first. Vertical variation is
+then evaluated layer by layer through
+FieldParam depth handling.
+end note
+
+@enduml

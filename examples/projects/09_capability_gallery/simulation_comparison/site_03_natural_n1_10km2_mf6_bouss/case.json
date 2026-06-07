@@ -1,0 +1,32 @@
+{
+  "case_setup": [
+    "Reference simulation: `mf6_ref`.",
+    "Focus simulation: `bouss_candidate`.",
+    "Input artifacts are copied from a reviewed comparison output directory."
+  ],
+  "comparison_case_order": 10,
+  "comparison_family_deck": "These pages publish reviewed Boussinesq/MODFLOW 6 comparison outputs from the testbed workflow without running the solvers during doc generation.",
+  "comparison_family_key": "boussinesq_mf6_natural_testbed",
+  "comparison_family_label": "Natural-Geology MF6/Boussinesq Testbed",
+  "comparison_family_order": 40,
+  "deck": "Published MODFLOW 6 and Boussinesq comparison artifacts, reused by the documentation without rerunning the solvers.",
+  "focus_simulation_id": "bouss_candidate",
+  "how_to_read": [
+    "Read the metrics as a reviewed solver-to-solver comparison, not as a validation benchmark.",
+    "Use the source pointers and optional source manifest to decide when the bundle needs refresh."
+  ],
+  "key_parameters": [
+    "The published comparison root provides `comparison_manifest.json` and `summary_metrics.csv`.",
+    "Execution-time diagnostics should use solver flow time, not whole workflow wall time."
+  ],
+  "publish_full_artifacts": false,
+  "slug": "site_03_natural_n1_10km2_mf6_bouss",
+  "study_area": "Natural N1 10 km2 testbed",
+  "summary": "This page republishes reviewed artifacts from `site_03_natural_n1_10km2_mf6_bouss`. The gallery generation reads committed comparison outputs only; heavy solver runs are refreshed separately before publication.",
+  "title": "Site 03 Natural N1 10Km2 Mf6 Bouss",
+  "what_it_shows": [
+    "How `bouss_candidate` compares against the `mf6_ref` reference.",
+    "How map metrics and runtime diagnostics can be published from stable artifacts.",
+    "How documentation pages can be regenerated without rerunning heavy simulations."
+  ]
+}

@@ -1,0 +1,21 @@
+"""Method catalog for the Boussinesq solver."""
+
+from hydromodpy.solver.boussinesq.methods.catalog import (
+    HEAD_ONLY_REGULARIZED_PARTITION_METHOD,
+    HEAD_ONLY_TS_VI_OBSTACLE_METHOD,
+    HEAD_ONLY_VI_OBSTACLE_METHOD,
+    MIXED_COMPLEMENTARITY_METHOD,
+    BoussinesqMethodSpec,
+    resolve_method_spec,
+    resolve_surface_interaction_model_token,
+)
+
+__all__ = [
+    "BoussinesqMethodSpec",
+    "HEAD_ONLY_REGULARIZED_PARTITION_METHOD",
+    "HEAD_ONLY_TS_VI_OBSTACLE_METHOD",
+    "HEAD_ONLY_VI_OBSTACLE_METHOD",
+    "MIXED_COMPLEMENTARITY_METHOD",
+    "resolve_method_spec",
+    "resolve_surface_interaction_model_token",
+]

@@ -1,0 +1,353 @@
+"""Pydantic configuration for geology data sources."""
+
+from __future__ import annotations
+
+import tomllib
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Annotated, Any, Literal, TypeAlias
+
+from pydantic import Field, ValidationError, model_validator
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import (
+    CellSamplingDensity,
+    IdentifierStr,
+    NonEmptyStr,
+    StripLower,
+)
+from hydromodpy.core.tracking import InputFile
+
+
+class _GeologySourceBase(HydroModelBase):
+    """Shared fields for geology data sources."""
+
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+    )
+    extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
+        default=None,
+        description="Use project extent for bbox-based data retrieval.",
+    )
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Ignore cache and re-download from API.",
+    )
+
+
+class CustomGeologySource(_GeologySourceBase):
+    """User-provided geology file (SHP/GPKG/TIF/CSV)."""
+
+    source: Annotated[Literal["custom"], Profile.USER] = Field(
+        default="custom",
+        description="Discriminator tag selecting the 'custom' geology provider.",
+    )
+    path: Annotated[
+        Path,
+        Profile.USER,
+        InputFile(role="geology", category="data"),
+    ] = Field(
+        ...,
+        description="Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
+    )
+    code_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Attribute column for geology codes in custom vector files "
+            "(SHP/GPKG). Required for custom vector sources."
+        ),
+    )
+    values_table_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional CSV linking geology codes to descriptions. "
+            "Columns: geology_code, description."
+        ),
+    )
+    col_x: Annotated[str, Profile.DEV] = Field(
+        default="x",
+        description="Column for X coordinate in CSV.",
+    )
+    col_y: Annotated[str, Profile.DEV] = Field(
+        default="y",
+        description="Column for Y coordinate in CSV.",
+    )
+    col_code: Annotated[str, Profile.DEV] = Field(
+        default="geology_code",
+        description="Column for geology code in CSV.",
+    )
+    default_crs: Annotated[str, Profile.DEV] = Field(
+        default="EPSG:2154",
+        description="Default CRS for CSV points.",
+    )
+
+
+class BrgmGeology1mSource(_GeologySourceBase):
+    """BRGM 1:1M national geological map (CODE_LEG legend)."""
+
+    source: Annotated[Literal["brgm_1m"], Profile.USER] = Field(
+        default="brgm_1m",
+        description="Discriminator tag selecting the BRGM 1:1M geology provider.",
+    )
+
+
+class BrgmGeology50kSource(_GeologySourceBase):
+    """BRGM 1:50K departmental geological map (CODE_LEG legend)."""
+
+    source: Annotated[Literal["brgm_50k"], Profile.USER] = Field(
+        default="brgm_50k",
+        description="Discriminator tag selecting the BRGM 1:50K geology provider.",
+    )
+
+
+GeologySourceConfig: TypeAlias = Annotated[
+    CustomGeologySource | BrgmGeology1mSource | BrgmGeology50kSource,
+    Field(
+        discriminator="source",
+        description=(
+            "Discriminated union of geology data sources tagged by the 'source' provider key."
+        ),
+    ),
+]
+
+
+class GeologyConfig(HydroModelBase):
+    """Top-level geology variable configuration.
+
+    The section defines one or more geology sources and the sampling density
+    used when categorical geology is projected onto mesh cells. By default,
+    HydroModPy uses the BRGM 1:1M source so geology can be activated by
+    planner inference without a long user section.
+
+    Example TOML::
+
+        [data.geology]
+        cell_samples_per_axis = 8
+
+        [[data.geology.sources]]
+        source = "brgm_1m"
+
+        [[data.geology.sources]]
+        source = "custom"
+        path = "data/my_geology.gpkg"
+        code_field = "LITHOLOGY"
+    """
+
+    sources: Annotated[list[GeologySourceConfig], Profile.USER] = Field(
+        default_factory=lambda: [BrgmGeology1mSource()],
+        min_length=1,
+        description="At least one geology data source. Defaults to BRGM 1:1M.",
+    )
+
+    id: Annotated[IdentifierStr, Profile.USER] = Field(
+        default="field_geology",
+        description="Identifier of the geology spatial field.",
+    )
+    cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
+        default=8,
+        description=(
+            "Sub-sampling density for GeologyField.on_mesh(). "
+            "Higher = more precise geology interface, slower runtime."
+        ),
+    )
+
+    @classmethod
+    def brgm_1m(cls, **overrides) -> GeologyConfig:
+        """GeologyConfig backed by the BRGM 1:1M national map."""
+        return cls(sources=[BrgmGeology1mSource()], **overrides)
+
+    @classmethod
+    def brgm_50k(cls, **overrides) -> GeologyConfig:
+        """GeologyConfig backed by the BRGM 1:50K departmental maps."""
+        return cls(sources=[BrgmGeology50kSource()], **overrides)
+
+    @classmethod
+    def from_shapefile(
+        cls,
+        path: str | Path,
+        *,
+        code_field: str,
+        **overrides,
+    ) -> GeologyConfig:
+        """GeologyConfig from a custom polygon shapefile (SHP or GPKG)."""
+        return cls(
+            sources=[
+                CustomGeologySource(
+                    path=Path(path),
+                    code_field=code_field,
+                )
+            ],
+            **overrides,
+        )
+
+    @classmethod
+    def from_geotiff(cls, path: str | Path, **overrides) -> GeologyConfig:
+        """GeologyConfig from a pre-rasterized GeoTIFF."""
+        return cls(
+            sources=[CustomGeologySource(path=Path(path))],
+            **overrides,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Standalone geology field schemas (used by GeologyField.from_dict/from_toml
+# and the data loader for direct field construction).
+# ---------------------------------------------------------------------------
+
+
+def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+    """Resolve a nested TOML section from a dotted path."""
+    current: Any = payload
+    for token in str(dotted_path).split("."):
+        if not isinstance(current, Mapping) or token not in current:
+            raise KeyError(f"Missing TOML section '{dotted_path}'")
+        current = current[token]
+    if not isinstance(current, Mapping):
+        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
+    return current
+
+
+SourceKind = Annotated[Literal["auto", "raster", "vector"], StripLower]
+
+
+class GeologySource(HydroModelBase):
+    """Schema for geology data source definition (standalone field construction)."""
+
+    path: Annotated[NonEmptyStr, Profile.USER] = Field(
+        description=(
+            "Path to the raw geology dataset used by the meshing workflow. "
+            "It can point to a raster or polygon vector file depending on kind."
+        )
+    )
+    kind: Annotated[SourceKind, Profile.USER] = Field(
+        default="auto",
+        description=(
+            "How to interpret the geology source. "
+            "Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file."
+        ),
+    )
+    code_field: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Attribute column carrying the geology code for each polygon when kind='vector'."
+        ),
+    )
+    reference_raster_path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Reference raster used when vector geology must be rasterized. "
+            "Its extent and resolution define the target encoding grid."
+        ),
+    )
+    all_touched: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Rasterization rule for vector geology. "
+            "When true, any pixel touched by a polygon is filled; when false, only pixels whose center falls inside are filled."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_vector_constraints(self):
+        if self.kind == "vector":
+            if self.code_field is None:
+                raise ValueError("For vector source, 'code_field' is required")
+            if self.reference_raster_path is None:
+                raise ValueError("For vector source, 'reference_raster_path' is required")
+        return self
+
+
+class GeologyLandSea(HydroModelBase):
+    """Optional sea-mask override for coastal workflows."""
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=("Enable the coastal override that replaces geology values over sea areas."),
+    )
+    path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Mask raster or vector path used when landsea.enabled=true. "
+            "The mask is interpreted so that sea pixels/features overwrite the base geology code."
+        ),
+    )
+    sea_value: Annotated[float, Profile.USER] = Field(
+        default=0.0,
+        description=(
+            "Numeric value in the mask that represents the sea class. "
+            "It is compared against the loaded mask before applying override_code."
+        ),
+    )
+    override_code: Annotated[NonEmptyStr, Profile.USER] = Field(
+        default="1",
+        description=(
+            "Geology code written into sea areas after applying the land/sea mask. "
+            "Choose a stable code that is meaningful in downstream parameter tables."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_path_when_enabled(self):
+        if self.enabled and self.path is None:
+            raise ValueError("landsea.path is required when landsea.enabled=true")
+        return self
+
+
+class GeologyConfigBlock(HydroModelBase):
+    """Top-level schema for one geology field definition (standalone construction)."""
+
+    id: Annotated[NonEmptyStr, Profile.USER] = Field(
+        default="field_geology",
+        description=(
+            "Logical identifier of the geology field once loaded into HydroModPy. "
+            "This id is reused by support discretization and by parameter mappings that target geology-based zonation."
+        ),
+    )
+    source: Annotated[GeologySource, Profile.USER] = Field(
+        description=(
+            "Raw geology source definition. "
+            "This section explains where the geology polygons or raster come from and how they should be interpreted."
+        )
+    )
+    clip_polygon_path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional polygon mask applied before meshing or field projection. "
+            "Use it to crop a very large national dataset to one smaller study area before further processing."
+        ),
+    )
+    landsea: Annotated[GeologyLandSea, Profile.USER] = Field(
+        default_factory=GeologyLandSea,
+        description=("Optional coastal override applied after loading the base geology source."),
+    )
+    cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.USER] = Field(
+        default=8,
+        description=(
+            "Default sampling density used later when projecting geology fractions onto a target mesh. "
+            "Higher values improve fraction estimates in narrow or irregular polygons at the cost of runtime."
+        ),
+    )
+
+
+def validate_geology_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate raw geology config mapping and return normalized Python data."""
+    if not isinstance(config_data, Mapping):
+        raise ValueError("geology configuration must be a mapping")
+    try:
+        parsed = GeologyConfigBlock.model_validate(dict(config_data))
+    except ValidationError as exc:
+        raise ValueError(str(exc)) from exc
+    return parsed.model_dump(mode="python")
+
+
+def load_geology_toml(config_path: str | Path, section: str = "geology") -> dict[str, Any]:
+    """Load TOML file and validate one geology section."""
+    path = Path(config_path)
+    payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
+    section_cfg = _get_nested_section(payload, section)
+    try:
+        return validate_geology_config_data(section_cfg)
+    except ValueError as exc:
+        raise ValueError(f"Invalid geology configuration in {path}: {exc}") from exc

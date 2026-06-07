@@ -1,0 +1,61 @@
+[workflow]
+mode = "comparison"
+
+[comparison]
+comparison_id = "nancon_steady_mf6_irregular_network_methods"
+base_simulation_config = "base_nancon_steady_hydrography_mesh_catchment.toml"
+output_root = "outputs/nancon_steady_mf6_irregular_network_methods"
+reference_simulation = "mf6_mesh_input_ref"
+continue_on_error = true
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = false
+keep_generated_configs = true
+timeout_seconds = 3600
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = false
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_mesh_input_ref"
+label = "MODFLOW 6 mesh-input Nancon steady reference"
+solver = "modflow6"
+simulation_config = "run_nancon_steady_mf6_irregular_mesh_input.toml"
+run_folder = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_input"
+mesh_label = "Nancon precomputed river-constrained irregular mesh"
+mesh_mode = "mesh_input"
+
+[[comparison.simulation]]
+id = "mf6_mesh_catchment_250"
+label = "MODFLOW 6 mesh-catchment Nancon steady candidate, 250 m"
+solver = "modflow6"
+simulation_config = "run_nancon_steady_mf6_mesh_catchment_250.toml"
+run_folder = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_250"
+mesh_label = "Nancon generated irregular mesh-catchment 250 m"
+mesh_mode = "mesh_catchment"
+
+[[comparison.simulation]]
+id = "mf6_mesh_catchment_350"
+label = "MODFLOW 6 mesh-catchment Nancon steady candidate, 350 m"
+solver = "modflow6"
+simulation_config = "run_nancon_steady_mf6_mesh_catchment_350.toml"
+run_folder = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_350"
+mesh_label = "Nancon generated irregular mesh-catchment 350 m"
+mesh_mode = "mesh_catchment"
+
+[[comparison.observable]]
+name = "active_network_flux_map_last"
+variable = "accumulation_flux"
+support = "map"
+time = "last"
+unit = "m/day"

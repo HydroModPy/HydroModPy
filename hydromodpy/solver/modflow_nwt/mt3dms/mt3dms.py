@@ -1,0 +1,487 @@
+"""
+Created on Thu Apr  3 13:06:53 2025
+
+@author: rabherve
+"""
+
+# -*- coding: utf-8 -*-
+"""
+ * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+"""
+
+# %% LIBRAIRIES
+
+# Python
+import os
+import shutil
+from collections.abc import Mapping
+
+import flopy
+import flopy.utils.binaryfile as bf
+import numpy as np
+import rasterio
+
+# HydroModPy
+from hydromodpy.core.io.filesystem import create_folder
+from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
+from hydromodpy.solver.modflow_common import (
+    ensure_solver_binary,
+    masstransfer,
+)
+from hydromodpy.solver.modflow_common.runtime_arrays import (
+    build_concentration_runtime_overrides,
+)
+
+MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
+
+# %% CLASS
+
+
+class Mt3dms:
+    """
+    Class Modpath.
+
+    To build, run particle traccking from modflow simulation.
+    """
+
+    def __init__(
+        self,
+        domain: DomainLike,
+        transport: TransportLike,
+        model_modflow: FlowModelLike | None = None,
+        # Worflow settings
+        model_folder: str = "HydroModPy_outputs",
+        model_name: str = "Default_modpath",
+        suffix_name: str = "_mt",
+        bin_path: str | None = None,
+        # Specific settings
+        spc_name: str | None = None,
+        sconc_init: float | None = None,
+        sconc_input=None,
+        disp_long: float | None = None,
+        disp_transh: float | None = None,
+        disp_transv: float | None = None,
+        diffu_coeff: float | None = None,
+        react_order: int | None = None,  # for MT3DM: 0, 1, 100
+        rate_decay: float | None = None,
+        plot_conc: bool | None = None,
+    ):
+        """
+        Initialize method.
+
+        Parameters
+        ----------
+        domain : object
+            Domain object build by HydroModPy.
+        transport : object
+            Process Transport object holding concentration parameters.
+        """
+
+        # %% Initialisation
+
+        if model_modflow is None:
+            raise ValueError("model_modflow must be provided to initialize Mt3dms")
+
+        self.domain = domain
+        self.transport = transport
+        self.model_modflow = model_modflow
+        self.geographic = self._get_geographic()
+
+        self.model_folder = model_folder
+        self.model_name = model_name
+        self.full_path = os.path.join(model_folder, model_name)
+        self.suffix_name = suffix_name
+        self.model_name_mt = model_name + self.suffix_name
+
+        if not os.path.isdir(self.full_path):
+            raise FileNotFoundError(f"Directory not found: {self.full_path}")
+        self.exe = str(ensure_solver_binary("mt3dusgs", bin_path))
+
+        conc_params = {}
+        raw_params = getattr(transport.mt3dms, "parameters", None)
+        if isinstance(raw_params, Mapping):
+            conc_params = dict(raw_params)
+
+        explicit_params = {
+            "spc_name": spc_name,
+            "sconc_init": sconc_init,
+            "sconc_input": sconc_input,
+            "disp_long": disp_long,
+            "disp_transh": disp_transh,
+            "disp_transv": disp_transv,
+            "diffu_coeff": diffu_coeff,
+            "react_order": react_order,
+            "rate_decay": rate_decay,
+            "plot_conc": plot_conc,
+        }
+        for key, value in explicit_params.items():
+            if value is not None:
+                conc_params[key] = value
+
+        runtime_overrides = build_concentration_runtime_overrides(
+            conc_params,
+            model_modflow,
+        )
+        conc_params.update(runtime_overrides)
+
+        self.spc_name = conc_params.get("spc_name", "NO3")
+        self.sconc_init = conc_params.get("sconc_init", 0)
+        self.sconc_input = conc_params.get("sconc_input", 0)
+
+        self.disp_long = conc_params.get("disp_long", 0)
+        self.disp_transh = conc_params.get("disp_transh", 0)
+        self.disp_transv = conc_params.get("disp_transv", 0)
+        self.diffu_coeff = conc_params.get("diffu_coeff", 0)
+
+        self.react_order = conc_params.get("react_order", None)
+        self.rate_decay = conc_params.get("rate_decay", 0)
+
+        self.plot_conc = conc_params.get("plot_conc", True)
+
+        self.mf = model_modflow.mf
+
+        self.new_stepsize = 1
+
+    def _get_geographic(self):
+        """Return geographic context from MODFLOW model when available."""
+        return getattr(self.model_modflow, "geographic", None)
+
+    # %% PRE-PROCESSING
+
+    def pre_processing(self):
+        """
+        Pre-processing to build the trasnport model.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        self.mt = flopy.mt3d.Mt3dms(
+            modflowmodel=self.mf,
+            modelname=self.model_name_mt,
+            version="mt3d-usgs",
+            model_ws=self.full_path,
+            exe_name=self.exe,
+            ftlfilename="mt3d_link.ftl",
+            namefile_ext="mtnam",
+            verbose=False,
+            ftlfree=False,
+        )
+
+        flopy.mt3d.Mt3dGcg(
+            self.mt,
+            mxiter=10,
+            # cclose=1e-7,
+            # iter1=1000
+        )
+
+        # %% Specific parametrization
+
+        self.ssflag = [
+            "True"
+        ]  # This one is for the transport simulation (STEADY FOR THE FIRST PERIOD)
+        for _i in range((self.mf.nper - 1) * self.new_stepsize):
+            self.ssflag.append(" ")
+
+        self.btn = flopy.mt3d.Mt3dBtn(
+            self.mt,
+            nlay=self.mf.nlay,
+            nrow=self.mf.nrow,
+            ncol=self.mf.ncol,
+            delr=np.asarray(self.model_modflow.dis.delr.array, dtype=float),
+            delc=np.asarray(self.model_modflow.dis.delc.array, dtype=float),
+            nper=self.mf.nper,  # mf.nper*new_stepsize+1
+            nprs=self.mf.nper,  # mf.nper*new_stepsize+1
+            nstp=self.model_modflow.nstp,
+            perlen=self.model_modflow.perlen,
+            prsity=self.model_modflow.sy,
+            sconc=self.sconc_init,
+            laycon=1,
+            ncomp=1,
+            mcomp=1,
+            tsmult=1,
+            nprmas=0,
+            thkmin=0.01,  # 0.0001/(delv/nlay))
+            icbund=1,
+            timprs=[self.mf.nper],
+            ssflag=self.ssflag,
+            species_names=self.spc_name,
+            cinact=1e30,
+            Legacy99Stor=True,
+            NoWetDryPrint=True,
+            MFStyleArr=True,
+            obs=None,
+            savucn=True,
+            DRYCell=True,
+            chkmas=True,
+            unitnumber=None,
+            tunit="D",
+            lunit="M",
+            munit="KG",
+        )
+
+        # %% Advection package
+
+        flopy.mt3d.Mt3dAdv(
+            self.mt,
+            mixelm=-1,
+            # percel=0.75
+        )
+        # Solution method (mixelm)
+        # • Finite Difference Method (FDM)
+        # • MOC : Method of Characteristics (MOC)
+        # • MMOC : Modified Method of Characteristics (MMOC)
+        # • HMOC : Hybrid Method of Characteristics (HMOC)
+        # • TVD (MIXELM = -1 - try to use this one)
+
+        # %% Dispersion package
+
+        self.disp = flopy.mt3d.mtdsp.Mt3dDsp(
+            self.mt,
+            al=self.disp_long,  # unit L
+            trpt=self.disp_transh,  # ratio of the horizontal transverse dispersivity to the longitudinal dispersivity, 10x moins
+            trpv=self.disp_transv,  # ratio of the vertical transverse dispersivity to the longitudinal dispersivity, 100x moins
+            dmcoef=self.diffu_coeff,  # L2T-1
+            extension="dsp",
+        )  # Not used for the moment
+
+        # %% Reactivity package
+
+        if self.react_order is None:
+            ireact = 0
+        if self.react_order == 1:
+            ireact = 1
+        if self.react_order == 0:
+            ireact = 100
+        self.rct = flopy.mt3d.mtrct.Mt3dRct(
+            self.mt,
+            isothm=0,  # no sorption is simulated
+            ireact=ireact,  # 0: no-reaction, 1: first-order, 100: zero-order
+            igetsc=0,  # 0 : the initial concentration for the sorbed or immobile phase is not read
+            rhob=None,
+            rc1=self.rate_decay,  # (unit, T-1)
+        )
+
+        # %% Concentration package
+
+        self.ssm = flopy.mt3d.Mt3dSsm(
+            self.mt,
+            crch=self.sconc_input,
+            mxss=None,  # mxss=mf.nrow*mf.ncol*(nper*new_stepsize+1)+10,
+            stress_period_data=None,
+        )
+
+    # %% PROCESSING
+
+    def processing(self, write_model: bool = True, run_model: bool = False, verbose: bool = True):
+        """
+        Run the trasnport model.
+
+        Parameters
+        ----------
+        write_model : bool, optional
+            Flag to write input files or not. The default is True.
+        run_model : bool, optional
+            Flag to run model or not. The default is False.
+
+        Returns
+        -------
+        success_model : bool
+            Flag to know if the simulation finished correctly.
+
+        """
+        # Create modflow files
+        if write_model:
+            self.mt.write_input()
+
+        # Run modflow files
+        success_model = True
+
+        if run_model:
+            if verbose is False:
+                logger.info("Running MT3DMS transport simulation")
+            success_model, tempo = self.mt.run_model(
+                silent=not verbose,
+                pause=False,
+                # report=True,
+                normal_msg=MT3DMS_NORMAL_MESSAGES,
+            )  # True without msg
+
+        shutil.copy(
+            os.path.join(self.full_path, "MT3D001.UCN"),
+            os.path.join(self.full_path, self.model_name_mt + ".UCN"),
+        )
+
+        return success_model
+
+    # %% POST-PROCESSING
+
+    def post_processing(
+        self,
+        model_mt3dms: object,
+        concentration_seepage: bool = True,
+        mass_seepage: bool = True,
+        mass_accumulated: bool = False,
+        export_all_tif: bool = False,
+    ):
+        """
+        Create outputs files.
+
+        Parameters
+        ----------
+        model_mt3dms : object
+            MT3DMS python object.
+        """
+        # Create folders
+        self.save_file = os.path.join(self.full_path, "_postprocess")
+        create_folder(self.save_file)
+
+        self.figure_file = os.path.join(self.full_path, "_postprocess", "_figures")
+        create_folder(self.figure_file)
+
+        self.temporary_file = os.path.join(self.full_path, "_postprocess", "_temporary")
+        create_folder(self.temporary_file)
+
+        self.tifs_file = os.path.join(self.full_path, "_postprocess", "_rasters")
+        create_folder(self.tifs_file)
+
+        self.save_fig = os.path.join(self.model_folder, "_figures")
+        create_folder(self.save_fig)
+
+        # %% Load essential data
+
+        # Modflow specific files (written in the processing phase)
+        self.path_file = os.path.join(self.full_path, self.model_name_mt + ".UCN")
+
+        # Files have been output in the processing phase and are re-read here
+        inactive_mask = getattr(self.model_modflow, "inactive_mask", None)
+        if inactive_mask is None:
+            raise ValueError("model_modflow.inactive_mask is required for MT3DMS post-processing.")
+        self.inactive_mask = np.asarray(inactive_mask, dtype=bool)
+
+        # Drain outflow from flow model (in-memory, computed during flow postprocessing)
+        self.outflow_drain = getattr(self.model_modflow, "dict_outflow_drain", {})
+
+        self.ucnobj = bf.UcnFile(self.path_file)
+        ucn_all_data = None
+        if hasattr(self.ucnobj, "get_times"):
+            ucn_times = list(self.ucnobj.get_times())
+        else:
+            ucn_all_data = np.asarray(self.ucnobj.get_alldata(), dtype=float)
+            ucn_times = list(range(int(ucn_all_data.shape[0])))
+        if not ucn_times:
+            raise RuntimeError(f"No MT3DMS concentration timesteps found in {self.path_file}")
+
+        def _surface_concentration(period_index: int) -> np.ndarray:
+            time_index = min(period_index + 1, len(ucn_times) - 1)
+            if ucn_all_data is None:
+                values = np.asarray(self.ucnobj.get_data(totim=ucn_times[time_index]), dtype=float)
+            else:
+                values = np.asarray(ucn_all_data[time_index], dtype=float)
+            surface = values[0].copy()
+            surface[surface >= 1e30] = np.nan
+            return surface
+
+        self.dict_concentration_seepage = {}
+        self.dict_mass_seepage = {}
+        self.dict_mass_accumulated = {}
+
+        # Boucle sur chaque pas de temps
+        # for i in range(len(concobj_1c_fil)):
+        for i in range(model_mt3dms.model_modflow.nper):
+            the_time = str(i + 1)
+            logger.info("Processing MT3DMS timestep %d/%d", i + 1, model_mt3dms.model_modflow.nper)
+
+            do_export_tif = True
+            if not export_all_tif:
+                if i > 0:
+                    do_export_tif = False
+
+            seep = self.outflow_drain[i]
+
+            if concentration_seepage:
+                concobj_1c_fil_surf = _surface_concentration(i)
+                # concobj_1c_fil_surf = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf)
+                concobj_1c_fil_surf[seep <= 0] = -9999
+                concobj_1c_fil_surf[self.inactive_mask] = -9999
+
+                output_path = self.tifs_file + "/concentration_seepage_t(" + the_time + ").tif"
+                if do_export_tif:
+                    export_tif(
+                        self.model_modflow.dem_watershed_path,
+                        concobj_1c_fil_surf,
+                        output_path,
+                        -9999,
+                    )
+                self.dict_concentration_seepage[i] = concobj_1c_fil_surf
+
+            if mass_seepage:
+                massobj_1c_fil_surf = _surface_concentration(i)
+                # massobj_1c_fil_surf = np.ma.masked_where(seep <= 0, massobj_1c_fil_surf)
+                massobj_1c_fil_surf[seep <= 0] = np.nan
+                massobj_1c_fil_surf = (
+                    massobj_1c_fil_surf * seep
+                )  # mg/l to kg/m3 ==> kg/m3 * m3/d ==> kg/d
+                massobj_1c_fil_surf[self.inactive_mask] = -9999
+                massobj_1c_fil_surf = np.where(
+                    np.isnan(massobj_1c_fil_surf), -9999, massobj_1c_fil_surf
+                )
+
+                output_path = self.tifs_file + "/mass_seepage_t(" + the_time + ").tif"
+                if do_export_tif:
+                    export_tif(
+                        self.model_modflow.dem_watershed_path,
+                        massobj_1c_fil_surf,
+                        output_path,
+                        -9999,
+                    )
+                self.dict_mass_seepage[i] = massobj_1c_fil_surf
+
+            if mass_accumulated:
+                routing_ctx = self.model_modflow._ensure_solver_routing_context()
+
+                accumulated_mass = masstransfer.Masstransfer(
+                    self.geographic,
+                    "mass_seepage_t(" + the_time + ").tif",
+                    "tracept_conc_t(" + the_time + ").shp",
+                    "mass_accumulated_t(" + the_time + ").tif",
+                    extraction_folder=self.save_file,
+                    routing_fill_path=routing_ctx.correc_path,
+                    routing_direc_path=routing_ctx.direc_path,
+                )
+                accumulated_mass.trace_cumulated()
+                output_path = self.tifs_file + "/mass_accumulated_t(" + the_time + ").tif"
+                with rasterio.open(output_path) as src:
+                    self.dict_mass_accumulated[i] = src.read(1)
+
+        # concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
+
+        if concentration_seepage:
+            logger.info(
+                "Exported concentration seepage: %d timesteps", len(self.dict_concentration_seepage)
+            )
+
+        if mass_seepage:
+            logger.info("Exported mass seepage: %d timesteps", len(self.dict_mass_seepage))
+
+        if mass_accumulated:
+            logger.info("Exported accumulated mass: %d timesteps", len(self.dict_mass_accumulated))
+
+        close = getattr(self.ucnobj, "close", None)
+        if callable(close):
+            close()
+
+
+# %% ---- NOTES
+logger = get_logger(__name__)

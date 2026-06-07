@@ -1,0 +1,159 @@
+# Weekly cross-platform checks that run Sunday at 05:00 UTC on the default branch.
+# Covers the three supported Python versions on Linux, macOS and Windows.
+# Also runs the end-to-end tier that is too expensive for nightly.
+
+name: Weekly / Cross Platform
+
+on:
+  schedule:
+    - cron: "0 5 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  COVERAGE_OMIT: hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
+
+jobs:
+  # Cross-OS matrix on the fast tiers.
+  # Catches platform specific regressions without burning every week on the full suite.
+  cross-os:
+    name: Weekly / ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # gmsh needs libglu on Linux only. macOS and Windows have system equivalents.
+      - name: Install Linux system libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        shell: bash
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      # Split whitebox backend out of the parallel run; the native library
+      # segfaults under pytest-xdist.
+      - name: Run unit tests (parallel, without whitebox backend)
+        shell: bash
+        run: |
+          python -m pytest tests/unit/ \
+            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            -n auto --dist loadgroup -q
+
+      - name: Run whitebox backend tests (serial)
+        shell: bash
+        run: python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q
+
+      - name: Install solver binaries
+        shell: bash
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run fast regression
+        shell: bash
+        run: python -m pytest tests/regression/fast/ -n auto --dist loadgroup -q
+
+      - name: Run analytical validation
+        shell: bash
+        run: python -m pytest tests/validation/analytical/ -m "not petsc" -n auto --dist loadgroup -q
+
+  # End-to-end tier on Linux only. Heavy scenarios that exercise the full pipeline.
+  e2e:
+    name: Weekly / end-to-end Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Drop coverage .pth shim
+        run: |
+          python -c "
+          import pathlib, sysconfig
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+          "
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run e2e tests
+        run: |
+          python -m pytest tests/e2e/ \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: e2e
+          fail_ci_if_error: false
+
+  # Extensive regression on Linux only. The weekly run keeps a fresh signal
+  # in addition to the nightly run, useful if nightly was skipped.
+  regression-full:
+    name: Weekly / full regression Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run full regression
+        run: python -m pytest tests/regression/ -n auto --dist loadgroup -q

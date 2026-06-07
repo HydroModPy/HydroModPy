@@ -1,0 +1,492 @@
+{
+  "summary_schema_version": "zone_conformal_sidecar_v1",
+  "mesh_kind": "gmsh_2d",
+  "cell_type": "triangle",
+  "n_nodes": 958,
+  "n_cells": 1827,
+  "n_partition_faces": 8,
+  "zone_keys": [
+    "1241",
+    "1501",
+    "161",
+    "1741",
+    "1981",
+    "2141",
+    "2201",
+    "301"
+  ],
+  "face_counts_by_zone": {
+    "1981": 1,
+    "2201": 1,
+    "1501": 1,
+    "2141": 1,
+    "1241": 1,
+    "1741": 1,
+    "161": 1,
+    "301": 1
+  },
+  "face_areas_by_zone": {
+    "1981": 1304126.3983245585,
+    "2201": 1944685.129775649,
+    "1501": 1713533.8203707598,
+    "2141": 2268758.846000899,
+    "1241": 1430116.080446294,
+    "1741": 2438034.9968743194,
+    "161": 3823017.7235985757,
+    "301": 1077727.0046089452
+  },
+  "domain_area": 16000000.0,
+  "covered_area": 16000000.0,
+  "interface_group_count": 14,
+  "boundary_group_count": 7,
+  "global_size": 250.0,
+  "min_size": 125.0,
+  "max_size": 400.0,
+  "algorithm": "delaunay",
+  "cleaning_diagnostics": {
+    "cleaning_mode": "tolerant",
+    "tolerances": {
+      "simplify_tolerance": 0.0,
+      "heal_tolerance": 0.0,
+      "min_polygon_area": 1.0,
+      "overlap_tolerance": 1e-12
+    },
+    "operations_enabled": {
+      "repair_invalid_geometries": true,
+      "heal_snap": false,
+      "simplify": false,
+      "drop_small_polygons": true
+    },
+    "source_feature_count": 14,
+    "source_invalid_geometry_count": 0,
+    "invalid_geometries_repaired_count": 0,
+    "features_skipped_empty_zone_key_count": 0,
+    "features_skipped_empty_geometry_count": 0,
+    "features_outside_domain_count": 0,
+    "features_after_domain_clip_count": 14,
+    "features_dropped_after_cleaning_count": 0,
+    "polygon_parts_before_area_filter_count": 14,
+    "polygons_removed_by_area_threshold_count": 0,
+    "polygon_parts_kept_count": 14,
+    "cleaned_zone_polygon_count": 14,
+    "domain_invalid_geometry_count": 0,
+    "domain_invalid_geometries_repaired_count": 0,
+    "domain_polygon_parts_before_area_filter_count": 1,
+    "domain_polygon_parts_removed_by_area_threshold_count": 0,
+    "domain_polygon_parts_kept_count": 1
+  },
+  "cleaning_summary": {
+    "mode": "tolerant",
+    "source_feature_count": 14,
+    "features_after_domain_clip_count": 14,
+    "invalid_geometries_repaired_count": 0,
+    "polygons_removed_by_area_threshold_count": 0,
+    "simplify_tolerance": 0.0,
+    "heal_tolerance": 0.0,
+    "min_polygon_area": 1.0,
+    "overlap_tolerance": 1e-12
+  },
+  "river_trace": {
+    "provided": false,
+    "line_count": 0,
+    "curve_count": 0,
+    "embedded_surface_curve_pairs": 0,
+    "embed_failures": 0,
+    "refined_with_interface_field": false
+  },
+  "physical_groups_summary": {
+    "surface_group_count": 8,
+    "curve_group_count": 21,
+    "interface_group_count": 14,
+    "boundary_group_count": 7
+  },
+  "qa_checks": {
+    "coverage_gap": 0.0,
+    "coverage_tolerance": 1e-09,
+    "coverage_within_tolerance": true,
+    "has_interface_groups": true,
+    "has_zone_surface_groups": true,
+    "constraints_contract_pass": true
+  },
+  "mesh_size_fields": {
+    "interface_refinement": {
+      "enabled": true,
+      "interface_size": 90.0,
+      "interface_distance": 450.0,
+      "interface_sampling": 96,
+      "interface_curve_count": 42,
+      "background_field": {
+        "distance_field_tag": 1,
+        "threshold_field_tag": 2,
+        "background_field_tag": 3
+      }
+    }
+  },
+  "surface_physical_groups": [
+    {
+      "dimension": 2,
+      "tag": 1,
+      "name": "zone::1241",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "1241"
+      ]
+    },
+    {
+      "dimension": 2,
+      "tag": 2,
+      "name": "zone::1501",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "1501"
+      ]
+    },
+    {
+      "dimension": 2,
+      "tag": 3,
+      "name": "zone::161",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "161"
+      ]
+    },
+    {
+      "dimension": 2,
+      "tag": 4,
+      "name": "zone::1741",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "1741"
+      ]
+    },
+    {
+      "dimension": 2,
+      "tag": 5,
+      "name": "zone::1981",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "1981"
+      ]
+    },
+    {
+      "dimension": 2,
+      "tag": 6,
+      "name": "zone::2141",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "2141"
+      ]
+    },
+    {
+      "dimension": 2,
+      "tag": 7,
+      "name": "zone::2201",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "2201"
+      ]
+    },
+    {
+      "dimension": 2,
+      "tag": 8,
+      "name": "zone::301",
+      "group_kind": "zone_surface",
+      "entity_count": 1,
+      "zone_keys": [
+        "301"
+      ]
+    }
+  ],
+  "curve_physical_groups": [
+    {
+      "dimension": 1,
+      "tag": 9,
+      "name": "boundary::1241",
+      "group_kind": "boundary_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "1241"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 10,
+      "name": "boundary::1501",
+      "group_kind": "boundary_curve",
+      "entity_count": 1,
+      "zone_keys": [
+        "1501"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 11,
+      "name": "boundary::161",
+      "group_kind": "boundary_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "161"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 12,
+      "name": "boundary::1741",
+      "group_kind": "boundary_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "1741"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 13,
+      "name": "boundary::1981",
+      "group_kind": "boundary_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "1981"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 14,
+      "name": "boundary::2141",
+      "group_kind": "boundary_curve",
+      "entity_count": 3,
+      "zone_keys": [
+        "2141"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 15,
+      "name": "boundary::2201",
+      "group_kind": "boundary_curve",
+      "entity_count": 1,
+      "zone_keys": [
+        "2201"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 16,
+      "name": "interface::1241::161",
+      "group_kind": "interface_curve",
+      "entity_count": 1,
+      "zone_keys": [
+        "1241",
+        "161"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 17,
+      "name": "interface::1241::1741",
+      "group_kind": "interface_curve",
+      "entity_count": 5,
+      "zone_keys": [
+        "1241",
+        "1741"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 18,
+      "name": "interface::1241::2141",
+      "group_kind": "interface_curve",
+      "entity_count": 5,
+      "zone_keys": [
+        "1241",
+        "2141"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 19,
+      "name": "interface::1501::161",
+      "group_kind": "interface_curve",
+      "entity_count": 1,
+      "zone_keys": [
+        "1501",
+        "161"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 20,
+      "name": "interface::1501::2141",
+      "group_kind": "interface_curve",
+      "entity_count": 4,
+      "zone_keys": [
+        "1501",
+        "2141"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 21,
+      "name": "interface::1501::2201",
+      "group_kind": "interface_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "1501",
+        "2201"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 22,
+      "name": "interface::1501::301",
+      "group_kind": "interface_curve",
+      "entity_count": 4,
+      "zone_keys": [
+        "1501",
+        "301"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 23,
+      "name": "interface::161::1741",
+      "group_kind": "interface_curve",
+      "entity_count": 3,
+      "zone_keys": [
+        "161",
+        "1741"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 24,
+      "name": "interface::161::1981",
+      "group_kind": "interface_curve",
+      "entity_count": 3,
+      "zone_keys": [
+        "161",
+        "1981"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 25,
+      "name": "interface::161::2141",
+      "group_kind": "interface_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "161",
+        "2141"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 26,
+      "name": "interface::161::2201",
+      "group_kind": "interface_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "161",
+        "2201"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 27,
+      "name": "interface::161::301",
+      "group_kind": "interface_curve",
+      "entity_count": 5,
+      "zone_keys": [
+        "161",
+        "301"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 28,
+      "name": "interface::1981::2201",
+      "group_kind": "interface_curve",
+      "entity_count": 2,
+      "zone_keys": [
+        "1981",
+        "2201"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 29,
+      "name": "interface::2201::301",
+      "group_kind": "interface_curve",
+      "entity_count": 3,
+      "zone_keys": [
+        "2201",
+        "301"
+      ]
+    }
+  ],
+  "field_id": "field_geology",
+  "source_kind": "vector",
+  "n_source_features_total": 23,
+  "n_source_features_clipped": 14,
+  "zone_feature_counts": {
+    "1241": 2,
+    "1501": 3,
+    "161": 1,
+    "1741": 1,
+    "1981": 1,
+    "2141": 3,
+    "2201": 2,
+    "301": 1
+  },
+  "domain_kind": "vector",
+  "domain_bounds": [
+    355000.0,
+    6712500.0,
+    359000.0,
+    6716500.0
+  ],
+  "domain_geometry_type": "Polygon",
+  "domain_id_field": "domain_id",
+  "domain_selected_id": "main",
+  "domain_source_feature_count": 1,
+  "domain_selected_feature_count": 1,
+  "domain_crs": "EPSG:2154",
+  "constraints_mode": "geology_only",
+  "constraints_qa": {
+    "contract_version": "constraints_qa_v1",
+    "mode": "geology_only",
+    "thresholds": {
+      "min_zone_count": 1,
+      "min_interface_group_count": 1,
+      "min_river_curve_count": 0,
+      "min_embedded_surface_curve_pairs": 0,
+      "require_refinement_when_refine_interfaces_true": false
+    },
+    "metrics": {
+      "zone_count": 8,
+      "interface_group_count": 14,
+      "river_trace_provided": false,
+      "river_line_count": 0,
+      "river_curve_count": 0,
+      "river_curve_group_present": false,
+      "river_embed_success_pairs": 0,
+      "river_embed_failures": 0,
+      "river_embed_attempts": 0,
+      "river_embed_success_rate": null,
+      "river_embed_pairs_per_curve": null,
+      "river_refined_with_interface_field": false,
+      "refine_interfaces_config": true
+    },
+    "checks": {
+      "has_zone_partition": true,
+      "has_geology_interfaces": true
+    },
+    "overall_pass": true
+  }
+}

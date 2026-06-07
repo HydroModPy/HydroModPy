@@ -1,0 +1,14 @@
+# ======================================================================
+# Overlay - disable every auto-rendered figure
+# ----------------------------------------------------------------------
+# Equivalent to `hmp run ... --no-display` but more granular: it keeps
+# the registered figure list intact but turns off the master switch.
+# Useful when iterating on a config and you only care about the catalog
+# entries (DuckDB rows + Zarr arrays), not the PNGs.
+#
+# Usage:
+#   hmp run 01_run_simulation_nwt.toml --overlay overlays/overlay_no_display.toml
+# ======================================================================
+
+[display]
+enabled = false

@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import importlib
+import sys
+from pathlib import Path
+
+import pytest
+
+
+def _load_module():
+    return importlib.import_module("hydromodpy.cli.commands.test")
+
+
+def _load_main_module():
+    return importlib.import_module("hydromodpy.cli.main")
+
+
+def _capture_pytest_invocation(
+    monkeypatch,
+    argv: list[str],
+) -> tuple[list[str], dict[str, str] | None]:
+    module = _load_module()
+    main_module = _load_main_module()
+    captured: dict[str, object] = {}
+
+    def _fake_call(args: list[str], env: dict[str, str] | None = None) -> int:
+        captured["args"] = list(args)
+        captured["env"] = None if env is None else dict(env)
+        return 0
+
+    monkeypatch.setattr(module.subprocess, "call", _fake_call)
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main_module.main()
+
+    assert exc_info.value.code == 0
+    return captured["args"], captured.get("env")
+
+
+def test_hmp_regression_fast_mf6_builds_fast_tier_selection(monkeypatch) -> None:
+    args, _ = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "regression", "--fast", "--mf6"],
+    )
+
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
+    assert any(str(arg).endswith(str(Path("tests") / "regression" / "fast")) for arg in args)
+    marker_index = args.index("-m", 3)
+    assert args[marker_index + 1] == "fast and mf6"
+
+
+def test_regression_discovery_keeps_embedded_regression_vocab(tmp_path: Path) -> None:
+    module = _load_module()
+    fast_dir = tmp_path / "fast"
+    fast_dir.mkdir()
+    (fast_dir / "test_simulation_regression_fast_mf6_regression.py").write_text(
+        "def test_placeholder():\n    pass\n",
+        encoding="utf-8",
+    )
+
+    discovered = module._discover_regression_tests(tmp_path, selected_tiers=["fast"])
+
+    assert "simulation_regression_fast_mf6" in discovered
+    assert "simulation" not in discovered
+
+
+def test_hmp_regression_fast_intercomparison_builds_marker_selection(monkeypatch) -> None:
+    args, _ = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "regression", "--fast", "--intercomparison"],
+    )
+
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
+    assert any(str(arg).endswith(str(Path("tests") / "regression" / "fast")) for arg in args)
+    marker_index = args.index("-m", 3)
+    assert args[marker_index + 1] == "fast and intercomparison"
+
+
+def test_hmp_validation_fast_steady_builds_validation_marker_selection(monkeypatch) -> None:
+    args, _ = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "validation", "--fast", "--steady"],
+    )
+
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
+    assert any(str(arg).endswith(str(Path("tests") / "validation")) for arg in args)
+    marker_index = args.index("-m", 3)
+    assert args[marker_index + 1] == "validation and fast and steady"
+
+
+def test_hmp_unit_fast_builds_daily_marker_selection(monkeypatch) -> None:
+    args, _ = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "unit", "--fast"],
+    )
+
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
+    assert any(str(arg).endswith(str(Path("tests") / "unit")) for arg in args)
+    marker_index = args.index("-m", 3)
+    assert args[marker_index + 1] == "not slow and not integration"
+
+
+def test_hmp_unit_slow_builds_nightly_marker_selection(monkeypatch) -> None:
+    args, _ = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "unit", "--slow"],
+    )
+
+    assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
+    assert any(str(arg).endswith(str(Path("tests") / "unit")) for arg in args)
+    marker_index = args.index("-m", 3)
+    assert args[marker_index + 1] == "slow or integration"
+
+
+def test_hmp_validation_rejects_extensive(monkeypatch) -> None:
+    module = _load_module()
+    main_module = _load_main_module()
+    captured = {"called": False}
+
+    def _fake_call(args: list[str]) -> int:
+        captured["called"] = True
+        return 0
+
+    monkeypatch.setattr(module.subprocess, "call", _fake_call)
+    monkeypatch.setattr(sys, "argv", ["hmp", "test", "validation", "--extensive"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main_module.main()
+
+    assert exc_info.value.code == 2
+    assert captured["called"] is False
+
+
+def test_hmp_validation_rejects_intercomparison(monkeypatch) -> None:
+    module = _load_module()
+    main_module = _load_main_module()
+    captured = {"called": False}
+
+    def _fake_call(args: list[str]) -> int:
+        captured["called"] = True
+        return 0
+
+    monkeypatch.setattr(module.subprocess, "call", _fake_call)
+    monkeypatch.setattr(sys, "argv", ["hmp", "test", "validation", "--intercomparison"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main_module.main()
+
+    assert exc_info.value.code == 2
+    assert captured["called"] is False
+
+
+def test_hmp_unit_rejects_extensive(monkeypatch) -> None:
+    module = _load_module()
+    main_module = _load_main_module()
+    captured = {"called": False}
+
+    def _fake_call(args: list[str]) -> int:
+        captured["called"] = True
+        return 0
+
+    monkeypatch.setattr(module.subprocess, "call", _fake_call)
+    monkeypatch.setattr(sys, "argv", ["hmp", "test", "unit", "--extensive"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main_module.main()
+
+    assert exc_info.value.code == 2
+    assert captured["called"] is False
+
+
+def test_hmp_test_uses_external_pytest_basetemp(monkeypatch, tmp_path: Path) -> None:
+    scratch_root = tmp_path / "external_scratch"
+    monkeypatch.setenv("HMP_TEST_SCRATCH_ROOT", str(scratch_root))
+    monkeypatch.delenv("HMP_TEST_SESSION_SCRATCH_ROOT", raising=False)
+
+    args, env = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "unit"],
+    )
+
+    assert env is not None
+    assert "--basetemp" in args
+    basetemp_index = args.index("--basetemp")
+    basetemp_path = Path(args[basetemp_index + 1])
+    session_root = Path(env["HMP_TEST_SESSION_SCRATCH_ROOT"])
+    assert session_root.parent == (scratch_root / "sessions").resolve()
+    assert session_root.name.startswith("cli_")
+    assert basetemp_path.parent == (session_root / "pytest").resolve()
+    assert basetemp_path.name.startswith("cli_")
+    assert env["HMP_TEST_SCRATCH_ROOT"] == str(scratch_root.resolve())
+    assert env["PYTEST_DEBUG_TEMPROOT"] == str((session_root / "pytest").resolve())
+    assert env["TMPDIR"] == str((session_root / "tmp").resolve())
+    assert env["TMP"] == str((session_root / "tmp").resolve())
+    assert env["TEMP"] == str((session_root / "tmp").resolve())
+
+
+def test_hmp_test_reuses_inherited_pytest_session_scratch(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    scratch_root = tmp_path / "external_scratch"
+    session_root = scratch_root / "sessions" / "parent-session"
+    monkeypatch.setenv("HMP_TEST_SCRATCH_ROOT", str(scratch_root))
+    monkeypatch.setenv("HMP_TEST_SESSION_SCRATCH_ROOT", str(session_root))
+
+    args, env = _capture_pytest_invocation(
+        monkeypatch,
+        ["hmp", "test", "unit"],
+    )
+
+    assert env is not None
+    basetemp_path = Path(args[args.index("--basetemp") + 1])
+    assert env["HMP_TEST_SCRATCH_ROOT"] == str(scratch_root.resolve())
+    assert env["HMP_TEST_SESSION_SCRATCH_ROOT"] == str(session_root.resolve())
+    assert basetemp_path.parent == (session_root / "pytest").resolve()
+    assert env["TMPDIR"] == str((session_root / "tmp").resolve())

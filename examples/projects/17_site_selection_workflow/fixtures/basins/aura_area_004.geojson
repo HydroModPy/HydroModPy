@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "name": "aura_area_004",
+  "crs": {"type": "name", "properties": {"name": "EPSG:2154"}},
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"site_id": "aura_area_004"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[901000, 6530000], [923500, 6531500], [928000, 6548500], [913000, 6555000], [898500, 6544500], [901000, 6530000]]]
+      }
+    }
+  ]
+}

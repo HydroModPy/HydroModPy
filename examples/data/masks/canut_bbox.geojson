@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1.7,
+              48.11
+            ],
+            [
+              -1.66,
+              48.11
+            ],
+            [
+              -1.66,
+              48.14
+            ],
+            [
+              -1.7,
+              48.14
+            ],
+            [
+              -1.7,
+              48.11
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Canut catchment bbox"
+      }
+    }
+  ]
+}

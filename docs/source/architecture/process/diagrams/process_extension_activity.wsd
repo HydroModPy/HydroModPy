@@ -1,0 +1,29 @@
+@startuml
+title Process - Extension Activity (Add New ProcessSpatial Specialization)
+
+start
+
+:Define process scope and runtime variables;
+:Create new config model\nnew_process_config.py;
+:Implement section normalizers\n(param / ic / bc / sinks_sources);
+:Implement runtime class\nclass NewProcess(ProcessSpatial);
+:Wire package exports in __init__.py;
+:Implement solver adapter translation layer;
+:Integrate with solver entry points;
+:Add unit tests (config + runtime + adapter);
+:Add or update example workflow;
+:Add architecture/doc pages and UML sources;
+:Run tests and checks;
+
+if (All tests and checks pass?) then (yes)
+  :Open PR / merge changes;
+  stop
+else (no)
+  :Fix validation, mapping,\nor runtime issues;
+  :Re-run tests and checks;
+  :Repeat fix/check cycle until green;
+  :Open PR / merge changes;
+  stop
+endif
+
+@enduml

@@ -1,0 +1,24 @@
+
+[workflow]
+mode = "simulation"
+
+[[simulation.process]]
+solvers = ["modflow_nwt"]
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 3
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[modflownwt.tgrid]
+# MODFLOW-NWT can falsely accept the steady warm-up from a perfectly flat
+# initial head equal to the east-side Dirichlet boundary. A small positive
+# offset avoids that false convergence and restores the expected recharge
+# balance during the warm-up period.
+[flow.ic]
+type = "custom"
+value = "50.1 m"

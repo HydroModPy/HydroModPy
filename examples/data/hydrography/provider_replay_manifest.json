@@ -1,0 +1,75 @@
+{
+  "generated_at_utc": "2026-05-04T00:34:04+00:00",
+  "note": "Provider replay artifacts for documentation. Run intentionally; the renderer is replay-only.",
+  "artifacts": [
+    {
+      "case": "couesnon",
+      "provider": "bdtopage",
+      "bbox_wgs84": [
+        -1.2451,
+        48.3618,
+        -1.1072,
+        48.4651
+      ],
+      "file": "examples/data/hydrography/bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+      "status": "reused",
+      "feature_count": 99,
+      "total_length_km": 313.168,
+      "crs": "EPSG:4326",
+      "bounds_wgs84": [
+        -1.486484888948002,
+        48.330174434279954,
+        -1.07973788398969,
+        48.5956359836601
+      ],
+      "size_bytes": 696320,
+      "sha256": "5d8eac0c0fc33c9fb168b7598019855868a3f49bfe67ae2a12bce7b400b69339"
+    },
+    {
+      "case": "couesnon",
+      "provider": "osm",
+      "bbox_wgs84": [
+        -1.2451,
+        48.3618,
+        -1.1072,
+        48.4651
+      ],
+      "file": "examples/data/hydrography/osm_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+      "status": "reused",
+      "feature_count": 257,
+      "total_length_km": 124.692,
+      "crs": "EPSG:4326",
+      "bounds_wgs84": [
+        -1.2528627,
+        48.3510444,
+        -1.0985979,
+        48.4771909
+      ],
+      "size_bytes": 323584,
+      "sha256": "922132b5c6c68c5c4cdb7d38b1819be354e7fbcca1720936b7090904c30a4e53"
+    },
+    {
+      "case": "couesnon",
+      "provider": "euhydro",
+      "bbox_wgs84": [
+        -1.2451,
+        48.3618,
+        -1.1072,
+        48.4651
+      ],
+      "file": "examples/data/hydrography/euhydro_-1.2451_48.3618_-1.1072_48.4651.gpkg",
+      "status": "reused",
+      "feature_count": 17,
+      "total_length_km": 55.373,
+      "crs": "EPSG:4326",
+      "bounds_wgs84": [
+        -1.3306989256274004,
+        48.329902491584996,
+        -1.085320663426009,
+        48.470934819742084
+      ],
+      "size_bytes": 155648,
+      "sha256": "00881816330b8da5830066861878727cdaca321d9084f6a4da35d3f52ada9b35"
+    }
+  ]
+}

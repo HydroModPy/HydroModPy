@@ -1,0 +1,33 @@
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "outputs/site_selection_manifest_mesh_testbed/base_workspace"
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+x_outlet = 131189.1
+y_outlet = 6833784.4
+snap_dist = "150 m"
+buff_area = "10%"
+
+[simulation]
+name = "site_selection_manifest_mesh_base"
+description = "Dry-run base used by the site-selection manifest bridge example."
+
+[[simulation.process]]
+id = "mesh_main"
+type = "mesh"
+backend = "catchment"
+
+[mesh_catchment]
+constraints_mode = "rivers_only"
+
+[mesh_catchment.zone_meshing]
+global_size = 2500.0
+min_size = 1200.0
+max_size = 4000.0

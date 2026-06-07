@@ -1,0 +1,17 @@
+# ======================================================================
+# Overlay - shorten the simulation window to 12 months (smoke-test)
+# ----------------------------------------------------------------------
+# Designed to be layered on top of any run_*.toml in this folder via:
+#
+#   hmp run 01_run_simulation_nwt.toml \
+#       --overlay overlays/overlay_short_window.toml
+#
+# Overlays are applied AFTER the `base_config` chain and BEFORE the
+# `--set path=value` overrides. Multiple `--overlay` flags can be
+# stacked; later overlays override earlier ones.
+# ======================================================================
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 month"

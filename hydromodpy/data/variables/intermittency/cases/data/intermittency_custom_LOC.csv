@@ -1,0 +1,4 @@
+id,x,y,crs,station_name,stream_name,department
+ONDE001,-1.17,48.44,EPSG:4326,Les Chevaux Morts,Le Nancon,Ille-et-Vilaine
+ONDE002,-3.50,48.70,EPSG:4326,Ruisseau de Pontol,Le Pontol,Côtes-d'Armor
+ONDE003,-1.85,48.10,EPSG:4326,Le Meu amont,Le Meu,Ille-et-Vilaine

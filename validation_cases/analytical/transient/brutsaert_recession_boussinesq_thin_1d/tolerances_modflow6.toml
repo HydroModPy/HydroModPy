@@ -1,0 +1,9 @@
+[discharge]
+relative_rmse = 0.23
+relative_max_error = 0.25
+
+[uniformity]
+row_spread = 2e-4
+
+[monotonicity]
+max_positive_increment_m3_s = 1e-12

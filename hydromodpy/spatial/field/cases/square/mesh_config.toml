@@ -1,0 +1,18 @@
+# Example TOML for FieldMesh
+#
+# Read with:
+#   FieldMeshSquare.from_toml(
+#       "hydromodpy/spatial/field/cases/square/mesh_config.toml",
+#       section="mesh",
+#   )
+
+[mesh]
+# "structured", "triangular_structured", or "triangular_unstructured"
+kind = "triangular_unstructured"
+# Approximate target number of cells.
+# Other accepted aliases in config are:
+# - approx_n_cells
+# - target_cell_count
+target_n_cells = 400
+# Used for reproducible triangular_unstructured mesh generation.
+seed = 42

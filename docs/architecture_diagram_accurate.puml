@@ -1,0 +1,320 @@
+@startuml
+title HydroModPy - Global Component Architecture (accurate)
+left to right direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam dpi 140
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+skinparam titleFontSize 14
+skinparam legendFontSize 9
+skinparam packageFontSize 10
+skinparam componentFontSize 10
+skinparam interfaceFontSize 9
+skinparam noteFontSize 9
+
+skinparam nodesep 40
+skinparam ranksep 50
+
+skinparam package {
+  BackgroundColor #F9FAFB
+  BorderColor #94A3B8
+  FontColor #0F172A
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  FontColor #0F172A
+}
+skinparam interface {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  FontColor #0F172A
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #D4A72C
+  FontColor #111827
+}
+
+skinparam component<<entry>> {
+  BackgroundColor #FFE7B3
+  BorderColor #B45309
+  FontColor #7C2D12
+}
+skinparam component<<aggregate>> {
+  BackgroundColor #EEF2FF
+  BorderColor #6366F1
+}
+skinparam component<<facade>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+}
+skinparam interface<<real interface>> {
+  BackgroundColor #DCFCE7
+  BorderColor #16A34A
+}
+skinparam interface<<conceptual port>> {
+  BackgroundColor #F1F5F9
+  BorderColor #64748B
+}
+
+legend right
+|= Notation |= Meaning |
+| <<entry>> | Entrée exécutable (CLI/API) |
+| <<real interface>> | Protocol / ABC Python réel |
+| <<conceptual port>> | Contrat d'architecture |
+| <<aggregate>> | Groupe de modules/composants |
+| <<facade>> | Couche façade / re-export |
+| --\|> | Réalise interface |
+| -() | Port fourni (lollipop) |
+| -( | Port requis (socket) |
+| --> | Dépend de |
+| ..> | Utilise (faible) |
+endlegend
+
+package "User entry points" <<facade>> {
+  component "TOML configuration" as TomlConfig <<entry>>
+  component "CLI workflows\nhmp run / overview / calibration" as CLIMain <<entry>>
+  component "Python API\nProject(...)" as APIFacade <<entry>>
+}
+
+package "Facade and planning" {
+  component "Project\n(public facade)" as ProjectFacade <<facade>>
+  component "SimulationPlanner" as SimulationPlanner
+  component "SimulationPlan\n(ProcessRun...)" as SimulationPlan
+  component "Pipeline\n(step orchestration)" as Pipeline
+  component "DataLoadPlan" as DataLoadPlan
+  component "Variable / Manager layer" as Managers
+  component "Sources\n(APIs / files / custom)" as Sources
+
+  interface "WorkflowProvider" as WorkflowProviderProtocol <<real interface>>
+  interface "ConfigProtocol" as ConfigProtocol <<real interface>>
+}
+
+package "Input data loading" {
+  component "DataCatalogDuckDB\n(input cache)" as DuckDBCatalog
+  component "Data Registry" as DataRegistry
+  component "Data Loaders" as DataLoaders
+  component "Data Adapters" as DataAdapters <<aggregate>>
+
+  interface "SourceConfig Protocol" as SourceConfigProtocol <<real interface>>
+  interface "DataStore Protocol" as DataStoreProtocol <<real interface>>
+}
+
+package "Process layer" {
+  component "HydroModPyConfig" as HydroModPyConfig
+  component "FlowConfig" as FlowConfig
+  component "TransportConfig" as TransportConfig
+  component "Section Normalizers\n(param / ic / bc / sinks_sources)" as Normalizers
+  component "Recharge Chronicle Config\nsimulation.forcing.recharge_chronicle_config" as RechargeChronicleConfig
+  component "Recharge Chronicle Adapter\nsimulation.forcing.recharge_chronicle" as RechargeChronicleAdapter
+  component "Synthetic Forcing\nhydrology.synthetic.forcing" as HydrologySyntheticForcing
+  component "ProcessSpatial" as ProcessSpatial
+  component "Flow" as Flow
+  component "Transport" as Transport
+  component "flow_to_modflow_adapter (NWT)" as FlowAdapterNwt
+  component "MF6 Assembly Helpers" as Mf6Helpers
+  component "MODFLOW-NWT Wrapper" as ModflowNwtWrapper
+  component "MODFLOW 6 Wrapper" as Modflow6Wrapper
+
+  interface "ProcessSpatial ABC" as ProcessSpatialProtocol <<real interface>>
+}
+
+package "Solver execution" {
+  component "SimulationRunner" as SimulationRunner
+  component "SolverAdapter registry" as AdapterRegistry
+  component "Concrete solver\nMODFLOW-NWT / MODFLOW 6 /\nBoussinesq" as Solver
+  component "Solver Registry Provider" as SolverProviderDI
+
+  interface "SolverAdapter Protocol" as SolverAdapterProtocol <<real interface>>
+  interface "SolverRegistryProvider" as RegistryProviderProtocol <<real interface>>
+}
+
+package "Solver backends" {
+  component "Boussinesq Solver" as BoussinesqSolver
+  component "MODFLOW NWT" as ModflowNwt
+  component "MODFLOW 6" as Modflow6
+
+  component "Boussinesq Adapter" as BoussinesqAdapter <<aggregate>>
+  component "MODFLOW NWT Adapter" as ModflowNwtAdapter <<aggregate>>
+  component "MODFLOW 6 Adapter" as Modflow6Adapter <<aggregate>>
+
+  component "Transport Adapters" as TransportAdapters <<aggregate>>
+
+  interface "Solver ABC" as SolverABC <<real interface>>
+}
+
+package "Analysis & Calibration" {
+  component "Calibration Adapters" as CalibrationAdapters <<aggregate>>
+  component "Batch Orchestration" as BatchOrchestration
+  component "Postprocess Runner" as PostprocessRunner
+  component "Visualization Engine" as DisplayEngine <<aggregate>>
+
+  interface "BaseFigure ABC" as BaseFigureABC <<real interface>>
+}
+
+package "Results Management (3-Level Storage)" {
+  component "DuckDB Index\n(metadata, sim_id, iterations)" as DuckDBIndex <<provider>>
+  component "Zarr Archives\n(spatial fields per sim_id)" as ZarrStore <<provider>>
+  component "Parquet Tables\n(timeseries per sim_id)" as ParquetStore <<provider>>
+  component "SimulationCatalog\n(unified facade)" as ResultsCatalog
+  component "Run\n(read handle)" as RunHandle
+  interface "ResultsCatalog Protocol" as ResultsCatalogProtocol <<real interface>>
+}
+
+package "Calibration Runtime" {
+  component "Calibration Dispatch" as CalibrationDispatch
+  component "Calibration Engine" as CalibrationEngine
+  component "Trial Runner" as TrialRunner
+  component "Optimizer" as CalibrationOptimizer
+
+  interface "Optimizer Protocol" as OptimizerProtocol <<real interface>>
+}
+
+package "Legacy/Annex" {
+  component "Legacy Annex" as LegacyAnnex <<aggregate>>
+}
+
+' ===== MAIN FLOW (Red) =====
+TomlConfig ..> WorkflowProviderProtocol
+CLIMain ..> WorkflowProviderProtocol
+APIFacade ..> WorkflowProviderProtocol
+
+TomlConfig -[#C2410C,thickness=2]-> ProjectFacade : provides config
+CLIMain -[#C2410C,thickness=2]-> ProjectFacade : load + dispatch
+APIFacade -[#C2410C,thickness=2]-> ProjectFacade : instantiate + run
+
+ProjectFacade -[#C2410C,thickness=2]-> SimulationPlanner : build plan
+SimulationPlanner -[#C2410C,thickness=2]-> SimulationPlan
+SimulationPlan -[#C2410C,thickness=2]-> Pipeline : logical schedule
+SimulationPlanner -[#C2410C,thickness=2]-> AdapterRegistry
+
+ProjectFacade -[#C2410C,thickness=2]-> DataLoadPlan : resolve input needs
+DataLoadPlan -[#C2410C,thickness=2]-> Managers
+Managers -[#C2410C,thickness=2]-> Sources
+Managers -[#C2410C,thickness=2]-> DuckDBCatalog
+DuckDBCatalog -[#C2410C,thickness=2]-> Managers : cached inputs
+Managers -[#C2410C,thickness=2]-> Pipeline : normalized runtime inputs
+
+ProjectFacade -[#C2410C,thickness=2]-> Pipeline : execute phases
+Pipeline -[#C2410C,thickness=2]-> SimulationRunner : dispatch ProcessRun
+SimulationRunner -[#C2410C,thickness=2]-> SolverProviderDI
+SolverProviderDI -[#C2410C,thickness=2]-> AdapterRegistry
+
+ProjectFacade -[#C2410C,thickness=2]-> ResultsCatalog : register run
+SimulationRunner -[#C2410C,thickness=2]-> ResultsCatalog : persist outputs
+ResultsCatalog -[#C2410C,thickness=2]-> RunHandle : reopen persisted result
+
+CalibrationDispatch -[#C2410C,thickness=2]-> CalibrationEngine : calibration
+CalibrationEngine -[#C2410C,thickness=2]-> CalibrationOptimizer : ask/tell
+CalibrationEngine -[#C2410C,thickness=2]-> TrialRunner : evaluate suggestions
+TrialRunner -[#C2410C,thickness=2]-> SimulationRunner : run_trial_light
+TrialRunner -[#C2410C,thickness=2]-> ResultsCatalog : record history
+
+HydroModPyConfig --> FlowConfig
+HydroModPyConfig --> TransportConfig
+HydroModPyConfig --> RechargeChronicleConfig
+FlowConfig --> Normalizers
+TransportConfig --> Normalizers
+RechargeChronicleConfig --> RechargeChronicleAdapter
+RechargeChronicleAdapter --> HydrologySyntheticForcing
+FlowConfig --> Flow
+TransportConfig --> Transport
+Flow --> ProcessSpatial : extends
+Transport --> ProcessSpatial : extends
+Flow --> FlowAdapterNwt
+Flow --> Mf6Helpers
+FlowAdapterNwt --> ModflowNwtWrapper
+Mf6Helpers --> Modflow6Wrapper
+
+' ===== SOLVER DISPATCH (Green) =====
+AdapterRegistry -[#0F766E,thickness=2]..> BoussinesqAdapter
+AdapterRegistry -[#0F766E,thickness=2]..> ModflowNwtAdapter
+AdapterRegistry -[#0F766E,thickness=2]..> Modflow6Adapter
+AdapterRegistry -[#0F766E,thickness=2]..> TransportAdapters
+
+BoussinesqAdapter --|> SolverAdapterProtocol
+ModflowNwtAdapter --|> SolverAdapterProtocol
+Modflow6Adapter --|> SolverAdapterProtocol
+TransportAdapters --|> SolverAdapterProtocol
+
+BoussinesqAdapter -[#0F766E,thickness=2]..> BoussinesqSolver
+ModflowNwtAdapter -[#0F766E,thickness=2]..> ModflowNwt
+Modflow6Adapter -[#0F766E,thickness=2]..> Modflow6
+
+' ===== RESULTS & POST-PROCESSING =====
+SimulationRunner -[#C2410C,thickness=2]-> DuckDBIndex : extract metadata
+SimulationRunner -[#C2410C,thickness=2]-> ZarrStore : store fields
+SimulationRunner -[#C2410C,thickness=2]-> ParquetStore : store timeseries
+DuckDBIndex -[#C2410C,thickness=1]-> ResultsCatalog : indexed
+ZarrStore -[#C2410C,thickness=1]-> ResultsCatalog
+ParquetStore -[#C2410C,thickness=1]-> ResultsCatalog
+ResultsCatalog -[#C2410C,thickness=1]-> RunHandle : reopen
+
+SimulationRunner -[#C2410C,thickness=2]-> PostprocessRunner : derive+export
+PostprocessRunner -[#C2410C,thickness=2]-> DisplayEngine : display
+
+' ===== PROTOCOLS & IMPLEMENTATIONS =====
+GeoContext --|> ProcessSpatialProtocol
+FlowPhysics --|> ProcessSpatialProtocol
+TransportPhysics --|> ProcessSpatialProtocol
+
+FieldCore --|> FieldABC
+MeshAdapters --|> FieldMeshABC
+MeshAdapters --|> MeshAdapterProtocol
+
+HydroModPyConfig --|> ConfigProtocol
+DuckDBCatalog --|> DataStoreProtocol
+DuckDBIndex --|> ResultsCatalogProtocol
+ZarrStore --|> ResultsCatalogProtocol
+ParquetStore --|> ResultsCatalogProtocol
+ResultsCatalog --|> ResultsCatalogProtocol
+CalibrationAdapters --|> OptimizerProtocol
+CalibrationOptimizer --|> OptimizerProtocol
+BoussinesqSolver --|> SolverABC
+ModflowNwt --|> SolverABC
+Modflow6 --|> SolverABC
+DisplayEngine --|> BaseFigureABC
+
+' ===== PORTS (LOLLIPOP & SOCKETS) =====
+' Provided Ports
+TomlLoader -() WorkflowProviderProtocol
+HydroModPyConfig -() WorkflowProviderProtocol
+GeoContext -() ProcessSpatialProtocol
+MeshAdapters -() MeshAdapterProtocol
+DuckDBCatalog -() DataStoreProtocol
+BoussinesqAdapter -() SolverAdapterProtocol
+ModflowNwtAdapter -() SolverAdapterProtocol
+Modflow6Adapter -() SolverAdapterProtocol
+
+' Required Ports
+CLIMain -( WorkflowProviderProtocol
+APIFacade -( WorkflowProviderProtocol
+ProjectFacade -( WorkflowProviderProtocol
+SimulationRunner -( SolverAdapterProtocol
+DataLoaders -( SourceConfigProtocol
+SpatialSupport -( ProcessSpatialProtocol
+PostprocessRunner -( BaseFigureABC
+
+' ===== NOTES =====
+note bottom of ProjectFacade
+  **Orchestrator Pattern**:
+  - Project -> SimulationPlanner -> Pipeline -> SimulationRunner
+  - matches the official TOML -> run component flow
+end note
+
+note bottom of SolverProviderDI
+  **Dependency Injection**:
+  Decouples simulation from
+  specific solver backends.
+end note
+
+note right of APIFacade
+  **Façade Pattern**:
+  Single entry point for
+  notebooks and scripts.
+end note
+
+@enduml

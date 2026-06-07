@@ -1,0 +1,11 @@
+base_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "synthetic_patchy_drainage_low_mf6_bouss_shared_case"
+description = "Legacy synthetic patchy 2D drainage-sensitivity case; drainage is currently disabled by zero conductance."
+
+[flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+description = "Disabled synthetic top drainage; retained only as an explicit zero-conductance placeholder."

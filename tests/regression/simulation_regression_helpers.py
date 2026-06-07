@@ -1,0 +1,293 @@
+"""Shared helpers for simulation_regression regression tests."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from tests.regression.golden_utils import (
+    REPO_ROOT,
+    _open_result_store,
+    _resolve_sim_id,
+    assert_required_executables,
+    collect_json_signatures,
+    collect_modflow_signatures,
+    collect_modpath_signatures,
+    collect_npz_signatures,
+    collect_store_field_signatures,
+    collect_store_json_signatures,
+    collect_store_modpath_signatures,
+    collect_store_npz_signatures,
+    resolve_model_workspace,
+    resolve_tiered_golden_file,
+    resolve_tiered_results_dir,
+    run_hmp_cli,
+    update_or_assert_goldens,
+)
+from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
+from validation_cases.shared.boussinesq_piecewise_strip import (
+    write_piecewise_strip_bundle,
+    write_piecewise_strip_launcher_config,
+)
+
+SIMULATION_REGRESSION_CONFIG_DIR = (
+    REPO_ROOT / "tests" / "regression" / "fixtures" / "projects" / "simulation_regression"
+)
+
+MODFLOW_OUTPUT_NAMES = [
+    "watertable_elevation",
+    "watertable_depth",
+    "seepage_areas",
+    "outflow_drain",
+    "accumulation_flux",
+]
+
+MODPATH_SNAPSHOT_FILES = [
+    "starting.dbf",
+    "ending.dbf",
+]
+
+TRANSPORT_OUTPUT_NAMES = [
+    "concentration_seepage",
+    "mass_seepage",
+]
+
+BOUSSINESQ_OUTPUT_NAMES = [
+    "watertable_elevation",
+    "watertable_depth",
+]
+
+BOUSSINESQ_SUMMARY_KEYS = [
+    "active_drainage",
+    "active_ocean",
+    "active_prescribed_head_bc",
+    "active_recharge",
+    "active_wells",
+    "converged_by_period",
+    "has_numerical_solution",
+    "model_name",
+    "n_cells",
+    "n_edges",
+    "n_nodes",
+    "nonlinear_iterations",
+    "period_lengths_seconds",
+    "runtime_backend",
+    "runtime_convergence_policy",
+    "runtime_iteration_counter",
+    "runtime_linear_system_layout",
+    "runtime_solver_kind",
+    "runtime_tol_residual_inf",
+    "runtime_tol_state_update_inf",
+    "solve_stage",
+    "steady_mode",
+    "steady_nonlinear_iterations",
+    "steady_residual_norm_inf",
+    "steady_termination_reason",
+]
+
+BOUSSINESQ_STATE_HISTORY_NAMES = [
+    "drainage_flux_m3_s",
+    "final_head_m",
+    "final_recharge_rate_m_s",
+    "final_saturated_thickness_m",
+    "final_saturation_excess_rate_m_s",
+    "final_well_flux_m3_s",
+    "head_history_m",
+    "boundary_edge_flux_m3_s",
+    "internal_edge_flux_m3_s",
+    "period_lengths_seconds",
+    "saturated_thickness_history_m",
+    "saturation_excess_history_m_s",
+]
+
+SHOM_TIDE_GAUGE_ID = "152"
+OCEANIC_DATA_DIR = REPO_ROOT / "examples" / "data" / "oceanic"
+OCEANIC_LOCAL_CSV = OCEANIC_DATA_DIR / "sealevel_shom_152_20030101_20030130_H.csv"
+
+
+def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
+    """Use the committed SHOM seed CSV; never reach the network."""
+    if not (csv_path.exists() and csv_path.stat().st_size > 0):
+        raise FileNotFoundError(
+            f"Committed oceanic SHOM seed CSV missing or empty: {csv_path}. "
+            "This regression helper requires the seed to be present on disk; "
+            "it never downloads from SHOM."
+        )
+
+    _ensure_custom_format_files(csv_path.parent, csv_path)
+
+
+def _ensure_custom_format_files(oceanic_dir: Path, source_csv: Path) -> None:
+    """Create oceanic_custom_LOC.csv and chronicle file from the SHOM seed."""
+    import shutil
+
+    loc_path = oceanic_dir / "oceanic_custom_LOC.csv"
+    if not loc_path.exists():
+        loc_path.write_text(f"id,x,y,crs,unit\n{SHOM_TIDE_GAUGE_ID},-4.4953,48.3816,EPSG:4326,m\n")
+
+    chronicle_path = oceanic_dir / f"oceanic_custom_{SHOM_TIDE_GAUGE_ID}_20030101_20030130_H.csv"
+    if not chronicle_path.exists():
+        shutil.copy2(source_csv, chronicle_path)
+
+
+def run_simulation_regression(
+    *,
+    test_file: str | Path,
+    config_name: str,
+    golden_filename: str,
+    run_name: str,
+    require_modflow: bool = True,
+    require_modflow6: bool = False,
+    require_modpath: bool = True,
+    require_mt3dms: bool = False,
+    transport_solver: str,
+    update_goldens: bool,
+    timeout: int = 3600,
+    extra_env: dict[str, str] | None = None,
+) -> None:
+    """Run one simulation_regression regression case and compare its signatures."""
+    assert_required_executables(
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
+        require_modpath=require_modpath,
+        require_mt3dms=require_mt3dms,
+    )
+    _ensure_local_oceanic_seed_csv(OCEANIC_LOCAL_CSV)
+
+    out_path = resolve_tiered_results_dir(
+        test_file=test_file,
+        run_name=run_name,
+    )
+    env: dict[str, str] = {}
+    if extra_env:
+        env.update(extra_env)
+
+    run_hmp_cli(
+        config_path=SIMULATION_REGRESSION_CONFIG_DIR / config_name,
+        out_path=out_path,
+        extra_env=env,
+        timeout=timeout,
+    )
+
+    # Read signatures from the ResultStore (DB-only pipeline).
+    store = _open_result_store(out_path)
+    try:
+        sim_id = _resolve_sim_id(store)
+        actual = {
+            "modflow_expected": collect_store_field_signatures(
+                store,
+                sim_id,
+                MODFLOW_OUTPUT_NAMES,
+            ),
+        }
+        if transport_solver == "mf6":
+            actual["transport_expected"] = collect_store_field_signatures(
+                store,
+                sim_id,
+                TRANSPORT_OUTPUT_NAMES,
+            )
+        elif transport_solver == "mt3dms":
+            actual["modpath_expected"] = collect_store_modpath_signatures(
+                store,
+                sim_id,
+            )
+            actual["mt3dms_expected"] = collect_store_field_signatures(
+                store,
+                sim_id,
+                TRANSPORT_OUTPUT_NAMES,
+            )
+        else:
+            raise ValueError(f"Unsupported transport_solver: {transport_solver}")
+    finally:
+        store.close()
+
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=resolve_tiered_golden_file(
+            test_file=test_file,
+            filename=golden_filename,
+        ),
+        update_goldens=update_goldens,
+    )
+
+
+def run_simulation_regression_boussinesq(
+    *,
+    test_file: str | Path,
+    golden_filename: str,
+    run_name: str,
+    update_goldens: bool,
+    timeout: int = 1800,
+    config_stem: str = "run_fast_boussinesq",
+    simulation_run_id: str = "simulation_regression_fast_boussinesq",
+    process_id: str = "flow_main",
+    simulation_name: str = "Simulation regression fast Boussinesq",
+    simulation_description: str = "Fast steady Boussinesq regression on a precomputed strip bundle",
+    initial_head_m: float = 6.0,
+    west_head_m: float | None = 5.0,
+    east_head_m: float | None = 5.0,
+    recharge_mm_day: float | None = 3.0,
+) -> None:
+    """Run one self-contained fast simulation regression for flow/boussinesq."""
+    out_path = resolve_tiered_results_dir(
+        test_file=test_file,
+        run_name=run_name,
+    )
+    bundle_dir = write_piecewise_strip_bundle(out_path / "mesh_bundle")
+    config_path = write_piecewise_strip_launcher_config(
+        out_path / f"{config_stem}.toml",
+        run_id=simulation_run_id,
+        process_id=process_id,
+        simulation_name=simulation_name,
+        simulation_description=simulation_description,
+        bundle_dir=bundle_dir,
+        initial_head_m=initial_head_m,
+        west_head_m=west_head_m,
+        east_head_m=east_head_m,
+        recharge_rate_m_s=(None if recharge_mm_day is None else mm_day_to_m_s(recharge_mm_day)),
+        runtime_backend="scipy_sparse",
+        surface_interaction_model="regularized_partition",
+        apply_runtime_defaults=False,
+    )
+
+    run_hmp_cli(
+        config_path=config_path,
+        out_path=out_path,
+        timeout=timeout,
+    )
+
+    # Resolve solver scratch for Boussinesq diagnostic files (.npz, .json).
+    model_ws, _, _ = resolve_model_workspace(
+        out_path,
+        results_folder_name="results_simulations",
+        model_name=f"{process_id}__boussinesq",
+    )
+
+    # Read field signatures from ResultStore, metadata from solver scratch files.
+    store = _open_result_store(out_path)
+    try:
+        sim_id = _resolve_sim_id(store)
+        actual = {
+            "modflow_expected": collect_store_field_signatures(
+                store,
+                sim_id,
+                BOUSSINESQ_OUTPUT_NAMES,
+            ),
+            "boussinesq_summary_expected": collect_store_json_signatures(
+                model_ws,
+                keys=BOUSSINESQ_SUMMARY_KEYS,
+            ),
+            "boussinesq_state_history_expected": collect_store_npz_signatures(
+                model_ws,
+                BOUSSINESQ_STATE_HISTORY_NAMES,
+            ),
+        }
+    finally:
+        store.close()
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=resolve_tiered_golden_file(
+            test_file=test_file,
+            filename=golden_filename,
+        ),
+        update_goldens=update_goldens,
+    )

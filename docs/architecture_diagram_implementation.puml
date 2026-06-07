@@ -1,0 +1,299 @@
+@startuml
+title HydroModPy - Implementation Component Architecture (vrais noms Python)
+left to right direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam dpi 140
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+skinparam titleFontSize 14
+skinparam legendFontSize 8
+skinparam packageFontSize 10
+skinparam componentFontSize 9
+skinparam interfaceFontSize 8
+skinparam noteFontSize 8
+
+skinparam package {
+  BackgroundColor #F9FAFB
+  BorderColor #94A3B8
+  FontColor #0F172A
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  FontColor #0F172A
+}
+skinparam interface {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  FontColor #0F172A
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #D4A72C
+  FontColor #111827
+}
+
+skinparam component<<entry>> {
+  BackgroundColor #FFE7B3
+  BorderColor #B45309
+  FontColor #7C2D12
+}
+skinparam component<<aggregate>> {
+  BackgroundColor #EEF2FF
+  BorderColor #6366F1
+}
+skinparam component<<facade>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+}
+skinparam interface<<protocol>> {
+  BackgroundColor #DCFCE7
+  BorderColor #16A34A
+}
+skinparam interface<<abc>> {
+  BackgroundColor #FCE7E7
+  BorderColor #DC2626
+}
+skinparam interface<<absent>> {
+  BackgroundColor #F1F5F9
+  BorderColor #94A3B8
+}
+
+legend right
+|= Type |= Meaning |
+| <<entry>> | Entrée CLI/API |
+| <<protocol>> | Protocol @runtime_checkable |
+| <<abc>> | ABC (Abstract Base Class) |
+| <<aggregate>> | Package/groupe |
+| <<facade>> | Façade/re-export |
+| <<absent>> | À implémenter |
+endlegend
+
+package "API Entry Points" <<facade>> {
+  component "hydromodpy.cli.main" as CLIMain <<entry>>
+  component "hydromodpy.__init__\n(run, calibrate)" as APIFacade <<entry>>
+  component "hydromodpy._api\n(run_api, calibrate_api)" as FunctionalAPI <<entry>>
+  component "hydromodpy.project" as ProjectFacade <<entry>>
+  component "hydromodpy.calibration_dispatch" as CalibrationDispatch <<entry>>
+}
+
+package "Configuration & Bootstrap" {
+  component "HydroModPyConfig\n(hydromodpy.config)" as ConfigClass <<facade>>
+  component "toml_io\n(hydromodpy.core.toml_io)" as TomlIO
+  component "Workspace\n(hydromodpy.core.workspace.workspace)" as WorkspaceClass
+  component "bootstrap\n(hydromodpy._bootstrap)" as Bootstrap
+
+  interface "HydroModPyConfig" as ConfigProtocol <<protocol>>
+  interface "Workspace" as WorkspaceInterface <<protocol>>
+}
+
+package "Workflow & Project" {
+  component "project_runner\n(hydromodpy.project_runner)" as ProjectRunner
+  component "project_catalog\n(hydromodpy.project_catalog)" as ProjectCatalog
+  component "project_phases\n(hydromodpy.project_phases)" as ProjectPhases
+  component "Orchestrator\n(hydromodpy.workflow.orchestrator)" as Orchestrator
+  component "dispatch\n(hydromodpy.workflow.dispatch)" as WorkflowDispatch
+  component "steps.*\n(hydromodpy.workflow.steps)" as WorkflowSteps <<aggregate>>
+  component "runner\n(hydromodpy.workflow.runner)" as WorkflowRunner
+
+  interface "Launcher\n(hydromodpy.workflow.launcher_protocol)" as LauncherProtocol <<protocol>>
+  interface "WorfklowPhases\n(concept)" as WorkflowProviderI <<absent>>
+}
+
+package "Spatial Domain & Mesh" {
+  component "geographic.*\n(hydromodpy.spatial.geographic)" as Geographic <<aggregate>>
+  component "domain.*\n(hydromodpy.spatial.domain)" as DomainSupport <<aggregate>>
+  component "field.core\n(hydromodpy.spatial.field.core)" as FieldCore <<aggregate>>
+  component "mesh.*\n(hydromodpy.spatial.mesh)" as MeshPackage <<aggregate>>
+  component "cartesian_grid\n(hydromodpy.spatial.mesh.cartesian_grid)" as CartesianGrid
+  component "adapters\n(hydromodpy.spatial.mesh.adapters)" as MeshAdapters <<aggregate>>
+
+  interface "GeologyDataSource\n(hydromodpy.spatial.protocols)" as GeoDataSourceProtocol <<protocol>>
+  interface "Grid\n(hydromodpy.spatial.mesh.protocol)" as GridProtocol <<protocol>>
+  interface "Grid\n(hydromodpy.spatial.mesh.protocol)" as FieldGridProtocol <<protocol>>
+}
+
+package "Data Layer" {
+  component "data_managers.*\n(hydromodpy.data.data_managers)" as DataManagers
+  component "registry\n(hydromodpy.data.registry)" as DataRegistry
+  component "adapters.*\n(hydromodpy.data.adapters)" as DataAdapters <<aggregate>>
+  component "store\n(hydromodpy.data.store)" as DataStore
+  component "catalog_duckdb\n(hydromodpy.data.registry)" as DuckDBCatalog
+
+  interface "SourceConfigProtocol\n(hydromodpy.data._base_manager)" as SourceConfigProtocol <<protocol>>
+  interface "SimulationStore\n(hydromodpy.results.catalog.protocol)" as SimStoreProtocol <<protocol>>
+}
+
+package "Simulation & Solvers" {
+  component "planning.*\n(hydromodpy.simulation.planning)" as SimulationPlanning
+  component "SimulationRunner\n(hydromodpy.simulation.execution.runner)" as SimulationRunner
+  component "registry\n(hydromodpy.solver.base.registry)" as SolverRegistry
+  component "*.adapters\n(hydromodpy.solver.*.adapters)" as SolverAdapters <<aggregate>>
+  component "Boussinesq, MODFLOW6" as SolverBackends <<aggregate>>
+
+  interface "SolverAdapter\n(hydromodpy.solver.base.protocol)" as SolverAdapterProtocol <<protocol>>
+  interface "SolverRegistryProvider\n(hydromodpy.core.contracts.solver_registry)" as SolverRegistryProtocol <<protocol>>
+}
+
+package "Calibration & Optimization" {
+  component "runner\n(hydromodpy.calibration.runner)" as CalibrationRunner
+  component "engine\n(hydromodpy.calibration.engine)" as CalibrationEngine
+  component "runners.trial\n(hydromodpy.calibration.runners.trial)" as CalibrationTrialRunner
+  component "optimizer\n(hydromodpy.calibration.optimizer)" as CalibrationOptimizerModule
+  component "adapters.*\n(hydromodpy.calibration.adapters)" as CalibrationAdapters <<aggregate>>
+
+  interface "Optimizer\n(hydromodpy.calibration.optimizer)" as CalibrationOptimizerProtocol <<protocol>>
+}
+
+package "Analysis & Display" {
+  component "comparison.*\n(hydromodpy.analysis.comparison)" as ComparisonHelpers
+  component "testbed\n(hydromodpy.workflow.testbed)" as Testbed
+  component "catalog\n(hydromodpy.analysis.catalog)" as AnalysisCatalog
+  component "display.*\n(hydromodpy.display)" as DisplayEngine <<aggregate>>
+  interface "Figure\n(hydromodpy.display.figure)" as FigureProtocol <<protocol>>
+  interface "BaseFigure\n(hydromodpy.display.figure)" as BaseFigureABC <<abc>>
+}
+
+package "Results Management" {
+  component "SimulationCatalog\n(hydromodpy.results.catalog)" as SimulationCatalog
+  component "storage_contract\n(hydromodpy.results.storage_contract)" as ResultsStorageContracts
+  component "importers, exporters\n(hydromodpy.results)" as ResultsIO <<aggregate>>
+
+  interface "SimulationStore\n(hydromodpy.results.catalog.protocol)" as ResultsStoreProtocol <<protocol>>
+}
+
+package "Legacy / Annex" {
+  component "hydromodpy_annex" as LegacyAnnex <<aggregate>>
+}
+
+' Main wiring
+CLIMain -[#C2410C,thickness=2]-> WorkflowDispatch : parses TOML
+APIFacade -[#C2410C,thickness=2]-> ProjectFacade : entry points
+FunctionalAPI -[#C2410C,thickness=2]-> WorkflowDispatch : api facade
+FunctionalAPI -[#C2410C,thickness=2]-> CalibrationDispatch : calibrate_api
+ProjectFacade -[#C2410C,thickness=2]-> ProjectPhases : build / mesh
+ProjectFacade -[#C2410C,thickness=2]-> ProjectRunner : run / calibrate
+ProjectFacade -[#C2410C,thickness=2]-> CalibrationDispatch : calibrate facade
+ProjectRunner -[#C2410C,thickness=2]-> Orchestrator : prepare / execute
+WorkflowDispatch -[#C2410C,thickness=2]-> Orchestrator : workflow
+Orchestrator -[#C2410C,thickness=2]-> WorkflowSteps : orchestrate
+CalibrationDispatch -[#C2410C,thickness=2]-> CalibrationRunner : dispatch calibration
+CalibrationRunner -[#C2410C,thickness=2]-> CalibrationEngine : ask/tell loop
+CalibrationRunner -[#C2410C,thickness=2]-> CalibrationTrialRunner : evaluate trials
+CalibrationRunner -[#C2410C,thickness=2]-> SimulationRunner : lightweight/full execution
+CalibrationRunner -[#C2410C,thickness=2]-> SimulationCatalog : promotion / history
+
+ConfigClass -[#C2410C,thickness=2]-> TomlIO : load / validate
+TomlIO -[#C2410C,thickness=2]-> WorkspaceClass : resolve paths
+WorkspaceClass -[#C2410C,thickness=2]-> Bootstrap : wire
+
+Orchestrator -[#C2410C,thickness=2]-> DataManagers : 1) data
+DataManagers -[#C2410C,thickness=2]-> DataRegistry : lookup
+DataRegistry -[#C2410C,thickness=2]-> DataAdapters : mapping
+DataAdapters -[#C2410C,thickness=2]-> DataStore : persist
+DataStore -[#C2410C,thickness=2]-> SimulationCatalog : write
+
+Orchestrator -[#C2410C,thickness=2]-> Geographic : 2) geographic
+Orchestrator -[#C2410C,thickness=2]-> MeshPackage : 3) mesh
+MeshPackage -[#C2410C,thickness=2]-> CartesianGrid : construct
+CartesianGrid -[#C2410C,thickness=2]-> MeshAdapters : adapt
+
+Orchestrator -[#C2410C,thickness=2]-> SimulationPlanning : 4) plan
+SimulationPlanning -[#C2410C,thickness=2]-> SolverRegistry : resolve
+Orchestrator -[#C2410C,thickness=2]-> SimulationRunner : 5) execute
+SimulationRunner -[#C2410C,thickness=2]-> SolverRegistryProtocol : get provider
+SimulationRunner -[#C2410C,thickness=2]-> SimulationCatalog : ingest
+
+SolverRegistry -[#0F766E,thickness=2]..> SolverAdapters : resolves
+SolverAdapters -[#0F766E,thickness=2]..> SolverBackends : execute
+SolverAdapters --|> SolverAdapterProtocol
+SolverRegistryProtocol --|> SolverAdapterProtocol
+
+CalibrationEngine -[#C2410C,thickness=2]-> CalibrationOptimizerProtocol : ask/tell
+CalibrationEngine -[#C2410C,thickness=2]-> CalibrationOptimizerModule : loads optimizer contract
+CalibrationAdapters --|> CalibrationOptimizerProtocol
+CalibrationTrialRunner -[#C2410C,thickness=2]-> SimulationRunner : run_trial_light
+CalibrationTrialRunner -[#C2410C,thickness=2]-> SimulationCatalog : promote_prepared_trial
+
+SimulationRunner -[#C2410C,thickness=2]-> ResultsIO : 6) export
+ResultsIO -[#C2410C,thickness=2]-> SimulationCatalog : persist
+SimulationCatalog --|> ResultsStoreProtocol
+SimulationCatalog -[#C2410C,thickness=2]-> DisplayEngine : display
+
+ConfigClass --|> ConfigProtocol
+WorkspaceClass --|> WorkspaceInterface
+Geographic --|> GeoDataSourceProtocol
+CartesianGrid --|> GridProtocol
+MeshAdapters --|> FieldGridProtocol
+DisplayEngine --|> BaseFigureABC
+
+note bottom of Orchestrator
+  Central workflow coordinator
+  Tous les 6 étapes : data, geographic,
+  mesh, planning, execution, export
+end note
+
+note bottom of SimulationRunner
+  @runtime_checkable Launcher Protocol
+  Walke les runs sequentiellement
+  Stocke outputs dans execution.models
+end note
+
+note bottom of SimulationCatalog
+  Façade DuckDB (tabular) + Zarr (fields)
+  Implémente SimulationStore Protocol
+end note
+
+note bottom of CalibrationRunner
+  Orchestrateur calibration.
+  Conduit le flux ask/tell et la promotion optionnelle.
+end note
+
+note bottom of CalibrationEngine
+  Moteur calibration.
+  Délègue aux optimiseurs et évalue les trials.
+end note
+
+note right
+  **DESIGN PATTERNS**
+
+  1) Facade: CLI, __init__, _api, project
+  2) Orchestrator: workflow, simulation, calibration
+  3) Pipeline: standard steps and trial steps
+  4) Registry: data, solver and calibration optimizers
+  5) Adapter: solver backends and calibration adapters
+  6) Ports & Adapters: runtime-checkable contracts
+  7) Strategy: solver/optimizer choice per run
+end note
+
+note right
+  📋 LÉGENDE IMPLÉMENTATION:
+
+  ✅ Classes/Protocoles réels:
+  • HydroModPyConfig (Pydantic model)
+  • Workspace (class)
+  • Launcher (Protocol @runtime_checkable)
+  • GeologyDataSource (Protocol)
+  • Grid (Protocol)
+  • SourceConfigProtocol (Protocol)
+  • SimulationStore (Protocol)
+  • SolverAdapter (Protocol @runtime_checkable)
+  • SolverRegistryProvider (Protocol)
+  • Figure (Protocol @runtime_checkable)
+  • BaseFigure (ABC)
+  • SimulationRunner (class)
+  • SimulationCatalog (class)
+
+  ✅ Calibration:
+  • Optimizer (Protocol @runtime_checkable)
+  • ProjectTrialPromotionProvider (concrete class)
+  • TrialPipelineProvider (Protocol)
+
+  📄 Source complète:
+  https://github.com/hydromodpy/hydromodpy
+  Tous les chemins sont exacts et vérifiés.
+end note
+
+@enduml

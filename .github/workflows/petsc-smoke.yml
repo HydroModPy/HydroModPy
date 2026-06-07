@@ -1,0 +1,102 @@
+# PETSc smoke tests for the Boussinesq backend.
+# PETSc and petsc4py are only available via conda-forge, so this workflow
+# lives separately from the pip-based CI. It runs on paths that touch the
+# Boussinesq solver and once a week on Monday morning.
+
+name: Solver / PETSc Smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/petsc-smoke.yml"
+      - "hydromodpy/solver/boussinesq/**"
+      - "hydromodpy/simulation/adapters/flow/boussinesq.py"
+      - "hydromodpy/process/flow/**"
+      - "tests/unit/solver/test_boussinesq_*.py"
+      - "tests/unit/simulation/test_boussinesq_flow_adapter.py"
+      - "tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py"
+      - "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_*.py"
+      - "tests/validation/numerical/transient/test_boussinesq_*petsc*.py"
+      - "validation_cases/shared/**"
+      - "tools/ci/run_boussinesq_petsc_smoke.sh"
+  push:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/petsc-smoke.yml"
+      - "hydromodpy/solver/boussinesq/**"
+      - "hydromodpy/simulation/adapters/flow/boussinesq.py"
+      - "hydromodpy/process/flow/**"
+      - "tests/unit/solver/test_boussinesq_*.py"
+      - "tests/unit/simulation/test_boussinesq_flow_adapter.py"
+      - "tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py"
+      - "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_*.py"
+      - "tests/validation/numerical/transient/test_boussinesq_*petsc*.py"
+      - "validation_cases/shared/**"
+      - "tools/ci/run_boussinesq_petsc_smoke.sh"
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+
+jobs:
+  petsc-smoke:
+    name: Solver / PETSc smoke Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Miniforge
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: hydromodpy-petsc
+          auto-activate-base: false
+          channels: conda-forge
+          channel-priority: strict
+          python-version: "3.12"
+
+      # Install binary-heavy packages from conda-forge (PETSc, MPI, gmsh,
+      # gdal-backed stack) and then let pip pull the remaining pure-Python
+      # deps from pyproject.toml.
+      - name: Install PETSc test environment
+        shell: bash -el {0}
+        run: |
+          conda install -y \
+            python=3.12 \
+            pip \
+            petsc \
+            petsc4py \
+            mpi4py \
+            gmsh \
+            flopy \
+            geopandas \
+            rasterio \
+            rioxarray \
+            pyproj \
+            shapely \
+            h5py \
+            netcdf4 \
+            numpy \
+            scipy \
+            pandas \
+            xarray \
+            matplotlib \
+            pytest \
+            pytest-xdist \
+            pytest-timeout
+          python -m pip install -e ".[test]"
+
+      - name: Run PETSc smoke tests
+        shell: bash -el {0}
+        run: bash tools/ci/run_boussinesq_petsc_smoke.sh

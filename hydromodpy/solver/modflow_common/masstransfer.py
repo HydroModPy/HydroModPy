@@ -1,0 +1,185 @@
+"""
+* Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
+*
+* This program and the accompanying materials are made available under the
+* terms of the Eclipse Public License 2.0 which is available at
+* http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+* which is available at https://www.apache.org/licenses/LICENSE-2.0.
+*
+* SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+"""
+
+from __future__ import annotations
+
+# %% LIBRAIRIES
+# Python
+import os
+from typing import TYPE_CHECKING
+
+import rasterio
+
+from hydromodpy.core.io.filesystem import create_folder
+from hydromodpy.core.io.raster_io import export_tif
+
+# HydroModPy
+from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+
+logger = get_logger(__name__)
+
+
+# %% CLASS
+
+
+class Masstransfer:
+    """Route groundwater outflow mass on DEM-derived surface flow paths.
+
+    The class converts a raw outflow raster to point sources, traces downslope
+    paths with the watershed D8 direction raster, and accumulates routed mass
+    with Whitebox mass-flux tools. It is used by MODFLOW post-processing to map
+    drainage or concentration outflows onto surface supports.
+    """
+
+    def __init__(
+        self,
+        geographic: object,
+        raw_rast_name: str,
+        trace_shp_name: str,
+        mass_rast_name: str,
+        extraction_folder: str | None = None,
+        label: str = "conc",
+        routing_fill_path: str | None = None,
+        routing_direc_path: str | None = None,
+        backend: WhiteboxWorkflowsBackend | None = None,
+    ):
+        """
+        Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        raw_rast_name : str
+            Name of the inital raster dicharge outflow simulated, e.g. 'outflow_drain.tif.
+        trace_shp_name : str
+            Name of the shapefile points generated from raw_rast_name.
+        mass_rast_name : str
+            Name of the generated flow accumulated raster.
+        extraction_folder : str, optional
+            Path of the model simulation results. The default is None.
+        label : str, optional
+            Optional tag injected into intermediate filenames to distinguish
+            runs (default keeps historical '_conc' suffixes).
+        """
+        from hydromodpy.spatial.delineation import get_whitebox_backend
+
+        self.geographic = geographic
+        self.extraction_folder = extraction_folder
+        self._backend = get_whitebox_backend() if backend is None else backend
+        label_suffix = f"_{label}" if label else ""
+
+        self.watershed_direc_surflow = routing_direc_path or getattr(
+            geographic,
+            "watershed_direc",
+            None,
+        )
+        self.watershed_buff_fill_surflow = routing_fill_path or getattr(
+            geographic,
+            "watershed_buff_fill",
+            None,
+        )
+
+        if routing_direc_path is None:
+            try:
+                self.watershed_direc_surflow = geographic.watershed_box_buff_direc
+            except Exception:
+                pass
+        if routing_fill_path is None:
+            try:
+                self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill
+            except Exception:
+                pass
+
+        if self.watershed_direc_surflow is None or self.watershed_buff_fill_surflow is None:
+            raise ValueError(
+                "Masstransfer requires routing_fill_path and routing_direc_path, "
+                "or equivalent routing rasters on the geographic object."
+            )
+
+        self.shp_folder = os.path.join(self.extraction_folder, "_temporary")
+        create_folder(self.shp_folder)
+
+        self.tifs_folder = os.path.join(self.extraction_folder, "_rasters")
+        create_folder(self.tifs_folder)
+
+        self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
+
+        self.raw_pt_path = os.path.join(self.shp_folder, f"_rawpt{label_suffix}_t(xxx).shp")
+        self.out_rast_path = os.path.join(self.shp_folder, f"_trace{label_suffix}_t(xxx).tif")
+        self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)
+
+        self.load_rast_path = os.path.join(self.shp_folder, f"_load{label_suffix}_t(xxx).tif")
+        self.eff_rast_path = os.path.join(self.shp_folder, f"_eff{label_suffix}_t(xxx).tif")
+        self.abs_rast_path = os.path.join(self.shp_folder, f"_abs{label_suffix}_t(xxx).tif")
+        self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
+
+        # self.trace_downslope()
+        # self.trace_cumulated()
+
+    # %% MASS FLUX FROM OUTFLOW
+
+    def trace_cumulated(self):
+        """Accumulate outflow mass along the DEM-derived routing raster."""
+        ### Loading ###
+        with rasterio.open(self.raw_rast_path) as src:
+            im = src.read(1)
+        im[im < 0] = 0
+        export_tif(self.watershed_buff_fill_surflow, im, self.load_rast_path, -99999)
+        ### Efficiency ###
+        with rasterio.open(self.watershed_buff_fill_surflow) as src:
+            im = src.read(1)
+        im[im >= 0] = 1
+        export_tif(self.watershed_buff_fill_surflow, im, self.eff_rast_path, -99999)
+        ### Adsorption ###
+        with rasterio.open(self.watershed_buff_fill_surflow) as src:
+            im = src.read(1)
+        im[im >= 0] = 0
+        export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
+        ### d8massflux ###
+        self._backend.flow.d8_mass_flux(
+            self.watershed_buff_fill_surflow,
+            self.load_rast_path,
+            self.eff_rast_path,
+            self.abs_rast_path,
+            self.mass_rast_path,
+        )
+
+    # %% TRACE DOWNSLOPE FLOWPATHS
+
+    def trace_downslope(self):
+        """Trace downslope flow paths from the raw outflow raster points."""
+        # Sim to points
+        self._backend.delineation.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
+        logger.info(
+            "raster_to_vector_points: created %s from %s", self.raw_pt_path, self.raw_rast_path
+        )
+
+        # Trace downslope sim
+        self._backend.flow.trace_downslope_flowpaths(
+            self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path
+        )
+        logger.info("trace_downslope_flowpaths: traced flowpaths to %s", self.out_rast_path)
+
+        # Simflow to points
+        self._backend.delineation.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
+        logger.info(
+            "raster_to_vector_points: created %s from %s", self.out_pt_path, self.out_rast_path
+        )
+
+        logger.debug(
+            "Optional extras (add_point_coordinates_to_table, "
+            "extract_raster_values_at_points) are available but disabled."
+        )
+
+
+# %% NOTES

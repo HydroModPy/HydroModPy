@@ -1,0 +1,119 @@
+# =============================================================================
+# Exemple 2 : Donnees API Hub'Eau (telechargement automatique)
+# =============================================================================
+#
+# Le manager telecharge les donnees depuis l'API Hub'Eau
+# (https://hubeau.eaufrance.fr).
+#
+# La selection des stations se fait par :
+#   - station_ids : liste explicite de codes stations
+#   - extent = "watershed" : utilise le bbox du projet (project_extent)
+#   - mask_path : utilise un masque spatial (SHP/GPKG/GeoJSON/TIF)
+#
+# Le project_period est obligatoire pour les sources API.
+#
+# Utilisation Python :
+#
+#   from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+#   from hydromodpy.data.store import DataStore
+#
+#   cfg = HydrometryConfig.from_toml("data_managers_api.toml")
+#   store = DataStore(
+#       data_dir="./cache",
+#       project_period=(datetime(2018, 1, 1), datetime(2023, 12, 31)),
+#       project_extent=(-1.9, 47.8, -1.3, 48.4),  # bbox Vilaine
+#   )
+#   records = store.load_hydrometry(cfg)
+#
+# =============================================================================
+
+
+# --- Hydrometry : debits journaliers depuis Hub'Eau ---
+[hydrometry]
+
+# Source 1 : stations dans le bbox du projet
+[[hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"                       # Debit moyen journalier
+extent = "watershed"                   # utilise project_extent comme bbox
+require_observations = true            # exclure les stations sans donnees
+fallback_search_radius_km = 30.0       # si aucune station, elargir de 30 km
+
+# Source 2 : stations specifiques (en complement)
+# [[hydrometry.sources]]
+# source = "hubeau"
+# product = "QmnJ"
+# station_ids = ["J3621010", "J3611010", "J3401020"]
+
+# Source 3 : avec un masque spatial
+# [[hydrometry.sources]]
+# source = "hubeau"
+# product = "QmnJ"
+# mask_path = "data/bassin_vilaine.shp"
+
+# Produits Hub'Eau hydrometry disponibles :
+#   QmnJ  = debit moyen journalier (L/s -> converti en m3/s)
+#   QmM   = debit moyen mensuel
+#   HmnJ  = hauteur minimale journaliere
+#   QINM  = debit instantane minimal mensuel
+#   QINnJ = debit instantane minimal journalier
+#   QixM  = debit instantane maximal mensuel
+#   QIXnJ = debit instantane maximal journalier
+#   HIXM  = hauteur maximale mensuelle
+#   HIXnJ = hauteur maximale journaliere
+
+
+# --- Piezometry : niveaux piezometriques depuis Hub'Eau ---
+[piezometry]
+
+# Piezometres dans le bbox du projet
+[[piezometry.sources]]
+source = "hubeau"
+product = "level"                      # "level" (cote NGF) ou "depth" (profondeur)
+extent = "watershed"
+require_observations = true
+fallback_search_radius_km = 50.0       # recherche elargie si rien dans le bbox
+nearest = true                         # inclure le plus proche meme si hors bbox
+
+# Piezometres specifiques par code BSS
+# [[piezometry.sources]]
+# source = "hubeau"
+# product = "level"
+# station_ids = ["03625X0053/PZ", "03631X0011/S1"]
+
+
+# --- Water quality : qualite des eaux depuis Hub'Eau ---
+[water_quality]
+
+# Qualite des rivieres dans le bbox
+[[water_quality.sources]]
+source = "hubeau"
+site_type = "river"                    # "river" ou "piezometer"
+extent = "watershed"
+parameters = ["pH", "Nitrates", "Phosphore total"]  # filtrer les parametres
+
+# Qualite des nappes (piezometres)
+# [[water_quality.sources]]
+# source = "hubeau"
+# site_type = "piezometer"
+# station_ids = ["03625X0053/PZ"]
+# parameters = ["Nitrates"]
+
+
+# =============================================================================
+# Combinaison custom + API dans un meme fichier
+# =============================================================================
+#
+# On peut mixer custom et API pour la meme variable :
+#
+# [[hydrometry.sources]]
+# source = "custom"
+# path = "data/hydro"
+#
+# [[hydrometry.sources]]
+# source = "hubeau"
+# product = "QmnJ"
+# extent = "watershed"
+#
+# Les records des deux sources sont fusionnes dans la meme liste.
+# =============================================================================

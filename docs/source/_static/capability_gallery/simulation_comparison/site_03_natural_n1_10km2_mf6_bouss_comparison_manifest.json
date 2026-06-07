@@ -1,0 +1,385 @@
+{
+  "schema_version": "simulation_comparison_manifest_v1",
+  "comparison_id": "site_03_natural_n1_10km2_mf6_bouss",
+  "base_simulation_overlay": {
+    "geographic": {
+      "snap_dist": "150.0 m",
+      "buff_area": "900.0 m",
+      "x_outlet": 153077.0,
+      "y_outlet": 6832394.3,
+      "river_network": {
+        "threshold_area_km2": 0.2
+      }
+    },
+    "mesh_catchment": {
+      "zone_meshing": {
+        "global_size": 130.0,
+        "min_size": 45.0,
+        "interface_size": 70.0
+      }
+    },
+    "flow": {
+      "runtime_tol_residual_inf": 1e-06,
+      "runtime_tol_state_update_inf": 1e-06
+    },
+    "simulation": {
+      "name": "site_03_natural_10km2_shared_case",
+      "description": "Regional-lab N1 natural 10 km2 MF6/Boussinesq comparison case."
+    }
+  },
+  "reference_simulation": "mf6_ref",
+  "audit_status": "pass",
+  "comparison_figures": [
+    {
+      "kind": "case_configuration",
+      "observable": "case_configuration"
+    },
+    {
+      "kind": "fine_raster_map_comparison",
+      "observable": "head_map_wet_year1"
+    },
+    {
+      "kind": "storage_comparison_dashboard",
+      "observable": "storage_change_total_m3_s"
+    },
+    {
+      "kind": "total_inputs_outputs_dashboard",
+      "observable": "total_inputs_outputs_m3_s"
+    },
+    {
+      "kind": "simulated_active_network_figure",
+      "simulation_id": "mf6_ref",
+      "figure_name": "simulated_active_network"
+    },
+    {
+      "kind": "simulated_active_network_figure",
+      "simulation_id": "mf6_ref",
+      "figure_name": "simulated_active_network_reference_overlay"
+    },
+    {
+      "kind": "simulated_active_network_figures_skipped_json",
+      "note": "1 simulation(s) skipped for simulated-active network figure export."
+    }
+  ],
+  "comparison_data_artifacts": [
+    {
+      "kind": "comparison_audit_json"
+    },
+    {
+      "kind": "comparison_audit_md"
+    },
+    {
+      "kind": "hydrographic_network_metrics_csv"
+    },
+    {
+      "kind": "simulated_active_network_metrics_skipped_json",
+      "note": "1 simulation(s) skipped for simulated-active network metrics export."
+    },
+    {
+      "kind": "simulated_active_network_metrics_csv"
+    },
+    {
+      "kind": "simulated_active_network_overlap_metrics_skipped_json",
+      "note": "1 simulation(s) skipped for simulated-active network overlap metrics export."
+    },
+    {
+      "kind": "simulated_active_network_overlap_metrics_csv"
+    },
+    {
+      "kind": "simulated_active_network_distance_metrics_skipped_json",
+      "note": "1 simulation(s) skipped for simulated-active network distance metrics export."
+    },
+    {
+      "kind": "simulated_active_network_distance_metrics_csv"
+    },
+    {
+      "kind": "release_flux_network_overlap_metrics_csv"
+    },
+    {
+      "kind": "release_flux_network_distance_metrics_csv"
+    },
+    {
+      "kind": "budget_timeseries_long_csv"
+    },
+    {
+      "kind": "budget_timeseries_wide_csv"
+    },
+    {
+      "kind": "numerical_closure_by_period_csv"
+    },
+    {
+      "kind": "numerical_closure_summary_csv"
+    },
+    {
+      "kind": "numerical_closure_summary_json"
+    },
+    {
+      "kind": "boussinesq_obstacle_diagnostics_csv"
+    },
+    {
+      "kind": "ts_vi_obstacle_runtime_summary",
+      "simulation_id": "bouss_candidate",
+      "summary": {
+        "schema_version": "boussinesq_ts_vi_obstacle_runtime_diagnostics_v1",
+        "runtime_backend": "petsc",
+        "runtime_engine": "petsc",
+        "runtime_engine_id": "petsc_ts_vi_obstacle",
+        "runtime_engine_id_expected": "petsc_ts_vi_obstacle",
+        "surface_interaction_model": "ts_vi_obstacle",
+        "ts_type": "beuler",
+        "ts_adapt_type": "none",
+        "ts_vi_steps_per_period": 4,
+        "ts_vi_adapt": false,
+        "snes_type": "vinewtonrsls",
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "factor_shift_type": "nonzero",
+        "factor_shift_amount": 1e-10,
+        "petsc_options": null,
+        "total_periods": 24,
+        "all_periods_converged": true,
+        "converged_periods": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "failed_periods": [],
+        "total_ts_steps": 96,
+        "total_snes_iterations": 280,
+        "max_snes_iterations_per_ts_step": 8,
+        "total_ksp_iterations": 280,
+        "max_ksp_iterations_per_ts_step": 8,
+        "max_upper_violation": 0.0,
+        "max_lower_violation": 0.0,
+        "max_active_top_count": 1399,
+        "max_active_bottom_count": 0,
+        "final_active_top_count": 1122,
+        "final_active_bottom_count": 0,
+        "final_free_count": 912,
+        "period_diagnostic_count": 24,
+        "step_diagnostic_count": 96
+      }
+    },
+    {
+      "kind": "ts_vi_obstacle_period_diagnostics",
+      "simulation_id": "bouss_candidate",
+      "summary": {}
+    },
+    {
+      "kind": "ts_vi_obstacle_step_diagnostics",
+      "simulation_id": "bouss_candidate",
+      "summary": {}
+    },
+    {
+      "kind": "execution_times_csv"
+    },
+    {
+      "kind": "comparison_web_report_html"
+    }
+  ],
+  "boussinesq_vi_obstacle_diagnostics": {},
+  "boussinesq_ts_vi_obstacle_diagnostics": {
+    "bouss_candidate": {}
+  },
+  "n_observable_rows": 16272,
+  "n_metric_rows": 4,
+  "n_difference_rows": 8135,
+  "wall_time_seconds": 573.72,
+  "generated_configs_kept": true,
+  "simulations": [
+    {
+      "id": "mf6_ref",
+      "label": "MODFLOW 6 reference",
+      "status": "completed",
+      "enabled": true,
+      "solver": "modflow6",
+      "mesh_label": "generated_geology_river_catchment_mesh",
+      "mesh_mode": "mesh_catchment",
+      "run_name": "site_03_natural_n1_10km2_mf6_bouss__mf6_ref",
+      "wall_time_seconds": 295.6,
+      "solvers": [
+        "modflow6"
+      ],
+      "flow_solve_time_seconds": 73.9031895030057,
+      "n_cells": 2034,
+      "n_timesteps": 24,
+      "metrics": {
+        "flow_solve_time_seconds": 73.9031895030057,
+        "wall_time_seconds": 75.83375403599348,
+        "solvers": [
+          "modflow6"
+        ]
+      },
+      "sim_id": "8499ad9d-8d27-4c6a-a49c-a5e481724746",
+      "returncode": 0,
+      "n_observable_rows": 8136
+    },
+    {
+      "id": "bouss_candidate",
+      "label": "Boussinesq PETSc TS/SNESVI candidate",
+      "status": "completed",
+      "enabled": true,
+      "solver": "boussinesq",
+      "mesh_label": "generated_geology_river_catchment_mesh",
+      "mesh_mode": "mesh_catchment",
+      "run_name": "site_03_natural_n1_10km2_mf6_bouss__bouss_candidate",
+      "wall_time_seconds": 231.17,
+      "solvers": [
+        "boussinesq"
+      ],
+      "flow_solve_time_seconds": 10.471896615985315,
+      "n_cells": 2034,
+      "n_timesteps": 24,
+      "metrics": {
+        "flow_solve_time_seconds": 10.471896615985315,
+        "wall_time_seconds": 12.117877840995789,
+        "solvers": [
+          "boussinesq"
+        ]
+      },
+      "sim_id": "30862bea-9d79-486f-8b53-5153a92a3297",
+      "returncode": 0,
+      "n_observable_rows": 8136
+    }
+  ],
+  "observables": [
+    {
+      "name": "head_map_first_computed",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "first_computed",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_map_wet_year1",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": 5,
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_map_dry_late",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": 22,
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_map_last",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "simulations": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "last",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    }
+  ],
+  "numerical_closure": {
+    "schema_version": "numerical_closure_manifest_v1",
+    "diagnostic": "OK",
+    "diagnostic_code": 0.0,
+    "max_abs_closure_m3_s": 1.0242112253101994e-06,
+    "max_abs_closure_mm_d": 5.749957754759211e-06,
+    "relative_closure_error_p95": 3.1987772722381297e-06,
+    "rows": [
+      {
+        "simulation_id": "bouss_candidate",
+        "simulation_label": "Boussinesq PETSc TS/SNESVI candidate",
+        "solver": "boussinesq",
+        "n_periods": 24,
+        "area_m2": 15390000.00366211,
+        "max_abs_closure_m3_s": 1.0242112253101994e-06,
+        "mean_abs_closure_m3_s": 1.0689818016584663e-07,
+        "rmse_closure_m3_s": 2.6775045777710515e-07,
+        "max_abs_closure_mm_d": 5.749957754759211e-06,
+        "relative_closure_error_p95": 3.1987772722381297e-06,
+        "diagnostic": "OK"
+      },
+      {
+        "simulation_id": "mf6_ref",
+        "simulation_label": "MODFLOW 6 reference",
+        "solver": "modflow6",
+        "n_periods": 24,
+        "area_m2": 15390000.00366211,
+        "max_abs_closure_m3_s": 1.0879716397238504e-07,
+        "mean_abs_closure_m3_s": 2.0083792013704953e-08,
+        "rmse_closure_m3_s": 3.3357180777345426e-08,
+        "max_abs_closure_mm_d": 6.107910958399794e-07,
+        "relative_closure_error_p95": 1.06298008367591e-07,
+        "diagnostic": "OK"
+      }
+    ]
+  },
+  "closure_max_abs_m3_s": 1.0242112253101994e-06,
+  "closure_max_abs_mm_d": 5.749957754759211e-06,
+  "closure_relative_error_p95": 3.1987772722381297e-06,
+  "closure_status": "OK",
+  "closure_status_code": 0.0
+}

@@ -1,0 +1,125 @@
+/* HydroModPy: difficulty / time / tag badges on tutorial and gallery pages.
+   The Stoplight Elements explorer container also lives here so the page has
+   a sensible default height even before the bundle finishes loading. */
+
+.hmp-schema-explorer {
+    min-height: 70vh;
+    border: 1px solid var(--pst-color-border, #d1d5db);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.hmp-page-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.25rem 0 1.25rem 0;
+}
+
+.hmp-page-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.hmp-page-badge-difficulty {
+    color: #ffffff;
+}
+
+.hmp-page-badge-difficulty-beginner {
+    background: #15803d;
+}
+
+.hmp-page-badge-difficulty-intermediate {
+    background: #d97706;
+}
+
+.hmp-page-badge-difficulty-advanced {
+    background: #b91c1c;
+}
+
+.hmp-page-badge-time {
+    background: var(--pst-color-on-surface, #e5e7eb);
+    color: var(--pst-color-text-base, #111827);
+}
+
+.hmp-page-badge-time::before {
+    content: "⏱  ";
+    margin-right: 0.15rem;
+    font-size: 0.78rem;
+    opacity: 0.85;
+}
+
+.hmp-page-badge-tag {
+    background: var(--pst-color-surface, #f3f4f6);
+    color: var(--pst-color-text-muted, #4b5563);
+    border-color: var(--pst-color-border, #d1d5db);
+}
+
+.hmp-refresh-status-inline {
+    margin: 0.35rem 0 1rem 0;
+}
+
+.hmp-refresh-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.hmp-refresh-status-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: currentColor;
+}
+
+.hmp-refresh-status-success {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.hmp-refresh-status-failed {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+.hmp-refresh-status-unknown {
+    background: var(--pst-color-surface, #f3f4f6);
+    border-color: var(--pst-color-border, #d1d5db);
+    color: var(--pst-color-text-muted, #4b5563);
+}
+
+.hmp-refresh-status-table {
+    width: 100%;
+    margin: 1rem 0 1.5rem 0;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.hmp-refresh-status-table th,
+.hmp-refresh-status-table td {
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--pst-color-border, #d1d5db);
+    vertical-align: top;
+}
+
+.hmp-refresh-status-table th {
+    background: var(--pst-color-surface, #f3f4f6);
+    font-weight: 700;
+}

@@ -1,0 +1,75 @@
+@startuml
+title Calibration2 Reservoir Case - Sequence (Case Implementation + Orchestrator)
+
+actor User
+participant "run_calibration.py" as Runner
+participant "core.case_orchestrator" as CaseOrchestrator
+participant "engine_config" as EngineConfig
+participant "case_implementation.py" as CaseImplementation
+participant "workflow.py" as Workflow
+participant "synthetic_data.py" as Synthetic
+participant "case_config.py" as CaseConfig
+participant "MODEL_REGISTRY\n(one_reservoir / two_reservoirs)" as Registry
+participant "CalibrationEngine" as Engine
+participant "CalibrationMethod" as Dispatcher
+participant "Selected method\n(simplex, gp_mapping, da_mh_gp, ...)" as MethodImpl
+participant "CalibrationResults" as Results
+participant "plotting.py" as Plotting
+
+User -> Runner: run script
+Runner -> CaseOrchestrator: run_calibration_case_from_toml(config, CASE_IMPLEMENTATION)
+CaseOrchestrator -> EngineConfig: load_calibration_toml(config_calibration_two_reservoir.toml)
+EngineConfig --> CaseOrchestrator: validated configuration
+
+CaseOrchestrator -> CaseImplementation: validate_case_config(chronicle_section, ...)
+CaseImplementation -> CaseConfig: validate_reservoir_chronicle_config(...)
+CaseConfig --> CaseImplementation: normalized chronicle config
+CaseImplementation --> CaseOrchestrator: case_config
+
+CaseOrchestrator -> CaseImplementation: build_case(case_config, calibration_section, ...)
+CaseImplementation -> Synthetic: build_noisy_reservoir_chronicle(...)
+Synthetic -> Registry: parse_chronicle_parameters(...)
+Registry --> Synthetic: true_params + initial_state
+
+alt one_reservoir
+  Synthetic -> Registry: simulate_outflow(..., forcing = Qin)
+else two_reservoirs
+  Synthetic -> Registry: simulate_outflow(..., forcing = P)
+end
+Synthetic --> CaseImplementation: chronicle (forcing, true flow, noisy observations)
+CaseImplementation -> Workflow: make_reservoir_simulator(...)
+CaseImplementation -> Workflow: get_model_parameter_order(...)
+Workflow --> CaseImplementation: simulator + parameter_order
+CaseImplementation --> CaseOrchestrator: CalibrationCaseContext
+
+CaseOrchestrator -> EngineConfig: resolve_calibration_settings(config, parameter_order)
+EngineConfig --> CaseOrchestrator: objective_metric, method, parameter_set, method_kwargs
+
+CaseOrchestrator -> Engine: __init__(observed, simulator, parameter_set, objective_metric)
+CaseOrchestrator -> Engine: calibrate(method, **method_kwargs)
+Engine -> Dispatcher: calibrate(objective_cost, bounds, method, **kwargs)
+Dispatcher -> MethodImpl: method(objective_cost, bounds, **kwargs)
+
+loop full-model evaluations
+  MethodImpl -> Engine: objective_cost(x)
+  Engine -> Engine: cost(x) -> simulate(x) -> value_to_cost(...)
+end
+
+MethodImpl --> Dispatcher: method output (dict)
+Dispatcher --> Engine: raw result
+Engine -> Results: from_method_output(...)
+Engine -> Results: attach_context(vector_to_params, score_best)
+Results --> Engine: structured result
+Engine --> CaseOrchestrator: CalibrationResults
+
+CaseOrchestrator -> CaseImplementation: build_case_outputs(...)
+CaseImplementation -> Workflow: evaluate_metrics(...)
+CaseImplementation --> CaseOrchestrator: metrics + params + q_calib
+CaseOrchestrator --> Runner: calibration payload
+
+Runner -> Runner: print terminal summary
+Runner -> Plotting: plot_calibration_result(chronicle, calibration, output_png, show_plot)
+Plotting --> Runner: figure saved/displayed
+Runner --> User: summary + figure path
+
+@enduml

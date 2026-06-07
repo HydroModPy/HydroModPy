@@ -1,0 +1,41 @@
+@startuml
+title Reading A Simulated Active Network
+skinparam activity {
+  BackgroundColor White
+  BorderColor #3B4A5A
+  ArrowColor #3B4A5A
+}
+skinparam wrapWidth 180
+
+start
+:Read simulated drainage field;
+if (Need local water-balance meaning?) then (yes)
+  :Use outflow_drain;
+  :Interpret as positive local groundwater outflow;
+  stop
+else (no)
+endif
+
+:Route or read accumulation_flux;
+if (Need one timestep snapshot?) then (yes)
+  :Use mode = last;
+elseif (Need cells active at least once?) then (yes)
+  :Use mode = any;
+elseif (Need persistent transient activity?) then (yes)
+  :Choose persistence threshold p;
+  :Use mode = persistent;
+elseif (Need strict full-window activity?) then (yes)
+  :Use mode = always_active;
+else (need continuous intermittency)
+  :Use mode = persistence;
+endif
+
+:Compare mask with reference network if available;
+if (Need canonical vector linework?) then (yes)
+  :Do not assume it exists yet;
+  :Define threshold + window + vectorization rule first;
+else (no)
+  :Use mask, metrics, and figures directly;
+endif
+stop
+@enduml

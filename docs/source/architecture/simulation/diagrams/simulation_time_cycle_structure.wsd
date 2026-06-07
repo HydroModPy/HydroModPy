@@ -1,0 +1,44 @@
+@startuml
+title Simulation Time Cycle - Structure Diagram
+skinparam componentStyle rectangle
+
+component "Run TOML\n[simulation.time] + [recharge_chronicle]" as RunToml
+component "HydroModPyConfig\n(Pydantic tree)" as TypedConfig
+component "Time Core\nhydromodpy.core.time.window" as TimeCore
+component "Project Facade\nhydromodpy.Project" as Project
+component "Runtime State\nsetup.time_grid" as RuntimeState
+component "Solver TGrid Sections\nmodflownwt.tgrid / modflow6.tgrid" as SolverTgrid
+component "Data Managers Runtime Loader\nruntime_loader" as DataLoader
+component "Recharge Chronicle Config\nforcing.recharge_chronicle_config" as RechargeConfig
+component "Recharge Chronicle Builder\nforcing.recharge_chronicle" as RechargeBuilder
+component "Hydrology Synthetic Forcing\nhydrology.synthetic.forcing" as HydroForcing
+component "Coverage Guard\nvalidate_recharge_coverage()" as CoverageGuard
+component "Flow Solver Wrappers\nModflow / Modflow6" as FlowSolvers
+database "Climatic Forcing Series\nrecharge / runoff" as ForcingSeries
+
+RunToml --> TypedConfig : load simulation config tree
+TypedConfig --> TimeCore : resolve_simulation_time_window/grid
+
+TimeCore --> Project : ResolvedSimulationTimeGrid
+Project --> TimeCore : require_flow_simulation_time_grid()
+Project --> RuntimeState : persist canonical grid
+
+Project --> TimeCore : apply_explicit_time_window_to_tgrids()
+TimeCore --> SolverTgrid : sync nper,lenper,itmuni,genmtd,ntsp,tsmult
+
+Project --> DataLoader : load_all(run_state)
+DataLoader --> TimeCore : resolve_simulation_time_window_dates()
+
+Project --> RechargeBuilder : build_recharge_chronicle_payload(..., window)
+RunToml --> RechargeConfig : raw [recharge_chronicle] section
+RechargeBuilder --> RechargeConfig : validate_recharge_chronicle_section()
+RechargeConfig --> RechargeBuilder : normalized mode / units / generator payload
+RechargeBuilder --> HydroForcing : build_hydrological_step_series()
+HydroForcing --> RechargeBuilder : fine synthetic chronicle
+RechargeBuilder --> ForcingSeries : normalize to m/s\nand align to simulation periods
+ForcingSeries --> CoverageGuard : recharge coverage check
+CoverageGuard --> Project : pass/warn/error
+
+RuntimeState --> FlowSolvers : preprocess options.time_grid
+FlowSolvers --> FlowConfig : read flow_regime / first_period_steady
+@enduml

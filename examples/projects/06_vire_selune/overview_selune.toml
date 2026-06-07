@@ -1,0 +1,9 @@
+base_config = "overview_common.toml"
+
+[workspace]
+project_root = "outputs/selune_overview"
+root = "../.."
+
+[geographic.catchment]
+x_outlet = 379541.3716
+y_outlet = 6845659.878

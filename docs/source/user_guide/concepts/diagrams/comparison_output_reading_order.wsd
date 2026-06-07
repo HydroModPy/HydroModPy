@@ -1,0 +1,28 @@
+@startuml
+title Reading Order For Comparison Evidence
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam wrapWidth 180
+skinparam maxMessageSize 180
+
+rectangle "1. comparison_audit.md\nDid the compared runs really keep\none same-case contract?" as Audit
+rectangle "2. comparison_report.md\nWhat was compared and which variant\nis the reference?" as Report
+rectangle "3. comparison_figures/case_configuration.png\nWhat is the tested support, forcing,\nand boundary setup?" as Config
+rectangle "4. comparison_metrics.csv\nHow large are the differences?" as Metrics
+rectangle "5. comparison_figures/*triptych*.png\nWhere are the differences located?" as Triptych
+rectangle "6. hydrographic_network_metrics.csv\nIf present, does the network geometry\nalso agree?" as Hydro
+rectangle "7. comparison_manifest.json\nWhere are the generated artifacts and\nchild run folders?" as Manifest
+
+Audit --> Report
+Report --> Config
+Config --> Metrics
+Metrics --> Triptych
+Triptych --> Hydro
+Hydro --> Manifest
+
+note right of Config
+Use metrics for magnitude,
+figures for spatial diagnosis.
+Neither replaces the other.
+end note
+@enduml

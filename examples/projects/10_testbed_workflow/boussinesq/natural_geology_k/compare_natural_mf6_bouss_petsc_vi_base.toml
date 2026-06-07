@@ -1,0 +1,217 @@
+# Workflow selector: this file defines the PETSc SNESVI-only Boussinesq
+# comparison template used before the broader Boussinesq simplification.
+[workflow]
+mode = "comparison"
+
+# Top-level comparison experiment section.
+[comparison]
+# Stable identifier for this reusable base comparison.
+comparison_id = "natural_mf6_bouss_petsc_vi_base"
+# Shared simulation TOML loaded before common and child-specific overlays.
+base_simulation_config = "base_site_01_mf6_bouss_transient.toml"
+# Default output root, overridden by the catalog testbed for each site.
+output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed/comparisons/base"
+# Reference simulation used for metrics and differences.
+reference_simulation = "mf6_ref"
+# Keep comparison artifacts and HTML diagnostics when a child simulation fails.
+continue_on_error = true
+
+# Execution settings for child simulations.
+[comparison.execution]
+# Launch generated child TOMLs through the standard HydroModPy CLI.
+backend = "subprocess_hmp_run"
+# Current comparison runner executes children sequentially.
+max_parallel_runs = 1
+# Execute child simulations before extracting observables.
+run_simulations = true
+# Keep the exact child TOMLs that were run.
+keep_generated_configs = true
+# Per-child timeout in seconds for 10 km2 sites. The 100 km2 testbed rule overrides this.
+timeout_seconds = 3600
+
+# Post-run audit policy for checking whether children describe the same physical case.
+[comparison.audit]
+# Strict same-case audit mode.
+mode = "strict_same_case"
+# Warn but still write reports if the audit detects non-blocking differences.
+on_mismatch = "warn"
+
+# Shared geographic options used by 10 km2 catalog rows.
+[comparison.base_simulation_overlay.geographic.catchment]
+# Outlet snapping distance common to the 10 km2 natural campaign.
+snap_dist = "150.0 m"
+# Watershed buffer distance around each delineated basin.
+buff_area = "900.0 m"
+
+# Shared DEM-derived river-network extraction settings for 10 km2 rows.
+[comparison.base_simulation_overlay.geographic.river_network]
+# Stream initiation threshold in contributing square kilometres.
+threshold_area_km2 = 0.2
+
+# Shared irregular mesh sizing for 10 km2 rows.
+[comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+# Background target cell size in metres.
+global_size = 130.0
+# Minimum allowed local cell size in metres.
+min_size = 45.0
+# Target cell size near rivers, geology interfaces and watershed boundaries.
+interface_size = 70.0
+
+# Shared Boussinesq nonlinear tolerances. MODFLOW 6 ignores these flow-runtime keys.
+[comparison.base_simulation_overlay.flow]
+# Round residual tolerance chosen to keep Boussinesq budget closure in the same
+# order as the MODFLOW 6 reference while avoiding unnecessary nonlinear work.
+runtime_tol_residual_inf = 1.0e-6
+# Same round tolerance for state-update based checks and obstacle tolerance scaling.
+runtime_tol_state_update_inf = 1.0e-6
+
+# Common raster support for map comparison between different solver meshes.
+[comparison.fine_raster]
+# Enable interpolation of map observables onto a shared regular raster.
+enabled = true
+# Raster resolution in metres for 10 km2 rows. The 100 km2 testbed rule overrides this.
+resolution = 80.0
+# Compare only the common spatial extent.
+extent_mode = "intersection"
+# Interpolation method for map observables.
+interpolation = "linear"
+# Do not write GeoTIFF side outputs for this validation campaign.
+write_geotiff = false
+
+# First child simulation: MODFLOW 6 reference.
+[[comparison.simulation]]
+# Stable child identifier.
+id = "mf6_ref"
+# Label used in figures and HTML pages.
+label = "MODFLOW 6 reference"
+# Flow solver selected in the generated simulation TOML.
+solver = "modflow6"
+# Mesh provenance label displayed in reports.
+mesh_label = "generated geology-river catchment mesh"
+# Mesh mode used for reporting and audit context.
+mesh_mode = "mesh_catchment"
+
+# MODFLOW 6 nonlinear/linear runtime settings.
+[comparison.simulation.overlay.modflow6.runtime]
+# IMS complexity preset.
+mf6_ims_complexity = "COMPLEX"
+# Outer head-change convergence threshold in metres.
+mf6_outer_dvclose = 0.0001
+# Inner head-change convergence threshold in metres.
+mf6_inner_dvclose = 0.0001
+# Maximum IMS outer iterations.
+mf6_outer_maximum = 1000
+# Maximum IMS inner iterations.
+mf6_inner_maximum = 1000
+# Keep MF6 rewetting disabled for this comparison.
+mf6_enable_rewet = false
+# Disable verbose FloPy logs.
+mf_verbose = false
+
+# MODFLOW 6 process-specific physical settings.
+[comparison.simulation.overlay.modflow6.process_specific]
+# Vertical anisotropy factor used to derive k33 from horizontal K.
+vka = 1.0
+
+# MODFLOW 6 vertical discretization.
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+# Single-layer aquifer for this comparison.
+nlay = 1
+
+# MODFLOW 6 temporal discretization compatibility settings.
+[comparison.simulation.overlay.modflow6.tgrid]
+# No steady initial stress period in this transient comparison.
+firstpersteady = false
+
+# MODFLOW 6 drainage boundary-condition override.
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+# Use a shared top-drain conductance so MF6 and Boussinesq compare the same
+# surface-exchange physics.
+value = "0.1 m2/s"
+# Human-readable note carried into generated child TOMLs.
+description = "Shared top-drain conductance used by MF6 and Boussinesq."
+
+# Second child simulation: Boussinesq PETSc SNESVI candidate.
+[[comparison.simulation]]
+# Stable child identifier.
+id = "bouss_candidate"
+# Label used in figures and HTML pages.
+label = "Boussinesq PETSc SNESVI obstacle candidate"
+# Flow solver selected in the generated simulation TOML.
+solver = "boussinesq"
+# Mesh provenance label displayed in reports.
+mesh_label = "generated geology-river catchment mesh"
+# Mesh mode used for reporting and audit context.
+mesh_mode = "mesh_catchment"
+
+# Boussinesq PETSc direct SNESVI obstacle runtime settings.
+[comparison.simulation.overlay.flow]
+# Use the PETSc backend, not the SciPy/local backends.
+runtime_backend = "petsc"
+# Use the direct Backward-Euler PETSc SNESVI obstacle formulation.
+surface_interaction_model = "vi_obstacle"
+# Fixed Backward-Euler substeps per monthly stress period.
+vi_substeps_per_period = 4
+# Allow bounded retry with more substeps on difficult natural stress periods.
+vi_substep_on_failure = true
+# Upper bound for adaptive retries when vi_substep_on_failure is enabled.
+vi_max_adaptive_substeps = 32
+
+# Boussinesq drainage boundary-condition override.
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+# Use the same top-drain conductance as the MF6 reference.
+value = "0.1 m2/s"
+# Human-readable note carried into generated child TOMLs.
+description = "Shared top-drain conductance used by MF6 and Boussinesq; the VI upper obstacle is relaxed by the positive drainage conductance."
+
+# Initial hydraulic-head map comparison.
+[[comparison.observable]]
+# Observable identifier used in metrics, differences and figures.
+name = "head_map_first_computed"
+# Water-table/head variable extracted from both simulations.
+variable = "watertable_elevation"
+# Full-map support, later projected onto the common fine raster.
+support = "map"
+# Use the first computed time, skipping any explicit initial-state row.
+time = "first_computed"
+# Display unit.
+unit = "m"
+
+# Wet-season hydraulic-head map comparison.
+[[comparison.observable]]
+# Observable identifier used in metrics, differences and figures.
+name = "head_map_wet_year1"
+# Water-table/head variable extracted from both simulations.
+variable = "watertable_elevation"
+# Full-map support, later projected onto the common fine raster.
+support = "map"
+# Representative wet-season time index.
+time = 5
+# Display unit.
+unit = "m"
+
+# Dry/late hydraulic-head map comparison.
+[[comparison.observable]]
+# Observable identifier used in metrics, differences and figures.
+name = "head_map_dry_late"
+# Water-table/head variable extracted from both simulations.
+variable = "watertable_elevation"
+# Full-map support, later projected onto the common fine raster.
+support = "map"
+# Representative dry/late time index.
+time = 22
+# Display unit.
+unit = "m"
+
+# Final hydraulic-head map comparison.
+[[comparison.observable]]
+# Observable identifier used in metrics, differences and figures.
+name = "head_map_last"
+# Water-table/head variable extracted from both simulations.
+variable = "watertable_elevation"
+# Full-map support, later projected onto the common fine raster.
+support = "map"
+# Last available time.
+time = "last"
+# Display unit.
+unit = "m"

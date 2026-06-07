@@ -1,0 +1,128 @@
+"""Export cell geometries with field values to a Shapefile."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
+from hydromodpy.results.zarr_store import SimulationZarr
+
+logger = get_logger(__name__)
+
+
+def export_shapefile(
+    zarr_path: str | Path,
+    sim_id: str,
+    variable: str,
+    timestep: int,
+    output_path: str | Path,
+    *,
+    layer: int | None = None,
+    crs: str | None = None,
+) -> Path:
+    """Export mesh cells with field values to a Shapefile.
+
+    Requires ``geopandas`` and ``shapely``.
+
+    Parameters
+    ----------
+    zarr_path : str or Path
+        Path to the simulation Zarr store.
+    sim_id : str
+        Simulation UUID.
+    variable : str
+        Field name.
+    timestep : int
+        Timestep index.
+    output_path : str or Path
+        Destination ``.shp`` file (or directory).
+    layer : int, optional
+        Layer index for 3D fields. Defaults to the first layer.
+    crs : str
+        Coordinate reference system for the output.
+
+    Returns
+    -------
+    Path
+        The written file path.
+
+    Raises
+    ------
+    ValueError
+        Raised when ``crs`` is missing.
+    KeyError
+        Raised when ``variable`` is not stored in the Zarr hierarchy.
+
+    Examples
+    --------
+    >>> export_shapefile(
+    ...     run_zarr, run.sim_id, "head", -1, "head_cells.shp", crs="EPSG:2154"
+    ... )
+    """
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    descriptor = field_registry.get(variable)
+    if crs is None:
+        raise ValueError("Shapefile export requires an explicit CRS.")
+
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        mesh = grp["mesh"]
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
+
+        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
+        if arr is None:
+            raise KeyError(
+                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                f"not found for sim={sim_id}"
+            )
+        data = arr[timestep]
+    finally:
+        sz.close()
+    if data.ndim == 2:
+        data = data[layer or 0]
+
+    geometries = []
+    values = []
+    cell_ids = []
+    for i, face in enumerate(connectivity):
+        node_ids = face[face >= 0]
+        coords = vertices[node_ids, :2]
+        if len(coords) < 3:
+            continue
+        poly = Polygon(coords)
+        if poly.is_valid and not poly.is_empty:
+            geometries.append(poly)
+            values.append(float(data[i]))
+            cell_ids.append(i)
+
+    gdf = gpd.GeoDataFrame(
+        {"cell_id": cell_ids, variable: values},
+        geometry=geometries,
+        crs=crs,
+    )
+    gdf.to_file(str(output_path))
+    logger.info("Exported Shapefile: %s (%d cells)", output_path, len(gdf))
+    return output_path
+
+
+def _resolve_zarr_path(grp, zarr_path: str):
+    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
+    parts = zarr_path.split("/")
+    cursor = grp
+    for part in parts[:-1]:
+        sub = cursor.get(part)
+        if sub is None:
+            return None
+        cursor = sub
+    leaf = parts[-1]
+    if leaf in cursor:
+        return cursor[leaf]
+    return None

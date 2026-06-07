@@ -1,0 +1,1360 @@
+{
+  "summary_schema_version": "zone_conformal_sidecar_v1",
+  "output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_s3_10km2_outlet_1_rivers_only_outlet_1\\mesh_catchment_outlet_1.msh",
+  "mesh_kind": "gmsh_2d",
+  "cell_type": "triangle",
+  "n_nodes": 296,
+  "n_cells": 574,
+  "n_partition_faces": 2,
+  "zone_keys": [
+    "domain"
+  ],
+  "face_counts_by_zone": {
+    "domain": 2
+  },
+  "face_areas_by_zone": {
+    "domain": 50405625.0
+  },
+  "domain_area": 50405625.0,
+  "covered_area": 50405625.0,
+  "interface_group_count": 0,
+  "boundary_group_count": 1,
+  "global_size": 680.0,
+  "min_size": 340.0,
+  "max_size": 1080.0,
+  "algorithm": "delaunay",
+  "cleaning_diagnostics": {
+    "cleaning_mode": "tolerant",
+    "tolerances": {
+      "simplify_tolerance": 0.0,
+      "heal_tolerance": 0.0,
+      "min_polygon_area": 1.0,
+      "overlap_tolerance": 1e-12
+    },
+    "operations_enabled": {
+      "repair_invalid_geometries": true,
+      "heal_snap": false,
+      "simplify": false,
+      "drop_small_polygons": true
+    },
+    "source_feature_count": 1,
+    "source_invalid_geometry_count": 0,
+    "invalid_geometries_repaired_count": 0,
+    "features_skipped_empty_zone_key_count": 0,
+    "features_skipped_empty_geometry_count": 0,
+    "features_outside_domain_count": 0,
+    "features_after_domain_clip_count": 1,
+    "features_dropped_after_cleaning_count": 0,
+    "polygon_parts_before_area_filter_count": 1,
+    "polygons_removed_by_area_threshold_count": 0,
+    "polygon_parts_kept_count": 1,
+    "cleaned_zone_polygon_count": 1,
+    "domain_invalid_geometry_count": 0,
+    "domain_invalid_geometries_repaired_count": 0,
+    "domain_polygon_parts_before_area_filter_count": 1,
+    "domain_polygon_parts_removed_by_area_threshold_count": 0,
+    "domain_polygon_parts_kept_count": 1,
+    "constraints_partitioning_enabled": true,
+    "constraint_line_count_input": 6,
+    "constraint_line_count_used": 6,
+    "partition_faces_before_constraints": 1,
+    "partition_faces_after_constraints": 2
+  },
+  "cleaning_summary": {
+    "mode": "tolerant",
+    "source_feature_count": 1,
+    "features_after_domain_clip_count": 1,
+    "invalid_geometries_repaired_count": 0,
+    "polygons_removed_by_area_threshold_count": 0,
+    "simplify_tolerance": 0.0,
+    "heal_tolerance": 0.0,
+    "min_polygon_area": 1.0,
+    "overlap_tolerance": 1e-12
+  },
+  "linear_constraints": {
+    "watershed::boundary": {
+      "provided": true,
+      "kind": "watershed_boundary",
+      "line_count": 1,
+      "curve_count": 14,
+      "embedded_surface_curve_pairs": 14,
+      "embed_failures": 0,
+      "refined_with_interface_field": true,
+      "participates_in_refinement": true
+    },
+    "river::trace": {
+      "provided": true,
+      "kind": "river_trace",
+      "line_count": 5,
+      "curve_count": 90,
+      "embedded_surface_curve_pairs": 90,
+      "embed_failures": 0,
+      "refined_with_interface_field": true,
+      "participates_in_refinement": true
+    }
+  },
+  "river_trace": {
+    "provided": true,
+    "line_count": 5,
+    "curve_count": 90,
+    "embedded_surface_curve_pairs": 90,
+    "embed_failures": 0,
+    "refined_with_interface_field": true
+  },
+  "physical_groups_summary": {
+    "surface_group_count": 1,
+    "curve_group_count": 3,
+    "interface_group_count": 0,
+    "boundary_group_count": 1
+  },
+  "qa_checks": {
+    "coverage_gap": 0.0,
+    "coverage_tolerance": 1e-09,
+    "coverage_within_tolerance": true,
+    "has_interface_groups": false,
+    "has_zone_surface_groups": true,
+    "constraints_contract_pass": true
+  },
+  "mesh_size_fields": {
+    "interface_refinement": {
+      "enabled": true,
+      "interface_curve_count": 95,
+      "active_families": [
+        "river",
+        "watershed_boundary"
+      ],
+      "stop_at_distance_max": true,
+      "family_fields": {
+        "geology_interface": {
+          "enabled": false,
+          "interface_curve_count": 0
+        },
+        "river": {
+          "enabled": true,
+          "priority": 300,
+          "interface_curve_count": 90,
+          "interface_size": 250.0,
+          "interface_distance": 610.0,
+          "interface_sampling": 96,
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2
+        },
+        "watershed_boundary": {
+          "enabled": true,
+          "priority": 100,
+          "interface_curve_count": 5,
+          "interface_size": 250.0,
+          "interface_distance": 500.0,
+          "interface_sampling": 96,
+          "distance_field_tag": 3,
+          "threshold_field_tag": 4
+        }
+      },
+      "background_field": {
+        "background_field_tag": 5,
+        "threshold_fields": [
+          2,
+          4
+        ]
+      },
+      "candidate_interface_curve_count": 104,
+      "scope_filtered_interface_curve_count": 95,
+      "refinement_scope_applied": false
+    },
+    "regional_background": {
+      "enabled": true,
+      "fields": [
+        {
+          "enabled": true,
+          "name": "watershed::outside_coarsening",
+          "inside_size": 680.0,
+          "outside_size": 2040.0,
+          "transition_distance": 680.0,
+          "grid_resolution": 680.0,
+          "grid_shape": [
+            13,
+            11,
+            1
+          ],
+          "grid_spacing": [
+            643.75,
+            652.5,
+            1.0
+          ],
+          "field_tag": 6
+        }
+      ],
+      "final_background_field_tag": 7
+    }
+  },
+  "surface_physical_groups": [
+    {
+      "dimension": 2,
+      "tag": 1,
+      "name": "zone::domain",
+      "group_kind": "zone_surface",
+      "entity_count": 2,
+      "zone_keys": [
+        "domain"
+      ]
+    }
+  ],
+  "curve_physical_groups": [
+    {
+      "dimension": 1,
+      "tag": 2,
+      "name": "boundary::domain",
+      "group_kind": "boundary_curve",
+      "entity_count": 4,
+      "zone_keys": [
+        "domain"
+      ]
+    },
+    {
+      "dimension": 1,
+      "tag": 3,
+      "name": "river::trace",
+      "group_kind": "river_curve",
+      "entity_count": 90,
+      "zone_keys": []
+    },
+    {
+      "dimension": 1,
+      "tag": 4,
+      "name": "watershed::boundary",
+      "group_kind": "watershed_boundary_curve",
+      "entity_count": 14,
+      "zone_keys": []
+    }
+  ],
+  "effective_max_size": 2040.0,
+  "refinement_policy": {
+    "candidate_curve_count": 104,
+    "active_curve_count": 95,
+    "filtered_curve_count": 9,
+    "family_curve_counts_before": {
+      "river": 90,
+      "watershed_boundary": 14
+    },
+    "family_curve_counts_after": {
+      "geology_interface": 0,
+      "river": 90,
+      "watershed_boundary": 5
+    },
+    "family_curve_counts_filtered": {
+      "geology_interface": 0,
+      "river": 0,
+      "watershed_boundary": 9
+    },
+    "detected_hotspot_count": 24,
+    "remaining_hotspot_count": 0,
+    "hotspots_detected": [
+      {
+        "hotspot_id": "hotspot_1",
+        "reason": "short_segments",
+        "center": [
+          466210.7612046749,
+          6867071.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          16,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83
+        ],
+        "family_counts": {
+          "river": 20,
+          "watershed_boundary": 3
+        },
+        "curve_count": 23,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 20,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_2",
+        "reason": "short_segments",
+        "center": [
+          466210.7612046749,
+          6867376.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          16,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83
+        ],
+        "family_counts": {
+          "river": 20,
+          "watershed_boundary": 3
+        },
+        "curve_count": 23,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 20,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_3",
+        "reason": "short_segments",
+        "center": [
+          465905.7612046749,
+          6868291.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          16,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108
+        ],
+        "family_counts": {
+          "river": 21,
+          "watershed_boundary": 1
+        },
+        "curve_count": 22,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 21,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_4",
+        "reason": "short_segments",
+        "center": [
+          465600.7612046749,
+          6868596.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          5,
+          6,
+          18,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108
+        ],
+        "family_counts": {
+          "river": 19,
+          "watershed_boundary": 3
+        },
+        "curve_count": 22,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 19,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_5",
+        "reason": "short_segments",
+        "center": [
+          465905.7612046749,
+          6867071.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          16,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83
+        ],
+        "family_counts": {
+          "river": 17,
+          "watershed_boundary": 3
+        },
+        "curve_count": 20,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 17,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_6",
+        "reason": "short_segments",
+        "center": [
+          466515.7612046749,
+          6867071.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          16,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          81,
+          82,
+          83
+        ],
+        "family_counts": {
+          "river": 17,
+          "watershed_boundary": 3
+        },
+        "curve_count": 20,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 17,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_7",
+        "reason": "short_segments",
+        "center": [
+          465905.7612046749,
+          6867376.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          16,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83
+        ],
+        "family_counts": {
+          "river": 17,
+          "watershed_boundary": 3
+        },
+        "curve_count": 20,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 17,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_8",
+        "reason": "short_segments",
+        "center": [
+          466210.7612046749,
+          6867681.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          16,
+          17,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          82,
+          83
+        ],
+        "family_counts": {
+          "river": 16,
+          "watershed_boundary": 4
+        },
+        "curve_count": 20,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 16,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_9",
+        "reason": "short_segments",
+        "center": [
+          465905.7612046749,
+          6868596.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          5,
+          18,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108
+        ],
+        "family_counts": {
+          "river": 18,
+          "watershed_boundary": 2
+        },
+        "curve_count": 20,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 18,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_10",
+        "reason": "short_segments",
+        "center": [
+          465905.7612046749,
+          6867986.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          16,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          103,
+          104,
+          105,
+          106,
+          107
+        ],
+        "family_counts": {
+          "river": 18,
+          "watershed_boundary": 2
+        },
+        "curve_count": 20,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 18,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_11",
+        "reason": "short_segments",
+        "center": [
+          465905.7612046749,
+          6867681.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          16,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          82,
+          83
+        ],
+        "family_counts": {
+          "river": 16,
+          "watershed_boundary": 3
+        },
+        "curve_count": 19,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 16,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_12",
+        "reason": "short_segments",
+        "center": [
+          467430.7612046749,
+          6866156.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          14,
+          15,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33
+        ],
+        "family_counts": {
+          "river": 15,
+          "watershed_boundary": 3
+        },
+        "curve_count": 18,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 15,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_13",
+        "reason": "short_segments",
+        "center": [
+          466820.7612046749,
+          6866461.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39
+        ],
+        "family_counts": {
+          "river": 16,
+          "watershed_boundary": 2
+        },
+        "curve_count": 18,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 16,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_14",
+        "reason": "short_segments",
+        "center": [
+          467125.7612046749,
+          6866156.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          14,
+          15,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33
+        ],
+        "family_counts": {
+          "river": 14,
+          "watershed_boundary": 3
+        },
+        "curve_count": 17,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 14,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_15",
+        "reason": "short_segments",
+        "center": [
+          467125.7612046749,
+          6866461.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          14,
+          15,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37
+        ],
+        "family_counts": {
+          "river": 14,
+          "watershed_boundary": 3
+        },
+        "curve_count": 17,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 14,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_16",
+        "reason": "short_segments",
+        "center": [
+          465905.7612046749,
+          6866766.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          42,
+          43,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82
+        ],
+        "family_counts": {
+          "river": 15,
+          "watershed_boundary": 2
+        },
+        "curve_count": 17,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 15,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_17",
+        "reason": "short_segments",
+        "center": [
+          466210.7612046749,
+          6867986.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          16,
+          17,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          107
+        ],
+        "family_counts": {
+          "river": 14,
+          "watershed_boundary": 3
+        },
+        "curve_count": 17,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 14,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_18",
+        "reason": "short_segments",
+        "center": [
+          466210.7612046749,
+          6868596.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          5,
+          17,
+          18,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          107,
+          108
+        ],
+        "family_counts": {
+          "river": 13,
+          "watershed_boundary": 3
+        },
+        "curve_count": 16,
+        "family_count": 2,
+        "max_node_degree": 3,
+        "short_segment_count": 13,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_19",
+        "reason": "short_segments",
+        "center": [
+          466210.7612046749,
+          6866766.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82
+        ],
+        "family_counts": {
+          "river": 14,
+          "watershed_boundary": 2
+        },
+        "curve_count": 16,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 14,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_20",
+        "reason": "short_segments",
+        "center": [
+          466820.7612046749,
+          6866766.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42
+        ],
+        "family_counts": {
+          "river": 14,
+          "watershed_boundary": 2
+        },
+        "curve_count": 16,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 14,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_21",
+        "reason": "short_segments",
+        "center": [
+          465295.7612046749,
+          6868596.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          5,
+          6,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107
+        ],
+        "family_counts": {
+          "river": 14,
+          "watershed_boundary": 2
+        },
+        "curve_count": 16,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 14,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_22",
+        "reason": "short_segments",
+        "center": [
+          466515.7612046749,
+          6866766.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          11,
+          15,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          81,
+          82
+        ],
+        "family_counts": {
+          "river": 13,
+          "watershed_boundary": 2
+        },
+        "curve_count": 15,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 13,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_23",
+        "reason": "short_segments",
+        "center": [
+          464685.7612046749,
+          6868291.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          7,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98
+        ],
+        "family_counts": {
+          "river": 14,
+          "watershed_boundary": 1
+        },
+        "curve_count": 15,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 14,
+        "min_cross_family_gap": null
+      },
+      {
+        "hotspot_id": "hotspot_24",
+        "reason": "short_segments",
+        "center": [
+          464990.7612046749,
+          6868596.180787357
+        ],
+        "radius": 533.75,
+        "member_curve_tags": [
+          5,
+          6,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102
+        ],
+        "family_counts": {
+          "river": 13,
+          "watershed_boundary": 2
+        },
+        "curve_count": 15,
+        "family_count": 2,
+        "max_node_degree": 2,
+        "short_segment_count": 13,
+        "min_cross_family_gap": null
+      }
+    ],
+    "hotspots_remaining": [],
+    "actions": [
+      {
+        "hotspot_id": "hotspot_1",
+        "family": "watershed_boundary",
+        "dropped_curve_tags": [
+          11,
+          15,
+          16
+        ]
+      },
+      {
+        "hotspot_id": "hotspot_4",
+        "family": "watershed_boundary",
+        "dropped_curve_tags": [
+          5,
+          6,
+          18
+        ]
+      },
+      {
+        "hotspot_id": "hotspot_8",
+        "family": "watershed_boundary",
+        "dropped_curve_tags": [
+          17
+        ]
+      },
+      {
+        "hotspot_id": "hotspot_12",
+        "family": "watershed_boundary",
+        "dropped_curve_tags": [
+          14
+        ]
+      },
+      {
+        "hotspot_id": "hotspot_23",
+        "family": "watershed_boundary",
+        "dropped_curve_tags": [
+          7
+        ]
+      }
+    ]
+  },
+  "field_id": "domain_zones",
+  "source_kind": "domain",
+  "source_path": "C:\\Users\\dreuzy\\HydroModPy\\_mesh_runtime\\mesh_gallery_s3_10km2_outlet_1_rivers_only_outlet_1\\results_stable\\geographic\\watershed_box_buff.shp",
+  "n_source_features_total": 1,
+  "n_source_features_clipped": 1,
+  "zone_feature_counts": {
+    "domain": 1
+  },
+  "domain_kind": "geographic_box_buffer",
+  "domain_bounds": [
+    461737.5,
+    6863512.5,
+    469462.5,
+    6870037.5
+  ],
+  "domain_geometry_type": "Polygon",
+  "domain_source_path": "C:\\Users\\dreuzy\\HydroModPy\\_mesh_runtime\\mesh_gallery_s3_10km2_outlet_1_rivers_only_outlet_1\\results_stable\\geographic\\watershed_box_buff.shp",
+  "domain_source_feature_count": 1,
+  "domain_crs": "EPSG:2154",
+  "n_cells_in_watershed": 449,
+  "n_cells_outside_watershed": 125,
+  "constraints_mode": "rivers_only",
+  "effective_domain": {
+    "domain_kind": "geographic_box_buffer",
+    "domain_area": 50405625.0,
+    "domain_bounds": [
+      461737.5,
+      6863512.5,
+      469462.5,
+      6870037.5
+    ],
+    "domain_geometry_type": "Polygon",
+    "domain_source_path": "C:\\Users\\dreuzy\\HydroModPy\\_mesh_runtime\\mesh_gallery_s3_10km2_outlet_1_rivers_only_outlet_1\\results_stable\\geographic\\watershed_box_buff.shp",
+    "domain_source_feature_count": 1,
+    "domain_crs": "EPSG:2154"
+  },
+  "watershed_boundary": {
+    "enabled": true,
+    "smoothing_enabled": true,
+    "boundary_length": 16570.060718605793,
+    "boundary_area_source": 10401221.874790411,
+    "boundary_refinement_distance": 500.0,
+    "smoothing": {
+      "distance": 200.0,
+      "river_buffer_distance": 100.0,
+      "outer_bias_distance": 10.0
+    }
+  },
+  "outside_coarsening": {
+    "enabled": true,
+    "inside_size": 680.0,
+    "outside_size": 2040.0,
+    "size_factor": 3.0,
+    "grid_resolution": 680.0,
+    "transition_distance": 680.0
+  },
+  "rivers_config": {
+    "source": "domain_geographic",
+    "path": null,
+    "clip_to_domain": true,
+    "min_segment_length": 0.0,
+    "snap_tolerance": 0.0
+  },
+  "refinement_policy_config": {
+    "enabled": true,
+    "mode": "grid_local_budget",
+    "hotspot": {
+      "radius": 610.0,
+      "max_curve_count": 180,
+      "max_family_count": 2,
+      "min_gap": 80.0,
+      "max_node_degree": 4,
+      "short_segment_length": 120.0,
+      "max_short_segment_count": 12
+    },
+    "grid": {
+      "cell_size": 305.0,
+      "neighborhood_rings": 1,
+      "enable_exact_gap_check": false,
+      "max_exact_gap_candidates": 128
+    },
+    "families": {
+      "geology_interface": {
+        "enabled": false,
+        "priority": 200,
+        "interface_size": null,
+        "interface_distance": null,
+        "interface_sampling": null
+      },
+      "river": {
+        "enabled": true,
+        "priority": 300,
+        "interface_size": null,
+        "interface_distance": null,
+        "interface_sampling": null
+      },
+      "watershed_boundary": {
+        "enabled": true,
+        "priority": 100,
+        "interface_size": 250.0,
+        "interface_distance": 500.0,
+        "interface_sampling": null
+      }
+    }
+  },
+  "constraints_qa": {
+    "contract_version": "constraints_qa_v1",
+    "mode": "rivers_only",
+    "thresholds": {
+      "min_zone_count": 0,
+      "min_interface_group_count": 0,
+      "min_river_curve_count": 1,
+      "min_embedded_surface_curve_pairs": 1,
+      "require_refinement_when_refine_interfaces_true": true
+    },
+    "metrics": {
+      "zone_count": 1,
+      "interface_group_count": 0,
+      "river_trace_provided": true,
+      "river_line_count": 5,
+      "river_curve_count": 90,
+      "river_curve_group_present": true,
+      "river_embed_success_pairs": 90,
+      "river_embed_failures": 0,
+      "river_embed_attempts": 90,
+      "river_embed_success_rate": 1.0,
+      "river_embed_pairs_per_curve": 1.0,
+      "river_refined_with_interface_field": true,
+      "refine_interfaces_config": true
+    },
+    "checks": {
+      "river_trace_provided": true,
+      "river_curves_generated": true,
+      "river_curve_group_present": true,
+      "river_embedded_on_surfaces": true,
+      "river_refinement_consistent_with_config": true
+    },
+    "overall_pass": true
+  },
+  "output_figure": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_s3_10km2_outlet_1_rivers_only_outlet_1\\mesh_catchment_outlet_1.png",
+  "output_figure_regional": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_s3_10km2_outlet_1_rivers_only_outlet_1\\mesh_catchment_outlet_1_regional.png",
+  "output_summary_json": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_s3_10km2_outlet_1_rivers_only_outlet_1\\mesh_catchment_outlet_1_summary.json"
+}

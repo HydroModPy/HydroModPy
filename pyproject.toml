@@ -1,0 +1,385 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydromodpy"
+version = "2.0.0a1"
+description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "EPL-2.0"
+authors = [
+    { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
+    { name = "Ronan Abherve", email = "ronan.abherve@gmail.com" },
+    { name = "Jean-Raynald de Dreuzy", email = "jean-raynald.de-dreuzy@univ-rennes.fr" },
+]
+maintainers = [
+    { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
+    { name = "Ronan Abherve", email = "ronan.abherve@gmail.com" },
+    { name = "Bastien Boivin", email = "bastien.boivin@proton.me" },
+]
+keywords = [
+    "hydrology",
+    "hydrogeology",
+    "groundwater",
+    "modflow",
+    "watershed",
+    "modeling",
+    "catchment",
+    "queryable-results",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+dependencies = [
+    "contextily>=1.7.0,<2",
+    "flopy>=3.10.0,<4",
+    "geopandas>=1.1.3,<2",
+    "h5py>=3.16.0,<4",
+    "imageio>=2.37.3,<3",
+    "matplotlib>=3.10.8,<4",
+    "meshio>=5.3.5,<6",
+    "netCDF4>=1.7.4,<2",
+    "numpy>=2.4.4,<3",
+    "pandas>=2.3.3,<3",
+    "Pillow>=12.0.0,<13",
+    "optuna>=4.8.0,<5",
+    "plotly>=6.7.0,<7",
+    "pint>=0.25.3,<1",
+    "pydantic-pint>=0.4,<1",
+    "pyarrow>=23.0.1,<24",
+    "pyproj>=3.7.2,<4",
+    "rasterio>=1.4.0,<2",
+    "requests>=2.32.5,<3",
+    "rioxarray>=0.19,<1",
+    "scikit-learn>=1.8.0,<2",
+    "scipy>=1.17.1,<2",
+    "shapely>=2,<3",
+    "xarray>=2026.4.0,<2027",
+    "xugrid>=0.15.2,<1",
+    "pydantic>=2.13.3,<3",
+    "duckdb>=1.5.2,<2",
+    "dask>=2026.3.0,<2027",
+    "tqdm>=4.67.3,<5",
+    "zarr>=3.1.6,<4",
+    "zstandard>=0.25.0,<1",
+    "tomlkit>=0.14.0,<1",
+    "tomli-w>=1.2.0,<2",
+    "universal_pathlib>=0.2,<1",
+    "pandera>=0.31.1,<1",
+    "platformdirs>=4,<5",
+    "filelock>=3.13,<4",
+    "argcomplete>=3.5,<4",
+]
+
+[project.optional-dependencies]
+calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1"]
+delineation = ["whitebox-workflows>=1.3.5,<2"]
+mesh = ["gmsh>=4.15.2,<5"]
+ui = ["streamlit>=1.51.0,<2"]
+duckdb = ["duckdb"]
+metrics = ["psutil", "pynvml"]
+all = ["duckdb", "psutil", "pynvml"]
+viz = [
+    "datashader>=0.16,<1",
+    "lttb>=0.3,<1",
+]
+fair = [
+    "pystac>=1.10,<2",
+    "stac-validator>=3.5,<5",
+    "rocrate>=0.10,<1",
+]
+test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0"]
+performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
+docs = [
+    "sphinx>=7.0,<8",
+    "myst-parser",
+    "nbsphinx",
+    "nbconvert",
+    "nbformat",
+    "jupyter-client",
+    "sphinx-gallery",
+    "sphinx-autobuild",
+    "readthedocs-sphinx-ext",
+    "pydata-sphinx-theme",
+    "sphinx-design",
+    "sphinx-copybutton",
+    "sphinx-togglebutton",
+    "sphinx-polyversion>=1.0",
+    "sphinxcontrib-plantuml",
+    "autodoc-pydantic>=2.0",
+    "sphinx-codeautolink",
+    "sphinxcontrib-bibtex",
+    "sphinx-autodoc-typehints<3",
+    "sphinx-issues<5",
+    "sphinxext-rediraffe",
+    "sphinx-favicon<1.1",
+    "sphinx-sitemap",
+    "sphinx-last-updated-by-git",
+    "sphinxext-opengraph",
+    "sphinx-lint",
+    "doc8",
+]
+docs-uml = ["erdantic"]
+ide = [
+    "ipykernel",
+    "ipython",
+    "jupyterlab>=4.0",
+    "pyside6",
+    "spyder>=6.0",
+    "spyder-kernels",
+]
+viewer3d = ["pyvista"]
+dev = [
+    "ruff>=0.15",
+    "pre-commit>=4.0",
+]
+
+[project.scripts]
+hmp = "hydromodpy.cli:main"
+hydromodpy = "hydromodpy.cli:main"
+
+[project.entry-points."hydromodpy.solver"]
+flow_modflownwt = "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter"
+flow_modflow6 = "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter"
+flow_boussinesq = "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter"
+
+[project.urls]
+Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
+Documentation = "https://hydromodpy-docs.readthedocs.io/en/latest/"
+Repository = "https://github.com/HydroModPy/HydroModPy"
+Issues = "https://github.com/HydroModPy/HydroModPy/issues"
+"Google Group" = "https://groups.google.com/g/hydromodpy"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["hydromodpy*"]
+exclude = ["hydromodpy_annex*"]
+
+[tool.setuptools.package-data]
+hydromodpy = ["py.typed"]
+"hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
+"hydromodpy.data.common.administrative" = ["*.gpkg"]
+"hydromodpy.cli.commands.dev.manage.static" = ["*.html"]
+
+[tool.coverage.run]
+source = [
+    "hydromodpy.core",
+    "hydromodpy.schema",
+    "hydromodpy.config",
+    "hydromodpy.spatial",
+    "hydromodpy.physics",
+    "hydromodpy.data",
+    "hydromodpy.catalog",
+    "hydromodpy.results",
+    "hydromodpy.simulation",
+    "hydromodpy.solver",
+    "hydromodpy.calibration",
+    "hydromodpy.display",
+    "hydromodpy.analysis",
+    "hydromodpy.workflow",
+    "hydromodpy.project",
+    "hydromodpy.cli",
+]
+parallel = true
+omit = [
+    "hydromodpy/**/cases/*",
+    "hydromodpy/**/examples/*",
+    "hydromodpy/validity_frame/*",
+    "hydromodpy/validity_frame/**/*",
+    "hydromodpy/physics/hydrology/pyhelp/*",
+    "hydromodpy/physics/hydrology/pyhelp/**/*",
+    "examples/*",
+    "examples_legacy/*",
+    "validation_cases/*",
+    "hydromodpy_annex/*",
+    "docs/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Ruff - unified linter + formatter (replaces black, isort, flake8, pyupgrade…)
+# ──────────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+extend-exclude = [
+    "hydromodpy.egg-info",
+    "docs",              # Sphinx conf + doc examples aren't production code
+    "bin",
+    ".venv",
+    "build",
+    "dist",
+    "*.ipynb",           # skip notebooks (stray scratch files like Test_delete.ipynb)
+]
+
+[tool.ruff.lint]
+# Classic starter set - the six rule groups most Python projects enable.
+# Extend later (C4, SIM, NPY, RUF, D, ANN…) once the core is clean.
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes (unused imports/variables, undefined names…)
+    "I",     # isort (import sorting)
+    "UP",    # pyupgrade (modernize syntax for your target Python)
+    "B",     # flake8-bugbear (likely-bug patterns)
+    "TID251", # flake8-tidy-imports banned-api (block stdlib logging.getLogger)
+]
+
+ignore = [
+    "E501",  # line too long - the formatter handles it
+    "B008",  # function call in default arg (common with pydantic Field(...))
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Package __init__ files commonly re-export symbols and set up paths.
+"__init__.py" = ["F401", "E402", "TID251"]
+# Logging subsystem is the canonical wrapper around stdlib `logging.getLogger`.
+"hydromodpy/core/logging/**" = ["TID251"]
+# Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
+# zip without strict=, kept assignments for readability, etc.
+"tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
+# tools/ scripts may set repo-root import precedence before imports.
+"tools/**" = ["E402", "F401", "B007", "B905", "F841"]
+# Annex: legacy/peripheral code, minimal linting.
+"hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
+# Demo / validation scripts: lenient, they're not production code.
+"hydromodpy/**/cases/**" = ["E402", "F401", "B007"]
+"hydromodpy/**/examples/**" = ["E402", "F401", "B007"]
+"validation_cases/**" = ["E402", "F401", "B007", "B905"]
+"examples/**" = ["E402", "F401", "B007"]
+# CLI shells can do argparse-style late imports.
+"hydromodpy/cli/**" = ["E402"]
+# Pydantic `model_rebuild(_types_namespace=...)` pattern: forward refs are
+# resolved at runtime via an explicit namespace dict, so ruff can't see them
+# with static analysis. Known-good, silencing F821 in these files.
+"hydromodpy/data/data_managers_config.py" = ["F821"]
+"hydromodpy/config/hydromodpy_config.py" = ["F821"]
+# MODFLOW-NWT solver subtree: import ordering and double-docstring license
+# headers are handled separately from this release cleanup.
+"hydromodpy/solver/modflow_nwt/**" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["hydromodpy", "hydromodpy_annex"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Force every module-level logger to go through hydromodpy.core.logging.get_logger
+# so that the LogManager hierarchy ("hydromodpy.<sub>") stays consistent.
+# Allowed only inside core/logging/ (the wrapper) and in __init__.py re-exports.
+"logging.getLogger".msg = "Use `from hydromodpy.core.logging import get_logger` instead."
+
+[tool.ruff.lint.flake8-type-checking]
+# Tell ruff that pydantic's BaseModel is inspected at runtime, so forward
+# references to annotated types (e.g. `"HydrographyConfig | None"`) inside
+# pydantic models must be resolvable - avoids a wave of false-positive F821s
+# when the real import sits under `if TYPE_CHECKING:`.
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "pydantic_settings.BaseSettings",
+]
+
+[tool.ruff.format]
+# Mirrors black's defaults: double quotes, 4-space indent, trailing commas.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+# Also format code blocks inside docstrings (``>>>`` examples etc.).
+docstring-code-format = true
+docstring-code-line-length = 80
+# User-managed project scripts: kept in sync with mypy's exclude list above
+# so users own the layout of their own examples without auto-reformatting.
+exclude = ["examples/projects/**"]
+
+[tool.mypy]
+# Baseline non-blocking type-check. Tighten incrementally as the codebase
+# grows type coverage. The main CI gate keeps mypy advisory so failures are
+# visible without blocking merges.
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+exclude = [
+    "hydromodpy_annex/",
+    "_archive/",
+    "examples/projects/",
+    "tests/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "flopy.*",
+    "rasterio.*",
+    "shapely.*",
+    "geopandas.*",
+    "pyproj.*",
+    "rioxarray.*",
+    "xarray.*",
+    "xugrid.*",
+    "whitebox_workflows.*",
+    "vedo.*",
+    "ultraplot.*",
+    "pyvista.*",
+    "gmsh.*",
+    "cma.*",
+    "optuna.*",
+    "duckdb.*",
+    "zarr.*",
+    "dask.*",
+    "tomlkit.*",
+    "tomli_w.*",
+    "matplotlib_scalebar.*",
+    "colormap.*",
+    "contextily.*",
+    "imageio.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+# Strict gate on the foundational layers. Other layers stay advisory and
+# tighten progressively as type debt is paid down.
+[[tool.mypy.overrides]]
+module = [
+    "hydromodpy.core.*",
+    "hydromodpy.schema.*",
+    "hydromodpy.config.*",
+]
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_return_any = true
+implicit_reexport = false
+strict_equality = true
+extra_checks = true

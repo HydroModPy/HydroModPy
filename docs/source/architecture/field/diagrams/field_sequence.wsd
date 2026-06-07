@@ -1,0 +1,40 @@
+@startuml
+title Field - Demo Sequence (Square Case)
+
+actor User
+participant "run_field_demo.py" as Runner
+participant "FieldParam" as Param
+participant "FieldMeshSquare" as MeshFactory
+participant "FieldSquare" as SpatialField
+participant "Matplotlib" as Plot
+
+User -> Runner: execute script
+Runner -> Runner: parse args\nresolve paths
+
+Runner -> Param: from_toml(field_param_config)
+Param --> Runner: field_param
+
+Runner -> MeshFactory: from_toml(mesh_config)
+MeshFactory --> Runner: mesh
+
+alt field_param.is_heterogeneous
+  Runner -> SpatialField: from_toml(field_spatial_config)
+  SpatialField --> Runner: field
+  Runner -> Runner: validate field_spatial_id == field.identifier
+  Runner -> SpatialField: on_mesh(mesh)
+  SpatialField --> Runner: field_discretization
+  Runner -> Param: to_mesh_field(field_discretization)
+  Param --> Runner: values_mesh
+else homogeneous
+  Runner -> Param: to_mesh_field(mesh=mesh)
+  Param --> Runner: values_mesh
+end
+
+Runner -> Plot: create figure panels
+Runner -> Plot: savefig(output_path)
+opt interactive mode
+  Runner -> Plot: show()
+end
+
+Runner --> User: saved figure path
+@enduml
