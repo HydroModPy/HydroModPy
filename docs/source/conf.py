@@ -146,10 +146,16 @@ _ensure_required_doc_extensions()
 # sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
 # building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
 # and Read the Docs builds skip this block and run as a single-version build.
+# _current_version drives the pydata version-switcher highlight; default to the
+# stable trunk for non-polyversion builds.
+_current_version = "main"
 if os.environ.get("POLYVERSION_DATA"):
     from sphinx_polyversion import load as _polyversion_load
 
     _polyversion_load(globals())
+    _polyversion_current = globals().get("html_context", {}).get("current")
+    if getattr(_polyversion_current, "name", None):
+        _current_version = _polyversion_current.name
 
 _DOC_OPTIONAL_IMPORTS = [
     "pint",
@@ -522,7 +528,12 @@ html_theme_options = {
     "announcement": "🚧 Development documentation",
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
-    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "switcher": {
+        "json_url": "https://hydromodpy.github.io/switcher.json",
+        "version_match": _current_version,
+    },
+    "check_switcher": False,
     "show_nav_level": 2,
     "navigation_with_keys": True,
     "primary_sidebar_end": ["indices.html"],
