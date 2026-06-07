@@ -13,7 +13,7 @@ plus proches d'un inventaire reel.
 | [`bretagne_jauge_csv_10_1000km2.toml`](configs/bretagne_jauge_csv_10_1000km2.toml) | Bretagne | oui | 10-1000 km2 | 4 bassins CSV | Bassins/stations pre-normalises. |
 | [`bretagne_jauge_50_500km2.toml`](configs/bretagne_jauge_50_500km2.toml) | Bretagne | oui | 50-500 km2 | non plafonne | Inventaire regional. |
 | [`bretagne_jauge_7stations.toml`](configs/bretagne_jauge_7stations.toml) | Bretagne | oui | aucune plage | 7 stations | Stations explicites, snap BD Topage puis DEM. |
-| [`finistere_jauge_elorn_dem.toml`](configs/finistere_jauge_elorn_dem.toml) | Finistere | oui | aucun critere | 1 station | Test departemental rapide du rapport HTML. |
+| [`finistere_jauge_elorn_dem.toml`](configs/finistere_jauge_elorn_dem.toml) | Finistere | oui | surface 40-500 km2 | 1 station | Test departemental rapide du rapport HTML. |
 | [`aura_jauge_regional_50_150km2.toml`](configs/aura_jauge_regional_50_150km2.toml) | Auvergne-Rhone-Alpes | oui | 50-150 km2 | non plafonne | Inventaire regional Hub'Eau. |
 | [`aura_jauge_5stations.toml`](configs/aura_jauge_5stations.toml) | Auvergne-Rhone-Alpes | oui | aucun critere | 5 stations | Hub'Eau, stations explicites. |
 | [`aura_non_jauge_csv_50_150km2.toml`](configs/aura_non_jauge_csv_50_150km2.toml) | Auvergne-Rhone-Alpes | non | 50-150 km2 | 20 bassins CSV | Bassins deja delimites, critere surface seul. |
