@@ -100,13 +100,36 @@ def shrink_gallery_pngs(html_root: Path) -> None:
     print(f"shrunk {count} gallery PNGs, saved {saved / 1e6:.1f} MB")
 
 
+def _order(versions: list[str]) -> list[str]:
+    return sorted(versions, key=lambda name: (_VERSION_ORDER.get(name, 2), name))
+
+
 def main() -> int:
-    html_root = Path(sys.argv[1] if len(sys.argv) > 1 else "docs/build/html")
-    base_url = sys.argv[2] if len(sys.argv) > 2 else "https://hydromodpy.github.io"
+    argv = sys.argv[1:]
+    versions_csv: str | None = None
+    positional: list[str] = []
+    index = 0
+    while index < len(argv):
+        if argv[index] == "--versions" and index + 1 < len(argv):
+            versions_csv = argv[index + 1]
+            index += 2
+        else:
+            positional.append(argv[index])
+            index += 1
+
+    html_root = Path(positional[0] if positional else "docs/build/html")
+    base_url = positional[1] if len(positional) > 1 else "https://hydromodpy.github.io"
     if not html_root.is_dir():
         print(f"no html dir at {html_root}", file=sys.stderr)
         return 1
-    versions = discover_versions(html_root)
+
+    # Incremental deploy passes the full version set explicitly (only one version
+    # is built locally); the polyversion full build discovers them from the tree.
+    if versions_csv is not None:
+        versions = _order([item.strip() for item in versions_csv.split(",") if item.strip()])
+    else:
+        versions = discover_versions(html_root)
+
     write_switcher(html_root, base_url, versions)
     shrink_gallery_pngs(html_root)
     return 0
