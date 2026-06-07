@@ -1,0 +1,71 @@
+# Purpose:
+# Regenerate an 8-site Bretagne sample near the 10 km2 scale used by the
+# natural N1 testbeds. The selected sites are not expected to match the legacy
+# static catalog; they preserve the approximate support size and count.
+
+[workflow]
+mode = "site_selection"
+
+[site_selection]
+selection_id = "bretagne_non_jauge_dem_10km2_v1"
+output_root = "../outputs/bretagne_non_jauge_dem_10km2_v1"
+
+[site_selection.input]
+mode = "dem_area_target"
+region_id = "Bretagne"
+
+[site_selection.strategy]
+profile = "area_only"
+primary_axes = ["area"]
+observation_role = "report_only"
+geology_role = "report_only"
+
+[site_selection.territory]
+mode = "admin_regions"
+country = "FR"
+regions = ["Bretagne"]
+
+[site_selection.dem]
+cache_policy = "use_cache_else_download"
+delineation_dem_extent_source = "selection_territory"
+review_map_dem_background = "delineation_dem"
+
+[site_selection.hydrology]
+hydrologic_conditioning = "fill"
+network_threshold_area_km2 = 0.5
+
+[site_selection.dem_area_target]
+target_area_km2 = 10.0
+min_area_km2 = 7.5
+max_area_km2 = 12.5
+n_basins = 8
+max_candidates_before_delineation = 40
+
+[site_selection.spatial_selection]
+max_selected_sites = 8
+min_outlet_distance_km = 3.0
+max_pairwise_basin_overlap_fraction = 0.20
+overlap_mode = "hard_reject"
+spatial_quota_mode = "grid"
+spatial_quota_cell_size_km = 25.0
+spatial_quota_max_sites_per_cell = 1
+
+[site_selection.criteria.area]
+mode = "hard_reject"
+hard_min_area_km2 = 7.5
+hard_max_area_km2 = 12.5
+
+[site_selection.output]
+write_geopackage = false
+
+[report.html]
+profile = "site_selection"
+build_at_end = true
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0

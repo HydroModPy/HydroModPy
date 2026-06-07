@@ -18,6 +18,8 @@ plus proches d'un inventaire reel.
 | [`aura_jauge_5stations.toml`](configs/aura_jauge_5stations.toml) | Auvergne-Rhone-Alpes | oui | aucun critere | 5 stations | Hub'Eau, stations explicites. |
 | [`aura_non_jauge_csv_50_150km2.toml`](configs/aura_non_jauge_csv_50_150km2.toml) | Auvergne-Rhone-Alpes | non | 50-150 km2 | 20 bassins CSV | Bassins deja delimites, critere surface seul. |
 | [`bretagne_non_jauge_dem_reseau_50_500km2.toml`](configs/bretagne_non_jauge_dem_reseau_50_500km2.toml) | Bretagne | non | 50-500 km2 | 12 candidats max | Generation experimentale depuis DEM/reseau. |
+| [`bretagne_non_jauge_dem_8bassins_10km2.toml`](configs/bretagne_non_jauge_dem_8bassins_10km2.toml) | Bretagne | non | cible 10 km2, 7.5-12.5 km2 | 8 bassins | Regeneration N1 pour testbeds depuis DEM. |
+| [`bretagne_non_jauge_dem_9bassins_100km2.toml`](configs/bretagne_non_jauge_dem_9bassins_100km2.toml) | Bretagne | non | cible 100 km2, 75-125 km2 | 9 bassins | Regeneration N2 pour testbeds depuis DEM. |
 | [`calvados_non_jauge_dem_10bassins_100km2.toml`](configs/calvados_non_jauge_dem_10bassins_100km2.toml) | Calvados | non | cible 100 km2, 75-125 km2 | 10 bassins | Generation DEM rapide. |
 | [`manche_non_jauge_dem_10bassins_100km2.toml`](configs/manche_non_jauge_dem_10bassins_100km2.toml) | Manche | non | cible 100 km2, 75-125 km2 | 10 bassins | Generation DEM departementale rapide. |
 | [`normandie_non_jauge_dem_50bassins_100km2.toml`](configs/normandie_non_jauge_dem_50bassins_100km2.toml) | Normandie | non | cible 100 km2, 75-125 km2 | 50 bassins | Generation DEM regionale plafonnee. |
