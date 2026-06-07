@@ -17,13 +17,13 @@ Use it when the question is still upstream of modeling:
 Minimal structure
 -----------------
 
-This example is a small gauged-catchment review over Finistere. It asks Hubeau
-for up to seven gauging stations with observations, uses those stations as
-candidate outlets, delineates their DEM catchments on a widened local DEM, and
+This example is a small gauged-catchment review over Finistere. It loads one
+explicit Hub'Eau gauging station on the Elorn, uses that station as the
+candidate outlet, delineates its DEM catchment on a widened local DEM, and
 builds the HTML review at the end of the workflow. The selection itself is not
-"take seven stations and stop": each candidate is checked against the
-flow-station rules, basin geometry, overlap rules, known station influence, and
-a blocking catchment-area window of 40 to 500 km2.
+"take the station and stop": the candidate is checked against the flow-station
+rules, basin geometry, overlap rules, known station influence, and a blocking
+catchment-area window of 40 to 500 km2.
 
 .. code-block:: toml
 
@@ -98,7 +98,10 @@ a blocking catchment-area window of 40 to 500 km2.
    product = "QmnJ"
    extent = "study_area"
    require_observations = true
-   max_stations = 7
+   station_ids = [
+     "J341303001",
+   ]
+   max_stations = 1
 
    [data]
    types = ["dem"]
