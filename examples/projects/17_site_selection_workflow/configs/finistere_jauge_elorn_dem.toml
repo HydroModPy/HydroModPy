@@ -1,7 +1,8 @@
 # Purpose:
 # Very small Finistere smoke test derived from the Bretagne hydrometry workflow.
-# It loads one explicit Hub'Eau station in department 029, requests only a compact
-# DEM around the station outlet, and snaps directly on DEM accumulation.
+# It loads one explicit Hub'Eau station in department 029, requests a widened
+# DEM around the station outlet for delineation, and uses a territory-scale DEM
+# only as the HTML map background.
 # Expected result: quick end-to-end run that proves DEM loading, delineation,
 # station evidence, and HTML reporting work on a minimal department-scale case.
 
@@ -24,11 +25,11 @@ departments = ["029"]
 
 [site_selection.dem]
 cache_policy = "use_cache_else_download"
-delineation_buffer_km = 5.0
+delineation_buffer_km = 30.0
 delineation_dem_extent_source = "candidate_outlets_bbox"
 
 # DEM used as the HTML review-map background.
-review_map_dem_background = "delineation_dem"
+review_map_dem_background = "territory_dem"
 
 [site_selection.hydrology]
 hydrologic_conditioning = "fill"
@@ -54,7 +55,7 @@ overlap_mode = "warning"
 # delineated is unusable.
 # flow_station means gauging-station suitability: enough discharge record,
 # close enough to the final outlet, and inside the basin or at the outlet.
-hard_reject = ["delineation_failure", "flow_station"]
+hard_reject = ["area_range", "delineation_failure", "flow_station"]
 # Review warnings: the candidate can still be selected; the issue is highlighted
 # in the site-selection report for expert review before final acceptance.
 warning = ["basin_overlap", "geology", "station_influence"]
@@ -74,6 +75,15 @@ require_station_inside_or_at_outlet = true
 [site_selection.criteria.observations.station_influence]
 mode = "warning"
 unknown_policy = "neutral"
+
+[site_selection.criteria.area]
+mode = "hard_reject"
+
+[[site_selection.criteria.area.ranges]]
+range_id = "finistere_medium_catchments"
+label = "40-500 km2"
+min_area_km2 = 40.0
+max_area_km2 = 500.0
 
 [site_selection.criteria.influence]
 mode = "hard_reject"

@@ -17,6 +17,32 @@ layers. The reusable selection engine lives under
 ``hydromodpy/spatial/site_selection`` and receives normalized candidates,
 flow products, observations, and output paths.
 
+What This Section Explains
+--------------------------
+
+This section is written for contributors who need to change or review the site
+selection workflow without mixing together the workflow, spatial, reporting,
+and provider layers. The user-facing page explains how to run a campaign. These
+pages explain how a campaign is executed internally, where decisions are made,
+and which files are the stable contracts between phases.
+
+The workflow is easier to reason about if it is split into six questions:
+
+.. code-block:: text
+
+   1. Where do candidate outlets come from?
+   2. How are those outlets snapped and delineated?
+   3. Which criteria accept, reject, warn, or score each basin?
+   4. Which files describe the final run?
+   5. How is the HTML review page generated from those files?
+   6. Where can a contributor add new behavior safely?
+
+Each page in this section answers one of those questions. The pages deliberately
+repeat a few important concepts, such as ``CandidateOutlet``,
+``DelineatedCatchment``, ``CriteriaComponent`` and
+``site_selection_manifest.json``, because those objects are the hand-off points
+between packages.
+
 Runtime Shape
 -------------
 
@@ -61,6 +87,78 @@ The workflow supports five actions:
      - ``build_site_selection_from_dem_network_sampling`` in
        ``spatial/site_selection/pipelines/build.py``.
 
+End-to-End Object Flow
+----------------------
+
+The main objects move through the system in a fixed order:
+
+.. code-block:: text
+
+   raw provider rows / CSV rows / DEM cells
+          |
+          v
+   CandidateOutlet
+          |
+          v
+   Snapped outlet + DEM delineation attempt
+          |
+          +-- failure ---------------------> SelectionDecision(rejected)
+          |
+          v
+   DelineatedCatchment
+          |
+          v
+   CriteriaComponent rows
+          |
+          v
+   SelectionDecision rows
+          |
+          v
+   output artifacts + site_selection_manifest.json
+          |
+          v
+   static HTML review report / downstream frontend
+
+The important point is that the workflow keeps intermediate explanations. A
+candidate that disappears from the selected set should still have either a
+delineation failure or a final decision row explaining why it was rejected.
+
+How to Read the Section
+-----------------------
+
+Use the pages in this order when reviewing a change:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * - Page
+     - Read it when
+     - Main object or contract
+   * - :doc:`candidate-building`
+     - A change affects station, CSV, target-area, or network candidates.
+     - ``CandidateOutlet`` and candidate audit rows.
+   * - :doc:`delineation-and-snapping`
+     - A change affects DEM flow products, snapping, outlet movement, or basin
+       geometry.
+     - ``DelineatedCatchment`` and delineation failure records.
+   * - :doc:`criteria-and-selection`
+     - A change affects area thresholds, warnings, ranking, overlap, spacing,
+       or final selected/rejected decisions.
+     - ``CriteriaComponent`` and ``SelectionDecision``.
+   * - :doc:`manifest-and-reporting`
+     - A change affects output files, report generation, artifact discovery, or
+       downstream catalog consumers.
+     - ``site_selection_manifest.json``.
+   * - :doc:`html-report-generation`
+     - A change affects ``[report.html]``, static review pages, report blocks,
+       or the review map.
+     - ``review/index.html`` and ``report_artifact_manifest.json``.
+   * - :doc:`extension-points`
+     - You are adding a provider, candidate builder, criterion, output format,
+       report block, or frontend.
+     - Package boundary and test checklist.
+
 Subsystem Map
 -------------
 
@@ -94,6 +192,13 @@ Subsystem Map
 
       Output writers, ``site_selection_manifest.json``, report artifact
       manifests, and the HTML review page.
+
+   .. grid-item-card:: HTML report generation
+      :link: html-report-generation
+      :link-type: doc
+
+      How ``[report.html]`` triggers the static map, report blocks, and review
+      pages under ``review/``.
 
    .. grid-item-card:: Extension points
       :link: extension-points
@@ -147,6 +252,25 @@ Design Invariants
 - HTML reporting is derived from the manifest and its declared artifacts. A
   report should be reproducible from the manifest alone.
 
+Common Contributor Mistakes
+---------------------------
+
+The most common implementation mistakes are boundary mistakes:
+
+- adding Hub'Eau-specific parsing inside ``hydromodpy.spatial.site_selection``;
+- making a criterion load files directly instead of consuming normalized
+  attributes or evidence records;
+- dropping candidates after delineation without writing a decision or failure
+  record;
+- making the HTML report infer files that are not declared in the manifest;
+- adding an output artifact but forgetting to register it in
+  ``site_selection_manifest.json`` and the report-artifact manifest.
+
+When in doubt, follow the data flow. Provider payloads become normalized records
+first. Normalized records become candidates. Candidates become delineated basins
+or failures. Basins become criterion rows and decisions. Decisions become
+manifest-declared artifacts.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
@@ -155,4 +279,5 @@ Design Invariants
    delineation-and-snapping
    criteria-and-selection
    manifest-and-reporting
+   html-report-generation
    extension-points
