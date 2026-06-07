@@ -28,6 +28,7 @@ FORBIDDEN_LEGACY_SNIPPETS = (
     "write_candidates",
     "write_report_md",
     "write_report_html",
+    "site_selection_report_html_requested",
     "soft_score",
     "request_extent",
     "delineation_extent",

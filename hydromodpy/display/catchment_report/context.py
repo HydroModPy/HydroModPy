@@ -17,12 +17,12 @@ import pandas as pd
 
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
-from hydromodpy.display.catchment_report.semantic_artifacts import semantic_artifact_id
 from hydromodpy.display.report_artifacts import (
     ReportArtifact,
     ReportArtifactManifest,
     ReportArtifactRequirement,
 )
+from hydromodpy.display.report_semantics import semantic_artifact_id
 
 REPORT_ARTIFACT_MANIFEST_NAME = "report_artifact_manifest.json"
 

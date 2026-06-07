@@ -103,6 +103,40 @@ TOML, manifest, or regenerated file fingerprints rather than committing the full
 HTML and figure tree. The full report can still be inspected locally after a
 run through the printed ``html_report`` path.
 
+What the report shows
+---------------------
+
+The Nancon example illustrates the kind of evidence a catchment report brings
+together: spatial context, reference hydrography, observed or simulated series,
+and simulation diagnostics. These figures are generated report artifacts, copied
+here only as documentation illustrations.
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: /_static/user_guide/catchment_report/nancon_map_dem_context.png
+          :alt: Nancon DEM context map.
+          :width: 100%
+
+          Catchment and DEM context.
+
+     - .. figure:: /_static/user_guide/catchment_report/nancon_hydrographic_network_comparison.png
+          :alt: Nancon hydrographic network comparison.
+          :width: 100%
+
+          Reference and generated hydrographic networks.
+   * - .. figure:: /_static/user_guide/catchment_report/nancon_timeseries_discharge.png
+          :alt: Nancon discharge time series.
+          :width: 100%
+
+          Discharge time series used for report interpretation.
+
+     - .. figure:: /_static/user_guide/catchment_report/nancon_simulated_active_network_reference_overlay.png
+          :alt: Nancon simulated active network overlay.
+          :width: 100%
+
+          Simulated active network compared with the reference network.
+
 TOML contract
 -------------
 
@@ -236,6 +270,28 @@ duplicating the lower-level pipeline switches. ``build_at_end = true`` implies
    profile = "catchment_gauged"
    config_path = "../16_nancon_natural_calibration/catchment_report_transient_nwt_html.toml"
 
+Current profile support is intentionally narrow:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 24 52
+
+   * - Profile
+     - Status
+     - Builder
+   * - ``catchment_gauged``
+     - Supported for simulation runs
+     - The simulation pipeline renders display artifacts, then
+       ``HtmlReportStep`` builds the catchment report from ``config_path``.
+   * - ``site_selection``
+     - Supported by the site-selection workflow
+     - The site-selection workflow reads the same ``[report.html]`` intent but
+       uses its own manifest-driven renderer.
+   * - ``generic_simulation``
+     - Reserved
+     - The profile is accepted by the configuration schema for future use, but
+       no end-of-run HTML builder is shipped for it yet.
+
 Using ``enabled = true`` without ``build_at_end`` means that the run should
 prepare the report artifacts but the final HTML can be built later from the
 manifest.
@@ -324,6 +380,33 @@ The Nancon example uses the same generic report contract as any other basin:
    [context.observed_discharge]
    path = "../../data/hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv"
    station_id = "NANCON"
+
+This lower-level example is useful when rebuilding the report manually from
+the historical ``transient_nwt`` artifacts. It is not the recommended
+validation target for the end-of-run ``[report.html]`` path.
+
+For the optional HTML report built at the end of a simulation, use the Nancon
+overlay that points to the display-artifact run:
+
+.. code-block:: toml
+
+   base_config = "catchment_report.toml"
+
+   [report]
+   output_dir = "outputs/nancon_transient_nwt_html_report"
+
+   [layout]
+   simulation_name = "transient_nwt_html_report"
+   transient_config_name = "run_transient_nwt_html_report.toml"
+
+The corresponding report-only rebuild is:
+
+.. code-block:: bash
+
+   hmp report catchment examples/projects/16_nancon_natural_calibration/catchment_report_transient_nwt_html.toml --report-only
+
+Its expected final check is ``missing_count = 0`` in
+``outputs/nancon_transient_nwt_html_report/block_report_postflight.json``.
 
 Adding a New Basin
 ------------------

@@ -49,10 +49,75 @@ Le chantier n'est pas totalement ferme:
 - tous les producteurs ne proposent pas encore la selection de niveau bloc par
   bloc;
 - le rapport testbed volumineux reste hors migration;
-- `network_transient/sections.py` reste present pour compatibilite de tests et
-  de helpers, meme si le rendu final passe par les blocs;
-- il faut encore faire une revue visuelle humaine et maintenir la courte
-  documentation "comment creer un rapport HTML par blocs" dans RTD.
+- la revue de livraison ciblee du rapport bassin Nancon et du rapport
+  site-selection est faite, mais les gros cas regionaux restent des revues
+  produit separees;
+- la courte documentation "comment creer un rapport HTML par blocs" dans RTD
+  doit rester maintenue avec les evolutions du socle.
+
+## Livraison ciblee 2026-06-07
+
+Cette reprise clot le lot "HTML en fin de simulation" pour le profil
+`catchment_gauged` et le nettoyage legacy associe.
+
+Etat du code actif:
+
+- le pipeline de simulation termine par `DisplayStep()` puis `HtmlReportStep()`;
+- `HtmlReportStep` construit uniquement le profil `catchment_gauged`;
+- `site_selection` reste gere par son workflow dedie, en reutilisant
+  l'intention `[report.html]`;
+- `generic_simulation` reste reserve dans le schema mais sans builder livre;
+- les anciens wrappers de compatibilite
+  `hydromodpy/display/catchment_report/semantic_artifacts.py` et
+  `hydromodpy/reporting/site_selection/intent.py` ont ete supprimes;
+- les imports actifs pointent directement vers
+  `hydromodpy.display.report_semantics` ou vers
+  `cfg.report_html_build_at_end`.
+
+Validation automatisee relancee:
+
+```powershell
+python -m pytest tests/unit/display/test_report_blocks_html.py tests/unit/display/test_catchment_report_artifact_contract.py tests/unit/display/test_catchment_report_pipeline.py tests/unit/display/test_catchment_report_postflight.py tests/unit/display/test_catchment_report_settings.py tests/unit/display/test_catchment_report_docs_contract.py tests/unit/display/test_catchment_report_examples_contract.py tests/unit/display/test_report_config.py tests/unit/display/test_report_artifacts.py tests/unit/test_pipeline_html_report_step.py tests/unit/test_pipeline_display_step.py tests/unit/cli/test_report_catchment.py -q
+```
+
+Resultat: `80 passed`.
+
+```powershell
+python -m pytest tests/unit/site_selection/test_manifest_report.py tests/unit/site_selection/test_workflow_plan_run_workflow.py tests/unit/site_selection/test_workflow_plan_planning.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_legacy_contract.py tests/unit/site_selection/test_synthetic_spatial_review.py -q
+```
+
+Resultat: `33 passed`.
+
+Revue HTML locale:
+
+```powershell
+python -m hydromodpy report catchment examples/projects/16_nancon_natural_calibration/catchment_report_transient_nwt_html.toml --report-only
+```
+
+Sorties a utiliser pour la revue finale:
+
+```text
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/by_block/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/compact/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/standard/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/audit/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/block_report_postflight.json
+```
+
+Le postflight de cette sortie indique:
+
+```text
+expected_count = 22
+present_count = 22
+missing_count = 0
+```
+
+Point d'attention: `outputs/nancon_real_figures` appartient a l'ancien exemple
+de rapport manuel `catchment_report.toml`, cible `simulation_name =
+"transient_nwt"` et ne doit pas servir de validation finale pour le chantier
+`[report.html]` de fin de simulation. Il peut signaler des figures manquantes
+car il ne cible pas le run `transient_nwt_html_report`.
 
 ## Validation plug-and-play au 2026-05-24
 
@@ -1520,15 +1585,13 @@ python examples/projects/16_nancon_natural_calibration/build_nancon_real_figures
 
 ### Reste a faire
 
-- Decider si `network_transient/sections.py` doit rester comme compatibilite de
-  tests/helpers ou etre progressivement deprecie.
+- `network_transient/sections.py` n'existe plus dans le code actif; il n'y a
+  plus de decision de compatibilite a prendre sur ce fichier.
 - Reporter la migration de `generate_testbed_web_report.py`: le fichier est
   trop volumineux pour etre migre dans le meme lot.
-- Eventuellement ajouter un guide court dans la documentation developpeur:
-  "comment creer un rapport HTML par blocs".
-- Faire une revue visuelle humaine des pages generees dans `%TEMP%`, notamment:
-  - lisibilite du sommaire;
-  - densite des metriques;
-  - pertinence des libelles du rapport calibration naturel/B0;
-  - taille acceptable de la carte site-selection embarquee.
+- Le guide developpeur court existe maintenant:
+  `docs/source/architecture/how-to/add-a-block-html-report.rst`.
+- Revue visuelle ciblee faite pour les pages de livraison Nancon et
+  site-selection. Les prochaines revues visuelles doivent porter sur des cas
+  produit precis, pas sur le refactoring HTML lui-meme.
 - Appliquer ensuite le meme pattern au rapport testbed, dans un lot separe.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,39 @@ def test_build_site_selection_from_point_records_chains_candidates_delineation_s
     assert result.output_paths["observation_evidence_jsonl"].is_file()
     assert result.output_paths["observation_points_geojson"].is_file()
     assert result.observation_evidence[0].feature_id == "J123456701"
+
+
+@pytest.mark.fast
+def test_build_site_selection_from_point_records_exports_review_map_dem_path(tmp_path):
+    map_dem_path = tmp_path / "review_map_dem.tif"
+    map_dem_path.write_text("raster", encoding="utf-8")
+
+    def fake_flow_builder(**_kwargs):
+        return FlowProducts(correc="fill.tif", direc="direc.tif", acc="acc.tif")
+
+    def fake_delineation_builder(**kwargs):
+        output_dir = Path(kwargs["output_dir"])
+        return CatchmentFromPointProducts(
+            outlet_shp=str(output_dir / "outlet.shp"),
+            outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
+            watershed_tif=str(output_dir / "watershed.tif"),
+            watershed_shp=str(output_dir / "watershed.shp"),
+        )
+
+    result = build_site_selection_from_point_records(
+        config=make_config(tmp_path),
+        point_records=[make_record("J123456701")],
+        map_dem_path=map_dem_path,
+        flow_products_builder=fake_flow_builder,
+        delineation_builder=fake_delineation_builder,
+        area_reader=lambda _path: 100.0,
+    )
+
+    manifest = json.loads(
+        result.output_paths["site_selection_manifest_json"].read_text(encoding="utf-8")
+    )
+
+    assert manifest["flow_products"]["map_dem_path"] == str(map_dem_path.resolve())
 
 
 @pytest.mark.fast

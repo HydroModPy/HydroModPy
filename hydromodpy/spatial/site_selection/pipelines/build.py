@@ -75,6 +75,7 @@ def build_site_selection_from_point_records(
     config: SiteSelectionConfig,
     point_records: Iterable[Any],
     dem_init_path: str | Path | None = None,
+    map_dem_path: str | Path | None = None,
     output_root: str | Path | None = None,
     crs_project: str | None = None,
     backend: object | None = None,
@@ -172,6 +173,8 @@ def build_site_selection_from_point_records(
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
         flow_manifest["intermediate_rasters_kept"] = config.output.keep_intermediate_rasters
+        if map_dem_path is not None:
+            flow_manifest["map_dem_path"] = str(Path(map_dem_path).expanduser().resolve())
         if reference_bundle is not None:
             flow_manifest["reference_network"] = reference_bundle.to_manifest_record()
         output_paths.update(

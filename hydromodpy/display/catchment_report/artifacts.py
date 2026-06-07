@@ -13,8 +13,8 @@ from hydromodpy.display.catchment_report.resources import (
     GEOLOGY_DATA_ROOT,
     REPO_ROOT,
 )
-from hydromodpy.display.catchment_report.semantic_artifacts import semantic_artifact_id
 from hydromodpy.display.report_artifacts import ReportArtifactIndex
+from hydromodpy.display.report_semantics import semantic_artifact_id
 
 
 @dataclass(frozen=True)

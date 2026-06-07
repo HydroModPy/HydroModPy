@@ -28,9 +28,9 @@ workflow validates that the explicit profile is either omitted or equal to
 ``site_selection``, then stores the request on the workflow-local
 ``SiteSelectionConfig.report_html_build_at_end`` flag.
 
-Older site-selection-specific switches such as ``write_report_html`` are not
-part of the current public contract. Example TOMLs should use ``[report.html]``
-so report intent is expressed the same way as other HydroModPy workflows.
+Older site-selection-specific report switches are not part of the current
+public contract. Example TOMLs should use ``[report.html]`` so report intent is
+expressed the same way as other HydroModPy workflows.
 
 Completed Run Flow
 ------------------
