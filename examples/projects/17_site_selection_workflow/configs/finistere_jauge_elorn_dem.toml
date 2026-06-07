@@ -95,6 +95,14 @@ reject_major_regulated_reach = true
 mode = "warning"
 prefer_diversity = true
 
+[site_selection.map_context]
+
+[[site_selection.map_context.layers]]
+# Department outline drawn behind selected basins in the HTML review map.
+name = "Finistere department outline"
+path = "../fixtures/context/finistere_department_outline.geojson"
+role = "territory"
+
 [report.html]
 profile = "site_selection"
 build_at_end = true
