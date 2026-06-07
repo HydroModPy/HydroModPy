@@ -87,6 +87,9 @@ jobs:
       - name: Build every version with sphinx-polyversion
         run: python -m sphinx_polyversion poly.py
 
+      - name: Post-process built site (switcher.json + shrink gallery PNGs)
+        run: python tools/docs_pages_postbuild.py docs/build/html https://hydromodpy.github.io
+
       - name: Add a root redirect to the default version
         run: >
           [ -f docs/build/html/index.html ] ||
