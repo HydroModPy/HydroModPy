@@ -32,6 +32,7 @@ id_field = "site_id"
 label_field = "site_label"
 axis_field = "region_id"
 tags_field = "tags"
+field_equals = { site_status = "selected" }
 ```
 
 ## Regional lab profile
@@ -57,6 +58,13 @@ region_field = "region_id"
 tags_field = "tags"
 ```
 
+The top-level regional selection uses the status exported by site selection:
+
+```toml
+[regional_lab.selection]
+statuses = ["selected"]
+```
+
 ## Real site-selection output
 
 Run a site-selection workflow first:
@@ -73,3 +81,12 @@ from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_non_j
 
 The downstream config no longer needs to hard-code
 `regional_lab_sites.csv`; the manifest remains the stable hand-off contract.
+
+For an execution campaign, keep the manifest-based catalog and provide real
+child TOMLs for every rendered recipe path. Then switch:
+
+```toml
+[regional_lab]
+execute = true
+validate_config_paths = true
+```
