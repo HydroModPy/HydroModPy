@@ -71,6 +71,28 @@ def test_html_report_step_raises_strict_error() -> None:
         HtmlReportStep().run(state)
 
 
+@pytest.mark.parametrize("profile", ["site_selection", "generic_simulation"])
+def test_html_report_step_raises_strict_error_for_unsupported_profiles(
+    profile: str,
+    tmp_path: Path,
+) -> None:
+    state = PipelineState(
+        run_id="r",
+        data={
+            "ctx": _ctx(
+                _report(
+                    config_path=tmp_path / "catchment_report.toml",
+                    profile=profile,
+                    strict=True,
+                )
+            )
+        },
+    )
+
+    with pytest.raises(ConfigError, match=f"HTML report profile {profile!r}"):
+        HtmlReportStep().run(state)
+
+
 def test_html_report_step_runs_catchment_report_only(monkeypatch, tmp_path: Path) -> None:
     config_path = tmp_path / "catchment_report.toml"
     html_path = tmp_path / "report" / "web" / "index.html"

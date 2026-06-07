@@ -7,9 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.reporting.site_selection.intent import (
-    site_selection_report_html_requested,
-)
 from hydromodpy.workflow.site_selection import (
     load_data_dem_config_for_site_selection,
     load_hydrometry_config_for_site_selection,
@@ -169,7 +166,7 @@ def test_bretagne_jauge_7stations_example_loads():
     assert site_cfg.criteria.ranking_preference == []
     assert site_cfg.criteria.report_only == []
     assert site_cfg.criteria.area.ranges == []
-    assert site_selection_report_html_requested(site_cfg) is True
+    assert site_cfg.report_html_build_at_end is True
     assert dem_cfg is not None
     assert dem_cfg.sources[0].source == "ign_geoplateforme_dem"
     assert dem_cfg.sources[0].regions == ["Bretagne"]
@@ -200,9 +197,12 @@ def test_finistere_jauge_elorn_dem_example_loads():
     assert site_cfg.territory.mode == "admin_departments"
     assert site_cfg.territory.departments == ["029"]
     assert site_cfg.outlets.snap_strategy == "dem_accumulation"
+    assert "area_range" in site_cfg.criteria.hard_reject
     assert "area_range" not in site_cfg.criteria.warning
-    assert site_cfg.criteria.area.ranges == []
-    assert site_selection_report_html_requested(site_cfg) is True
+    assert site_cfg.criteria.area.ranges[0].range_id == "finistere_medium_catchments"
+    assert site_cfg.criteria.area.ranges[0].min_area_km2 == pytest.approx(40.0)
+    assert site_cfg.criteria.area.ranges[0].max_area_km2 == pytest.approx(500.0)
+    assert site_cfg.report_html_build_at_end is True
     assert dem_cfg is not None
     assert dem_cfg.sources[0].departments == ["029"]
     assert hydrometry_cfg.sources[0].station_ids == ["J341303001"]

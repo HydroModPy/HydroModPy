@@ -12,14 +12,14 @@ from hydromodpy.display.catchment_report.artifacts import (
 )
 from hydromodpy.display.catchment_report.block_specs import ReportBlockSpec
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
-from hydromodpy.display.catchment_report.semantic_artifacts import (
-    SEMANTIC_ARTIFACT_ID_BY_FIGURE_ID,
-    semantic_artifact_id,
-)
 from hydromodpy.display.report_artifacts import (
     ReportArtifact,
     ReportArtifactManifest,
     ReportArtifactRequirement,
+)
+from hydromodpy.display.report_semantics import (
+    SEMANTIC_ARTIFACT_ID_BY_FIGURE_ID,
+    semantic_artifact_id,
 )
 
 CATCHMENT_GAUGED_PROFILE = "catchment_gauged"

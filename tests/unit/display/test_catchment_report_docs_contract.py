@@ -52,6 +52,22 @@ def test_catchment_report_documentation_mentions_contract_fields() -> None:
         assert token in text
 
 
+def test_catchment_report_documentation_declares_html_profile_support() -> None:
+    text = DOC_PATH.read_text(encoding="utf-8")
+
+    for token in (
+        "Current profile support is intentionally narrow",
+        "``catchment_gauged``",
+        "Supported for simulation runs",
+        "``site_selection``",
+        "Supported by the site-selection workflow",
+        "``generic_simulation``",
+        "Reserved",
+        "no end-of-run HTML builder is shipped for it yet",
+    ):
+        assert token in text
+
+
 def test_documented_example_configs_resolve_to_expected_presets() -> None:
     nancon_inputs = CatchmentReportInputs.from_toml(NANCON_CONFIG)
     selune_inputs = CatchmentReportInputs.from_toml(SELUNE_CONFIG)

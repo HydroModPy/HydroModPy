@@ -26,7 +26,6 @@ manifest.
 - `blocks.py`: report-block construction and detail-level variants.
 - `figures.py`: static map rendering from manifest-declared spatial artifacts.
 - `plan.py`: dry-run and planning report helpers.
-- `intent.py`: small shared report-intent definitions.
 
 ## Invariants
 

@@ -24,9 +24,6 @@ from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
-from hydromodpy.reporting.site_selection.intent import (
-    site_selection_report_html_requested,
-)
 from hydromodpy.reporting.site_selection.plan import (
     render_site_selection_plan_html_report,
 )
@@ -1207,6 +1204,22 @@ def build_observed_site_selection_from_toml(
         candidate_outlets=candidate_outlets,
     )
     _emit_progress(progress_callback, f"{cfg.selection_id}: calculation DEM ready: {dem_path}")
+    map_dem_path = None
+    if cfg.dem.review_map_dem_background not in {"none", "delineation_dem"}:
+        _emit_progress(progress_callback, f"{cfg.selection_id}: resolving review-map DEM")
+        map_dem_record = _maybe_resolve_map_dem_for_review(
+            config=cfg,
+            catchments=[],
+            config_path=path,
+            dem_loader=dem_loader,
+        )
+        map_dem_value = map_dem_record.get("map_dem_path")
+        if map_dem_value:
+            map_dem_path = Path(str(map_dem_value)).expanduser().resolve()
+            _emit_progress(
+                progress_callback,
+                f"{cfg.selection_id}: review-map DEM ready: {map_dem_path}",
+            )
     _emit_progress(
         progress_callback,
         f"{cfg.selection_id}: building flow products, catchments and report artifacts",
@@ -1215,6 +1228,7 @@ def build_observed_site_selection_from_toml(
         config=cfg,
         point_records=records,
         dem_init_path=dem_path,
+        map_dem_path=map_dem_path,
         backend=backend,
         flow_products_builder=flow_products_builder,
         delineation_builder=delineation_builder,
@@ -1366,7 +1380,7 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
         plan = plan_site_selection(path)
         manifest_path = plan.write_manifest() if cfg.input.write_plan_manifest else None
         report_path = None
-        if site_selection_report_html_requested(cfg):
+        if cfg.report_html_build_at_end:
             if manifest_path is None:
                 manifest_path = plan.write_manifest()
             report_path = render_site_selection_plan_html_report(manifest_path)
@@ -1724,7 +1738,7 @@ def _planned_outputs(cfg: SiteSelectionConfig) -> list[str]:
     if cfg.output.write_regional_lab_csv:
         outputs.append("regional_lab_csv")
     outputs.append("report_artifact_manifest")
-    if site_selection_report_html_requested(cfg):
+    if cfg.report_html_build_at_end:
         outputs.append("report_html")
     return outputs
 
