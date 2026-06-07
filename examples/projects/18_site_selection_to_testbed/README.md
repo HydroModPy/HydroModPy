@@ -90,3 +90,24 @@ child TOMLs for every rendered recipe path. Then switch:
 execute = true
 validate_config_paths = true
 ```
+
+## Regenerated regional testbeds
+
+The files below show the intended migration path for the larger natural
+campaigns: regenerate a site inventory with `site_selection`, then let the
+comparison testbed consume the resulting manifest.
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/bretagne_non_jauge_dem_8bassins_10km2.toml
+hmp run examples/projects/18_site_selection_to_testbed/bretagne_10km2_mf6_bouss_from_site_selection.toml
+```
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/bretagne_non_jauge_dem_9bassins_100km2.toml
+hmp run examples/projects/18_site_selection_to_testbed/bretagne_100km2_mf6_bouss_from_site_selection.toml
+```
+
+The first pair targets the legacy N1 scale: about 8 sites near 10 km2. The
+second pair targets the legacy N2 scale: about 9 sites near 100 km2. The sites
+are regenerated from DEM area targets and are not expected to match the old
+static `natural_regional_lab_sites.csv` rows.
