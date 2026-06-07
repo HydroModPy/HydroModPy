@@ -32,7 +32,7 @@ required_fields = ["site_id", "site_label", "x_outlet", "y_outlet"]
 tag_separator = ";"
 
 [regional_lab.selection]
-tags = ["selected"]
+statuses = ["selected"]
 
 [[regional_lab.recipe]]
 id = "mesh_plan"

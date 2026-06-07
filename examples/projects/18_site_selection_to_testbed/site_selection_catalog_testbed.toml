@@ -24,7 +24,7 @@ axis_field = "region_id"
 tags_field = "tags"
 enabled_field = "enabled"
 required_fields = ["site_id", "x_outlet", "y_outlet", "area_km2"]
-tags = ["selected", "simulation"]
+field_equals = { site_status = "selected" }
 
 [[testbed.case_from_catalog]]
 id_template = "{site_id}"
