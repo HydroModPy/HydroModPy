@@ -54,6 +54,16 @@ def _normalise(text: str) -> str:
     return _VOLATILE.sub("<ts>", text)
 
 
+def _input_content_without_timestamps(doc) -> dict[str, dict[str, object]]:
+    """Return deterministic input content, excluding volatile fetch times."""
+    inputs: dict[str, dict[str, object]] = {}
+    for key, value in doc["inputs"].items():
+        payload = dict(value)
+        payload.pop("fetched_at", None)
+        inputs[str(key)] = payload
+    return inputs
+
+
 def _seed_two_inputs(tmp: Path) -> tuple[DataCatalogDuckDB, Path, Path, Path]:
     """Two catalog entries under a workspace; deterministic byte payloads."""
     workspace = tmp / "workspace"
@@ -102,8 +112,9 @@ def test_two_writes_are_byte_identical_after_timestamp_normalisation(
     # And the parsed content sections are exactly equal.
     doc_a = tomlkit.parse(text_a)
     doc_b = tomlkit.parse(text_b)
-    for section in ("schema", "binaries", "inputs"):
+    for section in ("schema", "binaries"):
         assert dict(doc_a[section]) == dict(doc_b[section])
+    assert _input_content_without_timestamps(doc_a) == _input_content_without_timestamps(doc_b)
 
 
 def test_input_ordering_is_stable_across_writes(tmp_path: Path) -> None:
@@ -282,7 +293,7 @@ def test_gzip_archive_round_trip_preserves_sha256(tmp_path: Path) -> None:
     catalog.close()
     assert archive.is_file()
 
-    restore_dir = tmp_path / "restored"
+    restore_dir = tmp_path / "r"
     restore_archive(archive, restore_dir)
 
     lock = restore_dir / LOCKFILE_NAME
@@ -304,7 +315,7 @@ def test_zstandard_archive_round_trip_preserves_sha256(tmp_path: Path) -> None:
     catalog.close()
     assert archive.is_file()
 
-    restore_dir = tmp_path / "restored_zst"
+    restore_dir = tmp_path / "rz"
     restore_archive(archive, restore_dir)
 
     assert (restore_dir / LOCKFILE_NAME).is_file()

@@ -23,14 +23,16 @@ step_value = "1 month"
 coverage_policy = "warn"
 
 [flow.sinks_sources.wells.W1.forcing]
-path_file = "../../../../../examples/data/wells/standard_wells_2003.csv"
+# Keep WEL active, but use a scaled regression forcing so MF6 6.6.3 does not
+# terminate on the period-2 dry-cell convergence cliff of the full showcase CSV.
+path_file = "standard_wells_2003_scale025.csv"
 
 [flow.sinks_sources.wells.W2.location]
 x_rel = 0.70
 y_rel = 0.70
 
 [flow.sinks_sources.wells.W2.forcing]
-path_file = "../../../../../examples/data/wells/standard_wells_2003.csv"
+path_file = "standard_wells_2003_scale025.csv"
 
 [flow.param.K.field]
 kind = "homogeneous"

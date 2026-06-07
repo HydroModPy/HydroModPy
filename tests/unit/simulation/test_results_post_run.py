@@ -12,7 +12,7 @@ import pytest
 import hydromodpy.simulation.extraction.post_run as post_run_module
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.simulation.extraction.post_run import post_run_results
+from hydromodpy.simulation.extraction.post_run import auto_export_results, post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from tests._helpers.fixtures_catalog import simulation_catalog
@@ -98,6 +98,16 @@ class _FakeProvider:
         if process_type == "flow" and solver_name == "fake_solver":
             return self.adapter
         raise KeyError((process_type, solver_name))
+
+
+class _RecordingExportStore:
+    def __init__(self, project_path: Path) -> None:
+        self.project_path = project_path
+        self.exports: list[tuple[str, object]] = []
+
+    def export(self, sim_id: str, spec) -> Path:
+        self.exports.append((sim_id, spec))
+        return Path(spec.dest)
 
 
 def _install_post_run_stubs(
@@ -196,6 +206,32 @@ class TestPostRunResults:
         )
         assert (solver_dir / "model.hds").exists()
         assert provider.adapter.cleanup_calls == []
+
+    def test_auto_export_shortens_long_windows_label(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(post_run_module.os, "name", "nt")
+        long_root = tmp_path / ("x" * 30)
+        long_root.mkdir(parents=True)
+        store = _RecordingExportStore(long_root)
+        config = ResultsConfig(
+            export={
+                "csv_timeseries": True,
+                "variables": {"head": False, "derived": False},
+            }
+        )
+        run_id = "natural_mesh_10km2_transient_pulse_mf6_vs_bouss__bouss_candidate"
+
+        auto_export_results(
+            sim_id="01234567-89ab-cdef-0123-456789abcdef",
+            store=store,
+            results_config=config,
+            run_id=run_id,
+        )
+
+        assert len(store.exports) == 1
+        _, spec = store.exports[0]
+        assert spec.dest.name == "timeseries.csv"
+        assert spec.dest.parent.name != run_id
+        assert spec.dest.parent.name.startswith("natural_mesh_10km2_transient")
 
     def test_lumped_extractor_skips_catchment_aggregation(self, catalog, tmp_path, monkeypatch):
         sid = str(uuid4())

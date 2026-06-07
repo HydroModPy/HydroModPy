@@ -11,7 +11,11 @@ import flopy
 import numpy as np
 
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.build import mf6_safe_name, optional_ims_kwargs
+from hydromodpy.solver.modflow6.build import (
+    mf6_safe_name,
+    mf6_workspace_name,
+    optional_ims_kwargs,
+)
 from hydromodpy.solver.modflow6.postprocess import run_transport_post_processing
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
@@ -45,10 +49,11 @@ class Modflow6Transport:
         self.model_modflow = model_modflow
         self.model_folder = model_folder
         self.model_name = model_name
+        self.model_workspace_name = mf6_workspace_name(model_folder, model_name)
         self.suffix_name = suffix_name
         self.model_name_mt = model_name + suffix_name
         self.model_name_mt_mf6 = mf6_safe_name(self.model_name_mt)
-        self.full_path = os.path.join(model_folder, model_name)
+        self.full_path = os.path.join(model_folder, self.model_workspace_name)
         self.exe = getattr(model_modflow, "exe", "mf6")
 
         conc_params = {}

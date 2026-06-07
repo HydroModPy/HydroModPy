@@ -208,17 +208,17 @@ os.environ.setdefault(_SCRATCH_SESSION_ENV, str(_TEST_SESSION_ROOT))
 os.environ.setdefault("HMP_STATE_HOME", str(_TEST_STATE_ROOT))
 if _OWNS_TEST_SCRATCH:
     os.environ[_SCRATCH_OWNER_ENV] = _SCRATCH_OWNER_TOKEN
-# Workers must override TMPDIR (the master already set it to the shared root).
-if _WORKER_SUFFIX:
-    os.environ["PYTEST_DEBUG_TEMPROOT"] = str(_TEST_PYTEST_ROOT)
-    os.environ["TMPDIR"] = str(_TEST_TMP_ROOT)
-    os.environ["TMP"] = str(_TEST_TMP_ROOT)
-    os.environ["TEMP"] = str(_TEST_TMP_ROOT)
-else:
-    os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEST_PYTEST_ROOT))
-    os.environ.setdefault("TMPDIR", str(_TEST_TMP_ROOT))
-    os.environ.setdefault("TMP", str(_TEST_TMP_ROOT))
-    os.environ.setdefault("TEMP", str(_TEST_TMP_ROOT))
+# Always override process temp roots inside pytest.  Regression and validation
+# helpers build deterministic folders under tempfile.gettempdir(); inheriting
+# the user's global TEMP lets concurrent pytest sessions delete each other's
+# solver scratch directories on Windows.
+os.environ["PYTEST_DEBUG_TEMPROOT"] = str(_TEST_PYTEST_ROOT)
+os.environ["TMPDIR"] = str(_TEST_TMP_ROOT)
+os.environ["TMP"] = str(_TEST_TMP_ROOT)
+os.environ["TEMP"] = str(_TEST_TMP_ROOT)
+# tempfile.gettempdir() is cached in-process; conftest already called it while
+# resolving the scratch root, so reset the cache after exporting the test temp.
+tempfile.tempdir = str(_TEST_TMP_ROOT)
 
 
 def _ensure_test_scratch_dirs() -> None:
