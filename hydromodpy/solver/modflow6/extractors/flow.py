@@ -187,6 +187,18 @@ class Modflow6OutputAdapter:
                 sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
             )
 
+        self._extract_lake_series(
+            sim_id,
+            store,
+            solver_output_dir,
+            model_name,
+            times=times,
+            tdis_path=tdis_path,
+            time_units=time_units,
+            seconds_per_time_unit=seconds_per_time_unit,
+            start_datetime=start_datetime,
+        )
+
         head_file.close()
 
         self._write_surface_elevation(
@@ -291,6 +303,59 @@ class Modflow6OutputAdapter:
         if budget_records:
             store.write_budgets(sim_id, budget_records)
         cbb.close()
+
+    def _extract_lake_series(
+        self,
+        sim_id: str,
+        store: Any,
+        solver_output_dir: Path,
+        model_name: str,
+        *,
+        times: list,
+        tdis_path: Path,
+        time_units: str,
+        seconds_per_time_unit: float,
+        start_datetime: object | None = None,
+    ) -> None:
+        """Read the LAK obs CSV into per-lake (lake_id, totim) timeseries.
+
+        Per-lake stage / volume / surface-area, the lake-aquifer exchange and the
+        rest of the lake water balance come from the LAK observation CSV described
+        by the build-time ``{model}.lak.meta.json`` sidecar; the spatial per-cell
+        seepage stays in the GWF ``.cbc`` ``LAK`` record handled by
+        ``_extract_budget``. Stage / volume / surface-area keep their native units;
+        rate terms are scaled to m3/s. Without the sidecar the model has no lake
+        and this is a no-op.
+        """
+        from hydromodpy.solver.modflow6.extractors.lake import (
+            build_lake_records,
+            read_lake_meta,
+        )
+
+        spec = read_lake_meta(solver_output_dir / f"{model_name}.lak.meta.json")
+        if spec is None:
+            return
+        obs_path = solver_output_dir / spec.obs_csv
+        calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
+        factor = _seconds_per_time_unit(time_units)
+        calendar_times: list[object] | None = None
+        if calendar_anchor is not None:
+            relative = np.asarray(times, dtype=float) * factor
+            axis = cf_time_axis_seconds(relative, calendar_anchor)
+            calendar_times = [
+                np.datetime64(int(value), "s").astype("datetime64[ms]") for value in axis
+            ]
+        timeseries, budgets = build_lake_records(
+            spec,
+            obs_path,
+            times=times,
+            seconds_per_time_unit=seconds_per_time_unit,
+            calendar_times=calendar_times,
+        )
+        if timeseries:
+            store.write_timeseries_batch(sim_id, timeseries)
+        if budgets:
+            store.write_budgets(sim_id, budgets)
 
     @staticmethod
     def _recarray_to_grid(

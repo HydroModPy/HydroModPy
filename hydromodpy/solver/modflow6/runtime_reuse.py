@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 
@@ -129,12 +129,123 @@ def refresh_reused_runtime_property_packages(
         model.drn.stress_period_data.set_data(drn_spd)
         updated_packages.append("drn")
 
+    if refresh_reused_lak_bedleak(model, flow_runtime_overrides=flow_runtime_overrides):
+        updated_packages.append("lak")
+
     return tuple(updated_packages)
+
+
+def refresh_reused_lak_bedleak(
+    model,
+    *,
+    flow_runtime_overrides: Mapping[str, object] | None,
+) -> bool:
+    """Refresh the LAK ``bedleak`` (calibration parameter) in place.
+
+    ``bedleak`` is the lake-bed leakance (1/T) on every LAK connection, the
+    under-dam leakage calibration parameter. Like npf/sto, the lake grid
+    and connection geometry are static under reuse, so we only rewrite the
+    ``bedleak`` column of ``connectiondata`` (per 0-based lake index ``ifno``) and
+    keep the cached MF6 object. Returns ``True`` when the LAK package was touched.
+
+    The new value comes from a ``bedleak`` override (a scalar applied to every
+    lake, or a ``{lake_id: value}`` mapping in 1/s) and falls back to the current
+    per-lake ``bedleak`` declared on ``model.flow``. The override values are SI
+    (1/s) like the hk/sy/ss overrides.
+    """
+    from hydromodpy.solver.modflow6.builders.lake import (
+        convert_bedleak_to_per_s,
+        lake_definitions_for_bedleak,
+    )
+
+    lak = getattr(model, "lak", None)
+    if lak is None:
+        return False
+
+    # Per-lake bedleak (1/s) declared on the current model.flow, in LAK
+    # packagedata (ifno) order, plus the optional calibration override.
+    lake_ids: list[str] = []
+    base_bedleak: dict[int, float] = {}
+    for lake_index, (lake_id, definition) in enumerate(lake_definitions_for_bedleak(model).items()):
+        lake_ids.append(str(lake_id))
+        bedleak = definition.get("bedleak")
+        if bedleak is None:
+            continue
+        unit = definition.get("bedleak_unit")
+        base_bedleak[lake_index] = convert_bedleak_to_per_s(
+            bedleak,
+            lake_id=lake_id,
+            unit=str(unit) if unit is not None else None,
+        )
+
+    targets = _merge_bedleak_targets(
+        base_bedleak,
+        lake_ids,
+        _bedleak_override(flow_runtime_overrides),
+    )
+    if not targets:
+        return False
+
+    connectiondata = lak.connectiondata.get_data()
+    names = getattr(getattr(connectiondata, "dtype", None), "names", None) or ()
+    if connectiondata is None or "bedleak" not in names:
+        return False
+    updated = np.array(connectiondata, copy=True)
+    bedleak_col = np.asarray(updated["bedleak"], dtype=float)
+    ifno = np.asarray(updated["ifno"], dtype=int)
+    changed = False
+    for lake_index, value in targets.items():
+        mask = ifno == int(lake_index)
+        if mask.any():
+            bedleak_col[mask] = float(value)
+            changed = True
+    if not changed:
+        return False
+    updated["bedleak"] = bedleak_col
+    lak.connectiondata.set_data(updated)
+    return True
+
+
+def _bedleak_override(
+    flow_runtime_overrides: Mapping[str, object] | None,
+) -> Mapping[str, object] | float | None:
+    """Return the ``bedleak`` calibration override (scalar or per-lake mapping)."""
+    if not isinstance(flow_runtime_overrides, Mapping):
+        return None
+    override = flow_runtime_overrides.get("bedleak")
+    if isinstance(override, Mapping):
+        return {str(lake_id): value for lake_id, value in override.items()}
+    if isinstance(override, (int, float)) and not isinstance(override, bool):
+        return float(override)
+    return None
+
+
+def _merge_bedleak_targets(
+    base_bedleak: Mapping[int, float],
+    lake_ids: Sequence[str],
+    override: Mapping[str, object] | float | None,
+) -> dict[int, float]:
+    """Combine the declared per-lake bedleak with the calibration override.
+
+    A scalar override applies to every lake; a per-lake mapping overrides only the
+    named lakes (matched against the LAK packagedata order in ``lake_ids``).
+    """
+    targets: dict[int, float] = dict(base_bedleak)
+    if isinstance(override, (int, float)) and not isinstance(override, bool):
+        indices = range(len(lake_ids)) if lake_ids else [0]
+        for lake_index in indices:
+            targets[lake_index] = float(override)
+    elif isinstance(override, Mapping):
+        for lake_id, value in override.items():
+            if str(lake_id) in lake_ids:
+                targets[lake_ids.index(str(lake_id))] = float(value)  # type: ignore[arg-type]
+    return targets
 
 
 __all__ = [
     "calibration_runtime_reuse_enabled",
     "can_refresh_runtime_reuse",
+    "refresh_reused_lak_bedleak",
     "refresh_reused_runtime_property_packages",
     "runtime_reuse_signature",
 ]
