@@ -75,6 +75,24 @@ def test_missing_column_is_rejected() -> None:
     assert "sarea" in _failure_blob(exc.value)
 
 
+def test_decreasing_volume_is_rejected() -> None:
+    # MF6 needs dV/dz >= 0; a volume that drops as stage rises is non-physical and
+    # must be caught by the contract, not late at solver build.
+    bad = _good()
+    bad.loc[2, "volume"] = 1.0e5  # below the row at the lower stage (2.0e5)
+    with pytest.raises(DataContractViolation) as exc:
+        validate_abacus(bad)
+    assert "volume" in _failure_blob(exc.value)
+
+
+def test_single_row_per_lake_is_rejected() -> None:
+    # A one-row abacus cannot bracket the stage range; the contract rejects it
+    # before the Parquet write so no orphan invalid artifact reaches the catalog.
+    bad = pd.DataFrame({"lake_id": ["lac0"], "stage": [85.0], "volume": [0.0], "sarea": [0.0]})
+    with pytest.raises(DataContractViolation):
+        validate_abacus(bad)
+
+
 def test_monotonicity_is_per_lake_not_global() -> None:
     # Two lakes interleaved: each is individually increasing, the global
     # column is not. The contract must accept this.

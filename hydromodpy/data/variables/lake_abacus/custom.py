@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data.adapters import convert_abacus_csv_to_parquet
+from hydromodpy.data.adapters import convert_abacus_to_parquet
 from hydromodpy.data.contracts.table import TableRecord
 
 
@@ -20,10 +20,11 @@ def load_custom_abacus(
 ) -> list[TableRecord]:
     """Load a custom lake-abacus table as a :class:`TableRecord`.
 
-    A ``.csv`` source is converted to the validated Parquet pivot when a
-    ``data_dir`` is available; otherwise the original path is referenced. The
-    ``lake_id`` from the source config (or the file stem) becomes the
-    record's ``table_id``.
+    Both ``.csv`` and ``.parquet`` sources are normalised through the validated
+    Parquet pivot when a ``data_dir`` is available, so the abacus contract is
+    enforced regardless of input format. A ``.parquet`` source without a
+    ``data_dir`` is referenced as-is (it cannot be re-written). The ``lake_id``
+    from the source config (or the file stem) becomes the record's ``table_id``.
     """
     path = Path(str(source_cfg.path)).resolve()
     if not path.exists():
@@ -31,19 +32,19 @@ def load_custom_abacus(
 
     lake_id = getattr(source_cfg, "lake_id", None) or path.stem
     ext = path.suffix.strip().lower()
+    if ext not in (".csv", ".parquet"):
+        raise ValueError(f"Unsupported lake-abacus format: '{ext}'. Supported: .csv, .parquet")
 
-    if ext == ".csv":
-        if data_dir is None:
+    if data_dir is None:
+        if ext == ".csv":
             raise ValueError(
                 f"A data_dir is required to convert a CSV lake-abacus to Parquet ({path.name})."
             )
-        dest = data_dir / f"lake_abacus_custom_{path.stem}.parquet"
-        convert_abacus_csv_to_parquet(path, dest, lake_id=lake_id)
-        data: Path = dest
-    elif ext == ".parquet":
-        data = path
+        data: Path = path
     else:
-        raise ValueError(f"Unsupported lake-abacus format: '{ext}'. Supported: .csv, .parquet")
+        dest = data_dir / f"lake_abacus_custom_{path.stem}.parquet"
+        convert_abacus_to_parquet(path, dest, lake_id=lake_id)
+        data = dest
 
     return [
         TableRecord(
