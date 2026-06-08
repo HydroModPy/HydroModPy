@@ -154,18 +154,21 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         config_class="LakeGeometryConfig",
         manager_module="hydromodpy.data.variables.lake_geometry.manager",
         manager_class="LakeGeometryManager",
+        apply_simulation_window=False,
     ),
     "lake_bathymetry": VariableSpec(
         config_module="hydromodpy.data.variables.lake_bathymetry.config",
         config_class="LakeBathymetryConfig",
         manager_module="hydromodpy.data.variables.lake_bathymetry.manager",
         manager_class="LakeBathymetryManager",
+        apply_simulation_window=False,
     ),
     "lake_abacus": VariableSpec(
         config_module="hydromodpy.data.variables.lake_abacus.config",
         config_class="LakeAbacusConfig",
         manager_module="hydromodpy.data.variables.lake_abacus.manager",
         manager_class="LakeAbacusManager",
+        apply_simulation_window=False,
     ),
     "lake_levels": VariableSpec(
         config_module="hydromodpy.data.variables.lake_levels.config",
