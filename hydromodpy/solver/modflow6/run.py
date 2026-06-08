@@ -53,7 +53,35 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
     if options.run_model:
         solve_start = time.perf_counter()
         try:
-            success_model, _ = model.sim.run_simulation(silent=not options.verbose)
+            if getattr(options, "runner", "subprocess") == "api":
+                success_model = _run_via_api(model, verbose=bool(options.verbose))
+            else:
+                success_model, _ = model.sim.run_simulation(silent=not options.verbose)
         finally:
             model.last_flow_solve_time_seconds = time.perf_counter() - solve_start
     return success_model
+
+
+def _run_via_api(model, *, verbose: bool) -> bool:
+    """Drive the already-written workspace through libmf6 instead of the exe.
+
+    The simulation is written exactly as in the subprocess path, so the OC and
+    LAK packages produce the same .hds/.cbc/obs/stage outputs the extractors
+    read. Only the solve engine differs. A developer callback and an explicit
+    library path can be attached to the model as ``_mf6_api_callback`` and
+    ``_mf6_api_lib_path`` before processing; both are optional.
+    """
+    from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext, run_mf6_api
+
+    callback = getattr(model, "_mf6_api_callback", None)
+    if callback is None:
+
+        def callback(ctx: Mf6ApiContext) -> None:
+            return None
+
+    return run_mf6_api(
+        model.full_path,
+        callback,
+        lib_path=getattr(model, "_mf6_api_lib_path", None),
+        verbose=verbose,
+    )

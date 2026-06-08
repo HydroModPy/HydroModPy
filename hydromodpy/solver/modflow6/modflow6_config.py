@@ -21,6 +21,14 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default="mf6",
         description="MODFLOW 6 executable name or absolute path.",
     )
+    mf6_runner: Annotated[Literal["subprocess", "api"], Profile.EXPERT] = Field(
+        default="subprocess",
+        description=(
+            "MODFLOW 6 solve dispatch: 'subprocess' runs the mf6 executable, 'api' "
+            "drives libmf6 via the optional modflowapi package. Both write the same "
+            "simulation, so output extraction is identical."
+        ),
+    )
     mf6_ims_complexity: Annotated[Literal["SIMPLE", "MODERATE", "COMPLEX"], Profile.EXPERT] = Field(
         default="COMPLEX",
         description="IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX.",

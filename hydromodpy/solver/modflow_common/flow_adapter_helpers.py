@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Literal
 
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
 from hydromodpy.simulation.planning.plan import (
@@ -152,6 +153,18 @@ def _requires_mt3dms_link(ctx: RunContext) -> bool:
     )
 
 
+def _resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"]:
+    """Return the solve dispatch ('subprocess' or 'api') for a flow model.
+
+    Only the MODFLOW 6 backend exposes a ``mf6_runner`` runtime field. NWT and
+    any other backend have no such field, so they default to 'subprocess' and
+    stay byte-for-byte unchanged.
+    """
+    runtime = getattr(getattr(model_modflow, "modflow_config", None), "runtime", None)
+    runner = getattr(runtime, "mf6_runner", "subprocess")
+    return "api" if runner == "api" else "subprocess"
+
+
 def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:
     """Execute the shared lifecycle for one already-instantiated flow model.
 
@@ -184,6 +197,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             write_model=True,
             run_model=True,
             link_mt3dms=_requires_mt3dms_link(ctx),
+            runner=_resolve_modflow_runner(model_modflow),
         )
     )
     if not success:

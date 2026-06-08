@@ -170,7 +170,25 @@ class Modflow6:
 
     # run --------------------------------------------------------------
 
-    def processing(self, options: ModflowRunOptions | None = None):
+    def processing(
+        self,
+        options: ModflowRunOptions | None = None,
+        *,
+        api_callback: Callable[[Mf6ApiContext], None] | None = None,
+        api_lib_path: str | os.PathLike[str] | None = None,
+    ):
+        """Write and run the simulation, then return the success flag.
+
+        When ``options.runner == "api"`` the solve is driven through libmf6
+        instead of the mf6 executable. ``api_callback`` is an optional per-step
+        developer hook and ``api_lib_path`` an optional explicit shared-library
+        path; both are forwarded to the API runner and ignored in subprocess
+        mode. They are passed in code only, never via TOML.
+        """
+        if api_callback is not None:
+            self._mf6_api_callback = api_callback
+        if api_lib_path is not None:
+            self._mf6_api_lib_path = api_lib_path
         return run_processing(self, options)
 
     def run_api(
