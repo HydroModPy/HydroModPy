@@ -215,7 +215,7 @@ def _lake_payloads_as_mappings(flow: Flow) -> dict[str, dict[str, object]]:
         if isinstance(payload, Mapping):
             payloads[str(lake_id)] = dict(payload)
         else:
-            fields = ("bedleak", "bedleak_unit", "stageinit", "outlets")
+            fields = ("bedleak", "bedleak_unit", "stageinit", "occupied_layers", "outlets")
             forcings = ("rainfall", "evaporation", "runoff", "inflow", "withdrawal")
             payloads[str(lake_id)] = {
                 name: getattr(payload, name, None) for name in (*fields, *forcings)

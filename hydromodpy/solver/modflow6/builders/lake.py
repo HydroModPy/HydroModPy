@@ -114,14 +114,16 @@ def apply_lake_idomain_mask(
     *,
     lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
     occupied_layers: int = 1,
+    occupied_layers_by_lake: Mapping[str, int] | None = None,
 ) -> SolverMesh:
-    """Return a new ``SolverMesh`` with the lake's top layers made inactive.
+    """Return a new ``SolverMesh`` with each lake's top layers made inactive.
 
-    The lake occupies the top ``occupied_layers`` layers of each lake column (a
-    surface lake fills only layer 0). The layers below stay active so the LAK
-    VERTICAL connection has a first active cell to leak into. ``occupied_layers``
-    must leave at least one active layer per lake column, otherwise the column
-    has nothing to connect to.
+    A lake occupies the top layers of each of its columns: ``occupied_layers``
+    applies to every lake unless ``occupied_layers_by_lake`` overrides it per lake
+    id (a surface lake fills only layer 0; a deep reservoir fills several). The
+    layers below stay active so the LAK VERTICAL connection has a first active
+    cell to leak into; the count must leave at least one active layer per lake
+    column, otherwise the column has nothing to connect to.
 
     The frozen ``SolverMesh`` is left untouched; we ``dataclasses.replace`` a
     fresh inactive mask. Applying this *before* the DISV / idomain / dem_mask
@@ -129,16 +131,21 @@ def apply_lake_idomain_mask(
     """
     n_cells = int(solver_mesh.n_cells)
     nlay = int(solver_mesh.nlay)
-    if occupied_layers < 1:
-        raise ValueError("occupied_layers must be >= 1.")
-    if occupied_layers >= nlay:
-        raise ValueError(
-            f"occupied_layers ({occupied_layers}) must leave at least one active layer "
-            f"below the lake (nlay={nlay}); the VERTICAL connection needs an aquifer "
-            "cell to leak into."
-        )
     mask = np.asarray(solver_mesh.inactive_mask, dtype=bool).copy()
     for lake_id, cell_ids in lake_cell_ids_by_lake.items():
+        layers = int(
+            occupied_layers
+            if occupied_layers_by_lake is None
+            else occupied_layers_by_lake.get(lake_id, occupied_layers)
+        )
+        if layers < 1:
+            raise ValueError(f"flow.sinks_sources.lakes.{lake_id} occupied_layers must be >= 1.")
+        if layers >= nlay:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id} occupied_layers ({layers}) must leave at "
+                f"least one active layer below the lake (nlay={nlay}); the VERTICAL connection "
+                "needs an aquifer cell to leak into."
+            )
         for cid in cell_ids:
             cell = int(cid)
             if cell < 0 or cell >= n_cells:
@@ -146,7 +153,7 @@ def apply_lake_idomain_mask(
                     f"flow.sinks_sources.lakes.{lake_id} cell {cell} is outside the grid "
                     f"({n_cells} cells)."
                 )
-            mask[:occupied_layers, cell] = True
+            mask[:layers, cell] = True
     return dataclasses.replace(solver_mesh, inactive_mask=mask)
 
 
@@ -464,13 +471,14 @@ def build_lak_package_args(
                 lake_id=lake_id,
                 unit=str(bedleak_unit) if bedleak_unit is not None else None,
             )
+        lake_layers = int(definition.get("occupied_layers") or occupied_layers)
         rows = build_lake_connectiondata(
             model,
             lake_index=lake_index,
             lake_cell_ids=cell_ids,
             bedleak=bedleak_value,
             solver_mesh=solver_mesh,
-            occupied_layers=occupied_layers,
+            occupied_layers=lake_layers,
         )
         connectiondata.extend(rows)
         # VERTICAL connections sit under the lake footprint: their per-lake iconn
@@ -628,6 +636,19 @@ def lake_definitions_for_bedleak(model) -> dict[str, dict[str, Any]]:
     return _active_lake_definitions(model)
 
 
+def resolve_lake_occupied_layers(model) -> dict[str, int]:
+    """Return the per-lake occupied-layer count (>= 1) keyed by lake id.
+
+    Reads the ``occupied_layers`` config field surfaced onto each lake payload,
+    defaulting to 1 (surface lake). Used by ``build.py`` to thread the count into
+    the idomain mask so a deep reservoir is deactivated over all of its layers.
+    """
+    return {
+        lake_id: max(1, int(definition.get("occupied_layers") or 1))
+        for lake_id, definition in _active_lake_definitions(model).items()
+    }
+
+
 def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active lake definitions ``{lake_id: {polygon, bedleak, abacus}}``.
 
@@ -656,6 +677,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "bedleak_unit": _lake_attr(payload, "bedleak_unit"),
             "abacus": _lake_attr(payload, "abacus"),
             "stageinit": _lake_attr(payload, "stageinit"),
+            "occupied_layers": _lake_attr(payload, "occupied_layers"),
             "outlets": _lake_attr(payload, "outlets"),
             "rainfall": _lake_attr(payload, "rainfall"),
             "evaporation": _lake_attr(payload, "evaporation"),
@@ -1248,5 +1270,6 @@ __all__ = [
     "lake_definitions_for_bedleak",
     "resolve_lake_cells",
     "resolve_lake_cells_for_active_lakes",
+    "resolve_lake_occupied_layers",
     "resolve_use_ts6",
 ]

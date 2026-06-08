@@ -101,6 +101,17 @@ def test_bedleak_unit_reaches_the_builder_through_the_binder() -> None:
     assert converted == pytest.approx(1.0 / 86400.0)
 
 
+def test_occupied_layers_defaults_and_validates() -> None:
+    # Surface lake by default; a deep reservoir declares more occupied layers.
+    assert FlowLakeConfig.model_validate({"bedleak": 0.1, "stageinit": "85 m"}).occupied_layers == 1
+    deep = FlowLakeConfig.model_validate(
+        {"bedleak": 0.1, "stageinit": "85 m", "occupied_layers": 3}
+    )
+    assert deep.occupied_layers == 3
+    with pytest.raises(ValueError):
+        FlowLakeConfig.model_validate({"bedleak": 0.1, "stageinit": "85 m", "occupied_layers": 0})
+
+
 def test_weir_outlet_without_invert_is_rejected() -> None:
     with pytest.raises(ValueError):
         FlowLakeConfig.model_validate(

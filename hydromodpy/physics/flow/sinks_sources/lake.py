@@ -228,6 +228,16 @@ class FlowLakeConfig(HydroModelBase):
         ),
     )
     stageinit: Annotated[Length, Profile.USER] = Field(..., description="Initial lake stage [L].")
+    occupied_layers: Annotated[int, Profile.USER] = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Number of top grid layers the lake occupies in each of its columns. "
+            "1 is a surface lake; a deeper reservoir embedded over several layers "
+            "uses a higher count. Must leave at least one active layer below the "
+            "lake for the VERTICAL leakage connection."
+        ),
+    )
     outlets: Annotated[list[FlowLakeOutletConfig], Profile.USER] = Field(
         default_factory=list,
         description="Surverse / spillway / controlled-release outlets for this lake.",

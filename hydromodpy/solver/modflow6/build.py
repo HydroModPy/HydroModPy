@@ -32,6 +32,7 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_drainage_conductance_series,
     resolve_ims_complexity,
     resolve_lake_cells_for_active_lakes,
+    resolve_lake_occupied_layers,
     resolve_rewet_npf_options,
     resolve_xt3d_npf_options,
     xt3d_activation_mode,
@@ -431,12 +432,15 @@ def run_pre_processing(  # noqa: PLR0915
     # supplies the storage and lake-aquifer exchange through its own
     # CONNECTIONDATA (built later from this same lake mask).
     lake_cell_ids_by_lake = resolve_lake_cells_for_active_lakes(model, solver_mesh)
+    occupied_layers_by_lake = resolve_lake_occupied_layers(model)
     model._lake_cell_ids = sorted(
         {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
     )
     if lake_cell_ids_by_lake:
         solver_mesh = apply_lake_idomain_mask(
-            solver_mesh, lake_cell_ids_by_lake=lake_cell_ids_by_lake
+            solver_mesh,
+            lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+            occupied_layers_by_lake=occupied_layers_by_lake,
         )
         model.solver_mesh = solver_mesh
         model.inactive_mask = solver_mesh.inactive_mask[0]
@@ -509,6 +513,7 @@ def run_pre_processing(  # noqa: PLR0915
         solver_mesh,
         ocean_support_mask=ocean_support_mask,
         stream_support_mask=stream_support_mask,
+        lake_cell_ids=model._lake_cell_ids,
     )
     if evt_spd is not None:
         maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)

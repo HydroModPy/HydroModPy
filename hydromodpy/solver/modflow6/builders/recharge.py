@@ -528,8 +528,15 @@ def build_evt_stress_period_data(
     *,
     ocean_support_mask: np.ndarray,
     stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int] = (),
 ) -> dict[int, list[list[float]]] | None:
-    """Build MF6 EVT stress-period data from recharge negatives routed to EVT."""
+    """Build MF6 EVT stress-period data from recharge negatives routed to EVT.
+
+    ``lake_cell_ids`` are the flat cell2d ids under the lake footprint: aquifer ET
+    is skipped there because LAK supplies the open-water evaporation, so it must
+    not be double-counted. They are passed explicitly (not read off the model) so
+    the masking does not depend on build ordering.
+    """
     evt_payload = getattr(model, "_evt_rate_payload", None)
     if evt_payload is None:
         return None
@@ -541,9 +548,7 @@ def build_evt_stress_period_data(
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
     # Place the EVT sink on the uppermost active layer of each cell, not layer 0.
     idomain = solver_mesh.idomain()
-    # Lake cells get their open-water evaporation from LAK; aquifer ET there would
-    # double-count it.
-    lake_cells = {int(cid) for cid in getattr(model, "_lake_cell_ids", ()) or ()}
+    lake_cells = {int(cid) for cid in lake_cell_ids}
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
