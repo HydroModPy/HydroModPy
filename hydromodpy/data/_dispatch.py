@@ -149,6 +149,30 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         manager_module="hydromodpy.data.variables.soil_moisture.manager",
         manager_class="SoilMoistureManager",
     ),
+    "lake_geometry": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_geometry.config",
+        config_class="LakeGeometryConfig",
+        manager_module="hydromodpy.data.variables.lake_geometry.manager",
+        manager_class="LakeGeometryManager",
+    ),
+    "lake_bathymetry": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_bathymetry.config",
+        config_class="LakeBathymetryConfig",
+        manager_module="hydromodpy.data.variables.lake_bathymetry.manager",
+        manager_class="LakeBathymetryManager",
+    ),
+    "lake_abacus": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_abacus.config",
+        config_class="LakeAbacusConfig",
+        manager_module="hydromodpy.data.variables.lake_abacus.manager",
+        manager_class="LakeAbacusManager",
+    ),
+    "lake_levels": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_levels.config",
+        config_class="LakeLevelsConfig",
+        manager_module="hydromodpy.data.variables.lake_levels.manager",
+        manager_class="LakeLevelsManager",
+    ),
 }
 
 

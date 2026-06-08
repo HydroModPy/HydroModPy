@@ -5,6 +5,9 @@ Current inference scope (V3)
 - ``domain.zone_ids`` containing ``geology`` -> activate ``geology``
 - ``flow.active_bc`` containing ``stream`` -> activate ``hydrography``
 - ``flow.active_bc`` containing ``ocean`` -> activate ``oceanic``
+- ``flow.active_bc`` containing ``lake``/``reservoir`` -> activate the lake
+  family (``lake_geometry``, ``lake_bathymetry``, ``lake_abacus``,
+  ``lake_levels``)
 """
 
 from __future__ import annotations
@@ -101,6 +104,22 @@ class DataPlanner:
                 "oceanic",
                 "inferred from flow.active_bc containing 'ocean'",
             )
+
+        if active_bc & {"lake", "reservoir"}:
+            lake_token = "lake" if "lake" in active_bc else "reservoir"
+            for lake_family in (
+                "lake_geometry",
+                "lake_bathymetry",
+                "lake_abacus",
+                "lake_levels",
+            ):
+                if lake_family not in explicit_set:
+                    self._add_inference(
+                        inferred_types,
+                        reasons_by_type,
+                        lake_family,
+                        f"inferred from flow.active_bc containing '{lake_token}'",
+                    )
 
         if config.inference_mode == "strict":
             self._enforce_strict_mode(config, inferred_types)

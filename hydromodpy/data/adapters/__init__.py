@@ -9,6 +9,7 @@ user ever having to see or name them.
 from hydromodpy.data.adapters.asc_to_geotiff import convert_asc_to_geotiff
 from hydromodpy.data.adapters.csv_to_parquet import (
     TimeSeriesValidationError,
+    convert_abacus_csv_to_parquet,
     convert_locations_csv_to_geoparquet,
     convert_timeseries_csv_to_parquet,
     infer_station_id_from_filename,
@@ -18,6 +19,7 @@ from hydromodpy.data.adapters.shp_to_geoparquet import convert_vector_to_geoparq
 
 __all__ = (
     "TimeSeriesValidationError",
+    "convert_abacus_csv_to_parquet",
     "convert_asc_to_geotiff",
     "convert_locations_csv_to_geoparquet",
     "convert_timeseries_csv_to_parquet",

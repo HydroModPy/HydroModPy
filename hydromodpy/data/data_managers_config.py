@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -23,6 +23,31 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.geology.config import GeologyConfig
+
+# The sibling typed configs are referenced only as forward refs in the field
+# declarations below; they are imported lazily at runtime (inside
+# ``from_toml_section`` / ``_rebuild_forward_refs``) to avoid circular imports.
+# This TYPE_CHECKING block makes those names visible to static analysis without
+# importing anything at runtime.
+if TYPE_CHECKING:
+    from hydromodpy.data.variables.etp.config import EtpConfig
+    from hydromodpy.data.variables.humidity.config import HumidityConfig
+    from hydromodpy.data.variables.hydrography.config import HydrographyConfig
+    from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+    from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
+    from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
+    from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
+    from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
+    from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
+    from hydromodpy.data.variables.piezometry.config import PiezometryConfig
+    from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
+    from hydromodpy.data.variables.radiation.config import RadiationConfig
+    from hydromodpy.data.variables.recharge.config import RechargeConfig
+    from hydromodpy.data.variables.runoff.config import RunoffConfig
+    from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
+    from hydromodpy.data.variables.temperature.config import TemperatureConfig
+    from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
+    from hydromodpy.data.variables.wind.config import WindConfig
 
 SUPPORTED_DATA_MANAGER_TYPES = (
     "dem",
@@ -32,6 +57,10 @@ SUPPORTED_DATA_MANAGER_TYPES = (
     "hydrography",
     "hydrometry",
     "intermittency",
+    "lake_abacus",
+    "lake_bathymetry",
+    "lake_geometry",
+    "lake_levels",
     "oceanic",
     "piezometry",
     "precipitation",
@@ -110,6 +139,22 @@ class DataManagersConfig(HydroModelBase):
     intermittency: Annotated[IntermittencyConfig | None, Profile.USER] = Field(
         default=None,
         description="Intermittency configuration (ONDE stream flow-state observations).",
+    )
+    lake_abacus: Annotated[LakeAbacusConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake abacus configuration (stage-volume-area lookup table).",
+    )
+    lake_bathymetry: Annotated[LakeBathymetryConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake bathymetry configuration (lake-bed elevation raster).",
+    )
+    lake_geometry: Annotated[LakeGeometryConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake geometry configuration (lake/reservoir footprint vector).",
+    )
+    lake_levels: Annotated[LakeLevelsConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake levels configuration (observed water-level time series).",
     )
     oceanic: Annotated[OceanicConfig | None, Profile.USER] = Field(
         default=None,
@@ -288,6 +333,10 @@ class DataManagersConfig(HydroModelBase):
         from hydromodpy.data.variables.hydrography.config import HydrographyConfig
         from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
         from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
+        from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
+        from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
+        from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
+        from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
         from hydromodpy.data.variables.piezometry.config import PiezometryConfig
         from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
         from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -305,6 +354,10 @@ class DataManagersConfig(HydroModelBase):
             "oceanic": OceanicConfig,
             "hydrometry": HydrometryConfig,
             "intermittency": IntermittencyConfig,
+            "lake_abacus": LakeAbacusConfig,
+            "lake_bathymetry": LakeBathymetryConfig,
+            "lake_geometry": LakeGeometryConfig,
+            "lake_levels": LakeLevelsConfig,
             "piezometry": PiezometryConfig,
             "water_quality": WaterQualityConfig,
             "recharge": RechargeConfig,
@@ -376,6 +429,10 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.data.variables.hydrography.config import HydrographyConfig
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
     from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
+    from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
+    from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
+    from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
+    from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig
     from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
     from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -391,6 +448,10 @@ def _rebuild_forward_refs() -> None:
             "HydrographyConfig": HydrographyConfig,
             "HydrometryConfig": HydrometryConfig,
             "IntermittencyConfig": IntermittencyConfig,
+            "LakeAbacusConfig": LakeAbacusConfig,
+            "LakeBathymetryConfig": LakeBathymetryConfig,
+            "LakeGeometryConfig": LakeGeometryConfig,
+            "LakeLevelsConfig": LakeLevelsConfig,
             "PiezometryConfig": PiezometryConfig,
             "WaterQualityConfig": WaterQualityConfig,
             "RechargeConfig": RechargeConfig,
@@ -434,7 +495,7 @@ def _inner_model_type(annotation) -> type[BaseModel] | tuple[type[BaseModel], ..
         # Annotated[A | B, ...] or A | B
         inner_origin = typing.get_origin(inner)
         inner_args = typing.get_args(inner)
-        if inner_origin is typing.Annotated:  # type: ignore[comparison-overlap]
+        if inner_origin is typing.Annotated:
             inner = inner_args[0]
             inner_origin = typing.get_origin(inner)
             inner_args = typing.get_args(inner)

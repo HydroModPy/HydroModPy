@@ -102,6 +102,42 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "reseau hydrographique",
         "geoparquet",
     ),
+    VariableSpec(
+        "lake_geometry",
+        "lake_geometry",
+        "hydrography",
+        "vector",
+        "-",
+        "emprise lac / reservoir",
+        "geoparquet",
+    ),
+    VariableSpec(
+        "lake_bathymetry",
+        "lake_bathymetry",
+        "dem",
+        "raster",
+        "m",
+        "bathymetrie du lac",
+        "geotiff_cog",
+    ),
+    VariableSpec(
+        "lake_abacus",
+        "lake_abacus",
+        "table",
+        "table",
+        "m|m3|m2",
+        "abaque hauteur-volume-surface",
+        "parquet",
+    ),
+    VariableSpec(
+        "lake_levels",
+        "lake_levels",
+        "point",
+        "timeseries",
+        "m",
+        "niveaux de lac observes",
+        "parquet",
+    ),
 )
 
 
@@ -233,6 +269,30 @@ _README_HYDROGRAPHY_BODY = """\
 - `hydrography_custom_EXAMPLE.tif` - raster mask.
 """
 
+_README_TABLE_BODY = """\
+## Accepted formats
+
+| format                       | file name                              |
+|------------------------------|----------------------------------------|
+| CSV (`stage,volume,sarea`)   | `{prefix}_custom_<lake_id>.csv`        |
+| Parquet                      | `{prefix}_custom_<lake_id>.parquet`    |
+
+`stage` (m) must be strictly increasing per lake; `volume` (m3) and `sarea`
+(m2) must be non-negative. A `lake_id` column is optional: when omitted it is
+taken from the file name.
+
+## Wire it in your run TOML
+
+    [[data.{name}.sources]]
+    source = "custom"
+    path = "data/{name}/{prefix}_custom_lac0.csv"
+    lake_id = "lac0"
+
+## Example files in this folder
+
+- `{prefix}_custom_EXAMPLE.csv` - stage/volume/sarea abacus.
+"""
+
 _README_FOOTER = """\
 ## Validate without running a simulation
 
@@ -246,6 +306,7 @@ _README_BODY = {
     "dem": _README_DEM_BODY,
     "geology": _README_GEOLOGY_BODY,
     "hydrography": _README_HYDROGRAPHY_BODY,
+    "table": _README_TABLE_BODY,
 }
 
 

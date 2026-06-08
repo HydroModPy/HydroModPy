@@ -19,11 +19,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.schemas import (
     StationCollectionSchema,
     TimeSeriesSchema,
+    validate_abacus,
     validate_warn_only,
 )
 
@@ -58,11 +60,21 @@ class TimeSeriesArtifact:
     source_path: Path
 
 
+class Station(TypedDict):
+    """One row of a locations CSV after parsing (``x``/``y`` are numeric)."""
+
+    id: str
+    x: float
+    y: float
+    crs: str
+    unit: str
+
+
 @dataclass(frozen=True, slots=True)
 class LocationsArtifact:
     """In-memory representation of a validated locations CSV."""
 
-    stations: list[dict[str, object]]
+    stations: list[Station]
     crs: str
     unit: str
     source_path: Path
@@ -213,6 +225,73 @@ def convert_timeseries_csv_to_parquet(
     return dest
 
 
+def convert_abacus_csv_to_parquet(
+    src: str | Path,
+    dest: str | Path,
+    *,
+    lake_id: str | None = None,
+) -> Path:
+    """Convert a lake stage-volume-area abacus CSV into a Parquet file.
+
+    The CSV carries the abacus columns ``stage,volume,sarea`` and, optionally,
+    a ``lake_id`` column. When ``lake_id`` is absent from the CSV it is
+    injected from the ``lake_id`` argument (or the file stem as a last resort)
+    so a single-lake CSV needs no boilerplate column. The table is validated
+    against :data:`AbacusTableSchema` before being written with the same v2
+    Parquet defaults as :func:`convert_timeseries_csv_to_parquet`.
+    """
+    import os
+    import uuid as _uuid
+
+    import pandas as pd
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    src = Path(src)
+    dest = Path(dest)
+
+    frame = pd.read_csv(src, comment="#")
+    if "lake_id" not in frame.columns:
+        frame.insert(0, "lake_id", lake_id if lake_id is not None else src.stem)
+    frame["lake_id"] = frame["lake_id"].astype(str)
+
+    validated = validate_abacus(frame, context=src.name)
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    schema = pa.schema(
+        [
+            pa.field("lake_id", pa.string()),
+            pa.field("stage", pa.float64()),
+            pa.field("volume", pa.float64()),
+            pa.field("sarea", pa.float64()),
+        ]
+    )
+    table = pa.Table.from_pandas(
+        validated[["lake_id", "stage", "volume", "sarea"]],
+        schema=schema,
+        preserve_index=False,
+    )
+    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    try:
+        pq.write_table(
+            table,
+            tmp,
+            compression="zstd",
+            compression_level=5,
+            row_group_size=50_000,
+            use_dictionary=True,
+            write_statistics=True,
+            write_page_index=True,
+            version="2.6",
+        )
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+    os.replace(tmp, dest)
+    return dest
+
+
 def read_locations_csv(path: str | Path) -> LocationsArtifact:
     """Read and validate a locations CSV.
 
@@ -244,7 +323,7 @@ def read_locations_csv(path: str | Path) -> LocationsArtifact:
             errors=[f"missing columns: {missing!r}"],
         )
 
-    stations: list[dict[str, object]] = []
+    stations: list[Station] = []
     seen_ids: set[str] = set()
     crs_values: set[str] = set()
     unit_values: set[str] = set()
