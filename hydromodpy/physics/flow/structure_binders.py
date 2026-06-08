@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
@@ -195,6 +195,169 @@ def apply_etp_load_result_to_flow(
         )
     )
     return True
+
+
+def _lake_payloads_as_mappings(flow: Flow) -> dict[str, dict[str, object]]:
+    """Return the flow lake payloads as mutable dicts keyed by lake id.
+
+    The runtime stores typed ``FlowLakeConfig`` objects (or already-enriched
+    dicts) under ``flow.sinks_sources['lakes']``. The data binders attach the
+    loaded polygon / abacus onto each payload, so they are normalized to plain
+    dicts that the LAK builder reads through its ``_lake_attr`` lookup.
+    """
+    sinks_sources = getattr(flow, "sinks_sources", {})
+    lakes = sinks_sources.get("lakes") if isinstance(sinks_sources, Mapping) else None
+    if not isinstance(lakes, Mapping) or not lakes:
+        return {}
+
+    payloads: dict[str, dict[str, object]] = {}
+    for lake_id, payload in lakes.items():
+        if isinstance(payload, Mapping):
+            payloads[str(lake_id)] = dict(payload)
+        else:
+            fields = ("bedleak", "stageinit", "outlets")
+            forcings = ("rainfall", "evaporation", "runoff", "inflow", "withdrawal")
+            payloads[str(lake_id)] = {
+                name: getattr(payload, name, None) for name in (*fields, *forcings)
+            }
+    return payloads
+
+
+def apply_lake_geometry_to_flow(
+    *,
+    flow: Flow,
+    lake_geometry: object | None,
+) -> bool:
+    """Attach loaded lake-geometry polygons onto each flow lake payload.
+
+    ``lake_geometry`` is the ``LoadResult`` of the ``lake_geometry`` data family:
+    its ``fields`` carry ``FieldRecord`` objects whose ``data`` is a GeoParquet
+    path. The polygon is matched to a lake id by the ``lake_id`` column when
+    present, otherwise the single record feeds the single declared lake. The LAK
+    builder then intersects the polygon with the mesh to resolve the lake cells.
+
+    Returns True if at least one polygon was attached, False otherwise.
+    """
+    if lake_geometry is None:
+        return False
+    records = list(getattr(lake_geometry, "fields", []) or [])
+    if not records:
+        return False
+
+    payloads = _lake_payloads_as_mappings(flow)
+    if not payloads:
+        return False
+
+    polygons_by_lake = _resolve_lake_polygons(records, lake_ids=list(payloads))
+    if not polygons_by_lake:
+        return False
+
+    attached = False
+    for lake_id, payload in payloads.items():
+        polygon = polygons_by_lake.get(lake_id)
+        if polygon is None:
+            continue
+        payload["polygon"] = polygon
+        attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["lakes"] = payloads
+    return True
+
+
+def apply_lake_abacus_to_flow(
+    *,
+    flow: Flow,
+    lake_abacus: object | None,
+) -> bool:
+    """Attach loaded stage-volume-area abacus rows onto each flow lake payload.
+
+    ``lake_abacus`` is the ``LoadResult`` of the ``lake_abacus`` data family: its
+    ``tables`` carry ``TableRecord`` objects whose ``data`` is a Parquet table of
+    ``lake_id, stage, volume, sarea`` rows, keyed by ``table_id``. The abacus is
+    attached as a ``{stage, volume, sarea}`` column mapping that the LAK builder
+    turns into the ``ModflowUtllaktab`` table.
+
+    Returns True if at least one abacus was attached, False otherwise.
+    """
+    if lake_abacus is None:
+        return False
+    records = list(getattr(lake_abacus, "tables", []) or [])
+    if not records:
+        return False
+
+    payloads = _lake_payloads_as_mappings(flow)
+    if not payloads:
+        return False
+
+    abacus_by_lake = _resolve_lake_abacus(records, lake_ids=list(payloads))
+    if not abacus_by_lake:
+        return False
+
+    attached = False
+    for lake_id, payload in payloads.items():
+        abacus = abacus_by_lake.get(lake_id)
+        if abacus is None:
+            continue
+        payload["abacus"] = abacus
+        attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["lakes"] = payloads
+    return True
+
+
+def _resolve_lake_polygons(
+    records: list[Any],
+    *,
+    lake_ids: list[str],
+) -> dict[str, object]:
+    """Match each lake-geometry record's footprint polygon to a lake id."""
+    import geopandas as gpd
+
+    polygons_by_lake: dict[str, object] = {}
+    for record in records:
+        gdf = gpd.read_parquet(str(record.data))
+        if gdf.empty:
+            continue
+        if "lake_id" in gdf.columns:
+            for lake_id, group in gdf.groupby("lake_id"):
+                polygons_by_lake[str(lake_id)] = group.union_all()
+        elif len(lake_ids) == 1:
+            polygons_by_lake[lake_ids[0]] = gdf.union_all()
+    return polygons_by_lake
+
+
+def _resolve_lake_abacus(
+    records: list[Any],
+    *,
+    lake_ids: list[str],
+) -> dict[str, dict[str, list[float]]]:
+    """Match each abacus record's stage-volume-area rows to a lake id."""
+    import pandas as pd
+
+    abacus_by_lake: dict[str, dict[str, list[float]]] = {}
+    for record in records:
+        frame = pd.read_parquet(str(record.data))
+        if "lake_id" in frame.columns:
+            for lake_id, group in frame.groupby("lake_id"):
+                abacus_by_lake[str(lake_id)] = _abacus_columns(group)
+        else:
+            table_id = str(getattr(record, "table_id", "") or "")
+            target = table_id if table_id in lake_ids else (lake_ids[0] if lake_ids else None)
+            if target is not None:
+                abacus_by_lake[target] = _abacus_columns(frame)
+    return abacus_by_lake
+
+
+def _abacus_columns(frame: Any) -> dict[str, list[float]]:
+    """Return the ``{stage, volume, sarea}`` column mapping from an abacus frame."""
+    return {
+        column: [float(value) for value in frame[column].tolist()]
+        for column in ("stage", "volume", "sarea")
+    }
 
 
 def apply_simulation_time_to_flow_wells(
