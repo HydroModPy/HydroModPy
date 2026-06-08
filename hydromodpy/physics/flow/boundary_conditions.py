@@ -85,6 +85,10 @@ SIDE_DIRICHLET_BC_IDS = {
 _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
     "m": ("m", "length"),
     "m2/s": ("m**2/s", "hydraulic-conductance"),
+    # Length-rate (L/T): lake rainfall / open-water evaporation rates.
+    "m/s": ("m/s", "length-rate"),
+    # Leakance (1/T): lake-bed leakance feeding the LAK head-dependent exchange.
+    "1/s": ("1/s", "leakance"),
 }
 
 BoundaryKind: TypeAlias = Literal["dirichlet", "cauchy", "robin"]

@@ -59,6 +59,7 @@ from hydromodpy.core.config_kit.introspect import (
 from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
+from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.core.toml_io.error_locator import format_validation_error
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -272,7 +273,7 @@ class HydroModPyConfig(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
-    def _default_workspace_for_direct_validation(cls, data, info: ValidationInfo):
+    def _default_workspace_for_direct_validation(cls, data: Any, info: ValidationInfo) -> Any:
         """Provide a minimal workspace for direct model_validate callers."""
         if not isinstance(data, Mapping):
             return data
@@ -334,6 +335,19 @@ class HydroModPyConfig(HydroModelBase):
             if engine_value == "boussinesq" and active_transport_solver:
                 raise ValueError(
                     "solver.backend='boussinesq' does not support the [transport] section"
+                )
+
+        if flow_cfg is not None and solver_cfg is not None:
+            engine = getattr(solver_cfg, "backend_name", None)
+            engine_value = getattr(engine, "value", engine)
+            active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
+            sinks_sources = getattr(flow_cfg, "sinks_sources", None)
+            lakes = getattr(sinks_sources, "lakes", None) or {}
+            wants_lake = bool({"lake", "reservoir"} & active_bc) or bool(lakes)
+            if wants_lake and engine_value != "modflow6":
+                raise IncompatibleCapabilitiesError(
+                    f"solver.backend={engine_value!r} does not support lake/reservoir "
+                    "boundaries; LAK lakes require the 'modflow6' backend."
                 )
 
         return self
@@ -486,7 +500,7 @@ class HydroModPyConfig(HydroModelBase):
         parsed_workspace = load_standard_section(workspace_section, WorkspaceConfig, base)
         workspace_data_dir = getattr(parsed_workspace, "data_dir", None)
 
-        def _std(model_cls):
+        def _std(model_cls: type[Any]) -> Callable[[Any, Path], Any]:
             return lambda data, b: load_standard_section(
                 data, model_cls, b, workspace_data_dir=workspace_data_dir
             )
@@ -599,8 +613,8 @@ class HydroModPyConfig(HydroModelBase):
     @classmethod
     def from_snapshot(
         cls,
-        snapshot: dict,
-        **overrides,
+        snapshot: dict[str, Any],
+        **overrides: Any,
     ) -> HydroModPyConfig:
         """Reconstruct a config from a stored JSON snapshot.
 

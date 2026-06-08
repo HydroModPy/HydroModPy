@@ -13,6 +13,14 @@ from __future__ import annotations
 
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.physics.flow.sinks_sources.lake import (
+    FlowLakeConfig,
+    FlowLakeOutletConfig,
+    FlowLakeOutletManning,
+    FlowLakeOutletMover,
+    FlowLakeOutletSpecified,
+    FlowLakeOutletWeir,
+)
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.physics.flow.sinks_sources.wells import (
     FlowWellConfig,
@@ -27,6 +35,12 @@ from hydromodpy.physics.flow.sinks_sources.wells import (
 
 __all__ = [
     "FlowEtpConfig",
+    "FlowLakeConfig",
+    "FlowLakeOutletConfig",
+    "FlowLakeOutletManning",
+    "FlowLakeOutletMover",
+    "FlowLakeOutletSpecified",
+    "FlowLakeOutletWeir",
     "FlowRechargeConfig",
     "FlowSinksSourcesConfig",
     "FlowWellConfig",
