@@ -103,7 +103,7 @@ Sub-models are linked back to their per-section page.
       [data]
       # EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
       # project_crs = ...  # default = None
-      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_levels', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
       # types = ...  # uses factory default
       # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
       inference_mode = "warn"
@@ -125,6 +125,12 @@ Sub-models are linked back to their per-section page.
       # lake_geometry = ...  # default = None
       # Lake levels configuration (observed water-level time series).
       # lake_levels = ...  # default = None
+      # Lake inflow configuration (observed inflow volumetric time series).
+      # lake_inflow = ...  # default = None
+      # Lake outflow configuration (observed outflow volumetric time series).
+      # lake_outflow = ...  # default = None
+      # Lake withdrawal configuration (observed withdrawal volumetric time series).
+      # lake_withdrawal = ...  # default = None
       # Oceanic configuration used when 'oceanic' is listed in data.types.
       # oceanic = ...  # default = None
       # Piezometry configuration (groundwater level time-series).

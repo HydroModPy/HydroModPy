@@ -1061,7 +1061,7 @@
     "section": "data",
     "anchor": "data-project-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L96",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L102",
     "description": "EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93)."
   },
   {
@@ -1073,7 +1073,7 @@
     "section": "data",
     "anchor": "data-types",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L104",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L110",
     "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydro"
   },
   {
@@ -1085,7 +1085,7 @@
     "section": "data",
     "anchor": "data-inference-mode",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L113",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L119",
     "description": "Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geo"
   },
   {
@@ -1097,7 +1097,7 @@
     "section": "data",
     "anchor": "data-dem",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L123",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L129",
     "description": "DEM configuration used when 'dem' is listed in data.types."
   },
   {
@@ -1313,7 +1313,7 @@
     "section": "data",
     "anchor": "data-geology",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L127",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L133",
     "description": "Geology configuration used when 'geology' is listed in data.types."
   },
   {
@@ -1589,7 +1589,7 @@
     "section": "data",
     "anchor": "data-hydrography",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L131",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L137",
     "description": "Hydrography configuration (stream network vector data)."
   },
   {
@@ -1721,7 +1721,7 @@
     "section": "data",
     "anchor": "data-hydrometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L135",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L141",
     "description": "Hydrometry configuration (discharge time-series)."
   },
   {
@@ -1991,7 +1991,7 @@
     "section": "data",
     "anchor": "data-intermittency",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L139",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L145",
     "description": "Intermittency configuration (ONDE stream flow-state observations)."
   },
   {
@@ -2249,7 +2249,7 @@
     "section": "data",
     "anchor": "data-lake-abacus",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L143",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L149",
     "description": "Lake abacus configuration (stage-volume-area lookup table)."
   },
   {
@@ -2321,7 +2321,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L147",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L153",
     "description": "Lake bathymetry configuration (lake-bed elevation raster)."
   },
   {
@@ -2381,7 +2381,7 @@
     "section": "data",
     "anchor": "data-lake-geometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L151",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L157",
     "description": "Lake geometry configuration (lake/reservoir footprint vector)."
   },
   {
@@ -2441,7 +2441,7 @@
     "section": "data",
     "anchor": "data-lake-levels",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L155",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L161",
     "description": "Lake levels configuration (observed water-level time series)."
   },
   {
@@ -2655,6 +2655,672 @@
     "description": "Directory containing location file and chronicle CSVs."
   },
   {
+    "path": "data.lake_inflow",
+    "name": "lake_inflow",
+    "type": "LakeInflowConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L165",
+    "description": "Lake inflow configuration (observed inflow volumetric time series)."
+  },
+  {
+    "path": "data.lake_inflow.date_start",
+    "name": "date_start",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-date-start",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L68",
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
+  },
+  {
+    "path": "data.lake_inflow.date_end",
+    "name": "date_end",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-date-end",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L69",
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
+  },
+  {
+    "path": "data.lake_inflow.sources",
+    "name": "sources",
+    "type": "list[LakeInflowSourceConfig]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L53",
+    "description": "At least one lake-inflow data source."
+  },
+  {
+    "path": "data.lake_inflow.sources.station_ids",
+    "name": "station_ids",
+    "type": "list[str] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-station-ids",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Explicit station identifiers to load (custom source)."
+  },
+  {
+    "path": "data.lake_inflow.sources.extent",
+    "name": "extent",
+    "type": "Optional[Literal['watershed', 'study_area']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-extent",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+  },
+  {
+    "path": "data.lake_inflow.sources.force_refresh",
+    "name": "force_refresh",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-force-refresh",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Ignore the cache and force a fresh download from the API."
+  },
+  {
+    "path": "data.lake_inflow.sources.mask_path",
+    "name": "mask_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-mask-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources."
+  },
+  {
+    "path": "data.lake_inflow.sources.source_unit",
+    "name": "source_unit",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-source-unit",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata."
+  },
+  {
+    "path": "data.lake_inflow.sources.col_id",
+    "name": "col_id",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-col-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Column name for the station identifier in location files."
+  },
+  {
+    "path": "data.lake_inflow.sources.col_x",
+    "name": "col_x",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-col-x",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Column name for the X coordinate in location files."
+  },
+  {
+    "path": "data.lake_inflow.sources.col_y",
+    "name": "col_y",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-col-y",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Column name for the Y coordinate in location files."
+  },
+  {
+    "path": "data.lake_inflow.sources.col_crs",
+    "name": "col_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-col-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Column name for the CRS in location files."
+  },
+  {
+    "path": "data.lake_inflow.sources.col_datetime",
+    "name": "col_datetime",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-col-datetime",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Column name for timestamps in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_inflow.sources.col_value",
+    "name": "col_value",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-col-value",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Column name for numeric values in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_inflow.sources.default_crs",
+    "name": "default_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-default-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19",
+    "description": "Default CRS used when a location file omits the CRS column."
+  },
+  {
+    "path": "data.lake_inflow.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L26",
+    "description": "Data provider: 'custom' for user files."
+  },
+  {
+    "path": "data.lake_inflow.sources.path",
+    "name": "path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-inflow-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L29",
+    "description": "Directory containing location file and chronicle CSVs."
+  },
+  {
+    "path": "data.lake_outflow",
+    "name": "lake_outflow",
+    "type": "LakeOutflowConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L169",
+    "description": "Lake outflow configuration (observed outflow volumetric time series)."
+  },
+  {
+    "path": "data.lake_outflow.date_start",
+    "name": "date_start",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-date-start",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L68",
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
+  },
+  {
+    "path": "data.lake_outflow.date_end",
+    "name": "date_end",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-date-end",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L69",
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
+  },
+  {
+    "path": "data.lake_outflow.sources",
+    "name": "sources",
+    "type": "list[LakeOutflowSourceConfig]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L53",
+    "description": "At least one lake-outflow data source."
+  },
+  {
+    "path": "data.lake_outflow.sources.station_ids",
+    "name": "station_ids",
+    "type": "list[str] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-station-ids",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Explicit station identifiers to load (custom source)."
+  },
+  {
+    "path": "data.lake_outflow.sources.extent",
+    "name": "extent",
+    "type": "Optional[Literal['watershed', 'study_area']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-extent",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+  },
+  {
+    "path": "data.lake_outflow.sources.force_refresh",
+    "name": "force_refresh",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-force-refresh",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Ignore the cache and force a fresh download from the API."
+  },
+  {
+    "path": "data.lake_outflow.sources.mask_path",
+    "name": "mask_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-mask-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources."
+  },
+  {
+    "path": "data.lake_outflow.sources.source_unit",
+    "name": "source_unit",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-source-unit",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata."
+  },
+  {
+    "path": "data.lake_outflow.sources.col_id",
+    "name": "col_id",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-col-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Column name for the station identifier in location files."
+  },
+  {
+    "path": "data.lake_outflow.sources.col_x",
+    "name": "col_x",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-col-x",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Column name for the X coordinate in location files."
+  },
+  {
+    "path": "data.lake_outflow.sources.col_y",
+    "name": "col_y",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-col-y",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Column name for the Y coordinate in location files."
+  },
+  {
+    "path": "data.lake_outflow.sources.col_crs",
+    "name": "col_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-col-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Column name for the CRS in location files."
+  },
+  {
+    "path": "data.lake_outflow.sources.col_datetime",
+    "name": "col_datetime",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-col-datetime",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Column name for timestamps in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_outflow.sources.col_value",
+    "name": "col_value",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-col-value",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Column name for numeric values in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_outflow.sources.default_crs",
+    "name": "default_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-default-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19",
+    "description": "Default CRS used when a location file omits the CRS column."
+  },
+  {
+    "path": "data.lake_outflow.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L26",
+    "description": "Data provider: 'custom' for user files."
+  },
+  {
+    "path": "data.lake_outflow.sources.path",
+    "name": "path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-outflow-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L29",
+    "description": "Directory containing location file and chronicle CSVs."
+  },
+  {
+    "path": "data.lake_withdrawal",
+    "name": "lake_withdrawal",
+    "type": "LakeWithdrawalConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L173",
+    "description": "Lake withdrawal configuration (observed withdrawal volumetric time series)."
+  },
+  {
+    "path": "data.lake_withdrawal.date_start",
+    "name": "date_start",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-date-start",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L68",
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
+  },
+  {
+    "path": "data.lake_withdrawal.date_end",
+    "name": "date_end",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-date-end",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L69",
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
+  },
+  {
+    "path": "data.lake_withdrawal.sources",
+    "name": "sources",
+    "type": "list[LakeWithdrawalSourceConfig]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L53",
+    "description": "At least one lake-withdrawal data source."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.station_ids",
+    "name": "station_ids",
+    "type": "list[str] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-station-ids",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Explicit station identifiers to load (custom source)."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.extent",
+    "name": "extent",
+    "type": "Optional[Literal['watershed', 'study_area']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-extent",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.force_refresh",
+    "name": "force_refresh",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-force-refresh",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Ignore the cache and force a fresh download from the API."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.mask_path",
+    "name": "mask_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-mask-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.source_unit",
+    "name": "source_unit",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-source-unit",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.col_id",
+    "name": "col_id",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-col-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Column name for the station identifier in location files."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.col_x",
+    "name": "col_x",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-col-x",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Column name for the X coordinate in location files."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.col_y",
+    "name": "col_y",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-col-y",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Column name for the Y coordinate in location files."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.col_crs",
+    "name": "col_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-col-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Column name for the CRS in location files."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.col_datetime",
+    "name": "col_datetime",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-col-datetime",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Column name for timestamps in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.col_value",
+    "name": "col_value",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-col-value",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Column name for numeric values in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.default_crs",
+    "name": "default_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-default-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19",
+    "description": "Default CRS used when a location file omits the CRS column."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L26",
+    "description": "Data provider: 'custom' for user files."
+  },
+  {
+    "path": "data.lake_withdrawal.sources.path",
+    "name": "path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-withdrawal-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L29",
+    "description": "Directory containing location file and chronicle CSVs."
+  },
+  {
     "path": "data.oceanic",
     "name": "oceanic",
     "type": "OceanicConfig | None",
@@ -2663,7 +3329,7 @@
     "section": "data",
     "anchor": "data-oceanic",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L177",
     "description": "Oceanic configuration used when 'oceanic' is listed in data.types."
   },
   {
@@ -2933,7 +3599,7 @@
     "section": "data",
     "anchor": "data-piezometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L163",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L181",
     "description": "Piezometry configuration (groundwater level time-series)."
   },
   {
@@ -3203,7 +3869,7 @@
     "section": "data",
     "anchor": "data-water-quality",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L167",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L185",
     "description": "Water quality configuration (physico-chemical parameters)."
   },
   {
@@ -3473,7 +4139,7 @@
     "section": "data",
     "anchor": "data-recharge",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L171",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L189",
     "description": "Recharge configuration (drainage / soil infiltration time series)."
   },
   {
@@ -3791,7 +4457,7 @@
     "section": "data",
     "anchor": "data-runoff",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L175",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L193",
     "description": "Runoff configuration (surface runoff time series)."
   },
   {
@@ -4013,7 +4679,7 @@
     "section": "data",
     "anchor": "data-precipitation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L179",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L197",
     "description": "Precipitation configuration (liquid and solid precipitation)."
   },
   {
@@ -4247,7 +4913,7 @@
     "section": "data",
     "anchor": "data-etp",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L183",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L201",
     "description": "ETP configuration (potential evapotranspiration)."
   },
   {
@@ -4493,7 +5159,7 @@
     "section": "data",
     "anchor": "data-temperature",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L187",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L205",
     "description": "Temperature configuration (air temperature time series)."
   },
   {
@@ -4715,7 +5381,7 @@
     "section": "data",
     "anchor": "data-wind",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L191",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L209",
     "description": "Wind configuration (wind speed time series)."
   },
   {
@@ -4937,7 +5603,7 @@
     "section": "data",
     "anchor": "data-humidity",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L195",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L213",
     "description": "Humidity configuration (relative humidity time series)."
   },
   {
@@ -5159,7 +5825,7 @@
     "section": "data",
     "anchor": "data-radiation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L199",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L217",
     "description": "Radiation configuration (atmospheric and visible radiation)."
   },
   {
@@ -5393,7 +6059,7 @@
     "section": "data",
     "anchor": "data-soil-moisture",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L203",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L221",
     "description": "Soil moisture configuration (soil moisture index)."
   },
   {

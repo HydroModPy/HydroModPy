@@ -2989,7 +2989,7 @@
             "x-hmp-profile": "user"
           },
           "types": {
-            "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_levels', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.",
+            "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.",
             "items": {
               "type": "string"
             },
@@ -3126,6 +3126,45 @@
             ],
             "default": null,
             "description": "Lake levels configuration (observed water-level time series).",
+            "x-hmp-profile": "user"
+          },
+          "lake_inflow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LakeInflowConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Lake inflow configuration (observed inflow volumetric time series).",
+            "x-hmp-profile": "user"
+          },
+          "lake_outflow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LakeOutflowConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Lake outflow configuration (observed outflow volumetric time series).",
+            "x-hmp-profile": "user"
+          },
+          "lake_withdrawal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LakeWithdrawalConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Lake withdrawal configuration (observed withdrawal volumetric time series).",
             "x-hmp-profile": "user"
           },
           "oceanic": {
@@ -9400,6 +9439,241 @@
         "title": "LakeGeometryConfig",
         "type": "object"
       },
+      "LakeInflowConfig": {
+        "additionalProperties": false,
+        "description": "Top-level lake-inflow configuration.\n\nThe section groups observed lake-inflow sources and the optional simulation\ndate window inherited from ``BaseVariableConfig``.",
+        "properties": {
+          "date_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "examples": [
+              "2019-01-01"
+            ],
+            "title": "Date Start",
+            "x-hmp-profile": "user"
+          },
+          "date_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "examples": [
+              "2025-12-31"
+            ],
+            "title": "Date End",
+            "x-hmp-profile": "user"
+          },
+          "sources": {
+            "description": "At least one lake-inflow data source.",
+            "items": {
+              "$ref": "#/components/schemas/LakeInflowSourceConfig"
+            },
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "sources"
+        ],
+        "title": "LakeInflowConfig",
+        "type": "object"
+      },
+      "LakeInflowSourceConfig": {
+        "additionalProperties": false,
+        "description": "Configuration for one lake-inflow data source.\n\nLake-inflow sources load observed volumetric inflow (L^3/T) time series per\nlake. The station id reused per chronicle is the ``lake_id``.",
+        "properties": {
+          "station_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Explicit station identifiers to load (custom source).",
+            "title": "Station Ids",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore the cache and force a fresh download from the API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "source_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+            "title": "Source Unit",
+            "x-hmp-profile": "user"
+          },
+          "col_id": {
+            "default": "id",
+            "description": "Column name for the station identifier in location files.",
+            "examples": [
+              "id"
+            ],
+            "title": "Col Id",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_x": {
+            "default": "x",
+            "description": "Column name for the X coordinate in location files.",
+            "examples": [
+              "x"
+            ],
+            "title": "Col X",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_y": {
+            "default": "y",
+            "description": "Column name for the Y coordinate in location files.",
+            "examples": [
+              "y"
+            ],
+            "title": "Col Y",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_crs": {
+            "default": "crs",
+            "description": "Column name for the CRS in location files.",
+            "examples": [
+              "crs"
+            ],
+            "title": "Col Crs",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_datetime": {
+            "default": "datetime",
+            "description": "Column name for timestamps in chronicle CSVs.",
+            "examples": [
+              "datetime"
+            ],
+            "title": "Col Datetime",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_value": {
+            "default": "value",
+            "description": "Column name for numeric values in chronicle CSVs.",
+            "examples": [
+              "value"
+            ],
+            "title": "Col Value",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "default_crs": {
+            "default": "EPSG:4326",
+            "description": "Default CRS used when a location file omits the CRS column.",
+            "examples": [
+              "EPSG:4326"
+            ],
+            "title": "Default Crs",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "custom",
+            "description": "Data provider: 'custom' for user files.",
+            "examples": [
+              "custom"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Directory containing location file and chronicle CSVs.",
+            "title": "Path",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "LakeInflowSourceConfig",
+        "type": "object"
+      },
       "LakeLevelsConfig": {
         "additionalProperties": false,
         "description": "Top-level lake-levels configuration.\n\nThe section groups observed lake-level sources and the optional simulation\ndate window inherited from ``BaseVariableConfig``.",
@@ -9633,6 +9907,476 @@
           "source"
         ],
         "title": "LakeLevelsSourceConfig",
+        "type": "object"
+      },
+      "LakeOutflowConfig": {
+        "additionalProperties": false,
+        "description": "Top-level lake-outflow configuration.\n\nThe section groups observed lake-outflow sources and the optional simulation\ndate window inherited from ``BaseVariableConfig``.",
+        "properties": {
+          "date_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "examples": [
+              "2019-01-01"
+            ],
+            "title": "Date Start",
+            "x-hmp-profile": "user"
+          },
+          "date_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "examples": [
+              "2025-12-31"
+            ],
+            "title": "Date End",
+            "x-hmp-profile": "user"
+          },
+          "sources": {
+            "description": "At least one lake-outflow data source.",
+            "items": {
+              "$ref": "#/components/schemas/LakeOutflowSourceConfig"
+            },
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "sources"
+        ],
+        "title": "LakeOutflowConfig",
+        "type": "object"
+      },
+      "LakeOutflowSourceConfig": {
+        "additionalProperties": false,
+        "description": "Configuration for one lake-outflow data source.\n\nLake-outflow sources load observed volumetric outflow (L^3/T) time series per\nlake. The station id reused per chronicle is the ``lake_id``.",
+        "properties": {
+          "station_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Explicit station identifiers to load (custom source).",
+            "title": "Station Ids",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore the cache and force a fresh download from the API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "source_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+            "title": "Source Unit",
+            "x-hmp-profile": "user"
+          },
+          "col_id": {
+            "default": "id",
+            "description": "Column name for the station identifier in location files.",
+            "examples": [
+              "id"
+            ],
+            "title": "Col Id",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_x": {
+            "default": "x",
+            "description": "Column name for the X coordinate in location files.",
+            "examples": [
+              "x"
+            ],
+            "title": "Col X",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_y": {
+            "default": "y",
+            "description": "Column name for the Y coordinate in location files.",
+            "examples": [
+              "y"
+            ],
+            "title": "Col Y",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_crs": {
+            "default": "crs",
+            "description": "Column name for the CRS in location files.",
+            "examples": [
+              "crs"
+            ],
+            "title": "Col Crs",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_datetime": {
+            "default": "datetime",
+            "description": "Column name for timestamps in chronicle CSVs.",
+            "examples": [
+              "datetime"
+            ],
+            "title": "Col Datetime",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_value": {
+            "default": "value",
+            "description": "Column name for numeric values in chronicle CSVs.",
+            "examples": [
+              "value"
+            ],
+            "title": "Col Value",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "default_crs": {
+            "default": "EPSG:4326",
+            "description": "Default CRS used when a location file omits the CRS column.",
+            "examples": [
+              "EPSG:4326"
+            ],
+            "title": "Default Crs",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "custom",
+            "description": "Data provider: 'custom' for user files.",
+            "examples": [
+              "custom"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Directory containing location file and chronicle CSVs.",
+            "title": "Path",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "LakeOutflowSourceConfig",
+        "type": "object"
+      },
+      "LakeWithdrawalConfig": {
+        "additionalProperties": false,
+        "description": "Top-level lake-withdrawal configuration.\n\nThe section groups observed lake-withdrawal sources and the optional\nsimulation date window inherited from ``BaseVariableConfig``.",
+        "properties": {
+          "date_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "examples": [
+              "2019-01-01"
+            ],
+            "title": "Date Start",
+            "x-hmp-profile": "user"
+          },
+          "date_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "examples": [
+              "2025-12-31"
+            ],
+            "title": "Date End",
+            "x-hmp-profile": "user"
+          },
+          "sources": {
+            "description": "At least one lake-withdrawal data source.",
+            "items": {
+              "$ref": "#/components/schemas/LakeWithdrawalSourceConfig"
+            },
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "sources"
+        ],
+        "title": "LakeWithdrawalConfig",
+        "type": "object"
+      },
+      "LakeWithdrawalSourceConfig": {
+        "additionalProperties": false,
+        "description": "Configuration for one lake-withdrawal data source.\n\nLake-withdrawal sources load observed volumetric withdrawal (L^3/T) time\nseries per lake. The station id reused per chronicle is the ``lake_id``.",
+        "properties": {
+          "station_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Explicit station identifiers to load (custom source).",
+            "title": "Station Ids",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore the cache and force a fresh download from the API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "source_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+            "title": "Source Unit",
+            "x-hmp-profile": "user"
+          },
+          "col_id": {
+            "default": "id",
+            "description": "Column name for the station identifier in location files.",
+            "examples": [
+              "id"
+            ],
+            "title": "Col Id",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_x": {
+            "default": "x",
+            "description": "Column name for the X coordinate in location files.",
+            "examples": [
+              "x"
+            ],
+            "title": "Col X",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_y": {
+            "default": "y",
+            "description": "Column name for the Y coordinate in location files.",
+            "examples": [
+              "y"
+            ],
+            "title": "Col Y",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_crs": {
+            "default": "crs",
+            "description": "Column name for the CRS in location files.",
+            "examples": [
+              "crs"
+            ],
+            "title": "Col Crs",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_datetime": {
+            "default": "datetime",
+            "description": "Column name for timestamps in chronicle CSVs.",
+            "examples": [
+              "datetime"
+            ],
+            "title": "Col Datetime",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_value": {
+            "default": "value",
+            "description": "Column name for numeric values in chronicle CSVs.",
+            "examples": [
+              "value"
+            ],
+            "title": "Col Value",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "default_crs": {
+            "default": "EPSG:4326",
+            "description": "Default CRS used when a location file omits the CRS column.",
+            "examples": [
+              "EPSG:4326"
+            ],
+            "title": "Default Crs",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "custom",
+            "description": "Data provider: 'custom' for user files.",
+            "examples": [
+              "custom"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Directory containing location file and chronicle CSVs.",
+            "title": "Path",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "LakeWithdrawalSourceConfig",
         "type": "object"
       },
       "LinearTopography": {

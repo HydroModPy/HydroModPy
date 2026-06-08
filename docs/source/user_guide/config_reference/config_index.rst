@@ -547,25 +547,25 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-project-crs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L96>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L102>`__
    * - ``data.types``
      - ``list[str]``
      - user
      - -
      - `data <data.html#data-types>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L104>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L110>`__
    * - ``data.inference_mode``
      - ``Literal['warn', 'strict']``
      - dev
      - -
      - `data <data.html#data-inference-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L113>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L119>`__
    * - ``data.dem``
      - ``DemConfig | None``
      - user
      - -
      - `data <data.html#data-dem>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L123>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L129>`__
    * - ``data.dem.sources``
      - ``list[CustomDemSource | IgnGeoplateformeDemSource]``
      - user
@@ -673,7 +673,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-geology>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L127>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L133>`__
    * - ``data.geology.sources``
      - ``list[CustomGeologySource | BrgmGeology1mSource | BrgmGeology50kSource]``
      - user
@@ -811,7 +811,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrography>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L131>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L137>`__
    * - ``data.hydrography.sources``
      - ``list[HydrographySourceConfig]``
      - user
@@ -877,7 +877,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrometry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L135>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L141>`__
    * - ``data.hydrometry.date_start``
      - ``str | None``
      - user
@@ -1009,7 +1009,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-intermittency>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L139>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L145>`__
    * - ``data.intermittency.date_start``
      - ``str | None``
      - user
@@ -1135,7 +1135,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-abacus>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L149>`__
    * - ``data.lake_abacus.sources``
      - ``list[CustomLakeAbacusSource]``
      - user
@@ -1171,7 +1171,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-bathymetry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L147>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L153>`__
    * - ``data.lake_bathymetry.sources``
      - ``list[CustomLakeBathymetrySource]``
      - user
@@ -1201,7 +1201,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-geometry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L151>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L157>`__
    * - ``data.lake_geometry.sources``
      - ``list[CustomLakeGeometrySource]``
      - user
@@ -1231,7 +1231,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-lake-levels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L155>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L161>`__
    * - ``data.lake_levels.date_start``
      - ``str | None``
      - user
@@ -1334,12 +1334,336 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `data <data.html#data-lake-levels-sources-path>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L30>`__
+   * - ``data.lake_inflow``
+     - ``LakeInflowConfig | None``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L165>`__
+   * - ``data.lake_inflow.date_start``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-date-start>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L68>`__
+   * - ``data.lake_inflow.date_end``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-date-end>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L69>`__
+   * - ``data.lake_inflow.sources``
+     - ``list[LakeInflowSourceConfig]``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-sources>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L53>`__
+   * - ``data.lake_inflow.sources.station_ids``
+     - ``list[str] | None``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-sources-station-ids>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.extent``
+     - ``Optional[Literal['watershed', 'study_area']]``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-sources-extent>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.force_refresh``
+     - ``bool``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-force-refresh>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.mask_path``
+     - ``Path | None``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-sources-mask-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.source_unit``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-sources-source-unit>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.col_id``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-col-id>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.col_x``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-col-x>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.col_y``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-col-y>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.col_crs``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-col-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.col_datetime``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-col-datetime>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.col_value``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-col-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.default_crs``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-inflow-sources-default-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L19>`__
+   * - ``data.lake_inflow.sources.source``
+     - ``Literal['custom']``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-sources-source>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L26>`__
+   * - ``data.lake_inflow.sources.path``
+     - ``Path | None``
+     - user
+     - -
+     - `data <data.html#data-lake-inflow-sources-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L29>`__
+   * - ``data.lake_outflow``
+     - ``LakeOutflowConfig | None``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L169>`__
+   * - ``data.lake_outflow.date_start``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-date-start>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L68>`__
+   * - ``data.lake_outflow.date_end``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-date-end>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L69>`__
+   * - ``data.lake_outflow.sources``
+     - ``list[LakeOutflowSourceConfig]``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-sources>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L53>`__
+   * - ``data.lake_outflow.sources.station_ids``
+     - ``list[str] | None``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-sources-station-ids>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.extent``
+     - ``Optional[Literal['watershed', 'study_area']]``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-sources-extent>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.force_refresh``
+     - ``bool``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-force-refresh>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.mask_path``
+     - ``Path | None``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-sources-mask-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.source_unit``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-sources-source-unit>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.col_id``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-col-id>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.col_x``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-col-x>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.col_y``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-col-y>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.col_crs``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-col-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.col_datetime``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-col-datetime>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.col_value``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-col-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.default_crs``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-outflow-sources-default-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L19>`__
+   * - ``data.lake_outflow.sources.source``
+     - ``Literal['custom']``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-sources-source>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L26>`__
+   * - ``data.lake_outflow.sources.path``
+     - ``Path | None``
+     - user
+     - -
+     - `data <data.html#data-lake-outflow-sources-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_outflow/config.py#L29>`__
+   * - ``data.lake_withdrawal``
+     - ``LakeWithdrawalConfig | None``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L173>`__
+   * - ``data.lake_withdrawal.date_start``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-date-start>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L68>`__
+   * - ``data.lake_withdrawal.date_end``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-date-end>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L69>`__
+   * - ``data.lake_withdrawal.sources``
+     - ``list[LakeWithdrawalSourceConfig]``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-sources>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L53>`__
+   * - ``data.lake_withdrawal.sources.station_ids``
+     - ``list[str] | None``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-station-ids>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.extent``
+     - ``Optional[Literal['watershed', 'study_area']]``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-extent>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.force_refresh``
+     - ``bool``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-force-refresh>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.mask_path``
+     - ``Path | None``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-mask-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.source_unit``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-source-unit>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.col_id``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-col-id>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.col_x``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-col-x>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.col_y``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-col-y>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.col_crs``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-col-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.col_datetime``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-col-datetime>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.col_value``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-col-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.default_crs``
+     - ``str``
+     - dev
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-default-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L19>`__
+   * - ``data.lake_withdrawal.sources.source``
+     - ``Literal['custom']``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-source>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L26>`__
+   * - ``data.lake_withdrawal.sources.path``
+     - ``Path | None``
+     - user
+     - -
+     - `data <data.html#data-lake-withdrawal-sources-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_withdrawal/config.py#L29>`__
    * - ``data.oceanic``
      - ``OceanicConfig | None``
      - user
      - -
      - `data <data.html#data-oceanic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L159>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L177>`__
    * - ``data.oceanic.date_start``
      - ``str | None``
      - user
@@ -1471,7 +1795,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-piezometry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L163>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L181>`__
    * - ``data.piezometry.date_start``
      - ``str | None``
      - user
@@ -1603,7 +1927,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-water-quality>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L167>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L185>`__
    * - ``data.water_quality.date_start``
      - ``str | None``
      - user
@@ -1735,7 +2059,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-recharge>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L171>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L189>`__
    * - ``data.recharge.date_start``
      - ``str | None``
      - user
@@ -1891,7 +2215,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-runoff>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L175>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L193>`__
    * - ``data.runoff.date_start``
      - ``str | None``
      - user
@@ -1999,7 +2323,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-precipitation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L179>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L197>`__
    * - ``data.precipitation.date_start``
      - ``str | None``
      - user
@@ -2113,7 +2437,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-etp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L183>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L201>`__
    * - ``data.etp.date_start``
      - ``str | None``
      - user
@@ -2233,7 +2557,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-temperature>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L187>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L205>`__
    * - ``data.temperature.date_start``
      - ``str | None``
      - user
@@ -2341,7 +2665,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-wind>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L191>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L209>`__
    * - ``data.wind.date_start``
      - ``str | None``
      - user
@@ -2449,7 +2773,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-humidity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L195>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L213>`__
    * - ``data.humidity.date_start``
      - ``str | None``
      - user
@@ -2557,7 +2881,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-radiation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L199>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L217>`__
    * - ``data.radiation.date_start``
      - ``str | None``
      - user
@@ -2671,7 +2995,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-soil-moisture>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L203>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L221>`__
    * - ``data.soil_moisture.date_start``
      - ``str | None``
      - user
