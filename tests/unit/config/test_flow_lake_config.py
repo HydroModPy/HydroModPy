@@ -16,6 +16,8 @@ tests check:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from hydromodpy.physics.flow.flow_config import FlowConfig
@@ -27,6 +29,8 @@ from hydromodpy.physics.flow.sinks_sources import (
     FlowLakeOutletWeir,
     FlowSinksSourcesConfig,
 )
+from hydromodpy.physics.flow.structure_binders import _lake_payloads_as_mappings
+from hydromodpy.solver.modflow6.builders.lake import convert_bedleak_to_per_s
 
 
 def test_lake_config_validates_outlets_and_picks_the_right_class() -> None:
@@ -65,6 +69,36 @@ def test_lake_config_validates_outlets_and_picks_the_right_class() -> None:
 def test_lake_config_rejects_negative_bedleak() -> None:
     with pytest.raises(ValueError, match="bedleak"):
         FlowLakeConfig.model_validate({"bedleak": -1.0, "stageinit": "85 m"})
+
+
+def test_bedleak_unit_defaults_and_validates() -> None:
+    # bedleak_unit defaults to 1/s, accepts a leakance unit (and its aliases), and
+    # rejects a non-leakance unit at config time.
+    assert (
+        FlowLakeConfig.model_validate({"bedleak": 1.0, "stageinit": "85 m"}).bedleak_unit == "1/s"
+    )
+    day = FlowLakeConfig.model_validate(
+        {"bedleak": 1.0, "stageinit": "85 m", "bedleak_unit": "1/day"}
+    )
+    assert day.bedleak_unit == "1/day"
+    with pytest.raises(ValueError, match="leakance"):
+        FlowLakeConfig.model_validate({"bedleak": 1.0, "stageinit": "85 m", "bedleak_unit": "m"})
+
+
+def test_bedleak_unit_reaches_the_builder_through_the_binder() -> None:
+    # The config bedleak_unit must survive normalisation to the dict payload the
+    # LAK builder reads, so a 1/day leakance is converted to 1/s rather than being
+    # silently taken as 1/s (an 86400x conductance error).
+    lake = FlowLakeConfig.model_validate(
+        {"bedleak": 1.0, "stageinit": "85 m", "bedleak_unit": "1/day"}
+    )
+    flow = SimpleNamespace(sinks_sources={"lakes": {"lac0": lake}})
+    payloads = _lake_payloads_as_mappings(flow)
+    assert payloads["lac0"]["bedleak_unit"] == "1/day"
+    converted = convert_bedleak_to_per_s(
+        payloads["lac0"]["bedleak"], lake_id="lac0", unit=payloads["lac0"]["bedleak_unit"]
+    )
+    assert converted == pytest.approx(1.0 / 86400.0)
 
 
 def test_weir_outlet_without_invert_is_rejected() -> None:

@@ -35,6 +35,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import FlowRate, Length
+from hydromodpy.core.units.leakance import normalize_per_s_unit
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingConfig
 
 
@@ -214,7 +215,16 @@ class FlowLakeConfig(HydroModelBase):
         ge=0.0,
         description=(
             "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the "
-            "lake-aquifer interface; the under-dam leakage calibration parameter."
+            "lake-aquifer interface; the under-dam leakage calibration parameter. "
+            "0 means a perfectly sealed lakebed (no leakage)."
+        ),
+    )
+    bedleak_unit: Annotated[str, Profile.USER] = Field(
+        default="1/s",
+        description=(
+            "Unit of bedleak (leakance, 1/T): one of 1/s, 1/day, 1/h, 1/min "
+            "(aliases like 1/d accepted). HydroModPy converts it to 1/s for MF6, "
+            "so a 1/day leakance is not silently taken as 1/s."
         ),
     )
     stageinit: Annotated[Length, Profile.USER] = Field(..., description="Initial lake stage [L].")
@@ -248,6 +258,13 @@ class FlowLakeConfig(HydroModelBase):
     units: Annotated[str, Profile.DEV] = Field(
         default="m", description="Length unit of stage / elevation values."
     )
+
+    @field_validator("bedleak_unit")
+    @classmethod
+    def _validate_bedleak_unit(cls, value: str) -> str:
+        """Reject a bedleak unit that is not a leakance (1/T) at config time."""
+        normalize_per_s_unit(value)
+        return value
 
     @field_validator("outlets", mode="before")
     @classmethod

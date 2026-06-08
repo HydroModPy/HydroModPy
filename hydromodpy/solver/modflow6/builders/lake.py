@@ -51,8 +51,10 @@ logger = get_logger(__name__)
 _VERTICAL = "VERTICAL"
 _HORIZONTAL = "HORIZONTAL"
 
-# A leakance must stay strictly positive: bedleak = 0 would short-circuit the
-# lake-aquifer head difference into an infinite conductance in MF6.
+# A leakance is non-negative. bedleak = 0 means a perfectly sealed lakebed (the
+# lakebed conductance, hence the harmonic-mean lake-aquifer conductance, is 0):
+# no leakage, which is a valid choice for a fully lined reservoir. Negative
+# leakance is rejected.
 _MIN_BEDLEAK = 0.0
 
 
@@ -447,6 +449,13 @@ def build_lak_package_args(
             )
         bedleak = definition.get("bedleak")
         if bedleak is None:
+            logger.warning(
+                "flow.sinks_sources.lakes.%s has no bedleak; using the default "
+                "%s 1/s. Declare bedleak (with bedleak_unit) to control the "
+                "lake-aquifer leakage.",
+                lake_id,
+                _DEFAULT_BEDLEAK,
+            )
             bedleak_value = _DEFAULT_BEDLEAK
         else:
             bedleak_unit = definition.get("bedleak_unit")
