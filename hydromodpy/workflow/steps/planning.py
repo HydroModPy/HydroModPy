@@ -68,6 +68,8 @@ def _build_plan_with_overrides(
 ) -> SimulationPlan:
     from hydromodpy.physics.flow import Flow
     from hydromodpy.physics.flow.structure_binders import (
+        apply_lake_abacus_to_flow,
+        apply_lake_geometry_to_flow,
         apply_recharge_load_result_to_flow,
     )
     from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
@@ -88,6 +90,14 @@ def _build_plan_with_overrides(
             recharge_result=ctx.loaded_data.recharge,
             simulation_window=window,
         )
+    apply_lake_geometry_to_flow(
+        flow=flow,
+        lake_geometry=getattr(ctx.loaded_data, "lake_geometry", None),
+    )
+    apply_lake_abacus_to_flow(
+        flow=flow,
+        lake_abacus=getattr(ctx.loaded_data, "lake_abacus", None),
+    )
 
     domain = ctx.setup.domain
     if thickness is not None:

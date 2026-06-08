@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
+    boundary_definition,
 )
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.methods import (
@@ -140,6 +142,22 @@ def assert_supported_runtime_subset(flow: object) -> None:
     unsupported_sinks_sources = sorted(
         str(item) for item in active_sinks_sources if str(item) not in _SUPPORTED_SINK_SOURCE_IDS
     )
+
+    # An advanced package (LAK lake/reservoir) is a capability the boussinesq
+    # backend does not implement at all -> the typed capability error (HMPY.E407).
+    advanced_bc = sorted(
+        bc_id
+        for bc_id in unsupported_bc
+        if (definition := boundary_definition(bc_id)) is not None
+        and definition.family == "advanced_package"
+    )
+    if advanced_bc:
+        raise IncompatibleCapabilitiesError(
+            "The boussinesq backend does not support advanced-package boundaries "
+            "(LAK lake/reservoir); they require the modflow6 backend. Offending "
+            "active_bc: " + ",".join(advanced_bc) + "."
+        )
+
     unsupported: list[str] = []
     if unsupported_bc:
         unsupported.append("active_bc=" + ",".join(unsupported_bc))

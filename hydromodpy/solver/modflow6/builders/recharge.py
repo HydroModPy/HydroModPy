@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from numbers import Real
 
 import numpy as np
@@ -488,6 +488,28 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
     )
 
 
+def mask_recharge_on_lake_cells(
+    spd: dict[int, np.ndarray],
+    *,
+    lake_cell_ids: Iterable[int],
+) -> dict[int, np.ndarray]:
+    """Zero aquifer recharge on lake cells to avoid double counting with LAK.
+
+    The lake's own rainfall enters through the LAK package, so applying RCHA on
+    the same cells would count it twice. MF6 already drops recharge on inactive
+    (``idomain == 0``) lake cells; this is the explicit, testable belt-and-braces
+    version. The arrays are modified per stress period (flat ``ncpl`` layout).
+    """
+    cells = np.asarray(list(lake_cell_ids), dtype=int)
+    if cells.size == 0:
+        return spd
+    for kper, arr in spd.items():
+        flat = np.asarray(arr, dtype=float)
+        flat[cells] = 0.0
+        spd[kper] = flat
+    return spd
+
+
 def empty_recharge_aux(model) -> dict[int, list[np.ndarray]]:
     return {k: [np.zeros(int(model.ncpl), dtype=float)] for k in range(int(model.nper))}
 
@@ -519,6 +541,9 @@ def build_evt_stress_period_data(
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
     # Place the EVT sink on the uppermost active layer of each cell, not layer 0.
     idomain = solver_mesh.idomain()
+    # Lake cells get their open-water evaporation from LAK; aquifer ET there would
+    # double-count it.
+    lake_cells = {int(cid) for cid in getattr(model, "_lake_cell_ids", ()) or ()}
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
@@ -526,7 +551,7 @@ def build_evt_stress_period_data(
         rate_flat = as_recharge_flat(model, raw_value, kper=kper)
         period_cells: list[list[float]] = []
         for cid in range(int(model.ncpl)):
-            if ocean_mask_flat[cid] or stream_mask_flat[cid]:
+            if ocean_mask_flat[cid] or stream_mask_flat[cid] or cid in lake_cells:
                 continue
             active_layers = np.flatnonzero(idomain[:, cid] == 1)
             if active_layers.size == 0:
@@ -561,6 +586,7 @@ __all__ = [
     "extract_evt_payload",
     "extract_evt_payload_2d",
     "finalize_pending_recharge_evt",
+    "mask_recharge_on_lake_cells",
     "payload_has_negative_values",
     "recharge_to_spd",
     "resolve_deferred_heterogeneous_recharge",

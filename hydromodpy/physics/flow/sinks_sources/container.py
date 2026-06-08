@@ -10,6 +10,7 @@ from pydantic import Field, field_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.physics.flow.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
 
@@ -26,6 +27,8 @@ class FlowSinksSourcesConfig(HydroModelBase):
     ------
     wells : dict[str, FlowWellConfig]
         Pumping/injection wells keyed by a user-defined string id.
+    lakes : dict[str, FlowLakeConfig]
+        Lake / reservoir boundaries keyed by a user-defined string id.
     recharge : FlowRechargeConfig | None
         Diffuse recharge configuration. ``None`` means no recharge.
     etp : FlowEtpConfig | None
@@ -36,6 +39,10 @@ class FlowSinksSourcesConfig(HydroModelBase):
     wells: Annotated[dict[str, FlowWellConfig], Profile.USER] = Field(
         default_factory=dict,
         description="Mapping of well ids to typed well payloads.",
+    )
+    lakes: Annotated[dict[str, FlowLakeConfig], Profile.USER] = Field(
+        default_factory=dict,
+        description="Mapping of lake ids to typed lake / reservoir payloads.",
     )
     recharge: Annotated[FlowRechargeConfig | None, Profile.USER] = Field(
         default=None,
@@ -60,4 +67,20 @@ class FlowSinksSourcesConfig(HydroModelBase):
             if well_id == "":
                 raise ValueError("flow.sinks_sources.wells cannot contain empty well ids")
             out[well_id] = raw_payload
+        return out
+
+    @field_validator("lakes", mode="before")
+    @classmethod
+    def _validate_lakes(cls, value):
+        """Normalize and pre-validate the lakes mapping."""
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.sinks_sources.lakes must be a mapping payload")
+        out: dict[str, object] = {}
+        for raw_key, raw_payload in value.items():
+            lake_id = str(raw_key).strip()
+            if lake_id == "":
+                raise ValueError("flow.sinks_sources.lakes cannot contain empty lake ids")
+            out[lake_id] = raw_payload
         return out

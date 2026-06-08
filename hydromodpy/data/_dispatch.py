@@ -149,6 +149,51 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         manager_module="hydromodpy.data.variables.soil_moisture.manager",
         manager_class="SoilMoistureManager",
     ),
+    "lake_geometry": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_geometry.config",
+        config_class="LakeGeometryConfig",
+        manager_module="hydromodpy.data.variables.lake_geometry.manager",
+        manager_class="LakeGeometryManager",
+        apply_simulation_window=False,
+    ),
+    "lake_bathymetry": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_bathymetry.config",
+        config_class="LakeBathymetryConfig",
+        manager_module="hydromodpy.data.variables.lake_bathymetry.manager",
+        manager_class="LakeBathymetryManager",
+        apply_simulation_window=False,
+    ),
+    "lake_abacus": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_abacus.config",
+        config_class="LakeAbacusConfig",
+        manager_module="hydromodpy.data.variables.lake_abacus.manager",
+        manager_class="LakeAbacusManager",
+        apply_simulation_window=False,
+    ),
+    "lake_levels": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_levels.config",
+        config_class="LakeLevelsConfig",
+        manager_module="hydromodpy.data.variables.lake_levels.manager",
+        manager_class="LakeLevelsManager",
+    ),
+    "lake_inflow": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_inflow.config",
+        config_class="LakeInflowConfig",
+        manager_module="hydromodpy.data.variables.lake_inflow.manager",
+        manager_class="LakeInflowManager",
+    ),
+    "lake_outflow": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_outflow.config",
+        config_class="LakeOutflowConfig",
+        manager_module="hydromodpy.data.variables.lake_outflow.manager",
+        manager_class="LakeOutflowManager",
+    ),
+    "lake_withdrawal": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_withdrawal.config",
+        config_class="LakeWithdrawalConfig",
+        manager_module="hydromodpy.data.variables.lake_withdrawal.manager",
+        manager_class="LakeWithdrawalManager",
+    ),
 }
 
 

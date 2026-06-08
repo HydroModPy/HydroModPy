@@ -4,17 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
+
+from pydantic import BaseModel
 
 from hydromodpy.physics.flow.boundary_conditions import DIRICHLET_BC_CANONICAL_DOMAINS
 
+FlowConfigT = TypeVar("FlowConfigT", bound=BaseModel)
+
 
 def from_toml_section(
-    flow_config_cls: type,
+    flow_config_cls: type[FlowConfigT],
     flow_section: Mapping[str, object] | None,
     *,
     base_dir: Path,
-) -> object:
+) -> FlowConfigT:
     """Build a validated flow config from one `[flow]` TOML section."""
     if flow_section is None:
         return flow_config_cls()

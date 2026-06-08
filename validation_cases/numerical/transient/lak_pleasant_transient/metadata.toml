@@ -1,0 +1,90 @@
+case_id = "lak_pleasant_transient"
+category = "numerical"
+regime = "transient"
+dimension = "3d"
+default_solver = "modflow6"
+
+# Transient, multi-layer LAK regression built on a Plainfield Lakes abacus.
+#
+# A single reservoir is incised across the TOP 2 layers of a 4-layer aquifer on a
+# structured-as-DISV grid, so CONNECTIONDATA carries HORIZONTAL bank seepage in
+# layers 0 and 1 plus a VERTICAL leakage to layer 2. TDIS runs one initial steady
+# period then 3 transient periods, with per-period LAK rainfall (L/T), evaporation
+# (L/T) and runoff (L^3/T) that vary between periods.
+#
+# The stage-volume-area abacus is the real "Plainfield" lake table from USGS
+# modflow-setup (see data/SOURCE.txt). The model runs in meters/seconds; the LAK
+# input is driven entirely through the production builders in
+# hydromodpy/solver/modflow6/builders/lake.py.
+
+[config_files]
+modflow6 = "config_modflow6.toml"
+
+[units]
+seconds_per_day = 86400.0
+
+[abacus]
+# data/stage_area_volume.csv column names and the lake to read (USGS Plainfield
+# Lakes). The CSV stage/volume/area columns are already in meters / m3 / m2.
+csv_name = "stage_area_volume.csv"
+lake_name = "Plainfield"
+stage_column = "stage"
+volume_column = "volume"
+area_column = "area"
+# Keep every Nth abacus row (the raw table has 151 rows; thinning keeps the LAK
+# TAB6 compact while preserving the stage-volume-area shape).
+row_stride = 10
+
+[geometry]
+# Structured grid expressed as DISV: 15x15 cells of 40 m (the modflow-setup
+# Plainfield Lakes dxy), 4 layers. The lake occupies the top 2 layers.
+nlay = 4
+nrow = 15
+ncol = 15
+cell_size_m = 40.0
+top_m = 340.0
+botm_m = [336.0, 332.0, 328.0, 324.0]
+occupied_layers = 2
+
+[lake]
+# Central 5x5 footprint (rows 5..9, cols 5..9). The lake bed sits at the bottom of
+# the second occupied layer (332 m), just below the lowest abacus stage (331.7 m).
+row_start = 5
+row_stop = 10
+col_start = 5
+col_stop = 10
+bedleak_per_day = 0.1
+stage_init_m = 336.0
+
+[aquifer]
+k11_m_per_day = 5.0
+k33_m_per_day = [5.0, 0.5, 0.5, 0.5]
+specific_storage_per_m = 1.0e-5
+specific_yield = 0.2
+strt_m = 336.0
+head_left_m = 337.0
+head_right_m = 335.0
+recharge_m_per_day = 0.0015
+
+[time]
+# One initial steady period then 3 transient periods of 30 days each (10 steps).
+steady_period_length_days = 1000.0
+steady_n_steps = 1
+transient_period_length_days = 30.0
+transient_n_steps = 10
+n_transient_periods = 3
+
+[forcing]
+# Per-period LAK forcings. rainfall / evaporation are rates (m/day, L/T); runoff is
+# volumetric (m3/day, L^3/T). The steady period seeds equilibrium; the transient
+# periods perturb the lake water balance (a wet pulse, then a dry-down).
+rainfall_m_per_day = [0.0030, 0.0060, 0.0010, 0.0005]
+evaporation_m_per_day = [0.0025, 0.0020, 0.0040, 0.0050]
+runoff_m3_per_day = [500.0, 1500.0, 200.0, 50.0]
+
+[solver]
+outer_maximum = 500
+inner_maximum = 200
+outer_dvclose = 1.0e-7
+inner_dvclose = 1.0e-8
+rclose = 1.0e-4

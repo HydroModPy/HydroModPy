@@ -195,6 +195,8 @@ class DataManagersRuntimeLoader:
         if geographic is None:
             return
         for src in getattr(cfg, "sources", ()):
+            if "mask_path" not in getattr(type(src), "model_fields", {}):
+                continue
             if not getattr(src, "mask_path", None):
                 src.mask_path = Path(geographic.watershed_shp)
 

@@ -9,7 +9,7 @@ TOML section: ``[flow]``
 
 Pydantic model: ``FlowConfig`` defined in ``hydromodpy.physics.flow.flow_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
 Flow-process configuration.
 
@@ -42,7 +42,7 @@ Fields
         <code class="hmp-field-name">runtime_backend</code>
       </div>
 
-   :bdg-primary:`Literal['local', 'scipy', 'scipy_sparse', 'petsc']` :bdg-secondary:`default = "local"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`Literal['local', 'scipy', 'scipy_sparse', 'petsc']` :bdg-secondary:`default = "local"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
 
@@ -62,7 +62,7 @@ Fields
         <code class="hmp-field-name">surface_interaction_model</code>
       </div>
 
-   :bdg-primary:`Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.
 
@@ -82,7 +82,7 @@ Fields
         <code class="hmp-field-name">runtime_max_iterations</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.
 
@@ -96,7 +96,7 @@ Fields
         <code class="hmp-field-name">runtime_tol_residual_inf</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend.
 
@@ -110,7 +110,7 @@ Fields
         <code class="hmp-field-name">runtime_tol_state_update_inf</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.
 
@@ -124,7 +124,7 @@ Fields
         <code class="hmp-field-name">vi_substeps_per_period</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.
 
@@ -138,7 +138,7 @@ Fields
         <code class="hmp-field-name">vi_substep_on_failure</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       When true, retry a failed PETSc VI obstacle stress period with increasing substep counts.
 
@@ -152,7 +152,7 @@ Fields
         <code class="hmp-field-name">vi_max_adaptive_substeps</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.
 
@@ -166,7 +166,7 @@ Fields
         <code class="hmp-field-name">ts_vi_steps_per_period</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.
 
@@ -180,7 +180,7 @@ Fields
         <code class="hmp-field-name">ts_vi_adapt</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.
 
@@ -194,7 +194,7 @@ Fields
         <code class="hmp-field-name">ts_vi_dt_min_fraction</code>
       </div>
 
-   :bdg-primary:`float` :bdg-secondary:`default = 0.015625` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`float` :bdg-secondary:`default = 0.015625` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Minimum TS VI time-step as a fraction of the stress-period length.
 
@@ -208,7 +208,7 @@ Fields
         <code class="hmp-field-name">ts_vi_dt_max_fraction</code>
       </div>
 
-   :bdg-primary:`float` :bdg-secondary:`default = 0.25` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`float` :bdg-secondary:`default = 0.25` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       Maximum TS VI time-step as a fraction of the stress-period length.
 
@@ -222,7 +222,7 @@ Fields
         <code class="hmp-field-name">ts_vi_type</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "beuler"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "beuler"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       PETSc TS type for the experimental TS VI obstacle runtime.
 
@@ -236,7 +236,7 @@ Fields
         <code class="hmp-field-name">ts_vi_snes_type</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "vinewtonrsls"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "vinewtonrsls"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72>`__
 
       PETSc SNES type for the experimental TS VI obstacle runtime.
 
@@ -250,7 +250,7 @@ Fields
         <code class="hmp-field-name">param_list</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L113>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L115>`__
 
       Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
 
@@ -268,7 +268,7 @@ Fields
         <code class="hmp-field-toml">[flow.param.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, FlowParam]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L121>`__
+   :bdg-primary:`dict[str, FlowParam]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L123>`__
 
       Mapping of flow-parameter identifiers to native FieldParamConfig payloads.
 
@@ -588,7 +588,7 @@ Fields
         <code class="hmp-field-toml">[flow.ic]</code>
       </div>
 
-   :bdg-primary:`FlowInitialConditions` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L159>`__
+   :bdg-primary:`FlowInitialConditions` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L161>`__
 
       Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
 
@@ -988,7 +988,7 @@ Fields
         <code class="hmp-field-toml">[flow.bc.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`kind = "dirichlet" | "cauchy" | "robin"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L125>`__
+   :bdg-primary:`kind = "dirichlet" | "cauchy" | "robin"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L127>`__
 
       Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.
 
@@ -1029,7 +1029,7 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400>`__
 
                   Boundary-condition identifier.
 
@@ -1043,7 +1043,7 @@ Fields
                     <code class="hmp-field-name">value</code>
                   </div>
 
-               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396>`__
+               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400>`__
 
                   Boundary-condition value, scalar or one value per stress period.
 
@@ -1057,7 +1057,7 @@ Fields
                     <code class="hmp-field-name">description</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L401>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405>`__
 
                   Boundary-condition description.
 
@@ -1071,7 +1071,7 @@ Fields
                     <code class="hmp-field-name">units</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400>`__
 
                   Boundary-condition units.
 
@@ -1085,7 +1085,7 @@ Fields
                     <code class="hmp-field-name">data_value</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400>`__
 
                   If True, boundary-condition values are sourced from data.
 
@@ -1101,7 +1101,7 @@ Fields
                     <code class="hmp-field-toml">[flow.bc.dirichlet.&lt;id&gt;.forcing]</code>
                   </div>
 
-               :bdg-primary:`mode = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L434>`__
+               :bdg-primary:`mode = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L438>`__
 
                   Optional runtime forcing declaration for lateral Dirichlet boundaries. Supported modes: 'constant' and 'csv'. The launcher resolves this payload to boundary.value using [simulation.time].
 
@@ -1124,7 +1124,7 @@ Fields
                                 <code class="hmp-field-name">value</code>
                               </div>
 
-                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L178>`__
+                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L182>`__
 
                               Constant boundary head value used when mode='constant'.
 
@@ -1138,7 +1138,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L182>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L186>`__
 
                               Source units of forcing values before runtime conversion.
 
@@ -1159,7 +1159,7 @@ Fields
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
-                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L195>`__
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L199>`__
 
                               CSV file path containing time-series boundary head values when mode='csv'.
 
@@ -1173,7 +1173,7 @@ Fields
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L199>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L203>`__
 
                               CSV column separator.
 
@@ -1187,7 +1187,7 @@ Fields
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L203>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L207>`__
 
                               CSV column containing timestamps.
 
@@ -1201,7 +1201,7 @@ Fields
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L207>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L211>`__
 
                               Optional datetime format passed to pandas.to_datetime.
 
@@ -1215,7 +1215,7 @@ Fields
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L211>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L215>`__
 
                               CSV column containing boundary head values.
 
@@ -1229,7 +1229,7 @@ Fields
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
-                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L215>`__
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L219>`__
 
                               Gap-filling policy used when a stress period has no direct sample.
 
@@ -1243,7 +1243,7 @@ Fields
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
-                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L219>`__
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L223>`__
 
                               Stress-period aggregation method.
 
@@ -1257,7 +1257,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L223>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L227>`__
 
                               Source units of forcing values before runtime conversion.
 
@@ -1273,7 +1273,7 @@ Fields
                     <code class="hmp-field-name">application_domain</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L459>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L463>`__
 
                   Boundary-application domain. Supported values are: top, north side, south side, east side, west side.
 
@@ -1287,7 +1287,7 @@ Fields
                     <code class="hmp-field-name">support_label</code>
                   </div>
 
-               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400>`__
 
                   Optional explicit runtime support label used by unstructured backends to select one target support independently from the canonical boundary id.
 
@@ -1308,7 +1308,7 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559>`__
 
                   Boundary-condition identifier.
 
@@ -1322,7 +1322,7 @@ Fields
                     <code class="hmp-field-name">value</code>
                   </div>
 
-               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555>`__
+               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559>`__
 
                   Boundary-condition value, scalar or one value per stress period.
 
@@ -1336,7 +1336,7 @@ Fields
                     <code class="hmp-field-name">description</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L560>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L564>`__
 
                   Boundary-condition description.
 
@@ -1350,7 +1350,7 @@ Fields
                     <code class="hmp-field-name">units</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559>`__
 
                   Boundary-condition units.
 
@@ -1364,7 +1364,7 @@ Fields
                     <code class="hmp-field-name">data_value</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559>`__
 
                   If True, boundary-condition values are sourced from data.
 
@@ -1378,7 +1378,7 @@ Fields
                     <code class="hmp-field-name">application_domain</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559>`__
 
                   Boundary-application domain. Supported values are: top, north side, south side, east side, west side.
 
@@ -1392,7 +1392,7 @@ Fields
                     <code class="hmp-field-name">support_label</code>
                   </div>
 
-               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559>`__
 
                   Optional explicit runtime support label used by unstructured backends to select one target support independently from the canonical boundary id.
 
@@ -1413,7 +1413,7 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578>`__
 
                   Boundary-condition identifier.
 
@@ -1427,7 +1427,7 @@ Fields
                     <code class="hmp-field-name">value</code>
                   </div>
 
-               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574>`__
+               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578>`__
 
                   Boundary-condition value, scalar or one value per stress period.
 
@@ -1441,7 +1441,7 @@ Fields
                     <code class="hmp-field-name">description</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L579>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L583>`__
 
                   Boundary-condition description.
 
@@ -1455,7 +1455,7 @@ Fields
                     <code class="hmp-field-name">units</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578>`__
 
                   Boundary-condition units.
 
@@ -1469,7 +1469,7 @@ Fields
                     <code class="hmp-field-name">data_value</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578>`__
 
                   If True, boundary-condition values are sourced from data.
 
@@ -1483,7 +1483,7 @@ Fields
                     <code class="hmp-field-name">application_domain</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578>`__
 
                   Boundary-application domain. Supported values are: top, north side, south side, east side, west side.
 
@@ -1497,7 +1497,7 @@ Fields
                     <code class="hmp-field-name">support_label</code>
                   </div>
 
-               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574>`__
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578>`__
 
                   Optional explicit runtime support label used by unstructured backends to select one target support independently from the canonical boundary id.
 
@@ -1515,7 +1515,7 @@ Fields
         <code class="hmp-field-toml">[flow.sinks_sources]</code>
       </div>
 
-   :bdg-primary:`FlowSinksSourcesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L166>`__
+   :bdg-primary:`FlowSinksSourcesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L168>`__
 
       Typed sinks/sources payload (for example pumping wells).
 
@@ -1536,7 +1536,7 @@ Fields
               <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, FlowWellConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L27>`__
+         :bdg-primary:`dict[str, FlowWellConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L28>`__
 
             Mapping of well ids to typed well payloads.
 
@@ -1904,6 +1904,1210 @@ Fields
 
 
       .. container:: hmp-field hmp-field-level-user
+         :name: flow-sinks-sources-lakes
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes">
+              <code class="hmp-field-name">lakes</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;]</code>
+            </div>
+
+         :bdg-primary:`dict[str, FlowLakeConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L30>`__
+
+            Mapping of lake ids to typed lake / reservoir payloads.
+
+         .. dropdown:: Fields of ``FlowLakeConfig``
+            :icon: list-unordered
+            :animate: fade-in-slide-down
+
+            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-lakes-id-bedleak
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.bedleak">
+                    <code class="hmp-field-name">bedleak</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L212>`__
+
+                  Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface; the under-dam leakage calibration parameter.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-lakes-id-stageinit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.stageinit">
+                    <code class="hmp-field-name">stageinit</code>
+                  </div>
+
+               :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L220>`__
+
+                  Initial lake stage [L].
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-lakes-id-outlets
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets">
+                    <code class="hmp-field-name">outlets</code>
+                    <span class="hmp-field-arrow">in TOML:</span>
+                    <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.outlets]]</code>
+                  </div>
+
+               :bdg-primary:`couttype = "WEIR" | "MANNING" | "SPECIFIED"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L221>`__
+
+                  Surverse / spillway / controlled-release outlets for this lake.
+
+                  Pick a tab below: setting ``couttype`` selects the matching schema.
+
+               .. tab-set::
+
+                  .. tab-item:: WEIR
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.outlets.WEIR]`` -- model ``FlowLakeOutletWeir`` (set ``couttype = "WEIR"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-weir-invert
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.invert">
+                                <code class="hmp-field-name">invert</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L82>`__
+
+                              Weir crest elevation [L].
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-weir-width
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.width">
+                                <code class="hmp-field-name">width</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L83>`__
+
+                              Effective weir crest length [L].
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-weir-lakeout
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.lakeout">
+                                <code class="hmp-field-name">lakeout</code>
+                              </div>
+
+                           :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L86>`__
+
+                              Downstream destination lake (1-based). 0 = external boundary (the discharge leaves the model).
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-weir-mover
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.mover">
+                                <code class="hmp-field-name">mover</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.WEIR.mover]</code>
+                              </div>
+
+                           :bdg-primary:`FlowLakeOutletMover | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L94>`__
+
+                              Optional controlled LAK -> LAK transfer routed through MVR (keep lakeout = 0 when a mover is set).
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+
+                  .. tab-item:: MANNING
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.outlets.MANNING]`` -- model ``FlowLakeOutletManning`` (set ``couttype = "MANNING"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-manning-invert
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.invert">
+                                <code class="hmp-field-name">invert</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L110>`__
+
+                              Channel invert elevation [L].
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-manning-width
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.width">
+                                <code class="hmp-field-name">width</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L113>`__
+
+                              Channel width [L].
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-manning-rough
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.rough">
+                                <code class="hmp-field-name">rough</code>
+                              </div>
+
+                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L114>`__
+
+                              Manning roughness coefficient n (> 0).
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-manning-slope
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.slope">
+                                <code class="hmp-field-name">slope</code>
+                              </div>
+
+                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L117>`__
+
+                              Channel bed slope (> 0).
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-manning-lakeout
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.lakeout">
+                                <code class="hmp-field-name">lakeout</code>
+                              </div>
+
+                           :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L120>`__
+
+                              Downstream destination lake (1-based). 0 = external boundary (the discharge leaves the model).
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-manning-mover
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.mover">
+                                <code class="hmp-field-name">mover</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.MANNING.mover]</code>
+                              </div>
+
+                           :bdg-primary:`FlowLakeOutletMover | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L128>`__
+
+                              Optional controlled LAK -> LAK transfer routed through MVR (keep lakeout = 0 when a mover is set).
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+
+                  .. tab-item:: SPECIFIED
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.outlets.SPECIFIED]`` -- model ``FlowLakeOutletSpecified`` (set ``couttype = "SPECIFIED"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-specified-rate
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.rate">
+                                <code class="hmp-field-name">rate</code>
+                              </div>
+
+                           :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L149>`__
+
+                              Constant specified outlet rate [L^3/T], signed (+in, -out).
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-outlets-specified-forcing
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.forcing">
+                                <code class="hmp-field-name">forcing</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.forcing]</code>
+                              </div>
+
+                           :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L153>`__
+
+                              Optional transient release schedule resolved at runtime.
+
+                              Pick a tab below: setting ``kind`` selects the matching schema.
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-specified-lakeout
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.lakeout">
+                                <code class="hmp-field-name">lakeout</code>
+                              </div>
+
+                           :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L157>`__
+
+                              Downstream destination lake (1-based). 0 = external boundary (the discharge leaves the model).
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-outlets-specified-mover
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.mover">
+                                <code class="hmp-field-name">mover</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.mover]</code>
+                              </div>
+
+                           :bdg-primary:`FlowLakeOutletMover | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L165>`__
+
+                              Optional controlled LAK -> LAK transfer routed through MVR (keep lakeout = 0 when a mover is set).
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: flow-sinks-sources-lakes-id-rainfall
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall">
+                    <code class="hmp-field-name">rainfall</code>
+                    <span class="hmp-field-arrow">in TOML:</span>
+                    <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall]</code>
+                  </div>
+
+               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L225>`__
+
+                  Optional rainfall rate forcing [L/T] (per unit lake surface).
+
+                  Pick a tab below: setting ``kind`` selects the matching schema.
+
+               .. tab-set::
+
+                  .. tab-item:: constant
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-rainfall-constant-value
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.constant.value">
+                                <code class="hmp-field-name">value</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+
+                              Constant well rate in the same units as the parent well.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-constant-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.constant.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+
+                              Source units of the constant value before runtime conversion.
+
+
+
+                  .. tab-item:: csv
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-path-file
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.path_file">
+                                <code class="hmp-field-name">path_file</code>
+                              </div>
+
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+
+                              Path to the CSV chronicle file.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-sep
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.sep">
+                                <code class="hmp-field-name">sep</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+
+                              CSV delimiter.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-date-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.date_column">
+                                <code class="hmp-field-name">date_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+
+                              CSV column containing timestamps.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-date-format
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.date_format">
+                                <code class="hmp-field-name">date_format</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+
+                              Optional datetime format passed to pandas.to_datetime.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-value-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.value_column">
+                                <code class="hmp-field-name">value_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+
+                              CSV column containing well rates.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-fill-method
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.fill_method">
+                                <code class="hmp-field-name">fill_method</code>
+                              </div>
+
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+
+                              Gap-filling policy used when a stress period has no direct sample.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-aggregate
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.aggregate">
+                                <code class="hmp-field-name">aggregate</code>
+                              </div>
+
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+
+                              Stress-period aggregation method.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-csv-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.csv.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+
+                              Source units of CSV values before runtime conversion.
+
+
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: flow-sinks-sources-lakes-id-evaporation
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation">
+                    <code class="hmp-field-name">evaporation</code>
+                    <span class="hmp-field-arrow">in TOML:</span>
+                    <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation]</code>
+                  </div>
+
+               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L229>`__
+
+                  Optional open-water evaporation rate forcing [L/T].
+
+                  Pick a tab below: setting ``kind`` selects the matching schema.
+
+               .. tab-set::
+
+                  .. tab-item:: constant
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-evaporation-constant-value
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.constant.value">
+                                <code class="hmp-field-name">value</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+
+                              Constant well rate in the same units as the parent well.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-constant-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.constant.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+
+                              Source units of the constant value before runtime conversion.
+
+
+
+                  .. tab-item:: csv
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-path-file
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.path_file">
+                                <code class="hmp-field-name">path_file</code>
+                              </div>
+
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+
+                              Path to the CSV chronicle file.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-sep
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.sep">
+                                <code class="hmp-field-name">sep</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+
+                              CSV delimiter.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-date-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.date_column">
+                                <code class="hmp-field-name">date_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+
+                              CSV column containing timestamps.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-date-format
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.date_format">
+                                <code class="hmp-field-name">date_format</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+
+                              Optional datetime format passed to pandas.to_datetime.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-value-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.value_column">
+                                <code class="hmp-field-name">value_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+
+                              CSV column containing well rates.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-fill-method
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.fill_method">
+                                <code class="hmp-field-name">fill_method</code>
+                              </div>
+
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+
+                              Gap-filling policy used when a stress period has no direct sample.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-aggregate
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.aggregate">
+                                <code class="hmp-field-name">aggregate</code>
+                              </div>
+
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+
+                              Stress-period aggregation method.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-csv-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.csv.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+
+                              Source units of CSV values before runtime conversion.
+
+
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: flow-sinks-sources-lakes-id-runoff
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff">
+                    <code class="hmp-field-name">runoff</code>
+                    <span class="hmp-field-arrow">in TOML:</span>
+                    <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff]</code>
+                  </div>
+
+               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L233>`__
+
+                  Optional runoff forcing, volumetric [L^3/T].
+
+                  Pick a tab below: setting ``kind`` selects the matching schema.
+
+               .. tab-set::
+
+                  .. tab-item:: constant
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-runoff-constant-value
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.constant.value">
+                                <code class="hmp-field-name">value</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+
+                              Constant well rate in the same units as the parent well.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-constant-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.constant.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+
+                              Source units of the constant value before runtime conversion.
+
+
+
+                  .. tab-item:: csv
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-path-file
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.path_file">
+                                <code class="hmp-field-name">path_file</code>
+                              </div>
+
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+
+                              Path to the CSV chronicle file.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-sep
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.sep">
+                                <code class="hmp-field-name">sep</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+
+                              CSV delimiter.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-date-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.date_column">
+                                <code class="hmp-field-name">date_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+
+                              CSV column containing timestamps.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-date-format
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.date_format">
+                                <code class="hmp-field-name">date_format</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+
+                              Optional datetime format passed to pandas.to_datetime.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-value-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.value_column">
+                                <code class="hmp-field-name">value_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+
+                              CSV column containing well rates.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-fill-method
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.fill_method">
+                                <code class="hmp-field-name">fill_method</code>
+                              </div>
+
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+
+                              Gap-filling policy used when a stress period has no direct sample.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-aggregate
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.aggregate">
+                                <code class="hmp-field-name">aggregate</code>
+                              </div>
+
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+
+                              Stress-period aggregation method.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-csv-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.csv.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+
+                              Source units of CSV values before runtime conversion.
+
+
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: flow-sinks-sources-lakes-id-inflow
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow">
+                    <code class="hmp-field-name">inflow</code>
+                    <span class="hmp-field-arrow">in TOML:</span>
+                    <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow]</code>
+                  </div>
+
+               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L237>`__
+
+                  Optional inflow forcing, volumetric [L^3/T].
+
+                  Pick a tab below: setting ``kind`` selects the matching schema.
+
+               .. tab-set::
+
+                  .. tab-item:: constant
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-inflow-constant-value
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.constant.value">
+                                <code class="hmp-field-name">value</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+
+                              Constant well rate in the same units as the parent well.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-constant-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.constant.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+
+                              Source units of the constant value before runtime conversion.
+
+
+
+                  .. tab-item:: csv
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-path-file
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.path_file">
+                                <code class="hmp-field-name">path_file</code>
+                              </div>
+
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+
+                              Path to the CSV chronicle file.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-sep
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.sep">
+                                <code class="hmp-field-name">sep</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+
+                              CSV delimiter.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-date-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.date_column">
+                                <code class="hmp-field-name">date_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+
+                              CSV column containing timestamps.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-date-format
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.date_format">
+                                <code class="hmp-field-name">date_format</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+
+                              Optional datetime format passed to pandas.to_datetime.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-value-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.value_column">
+                                <code class="hmp-field-name">value_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+
+                              CSV column containing well rates.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-fill-method
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.fill_method">
+                                <code class="hmp-field-name">fill_method</code>
+                              </div>
+
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+
+                              Gap-filling policy used when a stress period has no direct sample.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-aggregate
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.aggregate">
+                                <code class="hmp-field-name">aggregate</code>
+                              </div>
+
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+
+                              Stress-period aggregation method.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-csv-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.csv.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+
+                              Source units of CSV values before runtime conversion.
+
+
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: flow-sinks-sources-lakes-id-withdrawal
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal">
+                    <code class="hmp-field-name">withdrawal</code>
+                    <span class="hmp-field-arrow">in TOML:</span>
+                    <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal]</code>
+                  </div>
+
+               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L241>`__
+
+                  Optional withdrawal forcing, volumetric [L^3/T].
+
+                  Pick a tab below: setting ``kind`` selects the matching schema.
+
+               .. tab-set::
+
+                  .. tab-item:: constant
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.constant]`` -- model ``FlowWellForcingConstantConfig`` (set ``kind = "constant"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-withdrawal-constant-value
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.constant.value">
+                                <code class="hmp-field-name">value</code>
+                              </div>
+
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+
+                              Constant well rate in the same units as the parent well.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-constant-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.constant.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+
+                              Source units of the constant value before runtime conversion.
+
+
+
+                  .. tab-item:: csv
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.csv]`` -- model ``FlowWellForcingCsvConfig`` (set ``kind = "csv"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-path-file
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.path_file">
+                                <code class="hmp-field-name">path_file</code>
+                              </div>
+
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+
+                              Path to the CSV chronicle file.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-sep
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.sep">
+                                <code class="hmp-field-name">sep</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+
+                              CSV delimiter.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-date-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.date_column">
+                                <code class="hmp-field-name">date_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+
+                              CSV column containing timestamps.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-date-format
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.date_format">
+                                <code class="hmp-field-name">date_format</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+
+                              Optional datetime format passed to pandas.to_datetime.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-value-column
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.value_column">
+                                <code class="hmp-field-name">value_column</code>
+                              </div>
+
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+
+                              CSV column containing well rates.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-fill-method
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.fill_method">
+                                <code class="hmp-field-name">fill_method</code>
+                              </div>
+
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+
+                              Gap-filling policy used when a stress period has no direct sample.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-aggregate
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.aggregate">
+                                <code class="hmp-field-name">aggregate</code>
+                              </div>
+
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+
+                              Stress-period aggregation method.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-csv-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.csv.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+
+                              Source units of CSV values before runtime conversion.
+
+
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-lakes-id-description
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.description">
+                    <code class="hmp-field-name">description</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L215>`__
+
+                  Optional lake description.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: flow-sinks-sources-lakes-id-units
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.units">
+                    <code class="hmp-field-name">units</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L248>`__
+
+                  Length unit of stage / elevation values.
+
+
+
+
+      .. container:: hmp-field hmp-field-level-user
          :name: flow-sinks-sources-recharge
 
          .. raw:: html
@@ -1914,7 +3118,7 @@ Fields
               <code class="hmp-field-toml">[flow.sinks_sources.recharge]</code>
             </div>
 
-         :bdg-primary:`FlowRechargeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L29>`__
+         :bdg-primary:`FlowRechargeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L32>`__
 
             Diffuse recharge configuration. None = zero recharge for all periods.
 
@@ -2035,7 +3239,7 @@ Fields
               <code class="hmp-field-toml">[flow.sinks_sources.etp]</code>
             </div>
 
-         :bdg-primary:`FlowEtpConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L31>`__
+         :bdg-primary:`FlowEtpConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L34>`__
 
             Diffuse evapotranspiration configuration. None = no EVT package built.
 
@@ -2170,7 +3374,7 @@ Fields
         <code class="hmp-field-name">active_sinks_sources</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L170>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L172>`__
 
       Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
 
@@ -2191,9 +3395,9 @@ Fields
         <code class="hmp-field-name">active_bc</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L180>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L182>`__
 
-      Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
+      Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', 'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced package and are only supported by the modflow6 backend. An empty list means no boundary-condition package is assembled by the solver.
 
    .. admonition:: Examples
       :class: hmp-field-examples
@@ -2211,7 +3415,7 @@ Fields
         <code class="hmp-field-name">flow_regime</code>
       </div>
 
-   :bdg-primary:`Literal['steady', 'transient']` :bdg-secondary:`default = "transient"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L80>`__
+   :bdg-primary:`Literal['steady', 'transient']` :bdg-secondary:`default = "transient"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L82>`__
 
       Global flow simulation regime used by solvers consuming [flow] (steady or transient).
 
@@ -2231,7 +3435,7 @@ Fields
         <code class="hmp-field-name">first_period_steady</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L96>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L98>`__
 
       For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.
 
@@ -2269,6 +3473,7 @@ Starter TOML snippet
 
       [flow.sinks_sources]
       # wells = ...  # factory default
+      # lakes = ...  # factory default
       # recharge = ...  # default = None
       # etp = ...  # default = None
 

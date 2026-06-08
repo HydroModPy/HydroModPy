@@ -10,6 +10,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import resolve_simulation_time_window
 from hydromodpy.physics.flow.structure_binders import (
     apply_etp_load_result_to_flow,
+    apply_lake_abacus_to_flow,
+    apply_lake_geometry_to_flow,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
@@ -123,6 +125,14 @@ def apply_structural_updates_from_data(
         flow=setup_state.flow,
         etp_result=getattr(data_state, "etp", None),
         simulation_window=window,
+    )
+    apply_lake_geometry_to_flow(
+        flow=setup_state.flow,
+        lake_geometry=getattr(data_state, "lake_geometry", None),
+    )
+    apply_lake_abacus_to_flow(
+        flow=setup_state.flow,
+        lake_abacus=getattr(data_state, "lake_abacus", None),
     )
     if setup_state.geographic_features is not None:
         setup_state.geographic_features = attach_reference_hydrographic_network(
