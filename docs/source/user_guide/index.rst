@@ -139,6 +139,18 @@ Topic guides
       solvers, with the trade-offs between MODFLOW-NWT, MODFLOW 6,
       Boussinesq, mesh families, and the XT3D option.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: modflow6-lake
+      :link-type: doc
+
+      **Lakes and reservoirs**
+      ^^^
+      How to declare a MODFLOW 6 LAK lake in config: geometry polygon,
+      stage-volume-area abacus, bed leakance, spillway and controlled
+      outlets, forcings, and where the solved stage and lake-aquifer
+      exchange land.
+
 Capability and API-oriented guides
 ----------------------------------
 
@@ -243,4 +255,5 @@ Use these pages once you have generated or opened result pages:
    project-api
    solvers
    modflow6-prt
+   modflow6-lake
    troubleshooting
