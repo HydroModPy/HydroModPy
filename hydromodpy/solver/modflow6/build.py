@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from collections.abc import Mapping
 
@@ -13,9 +14,11 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders import (
+    apply_lake_idomain_mask,
     bind_recharge_from_flow,
     build_drain_stress_period_data,
     build_evt_stress_period_data,
+    build_lak_package_args,
     build_ocean_boundary_chd_spd,
     build_side_boundary_chd_spd,
     build_start_heads,
@@ -23,10 +26,12 @@ from hydromodpy.solver.modflow6.builders import (
     build_well_stress_period_data,
     empty_recharge_aux,
     finalize_pending_recharge_evt,
+    mask_recharge_on_lake_cells,
     recharge_to_spd,
     resolve_deferred_heterogeneous_recharge,
     resolve_drainage_conductance_series,
     resolve_ims_complexity,
+    resolve_lake_cells_for_active_lakes,
     resolve_rewet_npf_options,
     resolve_xt3d_npf_options,
     xt3d_activation_mode,
@@ -79,6 +84,19 @@ def mf6_output_name(model, extension: str = ".cbc") -> str:
     if len(os.path.abspath(candidate)) < 240:
         return requested
     return str(getattr(model, "model_name_mf6", "") or mf6_safe_name(requested))
+
+
+def _write_lake_obs_meta(model, lake_obs_meta: Mapping[str, object]) -> None:
+    """Persist the LAK obs sidecar next to the solver files for the extractor.
+
+    The extractor reads ``{model_output_name}.lak.meta.json`` from the solver
+    output directory to re-key the LAK obs CSV by ``(lake_id, totim)`` and isolate
+    the under-dam leakage. The sidecar travels with the model files so post-run
+    extraction needs no live flopy object.
+    """
+    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lak.meta.json")
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump(dict(lake_obs_meta), fh, sort_keys=True)
 
 
 def xt3d_requested(model) -> bool | None:
@@ -406,6 +424,23 @@ def run_pre_processing(  # noqa: PLR0915
         newtonoptions=newtonoptions,
     )
     model.sim.register_ims_package(model.ims, [model.gwf.name])
+
+    # Lake cells are made inactive (idomain=0) before DISV is built so the LAK
+    # footprint stays consistent across idomain, dem_mask, RCH, EVT and DRN. LAK
+    # supplies the storage and lake-aquifer exchange through its own
+    # CONNECTIONDATA (built later from this same lake mask).
+    lake_cell_ids_by_lake = resolve_lake_cells_for_active_lakes(model, solver_mesh)
+    model._lake_cell_ids = sorted(
+        {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
+    )
+    if lake_cell_ids_by_lake:
+        solver_mesh = apply_lake_idomain_mask(
+            solver_mesh, lake_cell_ids_by_lake=lake_cell_ids_by_lake
+        )
+        model.solver_mesh = solver_mesh
+        model.inactive_mask = solver_mesh.inactive_mask[0]
+        model.dem_mask = model.inactive_mask
+
     idomain = solver_mesh.idomain()
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
@@ -457,6 +492,10 @@ def run_pre_processing(  # noqa: PLR0915
     )
 
     model.rch_spd = recharge_to_spd(model)
+    if model._lake_cell_ids:
+        model.rch_spd = mask_recharge_on_lake_cells(
+            model.rch_spd, lake_cell_ids=model._lake_cell_ids
+        )
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
         recharge=model.rch_spd,
@@ -518,6 +557,57 @@ def run_pre_processing(  # noqa: PLR0915
         model.wel = flopy.mf6.ModflowGwfwel(model.gwf, stress_period_data=wel_spd, save_flows=True)
 
     model.model_output_name = mf6_output_name(model)
+
+    # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
+    # Lake cells were already made inactive above, so the CONNECTIONDATA targets
+    # active aquifer neighbours only. A controlled LAK -> LAK transfer rides MVR,
+    # which is GWF-scoped and MUST be built last (it references LAK by name).
+    if lake_cell_ids_by_lake:
+        lak_args = build_lak_package_args(
+            model,
+            solver_mesh=solver_mesh,
+            lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+        )
+        if lak_args is not None:
+            laktab_specs = lak_args.pop("laktab_specs")
+            mover_records = lak_args.pop("mover_records", None)
+            mover_maxpackages = lak_args.pop("mover_maxpackages", 0)
+            obs_continuous = lak_args.pop("obs_continuous", None)
+            lake_obs_meta = lak_args.pop("lake_obs_meta", None)
+            lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
+            for spec in laktab_specs:
+                flopy.mf6.ModflowUtllaktab(
+                    model.gwf,
+                    nrow=len(spec["table"]),
+                    ncol=3,
+                    table=spec["table"],
+                    filename=spec["filename"],
+                    parent_file=lak,
+                )
+            # OBS6 for the per-lake output series, plus a JSON sidecar the
+            # extractor reads to re-key the obs CSV by (lake_id, totim).
+            if obs_continuous:
+                lak.obs.initialize(
+                    filename=f"{model.model_output_name}.lak.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=obs_continuous,
+                )
+            if lake_obs_meta is not None:
+                _write_lake_obs_meta(model, lake_obs_meta)
+            model.lak = lak
+            # MVR last: it routes the LAK outlets to receiving lakes by package
+            # name, so the LAK package it points at must already exist.
+            if mover_records:
+                model.mvr = flopy.mf6.ModflowGwfmvr(
+                    model.gwf,
+                    pname="MVR",
+                    maxmvr=len(mover_records),
+                    maxpackages=int(mover_maxpackages),
+                    packages=[("LAK",)],
+                    perioddata={0: mover_records},
+                )
+
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
         head_filerecord=f"{model.model_output_name}.hds",
