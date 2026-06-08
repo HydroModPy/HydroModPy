@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -184,6 +185,7 @@ def build_lake_records(
 
     n_steps = min(len(rows), len(times))
     spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
+    _verify_obs_time_alignment(rows, times, col_index, n_steps, obs_path)
 
     # lake_id -> ordered set of stored quantities (excluding the per-connection
     # detail, which is aggregated rather than stored on its own).
@@ -265,6 +267,35 @@ def build_lake_records(
                 )
 
     return timeseries, budgets
+
+
+def _verify_obs_time_alignment(
+    rows: Sequence[Sequence[float]],
+    times: Sequence[float],
+    col_index: Mapping[str, int],
+    n_steps: int,
+    obs_path: Path,
+) -> None:
+    """Guard the positional obs-CSV / totim alignment with the TIME column.
+
+    The per-lake series are matched to the solver ``totim`` by row order; if the
+    obs CSV and the solver output ever drift, that would silently mis-stamp every
+    value. MF6 writes the observation time in the first ``time`` column, so we
+    cross-check it against the expected ``totim`` and fail loudly on a mismatch.
+    """
+    time_col = col_index.get("TIME")
+    if time_col is None:
+        return
+    for t in range(n_steps):
+        row = rows[t]
+        if time_col >= len(row):
+            continue
+        csv_time = float(row[time_col])
+        if not math.isclose(csv_time, float(times[t]), rel_tol=1e-6, abs_tol=1e-3):
+            raise ValueError(
+                f"LAK obs CSV {obs_path.name} time {csv_time} at row {t} does not match the "
+                f"solver totim {float(times[t])}; the obs output is misaligned with the time axis."
+            )
 
 
 def _sum_connection_flux(

@@ -21,32 +21,16 @@ loader sit on the critical path. This is the distinction from the flopy-direct
 LAK tests under tests/validation and tests/integration, which hardcode
 ``polygon=None`` and bypass Project / Flow / the data layer entirely.
 
-Why xfail(strict=True)
-----------------------
-The production lake path is broken in two places today, so a real run produces a
-guaranteed no-op LAK:
-
-* the data layer rejects the lake configs: the lake_geometry / lake_abacus
-  variable specs carry ``apply_simulation_window=True``, so the loader injects
-  ``date_start`` / ``date_end`` into configs that forbid extra keys; loading
-  fails (logged as a WARNING) and ``loaded_data.lake_geometry`` stays ``None``;
-* the data -> flow binder is missing: ``Flow.set_sinks_sources`` copies wells /
-  recharge / etp into ``self.sinks_sources`` but never ``lakes``, and there is no
-  ``apply_lake_*_to_flow`` binder in structure_binders.py wired into the planning
-  step (unlike ``apply_recharge_load_result_to_flow``).
-
-Consequently ``_active_lake_definitions`` returns ``{}``,
-``resolve_lake_cells_for_active_lakes`` returns ``{}``, and the LAK build branch
-in build.py is skipped: the run completes normally but writes NO ``*.lak`` file
-and produces NO ``lake:<id>`` series.
-
-So the primary test FAILS today rather than passing on a no-op LAK. It is marked
-``xfail(strict=True)``: the body still runs the real pipeline, the LAK assertions
-are the expected failure (keeping the test green), and the moment the data-spec +
-binder port lands and LAK fires, the assertions pass and ``strict=True`` converts
-the unexpected pass into a hard failure telling the porter to remove the marker.
-Removing the xfail then proves the port. The negative-control test does not depend
-on the missing binder and runs for real (no xfail).
+The pipeline is wired end to end (no xfail)
+-------------------------------------------
+The data -> flow binders (``apply_lake_geometry_to_flow`` /
+``apply_lake_abacus_to_flow`` in structure_binders.py) run in the planning step,
+so the loaded lake_geometry polygon and lake_abacus table reach the flow lake
+payload, ``_active_lake_definitions`` resolves the lake, and the LAK build branch
+fires for real. The primary test therefore asserts a genuine LAK build: a
+``*.lak`` file is written and a finite ``lake:<id>`` stage series lands in the
+ResultStore. The negative-control test asserts no LAK is built when no lake is
+declared.
 """
 
 from __future__ import annotations

@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tomllib
 from pathlib import Path
 from typing import cast
 
 import pytest
 
+import validation_cases.numerical.transient.lak_pleasant_transient as _case_pkg
 from tests.regression.golden_utils import update_or_assert_goldens
 from validation_cases.numerical.transient.lak_pleasant_transient.comparison import (
     build_structural_comparison,
@@ -34,6 +36,13 @@ from validation_cases.numerical.transient.lak_pleasant_transient.runtime_lak imp
 REFERENCE_PATH = (
     Path(__file__).resolve().parent / "golden" / "lak_pleasant_transient_signatures.json"
 )
+
+# Single-source the per-period stage tolerance from the case tolerances.toml
+# instead of hard-coding it (tests/TOLERANCES.md is the source of truth).
+_TOLERANCES = tomllib.loads(
+    (Path(_case_pkg.__file__).resolve().parent / "tolerances.toml").read_text(encoding="utf-8")
+)
+_PERIOD_STAGE_ABS = float(_TOLERANCES["stage"]["period_stage_abs_error_m"])
 
 
 def _connectiondata_hash() -> str:
@@ -114,7 +123,7 @@ def test_lak_pleasant_transient_signature_matches_committed_reference(
     exp_stages = cast("list[float]", exp["period_stages_m"])
     assert len(act_stages) == len(exp_stages)
     for got, want in zip(act_stages, exp_stages, strict=True):
-        assert got == pytest.approx(want, abs=1e-2)
+        assert got == pytest.approx(want, abs=_PERIOD_STAGE_ABS)
 
     act_budget = [round(p, 5) + 0.0 for p in scenario.hmp.period_budget_percent]
     exp_budget = cast("list[float]", exp["period_budget_percent"])

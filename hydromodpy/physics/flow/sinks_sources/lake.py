@@ -262,12 +262,6 @@ class FlowLakeConfig(HydroModelBase):
         default=None,
         description="Optional withdrawal forcing, volumetric [L^3/T].",
     )
-    description: Annotated[str, Profile.USER] = Field(
-        default="", description="Optional lake description."
-    )
-    units: Annotated[str, Profile.DEV] = Field(
-        default="m", description="Length unit of stage / elevation values."
-    )
 
     @field_validator("bedleak_unit")
     @classmethod
