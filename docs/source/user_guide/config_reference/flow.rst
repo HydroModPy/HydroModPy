@@ -1557,7 +1557,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.location]</code>
                   </div>
 
-               :bdg-primary:`kind = "cell" | "absolute_xy" | "relative_xy"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L258>`__
+               :bdg-primary:`kind = "cell" | "absolute_xy" | "relative_xy"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L389>`__
 
                   Well location payload. Discriminated by 'kind': 'cell', 'absolute_xy', or 'relative_xy'.
 
@@ -1580,7 +1580,7 @@ Fields
                                 <code class="hmp-field-name">cell</code>
                               </div>
 
-                           :bdg-primary:`tuple[int, int, int]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L162>`__
+                           :bdg-primary:`tuple[int, int, int]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L293>`__
 
                               Direct cell indices as [lay, row, col] (0-based, FLOPY convention).
 
@@ -1601,7 +1601,7 @@ Fields
                                 <code class="hmp-field-name">layer</code>
                               </div>
 
-                           :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L180>`__
+                           :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L311>`__
 
                               Layer index (0-based) targeted by the well.
 
@@ -1615,7 +1615,7 @@ Fields
                                 <code class="hmp-field-name">x</code>
                               </div>
 
-                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L184>`__
+                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L315>`__
 
                               Projected X coordinate in solver units.
 
@@ -1629,7 +1629,7 @@ Fields
                                 <code class="hmp-field-name">y</code>
                               </div>
 
-                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L187>`__
+                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L318>`__
 
                               Projected Y coordinate in solver units.
 
@@ -1650,7 +1650,7 @@ Fields
                                 <code class="hmp-field-name">layer</code>
                               </div>
 
-                           :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L209>`__
+                           :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L340>`__
 
                               Layer index (0-based) targeted by the well.
 
@@ -1664,7 +1664,7 @@ Fields
                                 <code class="hmp-field-name">x_rel</code>
                               </div>
 
-                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L213>`__
+                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L344>`__
 
                               Relative X position in [0, 1] from west to east.
 
@@ -1678,7 +1678,7 @@ Fields
                                 <code class="hmp-field-name">y_rel</code>
                               </div>
 
-                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L217>`__
+                           :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L348>`__
 
                               Relative Y position in [0, 1] from south to north.
 
@@ -1694,7 +1694,7 @@ Fields
                     <code class="hmp-field-name">flux</code>
                   </div>
 
-               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L265>`__
+               :bdg-primary:`float | list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L396>`__
 
                   Well rate [L^3/T]. Scalar for constant rate, or one value per stress period. Negative = pumping, positive = injection.
 
@@ -1710,9 +1710,9 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.forcing]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L272>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L403>`__
 
-                  Optional runtime forcing declaration. Supported modes: 'constant' and 'csv'. The launcher resolves this payload to well.flux using [simulation.time].
+                  Optional runtime forcing declaration. Supported modes: 'constant', 'csv', 'piecewise', and 'seasonal'. The launcher resolves this payload to well.flux using [simulation.time].
 
                   Pick a tab below: setting ``kind`` selects the matching schema.
 
@@ -1733,7 +1733,7 @@ Fields
                                 <code class="hmp-field-name">value</code>
                               </div>
 
-                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
 
                               Constant well rate in the same units as the parent well.
 
@@ -1747,7 +1747,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
 
                               Source units of the constant value before runtime conversion.
 
@@ -1768,7 +1768,7 @@ Fields
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
-                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
 
                               Path to the CSV chronicle file.
 
@@ -1782,7 +1782,7 @@ Fields
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
 
                               CSV delimiter.
 
@@ -1796,7 +1796,7 @@ Fields
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
 
                               CSV column containing timestamps.
 
@@ -1810,7 +1810,7 @@ Fields
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
 
                               Optional datetime format passed to pandas.to_datetime.
 
@@ -1824,7 +1824,7 @@ Fields
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
 
                               CSV column containing well rates.
 
@@ -1838,7 +1838,7 @@ Fields
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
-                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
 
                               Gap-filling policy used when a stress period has no direct sample.
 
@@ -1852,7 +1852,7 @@ Fields
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
-                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
 
                               Stress-period aggregation method.
 
@@ -1866,9 +1866,101 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
 
                               Source units of CSV values before runtime conversion.
+
+
+
+                  .. tab-item:: piecewise
+
+                     TOML: ``[flow.sinks_sources.wells.<id>.forcing.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-wells-id-forcing-piecewise-segments
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.piecewise.segments">
+                                <code class="hmp-field-name">segments</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.wells.&lt;id&gt;.forcing.piecewise.segments]]</code>
+                              </div>
+
+                           :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+
+                              Date-ordered segments covering the simulation window.
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-wells-id-forcing-piecewise-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.piecewise.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+
+                              Source units of segment values before runtime conversion.
+
+
+
+                  .. tab-item:: seasonal
+
+                     TOML: ``[flow.sinks_sources.wells.<id>.forcing.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-wells-id-forcing-seasonal-by-month
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_month">
+                                <code class="hmp-field-name">by_month</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_month.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+
+                              Mapping of calendar month (1-12) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-wells-id-forcing-seasonal-by-season
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_season">
+                                <code class="hmp-field-name">by_season</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.by_season.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+
+                              Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-wells-id-forcing-seasonal-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.wells.&lt;id&gt;.forcing.seasonal.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+
+                              Source units of seasonal values before runtime conversion.
 
 
 
@@ -1882,7 +1974,7 @@ Fields
                     <code class="hmp-field-name">units</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "m3/s"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L280>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "m3/s"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L411>`__
 
                   Units of flux values.
 
@@ -1896,7 +1988,7 @@ Fields
                     <code class="hmp-field-name">description</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L260>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L391>`__
 
                   Optional well description.
 
@@ -2164,7 +2256,7 @@ Fields
                                 <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.outlets.SPECIFIED.forcing]</code>
                               </div>
 
-                           :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L153>`__
+                           :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L153>`__
 
                               Optional transient release schedule resolved at runtime.
 
@@ -2218,7 +2310,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L225>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L225>`__
 
                   Optional rainfall rate forcing [L/T] (per unit lake surface).
 
@@ -2241,7 +2333,7 @@ Fields
                                 <code class="hmp-field-name">value</code>
                               </div>
 
-                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
 
                               Constant well rate in the same units as the parent well.
 
@@ -2255,7 +2347,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
 
                               Source units of the constant value before runtime conversion.
 
@@ -2276,7 +2368,7 @@ Fields
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
-                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
 
                               Path to the CSV chronicle file.
 
@@ -2290,7 +2382,7 @@ Fields
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
 
                               CSV delimiter.
 
@@ -2304,7 +2396,7 @@ Fields
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
 
                               CSV column containing timestamps.
 
@@ -2318,7 +2410,7 @@ Fields
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
 
                               Optional datetime format passed to pandas.to_datetime.
 
@@ -2332,7 +2424,7 @@ Fields
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
 
                               CSV column containing well rates.
 
@@ -2346,7 +2438,7 @@ Fields
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
-                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
 
                               Gap-filling policy used when a stress period has no direct sample.
 
@@ -2360,7 +2452,7 @@ Fields
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
-                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
 
                               Stress-period aggregation method.
 
@@ -2374,9 +2466,101 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
 
                               Source units of CSV values before runtime conversion.
+
+
+
+                  .. tab-item:: piecewise
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-rainfall-piecewise-segments
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.piecewise.segments">
+                                <code class="hmp-field-name">segments</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.piecewise.segments]]</code>
+                              </div>
+
+                           :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+
+                              Date-ordered segments covering the simulation window.
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-piecewise-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.piecewise.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+
+                              Source units of segment values before runtime conversion.
+
+
+
+                  .. tab-item:: seasonal
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.rainfall.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-rainfall-seasonal-by-month
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_month">
+                                <code class="hmp-field-name">by_month</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_month.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+
+                              Mapping of calendar month (1-12) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-rainfall-seasonal-by-season
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_season">
+                                <code class="hmp-field-name">by_season</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.by_season.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+
+                              Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-rainfall-seasonal-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.rainfall.seasonal.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+
+                              Source units of seasonal values before runtime conversion.
 
 
 
@@ -2392,7 +2576,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L229>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L229>`__
 
                   Optional open-water evaporation rate forcing [L/T].
 
@@ -2415,7 +2599,7 @@ Fields
                                 <code class="hmp-field-name">value</code>
                               </div>
 
-                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
 
                               Constant well rate in the same units as the parent well.
 
@@ -2429,7 +2613,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
 
                               Source units of the constant value before runtime conversion.
 
@@ -2450,7 +2634,7 @@ Fields
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
-                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
 
                               Path to the CSV chronicle file.
 
@@ -2464,7 +2648,7 @@ Fields
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
 
                               CSV delimiter.
 
@@ -2478,7 +2662,7 @@ Fields
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
 
                               CSV column containing timestamps.
 
@@ -2492,7 +2676,7 @@ Fields
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
 
                               Optional datetime format passed to pandas.to_datetime.
 
@@ -2506,7 +2690,7 @@ Fields
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
 
                               CSV column containing well rates.
 
@@ -2520,7 +2704,7 @@ Fields
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
-                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
 
                               Gap-filling policy used when a stress period has no direct sample.
 
@@ -2534,7 +2718,7 @@ Fields
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
-                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
 
                               Stress-period aggregation method.
 
@@ -2548,9 +2732,101 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
 
                               Source units of CSV values before runtime conversion.
+
+
+
+                  .. tab-item:: piecewise
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-evaporation-piecewise-segments
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.piecewise.segments">
+                                <code class="hmp-field-name">segments</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.piecewise.segments]]</code>
+                              </div>
+
+                           :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+
+                              Date-ordered segments covering the simulation window.
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-piecewise-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.piecewise.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+
+                              Source units of segment values before runtime conversion.
+
+
+
+                  .. tab-item:: seasonal
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.evaporation.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-evaporation-seasonal-by-month
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_month">
+                                <code class="hmp-field-name">by_month</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_month.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+
+                              Mapping of calendar month (1-12) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-evaporation-seasonal-by-season
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_season">
+                                <code class="hmp-field-name">by_season</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.by_season.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+
+                              Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-evaporation-seasonal-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.evaporation.seasonal.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+
+                              Source units of seasonal values before runtime conversion.
 
 
 
@@ -2566,7 +2842,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L233>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L233>`__
 
                   Optional runoff forcing, volumetric [L^3/T].
 
@@ -2589,7 +2865,7 @@ Fields
                                 <code class="hmp-field-name">value</code>
                               </div>
 
-                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
 
                               Constant well rate in the same units as the parent well.
 
@@ -2603,7 +2879,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
 
                               Source units of the constant value before runtime conversion.
 
@@ -2624,7 +2900,7 @@ Fields
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
-                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
 
                               Path to the CSV chronicle file.
 
@@ -2638,7 +2914,7 @@ Fields
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
 
                               CSV delimiter.
 
@@ -2652,7 +2928,7 @@ Fields
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
 
                               CSV column containing timestamps.
 
@@ -2666,7 +2942,7 @@ Fields
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
 
                               Optional datetime format passed to pandas.to_datetime.
 
@@ -2680,7 +2956,7 @@ Fields
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
 
                               CSV column containing well rates.
 
@@ -2694,7 +2970,7 @@ Fields
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
-                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
 
                               Gap-filling policy used when a stress period has no direct sample.
 
@@ -2708,7 +2984,7 @@ Fields
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
-                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
 
                               Stress-period aggregation method.
 
@@ -2722,9 +2998,101 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
 
                               Source units of CSV values before runtime conversion.
+
+
+
+                  .. tab-item:: piecewise
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-runoff-piecewise-segments
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.piecewise.segments">
+                                <code class="hmp-field-name">segments</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.runoff.piecewise.segments]]</code>
+                              </div>
+
+                           :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+
+                              Date-ordered segments covering the simulation window.
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-piecewise-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.piecewise.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+
+                              Source units of segment values before runtime conversion.
+
+
+
+                  .. tab-item:: seasonal
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.runoff.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-runoff-seasonal-by-month
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_month">
+                                <code class="hmp-field-name">by_month</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_month.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+
+                              Mapping of calendar month (1-12) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-runoff-seasonal-by-season
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_season">
+                                <code class="hmp-field-name">by_season</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.by_season.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+
+                              Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-runoff-seasonal-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.runoff.seasonal.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+
+                              Source units of seasonal values before runtime conversion.
 
 
 
@@ -2740,7 +3108,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L237>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L237>`__
 
                   Optional inflow forcing, volumetric [L^3/T].
 
@@ -2763,7 +3131,7 @@ Fields
                                 <code class="hmp-field-name">value</code>
                               </div>
 
-                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
 
                               Constant well rate in the same units as the parent well.
 
@@ -2777,7 +3145,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
 
                               Source units of the constant value before runtime conversion.
 
@@ -2798,7 +3166,7 @@ Fields
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
-                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
 
                               Path to the CSV chronicle file.
 
@@ -2812,7 +3180,7 @@ Fields
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
 
                               CSV delimiter.
 
@@ -2826,7 +3194,7 @@ Fields
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
 
                               CSV column containing timestamps.
 
@@ -2840,7 +3208,7 @@ Fields
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
 
                               Optional datetime format passed to pandas.to_datetime.
 
@@ -2854,7 +3222,7 @@ Fields
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
 
                               CSV column containing well rates.
 
@@ -2868,7 +3236,7 @@ Fields
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
-                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
 
                               Gap-filling policy used when a stress period has no direct sample.
 
@@ -2882,7 +3250,7 @@ Fields
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
-                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
 
                               Stress-period aggregation method.
 
@@ -2896,9 +3264,101 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
 
                               Source units of CSV values before runtime conversion.
+
+
+
+                  .. tab-item:: piecewise
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-inflow-piecewise-segments
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.piecewise.segments">
+                                <code class="hmp-field-name">segments</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.inflow.piecewise.segments]]</code>
+                              </div>
+
+                           :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+
+                              Date-ordered segments covering the simulation window.
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-piecewise-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.piecewise.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+
+                              Source units of segment values before runtime conversion.
+
+
+
+                  .. tab-item:: seasonal
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.inflow.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-inflow-seasonal-by-month
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_month">
+                                <code class="hmp-field-name">by_month</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_month.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+
+                              Mapping of calendar month (1-12) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-inflow-seasonal-by-season
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_season">
+                                <code class="hmp-field-name">by_season</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.by_season.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+
+                              Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-inflow-seasonal-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.inflow.seasonal.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+
+                              Source units of seasonal values before runtime conversion.
 
 
 
@@ -2914,7 +3374,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L241>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L241>`__
 
                   Optional withdrawal forcing, volumetric [L^3/T].
 
@@ -2937,7 +3397,7 @@ Fields
                                 <code class="hmp-field-name">value</code>
                               </div>
 
-                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36>`__
+                           :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
 
                               Constant well rate in the same units as the parent well.
 
@@ -2951,7 +3411,7 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
 
                               Source units of the constant value before runtime conversion.
 
@@ -2972,7 +3432,7 @@ Fields
                                 <code class="hmp-field-name">path_file</code>
                               </div>
 
-                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53>`__
+                           :bdg-primary:`Path` :bdg-danger:`required` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
 
                               Path to the CSV chronicle file.
 
@@ -2986,7 +3446,7 @@ Fields
                                 <code class="hmp-field-name">sep</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = ","` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
 
                               CSV delimiter.
 
@@ -3000,7 +3460,7 @@ Fields
                                 <code class="hmp-field-name">date_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "date"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
 
                               CSV column containing timestamps.
 
@@ -3014,7 +3474,7 @@ Fields
                                 <code class="hmp-field-name">date_format</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
 
                               Optional datetime format passed to pandas.to_datetime.
 
@@ -3028,7 +3488,7 @@ Fields
                                 <code class="hmp-field-name">value_column</code>
                               </div>
 
-                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64>`__
+                           :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
 
                               CSV column containing well rates.
 
@@ -3042,7 +3502,7 @@ Fields
                                 <code class="hmp-field-name">fill_method</code>
                               </div>
 
-                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67>`__
+                           :bdg-primary:`Literal['ffill', 'bfill']` :bdg-secondary:`default = "ffill"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
 
                               Gap-filling policy used when a stress period has no direct sample.
 
@@ -3056,7 +3516,7 @@ Fields
                                 <code class="hmp-field-name">aggregate</code>
                               </div>
 
-                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71>`__
+                           :bdg-primary:`Literal['mean', 'last']` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
 
                               Stress-period aggregation method.
 
@@ -3070,9 +3530,101 @@ Fields
                                 <code class="hmp-field-name">units</code>
                               </div>
 
-                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75>`__
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
 
                               Source units of CSV values before runtime conversion.
+
+
+
+                  .. tab-item:: piecewise
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.piecewise]`` -- model ``FlowWellForcingPiecewiseConfig`` (set ``kind = "piecewise"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-withdrawal-piecewise-segments
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.piecewise.segments">
+                                <code class="hmp-field-name">segments</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.piecewise.segments]]</code>
+                              </div>
+
+                           :bdg-primary:`list[FlowWellForcingSegment]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+
+                              Date-ordered segments covering the simulation window.
+
+                           *Nested structure truncated at depth 3. See :doc:`config_index` for the complete TOML path listing.*
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-piecewise-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.piecewise.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+
+                              Source units of segment values before runtime conversion.
+
+
+
+                  .. tab-item:: seasonal
+
+                     TOML: ``[flow.sinks_sources.lakes.<id>.withdrawal.seasonal]`` -- model ``FlowWellForcingSeasonalConfig`` (set ``kind = "seasonal"``).
+
+                     .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-withdrawal-seasonal-by-month
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_month">
+                                <code class="hmp-field-name">by_month</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_month.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[int, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+
+                              Mapping of calendar month (1-12) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-user
+                           :name: flow-sinks-sources-lakes-id-withdrawal-seasonal-by-season
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_season">
+                                <code class="hmp-field-name">by_season</code>
+                                <span class="hmp-field-arrow">in TOML:</span>
+                                <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.by_season.&lt;id&gt;]</code>
+                              </div>
+
+                           :bdg-primary:`dict[str, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+
+                              Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.
+
+
+                        .. container:: hmp-field hmp-field-level-dev
+                           :name: flow-sinks-sources-lakes-id-withdrawal-seasonal-units
+
+                           .. raw:: html
+
+                              <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.withdrawal.seasonal.units">
+                                <code class="hmp-field-name">units</code>
+                              </div>
+
+                           :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+
+                              Source units of seasonal values before runtime conversion.
 
 
 
