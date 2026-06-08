@@ -67,6 +67,7 @@ must carry a rationale before it is merged.
 | 37 | Dupuit circular-island ocean 2D (MF6, Newton) | radial RMSE / max-abs | `< 0.25 m` / `< 0.40 m` | 1.5x Newton bias, capped at the case benchmark (`tolerances.toml`) | 200 m island on a 10 m Cartesian grid; staircased coast dominates. Newton 0.22 m RMSE / 0.26 m max-abs. RMSE sits at the benchmark ceiling; azimuthal, ocean, and freeboard guards stay tighter |
 | 38 | Boussinesq circular-island piecewise-K 2D (MF6, Newton) | radial RMSE / max-abs | `< 0.17 m` / `< 0.24 m` | 1.5x Newton bias (within the case benchmark) | Concentric-K coarse-grid radial regime; Newton 0.11 m RMSE / 0.16 m max-abs, well below the 0.35 m benchmark |
 | 39 | Boussinesq divide fixed-head piecewise-K 1D (MF6, Newton) | head RMSE / max-abs | `< 0.05 m` / `< 0.08 m` | 1.5x Newton bias, capped at the case benchmark (`tolerances.toml`) | Divide with piecewise K on a 40-cell grid; Newton 3.8 cm RMSE / 5.1 cm max-abs |
+| 40 | LAK ex-gwf-lak-p01 (Merritt & Konikow 2000) | final stage abs err / gross lake-aquifer flux rel err / LAK budget closure | `< 0.5 m` / `< 5 %` / `< 1 %` | HMP DISV LAK build vs upstream `get_lak_connections` on the shared single-layer footprint (`validation_cases/.../lak_merritt_konikow_p01/tolerances.toml`) | Two builds agree to 0.25 m stage and 1.1 % gross flux; net flux is a tiny difference of two near-equal terms so the gross magnitude is the stable signal. CONNECTIONDATA matches exactly (25 VERTICAL + 20 HORIZONTAL) |
 
 ## Update policy
 
