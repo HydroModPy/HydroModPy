@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 39 tolerances enforced today. Every tolerance
+The table below records the 42 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -69,6 +69,7 @@ must carry a rationale before it is merged.
 | 39 | Boussinesq divide fixed-head piecewise-K 1D (MF6, Newton) | head RMSE / max-abs | `< 0.05 m` / `< 0.08 m` | 1.5x Newton bias, capped at the case benchmark (`tolerances.toml`) | Divide with piecewise K on a 40-cell grid; Newton 3.8 cm RMSE / 5.1 cm max-abs |
 | 40 | LAK ex-gwf-lak-p01 (Merritt & Konikow 2000) | final stage abs err / gross lake-aquifer flux rel err / LAK budget closure | `< 0.5 m` / `< 5 %` / `< 1 %` | HMP DISV LAK build vs upstream `get_lak_connections` on the shared single-layer footprint (`validation_cases/.../lak_merritt_konikow_p01/tolerances.toml`) | Two builds agree to 0.25 m stage and 1.1 % gross flux; net flux is a tiny difference of two near-equal terms so the gross magnitude is the stable signal. CONNECTIONDATA matches exactly (25 VERTICAL + 20 HORIZONTAL) |
 | 41 | LAK transient multi-layer (Plainfield Lakes abacus) | per-period stage abs err / per-period LAK budget closure / min stage swing | `< 0.05 m` / `< 1 %` / `> 0.1 m` | HMP DISV LAK build pinned to its own converged transient golden, no external reference (`validation_cases/.../lak_pleasant_transient/tolerances.toml`) | One reservoir incised across the top two layers; per-period rainfall / evaporation / runoff swing the stage ~0.35 m over a steady-then-3-transient schedule. Per-period budget closes to ~0 %. CONNECTIONDATA matches exactly (25 VERTICAL + 20 HORIZONTAL layer 0 + 20 HORIZONTAL layer 1) |
+| 42 | LAK grid equivalence (regular quad vs irregular triangle DISV) | max per-period stage abs diff / steady lake-aquifer exchange flux rel diff / per-grid LAK budget closure | `< 0.06 m` / `< 5 %` / `< 1 %` | Same lake-aquifer problem on the 15x15 quad DISV (225 cells) and a refined Delaunay triangle DISV (~772 cells), identical physics (`validation_cases/.../lak_pleasant_transient/tolerances_grid_equivalence.toml`) | Grid independence of the production LAK builder. Observed max stage diff 0.038 m (envelope ~1.5x); the storage-free steady exchange flux agrees to ~1e-8 (envelope reuses the row-40 5 % gross-flux band). The lake footprint area is held equal across grids by pinning triangle nodes on the lake boundary lines |
 
 ## Update policy
 
