@@ -3115,19 +3115,6 @@
             "description": "Lake geometry configuration (lake/reservoir footprint vector).",
             "x-hmp-profile": "user"
           },
-          "lake_levels": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LakeLevelsConfig"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Lake levels configuration (observed water-level time series).",
-            "x-hmp-profile": "user"
-          },
           "lake_inflow": {
             "anyOf": [
               {
@@ -3139,6 +3126,19 @@
             ],
             "default": null,
             "description": "Lake inflow configuration (observed inflow volumetric time series).",
+            "x-hmp-profile": "user"
+          },
+          "lake_levels": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LakeLevelsConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Lake levels configuration (observed water-level time series).",
             "x-hmp-profile": "user"
           },
           "lake_outflow": {
@@ -6184,13 +6184,23 @@
         "description": "Typed boundary-condition payload for one MODFLOW 6 LAK lake.\n\nThe lake exchanges with the aquifer through its CONNECTIONDATA, parameterized\nby ``bedleak`` (the lake-bed leakance, 1/T). ``stageinit`` is the initial lake\nstage. ``outlets`` declare the surverse / spillway / controlled releases; the\ntransient forcings (``rainfall`` and ``evaporation`` as rates L/T, ``runoff``,\n``inflow`` and ``withdrawal`` as volumetric L^3/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\nFile references (geometry polygon, bathymetry raster, stage-volume-area\nabacus, observed levels) are declared separately in the data layer.",
         "properties": {
           "bedleak": {
-            "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface; the under-dam leakage calibration parameter.",
+            "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface; the under-dam leakage calibration parameter. 0 means a perfectly sealed lakebed (no leakage).",
             "examples": [
               1.0
             ],
             "minimum": 0.0,
             "title": "Bedleak",
             "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "bedleak_unit": {
+            "default": "1/s",
+            "description": "Unit of bedleak (leakance, 1/T): one of 1/s, 1/day, 1/h, 1/min (aliases like 1/d accepted). HydroModPy converts it to 1/s for MF6, so a 1/day leakance is not silently taken as 1/s.",
+            "examples": [
+              "1/s"
+            ],
+            "title": "Bedleak Unit",
+            "type": "string",
             "x-hmp-profile": "user"
           },
           "stageinit": {
@@ -6217,6 +6227,17 @@
             ],
             "description": "Initial lake stage [L].",
             "title": "Stageinit",
+            "x-hmp-profile": "user"
+          },
+          "occupied_layers": {
+            "default": 1,
+            "description": "Number of top grid layers the lake occupies in each of its columns. 1 is a surface lake; a deeper reservoir embedded over several layers uses a higher count. Must leave at least one active layer below the lake for the VERTICAL leakage connection.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Occupied Layers",
+            "type": "integer",
             "x-hmp-profile": "user"
           },
           "outlets": {
@@ -6430,26 +6451,6 @@
             "default": null,
             "description": "Optional withdrawal forcing, volumetric [L^3/T].",
             "title": "Withdrawal",
-            "x-hmp-profile": "dev"
-          },
-          "description": {
-            "default": "",
-            "description": "Optional lake description.",
-            "examples": [
-              ""
-            ],
-            "title": "Description",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "units": {
-            "default": "m",
-            "description": "Length unit of stage / elevation values.",
-            "examples": [
-              "m"
-            ],
-            "title": "Units",
-            "type": "string",
             "x-hmp-profile": "dev"
           }
         },
@@ -11822,7 +11823,7 @@
           },
           "lak_forcing_mode": {
             "default": "auto",
-            "description": "How time-varying LAK forcings are written. 'inline' always expands values per stress period inside the LAK PERIOD block (legacy byte-identical behaviour). 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.",
+            "description": "How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.",
             "enum": [
               "auto",
               "inline",
