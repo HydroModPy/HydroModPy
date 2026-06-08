@@ -62,6 +62,7 @@ _SOLVER_FILENAMES: dict[str, dict[str, str]] = {
     "mp6": {"win": "mp6.exe", "linux": "mp6", "darwin": "mp6"},
     "mp7": {"win": "mp7.exe", "linux": "mp7", "darwin": "mp7"},
     "mt3dusgs": {"win": "mt3dusgs.exe", "linux": "mt3dusgs", "darwin": "mt3dusgs"},
+    "libmf6": {"win": "libmf6.dll", "linux": "libmf6.so", "darwin": "libmf6.dylib"},
 }
 
 
@@ -226,12 +227,34 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
     return expected
 
 
+def ensure_solver_library(
+    solver: str = "libmf6", bin_path: str | os.PathLike[str] | None = None
+) -> Path:
+    """Resolve a MODFLOW shared library (e.g. ``libmf6``) under ``bin_path``.
+
+    Unlike :func:`ensure_solver_binary`, this never downloads:
+    ``flopy.utils.get_modflow`` does not fetch shared libraries, so a
+    managed-cache miss would simply fail. The library must already exist
+    in ``bin_path`` (defaults to the managed cache).
+    """
+    bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
+    found = locate_solver_binary(bindir, solver)
+    if found is None:
+        raise FileNotFoundError(
+            f"{exe_filename(solver)} not found in {bindir}. "
+            f"Install the MODFLOW 6 shared library (e.g. via the conda "
+            f"'modflow6-dll'/'libmf6' package or copy it into the cache)."
+        )
+    return ensure_platform_executable(found)
+
+
 __all__ = [
     "DEFAULT_RELEASE",
     "MANIFEST_FILENAME",
     "available_solvers",
     "download_solver_binaries",
     "ensure_solver_binary",
+    "ensure_solver_library",
     "exe_filename",
     "is_managed_cache",
     "locate_solver_binary",

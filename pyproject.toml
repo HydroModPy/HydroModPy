@@ -89,6 +89,7 @@ mesh = ["gmsh>=4.15.2,<5"]
 ui = ["streamlit>=1.51.0,<2"]
 duckdb = ["duckdb"]
 metrics = ["psutil", "pynvml"]
+mf6api = ["modflowapi>=0.2", "xmipy>=1.5"]
 all = ["duckdb", "psutil", "pynvml"]
 viz = [
     "datashader>=0.16,<1",
