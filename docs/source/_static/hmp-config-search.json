@@ -7576,7 +7576,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L258",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L389",
     "description": ""
   },
   {
@@ -7588,7 +7588,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-cell-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L158",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L289",
     "description": ""
   },
   {
@@ -7600,7 +7600,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-cell-cell",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L162",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L293",
     "description": ""
   },
   {
@@ -7612,7 +7612,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-absolute-xy-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L176",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L307",
     "description": ""
   },
   {
@@ -7624,7 +7624,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-absolute-xy-layer",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L180",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L311",
     "description": ""
   },
   {
@@ -7636,7 +7636,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-absolute-xy-x",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L184",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L315",
     "description": ""
   },
   {
@@ -7648,7 +7648,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-absolute-xy-y",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L187",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L318",
     "description": ""
   },
   {
@@ -7660,7 +7660,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-relative-xy-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L205",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L336",
     "description": ""
   },
   {
@@ -7672,7 +7672,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-relative-xy-layer",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L209",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L340",
     "description": ""
   },
   {
@@ -7684,7 +7684,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-relative-xy-x-rel",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L213",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L344",
     "description": ""
   },
   {
@@ -7696,7 +7696,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location-relative-xy-y-rel",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L217",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L348",
     "description": ""
   },
   {
@@ -7708,19 +7708,19 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-flux",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L265",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L396",
     "description": ""
   },
   {
     "path": "flow.sinks_sources.wells.<id>.forcing",
     "name": "forcing",
-    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]",
     "profile": "dev",
     "stability": "stable",
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L272",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L403",
     "description": ""
   },
   {
@@ -7732,7 +7732,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-constant-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34",
     "description": ""
   },
   {
@@ -7744,7 +7744,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-constant-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38",
     "description": ""
   },
   {
@@ -7756,7 +7756,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-constant-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42",
     "description": ""
   },
   {
@@ -7768,7 +7768,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51",
     "description": ""
   },
   {
@@ -7780,7 +7780,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-path-file",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55",
     "description": ""
   },
   {
@@ -7792,7 +7792,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-sep",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58",
     "description": ""
   },
   {
@@ -7804,7 +7804,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-date-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59",
     "description": ""
   },
   {
@@ -7816,7 +7816,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-date-format",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62",
     "description": ""
   },
   {
@@ -7828,7 +7828,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-value-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66",
     "description": ""
   },
   {
@@ -7840,7 +7840,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-fill-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69",
     "description": ""
   },
   {
@@ -7852,7 +7852,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-aggregate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73",
     "description": ""
   },
   {
@@ -7864,7 +7864,91 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing-csv-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.wells.<id>.forcing.piecewise.kind",
+    "name": "kind",
+    "type": "Literal['piecewise']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-wells-id-forcing-piecewise-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.wells.<id>.forcing.piecewise.segments",
+    "name": "segments",
+    "type": "list[FlowWellForcingSegment]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-wells-id-forcing-piecewise-segments",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.wells.<id>.forcing.piecewise.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-wells-id-forcing-piecewise-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.wells.<id>.forcing.seasonal.kind",
+    "name": "kind",
+    "type": "Literal['seasonal']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-wells-id-forcing-seasonal-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.wells.<id>.forcing.seasonal.by_month",
+    "name": "by_month",
+    "type": "dict[int, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-wells-id-forcing-seasonal-by-month",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.wells.<id>.forcing.seasonal.by_season",
+    "name": "by_season",
+    "type": "dict[str, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-wells-id-forcing-seasonal-by-season",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.wells.<id>.forcing.seasonal.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-wells-id-forcing-seasonal-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178",
     "description": ""
   },
   {
@@ -7876,7 +7960,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L280",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L411",
     "description": ""
   },
   {
@@ -7888,7 +7972,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L260",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L391",
     "description": ""
   },
   {
@@ -8110,7 +8194,7 @@
   {
     "path": "flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.forcing",
     "name": "forcing",
-    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]",
     "profile": "dev",
     "stability": "stable",
     "section": "flow",
@@ -8146,7 +8230,7 @@
   {
     "path": "flow.sinks_sources.lakes.<id>.rainfall",
     "name": "rainfall",
-    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]",
     "profile": "dev",
     "stability": "stable",
     "section": "flow",
@@ -8164,7 +8248,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-constant-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34",
     "description": ""
   },
   {
@@ -8176,7 +8260,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-constant-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38",
     "description": ""
   },
   {
@@ -8188,7 +8272,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-constant-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42",
     "description": ""
   },
   {
@@ -8200,7 +8284,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51",
     "description": ""
   },
   {
@@ -8212,7 +8296,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-path-file",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55",
     "description": ""
   },
   {
@@ -8224,7 +8308,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-sep",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58",
     "description": ""
   },
   {
@@ -8236,7 +8320,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-date-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59",
     "description": ""
   },
   {
@@ -8248,7 +8332,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-date-format",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62",
     "description": ""
   },
   {
@@ -8260,7 +8344,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-value-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66",
     "description": ""
   },
   {
@@ -8272,7 +8356,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-fill-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69",
     "description": ""
   },
   {
@@ -8284,7 +8368,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-aggregate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73",
     "description": ""
   },
   {
@@ -8296,13 +8380,97 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.piecewise.kind",
+    "name": "kind",
+    "type": "Literal['piecewise']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-piecewise-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.piecewise.segments",
+    "name": "segments",
+    "type": "list[FlowWellForcingSegment]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-piecewise-segments",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.piecewise.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-piecewise-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.seasonal.kind",
+    "name": "kind",
+    "type": "Literal['seasonal']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-seasonal-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.seasonal.by_month",
+    "name": "by_month",
+    "type": "dict[int, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-seasonal-by-month",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.seasonal.by_season",
+    "name": "by_season",
+    "type": "dict[str, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-seasonal-by-season",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.seasonal.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-seasonal-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178",
     "description": ""
   },
   {
     "path": "flow.sinks_sources.lakes.<id>.evaporation",
     "name": "evaporation",
-    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]",
     "profile": "dev",
     "stability": "stable",
     "section": "flow",
@@ -8320,7 +8488,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-constant-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34",
     "description": ""
   },
   {
@@ -8332,7 +8500,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-constant-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38",
     "description": ""
   },
   {
@@ -8344,7 +8512,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-constant-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42",
     "description": ""
   },
   {
@@ -8356,7 +8524,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51",
     "description": ""
   },
   {
@@ -8368,7 +8536,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-path-file",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55",
     "description": ""
   },
   {
@@ -8380,7 +8548,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-sep",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58",
     "description": ""
   },
   {
@@ -8392,7 +8560,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-date-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59",
     "description": ""
   },
   {
@@ -8404,7 +8572,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-date-format",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62",
     "description": ""
   },
   {
@@ -8416,7 +8584,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-value-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66",
     "description": ""
   },
   {
@@ -8428,7 +8596,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-fill-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69",
     "description": ""
   },
   {
@@ -8440,7 +8608,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-aggregate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73",
     "description": ""
   },
   {
@@ -8452,13 +8620,97 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.piecewise.kind",
+    "name": "kind",
+    "type": "Literal['piecewise']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-piecewise-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.piecewise.segments",
+    "name": "segments",
+    "type": "list[FlowWellForcingSegment]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-piecewise-segments",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.piecewise.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-piecewise-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.seasonal.kind",
+    "name": "kind",
+    "type": "Literal['seasonal']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-seasonal-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.seasonal.by_month",
+    "name": "by_month",
+    "type": "dict[int, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-seasonal-by-month",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.seasonal.by_season",
+    "name": "by_season",
+    "type": "dict[str, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-seasonal-by-season",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.seasonal.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-seasonal-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178",
     "description": ""
   },
   {
     "path": "flow.sinks_sources.lakes.<id>.runoff",
     "name": "runoff",
-    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]",
     "profile": "dev",
     "stability": "stable",
     "section": "flow",
@@ -8476,7 +8728,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-constant-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34",
     "description": ""
   },
   {
@@ -8488,7 +8740,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-constant-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38",
     "description": ""
   },
   {
@@ -8500,7 +8752,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-constant-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42",
     "description": ""
   },
   {
@@ -8512,7 +8764,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51",
     "description": ""
   },
   {
@@ -8524,7 +8776,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-path-file",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55",
     "description": ""
   },
   {
@@ -8536,7 +8788,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-sep",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58",
     "description": ""
   },
   {
@@ -8548,7 +8800,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-date-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59",
     "description": ""
   },
   {
@@ -8560,7 +8812,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-date-format",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62",
     "description": ""
   },
   {
@@ -8572,7 +8824,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-value-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66",
     "description": ""
   },
   {
@@ -8584,7 +8836,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-fill-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69",
     "description": ""
   },
   {
@@ -8596,7 +8848,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-aggregate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73",
     "description": ""
   },
   {
@@ -8608,13 +8860,97 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff-csv-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.piecewise.kind",
+    "name": "kind",
+    "type": "Literal['piecewise']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-piecewise-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.piecewise.segments",
+    "name": "segments",
+    "type": "list[FlowWellForcingSegment]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-piecewise-segments",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.piecewise.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-piecewise-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.seasonal.kind",
+    "name": "kind",
+    "type": "Literal['seasonal']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-seasonal-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.seasonal.by_month",
+    "name": "by_month",
+    "type": "dict[int, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-seasonal-by-month",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.seasonal.by_season",
+    "name": "by_season",
+    "type": "dict[str, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-seasonal-by-season",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.seasonal.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-seasonal-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178",
     "description": ""
   },
   {
     "path": "flow.sinks_sources.lakes.<id>.inflow",
     "name": "inflow",
-    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]",
     "profile": "dev",
     "stability": "stable",
     "section": "flow",
@@ -8632,7 +8968,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-constant-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34",
     "description": ""
   },
   {
@@ -8644,7 +8980,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-constant-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38",
     "description": ""
   },
   {
@@ -8656,7 +8992,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-constant-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42",
     "description": ""
   },
   {
@@ -8668,7 +9004,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51",
     "description": ""
   },
   {
@@ -8680,7 +9016,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-path-file",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55",
     "description": ""
   },
   {
@@ -8692,7 +9028,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-sep",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58",
     "description": ""
   },
   {
@@ -8704,7 +9040,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-date-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59",
     "description": ""
   },
   {
@@ -8716,7 +9052,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-date-format",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62",
     "description": ""
   },
   {
@@ -8728,7 +9064,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-value-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66",
     "description": ""
   },
   {
@@ -8740,7 +9076,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-fill-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69",
     "description": ""
   },
   {
@@ -8752,7 +9088,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-aggregate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73",
     "description": ""
   },
   {
@@ -8764,13 +9100,97 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow-csv-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.piecewise.kind",
+    "name": "kind",
+    "type": "Literal['piecewise']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-piecewise-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.piecewise.segments",
+    "name": "segments",
+    "type": "list[FlowWellForcingSegment]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-piecewise-segments",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.piecewise.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-piecewise-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.seasonal.kind",
+    "name": "kind",
+    "type": "Literal['seasonal']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-seasonal-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.seasonal.by_month",
+    "name": "by_month",
+    "type": "dict[int, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-seasonal-by-month",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.seasonal.by_season",
+    "name": "by_season",
+    "type": "dict[str, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-seasonal-by-season",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.seasonal.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-seasonal-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178",
     "description": ""
   },
   {
     "path": "flow.sinks_sources.lakes.<id>.withdrawal",
     "name": "withdrawal",
-    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]",
     "profile": "dev",
     "stability": "stable",
     "section": "flow",
@@ -8788,7 +9208,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-constant-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34",
     "description": ""
   },
   {
@@ -8800,7 +9220,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-constant-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38",
     "description": ""
   },
   {
@@ -8812,7 +9232,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-constant-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42",
     "description": ""
   },
   {
@@ -8824,7 +9244,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51",
     "description": ""
   },
   {
@@ -8836,7 +9256,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-path-file",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55",
     "description": ""
   },
   {
@@ -8848,7 +9268,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-sep",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58",
     "description": ""
   },
   {
@@ -8860,7 +9280,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-date-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59",
     "description": ""
   },
   {
@@ -8872,7 +9292,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-date-format",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62",
     "description": ""
   },
   {
@@ -8884,7 +9304,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-value-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66",
     "description": ""
   },
   {
@@ -8896,7 +9316,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-fill-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69",
     "description": ""
   },
   {
@@ -8908,7 +9328,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-aggregate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73",
     "description": ""
   },
   {
@@ -8920,7 +9340,91 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.piecewise.kind",
+    "name": "kind",
+    "type": "Literal['piecewise']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-piecewise-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.piecewise.segments",
+    "name": "segments",
+    "type": "list[FlowWellForcingSegment]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-piecewise-segments",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.piecewise.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-piecewise-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.seasonal.kind",
+    "name": "kind",
+    "type": "Literal['seasonal']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-seasonal-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.seasonal.by_month",
+    "name": "by_month",
+    "type": "dict[int, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-seasonal-by-month",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.seasonal.by_season",
+    "name": "by_season",
+    "type": "dict[str, float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-seasonal-by-season",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.seasonal.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-seasonal-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178",
     "description": ""
   },
   {
@@ -11722,7 +12226,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L138",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L163",
     "description": "MODFLOW 6 runtime options."
   },
   {
@@ -11738,6 +12242,18 @@
     "description": "MODFLOW 6 executable name or absolute path."
   },
   {
+    "path": "modflow6.runtime.mf6_runner",
+    "name": "mf6_runner",
+    "type": "Literal['subprocess', 'api']",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-runtime-mf6-runner",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L24",
+    "description": "MODFLOW 6 solve dispatch: 'subprocess' runs the mf6 executable, 'api' drives libmf6 via the optional modflowapi package. Both write the same simulation, so output extraction is identical."
+  },
+  {
     "path": "modflow6.runtime.mf6_ims_complexity",
     "name": "mf6_ims_complexity",
     "type": "Literal['SIMPLE', 'MODERATE', 'COMPLEX']",
@@ -11746,7 +12262,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-ims-complexity",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L24",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L32",
     "description": "IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX."
   },
   {
@@ -11758,7 +12274,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf-verbose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L28",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L36",
     "description": "Enable verbose FloPy logging for MODFLOW 6 setup and execution."
   },
   {
@@ -11770,7 +12286,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-outer-dvclose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L40",
     "description": "IMS outer-iteration head-change convergence criterion."
   },
   {
@@ -11782,7 +12298,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-inner-dvclose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L44",
     "description": "IMS inner-iteration head-change convergence criterion."
   },
   {
@@ -11794,7 +12310,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-outer-maximum",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L48",
     "description": "Maximum number of IMS outer iterations."
   },
   {
@@ -11806,7 +12322,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-inner-maximum",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L44",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L52",
     "description": "Maximum number of IMS inner iterations."
   },
   {
@@ -11818,7 +12334,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-inner-rclose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L48",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L56",
     "description": "IMS inner-iteration flow-residual closure (L^3/T in run units). None keeps the complexity-preset default."
   },
   {
@@ -11830,7 +12346,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-linear-acceleration",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L55",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L63",
     "description": "IMS linear acceleration: CG for symmetric matrices, BICGSTAB for the non-symmetric Newton formulation. None keeps the preset default."
   },
   {
@@ -11842,7 +12358,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-under-relaxation",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L62",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L70",
     "description": "IMS non-linear under-relaxation scheme. DBD is recommended with Newton. None keeps the preset default."
   },
   {
@@ -11854,7 +12370,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-enable-rewet",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L79",
     "description": "Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless explicitly enabled."
   },
   {
@@ -11866,7 +12382,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-newton",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L86",
     "description": "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default and matches the MODFLOW-NWT backend."
   },
   {
@@ -11878,7 +12394,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-newton-under-relaxation",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L94",
     "description": "Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true."
   },
   {
@@ -11890,7 +12406,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-enable-xt3d",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L98",
     "description": "Enable MF6 NPF XT3D terms. When left to None, HydroModPy auto-enables XT3D on unstructured solver meshes. This increases computational cost but can improve accuracy on unstructured or non-orthogonal grids."
   },
   {
@@ -11902,7 +12418,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetfct",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L107",
     "description": "MF6 NPF rewet WETFCT factor."
   },
   {
@@ -11914,7 +12430,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-iwetit",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L103",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L111",
     "description": "MF6 NPF rewet IWETIT interval."
   },
   {
@@ -11926,7 +12442,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-ihdwet",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L115",
     "description": "MF6 NPF rewet IHDWET flag."
   },
   {
@@ -11938,7 +12454,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetdry",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L111",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L119",
     "description": "MF6 NPF WETDRY threshold used when rewetting is active."
   },
   {
@@ -11950,7 +12466,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L142",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L167",
     "description": "Process-specific controls for MODFLOW 6 flow packages."
   },
   {
@@ -11962,7 +12478,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-vka",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L120",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L128",
     "description": "Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka."
   },
   {
@@ -11974,8 +12490,32 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-evt-extinction-depth",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L132",
     "description": "Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value."
+  },
+  {
+    "path": "modflow6.process_specific.lak_forcing_mode",
+    "name": "lak_forcing_mode",
+    "type": "Literal['auto', 'inline', 'ts6']",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-process-specific-lak-forcing-mode",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L141",
+    "description": "How time-varying LAK forcings are written. 'inline' always expands values per stress period inside the LAK PERIOD block (legacy byte-identical behaviour). 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps con"
+  },
+  {
+    "path": "modflow6.process_specific.ts6_min_periods",
+    "name": "ts6_min_periods",
+    "type": "int",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-process-specific-ts6-min-periods",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L151",
+    "description": "Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file."
   },
   {
     "path": "modflow6.sgrid",
@@ -11986,7 +12526,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L146",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L171",
     "description": "Solver-grid payload split into planar and vertical sections."
   },
   {

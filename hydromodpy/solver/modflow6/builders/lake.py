@@ -35,7 +35,11 @@ from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.core.units.leakance import parse_to_per_s
 from hydromodpy.core.units.volumetric_flow import parse_to_m3_per_s
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow6.builders.mvr import build_mover_records, mover_package_count
+from hydromodpy.solver.modflow6.builders.mvr import (
+    MoverRecord,
+    build_mvr_period_records,
+    mover_package_count,
+)
 from hydromodpy.solver.modflow6.common.time_series import Ts6Series
 
 if TYPE_CHECKING:
@@ -485,7 +489,7 @@ def build_lak_package_args(
 
     outlets = build_lake_outlets(model, lakes=lakes)
     perioddata, ts_specs = build_lake_period_data(model, lakes=lakes)
-    mover_records = build_mover_records(model, lakes=lakes)
+    mover_records = build_mvr_period_records(build_lake_mover_records(model, lakes=lakes))
     time_conversion, length_conversion = _lak_unit_conversions(model)
     stem = _lak_output_stem(model)
     obs_continuous, lake_obs_meta = build_lake_obs_spec(
@@ -788,6 +792,79 @@ def _outlet_geometry(
 
     # WEIR: rough / slope are unused by MF6.
     return _scalar(invert), _scalar(width), 0.0, 0.0
+
+
+# The single LAK package name used across the GWF model (see build.py: pname="LAK").
+_LAK_PACKAGE_NAME = "LAK"
+
+
+def build_lake_mover_records(
+    model,
+    *,
+    lakes: Mapping[str, dict[str, Any]],
+) -> list[MoverRecord]:
+    """Compile the LAK outlet ``mover`` specs into general MVR transfers.
+
+    Each outlet carrying a ``mover`` spec becomes one :class:`MoverRecord` with
+    provider ``LAK`` outlet number (0-based, assigned in the same order as
+    :func:`build_lake_outlets`) and receiver ``LAK`` lake number (0-based, the
+    ``mover.lake`` 1-based config index translated to packagedata position).
+
+    An outlet routed directly via ``lakeout`` (no ``mover``) is skipped while
+    still advancing the shared outlet number. The ``mvrtype`` is read and
+    uppercased here but validated downstream by
+    :func:`build_mvr_period_records`. An empty result means no controlled transfer
+    is requested.
+    """
+    lake_count = len(lakes)
+    records: list[MoverRecord] = []
+    outletno = 0
+    for lake_id, definition in lakes.items():
+        outlets = definition.get("outlets") or []
+        for outlet in outlets:
+            mover = _lake_attr(outlet, "mover")
+            if mover is None:
+                outletno += 1
+                continue
+            receiver_index = _resolve_receiver_lake(lake_id, mover, lake_count)
+            raw_mvrtype = _lake_attr(mover, "mvrtype")
+            mvrtype = str(raw_mvrtype).strip().upper() if raw_mvrtype is not None else "FACTOR"
+            raw_value = _lake_attr(mover, "value")
+            value = _scalar(raw_value) if raw_value is not None else 1.0
+            records.append(
+                MoverRecord(
+                    provider=_LAK_PACKAGE_NAME,
+                    provider_id=int(outletno),
+                    receiver=_LAK_PACKAGE_NAME,
+                    receiver_id=int(receiver_index),
+                    mvrtype=mvrtype,
+                    value=value,
+                )
+            )
+            outletno += 1
+    return records
+
+
+def _resolve_receiver_lake(lake_id: str, mover: object, lake_count: int) -> int:
+    """Translate a ``mover.lake`` (1-based) to its 0-based receiver lake index."""
+    raw = _lake_attr(mover, "lake")
+    if raw is None:
+        raise ValueError(
+            f"flow.sinks_sources.lakes.{lake_id} outlet mover requires a 'lake' "
+            "(1-based downstream receiving lake)."
+        )
+    value = int(_scalar(raw))
+    if value < 1:
+        raise ValueError(
+            f"flow.sinks_sources.lakes.{lake_id} outlet mover lake must be >= 1 "
+            f"(1-based downstream lake); got {value}."
+        )
+    if value > lake_count:
+        raise ValueError(
+            f"flow.sinks_sources.lakes.{lake_id} outlet mover lake={value} has no "
+            f"matching downstream lake ({lake_count} lakes declared)."
+        )
+    return value - 1
 
 
 # Per-lake forcing keywords and their MF6 unit convention. Rates are L/T
@@ -1127,6 +1204,7 @@ __all__ = [
     "apply_lake_idomain_mask",
     "build_lak_package_args",
     "build_lake_connectiondata",
+    "build_lake_mover_records",
     "build_lake_obs_spec",
     "build_lake_outlets",
     "build_lake_period_data",

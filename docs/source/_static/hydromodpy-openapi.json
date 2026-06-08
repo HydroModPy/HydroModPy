@@ -6250,11 +6250,13 @@
           "rainfall": {
             "anyOf": [
               {
-                "description": "Discriminated union of well-forcing payloads (constant or csv).",
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
                 "discriminator": {
                   "mapping": {
                     "constant": "#/$defs/FlowWellForcingConstantConfig",
-                    "csv": "#/$defs/FlowWellForcingCsvConfig"
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
                   },
                   "propertyName": "kind"
                 },
@@ -6264,6 +6266,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
                   }
                 ]
               },
@@ -6279,11 +6287,13 @@
           "evaporation": {
             "anyOf": [
               {
-                "description": "Discriminated union of well-forcing payloads (constant or csv).",
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
                 "discriminator": {
                   "mapping": {
                     "constant": "#/$defs/FlowWellForcingConstantConfig",
-                    "csv": "#/$defs/FlowWellForcingCsvConfig"
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
                   },
                   "propertyName": "kind"
                 },
@@ -6293,6 +6303,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
                   }
                 ]
               },
@@ -6308,11 +6324,13 @@
           "runoff": {
             "anyOf": [
               {
-                "description": "Discriminated union of well-forcing payloads (constant or csv).",
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
                 "discriminator": {
                   "mapping": {
                     "constant": "#/$defs/FlowWellForcingConstantConfig",
-                    "csv": "#/$defs/FlowWellForcingCsvConfig"
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
                   },
                   "propertyName": "kind"
                 },
@@ -6322,6 +6340,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
                   }
                 ]
               },
@@ -6337,11 +6361,13 @@
           "inflow": {
             "anyOf": [
               {
-                "description": "Discriminated union of well-forcing payloads (constant or csv).",
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
                 "discriminator": {
                   "mapping": {
                     "constant": "#/$defs/FlowWellForcingConstantConfig",
-                    "csv": "#/$defs/FlowWellForcingCsvConfig"
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
                   },
                   "propertyName": "kind"
                 },
@@ -6351,6 +6377,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
                   }
                 ]
               },
@@ -6366,11 +6398,13 @@
           "withdrawal": {
             "anyOf": [
               {
-                "description": "Discriminated union of well-forcing payloads (constant or csv).",
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
                 "discriminator": {
                   "mapping": {
                     "constant": "#/$defs/FlowWellForcingConstantConfig",
-                    "csv": "#/$defs/FlowWellForcingCsvConfig"
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
                   },
                   "propertyName": "kind"
                 },
@@ -6380,6 +6414,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
                   }
                 ]
               },
@@ -6637,11 +6677,13 @@
           "forcing": {
             "anyOf": [
               {
-                "description": "Discriminated union of well-forcing payloads (constant or csv).",
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
                 "discriminator": {
                   "mapping": {
                     "constant": "#/$defs/FlowWellForcingConstantConfig",
-                    "csv": "#/$defs/FlowWellForcingCsvConfig"
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
                   },
                   "propertyName": "kind"
                 },
@@ -6651,6 +6693,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
                   }
                 ]
               },
@@ -7131,11 +7179,13 @@
           "forcing": {
             "anyOf": [
               {
-                "description": "Discriminated union of well-forcing payloads (constant or csv).",
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
                 "discriminator": {
                   "mapping": {
                     "constant": "#/$defs/FlowWellForcingConstantConfig",
-                    "csv": "#/$defs/FlowWellForcingCsvConfig"
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
                   },
                   "propertyName": "kind"
                 },
@@ -7145,6 +7195,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
                   }
                 ]
               },
@@ -7153,7 +7209,7 @@
               }
             ],
             "default": null,
-            "description": "Optional runtime forcing declaration. Supported modes: 'constant' and 'csv'. The launcher resolves this payload to well.flux using [simulation.time].",
+            "description": "Optional runtime forcing declaration. Supported modes: 'constant', 'csv', 'piecewise', and 'seasonal'. The launcher resolves this payload to well.flux using [simulation.time].",
             "title": "Forcing",
             "x-hmp-profile": "dev"
           },
@@ -7362,6 +7418,174 @@
           "path_file"
         ],
         "title": "FlowWellForcingCsvConfig",
+        "type": "object"
+      },
+      "FlowWellForcingPiecewiseConfig": {
+        "additionalProperties": false,
+        "description": "Ordered dated segments, each resolved by its constant or csv sub-forcing.",
+        "properties": {
+          "kind": {
+            "const": "piecewise",
+            "default": "piecewise",
+            "description": "Discriminator tag for the piecewise well-forcing variant.",
+            "examples": [
+              "piecewise"
+            ],
+            "title": "Kind",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "segments": {
+            "description": "Date-ordered segments covering the simulation window.",
+            "items": {
+              "$ref": "#/components/schemas/FlowWellForcingSegment"
+            },
+            "minItems": 1,
+            "title": "Segments",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Source units of segment values before runtime conversion.",
+            "title": "Units",
+            "x-hmp-profile": "dev"
+          }
+        },
+        "required": [
+          "segments"
+        ],
+        "title": "FlowWellForcingPiecewiseConfig",
+        "type": "object"
+      },
+      "FlowWellForcingSeasonalConfig": {
+        "additionalProperties": false,
+        "description": "Calendar month-to-value (or season-to-value) mapping repeated across years.",
+        "properties": {
+          "kind": {
+            "const": "seasonal",
+            "default": "seasonal",
+            "description": "Discriminator tag for the seasonal well-forcing variant.",
+            "examples": [
+              "seasonal"
+            ],
+            "title": "Kind",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "by_month": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Mapping of calendar month (1-12) to a forcing value.",
+            "title": "By Month",
+            "x-hmp-profile": "user"
+          },
+          "by_season": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.",
+            "title": "By Season",
+            "x-hmp-profile": "user"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Source units of seasonal values before runtime conversion.",
+            "title": "Units",
+            "x-hmp-profile": "dev"
+          }
+        },
+        "title": "FlowWellForcingSeasonalConfig",
+        "type": "object"
+      },
+      "FlowWellForcingSegment": {
+        "additionalProperties": false,
+        "description": "One dated segment of a piecewise forcing carrying a constant or csv sub-forcing.",
+        "properties": {
+          "start": {
+            "description": "Inclusive segment start date (ISO date or datetime string).",
+            "examples": [
+              "example"
+            ],
+            "title": "Start",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exclusive segment end date (ISO string); None extends to the simulation end.",
+            "title": "End",
+            "x-hmp-profile": "user"
+          },
+          "forcing": {
+            "description": "Sub-forcing for this segment, discriminated by 'kind' (constant or csv).",
+            "discriminator": {
+              "mapping": {
+                "constant": "#/$defs/FlowWellForcingConstantConfig",
+                "csv": "#/$defs/FlowWellForcingCsvConfig"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FlowWellForcingConstantConfig"
+              },
+              {
+                "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+              }
+            ],
+            "title": "Forcing",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "start",
+          "forcing"
+        ],
+        "title": "FlowWellForcingSegment",
         "type": "object"
       },
       "FlowWellLocationAbsoluteXY": {
@@ -11595,6 +11819,32 @@
             "title": "Evt Extinction Depth",
             "type": "number",
             "x-hmp-profile": "expert"
+          },
+          "lak_forcing_mode": {
+            "default": "auto",
+            "description": "How time-varying LAK forcings are written. 'inline' always expands values per stress period inside the LAK PERIOD block (legacy byte-identical behaviour). 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.",
+            "enum": [
+              "auto",
+              "inline",
+              "ts6"
+            ],
+            "examples": [
+              "auto"
+            ],
+            "title": "Lak Forcing Mode",
+            "type": "string",
+            "x-hmp-profile": "expert"
+          },
+          "ts6_min_periods": {
+            "default": 120,
+            "description": "Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file.",
+            "examples": [
+              120
+            ],
+            "exclusiveMinimum": 0,
+            "title": "Ts6 Min Periods",
+            "type": "integer",
+            "x-hmp-profile": "expert"
           }
         },
         "title": "Modflow6ProcessSpecificConfig",
@@ -11874,6 +12124,20 @@
               "mf6"
             ],
             "title": "Mf6 Executable Name",
+            "type": "string",
+            "x-hmp-profile": "expert"
+          },
+          "mf6_runner": {
+            "default": "subprocess",
+            "description": "MODFLOW 6 solve dispatch: 'subprocess' runs the mf6 executable, 'api' drives libmf6 via the optional modflowapi package. Both write the same simulation, so output extraction is identical.",
+            "enum": [
+              "subprocess",
+              "api"
+            ],
+            "examples": [
+              "subprocess"
+            ],
+            "title": "Mf6 Runner",
             "type": "string",
             "x-hmp-profile": "expert"
           },
