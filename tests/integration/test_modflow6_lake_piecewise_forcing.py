@@ -196,7 +196,8 @@ def _build_single_lake_disv(
     flopy.mf6.ModflowUtllaktab(
         gwf, nrow=3, ncol=3, table=laktab, filename="lac0.laktab", parent_file=lak
     )
-    attach_time_series(lak, ts_series, filename=f"{name}.lak.ts")
+    if ts_series:
+        attach_time_series(lak, ts_series, filename=f"{name}.lak.ts")
     flopy.mf6.ModflowGwfoc(
         gwf,
         head_filerecord=f"{name}.hds",
@@ -249,9 +250,9 @@ def test_piecewise_lake_forcing_drives_mf6_and_matches_resolver(tmp_path: Path) 
     # The production lake builder routes the same piecewise forcing to a TS6 series.
     model = _FakeModel(window, perlen)
     rows, ts_series = build_lake_period_data(model, lakes={"lac0": {"inflow": forcing}})
-    assert len(rows) == 1
-    assert rows[0] == [0, "inflow", "lak0_inflow"]
-    assert isinstance(rows[0][2], str)
+    assert set(rows) == {0}
+    assert rows[0] == [[0, "inflow", "lak0_inflow"]]
+    assert isinstance(rows[0][0][2], str)
     assert len(ts_series) == 1
     spec = ts_series[0]
     # The per-period TS6 breakpoints reproduce the resolver values exactly.
@@ -259,7 +260,7 @@ def test_piecewise_lake_forcing_drives_mf6_and_matches_resolver(tmp_path: Path) 
     assert spec.values[-1] == pytest.approx(expected_inflow[-1])
     assert len(spec.times) == nper + 1
 
-    perioddata_lak = {0: rows}
+    perioddata_lak = rows
     ws = tmp_path / "run"
     ws.mkdir()
     sim, name = _build_single_lake_disv(
@@ -273,6 +274,60 @@ def test_piecewise_lake_forcing_drives_mf6_and_matches_resolver(tmp_path: Path) 
     assert "TS6" in lak_text and "FILEIN" in lak_text
     ts_text = (ws / f"{name}.lak.ts").read_text().upper()
     assert "STEPWISE" in ts_text
+
+    stage = _read_stage(ws, name)
+    assert stage.shape[0] == nper
+    assert np.all(np.isfinite(stage))
+
+
+@pytest.mark.mf6
+@pytest.mark.binary
+@pytest.mark.allow_subprocess
+@pytest.mark.fast
+def test_inline_lake_forcing_drives_mf6_per_period(tmp_path: Path) -> None:
+    # Inline mode must expand a non-constant forcing into per-period LAK PERIOD
+    # rows that genuinely drive MF6 (the silent-drop regression): no TS6 file, and
+    # several PERIOD blocks in the LAK input.
+    exe = str(ensure_solver_binary("mf6"))
+
+    window = _daily_window()
+    boundaries = build_simulation_time_boundaries(window)
+    nper = len(boundaries) - 1
+    perlen = np.asarray(
+        [(boundaries[i + 1] - boundaries[i]).total_seconds() for i in range(nper)],
+        dtype=float,
+    )
+    csv_path = tmp_path / "inflow.csv"
+    csv_path.write_text(
+        f"date,value\n2000-01-01,{_CSV_INFLOW[0]}\n2000-01-02,{_CSV_INFLOW[1]}\n",
+        encoding="utf-8",
+    )
+    forcing = _piecewise_forcing(csv_path)
+
+    model = _FakeModel(window, perlen)
+    model.modflow_config = _FakeConfig(mode="inline", min_periods=0)
+    rows, ts_series = build_lake_period_data(model, lakes={"lac0": {"inflow": forcing}})
+
+    # Period values are [5, 9, 3, 3]: inline emits on change, so the constant tail
+    # (period 3 == period 2) collapses, leaving rows in periods 0, 1 and 2.
+    assert ts_series == []
+    assert set(rows) == {0, 1, 2}
+    assert rows[0] == [[0, "inflow", pytest.approx(_CSV_INFLOW[0])]]
+    assert rows[1] == [[0, "inflow", pytest.approx(_CSV_INFLOW[1])]]
+    assert rows[2] == [[0, "inflow", pytest.approx(_CONST_INFLOW)]]
+
+    ws = tmp_path / "run"
+    ws.mkdir()
+    sim, name = _build_single_lake_disv(
+        ws, exe, perlen=perlen, perioddata_lak=rows, ts_series=ts_series
+    )
+    ok, _ = sim.run_simulation(silent=True)
+    assert ok, "inline-driven LAK run did not converge"
+
+    # No TS6 offload in inline mode; the LAK file carries several PERIOD blocks.
+    assert not (ws / f"{name}.lak.ts").exists()
+    lak_text = (ws / f"{name}.lak").read_text().upper()
+    assert lak_text.count("BEGIN PERIOD") >= 3
 
     stage = _read_stage(ws, name)
     assert stage.shape[0] == nper

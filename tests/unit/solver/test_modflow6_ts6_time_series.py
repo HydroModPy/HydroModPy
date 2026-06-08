@@ -182,17 +182,19 @@ def test_long_lak_forcing_emits_ts6_series_name_not_a_float(tmp_path: Path) -> N
     assert spec.values[0] == pytest.approx(values[0])
     # The terminal breakpoint repeats the last period value (STEPWISE-neutral).
     assert spec.values[-1] == pytest.approx(values[-1])
-    # The matching perioddata row carries the series NAME (a string), not a float.
-    assert len(rows) == 1
-    assert rows[0] == [0, "inflow", "lak0_inflow"]
-    assert isinstance(rows[0][2], str)
+    # The matching perioddata row (in period 0) carries the series NAME (a
+    # string), not a float; the TS6 file holds the per-period values.
+    assert set(rows) == {0}
+    assert rows[0] == [[0, "inflow", "lak0_inflow"]]
+    assert isinstance(rows[0][0][2], str)
 
 
-def test_auto_mode_below_threshold_does_not_emit_ts6(tmp_path: Path) -> None:
-    # Below the threshold, auto mode never routes to TS6 and keeps today's
-    # behaviour for a non-constant forcing (dropped from the static perioddata),
-    # so no series and no name-bearing row is produced.
-    window, csv, nper, perlen, _values = _daily_window_and_csv(tmp_path, n_days=5)
+def test_auto_mode_below_threshold_expands_inline_per_period(tmp_path: Path) -> None:
+    # Below the threshold, auto mode keeps the forcing inline: it must be expanded
+    # per stress period (never dropped) and produce no TS6 series. This pins the
+    # fix for the silent-drop bug where a sub-threshold non-constant forcing
+    # vanished from the LAK PERIOD block.
+    window, csv, nper, perlen, values = _daily_window_and_csv(tmp_path, n_days=5)
     model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="auto", min_periods=120)
     forcing = FlowWellForcingCsvConfig(
         path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
@@ -200,4 +202,26 @@ def test_auto_mode_below_threshold_does_not_emit_ts6(tmp_path: Path) -> None:
     lakes = {"lac0": {"inflow": forcing}}
     rows, ts_specs = build_lake_period_data(model, lakes=lakes)
     assert ts_specs == []
-    assert rows == []
+    # Every period carries its own inflow value (the daily values are distinct).
+    assert set(rows) == set(range(nper))
+    for kper in range(nper):
+        assert rows[kper] == [[0, "inflow", pytest.approx(values[kper])]]
+
+
+def test_inline_mode_collapses_a_constant_tail_to_one_row(tmp_path: Path) -> None:
+    # Inline expansion emits a row only when the value changes: a forcing that is
+    # constant after the first period must collapse to a single period-0 row.
+    window, csv, nper, perlen, _values = _daily_window_and_csv(tmp_path, n_days=4)
+    # Overwrite the CSV with a flat chronicle so every period resolves to 7.0.
+    starts = build_simulation_time_boundaries(window)[:-1]
+    pd.DataFrame({"date": [s.date().isoformat() for s in starts], "value": [7.0] * nper}).to_csv(
+        csv, index=False
+    )
+    model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="inline", min_periods=120)
+    forcing = FlowWellForcingCsvConfig(
+        path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
+    )
+    rows, ts_specs = build_lake_period_data(model, lakes={"lac0": {"inflow": forcing}})
+    assert ts_specs == []
+    assert set(rows) == {0}
+    assert rows[0] == [[0, "inflow", pytest.approx(7.0)]]

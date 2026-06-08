@@ -76,7 +76,10 @@ def test_build_lake_period_data_separates_rate_and_volumetric_keywords() -> None
         }
     }
     rows, ts_specs = build_lake_period_data(None, lakes=lakes)
-    by_keyword = {row[1]: row[2] for row in rows}
+    # Constant forcings all land in stress period 0 (MF6 carries them forward).
+    assert set(rows) == {0}
+    period0 = rows[0]
+    by_keyword = {row[1]: row[2] for row in period0}
 
     assert ts_specs == []
     assert by_keyword["rainfall"] == pytest.approx(4.0e-3 / 86400.0)
@@ -85,11 +88,13 @@ def test_build_lake_period_data_separates_rate_and_volumetric_keywords() -> None
     assert by_keyword["runoff"] == pytest.approx(1.0e4 / 86400.0)
     assert by_keyword["withdrawal"] == pytest.approx(0.5)
     # Every row carries the 0-based lake index as its first element.
-    assert all(row[0] == 0 for row in rows)
+    assert all(row[0] == 0 for row in period0)
 
 
-def test_build_lake_period_data_skips_non_constant_forcings() -> None:
-    # A CSV / TS6 forcing is resolved at runtime, not in the static perioddata.
+def test_build_lake_period_data_resolves_only_constants_without_a_model() -> None:
+    # Without a model (no simulation window, nper unknown) a CSV forcing cannot be
+    # resolved, so it produces no static row; a constant forcing still lands inline
+    # in period 0. The model-driven path expands non-constant forcings per period.
     lakes = {
         "lac0": {
             "inflow": {"kind": "csv", "path_file": "series.csv"},
@@ -97,7 +102,8 @@ def test_build_lake_period_data_skips_non_constant_forcings() -> None:
         }
     }
     rows, ts_specs = build_lake_period_data(None, lakes=lakes)
-    keywords = {row[1] for row in rows}
+    assert set(rows) == {0}
+    keywords = {row[1] for row in rows[0]}
     assert keywords == {"rainfall"}
     assert ts_specs == []
-    assert rows[0][2] == pytest.approx(0.001 / 86400.0)
+    assert rows[0][0][2] == pytest.approx(0.001 / 86400.0)
