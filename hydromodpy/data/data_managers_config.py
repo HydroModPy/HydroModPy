@@ -38,7 +38,10 @@ if TYPE_CHECKING:
     from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
     from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
     from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
+    from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
     from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
+    from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
+    from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig
     from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
     from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -60,7 +63,10 @@ SUPPORTED_DATA_MANAGER_TYPES = (
     "lake_abacus",
     "lake_bathymetry",
     "lake_geometry",
+    "lake_inflow",
     "lake_levels",
+    "lake_outflow",
+    "lake_withdrawal",
     "oceanic",
     "piezometry",
     "precipitation",
@@ -155,6 +161,18 @@ class DataManagersConfig(HydroModelBase):
     lake_levels: Annotated[LakeLevelsConfig | None, Profile.USER] = Field(
         default=None,
         description="Lake levels configuration (observed water-level time series).",
+    )
+    lake_inflow: Annotated[LakeInflowConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake inflow configuration (observed inflow volumetric time series).",
+    )
+    lake_outflow: Annotated[LakeOutflowConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake outflow configuration (observed outflow volumetric time series).",
+    )
+    lake_withdrawal: Annotated[LakeWithdrawalConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake withdrawal configuration (observed withdrawal volumetric time series).",
     )
     oceanic: Annotated[OceanicConfig | None, Profile.USER] = Field(
         default=None,
@@ -336,7 +354,10 @@ class DataManagersConfig(HydroModelBase):
         from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
         from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
         from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
+        from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
         from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
+        from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
+        from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
         from hydromodpy.data.variables.piezometry.config import PiezometryConfig
         from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
         from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -358,6 +379,9 @@ class DataManagersConfig(HydroModelBase):
             "lake_bathymetry": LakeBathymetryConfig,
             "lake_geometry": LakeGeometryConfig,
             "lake_levels": LakeLevelsConfig,
+            "lake_inflow": LakeInflowConfig,
+            "lake_outflow": LakeOutflowConfig,
+            "lake_withdrawal": LakeWithdrawalConfig,
             "piezometry": PiezometryConfig,
             "water_quality": WaterQualityConfig,
             "recharge": RechargeConfig,
@@ -432,7 +456,10 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
     from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
     from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
+    from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
     from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
+    from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
+    from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig
     from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
     from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -452,6 +479,9 @@ def _rebuild_forward_refs() -> None:
             "LakeBathymetryConfig": LakeBathymetryConfig,
             "LakeGeometryConfig": LakeGeometryConfig,
             "LakeLevelsConfig": LakeLevelsConfig,
+            "LakeInflowConfig": LakeInflowConfig,
+            "LakeOutflowConfig": LakeOutflowConfig,
+            "LakeWithdrawalConfig": LakeWithdrawalConfig,
             "PiezometryConfig": PiezometryConfig,
             "WaterQualityConfig": WaterQualityConfig,
             "RechargeConfig": RechargeConfig,

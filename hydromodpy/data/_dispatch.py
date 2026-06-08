@@ -173,6 +173,24 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         manager_module="hydromodpy.data.variables.lake_levels.manager",
         manager_class="LakeLevelsManager",
     ),
+    "lake_inflow": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_inflow.config",
+        config_class="LakeInflowConfig",
+        manager_module="hydromodpy.data.variables.lake_inflow.manager",
+        manager_class="LakeInflowManager",
+    ),
+    "lake_outflow": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_outflow.config",
+        config_class="LakeOutflowConfig",
+        manager_module="hydromodpy.data.variables.lake_outflow.manager",
+        manager_class="LakeOutflowManager",
+    ),
+    "lake_withdrawal": VariableSpec(
+        config_module="hydromodpy.data.variables.lake_withdrawal.config",
+        config_class="LakeWithdrawalConfig",
+        manager_module="hydromodpy.data.variables.lake_withdrawal.manager",
+        manager_class="LakeWithdrawalManager",
+    ),
 }
 
 

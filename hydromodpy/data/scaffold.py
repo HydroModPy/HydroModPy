@@ -138,6 +138,33 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "niveaux de lac observes",
         "parquet",
     ),
+    VariableSpec(
+        "lake_inflow",
+        "lake_inflow",
+        "point",
+        "timeseries",
+        "m3/s",
+        "apports volumiques au lac",
+        "parquet",
+    ),
+    VariableSpec(
+        "lake_outflow",
+        "lake_outflow",
+        "point",
+        "timeseries",
+        "m3/s",
+        "debits sortants du lac",
+        "parquet",
+    ),
+    VariableSpec(
+        "lake_withdrawal",
+        "lake_withdrawal",
+        "point",
+        "timeseries",
+        "m3/s",
+        "prelevements sur le lac",
+        "parquet",
+    ),
 )
 
 
