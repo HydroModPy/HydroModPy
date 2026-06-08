@@ -163,7 +163,7 @@ def _build_lak_period_data(geometry: PleasantTransientGeometry) -> dict[int, lis
     perioddata: dict[int, list[list[Any]]] = {}
     for period in range(geometry.n_periods):
         lakes = {_LAKE_ID: _lake_definition(geometry, period=period)}
-        perioddata[period] = build_lake_period_data(None, lakes=lakes)
+        perioddata[period] = build_lake_period_data(None, lakes=lakes)[0]
     return perioddata
 
 

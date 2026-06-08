@@ -75,9 +75,10 @@ def test_build_lake_period_data_separates_rate_and_volumetric_keywords() -> None
             "withdrawal": {"value": 0.5, "units": "m3/s"},
         }
     }
-    rows = build_lake_period_data(None, lakes=lakes)
+    rows, ts_specs = build_lake_period_data(None, lakes=lakes)
     by_keyword = {row[1]: row[2] for row in rows}
 
+    assert ts_specs == []
     assert by_keyword["rainfall"] == pytest.approx(4.0e-3 / 86400.0)
     assert by_keyword["evaporation"] == pytest.approx(2.0e-3 / 86400.0)
     assert by_keyword["inflow"] == pytest.approx(0.5)
@@ -95,7 +96,8 @@ def test_build_lake_period_data_skips_non_constant_forcings() -> None:
             "rainfall": {"kind": "constant", "value": 0.001, "units": "m/day"},
         }
     }
-    rows = build_lake_period_data(None, lakes=lakes)
+    rows, ts_specs = build_lake_period_data(None, lakes=lakes)
     keywords = {row[1] for row in rows}
     assert keywords == {"rainfall"}
+    assert ts_specs == []
     assert rows[0][2] == pytest.approx(0.001 / 86400.0)

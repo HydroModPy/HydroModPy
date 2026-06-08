@@ -130,6 +130,23 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "saturate near this value."
         ),
     )
+    lak_forcing_mode: Annotated[Literal["auto", "inline", "ts6"], Profile.EXPERT] = Field(
+        default="auto",
+        description=(
+            "How time-varying LAK forcings are written. 'inline' always expands "
+            "values per stress period inside the LAK PERIOD block (legacy byte-"
+            "identical behaviour). 'ts6' always routes non-constant forcings to "
+            "external MF6 TS6 files. 'auto' keeps constant/short forcings inline "
+            "and routes only genuinely long series (nper > ts6_min_periods) to TS6."
+        ),
+    )
+    ts6_min_periods: Annotated[PositiveInt, Profile.EXPERT] = Field(
+        default=120,
+        description=(
+            "Period count above which 'auto' mode offloads a non-constant LAK "
+            "forcing to a TS6 file."
+        ),
+    )
 
 
 class Modflow6Config(HydroModelBase):

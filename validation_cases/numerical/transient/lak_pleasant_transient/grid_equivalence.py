@@ -265,12 +265,18 @@ def _build_irregular_simulation(
     )
     assert lak_args is not None, "the lake must be active in the irregular build"
     laktab_specs = lak_args.pop("laktab_specs")
-    for key in ("obs_continuous", "lake_obs_meta", "mover_records", "mover_maxpackages"):
+    for key in (
+        "obs_continuous",
+        "lake_obs_meta",
+        "mover_records",
+        "mover_maxpackages",
+        "ts_specs",
+    ):
         lak_args.pop(key, None)
     lak_args["perioddata"] = {
         period: build_lake_period_data(
             None, lakes={_LAKE_ID: _lake_definition(geometry, period=period)}
-        )
+        )[0]
         for period in range(geometry.n_periods)
     }
 

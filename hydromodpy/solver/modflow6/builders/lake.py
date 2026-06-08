@@ -34,7 +34,9 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.core.units.leakance import parse_to_per_s
 from hydromodpy.core.units.volumetric_flow import parse_to_m3_per_s
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.mvr import build_mover_records, mover_package_count
+from hydromodpy.solver.modflow6.common.time_series import Ts6Series
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -482,7 +484,7 @@ def build_lak_package_args(
         laktab_specs.append({"lake_index": int(lake_index), "table": table, "filename": filename})
 
     outlets = build_lake_outlets(model, lakes=lakes)
-    perioddata = build_lake_period_data(model, lakes=lakes)
+    perioddata, ts_specs = build_lake_period_data(model, lakes=lakes)
     mover_records = build_mover_records(model, lakes=lakes)
     time_conversion, length_conversion = _lak_unit_conversions(model)
     stem = _lak_output_stem(model)
@@ -516,6 +518,10 @@ def build_lak_package_args(
         args["outlets"] = outlets
     if perioddata:
         args["perioddata"] = {0: perioddata}
+    # Non-constant forcings routed to external TS6 files travel alongside the LAK
+    # args so build.py can attach them to the package right after construction.
+    if ts_specs:
+        args["ts_specs"] = ts_specs
     # Controlled LAK -> LAK transfers ride the MVR package (built last in
     # build.py). LAK must advertise mover=True for MF6 to accept the records; the
     # records themselves and the package count travel alongside the LAK args so
@@ -739,8 +745,7 @@ def _resolve_lakeout(
         )
     if value == lake_index_by_id[lake_id] + 1:
         raise ValueError(
-            f"flow.sinks_sources.lakes.{lake_id} outlet lakeout={value} routes the "
-            "lake to itself."
+            f"flow.sinks_sources.lakes.{lake_id} outlet lakeout={value} routes the lake to itself."
         )
     return value - 1
 
@@ -795,41 +800,189 @@ def build_lake_period_data(
     model,
     *,
     lakes: Mapping[str, dict[str, Any]],
-) -> list[list[Any]]:
-    """Build the LAK PERIOD rows for constant per-lake forcings.
+) -> tuple[list[list[Any]], list[Ts6Series]]:
+    """Build the LAK PERIOD rows and any external TS6 series for per-lake forcings.
 
     Rows follow the FloPy ``[number, keyword, value]`` layout where ``number`` is
     the 0-based lake index. ``rainfall`` / ``evaporation`` are converted to ``m/s``
     (rate, L/T) and ``runoff`` / ``inflow`` / ``withdrawal`` to ``m3/s``
     (volumetric, L^3/T), the canonical SI units that match HMP's seconds-based
-    TDIS. Long per-lake series belong in TS6 files (handled at runtime); this
-    builder covers the constant case in ``perioddata``.
+    TDIS.
+
+    A constant forcing always stays inline (an identical ``[i, kw, float]`` row).
+    A non-constant forcing is routed to an external TS6 file when the LAK forcing
+    mode opts in (see :func:`resolve_use_ts6`): the row then carries the series
+    NAME (a string) and a :class:`Ts6Series` is accumulated in the second return
+    value. The TS6 series are attached to the package in ``build.py``.
     """
+    mode, min_periods = _lak_forcing_mode(model)
+    nper = int(getattr(model, "nper", 0) or 0)
     rows: list[list[Any]] = []
+    ts_series: list[Ts6Series] = []
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         for keyword in _RATE_FORCINGS:
-            value = _constant_forcing_value(definition.get(keyword))
-            if value is None:
-                continue
-            rate_si = parse_to_m_per_s(
-                value,
-                location=f"flow.sinks_sources.lakes.{lake_id}.{keyword}",
-                default_unit="m/s",
-                explicit_unit=_forcing_unit(definition.get(keyword)),
-            )[0]
-            rows.append([int(lake_index), keyword, float(rate_si)])
+            _emit_forcing_row(
+                model,
+                lake_index=lake_index,
+                lake_id=lake_id,
+                keyword=keyword,
+                forcing=definition.get(keyword),
+                volumetric=False,
+                mode=mode,
+                min_periods=min_periods,
+                nper=nper,
+                rows=rows,
+                ts_series=ts_series,
+            )
         for keyword in _VOLUMETRIC_FORCINGS:
-            value = _constant_forcing_value(definition.get(keyword))
-            if value is None:
-                continue
-            volumetric_si = parse_to_m3_per_s(
-                value,
-                location=f"flow.sinks_sources.lakes.{lake_id}.{keyword}",
-                default_unit="m3/s",
-                explicit_unit=_forcing_unit(definition.get(keyword)),
-            )[0]
-            rows.append([int(lake_index), keyword, float(volumetric_si)])
-    return rows
+            _emit_forcing_row(
+                model,
+                lake_index=lake_index,
+                lake_id=lake_id,
+                keyword=keyword,
+                forcing=definition.get(keyword),
+                volumetric=True,
+                mode=mode,
+                min_periods=min_periods,
+                nper=nper,
+                rows=rows,
+                ts_series=ts_series,
+            )
+    return rows, ts_series
+
+
+def _emit_forcing_row(
+    model,
+    *,
+    lake_index: int,
+    lake_id: str,
+    keyword: str,
+    forcing: object,
+    volumetric: bool,
+    mode: str,
+    min_periods: int,
+    nper: int,
+    rows: list[list[Any]],
+    ts_series: list[Ts6Series],
+) -> None:
+    """Append one LAK PERIOD row (inline float or TS6 name) for one forcing.
+
+    A constant forcing keeps the legacy inline ``[i, kw, float]`` row untouched.
+    A non-constant forcing routes to a TS6 series only when ``resolve_use_ts6``
+    opts in; otherwise it is silently skipped, exactly as before.
+    """
+    if forcing is None:
+        return
+    location = f"flow.sinks_sources.lakes.{lake_id}.{keyword}"
+    value = _constant_forcing_value(forcing)
+    use_ts6 = resolve_use_ts6(forcing, mode=mode, nper=nper, min_periods=min_periods)
+    if value is not None and not use_ts6:
+        rows.append([int(lake_index), keyword, float(_to_si(value, forcing, location, volumetric))])
+        return
+    if not use_ts6:
+        return
+
+    per_period = resolve_period_values_from_forcing(
+        forcing=forcing,
+        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        nper=nper,
+        label=location,
+    )
+    unit = _forcing_unit(forcing)
+    per_period_si = tuple(
+        float(_to_si(raw, forcing, f"{location}[{idx}]", volumetric, explicit_unit=unit))
+        for idx, raw in enumerate(per_period)
+    )
+    series_name = _ts6_series_name(lake_index, keyword)
+    rows.append([int(lake_index), keyword, series_name])
+    times, values = _ts6_times_and_values(model, per_period_si)
+    ts_series.append(
+        Ts6Series(
+            name=series_name,
+            times=times,
+            values=values,
+            interpolation="stepwise",
+        )
+    )
+
+
+def _to_si(
+    value: object,
+    forcing: object,
+    location: str,
+    volumetric: bool,
+    *,
+    explicit_unit: str | None = None,
+) -> float:
+    """Convert one forcing value to its canonical SI unit (m/s or m3/s)."""
+    unit = explicit_unit if explicit_unit is not None else _forcing_unit(forcing)
+    if volumetric:
+        return parse_to_m3_per_s(value, location=location, default_unit="m3/s", explicit_unit=unit)[
+            0
+        ]
+    return parse_to_m_per_s(value, location=location, default_unit="m/s", explicit_unit=unit)[0]
+
+
+def _lak_forcing_mode(model) -> tuple[str, int]:
+    """Return the ``(lak_forcing_mode, ts6_min_periods)`` config pair."""
+    config = getattr(model, "modflow_config", None)
+    process_specific = getattr(config, "process_specific", None)
+    mode = str(getattr(process_specific, "lak_forcing_mode", "auto") or "auto")
+    min_periods = int(getattr(process_specific, "ts6_min_periods", 120) or 120)
+    return mode, min_periods
+
+
+def resolve_use_ts6(forcing: object, *, mode: str, nper: int, min_periods: int) -> bool:
+    """Return whether one forcing should be written as an external TS6 series.
+
+    A bare-constant forcing always stays inline (a one-row TS6 file would be
+    wasteful and would perturb output), so ``False`` for it regardless of mode.
+    ``inline`` never uses TS6. ``ts6`` always routes a non-constant forcing.
+    ``auto`` routes a non-constant forcing only when ``nper > min_periods``.
+    """
+    if _constant_forcing_value(forcing) is not None:
+        return False
+    if _forcing_kind(forcing) == "constant":
+        return False
+    if nper <= 1:
+        return False
+    if mode == "inline":
+        return False
+    if mode == "ts6":
+        return True
+    return nper > int(min_periods)
+
+
+def _ts6_series_name(lake_index: int, keyword: str) -> str:
+    """Return a unique, MF6-length-safe TS6 series name for one lake forcing."""
+    return f"lak{int(lake_index)}_{keyword}"[:16]
+
+
+def _ts6_times_and_values(
+    model, per_period_si: tuple[float, ...]
+) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    """Return the TS6 ``(times, values)`` covering the whole simulation.
+
+    Period starts are ``[0, *cumsum(perlen)[:-1]]`` so each STEPWISE breakpoint is
+    the exact start of its stress period and the value is held constant over that
+    period. A terminal breakpoint at the simulation end (``cumsum(perlen)[-1]``)
+    repeating the last value closes the final interval, which MF6 requires to
+    integrate the series over the last period.
+    """
+    perlen = np.asarray(model.perlen, dtype=float).ravel()
+    cumulative = np.cumsum(perlen)
+    starts = np.concatenate(([0.0], cumulative[:-1]))
+    times = tuple(float(t) for t in starts) + (float(cumulative[-1]),)
+    values = tuple(per_period_si) + (float(per_period_si[-1]),)
+    return times, values
+
+
+def _forcing_kind(forcing: object) -> str | None:
+    """Return the forcing discriminator (``constant`` / ``csv`` / ...) or None."""
+    kind = _lake_attr(forcing, "kind")
+    if kind is None:
+        kind = _lake_attr(forcing, "mode")
+    return str(kind) if kind is not None else None
 
 
 def _constant_forcing_value(forcing: object) -> object:
@@ -983,4 +1136,5 @@ __all__ = [
     "lake_definitions_for_bedleak",
     "resolve_lake_cells",
     "resolve_lake_cells_for_active_lakes",
+    "resolve_use_ts6",
 ]

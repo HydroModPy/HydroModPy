@@ -38,6 +38,7 @@ from hydromodpy.solver.modflow6.builders import (
     xt3d_is_enabled,
     xt3d_requested_value,
 )
+from hydromodpy.solver.modflow6.common import attach_time_series
 from hydromodpy.solver.modflow6.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
@@ -574,7 +575,12 @@ def run_pre_processing(  # noqa: PLR0915
             mover_maxpackages = lak_args.pop("mover_maxpackages", 0)
             obs_continuous = lak_args.pop("obs_continuous", None)
             lake_obs_meta = lak_args.pop("lake_obs_meta", None)
+            ts_specs = lak_args.pop("ts_specs", None)
             lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
+            # Non-constant forcings routed to an external TS6 file: attach right
+            # after construction so the series names are registered before write.
+            if ts_specs:
+                attach_time_series(lak, ts_specs, filename=f"{model.model_output_name}.lak.ts")
             for spec in laktab_specs:
                 flopy.mf6.ModflowUtllaktab(
                     model.gwf,
