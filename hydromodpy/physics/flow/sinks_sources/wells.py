@@ -1,7 +1,8 @@
 """Pumping/injection well payloads for the flow process.
 
 Defines :class:`FlowWellConfig` and the runtime forcing variants
-(:class:`FlowWellForcingConstantConfig`, :class:`FlowWellForcingCsvConfig`)
+(:class:`FlowWellForcingConstantConfig`, :class:`FlowWellForcingCsvConfig`,
+:class:`FlowWellForcingPiecewiseConfig`, :class:`FlowWellForcingSeasonalConfig`)
 unified as the discriminated union :data:`FlowWellForcingConfig`.
 """
 
@@ -13,6 +14,7 @@ from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias
 
+import pandas as pd
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -78,11 +80,140 @@ class FlowWellForcingCsvConfig(HydroModelBase):
     )
 
 
-FlowWellForcingConfig = Annotated[
+FlowWellForcingSubConfig: TypeAlias = Annotated[
     FlowWellForcingConstantConfig | FlowWellForcingCsvConfig,
     Field(
         discriminator="kind",
-        description="Discriminated union of well-forcing payloads (constant or csv).",
+        description="Constant or csv sub-forcing nested inside one piecewise segment.",
+    ),
+]
+"""Discriminated sub-forcing allowed inside a piecewise segment (constant or csv)."""
+
+
+class FlowWellForcingSegment(HydroModelBase):
+    """One dated segment of a piecewise forcing carrying a constant or csv sub-forcing."""
+
+    start: Annotated[str, Profile.USER] = Field(
+        ...,
+        description="Inclusive segment start date (ISO date or datetime string).",
+    )
+    end: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Exclusive segment end date (ISO string); None extends to the simulation end."
+        ),
+    )
+    forcing: Annotated[FlowWellForcingSubConfig, Profile.USER] = Field(
+        ...,
+        description="Sub-forcing for this segment, discriminated by 'kind' (constant or csv).",
+    )
+
+    @field_validator("start", "end", mode="after")
+    @classmethod
+    def _validate_dates(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            pd.Timestamp(value)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"piecewise segment date '{value}' is not a valid timestamp") from exc
+        return value
+
+
+class FlowWellForcingPiecewiseConfig(HydroModelBase):
+    """Ordered dated segments, each resolved by its constant or csv sub-forcing."""
+
+    kind: Annotated[Literal["piecewise"], Profile.USER] = Field(
+        default="piecewise",
+        description="Discriminator tag for the piecewise well-forcing variant.",
+    )
+    segments: Annotated[list[FlowWellForcingSegment], Profile.USER] = Field(
+        ...,
+        min_length=1,
+        description="Date-ordered segments covering the simulation window.",
+    )
+    units: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Source units of segment values before runtime conversion.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_segment_order(self) -> FlowWellForcingPiecewiseConfig:
+        """Require strictly date-ordered segments with non-overlapping windows."""
+        previous_start: pd.Timestamp | None = None
+        previous_end: pd.Timestamp | None = None
+        for index, segment in enumerate(self.segments):
+            start = pd.Timestamp(segment.start)
+            end = pd.Timestamp(segment.end) if segment.end is not None else None
+            if end is not None and end <= start:
+                raise ValueError(f"piecewise segment[{index}] end must be strictly after its start")
+            if previous_start is not None and start <= previous_start:
+                raise ValueError(
+                    f"piecewise segment[{index}] start must be after the previous segment start"
+                )
+            if previous_end is not None and start < previous_end:
+                raise ValueError(
+                    f"piecewise segment[{index}] start must not precede the previous segment end"
+                )
+            previous_start = start
+            previous_end = end
+        return self
+
+
+class FlowWellForcingSeasonalConfig(HydroModelBase):
+    """Calendar month-to-value (or season-to-value) mapping repeated across years."""
+
+    kind: Annotated[Literal["seasonal"], Profile.USER] = Field(
+        default="seasonal",
+        description="Discriminator tag for the seasonal well-forcing variant.",
+    )
+    by_month: Annotated[dict[int, float] | None, Profile.USER] = Field(
+        default=None,
+        description="Mapping of calendar month (1-12) to a forcing value.",
+    )
+    by_season: Annotated[dict[str, float] | None, Profile.USER] = Field(
+        default=None,
+        description="Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.",
+    )
+    units: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Source units of seasonal values before runtime conversion.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_one_complete_mapping(self) -> FlowWellForcingSeasonalConfig:
+        """Require exactly one of by_month/by_season, fully populated."""
+        if (self.by_month is None) == (self.by_season is None):
+            raise ValueError("seasonal forcing requires exactly one of by_month or by_season")
+        if self.by_month is not None:
+            missing = sorted(set(range(1, 13)) - set(self.by_month))
+            if missing:
+                raise ValueError(f"seasonal by_month is missing months {missing}")
+            extra = sorted(month for month in self.by_month if month < 1 or month > 12)
+            if extra:
+                raise ValueError(f"seasonal by_month has invalid months {extra}")
+        else:
+            assert self.by_season is not None
+            seasons = {"DJF", "MAM", "JJA", "SON"}
+            missing_seasons = sorted(seasons - set(self.by_season))
+            if missing_seasons:
+                raise ValueError(f"seasonal by_season is missing seasons {missing_seasons}")
+            extra_seasons = sorted(set(self.by_season) - seasons)
+            if extra_seasons:
+                raise ValueError(f"seasonal by_season has invalid seasons {extra_seasons}")
+        return self
+
+
+FlowWellForcingConfig = Annotated[
+    FlowWellForcingConstantConfig
+    | FlowWellForcingCsvConfig
+    | FlowWellForcingPiecewiseConfig
+    | FlowWellForcingSeasonalConfig,
+    Field(
+        discriminator="kind",
+        description=(
+            "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal)."
+        ),
     ),
 ]
 """Discriminated union of well-forcing payloads."""
@@ -273,8 +404,8 @@ class FlowWellConfig(HydroModelBase):
         default=None,
         description=(
             "Optional runtime forcing declaration. Supported modes: "
-            "'constant' and 'csv'. The launcher resolves this payload to "
-            "well.flux using [simulation.time]."
+            "'constant', 'csv', 'piecewise', and 'seasonal'. The launcher "
+            "resolves this payload to well.flux using [simulation.time]."
         ),
     )
     units: Annotated[str, Profile.DEV] = Field(default="m3/s", description="Units of flux values.")
