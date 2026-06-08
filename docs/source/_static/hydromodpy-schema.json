@@ -2661,6 +2661,116 @@
       "title": "CustomGeologySource",
       "type": "object"
     },
+    "CustomLakeAbacusSource": {
+      "additionalProperties": false,
+      "description": "User-provided lake abacus file (CSV/Parquet).\n\nThe abacus is the stage-volume-area lookup table that drives\n``ModflowUtllaktab``. One source describes one lake; ``lake_id`` is\ninjected into the table when the file omits the column.",
+      "properties": {
+        "source": {
+          "const": "custom",
+          "default": "custom",
+          "description": "Discriminator tag selecting the 'custom' lake-abacus provider.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a custom lake-abacus table file (CSV with stage,volume,sarea).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "lake_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake identifier injected into the table when the file omits a lake_id column.",
+          "title": "Lake Id",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "CustomLakeAbacusSource",
+      "type": "object"
+    },
+    "CustomLakeBathymetrySource": {
+      "additionalProperties": false,
+      "description": "User-provided lake bathymetry raster (GeoTIFF/ASC).\n\nThe bathymetry raster fixes the lake-bed elevation per cell - i.e. where\nand at what depth the lake exchanges with the aquifer (the LAK interface).\nIt is NOT burnt into ``top``/``botm``; the internal stage-storage relation\nlives in the abacus.",
+      "properties": {
+        "source": {
+          "const": "custom",
+          "default": "custom",
+          "description": "Discriminator tag selecting the 'custom' lake-bathymetry provider.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a custom lake-bathymetry raster file (GeoTIFF, ASC).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "CustomLakeBathymetrySource",
+      "type": "object"
+    },
+    "CustomLakeGeometrySource": {
+      "additionalProperties": false,
+      "description": "User-provided lake geometry file (SHP/GPKG/GeoJSON).\n\nThe vector file holds the lake/reservoir footprint polygon(s) - and, where\nrelevant, the dam line and outlet points - that the LAK builder intersects\nwith the DISV mesh to resolve the lake cells.",
+      "properties": {
+        "source": {
+          "const": "custom",
+          "default": "custom",
+          "description": "Discriminator tag selecting the 'custom' lake-geometry provider.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a custom lake-geometry vector file (SHP, GPKG, GeoJSON).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "CustomLakeGeometrySource",
+      "type": "object"
+    },
     "DataManagersConfig": {
       "additionalProperties": false,
       "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
@@ -2680,7 +2790,7 @@
           "x-hmp-profile": "user"
         },
         "types": {
-          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.",
+          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_levels', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.",
           "items": {
             "type": "string"
           },
@@ -2765,6 +2875,58 @@
           ],
           "default": null,
           "description": "Intermittency configuration (ONDE stream flow-state observations).",
+          "x-hmp-profile": "user"
+        },
+        "lake_abacus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LakeAbacusConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake abacus configuration (stage-volume-area lookup table).",
+          "x-hmp-profile": "user"
+        },
+        "lake_bathymetry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LakeBathymetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake bathymetry configuration (lake-bed elevation raster).",
+          "x-hmp-profile": "user"
+        },
+        "lake_geometry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LakeGeometryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake geometry configuration (lake/reservoir footprint vector).",
+          "x-hmp-profile": "user"
+        },
+        "lake_levels": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LakeLevelsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake levels configuration (observed water-level time series).",
           "x-hmp-profile": "user"
         },
         "oceanic": {
@@ -5146,7 +5308,7 @@
           "x-hmp-profile": "user"
         },
         "active_bc": {
-          "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
+          "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', 'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced package and are only supported by the modflow6 backend. An empty list means no boundary-condition package is assembled by the solver.",
           "examples": [
             [
               "ocean"
@@ -5779,6 +5941,617 @@
       "title": "FlowInitialConditions",
       "type": "object"
     },
+    "FlowLakeConfig": {
+      "additionalProperties": false,
+      "description": "Typed boundary-condition payload for one MODFLOW 6 LAK lake.\n\nThe lake exchanges with the aquifer through its CONNECTIONDATA, parameterized\nby ``bedleak`` (the lake-bed leakance, 1/T). ``stageinit`` is the initial lake\nstage. ``outlets`` declare the surverse / spillway / controlled releases; the\ntransient forcings (``rainfall`` and ``evaporation`` as rates L/T, ``runoff``,\n``inflow`` and ``withdrawal`` as volumetric L^3/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\nFile references (geometry polygon, bathymetry raster, stage-volume-area\nabacus, observed levels) are declared separately in the data layer.",
+      "properties": {
+        "bedleak": {
+          "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface; the under-dam leakage calibration parameter.",
+          "examples": [
+            1.0
+          ],
+          "minimum": 0.0,
+          "title": "Bedleak",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "stageinit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Initial lake stage [L].",
+          "title": "Stageinit",
+          "x-hmp-profile": "user"
+        },
+        "outlets": {
+          "description": "Surverse / spillway / controlled-release outlets for this lake.",
+          "items": {
+            "description": "Discriminated union of lake outlet payloads (WEIR, MANNING, or SPECIFIED).",
+            "discriminator": {
+              "mapping": {
+                "MANNING": "#/$defs/FlowLakeOutletManning",
+                "SPECIFIED": "#/$defs/FlowLakeOutletSpecified",
+                "WEIR": "#/$defs/FlowLakeOutletWeir"
+              },
+              "propertyName": "couttype"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/FlowLakeOutletWeir"
+              },
+              {
+                "$ref": "#/$defs/FlowLakeOutletManning"
+              },
+              {
+                "$ref": "#/$defs/FlowLakeOutletSpecified"
+              }
+            ]
+          },
+          "title": "Outlets",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "rainfall": {
+          "anyOf": [
+            {
+              "description": "Discriminated union of well-forcing payloads (constant or csv).",
+              "discriminator": {
+                "mapping": {
+                  "constant": "#/$defs/FlowWellForcingConstantConfig",
+                  "csv": "#/$defs/FlowWellForcingCsvConfig"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                },
+                {
+                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional rainfall rate forcing [L/T] (per unit lake surface).",
+          "title": "Rainfall",
+          "x-hmp-profile": "dev"
+        },
+        "evaporation": {
+          "anyOf": [
+            {
+              "description": "Discriminated union of well-forcing payloads (constant or csv).",
+              "discriminator": {
+                "mapping": {
+                  "constant": "#/$defs/FlowWellForcingConstantConfig",
+                  "csv": "#/$defs/FlowWellForcingCsvConfig"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                },
+                {
+                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional open-water evaporation rate forcing [L/T].",
+          "title": "Evaporation",
+          "x-hmp-profile": "dev"
+        },
+        "runoff": {
+          "anyOf": [
+            {
+              "description": "Discriminated union of well-forcing payloads (constant or csv).",
+              "discriminator": {
+                "mapping": {
+                  "constant": "#/$defs/FlowWellForcingConstantConfig",
+                  "csv": "#/$defs/FlowWellForcingCsvConfig"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                },
+                {
+                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional runoff forcing, volumetric [L^3/T].",
+          "title": "Runoff",
+          "x-hmp-profile": "dev"
+        },
+        "inflow": {
+          "anyOf": [
+            {
+              "description": "Discriminated union of well-forcing payloads (constant or csv).",
+              "discriminator": {
+                "mapping": {
+                  "constant": "#/$defs/FlowWellForcingConstantConfig",
+                  "csv": "#/$defs/FlowWellForcingCsvConfig"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                },
+                {
+                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional inflow forcing, volumetric [L^3/T].",
+          "title": "Inflow",
+          "x-hmp-profile": "dev"
+        },
+        "withdrawal": {
+          "anyOf": [
+            {
+              "description": "Discriminated union of well-forcing payloads (constant or csv).",
+              "discriminator": {
+                "mapping": {
+                  "constant": "#/$defs/FlowWellForcingConstantConfig",
+                  "csv": "#/$defs/FlowWellForcingCsvConfig"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                },
+                {
+                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional withdrawal forcing, volumetric [L^3/T].",
+          "title": "Withdrawal",
+          "x-hmp-profile": "dev"
+        },
+        "description": {
+          "default": "",
+          "description": "Optional lake description.",
+          "examples": [
+            ""
+          ],
+          "title": "Description",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "default": "m",
+          "description": "Length unit of stage / elevation values.",
+          "examples": [
+            "m"
+          ],
+          "title": "Units",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "required": [
+        "bedleak",
+        "stageinit"
+      ],
+      "title": "FlowLakeConfig",
+      "type": "object"
+    },
+    "FlowLakeOutletManning": {
+      "additionalProperties": false,
+      "description": "A Manning channel outlet: ``Q ~ (1/rough)*width*d^(5/3)*sqrt(slope)``.",
+      "properties": {
+        "couttype": {
+          "const": "MANNING",
+          "default": "MANNING",
+          "description": "Discriminator tag for the Manning outlet type.",
+          "examples": [
+            "MANNING"
+          ],
+          "title": "Couttype",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "invert": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Channel invert elevation [L].",
+          "title": "Invert",
+          "x-hmp-profile": "user"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Channel width [L].",
+          "title": "Width",
+          "x-hmp-profile": "user"
+        },
+        "rough": {
+          "description": "Manning roughness coefficient n (> 0).",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Rough",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "slope": {
+          "description": "Channel bed slope (> 0).",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Slope",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "lakeout": {
+          "default": 0,
+          "description": "Downstream destination lake (1-based). 0 = external boundary (the discharge leaves the model).",
+          "examples": [
+            0
+          ],
+          "minimum": 0,
+          "title": "Lakeout",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "mover": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowLakeOutletMover"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional controlled LAK -> LAK transfer routed through MVR (keep lakeout = 0 when a mover is set).",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "invert",
+        "width",
+        "rough",
+        "slope"
+      ],
+      "title": "FlowLakeOutletManning",
+      "type": "object"
+    },
+    "FlowLakeOutletMover": {
+      "additionalProperties": false,
+      "description": "A controlled LAK -> LAK transfer for one outlet, routed through MVR.\n\nThe outlet keeps ``lakeout = 0`` (external) and this spec sends its discharge\nto ``lake`` (1-based downstream lake number) through a MODFLOW 6 MVR record.\n``mvrtype`` picks how much water moves: ``FACTOR`` (a fraction ``value`` of the\nprovider flow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above\n``value``) or ``THRESHOLD`` (all-or-nothing above ``value``).",
+      "properties": {
+        "lake": {
+          "description": "Downstream receiving lake (1-based) for the MVR transfer.",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Lake",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "mvrtype": {
+          "default": "FACTOR",
+          "description": "MVR transfer rule (FACTOR / UPTO / EXCESS / THRESHOLD).",
+          "enum": [
+            "FACTOR",
+            "UPTO",
+            "EXCESS",
+            "THRESHOLD"
+          ],
+          "examples": [
+            "FACTOR"
+          ],
+          "title": "Mvrtype",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "default": 1.0,
+          "description": "MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for UPTO / EXCESS / THRESHOLD.",
+          "examples": [
+            1.0
+          ],
+          "minimum": 0.0,
+          "title": "Value",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "lake"
+      ],
+      "title": "FlowLakeOutletMover",
+      "type": "object"
+    },
+    "FlowLakeOutletSpecified": {
+      "additionalProperties": false,
+      "description": "A specified-flow outlet (controlled release / gate): ``Q = rate``.\n\n``rate`` is volumetric [L^3/T] and signed (+ = inflow, - = outflow). A\ntransient release schedule may be declared via ``forcing`` instead of a\nconstant ``rate``.",
+      "properties": {
+        "couttype": {
+          "const": "SPECIFIED",
+          "default": "SPECIFIED",
+          "description": "Discriminator tag for the specified-flow outlet type.",
+          "examples": [
+            "SPECIFIED"
+          ],
+          "title": "Couttype",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Constant specified outlet rate [L^3/T], signed (+in, -out).",
+          "title": "Rate",
+          "x-hmp-profile": "user"
+        },
+        "forcing": {
+          "anyOf": [
+            {
+              "description": "Discriminated union of well-forcing payloads (constant or csv).",
+              "discriminator": {
+                "mapping": {
+                  "constant": "#/$defs/FlowWellForcingConstantConfig",
+                  "csv": "#/$defs/FlowWellForcingCsvConfig"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                },
+                {
+                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional transient release schedule resolved at runtime.",
+          "title": "Forcing",
+          "x-hmp-profile": "dev"
+        },
+        "lakeout": {
+          "default": 0,
+          "description": "Downstream destination lake (1-based). 0 = external boundary (the discharge leaves the model).",
+          "examples": [
+            0
+          ],
+          "minimum": 0,
+          "title": "Lakeout",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "mover": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowLakeOutletMover"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional controlled LAK -> LAK transfer routed through MVR (keep lakeout = 0 when a mover is set).",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowLakeOutletSpecified",
+      "type": "object"
+    },
+    "FlowLakeOutletWeir": {
+      "additionalProperties": false,
+      "description": "A sharp-crest weir outlet: ``Q = (2/3)*Cd*width*sqrt(2g)*d^(3/2)``.\n\n``invert`` is the crest elevation (flow is zero while ``stage <= invert``);\n``width`` is the effective crest length used to calibrate the discharge\ncoefficient (``Cd`` is fixed inside MF6).",
+      "properties": {
+        "couttype": {
+          "const": "WEIR",
+          "default": "WEIR",
+          "description": "Discriminator tag for the weir outlet type.",
+          "examples": [
+            "WEIR"
+          ],
+          "title": "Couttype",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "invert": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Weir crest elevation [L].",
+          "title": "Invert",
+          "x-hmp-profile": "user"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Effective weir crest length [L].",
+          "title": "Width",
+          "x-hmp-profile": "user"
+        },
+        "lakeout": {
+          "default": 0,
+          "description": "Downstream destination lake (1-based). 0 = external boundary (the discharge leaves the model).",
+          "examples": [
+            0
+          ],
+          "minimum": 0,
+          "title": "Lakeout",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "mover": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowLakeOutletMover"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional controlled LAK -> LAK transfer routed through MVR (keep lakeout = 0 when a mover is set).",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "invert",
+        "width"
+      ],
+      "title": "FlowLakeOutletWeir",
+      "type": "object"
+    },
     "FlowParam": {
       "additionalProperties": false,
       "description": "Flow parameter payload using native field-param sections.",
@@ -5958,7 +6731,7 @@
     },
     "FlowSinksSourcesConfig": {
       "additionalProperties": false,
-      "description": "Top-level container for all sink/source elements of the flow process.\n\nMaps directly to the ``[flow.sinks_sources]`` TOML section. All fields\nare optional so that a minimal ``FlowSinksSourcesConfig()`` (no wells,\nno recharge, no etp) is always valid and represents a passive model.\n\nFields\n------\nwells : dict[str, FlowWellConfig]\n    Pumping/injection wells keyed by a user-defined string id.\nrecharge : FlowRechargeConfig | None\n    Diffuse recharge configuration. ``None`` means no recharge.\netp : FlowEtpConfig | None\n    Diffuse evapotranspiration configuration. ``None`` means no\n    EVT package is built.",
+      "description": "Top-level container for all sink/source elements of the flow process.\n\nMaps directly to the ``[flow.sinks_sources]`` TOML section. All fields\nare optional so that a minimal ``FlowSinksSourcesConfig()`` (no wells,\nno recharge, no etp) is always valid and represents a passive model.\n\nFields\n------\nwells : dict[str, FlowWellConfig]\n    Pumping/injection wells keyed by a user-defined string id.\nlakes : dict[str, FlowLakeConfig]\n    Lake / reservoir boundaries keyed by a user-defined string id.\nrecharge : FlowRechargeConfig | None\n    Diffuse recharge configuration. ``None`` means no recharge.\netp : FlowEtpConfig | None\n    Diffuse evapotranspiration configuration. ``None`` means no\n    EVT package is built.",
       "properties": {
         "wells": {
           "additionalProperties": {
@@ -5966,6 +6739,15 @@
           },
           "description": "Mapping of well ids to typed well payloads.",
           "title": "Wells",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "lakes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FlowLakeConfig"
+          },
+          "description": "Mapping of lake ids to typed lake / reservoir payloads.",
+          "title": "Lakes",
           "type": "object",
           "x-hmp-profile": "user"
         },
@@ -8321,6 +9103,337 @@
         "source"
       ],
       "title": "IntermittencySourceConfig",
+      "type": "object"
+    },
+    "LakeAbacusConfig": {
+      "additionalProperties": false,
+      "description": "Top-level lake-abacus variable configuration.\n\nExample TOML::\n\n    [[data.lake_abacus.sources]]\n    source = \"custom\"\n    path = \"data/lake_abacus/lake_abacus_custom_lac0.csv\"\n    lake_id = \"lac0\"",
+      "properties": {
+        "sources": {
+          "description": "At least one lake-abacus data source.",
+          "items": {
+            "$ref": "#/$defs/CustomLakeAbacusSource"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "id": {
+          "default": "lake_abacus",
+          "description": "Identifier of the lake-abacus table.",
+          "examples": [
+            "lake_abacus"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "LakeAbacusConfig",
+      "type": "object"
+    },
+    "LakeBathymetryConfig": {
+      "additionalProperties": false,
+      "description": "Top-level lake-bathymetry variable configuration.\n\nExample TOML::\n\n    [[data.lake_bathymetry.sources]]\n    source = \"custom\"\n    path = \"data/lake_bathymetry/lake_bathymetry_custom_lac0.tif\"",
+      "properties": {
+        "sources": {
+          "description": "At least one lake-bathymetry data source.",
+          "items": {
+            "$ref": "#/$defs/CustomLakeBathymetrySource"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "id": {
+          "default": "lake_bathymetry",
+          "description": "Identifier of the lake-bathymetry spatial field.",
+          "examples": [
+            "lake_bathymetry"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "LakeBathymetryConfig",
+      "type": "object"
+    },
+    "LakeGeometryConfig": {
+      "additionalProperties": false,
+      "description": "Top-level lake-geometry variable configuration.\n\nExample TOML::\n\n    [[data.lake_geometry.sources]]\n    source = \"custom\"\n    path = \"data/lake_geometry/lake_geometry_custom_lac0.gpkg\"",
+      "properties": {
+        "sources": {
+          "description": "At least one lake-geometry data source.",
+          "items": {
+            "$ref": "#/$defs/CustomLakeGeometrySource"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "id": {
+          "default": "lake_geometry",
+          "description": "Identifier of the lake-geometry spatial field.",
+          "examples": [
+            "lake_geometry"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "LakeGeometryConfig",
+      "type": "object"
+    },
+    "LakeLevelsConfig": {
+      "additionalProperties": false,
+      "description": "Top-level lake-levels configuration.\n\nThe section groups observed lake-level sources and the optional simulation\ndate window inherited from ``BaseVariableConfig``.",
+      "properties": {
+        "date_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
+          "title": "Date Start",
+          "x-hmp-profile": "user"
+        },
+        "date_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
+          "title": "Date End",
+          "x-hmp-profile": "user"
+        },
+        "sources": {
+          "description": "At least one lake-levels data source.",
+          "items": {
+            "$ref": "#/$defs/LakeLevelsSourceConfig"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "LakeLevelsConfig",
+      "type": "object"
+    },
+    "LakeLevelsSourceConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for one lake-levels data source.\n\nLake-level sources load observed water-surface elevation time series used\nas a calibration target. The station id reused per chronicle is the\n``lake_id``.",
+      "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "source": {
+          "const": "custom",
+          "description": "Data provider: 'custom' for user files.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory containing location file and chronicle CSVs.",
+          "title": "Path",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "LakeLevelsSourceConfig",
       "type": "object"
     },
     "LinearTopography": {

@@ -8,7 +8,7 @@
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L94",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L95",
     "description": "Workflow mode dispatched by `hmp run`."
   },
   {
@@ -1061,7 +1061,7 @@
     "section": "data",
     "anchor": "data-project-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L96",
     "description": "EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93)."
   },
   {
@@ -1073,7 +1073,7 @@
     "section": "data",
     "anchor": "data-types",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L104",
     "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydro"
   },
   {
@@ -1085,7 +1085,7 @@
     "section": "data",
     "anchor": "data-inference-mode",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L113",
     "description": "Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geo"
   },
   {
@@ -1097,7 +1097,7 @@
     "section": "data",
     "anchor": "data-dem",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L94",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L123",
     "description": "DEM configuration used when 'dem' is listed in data.types."
   },
   {
@@ -1313,7 +1313,7 @@
     "section": "data",
     "anchor": "data-geology",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L127",
     "description": "Geology configuration used when 'geology' is listed in data.types."
   },
   {
@@ -1589,7 +1589,7 @@
     "section": "data",
     "anchor": "data-hydrography",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L102",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L131",
     "description": "Hydrography configuration (stream network vector data)."
   },
   {
@@ -1721,7 +1721,7 @@
     "section": "data",
     "anchor": "data-hydrometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L106",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L135",
     "description": "Hydrometry configuration (discharge time-series)."
   },
   {
@@ -1991,7 +1991,7 @@
     "section": "data",
     "anchor": "data-intermittency",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L110",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L139",
     "description": "Intermittency configuration (ONDE stream flow-state observations)."
   },
   {
@@ -2241,6 +2241,420 @@
     "description": "Only keep stations that have observations in the period."
   },
   {
+    "path": "data.lake_abacus",
+    "name": "lake_abacus",
+    "type": "LakeAbacusConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-abacus",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L143",
+    "description": "Lake abacus configuration (stage-volume-area lookup table)."
+  },
+  {
+    "path": "data.lake_abacus.sources",
+    "name": "sources",
+    "type": "list[CustomLakeAbacusSource]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-abacus-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_abacus/config.py#L53",
+    "description": "At least one lake-abacus data source."
+  },
+  {
+    "path": "data.lake_abacus.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-abacus-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_abacus/config.py#L24",
+    "description": "Discriminator tag selecting the 'custom' lake-abacus provider."
+  },
+  {
+    "path": "data.lake_abacus.sources.path",
+    "name": "path",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-abacus-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_abacus/config.py#L28",
+    "description": "Path to a custom lake-abacus table file (CSV with stage,volume,sarea)."
+  },
+  {
+    "path": "data.lake_abacus.sources.lake_id",
+    "name": "lake_id",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-abacus-sources-lake-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_abacus/config.py#L36",
+    "description": "Lake identifier injected into the table when the file omits a lake_id column."
+  },
+  {
+    "path": "data.lake_abacus.id",
+    "name": "id",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-abacus-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_abacus/config.py#L58",
+    "description": "Identifier of the lake-abacus table."
+  },
+  {
+    "path": "data.lake_bathymetry",
+    "name": "lake_bathymetry",
+    "type": "LakeBathymetryConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-bathymetry",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L147",
+    "description": "Lake bathymetry configuration (lake-bed elevation raster)."
+  },
+  {
+    "path": "data.lake_bathymetry.sources",
+    "name": "sources",
+    "type": "list[CustomLakeBathymetrySource]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-bathymetry-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L49",
+    "description": "At least one lake-bathymetry data source."
+  },
+  {
+    "path": "data.lake_bathymetry.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-bathymetry-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L25",
+    "description": "Discriminator tag selecting the 'custom' lake-bathymetry provider."
+  },
+  {
+    "path": "data.lake_bathymetry.sources.path",
+    "name": "path",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-bathymetry-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L29",
+    "description": "Path to a custom lake-bathymetry raster file (GeoTIFF, ASC)."
+  },
+  {
+    "path": "data.lake_bathymetry.id",
+    "name": "id",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-bathymetry-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L54",
+    "description": "Identifier of the lake-bathymetry spatial field."
+  },
+  {
+    "path": "data.lake_geometry",
+    "name": "lake_geometry",
+    "type": "LakeGeometryConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-geometry",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L151",
+    "description": "Lake geometry configuration (lake/reservoir footprint vector)."
+  },
+  {
+    "path": "data.lake_geometry.sources",
+    "name": "sources",
+    "type": "list[CustomLakeGeometrySource]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-geometry-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_geometry/config.py#L48",
+    "description": "At least one lake-geometry data source."
+  },
+  {
+    "path": "data.lake_geometry.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-geometry-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_geometry/config.py#L24",
+    "description": "Discriminator tag selecting the 'custom' lake-geometry provider."
+  },
+  {
+    "path": "data.lake_geometry.sources.path",
+    "name": "path",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-geometry-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_geometry/config.py#L28",
+    "description": "Path to a custom lake-geometry vector file (SHP, GPKG, GeoJSON)."
+  },
+  {
+    "path": "data.lake_geometry.id",
+    "name": "id",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-geometry-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_geometry/config.py#L53",
+    "description": "Identifier of the lake-geometry spatial field."
+  },
+  {
+    "path": "data.lake_levels",
+    "name": "lake_levels",
+    "type": "LakeLevelsConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L155",
+    "description": "Lake levels configuration (observed water-level time series)."
+  },
+  {
+    "path": "data.lake_levels.date_start",
+    "name": "date_start",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-date-start",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L69",
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
+  },
+  {
+    "path": "data.lake_levels.date_end",
+    "name": "date_end",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-date-end",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L70",
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
+  },
+  {
+    "path": "data.lake_levels.sources",
+    "name": "sources",
+    "type": "list[LakeLevelsSourceConfig]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L54",
+    "description": "At least one lake-levels data source."
+  },
+  {
+    "path": "data.lake_levels.sources.station_ids",
+    "name": "station_ids",
+    "type": "list[str] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-station-ids",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Explicit station identifiers to load (custom source)."
+  },
+  {
+    "path": "data.lake_levels.sources.extent",
+    "name": "extent",
+    "type": "Optional[Literal['watershed', 'study_area']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-extent",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box."
+  },
+  {
+    "path": "data.lake_levels.sources.force_refresh",
+    "name": "force_refresh",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-force-refresh",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Ignore the cache and force a fresh download from the API."
+  },
+  {
+    "path": "data.lake_levels.sources.mask_path",
+    "name": "mask_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-mask-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources."
+  },
+  {
+    "path": "data.lake_levels.sources.source_unit",
+    "name": "source_unit",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-source-unit",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata."
+  },
+  {
+    "path": "data.lake_levels.sources.col_id",
+    "name": "col_id",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-col-id",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Column name for the station identifier in location files."
+  },
+  {
+    "path": "data.lake_levels.sources.col_x",
+    "name": "col_x",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-col-x",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Column name for the X coordinate in location files."
+  },
+  {
+    "path": "data.lake_levels.sources.col_y",
+    "name": "col_y",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-col-y",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Column name for the Y coordinate in location files."
+  },
+  {
+    "path": "data.lake_levels.sources.col_crs",
+    "name": "col_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-col-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Column name for the CRS in location files."
+  },
+  {
+    "path": "data.lake_levels.sources.col_datetime",
+    "name": "col_datetime",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-col-datetime",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Column name for timestamps in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_levels.sources.col_value",
+    "name": "col_value",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-col-value",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Column name for numeric values in chronicle CSVs."
+  },
+  {
+    "path": "data.lake_levels.sources.default_crs",
+    "name": "default_crs",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-default-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19",
+    "description": "Default CRS used when a location file omits the CRS column."
+  },
+  {
+    "path": "data.lake_levels.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-source",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L27",
+    "description": "Data provider: 'custom' for user files."
+  },
+  {
+    "path": "data.lake_levels.sources.path",
+    "name": "path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-lake-levels-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L30",
+    "description": "Directory containing location file and chronicle CSVs."
+  },
+  {
     "path": "data.oceanic",
     "name": "oceanic",
     "type": "OceanicConfig | None",
@@ -2249,7 +2663,7 @@
     "section": "data",
     "anchor": "data-oceanic",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L114",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L159",
     "description": "Oceanic configuration used when 'oceanic' is listed in data.types."
   },
   {
@@ -2519,7 +2933,7 @@
     "section": "data",
     "anchor": "data-piezometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L118",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L163",
     "description": "Piezometry configuration (groundwater level time-series)."
   },
   {
@@ -2789,7 +3203,7 @@
     "section": "data",
     "anchor": "data-water-quality",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L122",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L167",
     "description": "Water quality configuration (physico-chemical parameters)."
   },
   {
@@ -3059,7 +3473,7 @@
     "section": "data",
     "anchor": "data-recharge",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L126",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L171",
     "description": "Recharge configuration (drainage / soil infiltration time series)."
   },
   {
@@ -3377,7 +3791,7 @@
     "section": "data",
     "anchor": "data-runoff",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L130",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L175",
     "description": "Runoff configuration (surface runoff time series)."
   },
   {
@@ -3599,7 +4013,7 @@
     "section": "data",
     "anchor": "data-precipitation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L134",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L179",
     "description": "Precipitation configuration (liquid and solid precipitation)."
   },
   {
@@ -3833,7 +4247,7 @@
     "section": "data",
     "anchor": "data-etp",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L138",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L183",
     "description": "ETP configuration (potential evapotranspiration)."
   },
   {
@@ -4079,7 +4493,7 @@
     "section": "data",
     "anchor": "data-temperature",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L142",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L187",
     "description": "Temperature configuration (air temperature time series)."
   },
   {
@@ -4301,7 +4715,7 @@
     "section": "data",
     "anchor": "data-wind",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L146",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L191",
     "description": "Wind configuration (wind speed time series)."
   },
   {
@@ -4523,7 +4937,7 @@
     "section": "data",
     "anchor": "data-humidity",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L150",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L195",
     "description": "Humidity configuration (relative humidity time series)."
   },
   {
@@ -4745,7 +5159,7 @@
     "section": "data",
     "anchor": "data-radiation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L154",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L199",
     "description": "Radiation configuration (atmospheric and visible radiation)."
   },
   {
@@ -4979,7 +5393,7 @@
     "section": "data",
     "anchor": "data-soil-moisture",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L158",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L203",
     "description": "Soil moisture configuration (soil moisture index)."
   },
   {
@@ -5201,7 +5615,7 @@
     "section": "flow",
     "anchor": "flow-runtime-backend",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
     "examples": [
       "\"local\"",
@@ -5217,7 +5631,7 @@
     "section": "flow",
     "anchor": "flow-surface-interaction-model",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experi",
     "examples": [
       "\"auto\"",
@@ -5233,7 +5647,7 @@
     "section": "flow",
     "anchor": "flow-runtime-max-iterations",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend."
   },
   {
@@ -5245,7 +5659,7 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-residual-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend."
   },
   {
@@ -5257,7 +5671,7 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-state-update-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it."
   },
   {
@@ -5269,7 +5683,7 @@
     "section": "flow",
     "anchor": "flow-vi-substeps-per-period",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep."
   },
   {
@@ -5281,7 +5695,7 @@
     "section": "flow",
     "anchor": "flow-vi-substep-on-failure",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts."
   },
   {
@@ -5293,7 +5707,7 @@
     "section": "flow",
     "anchor": "flow-vi-max-adaptive-substeps",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
   },
   {
@@ -5305,7 +5719,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-steps-per-period",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime."
   },
   {
@@ -5317,7 +5731,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-adapt",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime."
   },
   {
@@ -5329,7 +5743,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-dt-min-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Minimum TS VI time-step as a fraction of the stress-period length."
   },
   {
@@ -5341,7 +5755,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-dt-max-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "Maximum TS VI time-step as a fraction of the stress-period length."
   },
   {
@@ -5353,7 +5767,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "PETSc TS type for the experimental TS VI obstacle runtime."
   },
   {
@@ -5365,7 +5779,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-snes-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
     "description": "PETSc SNES type for the experimental TS VI obstacle runtime."
   },
   {
@@ -5377,7 +5791,7 @@
     "section": "flow",
     "anchor": "flow-param-list",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L113",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L115",
     "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
     "examples": [
       "[\"K\", \"Sy\", \"Ss\"]"
@@ -5392,7 +5806,7 @@
     "section": "flow",
     "anchor": "flow-param",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L121",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L123",
     "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads."
   },
   {
@@ -5656,7 +6070,7 @@
     "section": "flow",
     "anchor": "flow-ic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L161",
     "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
   },
   {
@@ -6016,7 +6430,7 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L125",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L127",
     "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``"
   },
   {
@@ -6028,7 +6442,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400",
     "description": ""
   },
   {
@@ -6040,7 +6454,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400",
     "description": ""
   },
   {
@@ -6052,7 +6466,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L401",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L405",
     "description": ""
   },
   {
@@ -6064,7 +6478,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400",
     "description": ""
   },
   {
@@ -6076,7 +6490,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L399",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L403",
     "description": ""
   },
   {
@@ -6088,7 +6502,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-data-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400",
     "description": ""
   },
   {
@@ -6100,7 +6514,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L434",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L438",
     "description": ""
   },
   {
@@ -6112,7 +6526,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-constant-mode",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L174",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L178",
     "description": ""
   },
   {
@@ -6124,7 +6538,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-constant-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L178",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L182",
     "description": ""
   },
   {
@@ -6136,7 +6550,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-constant-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L182",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L186",
     "description": ""
   },
   {
@@ -6148,7 +6562,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-mode",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L191",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L195",
     "description": ""
   },
   {
@@ -6160,7 +6574,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-path-file",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L195",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L199",
     "description": ""
   },
   {
@@ -6172,7 +6586,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-sep",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L199",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L203",
     "description": ""
   },
   {
@@ -6184,7 +6598,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-date-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L203",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L207",
     "description": ""
   },
   {
@@ -6196,7 +6610,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-date-format",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L207",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L211",
     "description": ""
   },
   {
@@ -6208,7 +6622,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-value-column",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L211",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L215",
     "description": ""
   },
   {
@@ -6220,7 +6634,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-fill-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L215",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L219",
     "description": ""
   },
   {
@@ -6232,7 +6646,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-aggregate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L219",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L223",
     "description": ""
   },
   {
@@ -6244,7 +6658,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-forcing-csv-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L223",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L227",
     "description": ""
   },
   {
@@ -6256,7 +6670,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-application-domain",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L459",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L463",
     "description": ""
   },
   {
@@ -6268,7 +6682,7 @@
     "section": "flow",
     "anchor": "flow-bc-dirichlet-id-support-label",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L396",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L400",
     "description": ""
   },
   {
@@ -6280,7 +6694,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559",
     "description": ""
   },
   {
@@ -6292,7 +6706,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559",
     "description": ""
   },
   {
@@ -6304,7 +6718,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L560",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L564",
     "description": ""
   },
   {
@@ -6316,7 +6730,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559",
     "description": ""
   },
   {
@@ -6328,7 +6742,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L558",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L562",
     "description": ""
   },
   {
@@ -6340,7 +6754,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-data-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559",
     "description": ""
   },
   {
@@ -6352,7 +6766,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-application-domain",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559",
     "description": ""
   },
   {
@@ -6364,7 +6778,7 @@
     "section": "flow",
     "anchor": "flow-bc-cauchy-id-support-label",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L555",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L559",
     "description": ""
   },
   {
@@ -6376,7 +6790,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578",
     "description": ""
   },
   {
@@ -6388,7 +6802,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578",
     "description": ""
   },
   {
@@ -6400,7 +6814,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L579",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L583",
     "description": ""
   },
   {
@@ -6412,7 +6826,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578",
     "description": ""
   },
   {
@@ -6424,7 +6838,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-kind",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L577",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L581",
     "description": ""
   },
   {
@@ -6436,7 +6850,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-data-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578",
     "description": ""
   },
   {
@@ -6448,7 +6862,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-application-domain",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578",
     "description": ""
   },
   {
@@ -6460,7 +6874,7 @@
     "section": "flow",
     "anchor": "flow-bc-robin-id-support-label",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L574",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/boundary_conditions.py#L578",
     "description": ""
   },
   {
@@ -6472,7 +6886,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L166",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L168",
     "description": "Typed sinks/sources payload (for example pumping wells)."
   },
   {
@@ -6484,7 +6898,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L27",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L28",
     "description": "Mapping of well ids to typed well payloads."
   },
   {
@@ -6812,6 +7226,1062 @@
     "description": ""
   },
   {
+    "path": "flow.sinks_sources.lakes",
+    "name": "lakes",
+    "type": "dict[str, FlowLakeConfig]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L30",
+    "description": "Mapping of lake ids to typed lake / reservoir payloads."
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.bedleak",
+    "name": "bedleak",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-bedleak",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L212",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.stageinit",
+    "name": "stageinit",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-stageinit",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L220",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets",
+    "name": "outlets",
+    "type": "list[FlowLakeOutletWeir | FlowLakeOutletManning | FlowLakeOutletSpecified]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L221",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.WEIR.couttype",
+    "name": "couttype",
+    "type": "Literal['WEIR']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-weir-couttype",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L78",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.WEIR.invert",
+    "name": "invert",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-weir-invert",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L82",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.WEIR.width",
+    "name": "width",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-weir-width",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L83",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.WEIR.lakeout",
+    "name": "lakeout",
+    "type": "int",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-weir-lakeout",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L86",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.WEIR.mover",
+    "name": "mover",
+    "type": "FlowLakeOutletMover | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-weir-mover",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L94",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.MANNING.couttype",
+    "name": "couttype",
+    "type": "Literal['MANNING']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-manning-couttype",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L106",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.MANNING.invert",
+    "name": "invert",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-manning-invert",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L110",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.MANNING.width",
+    "name": "width",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-manning-width",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L113",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.MANNING.rough",
+    "name": "rough",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-manning-rough",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L114",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.MANNING.slope",
+    "name": "slope",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-manning-slope",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L117",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.MANNING.lakeout",
+    "name": "lakeout",
+    "type": "int",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-manning-lakeout",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L120",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.MANNING.mover",
+    "name": "mover",
+    "type": "FlowLakeOutletMover | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-manning-mover",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L128",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.couttype",
+    "name": "couttype",
+    "type": "Literal['SPECIFIED']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-specified-couttype",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L145",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.rate",
+    "name": "rate",
+    "type": "Optional[Any]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-specified-rate",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L149",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.forcing",
+    "name": "forcing",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-specified-forcing",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L153",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.lakeout",
+    "name": "lakeout",
+    "type": "int",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-specified-lakeout",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L157",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.mover",
+    "name": "mover",
+    "type": "FlowLakeOutletMover | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-outlets-specified-mover",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L165",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall",
+    "name": "rainfall",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L225",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.constant.kind",
+    "name": "kind",
+    "type": "Literal['constant']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-constant-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.constant.value",
+    "name": "value",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-constant-value",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.constant.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-constant-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.kind",
+    "name": "kind",
+    "type": "Literal['csv']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.path_file",
+    "name": "path_file",
+    "type": "Path",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-path-file",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.sep",
+    "name": "sep",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-sep",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.date_column",
+    "name": "date_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-date-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.date_format",
+    "name": "date_format",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-date-format",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.value_column",
+    "name": "value_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-value-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.fill_method",
+    "name": "fill_method",
+    "type": "Literal['ffill', 'bfill']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-fill-method",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.aggregate",
+    "name": "aggregate",
+    "type": "Literal['mean', 'last']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-aggregate",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.rainfall.csv.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-rainfall-csv-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation",
+    "name": "evaporation",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L229",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.constant.kind",
+    "name": "kind",
+    "type": "Literal['constant']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-constant-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.constant.value",
+    "name": "value",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-constant-value",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.constant.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-constant-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.kind",
+    "name": "kind",
+    "type": "Literal['csv']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.path_file",
+    "name": "path_file",
+    "type": "Path",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-path-file",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.sep",
+    "name": "sep",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-sep",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.date_column",
+    "name": "date_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-date-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.date_format",
+    "name": "date_format",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-date-format",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.value_column",
+    "name": "value_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-value-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.fill_method",
+    "name": "fill_method",
+    "type": "Literal['ffill', 'bfill']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-fill-method",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.aggregate",
+    "name": "aggregate",
+    "type": "Literal['mean', 'last']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-aggregate",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.evaporation.csv.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-evaporation-csv-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff",
+    "name": "runoff",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L233",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.constant.kind",
+    "name": "kind",
+    "type": "Literal['constant']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-constant-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.constant.value",
+    "name": "value",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-constant-value",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.constant.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-constant-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.kind",
+    "name": "kind",
+    "type": "Literal['csv']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.path_file",
+    "name": "path_file",
+    "type": "Path",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-path-file",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.sep",
+    "name": "sep",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-sep",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.date_column",
+    "name": "date_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-date-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.date_format",
+    "name": "date_format",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-date-format",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.value_column",
+    "name": "value_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-value-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.fill_method",
+    "name": "fill_method",
+    "type": "Literal['ffill', 'bfill']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-fill-method",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.aggregate",
+    "name": "aggregate",
+    "type": "Literal['mean', 'last']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-aggregate",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.runoff.csv.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-runoff-csv-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow",
+    "name": "inflow",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L237",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.constant.kind",
+    "name": "kind",
+    "type": "Literal['constant']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-constant-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.constant.value",
+    "name": "value",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-constant-value",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.constant.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-constant-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.kind",
+    "name": "kind",
+    "type": "Literal['csv']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.path_file",
+    "name": "path_file",
+    "type": "Path",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-path-file",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.sep",
+    "name": "sep",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-sep",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.date_column",
+    "name": "date_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-date-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.date_format",
+    "name": "date_format",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-date-format",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.value_column",
+    "name": "value_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-value-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.fill_method",
+    "name": "fill_method",
+    "type": "Literal['ffill', 'bfill']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-fill-method",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.aggregate",
+    "name": "aggregate",
+    "type": "Literal['mean', 'last']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-aggregate",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.inflow.csv.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-inflow-csv-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal",
+    "name": "withdrawal",
+    "type": "Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig]",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L241",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.constant.kind",
+    "name": "kind",
+    "type": "Literal['constant']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-constant-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L32",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.constant.value",
+    "name": "value",
+    "type": "Any",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-constant-value",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L36",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.constant.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-constant-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L40",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.kind",
+    "name": "kind",
+    "type": "Literal['csv']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-kind",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L49",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.path_file",
+    "name": "path_file",
+    "type": "Path",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-path-file",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L53",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.sep",
+    "name": "sep",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-sep",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L56",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.date_column",
+    "name": "date_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-date-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L57",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.date_format",
+    "name": "date_format",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-date-format",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L60",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.value_column",
+    "name": "value_column",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-value-column",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L64",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.fill_method",
+    "name": "fill_method",
+    "type": "Literal['ffill', 'bfill']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-fill-method",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L67",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.aggregate",
+    "name": "aggregate",
+    "type": "Literal['mean', 'last']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-aggregate",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L71",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.withdrawal.csv.units",
+    "name": "units",
+    "type": "str | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-withdrawal-csv-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L75",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.description",
+    "name": "description",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-description",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L215",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.units",
+    "name": "units",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L248",
+    "description": ""
+  },
+  {
     "path": "flow.sinks_sources.recharge",
     "name": "recharge",
     "type": "FlowRechargeConfig | None",
@@ -6820,7 +8290,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L32",
     "description": "Diffuse recharge configuration. None = zero recharge for all periods."
   },
   {
@@ -6916,7 +8386,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L31",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L34",
     "description": "Diffuse evapotranspiration configuration. None = no EVT package built."
   },
   {
@@ -7024,7 +8494,7 @@
     "section": "flow",
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L170",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L172",
     "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
@@ -7041,8 +8511,8 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L180",
-    "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An em",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L182",
+    "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake",
     "examples": [
       "[\"ocean\"]",
       "[\"west_side\", \"east_side\", \"drainage\"]"
@@ -7057,7 +8527,7 @@
     "section": "flow",
     "anchor": "flow-flow-regime",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L80",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L82",
     "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
     "examples": [
       "\"steady\"",
@@ -7073,7 +8543,7 @@
     "section": "flow",
     "anchor": "flow-first-period-steady",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L96",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L98",
     "description": "For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.",
     "examples": [
       "true",
