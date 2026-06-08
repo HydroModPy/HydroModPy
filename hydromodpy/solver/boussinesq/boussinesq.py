@@ -29,12 +29,14 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_conditions_mapping_from_flow,
+    boundary_definition,
     is_boundary_condition_active,
 )
 from hydromodpy.solver.base.protocols import DomainLike
@@ -58,7 +60,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
 )
 from hydromodpy.solver.boussinesq.runtime_selection import (
-    BoussinesqRuntimeBackend,
+    ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
 )
 from hydromodpy.solver.boussinesq.runtime_summary import (
@@ -283,6 +285,22 @@ class Boussinesq:
             for item in active_sinks_sources
             if str(item) not in _SUPPORTED_SINK_SOURCE_IDS
         )
+
+        # An advanced package (LAK lake/reservoir) is a capability the boussinesq
+        # backend does not implement at all -> the typed capability error.
+        advanced_bc = sorted(
+            bc_id
+            for bc_id in unsupported_bc
+            if (definition := boundary_definition(bc_id)) is not None
+            and definition.family == "advanced_package"
+        )
+        if advanced_bc:
+            raise IncompatibleCapabilitiesError(
+                "The boussinesq backend does not support advanced-package "
+                "boundaries (LAK lake/reservoir); they require the modflow6 "
+                "backend. Offending active_bc: " + ",".join(advanced_bc) + "."
+            )
+
         unsupported: list[str] = []
         if unsupported_bc:
             unsupported.append("active_bc=" + ",".join(unsupported_bc))
@@ -317,7 +335,7 @@ class Boussinesq:
             ),
         )
 
-    def _runtime_backend(self) -> BoussinesqRuntimeBackend:
+    def _runtime_backend(self) -> ResolvedBoussinesqRuntimeBackend:
         """Resolve the selected nonlinear runtime backend implementation."""
         return resolve_runtime_backend(
             self._runtime_backend_name(),
@@ -400,45 +418,49 @@ class Boussinesq:
 
     def _run_steady_state_initialization(self) -> bool:
         """Materialize a same-solver steady-state initial condition."""
-        strategy = steady_state_initial_condition_strategy(self.flow)
-        original_regime = getattr(self.flow, "flow_regime", None)
+        # `self.flow` is the loose `object` contract; bind a typed alias so the
+        # temporary regime/surface-model mutations below type-check as plain
+        # attribute access while we swap the flow into steady mode.
+        flow: Any = self.flow
+        strategy = steady_state_initial_condition_strategy(flow)
+        original_regime = getattr(flow, "flow_regime", None)
         original_time_grid = self.time_grid
-        original_surface_model = getattr(self.flow, "surface_interaction_model", None)
-        original_config = getattr(self.flow, "config", None)
-        steady_surface_model = steady_state_initialization_surface_interaction_model(self.flow)
-        sinks_sources = getattr(self.flow, "sinks_sources", None)
+        original_surface_model = getattr(flow, "surface_interaction_model", None)
+        original_config = getattr(flow, "config", None)
+        steady_surface_model = steady_state_initialization_surface_interaction_model(flow)
+        sinks_sources = getattr(flow, "sinks_sources", None)
         had_recharge = False
         original_recharge = None
         if isinstance(sinks_sources, dict) and "recharge" in sinks_sources:
             had_recharge = True
             original_recharge = sinks_sources.get("recharge")
             apply_steady_state_initial_condition_strategy(
-                self.flow,
+                flow,
                 strategy=strategy,
             )
         if steady_surface_model is not None:
-            self.flow.surface_interaction_model = steady_surface_model
+            flow.surface_interaction_model = steady_surface_model
             if original_config is not None and hasattr(original_config, "model_copy"):
-                self.flow.config = original_config.model_copy(
+                flow.config = original_config.model_copy(
                     update={"surface_interaction_model": steady_surface_model}
                 )
-        self.flow.flow_regime = "steady"
+        flow.flow_regime = "steady"
         self.time_grid = single_period_mean_forcing_time_grid(original_time_grid)
         try:
             success = self._run_steady_runtime()
         finally:
-            self.flow.flow_regime = original_regime
+            flow.flow_regime = original_regime
             self.time_grid = original_time_grid
             if steady_surface_model is not None:
                 if original_surface_model is None:
                     try:
-                        delattr(self.flow, "surface_interaction_model")
+                        delattr(flow, "surface_interaction_model")
                     except AttributeError:
                         pass
                 else:
-                    self.flow.surface_interaction_model = original_surface_model
+                    flow.surface_interaction_model = original_surface_model
                 if original_config is not None:
-                    self.flow.config = original_config
+                    flow.config = original_config
             if isinstance(sinks_sources, dict) and had_recharge:
                 sinks_sources["recharge"] = original_recharge
         self.runtime_summary["steady_state_initialization"] = bool(success)
@@ -464,7 +486,7 @@ class Boussinesq:
 
     def _assert_runtime_mesh_size_supported(
         self,
-        runtime_backend: BoussinesqRuntimeBackend,
+        runtime_backend: ResolvedBoussinesqRuntimeBackend,
     ) -> None:
         """Fail fast when the selected runtime still relies on dense Jacobians."""
         if self.mesh is None:
