@@ -24,6 +24,7 @@ from hydromodpy.physics.flow.sinks_sources import (
     FlowSinksSourcesConfig,
 )
 from hydromodpy.physics.flow.time_forcing import (
+    aggregate_forcing_series,
     resolve_period_values_from_forcing,
 )
 
@@ -307,6 +308,74 @@ def apply_lake_abacus_to_flow(
         return False
     flow.sinks_sources["lakes"] = payloads
     return True
+
+
+def apply_lake_flux_forcings_to_flow(
+    *,
+    flow: Flow,
+    lake_inflow: LoadResultProto | None = None,
+    lake_withdrawal: LoadResultProto | None = None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
+) -> bool:
+    """Attach file-loaded inflow / withdrawal timeseries as LAK forcings.
+
+    Each loaded family carries one ``PointRecord`` per lake (``station_id`` =
+    lake id) with values already in m3/s. The series is aggregated to the
+    simulation stress periods and attached to the matching lake payload as a
+    per-period ``values`` forcing. A forcing already declared in config wins, so
+    the data file is the alternative source, never an override.
+
+    Returns True if at least one forcing was attached, False otherwise.
+    """
+    sources = (("inflow", lake_inflow), ("withdrawal", lake_withdrawal))
+    if simulation_window is None or all(result is None for _, result in sources):
+        return False
+
+    payloads = _lake_payloads_as_mappings(flow)
+    if not payloads:
+        return False
+
+    attached = False
+    for keyword, result in sources:
+        if result is None:
+            continue
+        for record in getattr(result, "points", []) or []:
+            lake_id = str(getattr(record, "station_id", ""))
+            payload = payloads.get(lake_id)
+            if payload is None or payload.get(keyword) is not None:
+                continue  # unknown lake, or config already declares the forcing
+            series = _point_record_series(record)
+            if series.empty:
+                continue
+            values = aggregate_forcing_series(
+                series,
+                simulation_window=simulation_window,
+                label=f"flow.sinks_sources.lakes.{lake_id}.{keyword}",
+                aggregate="mean",
+            )
+            payload[keyword] = {
+                "kind": "values",
+                "values": [float(v) for v in values],
+                "units": "m3/s",
+            }
+            attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["lakes"] = payloads
+    return True
+
+
+def _point_record_series(record: Any):
+    """Return a datetime-indexed float series from a loaded PointRecord."""
+    import pandas as pd
+
+    frame = record.data.dropna(subset=["datetime", "value"]).sort_values("datetime")
+    return pd.Series(
+        frame["value"].to_numpy(dtype=float),
+        index=pd.DatetimeIndex(frame["datetime"]),
+        dtype=float,
+    )
 
 
 def _resolve_lake_polygons(
