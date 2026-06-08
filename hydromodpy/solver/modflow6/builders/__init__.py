@@ -36,6 +36,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
     apply_lake_idomain_mask,
     build_lak_package_args,
     build_lake_connectiondata,
+    build_lake_mover_records,
     build_lake_obs_spec,
     build_lake_outlets,
     build_lake_period_data,
@@ -47,7 +48,8 @@ from hydromodpy.solver.modflow6.builders.lake import (
     resolve_lake_cells_for_active_lakes,
 )
 from hydromodpy.solver.modflow6.builders.mvr import (
-    build_mover_records,
+    MoverRecord,
+    build_mvr_period_records,
     mover_package_count,
 )
 from hydromodpy.solver.modflow6.builders.recharge import (
@@ -85,6 +87,7 @@ from hydromodpy.solver.modflow6.builders.wells import (
 )
 
 __all__ = [
+    "MoverRecord",
     "apply_lake_idomain_mask",
     "apply_side_boundary_start_heads",
     "as_recharge_flat",
@@ -99,11 +102,12 @@ __all__ = [
     "build_evt_stress_period_data",
     "build_lak_package_args",
     "build_lake_connectiondata",
+    "build_lake_mover_records",
     "build_lake_obs_spec",
     "build_lake_outlets",
     "build_lake_period_data",
     "build_lake_table",
-    "build_mover_records",
+    "build_mvr_period_records",
     "build_ocean_boundary_chd_spd",
     "build_side_boundary_chd_spd",
     "build_start_heads",

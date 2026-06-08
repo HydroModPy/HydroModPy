@@ -4,10 +4,11 @@ A controlled transfer (a fraction, a cap, a threshold) between two lakes routes 
 LAK outlet through the MVR package instead of the direct ``lakeout`` path. The
 tests check:
 
-* :func:`build_mover_records` emits one record per outlet carrying a ``mover``
-  spec, with the FloPy single-model layout ``[pname1, id1, pname2, id2, mvrtype,
-  value]``: provider id1 = outlet number (0-based), receiver id2 = lake number
-  (0-based), translated from the 1-based config ``lake``;
+* :func:`build_lake_mover_records` (compiled through
+  :func:`build_mvr_period_records`) emits one record per outlet carrying a
+  ``mover`` spec, with the FloPy single-model layout ``[pname1, id1, pname2, id2,
+  mvrtype, value]``: provider id1 = outlet number (0-based), receiver id2 = lake
+  number (0-based), translated from the 1-based config ``lake``;
 * an outlet routed directly via ``lakeout`` (no ``mover``) produces NO record;
 * outlet numbering stays aligned with :func:`build_lake_outlets`;
 * :func:`build_lak_package_args` sets ``mover=True`` and carries the records plus
@@ -30,7 +31,8 @@ from shapely.geometry import Polygon
 from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
     build_lak_package_args,
-    build_mover_records,
+    build_lake_mover_records,
+    build_mvr_period_records,
     mover_package_count,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -58,7 +60,7 @@ def test_factor_mover_record_routes_outlet_to_receiver_lake() -> None:
         },
         "lac1": {"outlets": []},
     }
-    records = build_mover_records(None, lakes=lakes)
+    records = build_mvr_period_records(build_lake_mover_records(None, lakes=lakes))
     assert len(records) == 1
     pname1, id1, pname2, id2, mvrtype, value = records[0]
     assert pname1 == "LAK"
@@ -75,7 +77,7 @@ def test_direct_lakeout_outlet_emits_no_mover_record() -> None:
         "lac0": {"outlets": [{"couttype": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 1}]},
         "lac1": {"outlets": []},
     }
-    assert build_mover_records(None, lakes=lakes) == []
+    assert build_mvr_period_records(build_lake_mover_records(None, lakes=lakes)) == []
 
 
 def test_outlet_numbering_is_shared_with_outlets_builder() -> None:
@@ -95,7 +97,7 @@ def test_outlet_numbering_is_shared_with_outlets_builder() -> None:
         },
         "lac1": {"outlets": []},
     }
-    records = build_mover_records(None, lakes=lakes)
+    records = build_mvr_period_records(build_lake_mover_records(None, lakes=lakes))
     assert len(records) == 1
     _, id1, _, id2, mvrtype, value = records[0]
     assert id1 == 1  # second outlet of lac0
@@ -120,7 +122,7 @@ def test_mover_lake_out_of_range_is_rejected() -> None:
         "lac1": {"outlets": []},
     }
     with pytest.raises(ValueError, match="no matching downstream lake"):
-        build_mover_records(None, lakes=lakes)
+        build_mvr_period_records(build_lake_mover_records(None, lakes=lakes))
 
 
 def test_unknown_mvrtype_is_rejected() -> None:
@@ -139,7 +141,7 @@ def test_unknown_mvrtype_is_rejected() -> None:
         "lac1": {"outlets": []},
     }
     with pytest.raises(ValueError, match="mvrtype must be one of"):
-        build_mover_records(None, lakes=lakes)
+        build_mvr_period_records(build_lake_mover_records(None, lakes=lakes))
 
 
 def test_mover_package_count_is_one_for_lak_to_lak() -> None:
