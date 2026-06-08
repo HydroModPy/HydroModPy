@@ -10,12 +10,13 @@ architectural limit.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 import numpy as np
 
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
     log_xt3d_resolution,
@@ -171,6 +172,23 @@ class Modflow6:
 
     def processing(self, options: ModflowRunOptions | None = None):
         return run_processing(self, options)
+
+    def run_api(
+        self,
+        callback: Callable[[Mf6ApiContext], None],
+        *,
+        lib_path: str | os.PathLike[str] | None = None,
+        verbose: bool = False,
+    ) -> bool:
+        """Run this written model through libmf6 with a per-step callback.
+
+        Opt-in developer entry point parallel to ``processing``. The
+        simulation must already be written. See
+        :func:`hydromodpy.solver.modflow6.api_runner.run_mf6_api`.
+        """
+        from hydromodpy.solver.modflow6.api_runner import run_mf6_api
+
+        return run_mf6_api(self.full_path, callback, lib_path=lib_path, verbose=verbose)
 
     # post_processing --------------------------------------------------
 

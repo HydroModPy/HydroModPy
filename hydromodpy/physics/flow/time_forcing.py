@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
@@ -13,6 +15,27 @@ from hydromodpy.core.time import (
 from hydromodpy.physics.forcing.time_alignment import (
     align_forcing_series_to_simulation_window,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.physics.flow.sinks_sources.wells import (
+        FlowWellForcingPiecewiseConfig,
+        FlowWellForcingSeasonalConfig,
+    )
+
+_SEASON_BY_MONTH = {
+    12: "DJF",
+    1: "DJF",
+    2: "DJF",
+    3: "MAM",
+    4: "MAM",
+    5: "MAM",
+    6: "JJA",
+    7: "JJA",
+    8: "JJA",
+    9: "SON",
+    10: "SON",
+    11: "SON",
+}
 
 
 def load_forcing_csv_series(
@@ -123,4 +146,79 @@ def resolve_period_values_from_forcing(
             )
         return values
 
+    if kind == "piecewise":
+        return _resolve_piecewise(
+            forcing=cast("FlowWellForcingPiecewiseConfig", forcing),
+            simulation_window=simulation_window,
+            nper=nper,
+            label=label,
+        )
+
+    if kind == "seasonal":
+        return _resolve_seasonal(
+            forcing=cast("FlowWellForcingSeasonalConfig", forcing),
+            simulation_window=simulation_window,
+            label=label,
+        )
+
     raise ValueError(f"{label}: unsupported forcing kind '{kind}'.")
+
+
+def _resolve_piecewise(
+    *,
+    forcing: FlowWellForcingPiecewiseConfig,
+    simulation_window: ResolvedSimulationTimeWindow,
+    nper: int,
+    label: str,
+) -> list[float]:
+    """Resolve a piecewise forcing by selecting one dated segment per period."""
+    boundaries = build_simulation_time_boundaries(simulation_window)
+    period_starts = pd.DatetimeIndex(boundaries[:-1])
+    window_end = boundaries[-1]
+    values: list[float] = [float("nan")] * len(period_starts)
+    covered = [False] * len(period_starts)
+    for segment in forcing.segments:
+        seg_start = pd.Timestamp(segment.start)
+        seg_end = pd.Timestamp(segment.end) if segment.end is not None else window_end
+        mask = (period_starts >= seg_start) & (period_starts < seg_end)
+        if not bool(mask.any()):
+            continue
+        sub = resolve_period_values_from_forcing(
+            forcing=segment.forcing,
+            simulation_window=simulation_window,
+            nper=nper,
+            label=f"{label}.segments[{seg_start.date()}]",
+        )
+        for index in range(len(values)):
+            if bool(mask[index]):
+                values[index] = sub[index]
+                covered[index] = True
+    if not all(covered):
+        raise ConfigError(f"{label}: piecewise segments do not cover every stress period.")
+    return values
+
+
+def _resolve_seasonal(
+    *,
+    forcing: FlowWellForcingSeasonalConfig,
+    simulation_window: ResolvedSimulationTimeWindow,
+    label: str,
+) -> list[float]:
+    """Resolve a seasonal forcing by mapping each period start to its month/season."""
+    boundaries = build_simulation_time_boundaries(simulation_window)
+    period_starts = pd.DatetimeIndex(boundaries[:-1])
+    period_ends = pd.DatetimeIndex(boundaries[1:])
+    by_month = forcing.by_month
+    by_season = forcing.by_season
+    out: list[float] = []
+    for left, right in zip(period_starts, period_ends, strict=False):
+        first_month = pd.Timestamp(year=left.year, month=left.month, day=1)
+        spanned = pd.date_range(first_month, right, freq="MS", inclusive="left")
+        months = spanned if len(spanned) > 0 else pd.DatetimeIndex([first_month])
+        if by_month is not None:
+            samples = [by_month[int(month.month)] for month in months]
+        else:
+            assert by_season is not None
+            samples = [by_season[_SEASON_BY_MONTH[int(month.month)]] for month in months]
+        out.append(sum(samples) / len(samples))
+    return out
