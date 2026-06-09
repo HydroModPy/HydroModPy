@@ -25,6 +25,14 @@ from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 class SolverMesh:
     """Solver-agnostic 2D+layers mesh.
 
+    The mesh is PRISMATIC (vertically extruded): every layer shares the same
+    planar cells, with per-cell ``top`` / ``botm`` elevations. This is the data
+    model behind MODFLOW DIS (structured planar) and DISV (any planar topology):
+    ``to_dis_kwargs`` and ``to_disv_kwargs`` both export it. It does NOT represent
+    a fully unstructured 3D grid (DISU: per-layer-varying footprints, vertical
+    refinement, arbitrary node connectivity); that would need a non-prismatic mesh
+    type and an explicit connectivity export, added alongside this one.
+
     Parameters
     ----------
     planar_mesh : HydroMesh
@@ -105,7 +113,14 @@ class SolverMesh:
     # -- Geometry helpers -----------------------------------------------------
 
     def cell_centroids(self) -> np.ndarray:
-        """Return cell centroids as ndarray (n_cells, 2)."""
+        """Return cell centroids as ndarray (n_cells, 2).
+
+        This is the vertex mean, a centroid approximation that is exact for
+        parallelogram cells (all current rectangular grids) but off by a small
+        amount on skewed or Voronoi polygons. Used for cell lookup, PRT release
+        points and LAK connection lengths; add an area-weighted variant if a
+        future irregular mesh needs sub-cell accuracy there.
+        """
         conn = self.planar_mesh.flat_connectivity
         verts = np.asarray(self.planar_mesh.vertices, dtype=float)
         centroids = np.zeros((self.n_cells, 2), dtype=float)
