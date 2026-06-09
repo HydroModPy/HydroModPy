@@ -10,11 +10,17 @@ network connection (or a warm SIM2 cache) is required.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-import hydromodpy as hmp
+# Run against this working tree, not whatever 'hydromodpy' a notebook CWD resolves.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+import hydromodpy as hmp  # noqa: E402
 
 LAKE = "reservoir_cheze"
 HERE = Path(__file__).parent

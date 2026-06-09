@@ -16,14 +16,26 @@ window on the first run, so expect a multi-minute (network + solve) wall time.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import hydromodpy as hmp
-from hydromodpy.core.metrics.goodness_of_fit import bias, correlation, mae, nse, rmse
+# Run against this working tree, not whatever 'hydromodpy' a notebook CWD resolves.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+import hydromodpy as hmp  # noqa: E402
+from hydromodpy.core.metrics.goodness_of_fit import (  # noqa: E402
+    bias,
+    correlation,
+    mae,
+    nse,
+    rmse,
+)
 
 LAKE = "reservoir_cheze"
 HERE = Path(__file__).parent
