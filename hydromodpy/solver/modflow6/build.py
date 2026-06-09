@@ -19,7 +19,10 @@ from hydromodpy.solver.modflow6.builders import (
     build_drain_stress_period_data,
     build_evt_stress_period_data,
     build_lak_package_args,
+    build_mvr_period_records,
     build_ocean_boundary_chd_spd,
+    build_sfr_mover_records,
+    build_sfr_package_args,
     build_side_boundary_chd_spd,
     build_start_heads,
     build_stream_boundary_chd_spd,
@@ -28,14 +31,18 @@ from hydromodpy.solver.modflow6.builders import (
     empty_recharge_aux,
     finalize_pending_recharge_evt,
     mask_recharge_on_lake_cells,
+    mover_package_count,
     recharge_to_spd,
+    remove_drain_cells,
     resolve_deferred_heterogeneous_recharge,
     resolve_drainage_conductance_series,
     resolve_ims_complexity,
     resolve_lake_cells_for_active_lakes,
     resolve_lake_occupied_layers,
     resolve_rewet_npf_options,
+    resolve_sfr_networks,
     resolve_xt3d_npf_options,
+    sfr_drain_cells_to_drop,
     xt3d_activation_mode,
     xt3d_is_enabled,
     xt3d_requested_value,
@@ -100,6 +107,13 @@ def _write_lake_obs_meta(model, lake_obs_meta: Mapping[str, object]) -> None:
     meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lak.meta.json")
     with open(meta_path, "w", encoding="utf-8") as fh:
         json.dump(dict(lake_obs_meta), fh, sort_keys=True)
+
+
+def _write_sfr_obs_meta(model, sfr_obs_meta: Mapping[str, object]) -> None:
+    """Persist the SFR obs sidecar (``{stem}.sfr.meta.json``) for the extractor."""
+    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.sfr.meta.json")
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump(dict(sfr_obs_meta), fh, sort_keys=True)
 
 
 def xt3d_requested(model) -> bool | None:
@@ -449,6 +463,13 @@ def run_pre_processing(  # noqa: PLR0915
 
     idomain = solver_mesh.idomain()
 
+    # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
+    # active aquifer cell. Resolution happens before DRN so the drain rows
+    # coincident with a reach can be dropped (baseflow discharges to the stream,
+    # not out of the model); the package itself is built after LAK.
+    sfr_networks = resolve_sfr_networks(model, solver_mesh=solver_mesh)
+    sfr_mover_records = build_sfr_mover_records(sfr_networks)
+
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
     # covers both. Native DIS is reserved for the NWT backend, which only supports
     # structured grids.
@@ -543,6 +564,8 @@ def run_pre_processing(  # noqa: PLR0915
             ocean_support_mask=np.asarray(ocean_support_mask, dtype=bool),
             stream_support_mask=np.asarray(stream_support_mask, dtype=bool),
         )
+        if sfr_networks:
+            drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
         model.drn = flopy.mf6.ModflowGwfdrn(model.gwf, stress_period_data=drn_spd, save_flows=True)
 
     side_chd_spd = build_side_boundary_chd_spd(model)
@@ -568,8 +591,10 @@ def run_pre_processing(  # noqa: PLR0915
 
     # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
     # Lake cells were already made inactive above, so the CONNECTIONDATA targets
-    # active aquifer neighbours only. A controlled LAK -> LAK transfer rides MVR,
-    # which is GWF-scoped and MUST be built last (it references LAK by name).
+    # active aquifer neighbours only. Controlled transfers (LAK -> LAK, SFR -> LAK,
+    # LAK -> SFR) ride MVR, which is GWF-scoped and MUST be built last.
+    all_mover_rows: list[list[object]] = []
+    n_lakes_built = 0
     if lake_cell_ids_by_lake:
         lak_args = build_lak_package_args(
             model,
@@ -579,10 +604,14 @@ def run_pre_processing(  # noqa: PLR0915
         if lak_args is not None:
             laktab_specs = lak_args.pop("laktab_specs")
             mover_records = lak_args.pop("mover_records", None)
-            mover_maxpackages = lak_args.pop("mover_maxpackages", 0)
+            lak_args.pop("mover_maxpackages", 0)
             obs_continuous = lak_args.pop("obs_continuous", None)
             lake_obs_meta = lak_args.pop("lake_obs_meta", None)
             ts_specs = lak_args.pop("ts_specs", None)
+            if sfr_mover_records and any(record.receiver == "LAK" for record in sfr_mover_records):
+                # An MVR receiver must advertise MOVER too (SFR feeds this lake).
+                lak_args["mover"] = True
+            n_lakes_built = int(lak_args["nlakes"])
             lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
             # Non-constant forcings routed to an external TS6 file: attach right
             # after construction so the series names are registered before write.
@@ -609,17 +638,65 @@ def run_pre_processing(  # noqa: PLR0915
             if lake_obs_meta is not None:
                 _write_lake_obs_meta(model, lake_obs_meta)
             model.lak = lak
-            # MVR last: it routes the LAK outlets to receiving lakes by package
-            # name, so the LAK package it points at must already exist.
             if mover_records:
-                model.mvr = flopy.mf6.ModflowGwfmvr(
-                    model.gwf,
-                    pname="MVR",
-                    maxmvr=len(mover_records),
-                    maxpackages=int(mover_maxpackages),
-                    packages=[("LAK",)],
-                    perioddata={0: mover_records},
+                all_mover_rows.extend(mover_records)
+
+    # SFR (streamflow routing) package. Built after LAK so the SFR -> LAK mover
+    # seam can reference an existing lake, and before OC / MVR.
+    if sfr_networks:
+        if sfr_mover_records and getattr(model, "lak", None) is None:
+            raise ValueError(
+                "flow.sinks_sources.sfr declares outflow_to_lake but no lake is "
+                "active; enable the lake boundary or drop the coupling."
+            )
+        for record in sfr_mover_records:
+            if record.receiver == "LAK" and record.receiver_id >= n_lakes_built:
+                raise ValueError(
+                    f"flow.sinks_sources.sfr outflow_to_lake={record.receiver_id + 1} "
+                    f"has no matching lake ({n_lakes_built} lakes declared)."
                 )
+        sfr_args = build_sfr_package_args(model, networks=sfr_networks)
+        if sfr_args is not None:
+            sfr_args.pop("mover_records", None)
+            sfr_obs_continuous = sfr_args.pop("obs_continuous", None)
+            sfr_obs_meta = sfr_args.pop("sfr_obs_meta", None)
+            sfr_ts_specs = sfr_args.pop("ts_specs", None)
+            lake_rows_to_sfr = [row for row in all_mover_rows if str(row[2]) == "SFR"]
+            if lake_rows_to_sfr:
+                # A LAK -> SFR spillway makes SFR an MVR receiver.
+                sfr_args["mover"] = True
+            sfr = flopy.mf6.ModflowGwfsfr(model.gwf, pname="SFR", **sfr_args)
+            if sfr_ts_specs:
+                attach_time_series(sfr, sfr_ts_specs, filename=f"{model.model_output_name}.sfr.ts")
+            if sfr_obs_continuous:
+                sfr.obs.initialize(
+                    filename=f"{model.model_output_name}.sfr.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=sfr_obs_continuous,
+                )
+            if sfr_obs_meta is not None:
+                _write_sfr_obs_meta(model, sfr_obs_meta)
+            model.sfr = sfr
+            if sfr_mover_records:
+                all_mover_rows.extend(build_mvr_period_records(sfr_mover_records))
+
+    # MVR last: it routes provider features to receiver features by package name,
+    # so every package it references must already exist. The packages list is
+    # derived from the record rows so LAK-only, SFR-only and mixed models all
+    # produce a consistent block.
+    if all_mover_rows:
+        mvr_packages = sorted(
+            {(str(row[0]),) for row in all_mover_rows} | {(str(row[2]),) for row in all_mover_rows}
+        )
+        model.mvr = flopy.mf6.ModflowGwfmvr(
+            model.gwf,
+            pname="MVR",
+            maxmvr=len(all_mover_rows),
+            maxpackages=mover_package_count(all_mover_rows),
+            packages=mvr_packages,
+            perioddata={0: all_mover_rows},
+        )
 
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
