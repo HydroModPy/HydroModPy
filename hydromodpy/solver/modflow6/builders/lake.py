@@ -794,6 +794,9 @@ def _outlet_geometry(
 
 # The single LAK package name used across the GWF model (see build.py: pname="LAK").
 _LAK_PACKAGE_NAME = "LAK"
+# The single SFR package name (LAK -> SFR spillway receiver); a string, never an
+# import edge to builders/sfr.py.
+_SFR_PACKAGE_NAME = "SFR"
 
 
 def build_lake_mover_records(
@@ -805,8 +808,10 @@ def build_lake_mover_records(
 
     Each outlet carrying a ``mover`` spec becomes one :class:`MoverRecord` with
     provider ``LAK`` outlet number (0-based, assigned in the same order as
-    :func:`build_lake_outlets`) and receiver ``LAK`` lake number (0-based, the
-    ``mover.lake`` 1-based config index translated to packagedata position).
+    :func:`build_lake_outlets`). The receiver is either a lake (``mover.lake``,
+    1-based, translated to its packagedata position) or an SFR reach
+    (``mover.reach``, 1-based, the spillway-release direction); the config
+    enforces exactly one of the two.
 
     An outlet routed directly via ``lakeout`` (no ``mover``) is skipped while
     still advancing the shared outlet number. The ``mvrtype`` is read and
@@ -824,7 +829,18 @@ def build_lake_mover_records(
             if mover is None:
                 outletno += 1
                 continue
-            receiver_index = _resolve_receiver_lake(lake_id, mover, lake_count)
+            reach = _lake_attr(mover, "reach")
+            if reach is not None:
+                receiver = _SFR_PACKAGE_NAME
+                receiver_index = int(_scalar(reach)) - 1
+                if receiver_index < 0:
+                    raise ValueError(
+                        f"flow.sinks_sources.lakes.{lake_id} outlet mover reach must be "
+                        f">= 1 (1-based downstream reach); got {reach}."
+                    )
+            else:
+                receiver = _LAK_PACKAGE_NAME
+                receiver_index = _resolve_receiver_lake(lake_id, mover, lake_count)
             raw_mvrtype = _lake_attr(mover, "mvrtype")
             mvrtype = str(raw_mvrtype).strip().upper() if raw_mvrtype is not None else "FACTOR"
             raw_value = _lake_attr(mover, "value")
@@ -833,7 +849,7 @@ def build_lake_mover_records(
                 MoverRecord(
                     provider=_LAK_PACKAGE_NAME,
                     provider_id=int(outletno),
-                    receiver=_LAK_PACKAGE_NAME,
+                    receiver=receiver,
                     receiver_id=int(receiver_index),
                     mvrtype=mvrtype,
                     value=value,
