@@ -1,0 +1,316 @@
+"""Delineate a MODFLOW 6 SFR reach network from DEM-derived flow products.
+
+Turns the raster products built by :mod:`river_network` (the stream-link-id
+raster, the D8 pointer, the flow accumulation and the corrected DEM) into an
+ordered, explicitly-connected reach table -- the :class:`SfrReachTrace`.
+
+The output is grid-independent geometry: each reach is a LineString (in the
+projected model CRS) plus its hydraulic attributes (length, streambed top,
+gradient, Strahler order, drainage area) and its signed connectivity to the other
+reaches. The mapping of a reach onto the DISV solver mesh (the cellids) is done
+later in the solver builder, because the SFR grid (MODFLOW DISV) generally
+differs from the DEM raster grid; this module never imports flopy or the mesh.
+
+Algorithm (no recursion, no segment renumbering -- a clean reach-only DAG):
+
+1. Each stream link (one id in the link raster) is one reach candidate.
+2. The downstream end of a link is its cell whose D8 neighbour leaves the link;
+   following the pointer there gives the unique downstream reach (or the lake, or
+   the model outlet).
+3. A Kahn topological sort numbers the reaches downstream-increasing (``ifno``),
+   so a reach always has a smaller ``ifno`` than the reach it feeds.
+4. Per-reach geometry is sampled along the link's flow path; reach tops are
+   conditioned to descend monotonically downstream so the solver never stalls on
+   a flat or a reversed bed.
+
+The network is lake-independent: pass ``lake_mask=None`` and every terminal reach
+simply leaves the model.
+"""
+
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import dataclass
+
+import numpy as np
+from shapely.geometry import LineString
+
+# WhiteboxTools D8 pointer encoding (esri_pntr=False): each cell stores the power
+# of two pointing at its single downslope neighbour. Map a code to (drow, dcol).
+_WBT_D8_OFFSETS: dict[int, tuple[int, int]] = {
+    1: (0, 1),  # E
+    2: (1, 1),  # SE
+    4: (1, 0),  # S
+    8: (1, -1),  # SW
+    16: (0, -1),  # W
+    32: (-1, -1),  # NW
+    64: (-1, 0),  # N
+    128: (-1, 1),  # NE
+}
+
+
+@dataclass(frozen=True, slots=True)
+class SfrReachRow:
+    """One delineated reach, downstream-increasing ``ifno`` (0-based).
+
+    ``line`` is the reach polyline in the projected model CRS (head -> outlet).
+    ``upstream`` / ``downstream`` hold the 0-based ``ifno`` of the connected
+    reaches. ``is_terminal_to_lake`` flags the reach whose flow enters the lake;
+    its outflow is handed to LAK by the solver builder through an MVR record.
+    """
+
+    ifno: int
+    line: LineString
+    rlen: float
+    rtp: float
+    rgrd: float
+    strahler: int
+    area_km2: float
+    upstream: tuple[int, ...]
+    downstream: tuple[int, ...]
+    is_terminal_to_lake: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SfrReachTrace:
+    """Ordered, explicitly-connected reach network for one SFR package."""
+
+    reaches: tuple[SfrReachRow, ...]
+    crs_wkt: str
+
+    @property
+    def reach_count(self) -> int:
+        return len(self.reaches)
+
+
+def _downstream_cell(row: int, col: int, d8: np.ndarray) -> tuple[int, int] | None:
+    """Return the D8 neighbour of (row, col), or None at a pit / out of bounds."""
+    code = int(d8[row, col])
+    offset = _WBT_D8_OFFSETS.get(code)
+    if offset is None:
+        return None
+    nrow, ncol = row + offset[0], col + offset[1]
+    if 0 <= nrow < d8.shape[0] and 0 <= ncol < d8.shape[1]:
+        return nrow, ncol
+    return None
+
+
+def _cell_xy(row: int, col: int, transform) -> tuple[float, float]:
+    """Return the projected (x, y) centroid of a raster cell via its affine."""
+    x, y = transform * (col + 0.5, row + 0.5)
+    return float(x), float(y)
+
+
+def _order_link_cells(
+    cells: list[tuple[int, int]], d8: np.ndarray, link_of: dict[tuple[int, int], int], link: int
+) -> list[tuple[int, int]]:
+    """Order one link's cells from headwater to outlet by following the D8 path."""
+    cell_set = set(cells)
+    # The head cell has no in-link upstream (no other cell points into it).
+    has_upstream = set()
+    for cell in cells:
+        nxt = _downstream_cell(cell[0], cell[1], d8)
+        if nxt is not None and nxt in cell_set:
+            has_upstream.add(nxt)
+    heads = [cell for cell in cells if cell not in has_upstream]
+    start = heads[0] if heads else cells[0]
+    ordered: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    cur: tuple[int, int] | None = start
+    while cur is not None and cur in cell_set and cur not in seen:
+        ordered.append(cur)
+        seen.add(cur)
+        cur = _downstream_cell(cur[0], cur[1], d8)
+    # Any cell not reached by the walk (disconnected fragment) is appended stably.
+    for cell in cells:
+        if cell not in seen:
+            ordered.append(cell)
+    return ordered
+
+
+def _link_outlet_cell(
+    ordered_cells: list[tuple[int, int]], d8: np.ndarray, cell_set: set[tuple[int, int]]
+) -> tuple[int, int]:
+    """Return the link's outlet cell (its D8 neighbour leaves the link)."""
+    for cell in reversed(ordered_cells):
+        nxt = _downstream_cell(cell[0], cell[1], d8)
+        if nxt is None or nxt not in cell_set:
+            return cell
+    return ordered_cells[-1]
+
+
+def delineate_sfr_reaches(
+    *,
+    link_id: np.ndarray,
+    d8: np.ndarray,
+    acc: np.ndarray,
+    dem: np.ndarray,
+    transform,
+    crs_wkt: str,
+    dem_res_m: float,
+    strahler: np.ndarray | None = None,
+    lake_mask: np.ndarray | None = None,
+    min_slope: float = 1e-4,
+    min_reach_length_m: float = 0.0,
+) -> SfrReachTrace:
+    """Delineate an ordered SFR reach network from aligned flow-product rasters.
+
+    All arrays share one (rows, cols) grid and the ``transform`` affine. ``link_id``
+    marks stream cells with a positive link id (0 / negative = non-stream).
+    ``acc`` is the D8 flow accumulation in cell counts. ``lake_mask`` (optional)
+    is True on lake cells; the reach flowing into it is the terminal-to-lake reach.
+    """
+    if link_id.shape != d8.shape or link_id.shape != dem.shape:
+        raise ValueError("link_id, d8 and dem must share one grid shape.")
+    cell_area_km2 = float(dem_res_m) * float(dem_res_m) / 1_000_000.0
+    lake = None if lake_mask is None else np.asarray(lake_mask, dtype=bool)
+
+    # 1. Group stream cells by link id.
+    cells_by_link: dict[int, list[tuple[int, int]]] = {}
+    rows, cols = np.where(link_id > 0)
+    for row, col in zip(rows.tolist(), cols.tolist(), strict=True):
+        cells_by_link.setdefault(int(link_id[row, col]), []).append((row, col))
+    if not cells_by_link:
+        raise ValueError("No stream cells (link_id > 0); cannot delineate an SFR network.")
+
+    link_of = {cell: link for link, cells in cells_by_link.items() for cell in cells}
+
+    # 2. Per-link geometry + the downstream link (or lake / model outlet).
+    info: dict[int, dict] = {}
+    downstream_link: dict[int, int | None] = {}
+    terminal_to_lake: dict[int, bool] = {}
+    for link, cells in cells_by_link.items():
+        ordered = _order_link_cells(cells, d8, link_of, link)
+        cell_set = set(cells)
+        outlet = _link_outlet_cell(ordered, d8, cell_set)
+        head = ordered[0]
+        coords = [_cell_xy(r, c, transform) for r, c in ordered]
+        if len(coords) == 1:
+            nxt = _downstream_cell(outlet[0], outlet[1], d8)
+            tail = (
+                _cell_xy(*nxt, transform)
+                if nxt is not None
+                else (coords[0][0] + dem_res_m, coords[0][1])
+            )
+            coords = [coords[0], tail]
+        line = LineString(coords)
+        rlen = max(float(line.length), float(dem_res_m))
+        top_head = float(dem[head])
+        top_outlet = float(dem[outlet])
+        rgrd = max((top_head - top_outlet) / rlen, float(min_slope))
+        order_val = 1 if strahler is None else int(max(1, int(strahler[outlet])))
+        area_km2 = float(acc[outlet]) * cell_area_km2
+
+        nxt = _downstream_cell(outlet[0], outlet[1], d8)
+        is_lake = bool(lake is not None and nxt is not None and lake[nxt])
+        if is_lake or (lake is not None and lake[outlet]):
+            downstream_link[link] = None
+            terminal_to_lake[link] = True
+        elif nxt is not None and int(link_id[nxt]) > 0 and int(link_id[nxt]) != link:
+            downstream_link[link] = int(link_id[nxt])
+            terminal_to_lake[link] = False
+        else:
+            downstream_link[link] = None
+            terminal_to_lake[link] = False
+
+        info[link] = {
+            "line": line,
+            "rlen": rlen,
+            "rtp": top_outlet,
+            "rgrd": rgrd,
+            "strahler": order_val,
+            "area_km2": area_km2,
+        }
+
+    # 2b. Prune short reaches (re-link their upstream to their downstream).
+    if float(min_reach_length_m) > 0.0:
+        _prune_short_links(info, downstream_link, terminal_to_lake, float(min_reach_length_m))
+
+    # 3. Upstream adjacency + Kahn topological order, downstream-increasing.
+    upstream_links: dict[int, list[int]] = {link: [] for link in info}
+    for link, down in downstream_link.items():
+        if down is not None and down in upstream_links:
+            upstream_links[down].append(link)
+    order = _topological_downstream_order(info, downstream_link, upstream_links)
+
+    ifno_of = {link: ifno for ifno, link in enumerate(order)}
+
+    # 4. Monotone-downhill conditioning of reach tops along the order.
+    rtp = {link: info[link]["rtp"] for link in order}
+    drop = float(dem_res_m) * float(min_slope)
+    for link in order:
+        down = downstream_link.get(link)
+        if down is not None and down in rtp and rtp[down] >= rtp[link]:
+            rtp[down] = rtp[link] - drop
+
+    reaches: list[SfrReachRow] = []
+    for link in order:
+        data = info[link]
+        down = downstream_link.get(link)
+        downstream_ids = () if down is None else (ifno_of[down],)
+        upstream_ids = tuple(sorted(ifno_of[u] for u in upstream_links[link]))
+        reaches.append(
+            SfrReachRow(
+                ifno=ifno_of[link],
+                line=data["line"],
+                rlen=data["rlen"],
+                rtp=rtp[link],
+                rgrd=data["rgrd"],
+                strahler=data["strahler"],
+                area_km2=data["area_km2"],
+                upstream=upstream_ids,
+                downstream=downstream_ids,
+                is_terminal_to_lake=bool(terminal_to_lake.get(link, False)),
+            )
+        )
+    return SfrReachTrace(reaches=tuple(reaches), crs_wkt=str(crs_wkt))
+
+
+def _prune_short_links(
+    info: dict[int, dict],
+    downstream_link: dict[int, int | None],
+    terminal_to_lake: dict[int, bool],
+    min_length_m: float,
+) -> None:
+    """Drop reaches shorter than ``min_length_m``, re-linking around them."""
+    short = [link for link, data in info.items() if data["rlen"] < min_length_m]
+    for link in short:
+        down = downstream_link.get(link)
+        for upstream, target in downstream_link.items():
+            if target == link:
+                downstream_link[upstream] = down
+                if down is None:
+                    terminal_to_lake[upstream] = terminal_to_lake.get(link, False)
+        info.pop(link, None)
+        downstream_link.pop(link, None)
+        terminal_to_lake.pop(link, None)
+
+
+def _topological_downstream_order(
+    info: dict[int, dict],
+    downstream_link: dict[int, int | None],
+    upstream_links: dict[int, list[int]],
+) -> list[int]:
+    """Kahn topological sort so upstream reaches precede their downstream reach."""
+    indegree = {link: len(upstream_links[link]) for link in info}
+    queue = deque(sorted(link for link, deg in indegree.items() if deg == 0))
+    order: list[int] = []
+    while queue:
+        link = queue.popleft()
+        order.append(link)
+        down = downstream_link.get(link)
+        if down is not None and down in indegree:
+            indegree[down] -= 1
+            if indegree[down] == 0:
+                queue.append(down)
+    if len(order) != len(info):
+        # A cycle should not occur on a D8 tree; fall back to a stable order.
+        order = list(info)
+    return order
+
+
+__all__ = [
+    "SfrReachRow",
+    "SfrReachTrace",
+    "delineate_sfr_reaches",
+]
