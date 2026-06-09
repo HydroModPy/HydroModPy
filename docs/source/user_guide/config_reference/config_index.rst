@@ -3739,7 +3739,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-wells>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L28>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L29>`__
    * - ``flow.sinks_sources.wells.<id>.location``
      - ``FlowWellLocationCell | FlowWellLocationAbsoluteXY | FlowWellLocationRelativeXY``
      - user
@@ -3949,145 +3949,145 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L30>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L31>`__
    * - ``flow.sinks_sources.lakes.<id>.bedleak``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-bedleak>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L213>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L229>`__
    * - ``flow.sinks_sources.lakes.<id>.bedleak_unit``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-bedleak-unit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L222>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L238>`__
    * - ``flow.sinks_sources.lakes.<id>.stageinit``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-stageinit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L230>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L246>`__
    * - ``flow.sinks_sources.lakes.<id>.occupied_layers``
      - ``int``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-occupied-layers>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L231>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L247>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets``
      - ``list[FlowLakeOutletWeir | FlowLakeOutletManning | FlowLakeOutletSpecified]``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L241>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L257>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.WEIR.couttype``
      - ``Literal['WEIR']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-weir-couttype>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L79>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L95>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.WEIR.invert``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-weir-invert>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L99>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.WEIR.width``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-weir-width>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L84>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L100>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.WEIR.lakeout``
      - ``int``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-weir-lakeout>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L87>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L103>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.WEIR.mover``
      - ``FlowLakeOutletMover | None``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-weir-mover>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L95>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L111>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.MANNING.couttype``
      - ``Literal['MANNING']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-manning-couttype>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L107>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L123>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.MANNING.invert``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-manning-invert>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L111>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L127>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.MANNING.width``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-manning-width>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L114>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L130>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.MANNING.rough``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-manning-rough>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L131>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.MANNING.slope``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-manning-slope>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L118>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L134>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.MANNING.lakeout``
      - ``int``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-manning-lakeout>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L121>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L137>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.MANNING.mover``
      - ``FlowLakeOutletMover | None``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-manning-mover>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L129>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L145>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.couttype``
      - ``Literal['SPECIFIED']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-specified-couttype>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L146>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L162>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.rate``
      - ``Optional[Any]``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-specified-rate>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L150>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L166>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.forcing``
      - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-specified-forcing>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L154>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L170>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.lakeout``
      - ``int``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-specified-lakeout>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L158>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L174>`__
    * - ``flow.sinks_sources.lakes.<id>.outlets.SPECIFIED.mover``
      - ``FlowLakeOutletMover | None``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-outlets-specified-mover>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L166>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L182>`__
    * - ``flow.sinks_sources.lakes.<id>.rainfall``
      - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-rainfall>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L245>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L261>`__
    * - ``flow.sinks_sources.lakes.<id>.rainfall.constant.kind``
      - ``Literal['constant']``
      - user
@@ -4207,7 +4207,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-evaporation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L249>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L265>`__
    * - ``flow.sinks_sources.lakes.<id>.evaporation.constant.kind``
      - ``Literal['constant']``
      - user
@@ -4327,7 +4327,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-runoff>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L253>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L269>`__
    * - ``flow.sinks_sources.lakes.<id>.runoff.constant.kind``
      - ``Literal['constant']``
      - user
@@ -4447,7 +4447,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-inflow>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L257>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L273>`__
    * - ``flow.sinks_sources.lakes.<id>.inflow.constant.kind``
      - ``Literal['constant']``
      - user
@@ -4567,7 +4567,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-withdrawal>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L261>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L277>`__
    * - ``flow.sinks_sources.lakes.<id>.withdrawal.constant.kind``
      - ``Literal['constant']``
      - user
@@ -4682,12 +4682,708 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `flow <flow.html#flow-sinks-sources-lakes-id-withdrawal-seasonal-units>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+   * - ``flow.sinks_sources.sfr``
+     - ``dict[str, FlowReachNetworkConfig]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L33>`__
+   * - ``flow.sinks_sources.sfr.<id>.stream_threshold_km2``
+     - ``float | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-stream-threshold-km2>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L181>`__
+   * - ``flow.sinks_sources.sfr.<id>.stream_threshold_cells``
+     - ``int | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-stream-threshold-cells>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L190>`__
+   * - ``flow.sinks_sources.sfr.<id>.min_reach_length``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-min-reach-length>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L195>`__
+   * - ``flow.sinks_sources.sfr.<id>.manning``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-manning>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L201>`__
+   * - ``flow.sinks_sources.sfr.<id>.streambed_k``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-streambed-k>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L206>`__
+   * - ``flow.sinks_sources.sfr.<id>.streambed_k_unit``
+     - ``str``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-streambed-k-unit>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L214>`__
+   * - ``flow.sinks_sources.sfr.<id>.streambed_thickness``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-streambed-thickness>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L221>`__
+   * - ``flow.sinks_sources.sfr.<id>.min_slope``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-min-slope>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L225>`__
+   * - ``flow.sinks_sources.sfr.<id>.width``
+     - ``FlowReachWidthConstant | FlowReachWidthByOrder | FlowReachWidthPowerLaw``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L231>`__
+   * - ``flow.sinks_sources.sfr.<id>.width.constant.kind``
+     - ``Literal['constant']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width-constant-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L49>`__
+   * - ``flow.sinks_sources.sfr.<id>.width.constant.value``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width-constant-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L53>`__
+   * - ``flow.sinks_sources.sfr.<id>.width.by_order.kind``
+     - ``Literal['by_order']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width-by-order-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L61>`__
+   * - ``flow.sinks_sources.sfr.<id>.width.by_order.widths``
+     - ``dict[int, Any]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width-by-order-widths>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L65>`__
+   * - ``flow.sinks_sources.sfr.<id>.width.power_law.kind``
+     - ``Literal['power_law']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width-power-law-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L84>`__
+   * - ``flow.sinks_sources.sfr.<id>.width.power_law.coef``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width-power-law-coef>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L88>`__
+   * - ``flow.sinks_sources.sfr.<id>.width.power_law.exp``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-width-power-law-exp>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L91>`__
+   * - ``flow.sinks_sources.sfr.<id>.connected_to_aquifer``
+     - ``bool``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-connected-to-aquifer>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L236>`__
+   * - ``flow.sinks_sources.sfr.<id>.storage``
+     - ``bool``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-storage>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L240>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow``
+     - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L246>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.constant.kind``
+     - ``Literal['constant']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-constant-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.constant.value``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-constant-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.constant.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-constant-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.kind``
+     - ``Literal['csv']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.path_file``
+     - ``Path``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-path-file>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.sep``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-sep>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.date_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-date-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.date_format``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-date-format>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.value_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-value-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.fill_method``
+     - ``Literal['ffill', 'bfill']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-fill-method>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.aggregate``
+     - ``Literal['mean', 'last']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-aggregate>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.csv.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-csv-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.piecewise.kind``
+     - ``Literal['piecewise']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-piecewise-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.piecewise.segments``
+     - ``list[FlowWellForcingSegment]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-piecewise-segments>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.piecewise.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-piecewise-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.seasonal.kind``
+     - ``Literal['seasonal']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-seasonal-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.seasonal.by_month``
+     - ``dict[int, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-seasonal-by-month>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.seasonal.by_season``
+     - ``dict[str, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-seasonal-by-season>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+   * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.seasonal.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow-seasonal-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff``
+     - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L250>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.constant.kind``
+     - ``Literal['constant']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-constant-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.constant.value``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-constant-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.constant.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-constant-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.kind``
+     - ``Literal['csv']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.path_file``
+     - ``Path``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-path-file>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.sep``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-sep>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.date_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-date-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.date_format``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-date-format>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.value_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-value-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.fill_method``
+     - ``Literal['ffill', 'bfill']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-fill-method>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.aggregate``
+     - ``Literal['mean', 'last']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-aggregate>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.csv.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-csv-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.piecewise.kind``
+     - ``Literal['piecewise']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-piecewise-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.piecewise.segments``
+     - ``list[FlowWellForcingSegment]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-piecewise-segments>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.piecewise.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-piecewise-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.seasonal.kind``
+     - ``Literal['seasonal']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-seasonal-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.seasonal.by_month``
+     - ``dict[int, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-seasonal-by-month>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.seasonal.by_season``
+     - ``dict[str, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-seasonal-by-season>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+   * - ``flow.sinks_sources.sfr.<id>.runoff.seasonal.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-runoff-seasonal-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall``
+     - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L254>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.constant.kind``
+     - ``Literal['constant']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-constant-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.constant.value``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-constant-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.constant.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-constant-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.kind``
+     - ``Literal['csv']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.path_file``
+     - ``Path``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-path-file>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.sep``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-sep>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.date_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-date-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.date_format``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-date-format>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.value_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-value-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.fill_method``
+     - ``Literal['ffill', 'bfill']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-fill-method>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.aggregate``
+     - ``Literal['mean', 'last']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-aggregate>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.csv.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-csv-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.piecewise.kind``
+     - ``Literal['piecewise']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-piecewise-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.piecewise.segments``
+     - ``list[FlowWellForcingSegment]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-piecewise-segments>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.piecewise.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-piecewise-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.seasonal.kind``
+     - ``Literal['seasonal']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-seasonal-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.seasonal.by_month``
+     - ``dict[int, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-seasonal-by-month>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.seasonal.by_season``
+     - ``dict[str, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-seasonal-by-season>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+   * - ``flow.sinks_sources.sfr.<id>.rainfall.seasonal.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall-seasonal-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation``
+     - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L258>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.constant.kind``
+     - ``Literal['constant']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-constant-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L34>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.constant.value``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-constant-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L38>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.constant.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-constant-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L42>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.kind``
+     - ``Literal['csv']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L51>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.path_file``
+     - ``Path``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-path-file>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L55>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.sep``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-sep>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L58>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.date_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-date-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L59>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.date_format``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-date-format>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L62>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.value_column``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-value-column>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L66>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.fill_method``
+     - ``Literal['ffill', 'bfill']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-fill-method>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L69>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.aggregate``
+     - ``Literal['mean', 'last']``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-aggregate>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L73>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.csv.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-csv-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L77>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.piecewise.kind``
+     - ``Literal['piecewise']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-piecewise-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L126>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.piecewise.segments``
+     - ``list[FlowWellForcingSegment]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-piecewise-segments>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L130>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.piecewise.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-piecewise-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L135>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.seasonal.kind``
+     - ``Literal['seasonal']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-seasonal-kind>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L166>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.seasonal.by_month``
+     - ``dict[int, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-seasonal-by-month>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L170>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.seasonal.by_season``
+     - ``dict[str, float] | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-seasonal-by-season>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L174>`__
+   * - ``flow.sinks_sources.sfr.<id>.evaporation.seasonal.units``
+     - ``str | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation-seasonal-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/wells.py#L178>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches``
+     - ``list[FlowReachConfig] | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L264>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.cell``
+     - ``Optional[FlowWellLocationCell | FlowWellLocationAbsoluteXY | FlowWellLocationRelativeXY]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-cell>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L115>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.length``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-length>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L122>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.width``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-width>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L123>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.slope``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-slope>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L124>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.top``
+     - ``Any``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-top>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L127>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.upstream``
+     - ``list[int]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-upstream>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L128>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.downstream``
+     - ``list[int]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-downstream>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L132>`__
+   * - ``flow.sinks_sources.sfr.<id>.reaches.ustrf``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-reaches-ustrf>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L136>`__
+   * - ``flow.sinks_sources.sfr.<id>.diversions``
+     - ``list[FlowReachDiversionConfig]``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-diversions>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L268>`__
+   * - ``flow.sinks_sources.sfr.<id>.diversions.reach``
+     - ``int``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-diversions-reach>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L146>`__
+   * - ``flow.sinks_sources.sfr.<id>.diversions.to_reach``
+     - ``int``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-diversions-to-reach>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L149>`__
+   * - ``flow.sinks_sources.sfr.<id>.diversions.cprior``
+     - ``Literal['FRACTION', 'EXCESS', 'THRESHOLD', 'UPTO']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-diversions-cprior>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L154>`__
+   * - ``flow.sinks_sources.sfr.<id>.diversions.divflow``
+     - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
+     - dev
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-diversions-divflow>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L158>`__
+   * - ``flow.sinks_sources.sfr.<id>.outflow_to_lake``
+     - ``int | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-outflow-to-lake>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L274>`__
+   * - ``flow.sinks_sources.sfr.<id>.outflow_mvrtype``
+     - ``Literal['FACTOR', 'UPTO', 'EXCESS', 'THRESHOLD']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-outflow-mvrtype>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L282>`__
+   * - ``flow.sinks_sources.sfr.<id>.outflow_value``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-sfr-id-outflow-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L288>`__
    * - ``flow.sinks_sources.recharge``
      - ``FlowRechargeConfig | None``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L32>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L35>`__
    * - ``flow.sinks_sources.recharge.values``
      - ``Any``
      - user
@@ -4735,7 +5431,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-etp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L37>`__
    * - ``flow.sinks_sources.etp.values``
      - ``Any``
      - user
