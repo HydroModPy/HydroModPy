@@ -12,6 +12,7 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.physics.flow.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
 
 
@@ -29,6 +30,8 @@ class FlowSinksSourcesConfig(HydroModelBase):
         Pumping/injection wells keyed by a user-defined string id.
     lakes : dict[str, FlowLakeConfig]
         Lake / reservoir boundaries keyed by a user-defined string id.
+    sfr : dict[str, FlowReachNetworkConfig]
+        Streamflow-routing networks keyed by a user-defined string id.
     recharge : FlowRechargeConfig | None
         Diffuse recharge configuration. ``None`` means no recharge.
     etp : FlowEtpConfig | None
@@ -43,6 +46,10 @@ class FlowSinksSourcesConfig(HydroModelBase):
     lakes: Annotated[dict[str, FlowLakeConfig], Profile.USER] = Field(
         default_factory=dict,
         description="Mapping of lake ids to typed lake / reservoir payloads.",
+    )
+    sfr: Annotated[dict[str, FlowReachNetworkConfig], Profile.USER] = Field(
+        default_factory=dict,
+        description="Mapping of stream-network ids to typed SFR payloads.",
     )
     recharge: Annotated[FlowRechargeConfig | None, Profile.USER] = Field(
         default=None,
@@ -83,4 +90,20 @@ class FlowSinksSourcesConfig(HydroModelBase):
             if lake_id == "":
                 raise ValueError("flow.sinks_sources.lakes cannot contain empty lake ids")
             out[lake_id] = raw_payload
+        return out
+
+    @field_validator("sfr", mode="before")
+    @classmethod
+    def _validate_sfr(cls, value):
+        """Normalize and pre-validate the sfr mapping."""
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.sinks_sources.sfr must be a mapping payload")
+        out: dict[str, object] = {}
+        for raw_key, raw_payload in value.items():
+            network_id = str(raw_key).strip()
+            if network_id == "":
+                raise ValueError("flow.sinks_sources.sfr cannot contain empty network ids")
+            out[network_id] = raw_payload
         return out

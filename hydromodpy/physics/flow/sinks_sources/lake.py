@@ -40,19 +40,26 @@ from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingConfig
 
 
 class FlowLakeOutletMover(HydroModelBase):
-    """A controlled LAK -> LAK transfer for one outlet, routed through MVR.
+    """A controlled LAK transfer for one outlet, routed through MVR.
 
     The outlet keeps ``lakeout = 0`` (external) and this spec sends its discharge
-    to ``lake`` (1-based downstream lake number) through a MODFLOW 6 MVR record.
-    ``mvrtype`` picks how much water moves: ``FACTOR`` (a fraction ``value`` of the
-    provider flow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above
-    ``value``) or ``THRESHOLD`` (all-or-nothing above ``value``).
+    to a receiver through a MODFLOW 6 MVR record. The receiver is either ``lake``
+    (1-based downstream lake number, LAK -> LAK) or ``reach`` (1-based downstream
+    SFR reach, LAK -> SFR spillway release); exactly one must be set. ``mvrtype``
+    picks how much water moves: ``FACTOR`` (a fraction ``value`` of the provider
+    flow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above ``value``) or
+    ``THRESHOLD`` (all-or-nothing above ``value``).
     """
 
-    lake: Annotated[int, Profile.USER] = Field(
-        ...,
+    lake: Annotated[int | None, Profile.USER] = Field(
+        default=None,
         ge=1,
-        description="Downstream receiving lake (1-based) for the MVR transfer.",
+        description="Downstream receiving lake (1-based) for a LAK -> LAK transfer.",
+    )
+    reach: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=1,
+        description="Downstream receiving SFR reach (1-based) for a LAK -> SFR transfer.",
     )
     mvrtype: Annotated[Literal["FACTOR", "UPTO", "EXCESS", "THRESHOLD"], Profile.USER] = Field(
         default="FACTOR",
@@ -66,6 +73,15 @@ class FlowLakeOutletMover(HydroModelBase):
             "UPTO / EXCESS / THRESHOLD."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_receiver(self) -> FlowLakeOutletMover:
+        """The mover targets exactly one receiver: a lake or an SFR reach."""
+        if (self.lake is None) == (self.reach is None):
+            raise ValueError(
+                "flow.sinks_sources.lakes outlet mover needs exactly one of lake or reach"
+            )
+        return self
 
 
 class FlowLakeOutletWeir(HydroModelBase):
