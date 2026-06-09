@@ -1,0 +1,195 @@
+# ======================================================================
+# HydroModPy - Cheze reservoir (EBR), MODFLOW 6 LAK, weekly transient.
+#
+# Port of the legacy EBR Cheze reservoir model to the v1 MF6 architecture.
+# v1 is LAK-only (native reservoir + abacus + spillway), SFR streamflow
+# routing is dropped: the spillway and the managed releases leave the model
+# through the LAK outlets instead of feeding a modelled river.
+#
+# Meteo comes from the SIM2 Meteo-France API (recharge), fetched at run time.
+# Lake geometry, abacus and the managed inflow/withdrawal series live under
+# the shared examples/data/ tree.
+# ======================================================================
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "cheze_reservoir_transient"
+description = "Cheze reservoir (EBR, Plelan-le-Grand), MODFLOW 6 LAK, weekly transient 2019, recharge from SIM2."
+
+[simulation.time]
+start_datetime = "2019-01-01"
+end_datetime = "2019-12-31"
+step_value = "7 day"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]   # LAK is a MODFLOW 6 advanced package; modflow6 is required.
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+# Shared regional DEM (Armorican massif), reused from the Canut example.
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+# Outlet just downstream of the dam ("pont romain"), legacy from_xyv.
+x_outlet = 331315.0
+y_outlet = 6781273.0
+snap_dist = "200 m"
+buff_area = "10%"
+
+# ---------------------------------------------------------------------- domain
+[domain]
+# No geology zonation: a single homogeneous aquifer (35 m constant thickness).
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "35.0 m"
+
+# ---------------------------------------------------------------------- data
+[data]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_inflow", "lake_withdrawal"]
+inference_mode = "warn"
+
+# All meteo comes from the SIM2 Meteo-France EDR API (fetched at run time, cached).
+# recharge feeds the aquifer; precipitation / etp / runoff feed the lake surface
+# forcings (rain, open-water evaporation, and the catchment runoff inflow) via the
+# lake meteo binder.
+[data.recharge]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.precipitation]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.etp]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.runoff]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+# Reservoir footprint polygon (EPSG:2154) -> LAK cell selection.
+[[data.lake_geometry.sources]]
+source = "custom"
+path = "../../data/lake_geometry/reservoir_cheze.gpkg"
+
+# Stage-volume-area abacus -> ModflowUtllaktab.
+[[data.lake_abacus.sources]]
+source = "custom"
+path = "../../data/lake_abacus/reservoir_cheze.csv"
+lake_id = "reservoir_cheze"
+
+# Managed transfers INTO the lake (Meu + Canut), m3/day.
+[data.lake_inflow]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.lake_inflow.sources]]
+source = "custom"
+path = "../../data/lake_inflow"
+
+# Managed abstraction + restitution leaving the lake, m3/day.
+[data.lake_withdrawal]
+date_start = "2019-01-01"
+date_end = "2019-12-31"
+[[data.lake_withdrawal.sources]]
+source = "custom"
+path = "../../data/lake_withdrawal"
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["lake", "drainage"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "1e-4 m/s"     # legacy hk = 1e-4 m/s (8.64 m/day)
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = "0.001 -"      # legacy sy = 0.1 %
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+value = "1e-5 m-1"
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+kind = "cauchy"
+value = "0.0 m2/s"
+data_value = false
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+# ---- The Cheze reservoir ----------------------------------------------------
+# The Cheze reservoir (EBR), Plelan-le-Grand.
+[flow.sinks_sources.lakes.reservoir_cheze]
+# bedleak is a leakance [1/T] = K_bed / bed_thickness. Legacy used K_bed = 1e-6
+# m/s; assuming a 1 m lakebed gives 1e-6 1/s (ADJUST with the real bed thickness).
+bedleak = 1e-6
+bedleak_unit = "1/s"
+# Observed Cheze level at the window start (2019-01-01), m NGF.
+stageinit = "81.82 m"
+occupied_layers = 1
+
+# Spillway: a WEIR at the dam crest caps the stage; overflow leaves the model
+# (lakeout = 0). Replaces the legacy stagemax = 87.3 m.
+[[flow.sinks_sources.lakes.reservoir_cheze.outlets]]
+couttype = "WEIR"
+invert = "87.3 m"
+width = "20 m"      # effective crest length (ADJUST to the real spillway)
+lakeout = 0
+
+# Note: the lake forcings are bound automatically and need no inline entry here:
+#   - inflow (Meu+Canut transfers) and withdrawal (abstraction+restitution) come
+#     from the lake_inflow / lake_withdrawal data families;
+#   - rainfall, open-water evaporation and the catchment runoff inflow come from
+#     the SIM2 precipitation / etp / runoff families (runoff x catchment area).
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+
+[modflow6.sgrid.planar]
+mode = "keep_native"
+
+[modflow6.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 2
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true
