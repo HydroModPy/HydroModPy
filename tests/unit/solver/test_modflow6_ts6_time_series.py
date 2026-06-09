@@ -225,3 +225,34 @@ def test_inline_mode_collapses_a_constant_tail_to_one_row(tmp_path: Path) -> Non
     assert ts_specs == []
     assert set(rows) == {0}
     assert rows[0] == [[0, "inflow", pytest.approx(7.0)]]
+
+
+def test_managed_lake_forcing_is_zeroed_on_steady_warmup(tmp_path: Path) -> None:
+    # A steady spin-up has no lake storage term, so a managed transfer that does
+    # not balance the natural budget has no equilibrium stage and the solve
+    # diverges. Managed transfers (inflow/withdrawal) must be held at zero on the
+    # steady period(s); the transient periods keep their real values.
+    window, csv, nper, perlen, values = _daily_window_and_csv(tmp_path, n_days=5)
+    model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="inline", min_periods=120)
+    model.steady = (True,) + (False,) * (nper - 1)
+    forcing = FlowWellForcingCsvConfig(
+        path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
+    )
+    rows, _ = build_lake_period_data(model, lakes={"lac0": {"withdrawal": forcing}})
+    # Steady period 0 is neutralized to 0; the transient periods keep real values.
+    assert rows[0] == [[0, "withdrawal", pytest.approx(0.0)]]
+    for kper in range(1, nper):
+        assert rows[kper] == [[0, "withdrawal", pytest.approx(values[kper])]]
+
+
+def test_natural_lake_forcing_is_kept_on_steady_warmup(tmp_path: Path) -> None:
+    # Natural fluxes (runoff/rainfall/evaporation) are not management: they stay
+    # on the steady spin-up so the lake equilibrates under real hydrology.
+    window, csv, nper, perlen, values = _daily_window_and_csv(tmp_path, n_days=5)
+    model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="inline", min_periods=120)
+    model.steady = (True,) + (False,) * (nper - 1)
+    forcing = FlowWellForcingCsvConfig(
+        path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
+    )
+    rows, _ = build_lake_period_data(model, lakes={"lac0": {"runoff": forcing}})
+    assert rows[0] == [[0, "runoff", pytest.approx(values[0])]]

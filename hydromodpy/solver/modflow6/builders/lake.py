@@ -906,6 +906,36 @@ def _resolve_receiver_lake(lake_id: str, mover: object, lake_count: int) -> int:
 _RATE_FORCINGS = ("rainfall", "evaporation")
 _VOLUMETRIC_FORCINGS = ("runoff", "inflow", "withdrawal")
 
+# Managed transfers, as opposed to natural fluxes (runoff/rainfall/evaporation).
+# A steady spin-up has no lake storage term, so a managed flux that does not
+# balance the natural lake budget has no equilibrium stage and the solve
+# diverges. These are neutralized on steady periods; the transient periods keep
+# their real values. Mirrors the ``first_clim`` policy recharge uses on steady
+# periods, except managed transfers spin up at zero, not their time-mean.
+_MANAGED_FORCINGS = ("inflow", "withdrawal")
+
+
+def _steady_period_flags(model) -> tuple[bool, ...]:
+    """Return the per-period steady-state flags, or () when none are declared."""
+    steady = getattr(model, "steady", None)
+    if steady is None:
+        return ()
+    return tuple(bool(flag) for flag in steady)
+
+
+def _neutralize_managed_on_steady(
+    model, keyword: str, values: tuple[float, ...]
+) -> tuple[float, ...]:
+    """Zero managed lake transfers (inflow/withdrawal) on steady spin-up periods."""
+    if keyword not in _MANAGED_FORCINGS:
+        return values
+    steady = _steady_period_flags(model)
+    if not any(steady):
+        return values
+    return tuple(
+        0.0 if (kper < len(steady) and steady[kper]) else value for kper, value in enumerate(values)
+    )
+
 
 def build_lake_period_data(
     model,
@@ -994,9 +1024,19 @@ def _emit_forcing_rows(
     value = _constant_forcing_value(forcing)
     use_ts6 = resolve_use_ts6(forcing, mode=mode, nper=nper, min_periods=min_periods)
     if value is not None and not use_ts6:
-        period_rows.setdefault(0, []).append(
-            [int(lake_index), keyword, float(_to_si(value, forcing, location, volumetric))]
-        )
+        si_value = float(_to_si(value, forcing, location, volumetric))
+        steady = _steady_period_flags(model)
+        if keyword in _MANAGED_FORCINGS and steady and steady[0]:
+            # Constant managed transfer: hold it at zero through the steady spin-up,
+            # then apply the configured value from the first transient period on.
+            period_rows.setdefault(0, []).append([int(lake_index), keyword, 0.0])
+            first_transient = next((k for k, flag in enumerate(steady) if not flag), None)
+            if first_transient is not None:
+                period_rows.setdefault(first_transient, []).append(
+                    [int(lake_index), keyword, si_value]
+                )
+        else:
+            period_rows.setdefault(0, []).append([int(lake_index), keyword, si_value])
         return
 
     # A non-constant forcing needs the solver period grid to expand. Without a
@@ -1015,6 +1055,7 @@ def _emit_forcing_rows(
         float(_to_si(raw, forcing, f"{location}[{idx}]", volumetric, explicit_unit=unit))
         for idx, raw in enumerate(per_period)
     )
+    per_period_si = _neutralize_managed_on_steady(model, keyword, per_period_si)
 
     if use_ts6:
         series_name = _ts6_series_name(lake_index, keyword)
