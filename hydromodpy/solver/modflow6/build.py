@@ -177,7 +177,7 @@ def log_xt3d_resolution(model, solver_mesh=None) -> None:
         "MF6 XT3D resolution: mode=%s enabled=%s structured=%s",
         xt3d_mode(model, solver_mesh),
         xt3d_is_enabled(model, solver_mesh),
-        bool(getattr(solver_mesh, "is_structured", True)),
+        bool(solver_mesh is not None and solver_mesh.is_structured),
     )
 
 

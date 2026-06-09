@@ -15,13 +15,19 @@ def xt3d_requested_value(model) -> bool | None:
 
 
 def xt3d_is_enabled(model, solver_mesh=None) -> bool:
-    """Return whether XT3D should be enabled for this MF6 run."""
+    """Return whether XT3D should be enabled for this MF6 run.
+
+    XT3D auto-enables on unstructured meshes only. When the mesh is unknown
+    (no solver_mesh resolvable), XT3D stays off, the conservative default.
+    """
     requested = xt3d_requested_value(model)
     if requested is not None:
         return requested
     if solver_mesh is None:
         solver_mesh = getattr(getattr(model, "grid_ctx", None), "solver_mesh", None)
-    return not bool(getattr(solver_mesh, "is_structured", True))
+    if solver_mesh is None:
+        return False
+    return not solver_mesh.is_structured
 
 
 def xt3d_activation_mode(model, solver_mesh=None) -> str:
@@ -58,7 +64,7 @@ def log_xt3d_resolution(model, solver_mesh=None) -> None:
         "MF6 XT3D resolution: mode=%s enabled=%s structured=%s",
         xt3d_activation_mode(model, solver_mesh),
         xt3d_is_enabled(model, solver_mesh),
-        bool(getattr(solver_mesh, "is_structured", True)),
+        bool(solver_mesh is not None and solver_mesh.is_structured),
     )
 
 
