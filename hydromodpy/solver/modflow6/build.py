@@ -24,6 +24,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_start_heads,
     build_stream_boundary_chd_spd,
     build_well_stress_period_data,
+    collapse_identical_periods,
     empty_recharge_aux,
     finalize_pending_recharge_evt,
     mask_recharge_on_lake_cells,
@@ -555,6 +556,7 @@ def run_pre_processing(  # noqa: PLR0915
         for entry in side_chd_spd.get(kper, []):
             period_map[(int(entry[0]), int(entry[1]))] = entry
         chd_spd[kper] = list(period_map.values())
+    chd_spd = collapse_identical_periods(chd_spd)
     if any(len(v) > 0 for v in chd_spd.values()):
         model.chd = flopy.mf6.ModflowGwfchd(model.gwf, stress_period_data=chd_spd, save_flows=True)
 

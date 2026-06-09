@@ -375,6 +375,12 @@ def build_drain_stress_period_data(
 
     When no conductance is configured, the fallback conductance is
     ``C = hk * cell_area / top_layer_thickness`` (m2/s), shared with NWT.
+
+    The drain geometry and elevation are static, so the per-cell conductance is a
+    pure function of the period's configured conductance value. A period is
+    emitted only when that value changes (period 0 always); MF6 reuses the
+    last-specified stress_period_data for the omitted periods. This keeps a static
+    drain from rewriting all its rows for every period of a long daily run.
     """
     drn_spd: dict[int, list[list[float]]] = {}
     top_flat = solver_mesh.top
@@ -383,9 +389,13 @@ def build_drain_stress_period_data(
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     cell_areas = solver_mesh.cell_areas()
     top_thickness = solver_mesh.layer_thicknesses()[0]
+    previous_cond: float | None = None
     for kper in range(int(model.nper)):
-        period_cells: list[list[float]] = []
         configured_cond_value = float(drainage_cond_series[kper])
+        if previous_cond is not None and configured_cond_value == previous_cond:
+            continue
+        previous_cond = configured_cond_value
+        period_cells: list[list[float]] = []
         for cid in range(int(model.ncpl)):
             if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
                 continue
@@ -402,6 +412,25 @@ def build_drain_stress_period_data(
     return drn_spd
 
 
+def collapse_identical_periods(
+    spd: dict[int, list[list[float]]],
+) -> dict[int, list[list[float]]]:
+    """Drop stress periods whose list data equals the previous emitted period.
+
+    MF6 reuses the most recently specified stress_period_data, so emitting only
+    the periods where a boundary changes (period 0 always) is equivalent to
+    repeating it and avoids rewriting a static boundary for every period.
+    """
+    collapsed: dict[int, list[list[float]]] = {}
+    previous: list[list[float]] | None = None
+    for kper in sorted(spd):
+        cells = spd[kper]
+        if previous is None or cells != previous:
+            collapsed[kper] = cells
+        previous = cells
+    return collapsed
+
+
 # Re-exported for the recharge/EVT builder which needs Real-aware coercion.
 __all__ = [
     "Real",
@@ -416,6 +445,7 @@ __all__ = [
     "build_side_boundary_chd_spd",
     "build_stream_boundary_chd_spd",
     "coerce_conductance_series_to_m2_per_s",
+    "collapse_identical_periods",
     "coerce_length_series_to_m",
     "forcing_units",
     "is_bc_active",
