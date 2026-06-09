@@ -160,9 +160,12 @@ examples/data/**/*.csv.json
 examples/data/**/*.gpkg.json
 examples/data/**/*.nc.json
 examples/data/**/*.tif.json
+examples/data/**/*.parquet
+examples/data/**/*.parquet.json
 examples/data/etp/etp_sim2_*.nc
 examples/data/precipitation/precipitation_*_sim2_*.nc
 examples/data/recharge/recharge_sim2_*.nc
+examples/data/runoff/runoff_sim2_*.nc
 examples/projects/**/data/cache.duckdb*
 tests/regression/fixtures/**/cache.duckdb*
 
