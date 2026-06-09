@@ -159,3 +159,34 @@ def test_no_lake_means_no_terminal_flag() -> None:
     # The main channel still leaves the model (no downstream reach).
     main = max(trace.reaches, key=lambda r: r.ifno)
     assert main.downstream == ()
+
+
+def test_link_crossing_the_lake_is_truncated_at_the_shoreline() -> None:
+    # The main channel CROSSES the lake (its raster path continues through and
+    # past the footprint): the reach must stop at the shoreline, flag terminal,
+    # and the through-lake cells must not become reaches.
+    g = _synthetic_network()
+    lake_mask = np.zeros((_NROW, _NCOL), dtype=bool)
+    lake_mask[3, :] = True  # the lake straddles the MIDDLE of link 3
+    trace = delineate_sfr_reaches(
+        link_id=g["link"],
+        d8=g["d8"],
+        acc=g["acc"],
+        dem=g["dem"],
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        strahler=g["strahler"],
+        lake_mask=lake_mask,
+        min_slope=1e-4,
+    )
+    terminal = [r for r in trace.reaches if r.is_terminal_to_lake]
+    assert len(terminal) == 1
+    # The truncated main channel keeps only its pre-lake cell (2,1): one
+    # cell-to-cell step of geometry, no downstream connection.
+    assert terminal[0].downstream == ()
+    assert terminal[0].rlen == pytest.approx(_RES)
+    # No reach geometry enters the lake row (y of row 3 spans [200, 300]).
+    for reach in trace.reaches:
+        for _, y in reach.line.coords:
+            assert y >= 250.0

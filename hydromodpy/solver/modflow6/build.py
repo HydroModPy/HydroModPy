@@ -600,6 +600,7 @@ def run_pre_processing(  # noqa: PLR0915
             model,
             solver_mesh=solver_mesh,
             lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records),
         )
         if lak_args is not None:
             laktab_specs = lak_args.pop("laktab_specs")
@@ -608,9 +609,6 @@ def run_pre_processing(  # noqa: PLR0915
             obs_continuous = lak_args.pop("obs_continuous", None)
             lake_obs_meta = lak_args.pop("lake_obs_meta", None)
             ts_specs = lak_args.pop("ts_specs", None)
-            if sfr_mover_records and any(record.receiver == "LAK" for record in sfr_mover_records):
-                # An MVR receiver must advertise MOVER too (SFR feeds this lake).
-                lak_args["mover"] = True
             n_lakes_built = int(lak_args["nlakes"])
             lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
             # Non-constant forcings routed to an external TS6 file: attach right

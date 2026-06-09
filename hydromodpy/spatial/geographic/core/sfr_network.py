@@ -175,14 +175,29 @@ def delineate_sfr_reaches(
 
     link_of = {cell: link for link, cells in cells_by_link.items() for cell in cells}
 
-    # 2. Per-link geometry + the downstream link (or lake / model outlet).
+    # 2. Per-link geometry + the downstream link (or lake / model outlet). A
+    # link whose flow path ENTERS the lake footprint is truncated at the entry
+    # cell (the raster network continues through / below a reservoir, but the
+    # reach must stop at the shoreline and hand its flow to the lake); a link
+    # entirely inside the lake is dropped.
     info: dict[int, dict] = {}
     downstream_link: dict[int, int | None] = {}
     terminal_to_lake: dict[int, bool] = {}
     for link, cells in cells_by_link.items():
         ordered = _order_link_cells(cells, d8, link_of, link)
-        cell_set = set(cells)
-        outlet = _link_outlet_cell(ordered, d8, cell_set)
+        truncated_at_lake = False
+        if lake is not None:
+            kept: list[tuple[int, int]] = []
+            for cell in ordered:
+                if lake[cell]:
+                    truncated_at_lake = True
+                    break
+                kept.append(cell)
+            ordered = kept
+        if not ordered:
+            continue
+        cell_set = set(ordered)
+        outlet = ordered[-1] if truncated_at_lake else _link_outlet_cell(ordered, d8, cell_set)
         head = ordered[0]
         coords = [_cell_xy(r, c, transform) for r, c in ordered]
         if len(coords) == 1:
@@ -203,7 +218,7 @@ def delineate_sfr_reaches(
 
         nxt = _downstream_cell(outlet[0], outlet[1], d8)
         is_lake = bool(lake is not None and nxt is not None and lake[nxt])
-        if is_lake or (lake is not None and lake[outlet]):
+        if truncated_at_lake or is_lake:
             downstream_link[link] = None
             terminal_to_lake[link] = True
         elif nxt is not None and int(link_id[nxt]) > 0 and int(link_id[nxt]) != link:
@@ -247,7 +262,9 @@ def delineate_sfr_reaches(
     for link in order:
         data = info[link]
         down = downstream_link.get(link)
-        downstream_ids = () if down is None else (ifno_of[down],)
+        # A downstream link dropped at delineation (entirely inside the lake)
+        # leaves no reach to connect to.
+        downstream_ids = () if down is None or down not in ifno_of else (ifno_of[down],)
         upstream_ids = tuple(sorted(ifno_of[u] for u in upstream_links[link]))
         reaches.append(
             SfrReachRow(

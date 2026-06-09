@@ -407,6 +407,7 @@ def build_lak_package_args(
     solver_mesh: SolverMesh,
     lake_cell_ids_by_lake: Mapping[str, Sequence[int]] | None = None,
     occupied_layers: int = 1,
+    external_mover_to_lake: bool = False,
 ) -> dict[str, Any] | None:
     """Assemble the ``ModflowGwflak`` arguments for every active lake.
 
@@ -415,6 +416,10 @@ def build_lak_package_args(
     plus a per-lake ``ModflowUtllaktab`` abacus, with output filerecords and
     ``time_conversion``/``length_conversion`` consistent with the model time
     units (HMP runs TDIS in seconds, so both stay 1.0 unless declared otherwise).
+
+    ``external_mover_to_lake`` flags an MVR record from ANOTHER package (an SFR
+    terminal reach) targeting this LAK: the package then advertises MOVER and the
+    obs spec requests the ``from-mvr`` series even with no lake-owned mover.
     """
     lakes = _active_lake_definitions(model)
     if not lakes:
@@ -495,7 +500,7 @@ def build_lak_package_args(
         stem=stem,
         lake_conn_info=lake_conn_info,
         outlets=outlets,
-        has_mover=bool(mover_records),
+        has_mover=bool(mover_records) or bool(external_mover_to_lake),
     )
     args: dict[str, Any] = {
         "nlakes": len(packagedata),
@@ -531,11 +536,14 @@ def build_lak_package_args(
     # Controlled LAK -> LAK transfers ride the MVR package (built last in
     # build.py). LAK must advertise mover=True for MF6 to accept the records; the
     # records themselves and the package count travel alongside the LAK args so
-    # build.py can instantiate ModflowGwfmvr once every package exists.
+    # build.py can instantiate ModflowGwfmvr once every package exists. An MVR
+    # receiver must advertise MOVER too, so an external SFR -> LAK transfer also
+    # raises the flag.
     if mover_records:
-        args["mover"] = True
         args["mover_records"] = mover_records
         args["mover_maxpackages"] = mover_package_count(mover_records)
+    if mover_records or external_mover_to_lake:
+        args["mover"] = True
     # OBS6 definitions (stage/volume/surface-area, per-connection lake-aquifer
     # exchange, outlet) and the JSON sidecar the extractor reads at post-run.
     args["obs_continuous"] = obs_continuous
