@@ -1,0 +1,205 @@
+# ======================================================================
+# HydroModPy - Cheze reservoir (EBR), MODFLOW 6 LAK, DAILY full chronicle.
+#
+# Full-chronicle variant of project.toml: daily timestep over the entire
+# observed/management record (2007-2025) instead of the 2019 weekly demo.
+# Pair it with compare_chronicle.py for the simulated-vs-observed lake-level
+# comparison (NSE / RMSE / R2 / bias + overlay figure).
+#
+# The managed inflow/withdrawal chronicles and the observed level all come
+# from the same source (data_cheze_corrige.csv, 2007-2026); meteo comes from
+# the SIM2 Meteo-France API. A ~19-year daily run is ~6940 stress periods:
+# expect a large first-run SIM2 fetch and a multi-minute solve.
+# ======================================================================
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "cheze_reservoir_chronicle"
+description = "Cheze reservoir (EBR), MODFLOW 6 LAK, daily 2007-2025, recharge from SIM2."
+
+[simulation.time]
+start_datetime = "2007-01-01"
+# Inclusive-end semantics; any calendar day is a valid daily-step boundary.
+# 2025-12-31 = the last day SIM2 covers and the last full observed year.
+end_datetime = "2025-12-31"
+step_value = "1 day"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]   # LAK is a MODFLOW 6 advanced package; modflow6 is required.
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+x_outlet = 331315.0
+y_outlet = 6781273.0
+snap_dist = "200 m"
+buff_area = "10%"
+
+# ---------------------------------------------------------------------- domain
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "35.0 m"
+
+# ---------------------------------------------------------------------- data
+[data]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_inflow", "lake_withdrawal"]
+inference_mode = "warn"
+
+# All meteo comes from the SIM2 Meteo-France EDR API over the full window.
+[data.recharge]
+date_start = "2007-01-01"
+date_end = "2025-12-31"
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.precipitation]
+date_start = "2007-01-01"
+date_end = "2025-12-31"
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.etp]
+date_start = "2007-01-01"
+date_end = "2025-12-31"
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.runoff]
+date_start = "2007-01-01"
+date_end = "2025-12-31"
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+# Reservoir footprint polygon (EPSG:2154) -> LAK cell selection.
+[[data.lake_geometry.sources]]
+source = "custom"
+path = "../../data/lake_geometry/reservoir_cheze.gpkg"
+
+# Stage-volume-area abacus -> ModflowUtllaktab.
+[[data.lake_abacus.sources]]
+source = "custom"
+path = "../../data/lake_abacus/reservoir_cheze.csv"
+lake_id = "reservoir_cheze"
+
+# Managed transfers INTO the lake (Meu + Canut), m3/day, full chronicle.
+[data.lake_inflow]
+date_start = "2007-01-01"
+date_end = "2025-12-31"
+[[data.lake_inflow.sources]]
+source = "custom"
+path = "../../data/lake_inflow"
+
+# Managed abstraction + restitution leaving the lake, m3/day, full chronicle.
+[data.lake_withdrawal]
+date_start = "2007-01-01"
+date_end = "2025-12-31"
+[[data.lake_withdrawal.sources]]
+source = "custom"
+path = "../../data/lake_withdrawal"
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["lake", "drainage"]
+# Steady warm-up around the observed start stage and mean recharge before the
+# transient. On a 19-year daily run a bad cold start would propagate for years.
+first_period_steady = true
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "1e-4 m/s"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = "0.001 -"
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+value = "1e-5 m-1"
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+kind = "cauchy"
+value = "0.0 m2/s"
+data_value = false
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+# ---- The Cheze reservoir ----------------------------------------------------
+[flow.sinks_sources.lakes.reservoir_cheze]
+# Lakebed leakance [1/T]; bibliographic 1e-6 m/s used as 1e-6 1/s (1 m equiv.
+# bed). Under-dam-leakage calibration handle, refine against observed levels.
+bedleak = 1e-6
+bedleak_unit = "1/s"
+# Observed Cheze level at the window start (2007-01-01), m NGF.
+stageinit = "86.97 m"
+occupied_layers = 1
+
+# Spillway: 35 m concrete crest at 87.3 m; overflow leaves the model.
+[[flow.sinks_sources.lakes.reservoir_cheze.outlets]]
+couttype = "WEIR"
+invert = "87.3 m"
+width = "35 m"
+lakeout = 0
+
+# Note: inflow/withdrawal and the SIM2 rainfall/evaporation/runoff surface
+# forcings are bound automatically from the data families (see project.toml).
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+# COMPLEX for the stiff steady lake-aquifer warm-up; safe for the transient too.
+mf6_ims_complexity = "COMPLEX"
+# 1 cm outer head-change criterion: ample for a catchment reservoir and cuts
+# wasted outer iterations across ~6940 daily periods.
+mf6_outer_dvclose = 1e-2
+
+[modflow6.process_specific]
+# Offload the time-varying lake forcings to external MF6 TS6 files instead of
+# inlining ~6940 LAK PERIOD rows per forcing. "auto" already does this above
+# ts6_min_periods (120); set explicitly for the long daily run.
+lak_forcing_mode = "ts6"
+
+[modflow6.sgrid.planar]
+# ~100 m (60x60) grid; the native ~75 m grid is too heavy/stiff. Period count,
+# not per-solve size, drives the long-run cost, so do not refine here.
+mode = "resample_to_shape"
+nx = 60
+ny = 60
+resampling = "bilinear"
+
+[modflow6.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 2
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true

@@ -35,17 +35,45 @@ Donnees lac locales (sous `examples/data/`) :
 |---|---|---|
 | `lake_geometry` | `lake_geometry/reservoir_cheze.gpkg` | polygone du reservoir (EPSG:2154, 1.58 km2) |
 | `lake_abacus` | `lake_abacus/reservoir_cheze.csv` | abaque `stage,volume,sarea` (54.45 -> 87.58 m, jusqu'a 13.5 Mm3) |
-| `lake_inflow` | `lake_inflow/` | transferts Meu + Canut vers le lac (m3/j) |
-| `lake_withdrawal` | `lake_withdrawal/` | prelevement + restitution quittant le lac (m3/j) |
+| `lake_inflow` | `lake_inflow/` | transferts Meu + Canut vers le lac (m3/j, 2007-2026) |
+| `lake_withdrawal` | `lake_withdrawal/` | prelevement + restitution quittant le lac (m3/j, 2007-2026) |
+| `lake_levels` | `lake_levels/` | niveau observe du reservoir (m NGF, 2007-2026) pour la comparaison |
+
+Les chroniques `lake_inflow`, `lake_withdrawal` et `lake_levels` derivent toutes du
+meme fichier source `data_cheze_corrige.csv` (2007-2026) : `inflow = meu + canut`,
+`withdrawal = restitution + prelevement`, `niveau = cheze_cote_mNGF`. Le run 2019
+hebdo les decoupe a sa fenetre.
 
 ## Lancer
 
 ```bash
 mamba activate hmp_refact
+# Demo court : 2019 hebdomadaire
 hmp run examples/projects/19_cheze_reservoir/project.toml
-# ou, pour les figures lac :
-python examples/projects/19_cheze_reservoir/run_cheze_reservoir.py
+python examples/projects/19_cheze_reservoir/run_cheze_reservoir.py   # figures lac
+
+# Chronique complete : journalier 2007-2025 + comparaison simule/observe
+python examples/projects/19_cheze_reservoir/compare_chronicle.py
 ```
+
+## Chronique complete et comparaison simule/observe
+
+`project_chronicle.toml` rejoue le reservoir en **pas journalier sur 2007-2025**
+(~6940 stress periods). Les forcages lac varient chaque jour : ils sont
+automatiquement deportes en fichiers MF6 TS6 (`lak_forcing_mode = "ts6"`) plutot
+qu'inlines. Premiere execution : gros fetch SIM2 (19 ans x 4 variables) puis solve
+de plusieurs minutes.
+
+La comparaison simule/observe n'a pas de cablage declaratif en v1 (la famille
+`lake_levels` se charge mais aucun consommateur ne la lit, et la calibration ne
+cible que debit/charge, pas le niveau de lac). Elle est donc faite par script,
+`compare_chronicle.py`, a partir des briques existantes : `query_timeseries` pour
+la serie stage simulee, le CSV observe (`data/lake_levels`), l'abaque pour
+convertir le niveau observe en volume, et `core.metrics.goodness_of_fit`. Sorties
+dans `figures/` : overlay niveau + volume (`cheze_chronicle_obs_vs_sim.png`) et la
+table de scores NSE / RMSE / MAE / bias / R2 (`cheze_chronicle_metrics.csv`). Le
+warm-up stationnaire (periode 0) est exclu du calcul. C'est le portage v1 de
+l'overlay + NSE/RMSE de l'ancien EBR (`app_EBR_simplex`).
 
 ## Choix de portage et hypotheses
 
