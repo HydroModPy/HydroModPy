@@ -13,11 +13,23 @@ surverse par un exutoire WEIR.
 - Recharge depuis l'**API SIM2 Meteo-France** (`source = "sim2"`), recuperee au
   run (connexion reseau ou cache SIM2 requis).
 - Reservoir LAK : geometrie + abaque (donnees reelles 2025), niveau initial
-  observe, exutoire WEIR a la crete du barrage (87.3 m), et les flux geres
-  (transferts Meu/Canut en entree, prelevement + restitution en sortie).
+  observe, exutoire WEIR a la crete du barrage (87.3 m), les flux geres
+  (transferts Meu/Canut en entree, prelevement + restitution en sortie), et les
+  forcages de surface SIM2 (pluie, evaporation eau-libre, ruissellement de bassin).
 - Transitoire hebdomadaire sur 2019.
 
-## Donnees (sous `examples/data/`)
+## Donnees
+
+Tout ce qui est meteo vient de l'**API SIM2 Meteo-France** (recupere au run) :
+
+| Variable | Source | Cible |
+|---|---|---|
+| recharge | SIM2 | nappe (recharge au toit de l'aquifere) |
+| precipitation | SIM2 | pluie sur le plan d'eau (taux) |
+| etp | SIM2 | evaporation eau-libre du lac (taux) |
+| runoff | SIM2 | ruissellement de bassin -> apport volumetrique au lac (taux x aire bassin) |
+
+Donnees lac locales (sous `examples/data/`) :
 
 | Famille | Fichier | Contenu |
 |---|---|---|
@@ -25,7 +37,6 @@ surverse par un exutoire WEIR.
 | `lake_abacus` | `lake_abacus/reservoir_cheze.csv` | abaque `stage,volume,sarea` (54.45 -> 87.58 m, jusqu'a 13.5 Mm3) |
 | `lake_inflow` | `lake_inflow/` | transferts Meu + Canut vers le lac (m3/j) |
 | `lake_withdrawal` | `lake_withdrawal/` | prelevement + restitution quittant le lac (m3/j) |
-| recharge | (SIM2 API) | recharge nappe, recuperee au run |
 
 ## Lancer
 
@@ -50,10 +61,12 @@ python examples/projects/19_cheze_reservoir/run_cheze_reservoir.py
 - **bathymetrie** : non utilisee en v1 (l'abaque porte le stockage ; le branchement
   bathymetrie -> cote du lit est differe). Le raster 1 m n'est pas commite.
 
-## Limite connue (a confirmer)
+## Apport naturel (remplacement de SFR)
 
-L'apport naturel dominant du reservoir est la **riviere Cheze** elle-meme, qui
-etait modelisee par SFR. En v1 (sans SFR) cet apport n'est pas represente : le
-bilan du lac est domine par les flux geres (prelevement > transferts), donc le
-niveau tend a baisser. Pour un bilan ferme il faudrait fournir une serie d'apport
-Cheze (entree specifiee) ou une approximation du ruissellement de bassin accumule.
+L'apport naturel dominant du reservoir est la **riviere Cheze**, modelisee avant
+par SFR. En v1 (sans SFR) il est approxime par le **ruissellement de bassin SIM2
+accumule** : taux de ruissellement (m/s) x aire de bassin -> apport volumetrique
+au lac (terme `runoff`), exactement comme le faisait l'ancien script
+(`runoff * area`). C'est une approximation (tout le ruissellement amont arrive au
+lac, sans routage ni dephasage) ; un apport Cheze mesure pourrait le remplacer en
+`lake_inflow` si disponible.
