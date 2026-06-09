@@ -81,6 +81,19 @@ class RunTimeseriesMixin:
             [self._sim_id],
         )
 
+    def stations(self, variable: str) -> list[str]:
+        """Return the sorted station ids carrying one simulated variable.
+
+        Lets a caller enumerate multi-station families (one ``sfr:<net>:<reach>``
+        station per SFR reach, gauge ids, ...) before fetching each series with
+        :meth:`timeseries`.
+        """
+        result = self._catalog.backend.query(
+            "SELECT DISTINCT station_id FROM timeseries WHERE sim_id = ? AND variable = ?",
+            [self._sim_id, variable],
+        )
+        return sorted(str(value) for value in result["station_id"])
+
     def timeseries(
         self,
         variable: str,
