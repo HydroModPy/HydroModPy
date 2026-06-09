@@ -27,6 +27,29 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
 )
 
 
+def _collapse_to_disv_cells(
+    station_cells: Mapping[str, tuple[int, int, int]],
+    model: Any,
+) -> dict[str, tuple[int, int, int]]:
+    """Map structured ``(layer, row, col)`` station cells to DISV ``(layer, 0, id)``.
+
+    MF6 always writes DISV, whose head array is ``(nlay, 1, ncpl)``. The station
+    resolver returns ``(layer, row, col)`` from the structured planar grid, so the
+    ``(row, col)`` is collapsed to the flat row-major ``cell2d`` id and the head is
+    read as ``head[layer, 0, id]``. Without this, ``head[layer, row, col]`` indexes
+    the size-1 middle axis and raises for any station off the first grid row. On an
+    unstructured mesh (no ``ncol``) the cells are already flat, so they pass
+    through unchanged.
+    """
+    mesh = getattr(model, "solver_mesh", None)
+    if mesh is None or not getattr(mesh, "is_structured", False):
+        return dict(station_cells)
+    ncol = int(mesh.ncol)
+    return {
+        sid: (int(k), 0, int(i) * ncol + int(j)) for sid, (k, i, j) in station_cells.items()
+    }
+
+
 class Modflow6FlowAdapter:
     """Bridge one planned ``flow/modflow6`` run to the ``Modflow6`` API."""
 
@@ -80,7 +103,7 @@ class Modflow6FlowAdapter:
             series_by_station = extract_head_from_hds(
                 output_dir,
                 model_name,
-                station_cells=station_cells,
+                station_cells=_collapse_to_disv_cells(station_cells, model),
                 time_index=time_index,
             )
             if len(station_cells) == 1:
