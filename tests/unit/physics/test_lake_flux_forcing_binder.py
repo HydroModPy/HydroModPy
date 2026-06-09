@@ -118,3 +118,57 @@ def test_builder_expands_a_file_loaded_values_forcing_inline() -> None:
     assert rows[0] == [[0, "inflow", pytest.approx(5.0)]]
     assert rows[1] == [[0, "inflow", pytest.approx(9.0)]]
     assert rows[2] == [[0, "inflow", pytest.approx(13.0)]]
+
+
+def _meteo_result(values_mm_day: list[float]) -> object:
+    from hydromodpy.data.contracts.load_result import LoadResult
+
+    rec = PointRecord(
+        station_id="grid_mean",
+        variable="climatic",
+        source="custom",
+        unit="mm/day",
+        frequency="D",
+        data=pd.DataFrame({"datetime": pd.to_datetime(_WINDOW_DATES), "value": values_mm_day}),
+        date_start=datetime(2000, 1, 1),
+        date_end=datetime(2000, 1, 3),
+    )
+    return LoadResult(points=[rec])
+
+
+def test_meteo_binder_attaches_sim2_derived_rate_and_volumetric_forcings() -> None:
+    from hydromodpy.physics.flow.structure_binders import apply_lake_meteo_forcings_to_flow
+
+    flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir_cheze": {"bedleak": 0.1}}})
+    attached = apply_lake_meteo_forcings_to_flow(
+        flow=flow,
+        precipitation=_meteo_result([4.0, 4.0, 4.0]),  # mm/day
+        etp=_meteo_result([2.0, 2.0, 2.0]),
+        runoff=_meteo_result([1.0, 1.0, 1.0]),
+        simulation_window=_three_period_window(),
+        catchment_area_m2=1.0e7,  # 10 km2
+    )
+    assert attached is True
+    p = flow.sinks_sources["lakes"]["reservoir_cheze"]
+    # rainfall / evaporation are rates (m/s): mm/day -> m/s.
+    assert p["rainfall"]["units"] == "m/s"
+    assert p["rainfall"]["values"][0] == pytest.approx(4.0e-3 / 86400.0)
+    assert p["evaporation"]["values"][0] == pytest.approx(2.0e-3 / 86400.0)
+    # runoff is volumetric (m3/s) = catchment runoff rate (m/s) * area (m2).
+    assert p["runoff"]["units"] == "m3/s"
+    assert p["runoff"]["values"][0] == pytest.approx((1.0e-3 / 86400.0) * 1.0e7)
+
+
+def test_meteo_binder_does_not_override_a_config_forcing() -> None:
+    from hydromodpy.physics.flow.structure_binders import apply_lake_meteo_forcings_to_flow
+
+    declared = {"kind": "constant", "value": 0.001, "units": "m/day"}
+    flow = SimpleNamespace(
+        sinks_sources={"lakes": {"reservoir_cheze": {"bedleak": 0.1, "rainfall": declared}}}
+    )
+    apply_lake_meteo_forcings_to_flow(
+        flow=flow,
+        precipitation=_meteo_result([4.0, 4.0, 4.0]),
+        simulation_window=_three_period_window(),
+    )
+    assert flow.sinks_sources["lakes"]["reservoir_cheze"]["rainfall"] is declared

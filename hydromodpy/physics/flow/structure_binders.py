@@ -366,6 +366,78 @@ def apply_lake_flux_forcings_to_flow(
     return True
 
 
+def apply_lake_meteo_forcings_to_flow(
+    *,
+    flow: Flow,
+    precipitation: LoadResultProto | None = None,
+    etp: LoadResultProto | None = None,
+    runoff: LoadResultProto | None = None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
+    catchment_area_m2: float | None = None,
+) -> bool:
+    """Attach SIM2-derived rainfall / evaporation / runoff onto each lake payload.
+
+    The catchment-scale precipitation / etp / runoff data families (e.g. SIM2,
+    internal unit mm/day) are reduced to a watershed-mean per-period rate in m/s.
+    Rainfall and evaporation are open-water rates applied to every lake surface
+    (L/T); runoff is that catchment runoff rate times the catchment area, the
+    volumetric (m3/s) overland inflow into the lake (mirrors the legacy
+    ``runoff * area`` accumulation). A forcing already declared in config wins, so
+    the SIM2 series is only the default source.
+
+    Returns True if at least one forcing was attached, False otherwise.
+    """
+    if simulation_window is None or all(r is None for r in (precipitation, etp, runoff)):
+        return False
+    payloads = _lake_payloads_as_mappings(flow)
+    if not payloads:
+        return False
+
+    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
+
+    factor = factor_to_m_per_s("mm/day")
+
+    def _mean_rate(result: LoadResultProto | None, label: str) -> list[float] | None:
+        if result is None:
+            return None
+        resolved = resolve_forcing(
+            result,
+            unit_conversion_factor=factor,
+            simulation_window=simulation_window,
+            spatial_mode="homogeneous",
+            label=label,
+        )
+        if resolved is None or resolved.series is None:
+            return None
+        return [float(v) for v in resolved.series]
+
+    rain = _mean_rate(precipitation, "lake_rainfall")
+    evap = _mean_rate(etp, "lake_evaporation")
+    runoff_rate = _mean_rate(runoff, "lake_runoff")
+    runoff_vol: list[float] | None = None
+    if runoff_rate is not None and catchment_area_m2:
+        area = float(catchment_area_m2)
+        runoff_vol = [v * area for v in runoff_rate]
+
+    derived = (
+        ("rainfall", rain, "m/s"),
+        ("evaporation", evap, "m/s"),
+        ("runoff", runoff_vol, "m3/s"),
+    )
+    attached = False
+    for payload in payloads.values():
+        for keyword, values, unit in derived:
+            if values is not None and payload.get(keyword) is None:
+                payload[keyword] = {"kind": "values", "values": values, "units": unit}
+                attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["lakes"] = payloads
+    return True
+
+
 def _point_record_series(record: Any):
     """Return a datetime-indexed float series from a loaded PointRecord."""
     import pandas as pd
