@@ -20,16 +20,16 @@ mf6_ims_complexity = "MODERATE"
 
 [flow]
 flow_regime = "transient"
-active_bc = ["lake", "left_side", "right_side"]
+active_bc = ["lake", "west_side", "east_side"]
 active_sinks_sources = ["recharge"]
 
 [flow.sinks_sources.lakes.plainfield]
 # Lakebed leakance (1/day) and initial stage (336 m). The lake is incised across
 # the top two layers (occupied_layers = 2 in metadata.toml).
+# Plainfield Lakes transient multi-layer reservoir.
 bedleak = 0.1
 bedleak_unit = "1/day"
 stageinit = "336.0 m"
-description = "Plainfield Lakes transient multi-layer reservoir"
 
 [flow.sinks_sources.lakes.plainfield.rainfall]
 # Period-0 rainfall on the lake surface (m/day); later periods vary in metadata.

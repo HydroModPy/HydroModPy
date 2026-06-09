@@ -13,6 +13,7 @@ from hydromodpy.physics.flow.structure_binders import (
     apply_lake_abacus_to_flow,
     apply_lake_flux_forcings_to_flow,
     apply_lake_geometry_to_flow,
+    apply_lake_meteo_forcings_to_flow,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
@@ -140,6 +141,15 @@ def apply_structural_updates_from_data(
         lake_inflow=getattr(data_state, "lake_inflow", None),
         lake_withdrawal=getattr(data_state, "lake_withdrawal", None),
         simulation_window=window,
+    )
+    _catch_area_km2 = getattr(getattr(setup_state, "geographic", None), "catch_area", None)
+    apply_lake_meteo_forcings_to_flow(
+        flow=setup_state.flow,
+        precipitation=getattr(data_state, "precipitation", None),
+        etp=getattr(data_state, "etp", None),
+        runoff=getattr(data_state, "runoff", None),
+        simulation_window=window,
+        catchment_area_m2=(float(_catch_area_km2) * 1.0e6 if _catch_area_km2 else None),
     )
     if setup_state.geographic_features is not None:
         setup_state.geographic_features = attach_reference_hydrographic_network(
