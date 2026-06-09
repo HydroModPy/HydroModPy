@@ -161,6 +161,39 @@ def infer_station_id_from_filename(path: Path) -> str:
     return stem
 
 
+def _write_parquet_v2(table: object, dest: Path) -> Path:
+    """Write a pyarrow table to ``dest`` atomically with the v2 Parquet defaults.
+
+    Shared by the timeseries and abacus converters (ZSTD-5, page index, row-group
+    50k, dictionary + statistics) so both write the internal pivot identically.
+    """
+    import os
+    import uuid as _uuid
+
+    import pyarrow.parquet as pq
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    try:
+        pq.write_table(
+            table,
+            tmp,
+            compression="zstd",
+            compression_level=5,
+            row_group_size=50_000,
+            use_dictionary=True,
+            write_statistics=True,
+            write_page_index=True,
+            version="2.6",
+        )
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+    os.replace(tmp, dest)
+    return dest
+
+
 def convert_timeseries_csv_to_parquet(
     src: str | Path,
     dest: str | Path,
@@ -170,18 +203,12 @@ def convert_timeseries_csv_to_parquet(
     The output respects the v2 Parquet write defaults (ZSTD-5, page index,
     row-group 50k) without crossing the layer boundary into ``results``.
     """
-    import os
-    import uuid as _uuid
+    import pandas as pd
+    import pyarrow as pa
 
     src = Path(src)
     dest = Path(dest)
     artifact = read_timeseries_csv(src)
-
-    dest.parent.mkdir(parents=True, exist_ok=True)
-
-    import pandas as pd
-    import pyarrow as pa
-    import pyarrow.parquet as pq
 
     frame = pd.DataFrame(
         {
@@ -204,60 +231,40 @@ def convert_timeseries_csv_to_parquet(
         ]
     )
     table = pa.Table.from_pandas(frame, schema=schema, preserve_index=False)
-    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
-    try:
-        pq.write_table(
-            table,
-            tmp,
-            compression="zstd",
-            compression_level=5,
-            row_group_size=50_000,
-            use_dictionary=True,
-            write_statistics=True,
-            write_page_index=True,
-            version="2.6",
-        )
-    except Exception:
-        if tmp.exists():
-            tmp.unlink()
-        raise
-    os.replace(tmp, dest)
-    return dest
+    return _write_parquet_v2(table, dest)
 
 
-def convert_abacus_csv_to_parquet(
+def convert_abacus_to_parquet(
     src: str | Path,
     dest: str | Path,
     *,
     lake_id: str | None = None,
 ) -> Path:
-    """Convert a lake stage-volume-area abacus CSV into a Parquet file.
+    """Convert a lake stage-volume-area abacus (CSV or Parquet) into the pivot.
 
-    The CSV carries the abacus columns ``stage,volume,sarea`` and, optionally,
-    a ``lake_id`` column. When ``lake_id`` is absent from the CSV it is
-    injected from the ``lake_id`` argument (or the file stem as a last resort)
-    so a single-lake CSV needs no boilerplate column. The table is validated
-    against :data:`AbacusTableSchema` before being written with the same v2
-    Parquet defaults as :func:`convert_timeseries_csv_to_parquet`.
+    The source carries the abacus columns ``stage,volume,sarea`` and, optionally,
+    a ``lake_id`` column. When ``lake_id`` is absent it is injected from the
+    ``lake_id`` argument (or the file stem) so a single-lake source needs no
+    boilerplate column. Both ``.csv`` and ``.parquet`` sources are validated
+    against :data:`AbacusTableSchema` before being written with the v2 Parquet
+    defaults, so the data contract is the single gate whatever the input format.
     """
-    import os
-    import uuid as _uuid
-
     import pandas as pd
     import pyarrow as pa
-    import pyarrow.parquet as pq
 
     src = Path(src)
     dest = Path(dest)
 
-    frame = pd.read_csv(src, comment="#")
+    if src.suffix.lower() == ".parquet":
+        frame = pd.read_parquet(src)
+    else:
+        frame = pd.read_csv(src, comment="#")
     if "lake_id" not in frame.columns:
         frame.insert(0, "lake_id", lake_id if lake_id is not None else src.stem)
     frame["lake_id"] = frame["lake_id"].astype(str)
 
     validated = validate_abacus(frame, context=src.name)
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
     schema = pa.schema(
         [
             pa.field("lake_id", pa.string()),
@@ -271,25 +278,7 @@ def convert_abacus_csv_to_parquet(
         schema=schema,
         preserve_index=False,
     )
-    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
-    try:
-        pq.write_table(
-            table,
-            tmp,
-            compression="zstd",
-            compression_level=5,
-            row_group_size=50_000,
-            use_dictionary=True,
-            write_statistics=True,
-            write_page_index=True,
-            version="2.6",
-        )
-    except Exception:
-        if tmp.exists():
-            tmp.unlink()
-        raise
-    os.replace(tmp, dest)
-    return dest
+    return _write_parquet_v2(table, dest)
 
 
 def read_locations_csv(path: str | Path) -> LocationsArtifact:

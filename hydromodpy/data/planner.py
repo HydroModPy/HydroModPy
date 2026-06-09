@@ -6,8 +6,11 @@ Current inference scope (V3)
 - ``flow.active_bc`` containing ``stream`` -> activate ``hydrography``
 - ``flow.active_bc`` containing ``ocean`` -> activate ``oceanic``
 - ``flow.active_bc`` containing ``lake``/``reservoir`` -> activate the lake
-  family (``lake_geometry``, ``lake_bathymetry``, ``lake_abacus``,
-  ``lake_levels``)
+  families the model actually consumes (``lake_geometry``, ``lake_abacus``,
+  ``lake_inflow``, ``lake_withdrawal``). Families without a consumer
+  (``lake_bathymetry``, ``lake_levels``, ``lake_outflow``) are not auto-inferred
+  so the catalog never accumulates data nothing reads; declare them explicitly if
+  needed.
 """
 
 from __future__ import annotations
@@ -107,11 +110,14 @@ class DataPlanner:
 
         if active_bc & {"lake", "reservoir"}:
             lake_token = "lake" if "lake" in active_bc else "reservoir"
+            # Only the families the model consumes: geometry + abacus build the LAK
+            # package, inflow + withdrawal feed its forcings. bathymetry / levels /
+            # outflow have no consumer yet, so auto-inferring them would dead-load.
             for lake_family in (
                 "lake_geometry",
-                "lake_bathymetry",
                 "lake_abacus",
-                "lake_levels",
+                "lake_inflow",
+                "lake_withdrawal",
             ):
                 if lake_family not in explicit_set:
                     self._add_inference(

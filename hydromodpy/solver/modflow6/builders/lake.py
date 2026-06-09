@@ -51,8 +51,10 @@ logger = get_logger(__name__)
 _VERTICAL = "VERTICAL"
 _HORIZONTAL = "HORIZONTAL"
 
-# A leakance must stay strictly positive: bedleak = 0 would short-circuit the
-# lake-aquifer head difference into an infinite conductance in MF6.
+# A leakance is non-negative. bedleak = 0 means a perfectly sealed lakebed (the
+# lakebed conductance, hence the harmonic-mean lake-aquifer conductance, is 0):
+# no leakage, which is a valid choice for a fully lined reservoir. Negative
+# leakance is rejected.
 _MIN_BEDLEAK = 0.0
 
 
@@ -112,14 +114,16 @@ def apply_lake_idomain_mask(
     *,
     lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
     occupied_layers: int = 1,
+    occupied_layers_by_lake: Mapping[str, int] | None = None,
 ) -> SolverMesh:
-    """Return a new ``SolverMesh`` with the lake's top layers made inactive.
+    """Return a new ``SolverMesh`` with each lake's top layers made inactive.
 
-    The lake occupies the top ``occupied_layers`` layers of each lake column (a
-    surface lake fills only layer 0). The layers below stay active so the LAK
-    VERTICAL connection has a first active cell to leak into. ``occupied_layers``
-    must leave at least one active layer per lake column, otherwise the column
-    has nothing to connect to.
+    A lake occupies the top layers of each of its columns: ``occupied_layers``
+    applies to every lake unless ``occupied_layers_by_lake`` overrides it per lake
+    id (a surface lake fills only layer 0; a deep reservoir fills several). The
+    layers below stay active so the LAK VERTICAL connection has a first active
+    cell to leak into; the count must leave at least one active layer per lake
+    column, otherwise the column has nothing to connect to.
 
     The frozen ``SolverMesh`` is left untouched; we ``dataclasses.replace`` a
     fresh inactive mask. Applying this *before* the DISV / idomain / dem_mask
@@ -127,16 +131,21 @@ def apply_lake_idomain_mask(
     """
     n_cells = int(solver_mesh.n_cells)
     nlay = int(solver_mesh.nlay)
-    if occupied_layers < 1:
-        raise ValueError("occupied_layers must be >= 1.")
-    if occupied_layers >= nlay:
-        raise ValueError(
-            f"occupied_layers ({occupied_layers}) must leave at least one active layer "
-            f"below the lake (nlay={nlay}); the VERTICAL connection needs an aquifer "
-            "cell to leak into."
-        )
     mask = np.asarray(solver_mesh.inactive_mask, dtype=bool).copy()
     for lake_id, cell_ids in lake_cell_ids_by_lake.items():
+        layers = int(
+            occupied_layers
+            if occupied_layers_by_lake is None
+            else occupied_layers_by_lake.get(lake_id, occupied_layers)
+        )
+        if layers < 1:
+            raise ValueError(f"flow.sinks_sources.lakes.{lake_id} occupied_layers must be >= 1.")
+        if layers >= nlay:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id} occupied_layers ({layers}) must leave at "
+                f"least one active layer below the lake (nlay={nlay}); the VERTICAL connection "
+                "needs an aquifer cell to leak into."
+            )
         for cid in cell_ids:
             cell = int(cid)
             if cell < 0 or cell >= n_cells:
@@ -144,7 +153,7 @@ def apply_lake_idomain_mask(
                     f"flow.sinks_sources.lakes.{lake_id} cell {cell} is outside the grid "
                     f"({n_cells} cells)."
                 )
-            mask[:occupied_layers, cell] = True
+            mask[:layers, cell] = True
     return dataclasses.replace(solver_mesh, inactive_mask=mask)
 
 
@@ -447,6 +456,13 @@ def build_lak_package_args(
             )
         bedleak = definition.get("bedleak")
         if bedleak is None:
+            logger.warning(
+                "flow.sinks_sources.lakes.%s has no bedleak; using the default "
+                "%s 1/s. Declare bedleak (with bedleak_unit) to control the "
+                "lake-aquifer leakage.",
+                lake_id,
+                _DEFAULT_BEDLEAK,
+            )
             bedleak_value = _DEFAULT_BEDLEAK
         else:
             bedleak_unit = definition.get("bedleak_unit")
@@ -455,13 +471,14 @@ def build_lak_package_args(
                 lake_id=lake_id,
                 unit=str(bedleak_unit) if bedleak_unit is not None else None,
             )
+        lake_layers = int(definition.get("occupied_layers") or occupied_layers)
         rows = build_lake_connectiondata(
             model,
             lake_index=lake_index,
             lake_cell_ids=cell_ids,
             bedleak=bedleak_value,
             solver_mesh=solver_mesh,
-            occupied_layers=occupied_layers,
+            occupied_layers=lake_layers,
         )
         connectiondata.extend(rows)
         # VERTICAL connections sit under the lake footprint: their per-lake iconn
@@ -496,6 +513,7 @@ def build_lak_package_args(
         stem=stem,
         lake_conn_info=lake_conn_info,
         outlets=outlets,
+        has_mover=bool(mover_records),
     )
     args: dict[str, Any] = {
         "nlakes": len(packagedata),
@@ -517,11 +535,13 @@ def build_lak_package_args(
         "budgetcsv_filerecord": f"{stem}.lak.budget.csv",
     }
     # FloPy rejects empty outlets / perioddata recarrays, so only attach them when
-    # populated (noutlets stays 0 when there is no spillway).
+    # populated (noutlets stays 0 when there is no spillway). perioddata is already
+    # keyed by stress period (constant / TS6 rows land in period 0, inline forcings
+    # spread across the periods where their value changes).
     if outlets:
         args["outlets"] = outlets
     if perioddata:
-        args["perioddata"] = {0: perioddata}
+        args["perioddata"] = perioddata
     # Non-constant forcings routed to external TS6 files travel alongside the LAK
     # args so build.py can attach them to the package right after construction.
     if ts_specs:
@@ -617,6 +637,19 @@ def lake_definitions_for_bedleak(model) -> dict[str, dict[str, Any]]:
     return _active_lake_definitions(model)
 
 
+def resolve_lake_occupied_layers(model) -> dict[str, int]:
+    """Return the per-lake occupied-layer count (>= 1) keyed by lake id.
+
+    Reads the ``occupied_layers`` config field surfaced onto each lake payload,
+    defaulting to 1 (surface lake). Used by ``build.py`` to thread the count into
+    the idomain mask so a deep reservoir is deactivated over all of its layers.
+    """
+    return {
+        lake_id: max(1, int(definition.get("occupied_layers") or 1))
+        for lake_id, definition in _active_lake_definitions(model).items()
+    }
+
+
 def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active lake definitions ``{lake_id: {polygon, bedleak, abacus}}``.
 
@@ -645,6 +678,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "bedleak_unit": _lake_attr(payload, "bedleak_unit"),
             "abacus": _lake_attr(payload, "abacus"),
             "stageinit": _lake_attr(payload, "stageinit"),
+            "occupied_layers": _lake_attr(payload, "occupied_layers"),
             "outlets": _lake_attr(payload, "outlets"),
             "rainfall": _lake_attr(payload, "rainfall"),
             "evaporation": _lake_attr(payload, "evaporation"),
@@ -877,28 +911,32 @@ def build_lake_period_data(
     model,
     *,
     lakes: Mapping[str, dict[str, Any]],
-) -> tuple[list[list[Any]], list[Ts6Series]]:
+) -> tuple[dict[int, list[list[Any]]], list[Ts6Series]]:
     """Build the LAK PERIOD rows and any external TS6 series for per-lake forcings.
 
-    Rows follow the FloPy ``[number, keyword, value]`` layout where ``number`` is
-    the 0-based lake index. ``rainfall`` / ``evaporation`` are converted to ``m/s``
-    (rate, L/T) and ``runoff`` / ``inflow`` / ``withdrawal`` to ``m3/s``
+    Returns ``(period_rows, ts_series)`` where ``period_rows`` maps a 0-based
+    stress period to its FloPy ``[number, keyword, value]`` rows (``number`` is
+    the 0-based lake index). ``rainfall`` / ``evaporation`` are converted to
+    ``m/s`` (rate, L/T) and ``runoff`` / ``inflow`` / ``withdrawal`` to ``m3/s``
     (volumetric, L^3/T), the canonical SI units that match HMP's seconds-based
     TDIS.
 
-    A constant forcing always stays inline (an identical ``[i, kw, float]`` row).
-    A non-constant forcing is routed to an external TS6 file when the LAK forcing
-    mode opts in (see :func:`resolve_use_ts6`): the row then carries the series
-    NAME (a string) and a :class:`Ts6Series` is accumulated in the second return
-    value. The TS6 series are attached to the package in ``build.py``.
+    A constant forcing emits a single inline row in period 0 (MF6 carries it for
+    the whole run). A non-constant forcing is either routed to an external TS6
+    file (one period-0 row carrying the series NAME, a :class:`Ts6Series`
+    accumulated in the second return value) or, when TS6 is not selected, expanded
+    inline: one row is emitted in every stress period where the value changes
+    (period 0 always). No declared forcing is ever dropped. The choice between TS6
+    and inline expansion is made by :func:`resolve_use_ts6`. The TS6 series are
+    attached to the package in ``build.py``.
     """
     mode, min_periods = _lak_forcing_mode(model)
     nper = int(getattr(model, "nper", 0) or 0)
-    rows: list[list[Any]] = []
+    period_rows: dict[int, list[list[Any]]] = {}
     ts_series: list[Ts6Series] = []
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         for keyword in _RATE_FORCINGS:
-            _emit_forcing_row(
+            _emit_forcing_rows(
                 model,
                 lake_index=lake_index,
                 lake_id=lake_id,
@@ -908,11 +946,11 @@ def build_lake_period_data(
                 mode=mode,
                 min_periods=min_periods,
                 nper=nper,
-                rows=rows,
+                period_rows=period_rows,
                 ts_series=ts_series,
             )
         for keyword in _VOLUMETRIC_FORCINGS:
-            _emit_forcing_row(
+            _emit_forcing_rows(
                 model,
                 lake_index=lake_index,
                 lake_id=lake_id,
@@ -922,13 +960,13 @@ def build_lake_period_data(
                 mode=mode,
                 min_periods=min_periods,
                 nper=nper,
-                rows=rows,
+                period_rows=period_rows,
                 ts_series=ts_series,
             )
-    return rows, ts_series
+    return period_rows, ts_series
 
 
-def _emit_forcing_row(
+def _emit_forcing_rows(
     model,
     *,
     lake_index: int,
@@ -939,14 +977,16 @@ def _emit_forcing_row(
     mode: str,
     min_periods: int,
     nper: int,
-    rows: list[list[Any]],
+    period_rows: dict[int, list[list[Any]]],
     ts_series: list[Ts6Series],
 ) -> None:
-    """Append one LAK PERIOD row (inline float or TS6 name) for one forcing.
+    """Append LAK PERIOD rows (inline floats or a TS6 name) for one forcing.
 
-    A constant forcing keeps the legacy inline ``[i, kw, float]`` row untouched.
-    A non-constant forcing routes to a TS6 series only when ``resolve_use_ts6``
-    opts in; otherwise it is silently skipped, exactly as before.
+    A constant forcing emits a single inline ``[i, kw, float]`` row in period 0.
+    A non-constant forcing routes to a TS6 series when ``resolve_use_ts6`` opts
+    in (one period-0 row carrying the series name). Otherwise it is expanded
+    inline: one ``[i, kw, float]`` row per stress period whenever the value
+    changes (period 0 always), so a time-varying forcing is never dropped.
     """
     if forcing is None:
         return
@@ -954,9 +994,14 @@ def _emit_forcing_row(
     value = _constant_forcing_value(forcing)
     use_ts6 = resolve_use_ts6(forcing, mode=mode, nper=nper, min_periods=min_periods)
     if value is not None and not use_ts6:
-        rows.append([int(lake_index), keyword, float(_to_si(value, forcing, location, volumetric))])
+        period_rows.setdefault(0, []).append(
+            [int(lake_index), keyword, float(_to_si(value, forcing, location, volumetric))]
+        )
         return
-    if not use_ts6:
+
+    # A non-constant forcing needs the solver period grid to expand. Without a
+    # model (nper unknown) there is nothing to resolve, so emit nothing.
+    if nper <= 0:
         return
 
     per_period = resolve_period_values_from_forcing(
@@ -970,17 +1015,29 @@ def _emit_forcing_row(
         float(_to_si(raw, forcing, f"{location}[{idx}]", volumetric, explicit_unit=unit))
         for idx, raw in enumerate(per_period)
     )
-    series_name = _ts6_series_name(lake_index, keyword)
-    rows.append([int(lake_index), keyword, series_name])
-    times, values = _ts6_times_and_values(model, per_period_si)
-    ts_series.append(
-        Ts6Series(
-            name=series_name,
-            times=times,
-            values=values,
-            interpolation="stepwise",
+
+    if use_ts6:
+        series_name = _ts6_series_name(lake_index, keyword)
+        period_rows.setdefault(0, []).append([int(lake_index), keyword, series_name])
+        times, values = _ts6_times_and_values(model, per_period_si)
+        ts_series.append(
+            Ts6Series(
+                name=series_name,
+                times=times,
+                values=values,
+                interpolation="stepwise",
+            )
         )
-    )
+        return
+
+    # Inline expansion: one row per stress period whenever the value changes. MF6
+    # carries each value forward until the next row, so a constant tail collapses
+    # to a single row while every genuine change is preserved.
+    previous: float | None = None
+    for kper, si_value in enumerate(per_period_si):
+        if previous is None or si_value != previous:
+            period_rows.setdefault(kper, []).append([int(lake_index), keyword, si_value])
+            previous = si_value
 
 
 def _to_si(
@@ -1096,11 +1153,13 @@ def _forcing_unit(forcing: object) -> str | None:
 # LAK observations (OBS6) for the per-lake output series.
 # --------------------------------------------------------------------------- #
 
-# Per-lake scalar observation types keyed by the 0-based lake number, mapped to
-# the HMP-side series name the extractor stores. MF6 LAK obs cannot be requested
-# by boundname through flopy (its writer increments integer ids and chokes on
-# strings), so every observation uses the integer lake / connection number and
-# the lake-aquifer exchange is reconstructed from the per-connection terms.
+# Per-lake scalar observation types keyed by the 0-based lake number (MF6 ifno),
+# mapped to the HMP-side series name the extractor stores. MF6 LAK obs cannot be
+# requested by boundname through flopy (its writer increments integer ids and
+# chokes on strings), so every observation uses the integer lake / connection
+# number and the lake-aquifer exchange is reconstructed from the per-connection
+# terms. ext-outflow / to-mvr / outlet are NOT here: MF6 keys them by outlet
+# number, so they are requested in the per-outlet loop instead.
 _LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("stage", "stage"),
     ("volume", "volume"),
@@ -1110,7 +1169,6 @@ _LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("evaporation", "evaporation"),
     ("runoff", "runoff"),
     ("withdrawal", "withdrawal"),
-    ("ext-outflow", "ext_outflow"),
     ("storage", "storage"),
 )
 
@@ -1120,6 +1178,7 @@ def build_lake_obs_spec(
     stem: str,
     lake_conn_info: Sequence[Mapping[str, Any]],
     outlets: Sequence[Sequence[Any]],
+    has_mover: bool = False,
 ) -> tuple[dict[str, list[tuple[Any, ...]]], dict[str, Any]]:
     """Return ``(obs_continuous, lake_obs_meta)`` for the LAK package.
 
@@ -1129,6 +1188,11 @@ def build_lake_obs_spec(
     mapping each observation name to its lake / quantity / connection so the
     extractor can re-key the obs CSV by ``(lake_id, totim)`` and isolate the
     under-dam (VERTICAL) leakage.
+
+    When ``has_mover`` is set the LAK package routes water through MVR, so a
+    ``from-mvr`` obs is added per lake (water received from the mover, MF6 id =
+    lake number) and a ``to-mvr`` obs per outlet (water sent to the mover, id =
+    outlet number). These obs are only valid once the package advertises MOVER.
 
     Returns empty structures when no lake is present.
     """
@@ -1147,6 +1211,12 @@ def build_lake_obs_spec(
             obsname = f"{tag}_{quantity}"
             obslist.append((obsname, obstype, (lake_index,)))
             entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": quantity})
+        if has_mover:
+            # from-mvr is a per-lake obs (id = lake number): water this lake
+            # receives from the MVR package.
+            obsname = f"{tag}_from_mvr"
+            obslist.append((obsname, "from-mvr", (lake_index,)))
+            entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": "from_mvr"})
         vertical = {int(i) for i in info.get("vertical_iconns", [])}
         for iconn in range(int(info["n_conn"])):
             obsname = f"{tag}_lak_{iconn}"
@@ -1168,6 +1238,18 @@ def build_lake_obs_spec(
         obsname = f"{tag}_outlet_{outletno}"
         obslist.append((obsname, "outlet", (outletno,)))
         entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": "outlet"})
+        # ext-outflow is keyed by outlet number, so it belongs here, not in the
+        # per-lake loop (requesting it by lake number errors once the lake index
+        # exceeds the outlet count).
+        ext_name = f"{tag}_ext_outflow_{outletno}"
+        obslist.append((ext_name, "ext-outflow", (outletno,)))
+        entries.append({"obsname": ext_name, "lake_id": lake_id, "quantity": "ext_outflow"})
+        if has_mover:
+            # to-mvr is a per-outlet obs (id = outlet number): water this outlet
+            # sends to the MVR package (0 for an outlet not routed through MVR).
+            mvr_name = f"{tag}_to_mvr_{outletno}"
+            obslist.append((mvr_name, "to-mvr", (outletno,)))
+            entries.append({"obsname": mvr_name, "lake_id": lake_id, "quantity": "to_mvr"})
 
     obs_continuous = {obs_csv: obslist}
     lake_obs_meta = {
@@ -1214,5 +1296,6 @@ __all__ = [
     "lake_definitions_for_bedleak",
     "resolve_lake_cells",
     "resolve_lake_cells_for_active_lakes",
+    "resolve_lake_occupied_layers",
     "resolve_use_ts6",
 ]

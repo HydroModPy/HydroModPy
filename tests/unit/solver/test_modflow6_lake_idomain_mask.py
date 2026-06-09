@@ -74,3 +74,32 @@ def test_apply_lake_idomain_mask_handles_multiple_lakes() -> None:
     assert idomain[0, 0] == 0
     assert idomain[0, 7] == 0
     assert idomain[0, [1, 2, 3, 4, 5, 6]].tolist() == [1, 1, 1, 1, 1, 1]
+
+
+def test_apply_lake_idomain_mask_respects_per_lake_occupied_layers() -> None:
+    # A surface lake (1 layer) and a deep reservoir (2 layers) on the same grid
+    # are deactivated to different depths via occupied_layers_by_lake.
+    mesh = _grid(2, 2, nlay=3)
+    masked = apply_lake_idomain_mask(
+        mesh,
+        lake_cell_ids_by_lake={"surface": [0], "deep": [3]},
+        occupied_layers_by_lake={"surface": 1, "deep": 2},
+    )
+    idomain = masked.idomain()
+    # Surface lake: only layer 0 inactive.
+    assert idomain[0, 0] == 0
+    assert idomain[1, 0] == 1
+    # Deep reservoir: layers 0 and 1 inactive, layer 2 stays active.
+    assert idomain[0, 3] == 0
+    assert idomain[1, 3] == 0
+    assert idomain[2, 3] == 1
+
+
+def test_apply_lake_idomain_mask_per_lake_rejects_full_column() -> None:
+    mesh = _grid(2, 2, nlay=2)
+    with pytest.raises(ValueError, match="at least one active layer"):
+        apply_lake_idomain_mask(
+            mesh,
+            lake_cell_ids_by_lake={"deep": [0]},
+            occupied_layers_by_lake={"deep": 2},
+        )

@@ -123,10 +123,10 @@ Sub-models are linked back to their per-section page.
       # lake_bathymetry = ...  # default = None
       # Lake geometry configuration (lake/reservoir footprint vector).
       # lake_geometry = ...  # default = None
-      # Lake levels configuration (observed water-level time series).
-      # lake_levels = ...  # default = None
       # Lake inflow configuration (observed inflow volumetric time series).
       # lake_inflow = ...  # default = None
+      # Lake levels configuration (observed water-level time series).
+      # lake_levels = ...  # default = None
       # Lake outflow configuration (observed outflow volumetric time series).
       # lake_outflow = ...  # default = None
       # Lake withdrawal configuration (observed withdrawal volumetric time series).

@@ -51,11 +51,42 @@ def test_run_mf6_api_missing_namefile_raises(tmp_path: Path) -> None:
         run_mf6_api(tmp_path, lambda ctx: None)
 
 
+def test_normal_termination_detection_keys_off_the_listing(tmp_path: Path) -> None:
+    from hydromodpy.solver.modflow6.api_runner import _simulation_reached_normal_termination
+
+    # No listing -> failure.
+    assert _simulation_reached_normal_termination(tmp_path) is False
+    # Listing without the banner (a non-converged run) -> failure.
+    (tmp_path / "mfsim.lst").write_text("  ...\n  SOLUTION DID NOT CONVERGE\n", encoding="utf-8")
+    assert _simulation_reached_normal_termination(tmp_path) is False
+    # Listing with the banner (a converged run) -> success. MF6 may upper-case it,
+    # so the check is case-insensitive.
+    (tmp_path / "mfsim.lst").write_text(
+        "  ...\n  NORMAL TERMINATION OF SIMULATION\n", encoding="utf-8"
+    )
+    assert _simulation_reached_normal_termination(tmp_path) is True
+
+
+def test_resolve_api_success_maps_none_return_to_listing_verdict(tmp_path: Path) -> None:
+    # modflowapi.run_simulation returns None on both success and divergence, so a
+    # None return must be resolved from the listing, not assumed to be success.
+    from hydromodpy.solver.modflow6.api_runner import _resolve_api_success
+
+    # None + no/failed listing -> failure (the old code wrongly returned True).
+    assert _resolve_api_success(None, tmp_path) is False
+    (tmp_path / "mfsim.lst").write_text("SOLUTION DID NOT CONVERGE\n", encoding="utf-8")
+    assert _resolve_api_success(None, tmp_path) is False
+    # None + converged listing -> success.
+    (tmp_path / "mfsim.lst").write_text("Normal termination of simulation.\n", encoding="utf-8")
+    assert _resolve_api_success(None, tmp_path) is True
+    # A future modflowapi that reports a real flag is honoured directly.
+    assert _resolve_api_success(False, tmp_path) is False
+    assert _resolve_api_success(True, tmp_path) is True
+
+
 def test_api_runner_imports_without_modflowapi() -> None:
     # The module must import even when modflowapi is absent: the dependency
     # is imported lazily inside run_mf6_api, never at module top.
-    import importlib
-
     import hydromodpy.solver.modflow6.api_runner as runner
 
     assert hasattr(runner, "run_mf6_api")
@@ -67,4 +98,7 @@ def test_api_runner_imports_without_modflowapi() -> None:
     module_top = source.split("def run_mf6_api", 1)[0]
     assert "import modflowapi" not in module_top
     assert "import xmipy" not in module_top
-    importlib.reload(runner)
+    # NOTE: do not importlib.reload(runner) here. reload re-executes the module in
+    # its existing dict, rebinding Mf6ApiStep to a new enum class and breaking
+    # identity (`is`) comparisons in any test holding the pre-reload members,
+    # which silently disabled the API-runner integration callbacks.

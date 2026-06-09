@@ -343,11 +343,20 @@ class HydroModPyConfig(HydroModelBase):
             active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
             sinks_sources = getattr(flow_cfg, "sinks_sources", None)
             lakes = getattr(sinks_sources, "lakes", None) or {}
-            wants_lake = bool({"lake", "reservoir"} & active_bc) or bool(lakes)
+            bc_has_lake = bool({"lake", "reservoir"} & active_bc)
+            wants_lake = bc_has_lake or bool(lakes)
             if wants_lake and engine_value != "modflow6":
                 raise IncompatibleCapabilitiesError(
                     f"solver.backend={engine_value!r} does not support lake/reservoir "
                     "boundaries; LAK lakes require the 'modflow6' backend."
+                )
+            if lakes and not bc_has_lake:
+                raise ValueError(
+                    "flow.sinks_sources.lakes declares lakes but flow.active_bc lists "
+                    "neither 'lake' nor 'reservoir'; add 'lake' (or 'reservoir') to "
+                    "flow.active_bc to activate the LAK package, or remove the lakes. "
+                    "The LAK builder only activates on active_bc, so as-is the lakes "
+                    "would be silently ignored."
                 )
 
         return self

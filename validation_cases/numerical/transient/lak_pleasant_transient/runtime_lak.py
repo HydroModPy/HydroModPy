@@ -163,7 +163,10 @@ def _build_lak_period_data(geometry: PleasantTransientGeometry) -> dict[int, lis
     perioddata: dict[int, list[list[Any]]] = {}
     for period in range(geometry.n_periods):
         lakes = {_LAKE_ID: _lake_definition(geometry, period=period)}
-        perioddata[period] = build_lake_period_data(None, lakes=lakes)[0]
+        # build_lake_period_data returns period-keyed rows; this case feeds the
+        # builder one constant set of values per period, so the rows land under
+        # period 0, which we re-key to this stress period.
+        perioddata[period] = build_lake_period_data(None, lakes=lakes)[0].get(0, [])
     return perioddata
 
 

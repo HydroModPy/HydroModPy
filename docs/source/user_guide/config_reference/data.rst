@@ -1747,280 +1747,6 @@ Fields
 
 
 .. container:: hmp-field hmp-field-level-user
-   :name: data-lake-levels
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="data.lake_levels">
-        <code class="hmp-field-name">lake_levels</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[data.lake_levels]</code>
-      </div>
-
-   :bdg-primary:`LakeLevelsConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L161>`__
-
-      Lake levels configuration (observed water-level time series).
-
-   .. dropdown:: Fields of ``LakeLevelsConfig``
-      :icon: list-unordered
-      :animate: fade-in-slide-down
-
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: data-lake-levels-date-start
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="data.lake_levels.date_start">
-              <code class="hmp-field-name">date_start</code>
-            </div>
-
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L69>`__
-
-            Project start date (ISO format, e.g. '2019-01-01').
-
-         **Example:** ``"2019-01-01"``
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: data-lake-levels-date-end
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="data.lake_levels.date_end">
-              <code class="hmp-field-name">date_end</code>
-            </div>
-
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L70>`__
-
-            Project end date (ISO format, e.g. '2025-12-31').
-
-         **Example:** ``"2025-12-31"``
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: data-lake-levels-sources
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="data.lake_levels.sources">
-              <code class="hmp-field-name">sources</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">[[data.lake_levels.sources]]</code>
-            </div>
-
-         :bdg-primary:`list[LakeLevelsSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L54>`__
-
-            At least one lake-levels data source.
-
-         .. dropdown:: Fields of ``LakeLevelsSourceConfig``
-            :icon: list-unordered
-            :animate: fade-in-slide-down
-
-            .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-lake-levels-sources-station-ids
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.station_ids">
-                    <code class="hmp-field-name">station_ids</code>
-                  </div>
-
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Explicit station identifiers to load (custom source).
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-lake-levels-sources-extent
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.extent">
-                    <code class="hmp-field-name">extent</code>
-                  </div>
-
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-force-refresh
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.force_refresh">
-                    <code class="hmp-field-name">force_refresh</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Ignore the cache and force a fresh download from the API.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-lake-levels-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-lake-levels-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-col-id
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_id">
-                    <code class="hmp-field-name">col_id</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Column name for the station identifier in location files.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-col-x
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_x">
-                    <code class="hmp-field-name">col_x</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Column name for the X coordinate in location files.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-col-y
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_y">
-                    <code class="hmp-field-name">col_y</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Column name for the Y coordinate in location files.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-col-crs
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_crs">
-                    <code class="hmp-field-name">col_crs</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Column name for the CRS in location files.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-col-datetime
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_datetime">
-                    <code class="hmp-field-name">col_datetime</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Column name for timestamps in chronicle CSVs.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-col-value
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_value">
-                    <code class="hmp-field-name">col_value</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Column name for numeric values in chronicle CSVs.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-lake-levels-sources-default-crs
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.default_crs">
-                    <code class="hmp-field-name">default_crs</code>
-                  </div>
-
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
-
-                  Default CRS used when a location file omits the CRS column.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-lake-levels-sources-source
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.source">
-                    <code class="hmp-field-name">source</code>
-                  </div>
-
-               :bdg-primary:`Literal['custom']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L27>`__
-
-                  Data provider: 'custom' for user files.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-lake-levels-sources-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.path">
-                    <code class="hmp-field-name">path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L30>`__
-
-                  Directory containing location file and chronicle CSVs.
-
-
-
-
-
-
-.. container:: hmp-field hmp-field-level-user
    :name: data-lake-inflow
 
    .. raw:: html
@@ -2031,7 +1757,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_inflow]</code>
       </div>
 
-   :bdg-primary:`LakeInflowConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L165>`__
+   :bdg-primary:`LakeInflowConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L161>`__
 
       Lake inflow configuration (observed inflow volumetric time series).
 
@@ -2286,6 +2012,280 @@ Fields
                   </div>
 
                :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_inflow/config.py#L29>`__
+
+                  Directory containing location file and chronicle CSVs.
+
+
+
+
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: data-lake-levels
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="data.lake_levels">
+        <code class="hmp-field-name">lake_levels</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[data.lake_levels]</code>
+      </div>
+
+   :bdg-primary:`LakeLevelsConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/data_managers_config.py#L165>`__
+
+      Lake levels configuration (observed water-level time series).
+
+   .. dropdown:: Fields of ``LakeLevelsConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: data-lake-levels-date-start
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="data.lake_levels.date_start">
+              <code class="hmp-field-name">date_start</code>
+            </div>
+
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L69>`__
+
+            Project start date (ISO format, e.g. '2019-01-01').
+
+         **Example:** ``"2019-01-01"``
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: data-lake-levels-date-end
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="data.lake_levels.date_end">
+              <code class="hmp-field-name">date_end</code>
+            </div>
+
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L70>`__
+
+            Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: data-lake-levels-sources
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="data.lake_levels.sources">
+              <code class="hmp-field-name">sources</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">[[data.lake_levels.sources]]</code>
+            </div>
+
+         :bdg-primary:`list[LakeLevelsSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L54>`__
+
+            At least one lake-levels data source.
+
+         .. dropdown:: Fields of ``LakeLevelsSourceConfig``
+            :icon: list-unordered
+            :animate: fade-in-slide-down
+
+            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-lake-levels-sources-station-ids
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.station_ids">
+                    <code class="hmp-field-name">station_ids</code>
+                  </div>
+
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Explicit station identifiers to load (custom source).
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-lake-levels-sources-extent
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.extent">
+                    <code class="hmp-field-name">extent</code>
+                  </div>
+
+               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-force-refresh
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.force_refresh">
+                    <code class="hmp-field-name">force_refresh</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-lake-levels-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-lake-levels-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-col-id
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_id">
+                    <code class="hmp-field-name">col_id</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Column name for the station identifier in location files.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-col-x
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_x">
+                    <code class="hmp-field-name">col_x</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Column name for the X coordinate in location files.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-col-y
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_y">
+                    <code class="hmp-field-name">col_y</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Column name for the Y coordinate in location files.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-col-crs
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_crs">
+                    <code class="hmp-field-name">col_crs</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Column name for the CRS in location files.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-col-datetime
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_datetime">
+                    <code class="hmp-field-name">col_datetime</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Column name for timestamps in chronicle CSVs.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-col-value
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.col_value">
+                    <code class="hmp-field-name">col_value</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Column name for numeric values in chronicle CSVs.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-lake-levels-sources-default-crs
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.default_crs">
+                    <code class="hmp-field-name">default_crs</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L19>`__
+
+                  Default CRS used when a location file omits the CRS column.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-lake-levels-sources-source
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.source">
+                    <code class="hmp-field-name">source</code>
+                  </div>
+
+               :bdg-primary:`Literal['custom']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L27>`__
+
+                  Data provider: 'custom' for user files.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-lake-levels-sources-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.lake_levels.sources.path">
+                    <code class="hmp-field-name">path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_levels/config.py#L30>`__
 
                   Directory containing location file and chronicle CSVs.
 
@@ -6515,12 +6515,12 @@ Starter TOML snippet
       # sources = []  # REQUIRED
       # id = "lake_geometry"
 
-      [data.lake_levels]
+      [data.lake_inflow]
       # date_start = ...  # default = None
       # date_end = ...  # default = None
       # sources = []  # REQUIRED
 
-      [data.lake_inflow]
+      [data.lake_levels]
       # date_start = ...  # default = None
       # date_end = ...  # default = None
       # sources = []  # REQUIRED

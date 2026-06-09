@@ -273,10 +273,12 @@ def _build_irregular_simulation(
         "ts_specs",
     ):
         lak_args.pop(key, None)
+    # build_lake_period_data returns period-keyed rows; feeding one constant set
+    # of values per period lands the rows under period 0, re-keyed here.
     lak_args["perioddata"] = {
         period: build_lake_period_data(
             None, lakes={_LAKE_ID: _lake_definition(geometry, period=period)}
-        )[0]
+        )[0].get(0, [])
         for period in range(geometry.n_periods)
     }
 

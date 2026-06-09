@@ -68,11 +68,13 @@ abacus. This is the working pattern exercised by the lake end-to-end test.
    lake_id = "lac0"
 
 ``bedleak`` is the lake-bed leakance (1/T): the resistance of the lake-aquifer
-interface, and the calibration handle for under-dam leakage. ``stageinit`` is the
-initial stage. The geometry source is a polygon (SHP, GPKG, or GeoJSON) in the
-project CRS. The abacus source is a CSV with ``stage,volume,sarea`` columns that
-brackets the operating range of the stage; ``lake_id`` ties the abacus to the
-matching lake id.
+interface, and the calibration handle for under-dam leakage. Declare its unit with
+``bedleak_unit`` (default ``1/s``) when the value is in ``1/day`` or ``1/h`` so it
+is converted, not taken raw. ``stageinit`` is the initial stage. ``occupied_layers``
+controls how many top layers a deep reservoir occupies (default ``1``, a surface
+lake). The geometry source is a polygon (SHP, GPKG, or GeoJSON) in the project CRS.
+The abacus source is a CSV with ``stage,volume,sarea`` columns that brackets the
+operating range of the stage; ``lake_id`` ties the abacus to the matching lake id.
 
 The lake payload accepts these fields.
 
@@ -86,9 +88,20 @@ The lake payload accepts these fields.
    * - ``bedleak``
      - 1/T
      - Lake-bed leakance, the lake-aquifer interface resistance. Required.
+       ``0`` means a perfectly sealed lakebed (no leakage).
+   * - ``bedleak_unit``
+     - --
+     - Unit of ``bedleak`` (``1/s``, ``1/day``, ``1/h``, ``1/min``; default
+       ``1/s``). HydroModPy converts it to ``1/s`` for MF6, so a ``1/day``
+       leakance is not silently taken as ``1/s``.
    * - ``stageinit``
      - L
      - Initial lake stage. Required.
+   * - ``occupied_layers``
+     - --
+     - Number of top grid layers the lake occupies in each column (default
+       ``1`` = surface lake). A deeper reservoir embedded over several layers uses
+       a higher count; it must leave at least one active layer below the lake.
    * - ``outlets``
      - --
      - Array of spillway / controlled-release outlets. Optional.
@@ -236,7 +249,22 @@ with the four meteorological seasons, or ``by_month`` with all twelve months.
 Segments must be strictly date-ordered and non-overlapping; a seasonal mapping
 must be complete (all four seasons or all twelve months). Long chronicles are
 written to a MODFLOW 6 time-series (TS6) file automatically, so a forcing of any
-length stays out of the stress-period lists.
+length stays out of the stress-period lists. A non-constant forcing under
+``lak_forcing_mode = "inline"`` (or ``"auto"`` below ``ts6_min_periods``) is
+instead expanded into the LAK PERIOD block, one row per stress period whenever the
+value changes; either way the declared forcing always reaches the solver.
+
+Inflow and withdrawal can also be supplied as files through the data layer instead
+of being declared in config. Drop a chronicle under ``data/lake_inflow/`` (or
+``data/lake_withdrawal/``) keyed by ``lake_id``; the planner auto-loads it when a
+lake is active, the binder aggregates it to the stress periods, and it feeds the
+same LAK forcing. A forcing declared in config wins over the data file.
+
+.. code-block:: toml
+
+   [[data.lake_inflow.sources]]
+   source = "custom"
+   path = "data/lake_inflow"
 
 Running
 -------

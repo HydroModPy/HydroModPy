@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -99,6 +100,13 @@ def aggregate_forcing_series(
     raise ValueError(f"{label}: unsupported aggregate mode '{aggregate}'.")
 
 
+def _forcing_attr(forcing: object, name: str) -> object:
+    """Read one forcing attribute from either a config object or a mapping."""
+    if isinstance(forcing, Mapping):
+        return forcing.get(name)
+    return getattr(forcing, name, None)
+
+
 def resolve_period_values_from_forcing(
     *,
     forcing: object,
@@ -110,11 +118,25 @@ def resolve_period_values_from_forcing(
     if nper <= 0:
         return []
 
-    kind = getattr(forcing, "kind", getattr(forcing, "mode", None))
+    kind = _forcing_attr(forcing, "kind") or _forcing_attr(forcing, "mode")
     if kind == "constant":
-        constant_value = forcing.value
+        constant_value = _forcing_attr(forcing, "value")
         magnitude = getattr(constant_value, "magnitude", constant_value)
         return [float(magnitude)] * int(nper)
+
+    if kind == "values":
+        # Pre-resolved per-period values (e.g. a file-loaded lake forcing already
+        # aligned to the simulation stress periods).
+        values = _forcing_attr(forcing, "values")
+        if values is None:
+            raise ValueError(f"{label}: a 'values' forcing requires a values list.")
+        resolved = [float(v) for v in values]
+        if len(resolved) != int(nper):
+            raise ValueError(
+                f"{label}: pre-resolved forcing length ({len(resolved)}) does not match "
+                f"nper ({int(nper)})."
+            )
+        return resolved
 
     if simulation_window is None:
         raise ValueError(f"{label}: simulation.time is required to resolve non-constant forcing.")

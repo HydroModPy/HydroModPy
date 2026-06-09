@@ -20,7 +20,7 @@ from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.adapters import (
     TimeSeriesValidationError,
-    convert_abacus_csv_to_parquet,
+    convert_abacus_to_parquet,
     convert_asc_to_geotiff,
     convert_timeseries_csv_to_parquet,
     convert_vector_to_geoparquet,
@@ -368,7 +368,7 @@ def _scan_table_variable(
         lake_id = _lake_id_from_stem(src.stem, spec.file_prefix)
         dest = blobs_dir / spec.name / "custom" / f"{src.stem}.parquet"
         try:
-            convert_abacus_csv_to_parquet(src, dest, lake_id=lake_id)
+            convert_abacus_to_parquet(src, dest, lake_id=lake_id)
         except Exception as exc:
             report.errors.append((src, f"{type(exc).__name__}: {exc}"))
             continue
@@ -513,11 +513,9 @@ def check_custom(
                     issues.append((src, "file disappeared during check"))
         elif spec.kind == "table":
             for src in _iter_files(custom_dir, spec.file_prefix, _TABLE_SUFFIXES):
-                if src.suffix.lower() != ".csv":
-                    continue
                 lake_id = _lake_id_from_stem(src.stem, spec.file_prefix)
                 try:
-                    convert_abacus_csv_to_parquet(src, custom_dir / "_check.tmp", lake_id=lake_id)
+                    convert_abacus_to_parquet(src, custom_dir / "_check.tmp", lake_id=lake_id)
                 except DataContractViolation as exc:
                     issues.append((src, str(exc)))
                 finally:

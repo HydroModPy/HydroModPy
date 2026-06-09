@@ -149,6 +149,168 @@ def test_mover_package_count_is_one_for_lak_to_lak() -> None:
     assert mover_package_count(records) == 1
 
 
+def test_lak_obs_spec_requests_to_mvr_and_from_mvr_only_with_a_mover() -> None:
+    # The to-mvr / from-mvr obs are only valid once the LAK package advertises
+    # MOVER, so they appear in the args exactly when a transfer is requested.
+    from hydromodpy.solver.modflow6.builders.lake import build_lake_obs_spec
+
+    conn = [
+        {"lake_index": 0, "lake_id": "lac0", "n_conn": 1, "vertical_iconns": [0]},
+        {"lake_index": 1, "lake_id": "lac1", "n_conn": 1, "vertical_iconns": [0]},
+    ]
+    outlets = [[0, 0, -1, "WEIR", 87.0, 30.0, 0.0, 0.0]]
+    without = build_lake_obs_spec(stem="m", lake_conn_info=conn, outlets=outlets, has_mover=False)[
+        1
+    ]
+    assert not any(e["quantity"] in {"to_mvr", "from_mvr"} for e in without["entries"])
+    with_mover = build_lake_obs_spec(
+        stem="m", lake_conn_info=conn, outlets=outlets, has_mover=True
+    )[1]
+    quantities = {e["quantity"] for e in with_mover["entries"]}
+    assert "from_mvr" in quantities  # per lake
+    assert "to_mvr" in quantities  # per outlet
+
+
+def _grid_4x4_metric() -> SolverMesh:
+    """A 4x4, 100 m, 2-layer grid that converges with a LAK + MVR cascade."""
+    top = np.full((4, 4), 100.0)
+    botm = np.stack([np.full((4, 4), 50.0), np.full((4, 4), 0.0)])
+    return SolverMesh.from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=100.0, dy=100.0)
+
+
+def _two_lake_mvr_sim(tmp_path, *, exe: str):
+    """Build a runnable 2-lake DISV sim wiring a LAK -> LAK MVR transfer.
+
+    lac0 carries a WEIR outlet routed onward to lac1 through MVR (FACTOR 1.0); the
+    CHD-drained aquifer keeps the solve well-posed. This exercises the whole
+    build_lak_package_args MVR path (MOVER option, the MVR record, and the
+    to-mvr / from-mvr obs) through a real MF6 run.
+    """
+    cells = {"lac0": [0, 1], "lac1": [14, 15]}
+    abacus = [(80.0, 0.0, 1.0e4), (90.0, 1.0e5, 1.0e4), (100.0, 2.0e5, 1.0e4)]
+    model = SimpleNamespace(
+        model_output_name="lac_test",
+        time_units="seconds",
+        flow=SimpleNamespace(
+            active_bc=["lake"],
+            sinks_sources={
+                "lakes": {
+                    "lac0": {
+                        "polygon": None,
+                        "bedleak": 0.01,
+                        "abacus": abacus,
+                        "stageinit": 87.5,
+                        "inflow": 0.5,
+                        "outlets": [
+                            {
+                                "couttype": "WEIR",
+                                "invert": 87.0,
+                                "width": 5.0,
+                                "lakeout": 0,
+                                "mover": {"lake": 2, "mvrtype": "FACTOR", "value": 1.0},
+                            }
+                        ],
+                    },
+                    "lac1": {
+                        "polygon": None,
+                        "bedleak": 0.01,
+                        "abacus": abacus,
+                        "stageinit": 82.0,
+                    },
+                }
+            },
+        ),
+        nper=1,
+        perlen=[8.64e6],
+        time_grid=None,
+        modflow_config=SimpleNamespace(
+            process_specific=SimpleNamespace(lak_forcing_mode="inline", ts6_min_periods=120)
+        ),
+    )
+    masked = apply_lake_idomain_mask(_grid_4x4_metric(), lake_cell_ids_by_lake=cells)
+    lak_args = build_lak_package_args(model, solver_mesh=masked, lake_cell_ids_by_lake=cells)
+    assert lak_args is not None
+    assert lak_args.get("mover") is True
+
+    sim = flopy.mf6.MFSimulation(sim_name="mvr", sim_ws=str(tmp_path), exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, time_units="seconds", nper=1, perioddata=[(8.64e6, 50, 1.1)])
+    flopy.mf6.ModflowIms(
+        sim,
+        complexity="MODERATE",
+        linear_acceleration="BICGSTAB",
+        outer_maximum=500,
+        inner_maximum=200,
+        outer_dvclose=1e-6,
+        inner_dvclose=1e-7,
+    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="lac_test", newtonoptions="NEWTON UNDER_RELAXATION")
+    disv_kwargs = masked.to_disv_kwargs()
+    flopy.mf6.ModflowGwfdisv(
+        gwf, nlay=masked.nlay, **disv_kwargs, idomain=masked.idomain(), xorigin=0.0, yorigin=0.0
+    )
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0, k33=0.1)
+    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, sy=0.2, ss=1e-5, transient={0: True})
+    flopy.mf6.ModflowGwfic(gwf, strt=83.0)
+    chd = [[(1, c), 78.0] for c in (0, 3, 12, 15)]
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data={0: chd})
+    _wire_lak_and_mvr_through_flopy(gwf, lak_args)
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        head_filerecord="lac_test.hds",
+        budget_filerecord="lac_test.cbc",
+        saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
+    )
+    sim.write_simulation(silent=True)
+    return sim
+
+
+def _read_obs_last_row(path) -> dict[str, float]:
+    import csv
+
+    with open(path, encoding="utf-8", newline="") as fh:
+        reader = csv.reader(fh)
+        header = [h.strip().upper() for h in next(reader)]
+        last = None
+        for row in reader:
+            if row:
+                last = row
+    assert last is not None, "LAK obs CSV has no data rows"
+    return {name: float(value) for name, value in zip(header, last, strict=True)}
+
+
+@pytest.mark.mf6
+@pytest.mark.binary
+@pytest.mark.allow_subprocess
+@pytest.mark.fast
+def test_mvr_cascade_runs_end_to_end_and_extracts_mover_obs(tmp_path) -> None:
+    # The v1 centrepiece, end to end: a 2-lake LAK -> LAK MVR cascade must build,
+    # converge through a real MF6 solve, and surface the per-outlet to-mvr and
+    # per-lake from-mvr observations (the previously dead extractor members). The
+    # ext-outflow / to-mvr / from-mvr obs are outlet/lake-id keyed, so a wrong id
+    # would make MF6 reject the obs file and the run fail here.
+    import math
+    from pathlib import Path
+
+    from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+
+    exe = str(ensure_solver_binary("mf6"))
+    sim = _two_lake_mvr_sim(tmp_path, exe=exe)
+    ok, _ = sim.run_simulation(silent=True)
+    assert ok, "the 2-lake MVR cascade did not converge"
+
+    obs = _read_obs_last_row(Path(tmp_path) / "lac_test.lak.obs.csv")
+    # The mover obs reach MF6 and are extracted: to-mvr is keyed by the provider
+    # outlet, from-mvr by the receiver lake. Both must be present and finite.
+    assert "LAC0_TO_MVR_0" in obs
+    assert "LAC1_FROM_MVR" in obs
+    to_mvr = obs["LAC0_TO_MVR_0"]
+    from_mvr = obs["LAC1_FROM_MVR"]
+    assert math.isfinite(to_mvr) and math.isfinite(from_mvr)
+    # FACTOR 1.0 conservation invariant: water leaving lac0 via the mover equals
+    # water lac1 receives from it.
+    assert abs(from_mvr) == pytest.approx(abs(to_mvr), rel=1e-6, abs=1e-9)
+
+
 def _two_lake_model_with_mover() -> SimpleNamespace:
     poly0 = Polygon([(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)])
     poly1 = Polygon([(2.0, 2.0), (4.0, 2.0), (4.0, 4.0), (2.0, 4.0)])

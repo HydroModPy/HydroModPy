@@ -177,6 +177,9 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         },
         supports_forcing=True,
     ),
+    # 'reservoir' is an accepted synonym of 'lake': both map to the MF6 LAK
+    # package and read the single flow.sinks_sources['lakes'] payload (there is no
+    # separate 'reservoirs' payload). Either id in active_bc activates the lake.
     "reservoir": FlowBoundaryDefinition(
         id="reservoir",
         family="advanced_package",

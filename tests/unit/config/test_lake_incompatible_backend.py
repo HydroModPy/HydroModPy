@@ -16,6 +16,7 @@ from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.physics.flow.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.sinks_sources import FlowSinksSourcesConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.solver_contract import assert_supported_runtime_subset
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
@@ -57,6 +58,37 @@ def test_lake_on_modflow6_is_accepted(tmp_path) -> None:
     )
     assert cfg.solver.backend_name == "modflow6"
     assert "lake" in cfg.flow.active_bc
+
+
+def test_lakes_declared_without_active_bc_is_rejected(tmp_path) -> None:
+    # Declaring lakes but not listing 'lake'/'reservoir' in active_bc would build
+    # no LAK package: the builder only activates on active_bc. The validator must
+    # catch this rather than let the lakes be silently ignored.
+    with pytest.raises(ValueError, match="active_bc"):
+        HydroModPyConfig(
+            **_base_kwargs(tmp_path),
+            solver=SolverConfig(backend={"backend": "modflow6"}),
+            flow=FlowConfig(
+                active_bc=[],
+                sinks_sources=FlowSinksSourcesConfig(
+                    lakes={"lac0": {"bedleak": 0.1, "stageinit": "85 m"}}
+                ),
+            ),
+        )
+
+
+def test_lakes_with_active_bc_lake_is_accepted(tmp_path) -> None:
+    cfg = HydroModPyConfig(
+        **_base_kwargs(tmp_path),
+        solver=SolverConfig(backend={"backend": "modflow6"}),
+        flow=FlowConfig(
+            active_bc=["lake"],
+            sinks_sources=FlowSinksSourcesConfig(
+                lakes={"lac0": {"bedleak": 0.1, "stageinit": "85 m"}}
+            ),
+        ),
+    )
+    assert "lac0" in cfg.flow.sinks_sources.lakes
 
 
 def test_boussinesq_solver_contract_rejects_lake_with_typed_error() -> None:

@@ -158,13 +158,13 @@ class DataManagersConfig(HydroModelBase):
         default=None,
         description="Lake geometry configuration (lake/reservoir footprint vector).",
     )
-    lake_levels: Annotated[LakeLevelsConfig | None, Profile.USER] = Field(
-        default=None,
-        description="Lake levels configuration (observed water-level time series).",
-    )
     lake_inflow: Annotated[LakeInflowConfig | None, Profile.USER] = Field(
         default=None,
         description="Lake inflow configuration (observed inflow volumetric time series).",
+    )
+    lake_levels: Annotated[LakeLevelsConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Lake levels configuration (observed water-level time series).",
     )
     lake_outflow: Annotated[LakeOutflowConfig | None, Profile.USER] = Field(
         default=None,

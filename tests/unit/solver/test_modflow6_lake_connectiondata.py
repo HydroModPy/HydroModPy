@@ -151,6 +151,25 @@ def _model_with_lake() -> SimpleNamespace:
     )
 
 
+def test_resolve_lake_occupied_layers_reads_config_default_and_override() -> None:
+    from hydromodpy.solver.modflow6.builders.lake import resolve_lake_occupied_layers
+
+    model = SimpleNamespace(
+        flow=SimpleNamespace(
+            active_bc=["lake"],
+            sinks_sources={
+                "lakes": {
+                    "surface": {"polygon": None, "bedleak": 0.1},
+                    "deep": {"polygon": None, "bedleak": 0.1, "occupied_layers": 3},
+                }
+            },
+        ),
+    )
+    # A lake without the field defaults to a surface lake (1); a deep reservoir
+    # carries its declared occupied-layer count.
+    assert resolve_lake_occupied_layers(model) == {"surface": 1, "deep": 3}
+
+
 def test_build_lak_package_args_produces_packagedata_and_table() -> None:
     masked = _masked_grid()
     model = _model_with_lake()

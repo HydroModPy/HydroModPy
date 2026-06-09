@@ -46,6 +46,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
     lake_definitions_for_bedleak,
     resolve_lake_cells,
     resolve_lake_cells_for_active_lakes,
+    resolve_lake_occupied_layers,
 )
 from hydromodpy.solver.modflow6.builders.mvr import (
     MoverRecord,
@@ -141,6 +142,7 @@ __all__ = [
     "resolve_ims_complexity",
     "resolve_lake_cells",
     "resolve_lake_cells_for_active_lakes",
+    "resolve_lake_occupied_layers",
     "resolve_ocean_boundary_series",
     "resolve_rewet_npf_options",
     "resolve_side_boundary_series",

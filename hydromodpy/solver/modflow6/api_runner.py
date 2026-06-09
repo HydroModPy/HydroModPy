@@ -53,6 +53,46 @@ logger = get_logger(__name__)
 
 __all__ = ["Mf6ApiContext", "Mf6ApiStep", "run_mf6_api"]
 
+# MF6 writes this banner to the simulation listing only on a converged, complete
+# solve. flopy's subprocess runner keys success off the same string, so the API
+# path stays in contract parity with it.
+_NORMAL_TERMINATION = "Normal termination of simulation"
+
+
+def _simulation_reached_normal_termination(workspace: Path) -> bool:
+    """Return whether MF6 wrote the normal-termination banner to ``mfsim.lst``.
+
+    ``modflowapi.run_simulation`` returns ``None`` on both a converged run and a
+    non-converged one (it only prints ``DID NOT CONVERGE``), so its return value
+    cannot tell success from failure. MF6 writes the normal-termination banner to
+    the simulation listing only when the solve converged and completed; its
+    absence (or a missing listing) means the run failed.
+    """
+    listing = workspace / "mfsim.lst"
+    if not listing.is_file():
+        return False
+    try:
+        text = listing.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return _NORMAL_TERMINATION.lower() in text.lower()
+
+
+def _resolve_api_success(raw_return: object, workspace: Path) -> bool:
+    """Map a ``modflowapi.run_simulation`` return into a convergence flag.
+
+    ``modflowapi.run_simulation`` returns ``None`` on both a converged and a
+    non-converged run, so a ``None`` cannot be trusted as success: the verdict is
+    read from the listing instead, matching the subprocess path. A non-``None``
+    return (a future modflowapi that reports the flag) is honoured directly.
+    """
+    if raw_return is None:
+        converged = _simulation_reached_normal_termination(workspace)
+        if not converged:
+            logger.warning("MF6 API run in %s did not reach normal termination", workspace)
+        return converged
+    return bool(raw_return)
+
 
 class Mf6ApiStep(IntEnum):
     """Simulation phase at which the developer callback fires.
@@ -319,6 +359,4 @@ def run_mf6_api(
     success = modflowapi.run_simulation(
         str(resolved_lib), str(workspace), _native_callback, verbose=verbose
     )
-    # modflowapi.run_simulation returns None on normal termination; treat a
-    # completed run without an exception as a success.
-    return True if success is None else bool(success)
+    return _resolve_api_success(success, workspace)
