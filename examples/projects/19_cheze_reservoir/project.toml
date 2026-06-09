@@ -23,7 +23,8 @@ description = "Cheze reservoir (EBR, Plelan-le-Grand), MODFLOW 6 LAK, weekly tra
 
 [simulation.time]
 start_datetime = "2019-01-01"
-end_datetime = "2019-12-31"
+# Inclusive-end semantics: 2019-12-30 = exactly 52 weekly stress periods.
+end_datetime = "2019-12-30"
 step_value = "7 day"
 coverage_policy = "warn"
 
@@ -186,10 +187,22 @@ lakeout = 0
 
 # ---------------------------------------------------------------------- solver
 [modflow6.runtime]
-mf6_ims_complexity = "MODERATE"
+# COMPLEX is the robust IMS preset for the stiff steady lake-aquifer coupling
+# (a strong initial head gradient between the topography and the reservoir stage).
+mf6_ims_complexity = "COMPLEX"
+# Relax the outer head-change criterion to 1 cm: the strict 1e-4 m default leaves
+# a few lake-edge cells oscillating sub-mm in the steady warm-up while the budget
+# already closes to <0.1%. 1 cm is ample for a catchment-scale reservoir model.
+mf6_outer_dvclose = 1e-2
 
 [modflow6.sgrid.planar]
-mode = "keep_native"
+# Resample the 30 km2 catchment to a coarser ~60x60 grid (~100 m): the native
+# 75 m grid is ~13k cells, too heavy and stiff for a 52-period transient. The
+# reservoir (1.58 km2) still resolves to a few dozen cells.
+mode = "resample_to_shape"
+nx = 60
+ny = 60
+resampling = "bilinear"
 
 [modflow6.sgrid.vertical]
 genmtd_lay = "constant"

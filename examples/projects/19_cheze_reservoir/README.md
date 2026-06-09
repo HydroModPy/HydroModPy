@@ -56,8 +56,7 @@ python examples/projects/19_cheze_reservoir/run_cheze_reservoir.py
 - **bedleak** : l'ancien `1e-6 m/s` est une vitesse ; le champ v1 est une leakance
   [1/T] = K_lit / epaisseur_lit. Valeur retenue `1e-6 1/s` en supposant un lit de
   1 m. **A ajuster** avec l'epaisseur de lit reelle.
-- **Exutoire WEIR** : crete a 87.3 m (ancien `stagemax`), largeur effective 20 m
-  **a ajuster** a la geometrie reelle du deversoir.
+- **Exutoire WEIR** : crete a 87.3 m (ancien `stagemax`), largeur 35 m (crete beton).
 - **bathymetrie** : non utilisee en v1 (l'abaque porte le stockage ; le branchement
   bathymetrie -> cote du lit est differe). Le raster 1 m n'est pas commite.
 
