@@ -14,16 +14,17 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy
+from tests._helpers.tolerances import tol
 from tests.integration.solver._sfr_models import (
     INFLOW_M3S,
     RUNOFF_M3S,
     run_coupled_sfr_lak_model,
 )
 
-# tests/TOLERANCES.md row 44: global budget closure.
-_BUDGET_PERCENT_DISCREPANCY = 1.0
+# tests/TOLERANCES.md row 44 (fraction; the MF6 listing reports percent).
+_BUDGET_CLOSURE_FRACTION = tol("sfr_standalone_budget_closure")
 # tests/TOLERANCES.md row 46: MVR transfer reciprocity (to-mvr vs from-mvr).
-_MVR_RECIPROCITY_RTOL = 1e-9
+_MVR_RECIPROCITY_RTOL = tol("sfr_lak_mvr_reciprocity")
 # tests/TOLERANCES.md row 45: routed identity with streambed exchange.
 _EXCHANGE_IDENTITY_REL = 1e-2
 
@@ -59,4 +60,4 @@ def test_terminal_reach_feeds_the_lake_through_mvr(tmp_path: Path) -> None:
 
     discrepancy = _last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
-    assert abs(discrepancy) <= _BUDGET_PERCENT_DISCREPANCY
+    assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION

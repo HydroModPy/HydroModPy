@@ -18,14 +18,15 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy
+from tests._helpers.tolerances import tol
 from tests.integration.solver._sfr_models import (
     INFLOW_M3S,
     RUNOFF_M3S,
     run_standalone_sfr_model,
 )
 
-# tests/TOLERANCES.md row 44: standalone SFR global budget closure.
-_BUDGET_PERCENT_DISCREPANCY = 1.0
+# tests/TOLERANCES.md row 44 (fraction; the MF6 listing reports percent).
+_BUDGET_CLOSURE_FRACTION = tol("sfr_standalone_budget_closure")
 # tests/TOLERANCES.md row 45: per-SFR routing identity bands.
 _ROUTING_IDENTITY_RTOL = 1e-6
 _EXCHANGE_IDENTITY_REL = 1e-2
@@ -47,7 +48,7 @@ def test_sfr_standalone_pure_routing_identity(tmp_path: Path) -> None:
 
     discrepancy = _last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
-    assert abs(discrepancy) <= _BUDGET_PERCENT_DISCREPANCY
+    assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION
 
 
 @pytest.mark.integration
@@ -70,4 +71,4 @@ def test_sfr_standalone_connected_closes_mass_with_exchange(tmp_path: Path) -> N
 
     discrepancy = _last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
-    assert abs(discrepancy) <= _BUDGET_PERCENT_DISCREPANCY
+    assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION
