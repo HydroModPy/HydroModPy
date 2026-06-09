@@ -513,6 +513,7 @@ def build_lak_package_args(
         stem=stem,
         lake_conn_info=lake_conn_info,
         outlets=outlets,
+        has_mover=bool(mover_records),
     )
     args: dict[str, Any] = {
         "nlakes": len(packagedata),
@@ -1152,11 +1153,13 @@ def _forcing_unit(forcing: object) -> str | None:
 # LAK observations (OBS6) for the per-lake output series.
 # --------------------------------------------------------------------------- #
 
-# Per-lake scalar observation types keyed by the 0-based lake number, mapped to
-# the HMP-side series name the extractor stores. MF6 LAK obs cannot be requested
-# by boundname through flopy (its writer increments integer ids and chokes on
-# strings), so every observation uses the integer lake / connection number and
-# the lake-aquifer exchange is reconstructed from the per-connection terms.
+# Per-lake scalar observation types keyed by the 0-based lake number (MF6 ifno),
+# mapped to the HMP-side series name the extractor stores. MF6 LAK obs cannot be
+# requested by boundname through flopy (its writer increments integer ids and
+# chokes on strings), so every observation uses the integer lake / connection
+# number and the lake-aquifer exchange is reconstructed from the per-connection
+# terms. ext-outflow / to-mvr / outlet are NOT here: MF6 keys them by outlet
+# number, so they are requested in the per-outlet loop instead.
 _LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("stage", "stage"),
     ("volume", "volume"),
@@ -1166,7 +1169,6 @@ _LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("evaporation", "evaporation"),
     ("runoff", "runoff"),
     ("withdrawal", "withdrawal"),
-    ("ext-outflow", "ext_outflow"),
     ("storage", "storage"),
 )
 
@@ -1176,6 +1178,7 @@ def build_lake_obs_spec(
     stem: str,
     lake_conn_info: Sequence[Mapping[str, Any]],
     outlets: Sequence[Sequence[Any]],
+    has_mover: bool = False,
 ) -> tuple[dict[str, list[tuple[Any, ...]]], dict[str, Any]]:
     """Return ``(obs_continuous, lake_obs_meta)`` for the LAK package.
 
@@ -1185,6 +1188,11 @@ def build_lake_obs_spec(
     mapping each observation name to its lake / quantity / connection so the
     extractor can re-key the obs CSV by ``(lake_id, totim)`` and isolate the
     under-dam (VERTICAL) leakage.
+
+    When ``has_mover`` is set the LAK package routes water through MVR, so a
+    ``from-mvr`` obs is added per lake (water received from the mover, MF6 id =
+    lake number) and a ``to-mvr`` obs per outlet (water sent to the mover, id =
+    outlet number). These obs are only valid once the package advertises MOVER.
 
     Returns empty structures when no lake is present.
     """
@@ -1203,6 +1211,12 @@ def build_lake_obs_spec(
             obsname = f"{tag}_{quantity}"
             obslist.append((obsname, obstype, (lake_index,)))
             entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": quantity})
+        if has_mover:
+            # from-mvr is a per-lake obs (id = lake number): water this lake
+            # receives from the MVR package.
+            obsname = f"{tag}_from_mvr"
+            obslist.append((obsname, "from-mvr", (lake_index,)))
+            entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": "from_mvr"})
         vertical = {int(i) for i in info.get("vertical_iconns", [])}
         for iconn in range(int(info["n_conn"])):
             obsname = f"{tag}_lak_{iconn}"
@@ -1224,6 +1238,18 @@ def build_lake_obs_spec(
         obsname = f"{tag}_outlet_{outletno}"
         obslist.append((obsname, "outlet", (outletno,)))
         entries.append({"obsname": obsname, "lake_id": lake_id, "quantity": "outlet"})
+        # ext-outflow is keyed by outlet number, so it belongs here, not in the
+        # per-lake loop (requesting it by lake number errors once the lake index
+        # exceeds the outlet count).
+        ext_name = f"{tag}_ext_outflow_{outletno}"
+        obslist.append((ext_name, "ext-outflow", (outletno,)))
+        entries.append({"obsname": ext_name, "lake_id": lake_id, "quantity": "ext_outflow"})
+        if has_mover:
+            # to-mvr is a per-outlet obs (id = outlet number): water this outlet
+            # sends to the MVR package (0 for an outlet not routed through MVR).
+            mvr_name = f"{tag}_to_mvr_{outletno}"
+            obslist.append((mvr_name, "to-mvr", (outletno,)))
+            entries.append({"obsname": mvr_name, "lake_id": lake_id, "quantity": "to_mvr"})
 
     obs_continuous = {obs_csv: obslist}
     lake_obs_meta = {

@@ -58,7 +58,8 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(tmp_path: Path) -> None:
             "LAC0_STAGE": 90.0,
             "LAC0_VOLUME": 450.0,
             "LAC0_SURFACE_AREA": 90.0,
-            "LAC0_EXT_OUTFLOW": _SECONDS_PER_STEP,  # 86400 length^3/unit -> 1.0 m3/s
+            # ext-outflow is keyed by the outlet number (here outlet 0).
+            "LAC0_EXT_OUTFLOW_0": _SECONDS_PER_STEP,  # 86400 length^3/unit -> 1.0 m3/s
             "LAC0_LAK_0": 0.001,
             "LAC0_LAK_1": 0.002,
             "LAC0_LAK_2": 0.0005,
