@@ -126,6 +126,10 @@ flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
 active_sinks_sources = ["recharge"]
 active_bc = ["lake", "drainage"]
+# Warm-up: solve the first stress period in steady state so the aquifer heads
+# equilibrate around the initial lake stage and mean recharge before the transient
+# (avoids a cold-start shock). The lake starts at the observed level (stageinit).
+first_period_steady = true
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -155,20 +159,23 @@ negative_to_evt = true
 # ---- The Cheze reservoir ----------------------------------------------------
 # The Cheze reservoir (EBR), Plelan-le-Grand.
 [flow.sinks_sources.lakes.reservoir_cheze]
-# bedleak is a leakance [1/T] = K_bed / bed_thickness. Legacy used K_bed = 1e-6
-# m/s; assuming a 1 m lakebed gives 1e-6 1/s (ADJUST with the real bed thickness).
+# Lakebed leakance [1/T] = K_bed / bed_thickness. The bibliographic reference
+# leakance is 1e-6 m/s; with no measured bed thickness it is used as an effective
+# 1e-6 1/s (i.e. a 1 m equivalent lakebed). It is the under-dam-leakage calibration
+# handle, so refine it against observed levels rather than from first principles.
 bedleak = 1e-6
 bedleak_unit = "1/s"
-# Observed Cheze level at the window start (2019-01-01), m NGF.
+# Initial lake stage = observed Cheze level at the window start (2019-01-01), m
+# NGF. The first (steady) stress period equilibrates the aquifer around it.
 stageinit = "81.82 m"
 occupied_layers = 1
 
-# Spillway: a WEIR at the dam crest caps the stage; overflow leaves the model
-# (lakeout = 0). Replaces the legacy stagemax = 87.3 m.
+# Spillway: the 35 m concrete crest at 87.3 m caps the stage; overflow leaves the
+# model (lakeout = 0). Replaces the legacy stagemax = 87.3 m.
 [[flow.sinks_sources.lakes.reservoir_cheze.outlets]]
 couttype = "WEIR"
 invert = "87.3 m"
-width = "20 m"      # effective crest length (ADJUST to the real spillway)
+width = "35 m"
 lakeout = 0
 
 # Note: the lake forcings are bound automatically and need no inline entry here:
