@@ -93,6 +93,7 @@ class GeographicRuntimeContext:
                 "_paths": self.paths,
                 "_dem_metadata": self.dem_metadata,
                 "_river_network_products": self.river_network_products,
+                "_flow_products": self.flow_products,
             }
         )
         attrs.update(self.dem_metadata.runtime_attributes())
@@ -248,6 +249,24 @@ def _river_products_from_cache(
         river_mesh_trace=river_mesh_trace,
         hydrographic_network_generated_summary_json=(
             paths.hydrographic_network_generated_summary_json
+        ),
+        streams_full_tif=str(
+            Path(paths.correcflow_path)
+            / (
+                "dem_streams_pruned_full.tif"
+                if bool(config.river_network.prune_short_streams)
+                else "dem_streams_full.tif"
+            )
+        ),
+        stream_order_strahler_full_tif=(
+            str(Path(paths.correcflow_path) / "dem_stream_order_strahler_full.tif")
+            if bool(config.river_network.compute_strahler_order)
+            else None
+        ),
+        stream_link_id_full_tif=(
+            str(Path(paths.correcflow_path) / "dem_stream_link_id_full.tif")
+            if bool(config.river_network.compute_stream_links)
+            else None
         ),
     )
 

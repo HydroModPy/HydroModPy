@@ -267,6 +267,85 @@ def apply_lake_geometry_to_flow(
     return True
 
 
+def _sfr_payloads_as_mappings(flow: Flow) -> dict[str, dict[str, object]]:
+    """Return the flow SFR payloads as mutable dicts keyed by network id.
+
+    The runtime stores typed ``FlowReachNetworkConfig`` objects (or already
+    enriched dicts) under ``flow.sinks_sources['sfr']``; the binder attaches the
+    delineated ``reach_trace`` onto each payload, so they are normalized to
+    plain dicts the SFR builder reads through its ``_attr`` lookup.
+    """
+    sinks_sources = getattr(flow, "sinks_sources", {})
+    sfr = sinks_sources.get("sfr") if isinstance(sinks_sources, Mapping) else None
+    if not isinstance(sfr, Mapping) or not sfr:
+        return {}
+
+    fields = (
+        "stream_threshold_km2",
+        "stream_threshold_cells",
+        "min_reach_length",
+        "manning",
+        "streambed_k",
+        "streambed_k_unit",
+        "streambed_thickness",
+        "min_slope",
+        "width",
+        "connected_to_aquifer",
+        "storage",
+        "headwater_inflow",
+        "runoff",
+        "rainfall",
+        "evaporation",
+        "reaches",
+        "diversions",
+        "outflow_to_lake",
+        "outflow_mvrtype",
+        "outflow_value",
+    )
+    payloads: dict[str, dict[str, object]] = {}
+    for network_id, payload in sfr.items():
+        if isinstance(payload, Mapping):
+            payloads[str(network_id)] = dict(payload)
+        else:
+            payloads[str(network_id)] = {name: getattr(payload, name, None) for name in fields}
+    return payloads
+
+
+def apply_sfr_network_to_flow(
+    *,
+    flow: Flow,
+    reach_traces: Mapping[str, object] | None,
+) -> bool:
+    """Attach delineated SFR reach traces onto each flow SFR network payload.
+
+    ``reach_traces`` maps a network id to its spatial ``SfrReachTrace`` (an
+    opaque payload at this layer; the geometry was computed by the spatial
+    delineation step). A network carrying an explicit ``reaches`` table keeps it
+    and needs no trace. The solver builder then intersects each trace polyline
+    with the DISV mesh.
+
+    Returns True if at least one trace was attached, False otherwise.
+    """
+    if not reach_traces:
+        return False
+    payloads = _sfr_payloads_as_mappings(flow)
+    if not payloads:
+        return False
+
+    attached = False
+    for network_id, payload in payloads.items():
+        trace = reach_traces.get(network_id)
+        if trace is None or payload.get("reaches") is not None:
+            continue
+        payload["reach_trace"] = trace
+        attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["sfr"] = payloads
+    return True
+
+
 def apply_lake_abacus_to_flow(
     *,
     flow: Flow,

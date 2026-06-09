@@ -309,8 +309,88 @@ def _topological_downstream_order(
     return order
 
 
+def build_sfr_reach_trace_from_products(
+    *,
+    stream_link_id_full_tif: str,
+    d8_pointer_tif: str,
+    flow_acc_cells_tif: str,
+    dem_correc_tif: str,
+    dem_res_m: float,
+    stream_order_strahler_full_tif: str | None = None,
+    lake_polygons: list | None = None,
+    min_slope: float = 1e-4,
+    min_reach_length_m: float = 0.0,
+) -> SfrReachTrace:
+    """Read the FULL DEM-grid flow rasters and delineate the SFR reach trace.
+
+    All four rasters must share one affine and shape (the clipped per-watershed
+    rasters have a different extent and are rejected). ``lake_polygons`` (model
+    CRS) are rasterized onto the grid so the reach flowing into a lake is
+    flagged terminal-to-lake.
+    """
+    import rasterio
+    from rasterio import features
+
+    arrays: dict[str, np.ndarray] = {}
+    reference: tuple[str, object, tuple[int, int]] | None = None
+    transform = None
+    crs_wkt = ""
+    sources = {
+        "stream_link_id_full": stream_link_id_full_tif,
+        "d8_pointer": d8_pointer_tif,
+        "flow_acc_cells": flow_acc_cells_tif,
+        "dem_correc": dem_correc_tif,
+    }
+    if stream_order_strahler_full_tif is not None:
+        sources["stream_order_strahler_full"] = stream_order_strahler_full_tif
+    for name, path in sources.items():
+        with rasterio.open(path) as dataset:
+            data = dataset.read(1)
+            if reference is None:
+                reference = (name, dataset.transform, data.shape)
+                transform = dataset.transform
+                crs_wkt = "" if dataset.crs is None else dataset.crs.to_wkt()
+            elif dataset.transform != reference[1] or data.shape != reference[2]:
+                raise ValueError(
+                    f"SFR delineation rasters are misaligned: '{name}' ({path}) does "
+                    f"not share the grid of '{reference[0]}'. Use the *_full.tif "
+                    "DEM-grid products, never the clipped per-watershed rasters."
+                )
+            arrays[name] = data
+
+    lake_mask = None
+    polygons = [polygon for polygon in (lake_polygons or []) if polygon is not None]
+    if polygons:
+        lake_mask = features.rasterize(
+            ((polygon, 1) for polygon in polygons),
+            out_shape=reference[2],
+            transform=transform,
+            fill=0,
+            dtype="uint8",
+        ).astype(bool)
+
+    return delineate_sfr_reaches(
+        link_id=np.nan_to_num(arrays["stream_link_id_full"], nan=0.0).astype(int),
+        d8=np.nan_to_num(arrays["d8_pointer"], nan=0.0).astype(int),
+        acc=np.nan_to_num(arrays["flow_acc_cells"], nan=0.0),
+        dem=arrays["dem_correc"].astype(float),
+        transform=transform,
+        crs_wkt=crs_wkt,
+        dem_res_m=float(dem_res_m),
+        strahler=(
+            np.nan_to_num(arrays["stream_order_strahler_full"], nan=0.0).astype(int)
+            if "stream_order_strahler_full" in arrays
+            else None
+        ),
+        lake_mask=lake_mask,
+        min_slope=float(min_slope),
+        min_reach_length_m=float(min_reach_length_m),
+    )
+
+
 __all__ = [
     "SfrReachRow",
     "SfrReachTrace",
+    "build_sfr_reach_trace_from_products",
     "delineate_sfr_reaches",
 ]
