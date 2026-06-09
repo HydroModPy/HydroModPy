@@ -23,17 +23,19 @@ their exchange can be summed into a localised under-dam leakage series.
 
 from __future__ import annotations
 
-import csv
 import json
-import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow6.extractors.obs_common import (
+    ordered_unique,
+    read_obs_csv,
+    timeseries_record,
+    verify_obs_time_alignment,
+)
 
 logger = get_logger(__name__)
 
@@ -142,19 +144,6 @@ def read_lake_meta(meta_path: Path) -> LakeObsSpec | None:
     return LakeObsSpec.from_mapping(payload)
 
 
-def _read_obs_csv(obs_path: Path) -> tuple[list[str], list[list[float]]]:
-    """Return the upper-cased header and float rows of a LAK obs CSV."""
-    with obs_path.open("r", encoding="utf-8", newline="") as fh:
-        reader = csv.reader(fh)
-        header = [token.strip().upper() for token in next(reader)]
-        rows: list[list[float]] = []
-        for raw in reader:
-            if not raw:
-                continue
-            rows.append([float(value) for value in raw])
-    return header, rows
-
-
 def build_lake_records(
     spec: LakeObsSpec,
     obs_path: Path,
@@ -178,18 +167,18 @@ def build_lake_records(
         logger.debug("LAK obs CSV %s is missing; no per-lake series extracted", obs_path)
         return [], []
 
-    header, rows = _read_obs_csv(obs_path)
+    header, rows = read_obs_csv(obs_path)
     if not rows:
         return [], []
     col_index = {name: pos for pos, name in enumerate(header)}
 
     n_steps = min(len(rows), len(times))
     spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
-    _verify_obs_time_alignment(rows, times, col_index, n_steps, obs_path)
+    verify_obs_time_alignment(rows, times, col_index, n_steps, obs_path)
 
     # lake_id -> ordered set of stored quantities (excluding the per-connection
     # detail, which is aggregated rather than stored on its own).
-    lake_ids = _ordered_unique(entry.lake_id for entry in spec.entries)
+    lake_ids = ordered_unique(entry.lake_id for entry in spec.entries)
 
     timeseries: list[dict[str, Any]] = []
     budgets: list[dict[str, Any]] = []
@@ -221,12 +210,13 @@ def build_lake_records(
                 if entry.quantity in _RATE_QUANTITIES:
                     value /= spt
                 timeseries.append(
-                    _timeseries_record(
+                    timeseries_record(
                         station=station,
                         quantity=entry.quantity,
                         timestep=t,
                         time=calendar,
                         value=value,
+                        unit=_UNIT_BY_QUANTITY.get(entry.quantity, "m3/s"),
                     )
                 )
 
@@ -237,22 +227,24 @@ def build_lake_records(
             if conn_entries:
                 exchange_m3_s = -exchange / spt
                 timeseries.append(
-                    _timeseries_record(
+                    timeseries_record(
                         station=station,
                         quantity="gwf_exchange",
                         timestep=t,
                         time=calendar,
                         value=exchange_m3_s,
+                        unit="m3/s",
                     )
                 )
                 if any(entry.under_dam for entry in conn_entries):
                     timeseries.append(
-                        _timeseries_record(
+                        timeseries_record(
                             station=station,
                             quantity="seepage_under_dam",
                             timestep=t,
                             time=calendar,
                             value=-under_dam / spt,
+                            unit="m3/s",
                         )
                     )
                 budgets.append(
@@ -267,35 +259,6 @@ def build_lake_records(
                 )
 
     return timeseries, budgets
-
-
-def _verify_obs_time_alignment(
-    rows: Sequence[Sequence[float]],
-    times: Sequence[float],
-    col_index: Mapping[str, int],
-    n_steps: int,
-    obs_path: Path,
-) -> None:
-    """Guard the positional obs-CSV / totim alignment with the TIME column.
-
-    The per-lake series are matched to the solver ``totim`` by row order; if the
-    obs CSV and the solver output ever drift, that would silently mis-stamp every
-    value. MF6 writes the observation time in the first ``time`` column, so we
-    cross-check it against the expected ``totim`` and fail loudly on a mismatch.
-    """
-    time_col = col_index.get("TIME")
-    if time_col is None:
-        return
-    for t in range(n_steps):
-        row = rows[t]
-        if time_col >= len(row):
-            continue
-        csv_time = float(row[time_col])
-        if not math.isclose(csv_time, float(times[t]), rel_tol=1e-6, abs_tol=1e-3):
-            raise ValueError(
-                f"LAK obs CSV {obs_path.name} time {csv_time} at row {t} does not match the "
-                f"solver totim {float(times[t])}; the obs output is misaligned with the time axis."
-            )
 
 
 def _sum_connection_flux(
@@ -315,35 +278,3 @@ def _sum_connection_flux(
             continue
         total += float(row[pos])
     return total
-
-
-def _timeseries_record(
-    *,
-    station: str,
-    quantity: str,
-    timestep: int,
-    time: Any,
-    value: float,
-) -> dict[str, Any]:
-    """Build one TIMESERIES_SCHEMA record for a lake quantity."""
-    unit = _UNIT_BY_QUANTITY.get(quantity, "m3/s")
-    record: dict[str, Any] = {
-        "station_id": station,
-        "variable": quantity,
-        "component": None,
-        "timestep": int(timestep),
-        "value": float(value),
-        "unit": unit,
-        "qflag": "simulated",
-    }
-    if time is not None:
-        record["time"] = pd.Timestamp(time)
-    return record
-
-
-def _ordered_unique(values: Any) -> list[str]:
-    """Return the unique values preserving first-seen order."""
-    seen: dict[str, None] = {}
-    for value in values:
-        seen.setdefault(str(value), None)
-    return list(seen)

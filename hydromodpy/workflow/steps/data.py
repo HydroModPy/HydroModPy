@@ -16,6 +16,7 @@ from hydromodpy.physics.flow.structure_binders import (
     apply_lake_meteo_forcings_to_flow,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
+    apply_sfr_network_to_flow,
 )
 from hydromodpy.simulation import ensure_flow
 from hydromodpy.spatial.geographic.core.derived_features import (
@@ -156,6 +157,150 @@ def apply_structural_updates_from_data(
             setup_state.geographic_features,
             data_state.hydrography,
         )
+    bind_sfr_network_traces(run_state)
+
+
+# ---------------------------------------------------------------------------
+# SFR reach-network delineation binding
+# ---------------------------------------------------------------------------
+
+
+def _payload_attr(payload: object, name: str) -> object:
+    if isinstance(payload, dict):
+        return payload.get(name)
+    return getattr(payload, name, None)
+
+
+def _length_to_m(value: object) -> float:
+    to = getattr(value, "to", None)
+    if callable(to):
+        return float(to("m").magnitude)
+    return float(getattr(value, "magnitude", value))  # type: ignore[arg-type]
+
+
+def _sfr_networks_needing_trace(flow: object) -> dict[str, object]:
+    """Return the active SFR network payloads that need a delineated trace."""
+    active_bc = {str(name).lower() for name in getattr(flow, "active_bc", []) or []}
+    if "sfr" not in active_bc:
+        return {}
+    sinks_sources = getattr(flow, "sinks_sources", {})
+    sfr = sinks_sources.get("sfr") if isinstance(sinks_sources, dict) else None
+    if not sfr:
+        return {}
+    return {
+        str(network_id): payload
+        for network_id, payload in sfr.items()
+        if _payload_attr(payload, "reaches") is None
+    }
+
+
+def _check_sfr_threshold_consistency(
+    *,
+    network_id: str,
+    payload: object,
+    products_threshold_cells: float | None,
+    dem_res_m: float,
+) -> None:
+    """The SFR network is derived from the geographic.river_network link raster,
+    so the SFR stream threshold must resolve to the same cell count."""
+    if products_threshold_cells is None:
+        return
+    cells = _payload_attr(payload, "stream_threshold_cells")
+    km2 = _payload_attr(payload, "stream_threshold_km2")
+    if cells is not None:
+        requested = float(cells)
+    elif km2 is not None:
+        requested = float(km2) * 1.0e6 / (float(dem_res_m) ** 2)
+    else:
+        return
+    reference = float(products_threshold_cells)
+    if abs(requested - reference) > max(1.0, 1e-6 * reference):
+        raise ConfigError(
+            f"flow.sinks_sources.sfr.{network_id} stream threshold resolves to "
+            f"{requested:.0f} cells but geographic.river_network produced the link "
+            f"raster at {reference:.0f} cells. The v1 SFR network reuses that raster: "
+            "align the two thresholds (or drop the SFR one in favour of "
+            "stream_threshold_cells = the geographic value)."
+        )
+
+
+def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
+    """Delineate (once) and bind the SFR reach traces onto the runtime flow.
+
+    Reads the FULL DEM-grid rasters from the river-network products (the clipped
+    rasters have a different extent), rasterizes the bound lake polygons so the
+    terminal reach is flagged, and attaches one ``SfrReachTrace`` per network
+    through the physics binder. The traces are cached on ``setup`` so the
+    per-run Flow rebuilds re-bind without recomputing.
+    """
+    setup_state = run_state.setup
+    flow = setup_state.flow
+    if flow is None:
+        return
+    networks = _sfr_networks_needing_trace(flow)
+    if not networks:
+        return
+
+    if setup_state.sfr_reach_traces is None:
+        from hydromodpy.spatial.geographic.core.sfr_network import (
+            build_sfr_reach_trace_from_products,
+        )
+
+        geographic = setup_state.geographic
+        products = getattr(geographic, "_river_network_products", None)
+        if products is None or not bool(getattr(products, "enabled", False)):
+            raise ConfigError(
+                "flow.sinks_sources.sfr needs the river-network products; set "
+                "[geographic.river_network] enabled = true."
+            )
+        link_full = getattr(products, "stream_link_id_full_tif", None)
+        if link_full is None:
+            raise ConfigError(
+                "flow.sinks_sources.sfr needs the stream-link raster; set "
+                "[geographic.river_network] compute_stream_links = true."
+            )
+        flow_products = getattr(geographic, "_flow_products", None)
+        if flow_products is None:
+            raise ConfigError(
+                "flow.sinks_sources.sfr needs the regional flow products (corrected "
+                "DEM + D8 pointer); run the geographic preprocessing first."
+            )
+        dem_res_m = float(geographic.dem_res)
+        lakes = getattr(flow, "sinks_sources", {}).get("lakes") or {}
+        lake_polygons = [
+            _payload_attr(payload, "polygon")
+            for payload in lakes.values()
+            if _payload_attr(payload, "polygon") is not None
+        ]
+
+        traces: dict[str, object] = {}
+        for network_id, payload in networks.items():
+            _check_sfr_threshold_consistency(
+                network_id=network_id,
+                payload=payload,
+                products_threshold_cells=getattr(products, "threshold_cells", None),
+                dem_res_m=dem_res_m,
+            )
+            min_slope = _payload_attr(payload, "min_slope")
+            min_reach_length = _payload_attr(payload, "min_reach_length")
+            traces[network_id] = build_sfr_reach_trace_from_products(
+                stream_link_id_full_tif=str(link_full),
+                d8_pointer_tif=str(flow_products.direc),
+                flow_acc_cells_tif=str(products.flow_acc_cells_tif),
+                dem_correc_tif=str(flow_products.correc),
+                dem_res_m=dem_res_m,
+                stream_order_strahler_full_tif=getattr(
+                    products, "stream_order_strahler_full_tif", None
+                ),
+                lake_polygons=lake_polygons,
+                min_slope=float(min_slope) if min_slope is not None else 1e-4,
+                min_reach_length_m=(
+                    _length_to_m(min_reach_length) if min_reach_length is not None else 0.0
+                ),
+            )
+        setup_state.sfr_reach_traces = traces
+
+    apply_sfr_network_to_flow(flow=flow, reach_traces=setup_state.sfr_reach_traces)
 
 
 # ---------------------------------------------------------------------------

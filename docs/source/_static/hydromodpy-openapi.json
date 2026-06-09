@@ -6584,16 +6584,36 @@
       },
       "FlowLakeOutletMover": {
         "additionalProperties": false,
-        "description": "A controlled LAK -> LAK transfer for one outlet, routed through MVR.\n\nThe outlet keeps ``lakeout = 0`` (external) and this spec sends its discharge\nto ``lake`` (1-based downstream lake number) through a MODFLOW 6 MVR record.\n``mvrtype`` picks how much water moves: ``FACTOR`` (a fraction ``value`` of the\nprovider flow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above\n``value``) or ``THRESHOLD`` (all-or-nothing above ``value``).",
+        "description": "A controlled LAK transfer for one outlet, routed through MVR.\n\nThe outlet keeps ``lakeout = 0`` (external) and this spec sends its discharge\nto a receiver through a MODFLOW 6 MVR record. The receiver is either ``lake``\n(1-based downstream lake number, LAK -> LAK) or ``reach`` (1-based downstream\nSFR reach, LAK -> SFR spillway release); exactly one must be set. ``mvrtype``\npicks how much water moves: ``FACTOR`` (a fraction ``value`` of the provider\nflow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above ``value``) or\n``THRESHOLD`` (all-or-nothing above ``value``).",
         "properties": {
           "lake": {
-            "description": "Downstream receiving lake (1-based) for the MVR transfer.",
-            "examples": [
-              1
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "minimum": 1,
+            "default": null,
+            "description": "Downstream receiving lake (1-based) for a LAK -> LAK transfer.",
             "title": "Lake",
-            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "reach": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Downstream receiving SFR reach (1-based) for a LAK -> SFR transfer.",
+            "title": "Reach",
             "x-hmp-profile": "user"
           },
           "mvrtype": {
@@ -6624,9 +6644,6 @@
             "x-hmp-profile": "user"
           }
         },
-        "required": [
-          "lake"
-        ],
         "title": "FlowLakeOutletMover",
         "type": "object"
       },
@@ -6926,6 +6943,797 @@
         "title": "FlowProcessConfig",
         "type": "object"
       },
+      "FlowReachConfig": {
+        "additionalProperties": false,
+        "description": "One explicit reach row, used to bypass automatic network delineation.\n\nConnectivity is given by 1-based reach ids. ``upstream`` lists the reaches\nwhose downstream end feeds this reach; ``downstream`` lists the reaches this\nreach feeds. The two must be reciprocal across the network.",
+        "properties": {
+          "cell": {
+            "anyOf": [
+              {
+                "description": "Discriminated union of well-location payloads (cell, absolute_xy, or relative_xy).",
+                "discriminator": {
+                  "mapping": {
+                    "absolute_xy": "#/$defs/FlowWellLocationAbsoluteXY",
+                    "cell": "#/$defs/FlowWellLocationCell",
+                    "relative_xy": "#/$defs/FlowWellLocationRelativeXY"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FlowWellLocationCell"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellLocationAbsoluteXY"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellLocationRelativeXY"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "DISV cell the reach exchanges with (streambed leakage). None = no aquifer connection (cellid 'none', pure routing).",
+            "title": "Cell",
+            "x-hmp-profile": "user"
+          },
+          "length": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "Reach length rlen [L].",
+            "title": "Length",
+            "x-hmp-profile": "user"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "Reach width rwid [L].",
+            "title": "Width",
+            "x-hmp-profile": "user"
+          },
+          "slope": {
+            "description": "Reach gradient rgrd [-] (> 0).",
+            "examples": [
+              1.0
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Slope",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "top": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "Streambed top rtp [L].",
+            "title": "Top",
+            "x-hmp-profile": "user"
+          },
+          "upstream": {
+            "description": "1-based ids of reaches whose downstream end feeds this reach.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Upstream",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "downstream": {
+            "description": "1-based ids of reaches this reach feeds.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Downstream",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "ustrf": {
+            "default": 1.0,
+            "description": "Upstream fraction routed to this reach (siblings must sum to 1.0).",
+            "examples": [
+              1.0
+            ],
+            "minimum": 0.0,
+            "title": "Ustrf",
+            "type": "number",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "length",
+          "width",
+          "slope",
+          "top"
+        ],
+        "title": "FlowReachConfig",
+        "type": "object"
+      },
+      "FlowReachDiversionConfig": {
+        "additionalProperties": false,
+        "description": "An SFR-to-SFR diversion: a controlled split from one reach to another.",
+        "properties": {
+          "reach": {
+            "description": "Source reach (1-based) the diversion leaves from.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Reach",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "to_reach": {
+            "description": "Receiver reach (1-based); must be a downstream connection of reach.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "To Reach",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "cprior": {
+            "default": "FRACTION",
+            "description": "Diversion priority rule (FRACTION / EXCESS / THRESHOLD / UPTO).",
+            "enum": [
+              "FRACTION",
+              "EXCESS",
+              "THRESHOLD",
+              "UPTO"
+            ],
+            "examples": [
+              "FRACTION"
+            ],
+            "title": "Cprior",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "divflow": {
+            "anyOf": [
+              {
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+                "discriminator": {
+                  "mapping": {
+                    "constant": "#/$defs/FlowWellForcingConstantConfig",
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingConstantConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Per-period diversion flow [L^3/T] (or fraction for FRACTION).",
+            "title": "Divflow",
+            "x-hmp-profile": "dev"
+          }
+        },
+        "required": [
+          "reach",
+          "to_reach"
+        ],
+        "title": "FlowReachDiversionConfig",
+        "type": "object"
+      },
+      "FlowReachNetworkConfig": {
+        "additionalProperties": false,
+        "description": "Typed boundary-condition payload for one MODFLOW 6 SFR stream network.\n\nThe network is either delineated automatically from the DEM / D8 flow\nproducts (set a stream threshold) or supplied explicitly through ``reaches``.\nReaches exchange with the aquifer through their streambed conductance\n(``streambed_k`` / ``streambed_thickness``) unless ``connected_to_aquifer`` is\nFalse. The transient forcings (``headwater_inflow``, ``runoff`` as volumetric\nL^3/T; ``rainfall``, ``evaporation`` as rates L/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\n``outflow_to_lake`` is the only lake-aware field: when set, the terminal reach\nfeeds that lake (1-based) through an MVR record (SFR -> LAK). When None, the\nnetwork outflow leaves the model and SFR runs with no lake at all.",
+        "properties": {
+          "stream_threshold_km2": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Drainage-area threshold [km^2] for stream initiation. Exactly one of stream_threshold_km2 / stream_threshold_cells must be set when reaches are delineated automatically.",
+            "title": "Stream Threshold Km2",
+            "x-hmp-profile": "user"
+          },
+          "stream_threshold_cells": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Alternative stream-initiation threshold as a flow-accumulation cell count.",
+            "title": "Stream Threshold Cells",
+            "x-hmp-profile": "user"
+          },
+          "min_reach_length": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "default": "0 m",
+            "description": "Prune reaches shorter than this [L] (0 keeps all reaches).",
+            "examples": [
+              "0 m"
+            ],
+            "title": "Min Reach Length",
+            "x-hmp-profile": "user"
+          },
+          "manning": {
+            "default": 0.035,
+            "description": "Manning roughness coefficient n [T/L^(1/3)] (> 0). Default 0.035.",
+            "examples": [
+              0.035
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Manning",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "streambed_k": {
+            "default": 1e-06,
+            "description": "Streambed hydraulic conductivity rhk [L/T]. 0 = no reach-aquifer leakage (pure routing).",
+            "examples": [
+              1e-06
+            ],
+            "minimum": 0.0,
+            "title": "Streambed K",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "streambed_k_unit": {
+            "default": "m/s",
+            "description": "Unit of streambed_k (velocity, L/T): m/s, m/day, m/h... HydroModPy converts it to m/s for MF6, so a m/day value is not taken as m/s.",
+            "examples": [
+              "m/s"
+            ],
+            "title": "Streambed K Unit",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "streambed_thickness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "default": "1 m",
+            "description": "Streambed thickness rbth [L] (> 0).",
+            "examples": [
+              "1 m"
+            ],
+            "title": "Streambed Thickness",
+            "x-hmp-profile": "user"
+          },
+          "min_slope": {
+            "default": 0.0001,
+            "description": "Floor for the reach gradient rgrd [-] after monotone-downhill conditioning.",
+            "examples": [
+              0.0001
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Min Slope",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "width": {
+            "description": "How the reach width rwid [L] is set (constant / by_order / power_law).",
+            "discriminator": {
+              "mapping": {
+                "by_order": "#/$defs/FlowReachWidthByOrder",
+                "constant": "#/$defs/FlowReachWidthConstant",
+                "power_law": "#/$defs/FlowReachWidthPowerLaw"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FlowReachWidthConstant"
+              },
+              {
+                "$ref": "#/components/schemas/FlowReachWidthByOrder"
+              },
+              {
+                "$ref": "#/components/schemas/FlowReachWidthPowerLaw"
+              }
+            ],
+            "title": "Width",
+            "x-hmp-profile": "user"
+          },
+          "connected_to_aquifer": {
+            "default": true,
+            "description": "If False every reach uses cellid 'none' (routing only, no streambed leakage).",
+            "examples": [
+              true
+            ],
+            "title": "Connected To Aquifer",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "storage": {
+            "default": false,
+            "description": "Enable the channel-storage term (transient first period / SIMPLE only).",
+            "examples": [
+              false
+            ],
+            "title": "Storage",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "headwater_inflow": {
+            "anyOf": [
+              {
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+                "discriminator": {
+                  "mapping": {
+                    "constant": "#/$defs/FlowWellForcingConstantConfig",
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingConstantConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "External inflow [L^3/T] injected at the headwater reach(es).",
+            "title": "Headwater Inflow",
+            "x-hmp-profile": "dev"
+          },
+          "runoff": {
+            "anyOf": [
+              {
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+                "discriminator": {
+                  "mapping": {
+                    "constant": "#/$defs/FlowWellForcingConstantConfig",
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingConstantConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Diffuse overland inflow [L^3/T], distributed per reach by length.",
+            "title": "Runoff",
+            "x-hmp-profile": "dev"
+          },
+          "rainfall": {
+            "anyOf": [
+              {
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+                "discriminator": {
+                  "mapping": {
+                    "constant": "#/$defs/FlowWellForcingConstantConfig",
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingConstantConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Rainfall rate [L/T] on the reach surface.",
+            "title": "Rainfall",
+            "x-hmp-profile": "dev"
+          },
+          "evaporation": {
+            "anyOf": [
+              {
+                "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+                "discriminator": {
+                  "mapping": {
+                    "constant": "#/$defs/FlowWellForcingConstantConfig",
+                    "csv": "#/$defs/FlowWellForcingCsvConfig",
+                    "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
+                    "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingConstantConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingCsvConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingPiecewiseConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FlowWellForcingSeasonalConfig"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Open-channel evaporation rate [L/T] (positive, subtracted).",
+            "title": "Evaporation",
+            "x-hmp-profile": "dev"
+          },
+          "reaches": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FlowReachConfig"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Explicit reach table; bypasses delineation. None = delineate from the DEM.",
+            "title": "Reaches",
+            "x-hmp-profile": "dev"
+          },
+          "diversions": {
+            "description": "SFR-to-SFR diversions (controlled splits). Empty = none.",
+            "items": {
+              "$ref": "#/components/schemas/FlowReachDiversionConfig"
+            },
+            "title": "Diversions",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "outflow_to_lake": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "1-based lake number the terminal reach feeds via MVR (SFR -> LAK). None = the network outflow leaves the model (EXT-OUTFLOW).",
+            "title": "Outflow To Lake",
+            "x-hmp-profile": "user"
+          },
+          "outflow_mvrtype": {
+            "default": "FACTOR",
+            "description": "MVR transfer rule for the SFR -> LAK coupling.",
+            "enum": [
+              "FACTOR",
+              "UPTO",
+              "EXCESS",
+              "THRESHOLD"
+            ],
+            "examples": [
+              "FACTOR"
+            ],
+            "title": "Outflow Mvrtype",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "outflow_value": {
+            "default": 1.0,
+            "description": "MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for UPTO / EXCESS / THRESHOLD.",
+            "examples": [
+              1.0
+            ],
+            "minimum": 0.0,
+            "title": "Outflow Value",
+            "type": "number",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "FlowReachNetworkConfig",
+        "type": "object"
+      },
+      "FlowReachWidthByOrder": {
+        "additionalProperties": false,
+        "description": "A reach width keyed by Strahler stream order.",
+        "properties": {
+          "kind": {
+            "const": "by_order",
+            "default": "by_order",
+            "description": "Discriminator tag for the per-Strahler-order width law.",
+            "examples": [
+              "by_order"
+            ],
+            "title": "Kind",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "widths": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "properties": {
+                    "magnitude": {
+                      "title": "Magnitude",
+                      "type": "string"
+                    },
+                    "units": {
+                      "title": "Units",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "magnitude"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "description": "Reach width rwid [L] per Strahler order (e.g. {1: '1 m', 2: '3 m'}).",
+            "title": "Widths",
+            "type": "object",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "widths"
+        ],
+        "title": "FlowReachWidthByOrder",
+        "type": "object"
+      },
+      "FlowReachWidthConstant": {
+        "additionalProperties": false,
+        "description": "A uniform reach width applied to every reach.",
+        "properties": {
+          "kind": {
+            "const": "constant",
+            "default": "constant",
+            "description": "Discriminator tag for the constant reach-width law.",
+            "examples": [
+              "constant"
+            ],
+            "title": "Kind",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "Uniform reach width rwid [L] for all reaches.",
+            "title": "Value",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "FlowReachWidthConstant",
+        "type": "object"
+      },
+      "FlowReachWidthPowerLaw": {
+        "additionalProperties": false,
+        "description": "A hydraulic-geometry width: ``rwid = coef * drainage_area_km2 ** exp`` [m].",
+        "properties": {
+          "kind": {
+            "const": "power_law",
+            "default": "power_law",
+            "description": "Discriminator tag for the drainage-area power-law width.",
+            "examples": [
+              "power_law"
+            ],
+            "title": "Kind",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "coef": {
+            "description": "Coefficient [m] of the width power law (> 0).",
+            "examples": [
+              1.0
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Coef",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "exp": {
+            "default": 0.5,
+            "description": "Exponent of the drainage-area (km^2) power law. Typical ~0.5.",
+            "examples": [
+              0.5
+            ],
+            "title": "Exp",
+            "type": "number",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "coef"
+        ],
+        "title": "FlowReachWidthPowerLaw",
+        "type": "object"
+      },
       "FlowRechargeConfig": {
         "additionalProperties": false,
         "description": "Typed payload for diffuse recharge over the model domain.\n\nRecharge drives the MODFLOW RCH package. The conversion to MODFLOW\nstress-period dictionaries is handled by\n``FlowToModflowAdapter._build_recharge_payload``. Negative values can be\nrouted to EVT when ``negative_to_evt`` is enabled.\n\nAttributes\n----------\nvalues :\n    Recharge payload. Accepted forms:\n\n    - **scalar** ``float``: uniform rate applied to every stress period,\n    - **list / numpy array**: one value per stress period\n      (length must match ``nper``),\n    - **mapping** ``{period_index: value}``: explicit per-period assignment,\n    - **runtime series** (pandas-like object with ``.iloc``): used when\n      recharge is computed dynamically (e.g. from PyHELP output).\n\nfirst_clim : str | float\n    Policy for stress-period 0 when ``values`` is a sequence.\n    MODFLOW steady-state warm-up periods often need a representative rate\n    that differs from the first raw time step. Options:\n\n    - ``\"mean\"``: arithmetic mean of the entire series (default),\n    - ``\"first\"``: first value of the series,\n    - *numeric*: explicit scalar.\n\nunits : str\n    Physical units of ``values``. The flow runtime converts the payload\n    to SI ``m/s`` when the process is built.",
@@ -7018,7 +7826,7 @@
       },
       "FlowSinksSourcesConfig": {
         "additionalProperties": false,
-        "description": "Top-level container for all sink/source elements of the flow process.\n\nMaps directly to the ``[flow.sinks_sources]`` TOML section. All fields\nare optional so that a minimal ``FlowSinksSourcesConfig()`` (no wells,\nno recharge, no etp) is always valid and represents a passive model.\n\nFields\n------\nwells : dict[str, FlowWellConfig]\n    Pumping/injection wells keyed by a user-defined string id.\nlakes : dict[str, FlowLakeConfig]\n    Lake / reservoir boundaries keyed by a user-defined string id.\nrecharge : FlowRechargeConfig | None\n    Diffuse recharge configuration. ``None`` means no recharge.\netp : FlowEtpConfig | None\n    Diffuse evapotranspiration configuration. ``None`` means no\n    EVT package is built.",
+        "description": "Top-level container for all sink/source elements of the flow process.\n\nMaps directly to the ``[flow.sinks_sources]`` TOML section. All fields\nare optional so that a minimal ``FlowSinksSourcesConfig()`` (no wells,\nno recharge, no etp) is always valid and represents a passive model.\n\nFields\n------\nwells : dict[str, FlowWellConfig]\n    Pumping/injection wells keyed by a user-defined string id.\nlakes : dict[str, FlowLakeConfig]\n    Lake / reservoir boundaries keyed by a user-defined string id.\nsfr : dict[str, FlowReachNetworkConfig]\n    Streamflow-routing networks keyed by a user-defined string id.\nrecharge : FlowRechargeConfig | None\n    Diffuse recharge configuration. ``None`` means no recharge.\netp : FlowEtpConfig | None\n    Diffuse evapotranspiration configuration. ``None`` means no\n    EVT package is built.",
         "properties": {
           "wells": {
             "additionalProperties": {
@@ -7035,6 +7843,15 @@
             },
             "description": "Mapping of lake ids to typed lake / reservoir payloads.",
             "title": "Lakes",
+            "type": "object",
+            "x-hmp-profile": "user"
+          },
+          "sfr": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FlowReachNetworkConfig"
+            },
+            "description": "Mapping of stream-network ids to typed SFR payloads.",
+            "title": "Sfr",
             "type": "object",
             "x-hmp-profile": "user"
           },

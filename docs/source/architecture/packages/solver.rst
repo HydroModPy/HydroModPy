@@ -26,7 +26,13 @@ Sub-modules
 - ``solver/modflow6/`` -- FloPy-backed MODFLOW 6 wrapper. Flow
   through ``adapters/flow.py``, transport through
   ``adapters/transport.py``, output extraction through
-  ``extractors/``.
+  ``extractors/``. Advanced packages are built by dedicated builder
+  modules: ``builders/lake.py`` (LAK) and ``builders/sfr.py`` (SFR)
+  are mutually independent and couple only through the
+  package-agnostic ``builders/mvr.py`` water-mover records that
+  ``build.py`` instantiates last. The SFR builder consumes the reach
+  trace delineated in ``spatial`` (a legal ``solver -> spatial``
+  edge) and never imports the lake builder.
 - ``solver/modflow_nwt/`` -- legacy MODFLOW-NWT wrapper plus
   Modpath / MT3DMS transport adapters.
 - ``calibration/lumped/`` -- GR4J adapter and extractor. This lives

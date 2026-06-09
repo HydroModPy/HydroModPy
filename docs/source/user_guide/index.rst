@@ -151,6 +151,18 @@ Topic guides
       outlets, forcings, and where the solved stage and lake-aquifer
       exchange land.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: modflow6-sfr
+      :link-type: doc
+
+      **Streams and routing**
+      ^^^
+      How to declare a MODFLOW 6 SFR network in config: delineation
+      from the river products, streambed hydraulics, reach width laws,
+      routed forcings, and the MVR coupling that feeds a reservoir
+      from its catchment streamflow.
+
 Capability and API-oriented guides
 ----------------------------------
 
@@ -256,4 +268,5 @@ Use these pages once you have generated or opened result pages:
    solvers
    modflow6-prt
    modflow6-lake
+   modflow6-sfr
    troubleshooting

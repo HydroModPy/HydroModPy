@@ -26,6 +26,9 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - ``seepage_map``
      - Seepage areas
      - fields ``seepage_mask``
+   * - ``sfr_reach_network``
+     - SFR reach network
+     - tables ``timeseries``
    * - ``simulated_active_network``
      - Simulated active network
      - fields ``accumulation_flux``
@@ -75,6 +78,12 @@ Chronicles read from the catalog ``timeseries`` table.
      - tables ``timeseries``
    * - ``seasonal_boxplot``
      - Seasonal box-plot
+     - tables ``timeseries``
+   * - ``sfr_longitudinal_profile``
+     - SFR longitudinal profile
+     - tables ``timeseries``
+   * - ``sfr_reach_timeseries``
+     - SFR reach time series
      - tables ``timeseries``
 
 Budgets and balances

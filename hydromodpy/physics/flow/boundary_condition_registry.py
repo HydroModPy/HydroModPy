@@ -18,7 +18,9 @@ from hydromodpy.physics.flow.boundary_conditions import (
 )
 
 FlowBoundaryFamily = Literal["dirichlet", "head_dependent_exchange", "advanced_package"]
-FlowBoundarySupportKind = Literal["side", "ocean_stage", "stream", "top", "advanced_package"]
+FlowBoundarySupportKind = Literal[
+    "side", "ocean_stage", "stream", "stream_reach", "top", "advanced_package"
+]
 FlowBoundaryBackend = Literal["modflow6", "modflow_nwt", "boussinesq"]
 
 SIDE_DIRICHLET_BC_IDS_ORDERED: tuple[str, ...] = (
@@ -190,6 +192,23 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         supported_backends=("modflow6",),
         backend_packages={
             "modflow6": "LAK",
+        },
+        supports_forcing=True,
+    ),
+    # SFR (streamflow routing) is a MODFLOW 6 advanced package. It reads the
+    # flow.sinks_sources['sfr'] payload and is lake-independent: 'sfr' in
+    # active_bc routes streamflow on its own; its optional MVR coupling to a lake
+    # is data on the SFR payload, not a separate boundary id.
+    "sfr": FlowBoundaryDefinition(
+        id="sfr",
+        family="advanced_package",
+        default_type="sfr",
+        default_units="m3/s",
+        application_domain="stream_reach",
+        support_kind="stream_reach",
+        supported_backends=("modflow6",),
+        backend_packages={
+            "modflow6": "SFR",
         },
         supports_forcing=True,
     ),

@@ -433,6 +433,7 @@ class Flow(ProcessSpatial):
         if sinks_sources is None:
             self.sinks_sources["wells"] = {}
             self.sinks_sources["lakes"] = {}
+            self.sinks_sources["sfr"] = {}
             self.sinks_sources["recharge"] = None
             return
 
@@ -473,6 +474,7 @@ class Flow(ProcessSpatial):
 
         self.sinks_sources["wells"] = normalized_wells
         self.sinks_sources["lakes"] = dict(getattr(sinks_sources, "lakes", {}) or {})
+        self.sinks_sources["sfr"] = dict(getattr(sinks_sources, "sfr", {}) or {})
         self.sinks_sources["recharge"] = self._normalize_recharge_config(
             sinks_sources.recharge,
             location_prefix="flow.sinks_sources.recharge",

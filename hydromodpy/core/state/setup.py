@@ -33,3 +33,6 @@ class SetupContext:
     flow_runtime_overrides: dict[str, Any] | None = None
     run_id: str = "default"
     time_grid: Any = None
+    # Delineated SFR reach traces keyed by network id (spatial.SfrReachTrace).
+    # Computed once by the data step and re-bound onto every per-run Flow.
+    sfr_reach_traces: dict[str, Any] | None = None

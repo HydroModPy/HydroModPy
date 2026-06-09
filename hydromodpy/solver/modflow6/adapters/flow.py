@@ -45,9 +45,7 @@ def _collapse_to_disv_cells(
     if mesh is None or not getattr(mesh, "is_structured", False):
         return dict(station_cells)
     ncol = int(mesh.ncol)
-    return {
-        sid: (int(k), 0, int(i) * ncol + int(j)) for sid, (k, i, j) in station_cells.items()
-    }
+    return {sid: (int(k), 0, int(i) * ncol + int(j)) for sid, (k, i, j) in station_cells.items()}
 
 
 class Modflow6FlowAdapter:

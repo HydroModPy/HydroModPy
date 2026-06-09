@@ -22,6 +22,15 @@ from hydromodpy.physics.flow.sinks_sources.lake import (
     FlowLakeOutletWeir,
 )
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.physics.flow.sinks_sources.sfr import (
+    FlowReachConfig,
+    FlowReachDiversionConfig,
+    FlowReachNetworkConfig,
+    FlowReachWidthByOrder,
+    FlowReachWidthConfig,
+    FlowReachWidthConstant,
+    FlowReachWidthPowerLaw,
+)
 from hydromodpy.physics.flow.sinks_sources.wells import (
     FlowWellConfig,
     FlowWellForcingConfig,
@@ -44,6 +53,13 @@ __all__ = [
     "FlowLakeOutletMover",
     "FlowLakeOutletSpecified",
     "FlowLakeOutletWeir",
+    "FlowReachConfig",
+    "FlowReachDiversionConfig",
+    "FlowReachNetworkConfig",
+    "FlowReachWidthByOrder",
+    "FlowReachWidthConfig",
+    "FlowReachWidthConstant",
+    "FlowReachWidthPowerLaw",
     "FlowRechargeConfig",
     "FlowSinksSourcesConfig",
     "FlowWellConfig",

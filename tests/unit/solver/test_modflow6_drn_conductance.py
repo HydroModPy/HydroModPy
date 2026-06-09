@@ -12,7 +12,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.builders.boundary_conditions import build_drain_stress_period_data
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    build_drain_stress_period_data,
+    collapse_identical_periods,
+)
 from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
@@ -86,6 +89,47 @@ def test_mf6_drn_configured_conductance_bypasses_fallback() -> None:
         stream_support_mask=np.zeros(6, dtype=bool),
     )
     assert spd[0][0][3] == pytest.approx(0.05)
+
+
+def test_mf6_drn_static_conductance_collapses_to_single_period() -> None:
+    # A static drain over many periods emits period 0 only; MF6 reuses it for the
+    # rest. This keeps a long daily run from rewriting every drain row per period.
+    model = _drn_model()
+    model.nper = 6940
+    spd = build_drain_stress_period_data(
+        model,
+        solver_mesh=_drn_mesh(5.0),
+        drainage_cond_series=np.zeros(6940),
+        ocean_support_mask=np.zeros(6, dtype=bool),
+        stream_support_mask=np.zeros(6, dtype=bool),
+    )
+    assert sorted(spd) == [0]
+    assert len(spd[0]) == 6
+
+
+def test_mf6_drn_emits_period_only_when_conductance_changes() -> None:
+    model = _drn_model()
+    model.nper = 100
+    series = np.zeros(100)
+    series[10:] = 0.05
+    series[60:] = 0.08
+    spd = build_drain_stress_period_data(
+        model,
+        solver_mesh=_drn_mesh(5.0),
+        drainage_cond_series=series,
+        ocean_support_mask=np.zeros(6, dtype=bool),
+        stream_support_mask=np.zeros(6, dtype=bool),
+    )
+    assert sorted(spd) == [0, 10, 60]
+    assert spd[10][0][3] == pytest.approx(0.05)
+    assert spd[60][0][3] == pytest.approx(0.08)
+
+
+def test_collapse_identical_periods_keeps_only_changes() -> None:
+    spd = {0: [[1]], 1: [[1]], 2: [[2]], 3: [[2]], 4: [[2]], 5: [[3]]}
+    assert collapse_identical_periods(spd) == {0: [[1]], 2: [[2]], 5: [[3]]}
+    # Period 0 is always kept, even when every period is identical.
+    assert collapse_identical_periods({0: [], 1: [], 2: []}) == {0: []}
 
 
 def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
