@@ -142,17 +142,31 @@ def _state_get(state: PipelineState, key: str) -> Any:
     return getattr(state.data, key, None)
 
 
+def _strip_observability_keys(payload: Any) -> Any:
+    """Drop config keys that toggle observability only (``workflow.profile``).
+
+    Profiling does not change results; flipping it must not invalidate an
+    existing checkpoint.
+    """
+    if not isinstance(payload, Mapping):
+        return payload
+    workflow = payload.get("workflow")
+    if isinstance(workflow, Mapping) and "profile" in workflow:
+        return {**payload, "workflow": {k: v for k, v in workflow.items() if k != "profile"}}
+    return payload
+
+
 def _state_config_payload(state: PipelineState) -> Any:
     raw_toml = _state_get(state, "raw_toml")
     if raw_toml:
-        return raw_toml
+        return _strip_observability_keys(raw_toml)
     config = _state_get(state, "config")
     if config is None:
         config = _state_get(state, "cfg")
     if isinstance(config, BaseModel):
-        return config.model_dump(mode="json", exclude_none=True)
+        return _strip_observability_keys(config.model_dump(mode="json", exclude_none=True))
     if isinstance(config, Mapping):
-        return config
+        return _strip_observability_keys(config)
     return None
 
 
