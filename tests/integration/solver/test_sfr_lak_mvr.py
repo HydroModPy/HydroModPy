@@ -61,3 +61,34 @@ def test_terminal_reach_feeds_the_lake_through_mvr(tmp_path: Path) -> None:
     discrepancy = _last_percent_discrepancy(tmp_path)
     assert discrepancy is not None
     assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION
+
+
+@pytest.mark.integration
+@pytest.mark.mf6
+@pytest.mark.binary
+@pytest.mark.allow_subprocess
+def test_routed_drainage_reaches_the_lake_through_the_network(tmp_path: Path) -> None:
+    network, sfr_obs, lak_obs = run_coupled_sfr_lak_model(tmp_path, route_drainage=True)
+    terminal = max(reach.ifno for reach in network.reaches)
+
+    # The drains actually flow and their water lands on the reaches.
+    drainage_in = sum(sfr_obs[f"R{reach.ifno}_FROM_MVR"] for reach in network.reaches)
+    assert drainage_in > 0.0
+
+    # The routed identity now includes the converged drainage (TOLERANCES row 45).
+    to_mvr = -sfr_obs[f"R{terminal}_TO_MVR"]
+    gw_loss = sum(
+        sfr_obs[f"R{reach.ifno}_GW_EXCHANGE"]
+        for reach in network.reaches
+        if reach.cellid is not None
+    )
+    expected = INFLOW_M3S + RUNOFF_M3S + drainage_in - gw_loss
+    assert abs(to_mvr - expected) / (INFLOW_M3S + RUNOFF_M3S) <= _EXCHANGE_IDENTITY_REL
+
+    # And the lake receives it all (row 46), more than the drainage-less feed.
+    assert lak_obs["LAC0_FROM_MVR"] == pytest.approx(to_mvr, rel=_MVR_RECIPROCITY_RTOL)
+    assert lak_obs["LAC0_FROM_MVR"] > INFLOW_M3S + RUNOFF_M3S - gw_loss
+
+    discrepancy = _last_percent_discrepancy(tmp_path)
+    assert discrepancy is not None
+    assert abs(discrepancy) / 100.0 <= _BUDGET_CLOSURE_FRACTION
