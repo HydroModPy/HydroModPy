@@ -189,6 +189,21 @@ def _length_to_m(value: object) -> float:
     return float(getattr(value, "magnitude", value))  # type: ignore[arg-type]
 
 
+def _read_watershed_polygons(geographic: object) -> list[object]:
+    """Read the delineated watershed polygon(s) used to scope the stream links.
+
+    The full-grid link raster covers the whole regional DEM; only the links
+    inside the modelled catchment can map onto the solver mesh.
+    """
+    watershed_shp = getattr(geographic, "watershed_shp", None)
+    if not watershed_shp or not Path(str(watershed_shp)).exists():
+        return []
+    import geopandas as gpd
+
+    gdf = gpd.read_file(str(watershed_shp))
+    return [geometry for geometry in gdf.geometry if geometry is not None]
+
+
 def _sfr_networks_needing_trace(flow: object) -> dict[str, object]:
     """Return the active SFR network payloads that need a delineated trace."""
     active_bc = {str(name).lower() for name in getattr(flow, "active_bc", []) or []}
@@ -283,6 +298,7 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
             for payload in lakes.values()
             if _payload_attr(payload, "polygon") is not None
         ]
+        watershed_polygons = _read_watershed_polygons(geographic)
 
         traces: dict[str, object] = {}
         for network_id, payload in networks.items():
@@ -304,6 +320,7 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
                     products, "stream_order_strahler_full_tif", None
                 ),
                 lake_polygons=lake_polygons,
+                watershed_polygons=watershed_polygons,
                 min_slope=float(min_slope) if min_slope is not None else 1e-4,
                 min_reach_length_m=(
                     _length_to_m(min_reach_length) if min_reach_length is not None else 0.0

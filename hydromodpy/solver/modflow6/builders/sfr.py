@@ -148,6 +148,7 @@ def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
                 "min_slope",
                 "width",
                 "connected_to_aquifer",
+                "route_drainage",
                 "storage",
                 "headwater_inflow",
                 "runoff",
@@ -607,6 +608,68 @@ def remove_drain_cells(
     }
 
 
+def sfr_routes_drainage(networks: Mapping[str, ResolvedSfrNetwork]) -> bool:
+    """Return whether one active network asks for the DRN -> SFR routing."""
+    return any(bool(network.definition.get("route_drainage")) for network in networks.values())
+
+
+def build_drainage_mover_records(
+    networks: Mapping[str, ResolvedSfrNetwork],
+    *,
+    drn_spd: Mapping[int, Sequence[Sequence[float]]],
+    cell_centroids: np.ndarray,
+) -> list[MoverRecord]:
+    """Route every remaining DRN cell's discharge to its nearest reach via MVR.
+
+    The hillslope drainage exfiltrates at the land surface and converges towards
+    the river: each DRN boundary becomes an MVR provider handing its full
+    outflow (FACTOR 1.0) to the closest connected reach (planar centroid
+    distance). The MVR provider id of a list-based package is the boundary's
+    position in the period list, so the DRN stress-period data must be
+    single-period (a static drain); a per-period list would renumber the
+    providers and silently mis-route.
+    """
+    if not sfr_routes_drainage(networks):
+        return []
+    if len(drn_spd) != 1:
+        raise ValueError(
+            "flow.sinks_sources.sfr route_drainage requires a static DRN "
+            f"(single-period stress data); got {len(drn_spd)} periods whose row "
+            "order would renumber the MVR provider ids."
+        )
+
+    reach_cells: list[tuple[int, int]] = []  # (cell2d, ifno)
+    for network in networks.values():
+        if not network.definition.get("route_drainage"):
+            continue
+        for record in network.reaches:
+            if record.cellid is not None:
+                reach_cells.append((int(record.cellid[1]), int(record.ifno)))
+    if not reach_cells:
+        return []
+
+    reach_xy = np.asarray([cell_centroids[cell2d] for cell2d, _ in reach_cells], dtype=float)
+    reach_ifnos = np.asarray([ifno for _, ifno in reach_cells], dtype=int)
+
+    records: list[MoverRecord] = []
+    rows = next(iter(drn_spd.values()))
+    for boundary_index, row in enumerate(rows):
+        cell2d = int(row[1])
+        delta = reach_xy - cell_centroids[cell2d]
+        nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
+        records.append(
+            MoverRecord(
+                provider="DRN",
+                provider_id=int(boundary_index),
+                receiver=_SFR_PACKAGE_NAME,
+                receiver_id=int(reach_ifnos[nearest]),
+                mvrtype="FACTOR",
+                value=1.0,
+            )
+        )
+    return records
+
+
 # --------------------------------------------------------------------------- #
 # MVR records (SFR -> LAK coupling seam; data, not an import edge).
 # --------------------------------------------------------------------------- #
@@ -617,9 +680,11 @@ def build_sfr_mover_records(
 ) -> list[MoverRecord]:
     """Compile the ``outflow_to_lake`` couplings into general MVR transfers.
 
-    The terminal reach of each coupled network provides its DOWNSTREAM-FLOW to
-    the receiving lake (0-based lake number). An empty result means every network
-    discharges out of the model (EXT-OUTFLOW).
+    EVERY terminal-to-lake reach of a coupled network provides its
+    DOWNSTREAM-FLOW to the receiving lake (0-based lake number): a real
+    reservoir is usually fed by several tributaries, each truncated at the
+    shoreline, so one MVR record is emitted per terminal reach. An empty result
+    means every network discharges out of the model (EXT-OUTFLOW).
     """
     records: list[MoverRecord] = []
     for network_id, network in networks.items():
@@ -627,40 +692,41 @@ def build_sfr_mover_records(
         lake_number = definition.get("outflow_to_lake")
         if lake_number is None:
             continue
-        terminal = _terminal_reach(network, location=f"flow.sinks_sources.sfr.{network_id}")
+        terminals = _terminal_reaches(network, location=f"flow.sinks_sources.sfr.{network_id}")
         mvrtype = str(definition.get("outflow_mvrtype") or "FACTOR").strip().upper()
         raw_value = definition.get("outflow_value")
         value = float(raw_value) if raw_value is not None else 1.0
-        records.append(
-            MoverRecord(
-                provider=_SFR_PACKAGE_NAME,
-                provider_id=int(terminal.ifno),
-                receiver=_LAK_PACKAGE_NAME,
-                receiver_id=int(lake_number) - 1,
-                mvrtype=mvrtype,
-                value=value,
+        for terminal in terminals:
+            records.append(
+                MoverRecord(
+                    provider=_SFR_PACKAGE_NAME,
+                    provider_id=int(terminal.ifno),
+                    receiver=_LAK_PACKAGE_NAME,
+                    receiver_id=int(lake_number) - 1,
+                    mvrtype=mvrtype,
+                    value=value,
+                )
             )
-        )
     return records
 
 
-def _terminal_reach(network: ResolvedSfrNetwork, *, location: str) -> SfrReachRecord:
-    """Return the reach whose outflow feeds the lake."""
+def _terminal_reaches(network: ResolvedSfrNetwork, *, location: str) -> list[SfrReachRecord]:
+    """Return the reaches whose outflow feeds the lake.
+
+    The shoreline-truncated reaches carry the flag from the delineation. With no
+    flagged reach (an explicit table, or a lake-free trace), the single network
+    outlet is the terminal; several unflagged outlets are ambiguous and raise.
+    """
     flagged = [record for record in network.reaches if record.is_terminal_to_lake]
-    if len(flagged) == 1:
-        return flagged[0]
-    if len(flagged) > 1:
-        raise ValueError(
-            f"{location} flags {len(flagged)} terminal-to-lake reaches; outflow_to_lake "
-            "needs exactly one."
-        )
+    if flagged:
+        return flagged
     outlets = [record for record in network.reaches if not record.downstream]
     if len(outlets) != 1:
         raise ValueError(
-            f"{location} has {len(outlets)} network outlets; outflow_to_lake needs "
-            "exactly one terminal reach."
+            f"{location} has {len(outlets)} network outlets and no terminal-to-lake "
+            "flag; outflow_to_lake cannot pick the feeding reach."
         )
-    return outlets[0]
+    return outlets
 
 
 # --------------------------------------------------------------------------- #
@@ -1082,6 +1148,7 @@ def build_sfr_obs_spec(
 __all__ = [
     "ResolvedSfrNetwork",
     "SfrReachRecord",
+    "build_drainage_mover_records",
     "build_sfr_mover_records",
     "build_sfr_obs_spec",
     "build_sfr_package_args",
@@ -1090,4 +1157,5 @@ __all__ = [
     "resolve_reach_line_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
+    "sfr_routes_drainage",
 ]

@@ -58,6 +58,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     forcing_kind,
     forcing_to_si,
     forcing_unit,
+    package_unit_conversions,
     resolve_forcing_mode,
     resolve_use_ts6,
     ts6_times_and_values,
@@ -85,6 +86,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 from hydromodpy.solver.modflow6.builders.sfr import (
     ResolvedSfrNetwork,
     SfrReachRecord,
+    build_drainage_mover_records,
     build_sfr_mover_records,
     build_sfr_obs_spec,
     build_sfr_package_args,
@@ -93,6 +95,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     resolve_reach_line_cells,
     resolve_sfr_networks,
     sfr_drain_cells_to_drop,
+    sfr_routes_drainage,
 )
 from hydromodpy.solver.modflow6.builders.solver_options import (
     log_xt3d_resolution,
@@ -133,6 +136,7 @@ __all__ = [
     "build_lake_period_data",
     "build_lake_table",
     "build_mvr_period_records",
+    "build_drainage_mover_records",
     "build_ocean_boundary_chd_spd",
     "build_side_boundary_chd_spd",
     "build_sfr_mover_records",
@@ -194,6 +198,7 @@ __all__ = [
     "series_like_to_scalar",
     "series_payload_value",
     "sfr_drain_cells_to_drop",
+    "sfr_routes_drainage",
     "side_boundary_cell_ids",
     "stream_chd_support_mask",
     "ts6_times_and_values",

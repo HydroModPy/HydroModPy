@@ -335,6 +335,7 @@ def build_sfr_reach_trace_from_products(
     dem_res_m: float,
     stream_order_strahler_full_tif: str | None = None,
     lake_polygons: list | None = None,
+    watershed_polygons: list | None = None,
     min_slope: float = 1e-4,
     min_reach_length_m: float = 0.0,
 ) -> SfrReachTrace:
@@ -343,7 +344,10 @@ def build_sfr_reach_trace_from_products(
     All four rasters must share one affine and shape (the clipped per-watershed
     rasters have a different extent and are rejected). ``lake_polygons`` (model
     CRS) are rasterized onto the grid so the reach flowing into a lake is
-    flagged terminal-to-lake.
+    flagged terminal-to-lake. ``watershed_polygons`` (model CRS) restrict the
+    stream links to the modelled catchment: the full-grid link raster covers
+    the whole regional DEM and the out-of-watershed links belong to other
+    catchments, outside the solver mesh.
     """
     import rasterio
     from rasterio import features
@@ -386,8 +390,20 @@ def build_sfr_reach_trace_from_products(
             dtype="uint8",
         ).astype(bool)
 
+    link_id = np.nan_to_num(arrays["stream_link_id_full"], nan=0.0).astype(int)
+    catchment = [polygon for polygon in (watershed_polygons or []) if polygon is not None]
+    if catchment:
+        watershed_mask = features.rasterize(
+            ((polygon, 1) for polygon in catchment),
+            out_shape=reference[2],
+            transform=transform,
+            fill=0,
+            dtype="uint8",
+        ).astype(bool)
+        link_id = np.where(watershed_mask, link_id, 0)
+
     return delineate_sfr_reaches(
-        link_id=np.nan_to_num(arrays["stream_link_id_full"], nan=0.0).astype(int),
+        link_id=link_id,
         d8=np.nan_to_num(arrays["d8_pointer"], nan=0.0).astype(int),
         acc=np.nan_to_num(arrays["flow_acc_cells"], nan=0.0),
         dem=arrays["dem_correc"].astype(float),

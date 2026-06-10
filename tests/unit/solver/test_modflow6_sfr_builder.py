@@ -14,6 +14,7 @@ from hydromodpy.physics.flow.sinks_sources.sfr import (
 )
 from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
 from hydromodpy.solver.modflow6.builders.sfr import (
+    build_drainage_mover_records,
     build_sfr_mover_records,
     build_sfr_obs_spec,
     build_sfr_package_args,
@@ -404,3 +405,54 @@ def test_inactive_sfr_returns_no_network() -> None:
     model.flow.active_bc = ["drainage"]
     assert resolve_sfr_networks(model, solver_mesh=mesh) == {}
     assert build_sfr_package_args(model, networks={}) is None
+
+
+def test_drainage_mover_records_route_each_drn_cell_to_its_nearest_reach() -> None:
+    mesh = _mesh()
+    model = _fake_model(
+        {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
+    )
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    reach_cells = {reach.cellid[1] for reach in networks["net0"].reaches}
+    drn_spd = remove_drain_cells(
+        {0: [[0, cid, 100.0, 0.05] for cid in range(25)]}, cells=reach_cells
+    )
+    records = build_drainage_mover_records(
+        networks, drn_spd=drn_spd, cell_centroids=mesh.cell_centroids()
+    )
+    assert len(records) == len(drn_spd[0])
+    by_ifno = {reach.ifno: reach for reach in networks["net0"].reaches}
+    centroids = mesh.cell_centroids()
+    for boundary_index, record in enumerate(records):
+        assert record.provider == "DRN"
+        assert record.provider_id == boundary_index
+        assert record.receiver == "SFR"
+        assert record.mvrtype == "FACTOR" and record.value == 1.0
+        # The receiver really is the nearest reach cell.
+        drn_xy = centroids[int(drn_spd[0][boundary_index][1])]
+        best = min(
+            by_ifno.values(),
+            key=lambda reach: float(((centroids[reach.cellid[1]] - drn_xy) ** 2).sum()),
+        )
+        assert record.receiver_id == best.ifno
+
+
+def test_drainage_mover_records_require_a_static_single_period_drn() -> None:
+    mesh = _mesh()
+    model = _fake_model({"net0": _trace_payload(_two_reach_trace(), route_drainage=True)})
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    rows = [[0, 0, 100.0, 0.05]]
+    with pytest.raises(ValueError, match="single-period"):
+        build_drainage_mover_records(
+            networks, drn_spd={0: rows, 1: rows}, cell_centroids=mesh.cell_centroids()
+        )
+
+
+def test_drainage_mover_records_are_empty_without_the_opt_in() -> None:
+    mesh = _mesh()
+    model = _fake_model({"net0": _trace_payload(_two_reach_trace())})
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    records = build_drainage_mover_records(
+        networks, drn_spd={0: [[0, 0, 100.0, 0.05]]}, cell_centroids=mesh.cell_centroids()
+    )
+    assert records == []
