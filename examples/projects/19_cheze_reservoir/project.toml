@@ -1,10 +1,13 @@
 # ======================================================================
-# HydroModPy - Cheze reservoir (EBR), MODFLOW 6 LAK, weekly transient.
+# HydroModPy - Cheze reservoir (EBR), MODFLOW 6 LAK + SFR, weekly transient.
 #
-# Port of the legacy EBR Cheze reservoir model to the v1 MF6 architecture.
-# v1 is LAK-only (native reservoir + abacus + spillway), SFR streamflow
-# routing is dropped: the spillway and the managed releases leave the model
-# through the LAK outlets instead of feeding a modelled river.
+# Port of the legacy EBR Cheze reservoir model to the MF6 architecture.
+# The reservoir is a native LAK package (abacus + spillway + managed
+# transfers) FED BY ITS CATCHMENT STREAMFLOW through a delineated SFR
+# network: the reaches capture the aquifer baseflow through their streambed
+# (the DRN entries on reach cells are dropped), the SIM2 catchment runoff is
+# routed along the network, and the terminal reach hands the accumulated
+# flow to the reservoir through an MVR water-mover record.
 #
 # Meteo comes from the SIM2 Meteo-France API (recharge), fetched at run time.
 # Lake geometry, abacus and the managed inflow/withdrawal series live under
@@ -48,6 +51,19 @@ x_outlet = 331315.0
 y_outlet = 6781273.0
 snap_dist = "200 m"
 buff_area = "10%"
+
+# Stream network products: the SFR delineation consumes the stream-link raster
+# (compute_stream_links is MANDATORY for SFR) and the Strahler orders. The
+# 1 km2 initiation threshold draws the Cheze river and its main tributaries
+# upstream of the reservoir; the legacy 0.7 x acc_max main-stem-only mask is
+# superseded (it kept only the reach under the dam, useless once the network
+# is truncated at the reservoir shoreline).
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+compute_stream_links = true
+compute_strahler_order = true
 
 # ---------------------------------------------------------------------- domain
 [domain]
@@ -126,7 +142,7 @@ path = "../../data/lake_withdrawal"
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
 active_sinks_sources = ["recharge"]
-active_bc = ["lake", "drainage"]
+active_bc = ["lake", "sfr", "drainage"]
 # Warm-up: solve the first stress period in steady state so the aquifer heads
 # equilibrate around the initial lake stage and mean recharge before the transient
 # (avoids a cold-start shock). The lake starts at the observed level (stageinit).
@@ -167,8 +183,12 @@ negative_to_evt = true
 bedleak = 1e-6
 bedleak_unit = "1/s"
 # Initial lake stage = observed Cheze level at the window start (2019-01-01), m
-# NGF. The first (steady) stress period equilibrates the aquifer around it.
+# NGF. The reservoir was drawn down for works: far below the natural steady
+# equilibrium, so the warm-up HOLDS the stage there (status CONSTANT) and the
+# aquifer equilibrates around the observed level; the lake re-activates on the
+# first transient period.
 stageinit = "81.82 m"
+steady_stage_hold = true
 occupied_layers = 1
 
 # Spillway: the 35 m concrete crest at 87.3 m caps the stage; overflow leaves the
@@ -182,8 +202,39 @@ lakeout = 0
 # Note: the lake forcings are bound automatically and need no inline entry here:
 #   - inflow (Meu+Canut transfers) and withdrawal (abstraction+restitution) come
 #     from the lake_inflow / lake_withdrawal data families;
-#   - rainfall, open-water evaporation and the catchment runoff inflow come from
-#     the SIM2 precipitation / etp / runoff families (runoff x catchment area).
+#   - rainfall and open-water evaporation come from the SIM2 precipitation / etp
+#     families. The catchment runoff is NOT applied to the lake directly: the
+#     active SFR network routes it (see below) and it arrives through MVR.
+
+# ---- The Cheze river (SFR streamflow routing) --------------------------------
+# The reservoir's natural feed: the Cheze river and its tributaries, delineated
+# from the DEM products (threshold matching geographic.river_network), truncated
+# at the reservoir shoreline, and coupled to the lake through MVR
+# (outflow_to_lake = 1 -> the first declared lake). Reaches sit on active
+# aquifer cells and capture the baseflow head-dependently; the DRN entries on
+# reach cells are dropped so that water stops leaking out of the model. The
+# SIM2 catchment runoff is bound automatically as the routed 'runoff' forcing
+# (distributed over the reaches by length).
+[flow.sinks_sources.sfr.cheze]
+stream_threshold_km2 = 1.0
+# Legacy NWT streambed: hcond = 0.08 m/day on a 0.1 m bed; kept as the port
+# baseline. With rhk*rlen*rwid/rbth this is the reach-aquifer conductance and
+# the baseflow-capture calibration handle.
+streambed_k = 0.08
+streambed_k_unit = "m/day"
+streambed_thickness = "0.1 m"
+# Legacy roughch = 0.03 (rectangular Manning routing, icalc = 1).
+manning = 0.03
+# The hillslope DRN discharge converges to the nearest reach (MVR) instead of
+# leaving the model: this is the catchment streamflow generation (the legacy
+# post-processed accumulation_flux, now INSIDE the MF6 budget). Without it only
+# the reach cells' streambed captures baseflow and the reservoir starves.
+route_drainage = true
+outflow_to_lake = 1
+
+[flow.sinks_sources.sfr.cheze.width]
+kind = "constant"
+value = "2 m"
 
 # ---------------------------------------------------------------------- solver
 [modflow6.runtime]

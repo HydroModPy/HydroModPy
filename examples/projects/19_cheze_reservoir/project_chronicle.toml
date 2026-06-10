@@ -49,6 +49,14 @@ y_outlet = 6781273.0
 snap_dist = "200 m"
 buff_area = "10%"
 
+# Stream network products for the SFR delineation (see project.toml).
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+compute_stream_links = true
+compute_strahler_order = true
+
 # ---------------------------------------------------------------------- domain
 [domain]
 
@@ -122,7 +130,7 @@ path = "../../data/lake_withdrawal"
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
 active_sinks_sources = ["recharge"]
-active_bc = ["lake", "drainage"]
+active_bc = ["lake", "sfr", "drainage"]
 # Steady warm-up around the observed start stage and mean recharge before the
 # transient. On a 19-year daily run a bad cold start would propagate for years.
 first_period_steady = true
@@ -158,8 +166,11 @@ negative_to_evt = true
 # bed). Under-dam-leakage calibration handle, refine against observed levels.
 bedleak = 1e-6
 bedleak_unit = "1/s"
-# Observed Cheze level at the window start (2007-01-01), m NGF.
+# Observed Cheze level at the window start (2007-01-01), m NGF. The warm-up
+# holds the stage there (status CONSTANT) so the chronicle starts exactly at
+# the observed level instead of the natural steady equilibrium.
 stageinit = "86.97 m"
+steady_stage_hold = true
 occupied_layers = 1
 
 # Spillway: 35 m concrete crest at 87.3 m; overflow leaves the model.
@@ -169,8 +180,26 @@ invert = "87.3 m"
 width = "35 m"
 lakeout = 0
 
-# Note: inflow/withdrawal and the SIM2 rainfall/evaporation/runoff surface
-# forcings are bound automatically from the data families (see project.toml).
+# Note: inflow/withdrawal and the SIM2 rainfall/evaporation forcings are bound
+# automatically from the data families; the catchment runoff is routed through
+# the SFR network below and reaches the lake via MVR (see project.toml).
+
+# ---- The Cheze river (SFR streamflow routing) --------------------------------
+# Same network as project.toml: delineated reaches truncated at the reservoir
+# shoreline, baseflow capture + routed SIM2 runoff + hillslope drainage
+# convergence (route_drainage), all delivered to the lake through MVR.
+[flow.sinks_sources.sfr.cheze]
+stream_threshold_km2 = 1.0
+streambed_k = 0.08
+streambed_k_unit = "m/day"
+streambed_thickness = "0.1 m"
+manning = 0.03
+route_drainage = true
+outflow_to_lake = 1
+
+[flow.sinks_sources.sfr.cheze.width]
+kind = "constant"
+value = "2 m"
 
 # ---------------------------------------------------------------------- solver
 [modflow6.runtime]
