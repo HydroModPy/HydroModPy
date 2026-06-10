@@ -49,7 +49,9 @@ def test_extract_head_from_hds_reads_disv_off_row_zero(tmp_path: Path) -> None:
     top = np.full((nrow, ncol), 10.0)
     botm = np.zeros((1, nrow, ncol))
     # Build the DISV grid through the production abstraction (fake-structured DISV).
-    mesh = SolverMesh.from_structured_arrays(nrow=nrow, ncol=ncol, top=top, botm=botm, dx=1.0, dy=1.0)
+    mesh = SolverMesh.from_structured_arrays(
+        nrow=nrow, ncol=ncol, top=top, botm=botm, dx=1.0, dy=1.0
+    )
 
     sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=str(tmp_path), exe_name=exe)
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
