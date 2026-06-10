@@ -16,6 +16,7 @@ from hydromodpy.physics.flow.structure_binders import (
     apply_lake_meteo_forcings_to_flow,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
+    apply_runoff_to_sfr_networks,
     apply_sfr_network_to_flow,
 )
 from hydromodpy.simulation import ensure_flow
@@ -144,13 +145,23 @@ def apply_structural_updates_from_data(
         simulation_window=window,
     )
     _catch_area_km2 = getattr(getattr(setup_state, "geographic", None), "catch_area", None)
+    _catch_area_m2 = float(_catch_area_km2) * 1.0e6 if _catch_area_km2 else None
+    # Routed-first precedence: an active SFR network takes the catchment runoff
+    # (the lake meteo binder then skips its direct runoff feed; the water reaches
+    # a coupled lake through MVR instead).
+    apply_runoff_to_sfr_networks(
+        flow=setup_state.flow,
+        runoff=getattr(data_state, "runoff", None),
+        simulation_window=window,
+        catchment_area_m2=_catch_area_m2,
+    )
     apply_lake_meteo_forcings_to_flow(
         flow=setup_state.flow,
         precipitation=getattr(data_state, "precipitation", None),
         etp=getattr(data_state, "etp", None),
         runoff=getattr(data_state, "runoff", None),
         simulation_window=window,
-        catchment_area_m2=(float(_catch_area_km2) * 1.0e6 if _catch_area_km2 else None),
+        catchment_area_m2=_catch_area_m2,
     )
     if setup_state.geographic_features is not None:
         setup_state.geographic_features = attach_reference_hydrographic_network(
@@ -176,6 +187,21 @@ def _length_to_m(value: object) -> float:
     if callable(to):
         return float(to("m").magnitude)
     return float(getattr(value, "magnitude", value))  # type: ignore[arg-type]
+
+
+def _read_watershed_polygons(geographic: object) -> list[object]:
+    """Read the delineated watershed polygon(s) used to scope the stream links.
+
+    The full-grid link raster covers the whole regional DEM; only the links
+    inside the modelled catchment can map onto the solver mesh.
+    """
+    watershed_shp = getattr(geographic, "watershed_shp", None)
+    if not watershed_shp or not Path(str(watershed_shp)).exists():
+        return []
+    import geopandas as gpd
+
+    gdf = gpd.read_file(str(watershed_shp))
+    return [geometry for geometry in gdf.geometry if geometry is not None]
 
 
 def _sfr_networks_needing_trace(flow: object) -> dict[str, object]:
@@ -272,6 +298,7 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
             for payload in lakes.values()
             if _payload_attr(payload, "polygon") is not None
         ]
+        watershed_polygons = _read_watershed_polygons(geographic)
 
         traces: dict[str, object] = {}
         for network_id, payload in networks.items():
@@ -293,6 +320,7 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
                     products, "stream_order_strahler_full_tif", None
                 ),
                 lake_polygons=lake_polygons,
+                watershed_polygons=watershed_polygons,
                 min_slope=float(min_slope) if min_slope is not None else 1e-4,
                 min_reach_length_m=(
                     _length_to_m(min_reach_length) if min_reach_length is not None else 0.0

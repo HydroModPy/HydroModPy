@@ -8024,6 +8024,18 @@
     "description": ""
   },
   {
+    "path": "flow.sinks_sources.lakes.<id>.steady_stage_hold",
+    "name": "steady_stage_hold",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-steady-stage-hold",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L247",
+    "description": ""
+  },
+  {
     "path": "flow.sinks_sources.lakes.<id>.occupied_layers",
     "name": "occupied_layers",
     "type": "int",
@@ -8032,7 +8044,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-occupied-layers",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L247",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L257",
     "description": ""
   },
   {
@@ -8044,7 +8056,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L257",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L267",
     "description": ""
   },
   {
@@ -8260,7 +8272,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L261",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L271",
     "description": ""
   },
   {
@@ -8500,7 +8512,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L265",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L275",
     "description": ""
   },
   {
@@ -8740,7 +8752,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L269",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L279",
     "description": ""
   },
   {
@@ -8980,7 +8992,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L273",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L283",
     "description": ""
   },
   {
@@ -9220,7 +9232,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L277",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L287",
     "description": ""
   },
   {
@@ -9668,6 +9680,18 @@
     "description": ""
   },
   {
+    "path": "flow.sinks_sources.sfr.<id>.route_drainage",
+    "name": "route_drainage",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-sfr-id-route-drainage",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L240",
+    "description": ""
+  },
+  {
     "path": "flow.sinks_sources.sfr.<id>.storage",
     "name": "storage",
     "type": "bool",
@@ -9676,7 +9700,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-storage",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L240",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L251",
     "description": ""
   },
   {
@@ -9688,7 +9712,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-headwater-inflow",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L246",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L257",
     "description": ""
   },
   {
@@ -9928,7 +9952,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-runoff",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L250",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L261",
     "description": ""
   },
   {
@@ -10168,7 +10192,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rainfall",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L254",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L265",
     "description": ""
   },
   {
@@ -10408,7 +10432,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-evaporation",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L258",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L269",
     "description": ""
   },
   {
@@ -10648,7 +10672,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-reaches",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L264",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L275",
     "description": ""
   },
   {
@@ -10756,7 +10780,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-diversions",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L268",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L279",
     "description": ""
   },
   {
@@ -10816,7 +10840,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-to-lake",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L285",
     "description": ""
   },
   {
@@ -10828,7 +10852,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-mvrtype",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L282",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L293",
     "description": ""
   },
   {
@@ -10840,7 +10864,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L288",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L299",
     "description": ""
   },
   {

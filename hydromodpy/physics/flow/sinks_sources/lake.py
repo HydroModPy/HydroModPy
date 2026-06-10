@@ -244,6 +244,16 @@ class FlowLakeConfig(HydroModelBase):
         ),
     )
     stageinit: Annotated[Length, Profile.USER] = Field(..., description="Initial lake stage [L].")
+    steady_stage_hold: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Hold the lake stage at stageinit during the steady warm-up period(s) "
+            "(LAK status CONSTANT) and re-activate it on the first transient "
+            "period. Use for a managed reservoir whose observed initial level is "
+            "far from the natural steady equilibrium: the aquifer equilibrates "
+            "around the observed stage instead of overriding it."
+        ),
+    )
     occupied_layers: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,

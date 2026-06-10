@@ -148,6 +148,7 @@ def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
                 "min_slope",
                 "width",
                 "connected_to_aquifer",
+                "route_drainage",
                 "storage",
                 "headwater_inflow",
                 "runoff",
@@ -607,6 +608,83 @@ def remove_drain_cells(
     }
 
 
+def sfr_routes_drainage(networks: Mapping[str, ResolvedSfrNetwork]) -> bool:
+    """Return whether one active network asks for the DRN -> SFR routing."""
+    return any(bool(network.definition.get("route_drainage")) for network in networks.values())
+
+
+def build_drainage_mover_records(
+    networks: Mapping[str, ResolvedSfrNetwork],
+    *,
+    drn_spd: Mapping[int, Sequence[Sequence[float]]],
+    cell_centroids: np.ndarray,
+    lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
+) -> list[MoverRecord]:
+    """Route every remaining DRN cell's discharge to its nearest water via MVR.
+
+    The hillslope drainage exfiltrates at the land surface and converges towards
+    the nearest surface water: each DRN boundary becomes an MVR provider handing
+    its full outflow (FACTOR 1.0) to the closest target (planar centroid
+    distance). Targets are the connected reaches AND, when the network is
+    coupled to a lake, that lake's own cells: the network is truncated at the
+    shoreline, so the lakeside hillslopes have no local reach and their water
+    physically exfiltrates into the reservoir (DRN -> LAK), not into a far
+    upstream or below-dam reach.
+
+    The MVR provider id of a list-based package is the boundary's position in
+    the period list, so the DRN stress-period data must be single-period (a
+    static drain); a per-period list would renumber the providers and silently
+    mis-route.
+    """
+    if not sfr_routes_drainage(networks):
+        return []
+    if len(drn_spd) != 1:
+        raise ValueError(
+            "flow.sinks_sources.sfr route_drainage requires a static DRN "
+            f"(single-period stress data); got {len(drn_spd)} periods whose row "
+            "order would renumber the MVR provider ids."
+        )
+
+    # Targets: (cell2d, receiver package, receiver id). Reaches first, then the
+    # coupled lake's footprint cells.
+    targets: list[tuple[int, str, int]] = []
+    for network in networks.values():
+        definition = network.definition
+        if not definition.get("route_drainage"):
+            continue
+        for record in network.reaches:
+            if record.cellid is not None:
+                targets.append((int(record.cellid[1]), _SFR_PACKAGE_NAME, int(record.ifno)))
+        lake_number = definition.get("outflow_to_lake")
+        if lake_number is not None and lake_cells_by_number:
+            lake_index = int(lake_number) - 1
+            for cell2d in lake_cells_by_number.get(lake_index, []):
+                targets.append((int(cell2d), _LAK_PACKAGE_NAME, lake_index))
+    if not targets:
+        return []
+
+    target_xy = np.asarray([cell_centroids[cell2d] for cell2d, _, _ in targets], dtype=float)
+
+    records: list[MoverRecord] = []
+    rows = next(iter(drn_spd.values()))
+    for boundary_index, row in enumerate(rows):
+        cell2d = int(row[1])
+        delta = target_xy - cell_centroids[cell2d]
+        nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
+        _, receiver, receiver_id = targets[nearest]
+        records.append(
+            MoverRecord(
+                provider="DRN",
+                provider_id=int(boundary_index),
+                receiver=receiver,
+                receiver_id=int(receiver_id),
+                mvrtype="FACTOR",
+                value=1.0,
+            )
+        )
+    return records
+
+
 # --------------------------------------------------------------------------- #
 # MVR records (SFR -> LAK coupling seam; data, not an import edge).
 # --------------------------------------------------------------------------- #
@@ -617,9 +695,11 @@ def build_sfr_mover_records(
 ) -> list[MoverRecord]:
     """Compile the ``outflow_to_lake`` couplings into general MVR transfers.
 
-    The terminal reach of each coupled network provides its DOWNSTREAM-FLOW to
-    the receiving lake (0-based lake number). An empty result means every network
-    discharges out of the model (EXT-OUTFLOW).
+    EVERY terminal-to-lake reach of a coupled network provides its
+    DOWNSTREAM-FLOW to the receiving lake (0-based lake number): a real
+    reservoir is usually fed by several tributaries, each truncated at the
+    shoreline, so one MVR record is emitted per terminal reach. An empty result
+    means every network discharges out of the model (EXT-OUTFLOW).
     """
     records: list[MoverRecord] = []
     for network_id, network in networks.items():
@@ -627,40 +707,41 @@ def build_sfr_mover_records(
         lake_number = definition.get("outflow_to_lake")
         if lake_number is None:
             continue
-        terminal = _terminal_reach(network, location=f"flow.sinks_sources.sfr.{network_id}")
+        terminals = _terminal_reaches(network, location=f"flow.sinks_sources.sfr.{network_id}")
         mvrtype = str(definition.get("outflow_mvrtype") or "FACTOR").strip().upper()
         raw_value = definition.get("outflow_value")
         value = float(raw_value) if raw_value is not None else 1.0
-        records.append(
-            MoverRecord(
-                provider=_SFR_PACKAGE_NAME,
-                provider_id=int(terminal.ifno),
-                receiver=_LAK_PACKAGE_NAME,
-                receiver_id=int(lake_number) - 1,
-                mvrtype=mvrtype,
-                value=value,
+        for terminal in terminals:
+            records.append(
+                MoverRecord(
+                    provider=_SFR_PACKAGE_NAME,
+                    provider_id=int(terminal.ifno),
+                    receiver=_LAK_PACKAGE_NAME,
+                    receiver_id=int(lake_number) - 1,
+                    mvrtype=mvrtype,
+                    value=value,
+                )
             )
-        )
     return records
 
 
-def _terminal_reach(network: ResolvedSfrNetwork, *, location: str) -> SfrReachRecord:
-    """Return the reach whose outflow feeds the lake."""
+def _terminal_reaches(network: ResolvedSfrNetwork, *, location: str) -> list[SfrReachRecord]:
+    """Return the reaches whose outflow feeds the lake.
+
+    The shoreline-truncated reaches carry the flag from the delineation. With no
+    flagged reach (an explicit table, or a lake-free trace), the single network
+    outlet is the terminal; several unflagged outlets are ambiguous and raise.
+    """
     flagged = [record for record in network.reaches if record.is_terminal_to_lake]
-    if len(flagged) == 1:
-        return flagged[0]
-    if len(flagged) > 1:
-        raise ValueError(
-            f"{location} flags {len(flagged)} terminal-to-lake reaches; outflow_to_lake "
-            "needs exactly one."
-        )
+    if flagged:
+        return flagged
     outlets = [record for record in network.reaches if not record.downstream]
     if len(outlets) != 1:
         raise ValueError(
-            f"{location} has {len(outlets)} network outlets; outflow_to_lake needs "
-            "exactly one terminal reach."
+            f"{location} has {len(outlets)} network outlets and no terminal-to-lake "
+            "flag; outflow_to_lake cannot pick the feeding reach."
         )
-    return outlets[0]
+    return outlets
 
 
 # --------------------------------------------------------------------------- #
@@ -672,12 +753,18 @@ def build_sfr_package_args(
     model,
     *,
     networks: Mapping[str, ResolvedSfrNetwork],
+    external_mover: bool = False,
 ) -> dict[str, Any] | None:
     """Assemble the ``ModflowGwfsfr`` arguments for the active SFR network.
 
     Returns ``None`` when no network is active. The returned dict feeds
     ``flopy.mf6.ModflowGwfsfr`` plus side-channel keys popped in ``build.py``
     (``mover_records``, ``obs_continuous``, ``sfr_obs_meta``, ``ts_specs``).
+
+    ``external_mover`` flags MVR records from OTHER packages targeting this SFR
+    (a LAK spillway release or the routed hillslope drainage): the package then
+    advertises MOVER and the obs spec requests the per-reach to/from-mvr series
+    even with no SFR-owned mover record.
     """
     if not networks:
         return None
@@ -748,7 +835,7 @@ def build_sfr_package_args(
     time_conversion, length_conversion = package_unit_conversions(model)
     stem = _sfr_output_stem(model)
     obs_continuous, sfr_obs_meta = build_sfr_obs_spec(
-        stem=stem, network=network, has_mover=bool(mover_records)
+        stem=stem, network=network, has_mover=bool(mover_records) or bool(external_mover)
     )
 
     args: dict[str, Any] = {
@@ -773,8 +860,9 @@ def build_sfr_package_args(
     if definition.get("storage"):
         args["storage"] = True
     if mover_records:
-        args["mover"] = True
         args["mover_records"] = mover_records
+    if mover_records or external_mover:
+        args["mover"] = True
     if ts_series:
         args["ts_specs"] = ts_series
     args["obs_continuous"] = obs_continuous
@@ -1082,6 +1170,7 @@ def build_sfr_obs_spec(
 __all__ = [
     "ResolvedSfrNetwork",
     "SfrReachRecord",
+    "build_drainage_mover_records",
     "build_sfr_mover_records",
     "build_sfr_obs_spec",
     "build_sfr_package_args",
@@ -1090,4 +1179,5 @@ __all__ = [
     "resolve_reach_line_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
+    "sfr_routes_drainage",
 ]

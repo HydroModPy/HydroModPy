@@ -209,20 +209,27 @@ def _coupled_trace() -> SfrReachTrace:
     return SfrReachTrace(reaches=rows, crs_wkt="EPSG:32630")
 
 
-def run_coupled_sfr_lak_model(ws: Path):
+def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
     """Run a coupled SFR -> MVR -> LAK model; return (network, sfr obs, lak obs).
 
     The SFR side comes from the production builder (``outflow_to_lake = 1``); the
     LAK side is a minimal single-lake package whose 9 VERTICAL connections leak to
     layer 1. The MVR block is assembled exactly as ``build.py`` does: records
     merged, packages derived from the rows, ``maxpackages`` from
-    ``mover_package_count``.
+    ``mover_package_count``. With ``route_drainage`` a low-elevation drain is
+    added away from the reaches and its discharge converges to the nearest reach
+    through the production DRN -> SFR MVR routing.
     """
     import flopy
 
     from hydromodpy.solver.modflow6.builders.mvr import (
         build_mvr_period_records,
         mover_package_count,
+    )
+    from hydromodpy.solver.modflow6.builders.sfr import (
+        build_drainage_mover_records,
+        remove_drain_cells,
+        sfr_drain_cells_to_drop,
     )
 
     exe = str(ensure_solver_binary("mf6"))
@@ -234,6 +241,7 @@ def run_coupled_sfr_lak_model(ws: Path):
         "headwater_inflow": {"kind": "constant", "value": INFLOW_M3S, "units": "m3/s"},
         "runoff": {"kind": "constant", "value": RUNOFF_M3S, "units": "m3/s"},
         "outflow_to_lake": 1,
+        "route_drainage": route_drainage,
     }
     model = SimpleNamespace(
         flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": {NETWORK_ID: payload}}),
@@ -245,7 +253,16 @@ def run_coupled_sfr_lak_model(ws: Path):
         model_output_name=COUPLED_MODEL_NAME,
     )
     networks = resolve_sfr_networks(model, solver_mesh=mesh)
-    args = build_sfr_package_args(model, networks=networks)
+
+    # Static drains away from the stream, below the ambient head so they flow;
+    # with route_drainage their discharge converges to the nearest reach.
+    drn_spd: dict[int, list[list[float]]] = {0: [[0, cid, 92.5, 1e-4] for cid in (9, 10, 17, 18)]}
+    drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(networks))
+    drainage_movers = build_drainage_mover_records(
+        networks, drn_spd=drn_spd, cell_centroids=mesh.cell_centroids()
+    )
+
+    args = build_sfr_package_args(model, networks=networks, external_mover=bool(drainage_movers))
     assert args is not None
     mover_records = args.pop("mover_records")
     obs_continuous = args.pop("obs_continuous")
@@ -290,6 +307,13 @@ def run_coupled_sfr_lak_model(ws: Path):
         if cid % ncol in (0, ncol - 1) or cid // ncol in (0, ncol - 1)
     ]
     flopy.mf6.ModflowGwfchd(gwf, stress_period_data={0: border})
+    flopy.mf6.ModflowGwfdrn(
+        gwf,
+        pname="DRN",
+        stress_period_data=drn_spd,
+        save_flows=True,
+        mover=bool(drainage_movers),
+    )
 
     connectiondata = [
         [0, iconn, (1, cell), "VERTICAL", 0.01, 0.0, 0.0, 0.0, 0.0]
@@ -334,7 +358,7 @@ def run_coupled_sfr_lak_model(ws: Path):
         continuous=obs_continuous,
     )
 
-    mvr_rows = build_mvr_period_records(mover_records)
+    mvr_rows = build_mvr_period_records(drainage_movers) + build_mvr_period_records(mover_records)
     packages = sorted({(str(row[0]),) for row in mvr_rows} | {(str(row[2]),) for row in mvr_rows})
     flopy.mf6.ModflowGwfmvr(
         gwf,
