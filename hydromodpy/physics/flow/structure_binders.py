@@ -445,6 +445,92 @@ def apply_lake_flux_forcings_to_flow(
     return True
 
 
+def _active_sfr_payloads(flow: Flow) -> dict[str, dict[str, object]]:
+    """Return the SFR payload dicts when the ``sfr`` boundary is active, else {}."""
+    active_bc = {str(name).lower() for name in getattr(flow, "active_bc", []) or []}
+    if "sfr" not in active_bc:
+        return {}
+    return _sfr_payloads_as_mappings(flow)
+
+
+def sfr_routes_catchment_runoff(flow: Flow) -> bool:
+    """Return whether an active SFR network takes the catchment runoff.
+
+    With an active stream network the catchment runoff is ROUTED: it enters the
+    reaches (distributed by length), travels downstream, and reaches a coupled
+    lake through MVR instead of being dumped directly onto the lake surface.
+    The lake meteo binder uses this to skip its legacy direct ``runoff * area``
+    feed, so the same water is never counted twice.
+    """
+    return bool(_active_sfr_payloads(flow))
+
+
+def apply_runoff_to_sfr_networks(
+    *,
+    flow: Flow,
+    runoff: LoadResultProto | None = None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
+    catchment_area_m2: float | None = None,
+) -> bool:
+    """Attach the catchment runoff as the routed SFR ``runoff`` forcing.
+
+    The catchment-scale runoff data family (e.g. SIM2, internal unit mm/day) is
+    reduced to a watershed-mean per-period rate in m/s and multiplied by the
+    catchment area: the volumetric (m3/s) overland inflow entering the stream
+    network, which the SFR builder distributes over the reaches by length. A
+    ``runoff`` forcing already declared in config wins, so the data family is
+    only the default source.
+
+    Returns True if at least one forcing was attached, False otherwise.
+    """
+    if runoff is None or simulation_window is None or not catchment_area_m2:
+        return False
+    payloads = _active_sfr_payloads(flow)
+    if not payloads:
+        return False
+
+    rate = _watershed_mean_rates(runoff, "sfr_runoff", simulation_window)
+    if rate is None:
+        return False
+    area = float(catchment_area_m2)
+    values = [float(v) * area for v in rate]
+
+    attached = False
+    for payload in payloads.values():
+        if payload.get("runoff") is not None:
+            continue  # config already declares the forcing
+        payload["runoff"] = {"kind": "values", "values": values, "units": "m3/s"}
+        attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["sfr"] = payloads
+    return True
+
+
+def _watershed_mean_rates(
+    result: LoadResultProto | None,
+    label: str,
+    simulation_window: ResolvedSimulationTimeWindow,
+) -> list[float] | None:
+    """Reduce one catchment data family to per-period watershed-mean rates [m/s]."""
+    if result is None:
+        return None
+    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
+
+    resolved = resolve_forcing(
+        result,
+        unit_conversion_factor=factor_to_m_per_s("mm/day"),
+        simulation_window=simulation_window,
+        spatial_mode="homogeneous",
+        label=label,
+    )
+    if resolved is None or resolved.series is None:
+        return None
+    return [float(v) for v in resolved.series]
+
+
 def apply_lake_meteo_forcings_to_flow(
     *,
     flow: Flow,
@@ -464,6 +550,12 @@ def apply_lake_meteo_forcings_to_flow(
     ``runoff * area`` accumulation). A forcing already declared in config wins, so
     the SIM2 series is only the default source.
 
+    When an active SFR network routes the catchment runoff
+    (:func:`sfr_routes_catchment_runoff`), the lake's direct runoff feed is
+    SKIPPED: the same water travels through the reaches and arrives via MVR when
+    the network is coupled to the lake. Rainfall and evaporation stay on the
+    lake surface in every mode.
+
     Returns True if at least one forcing was attached, False otherwise.
     """
     if simulation_window is None or all(r is None for r in (precipitation, etp, runoff)):
@@ -472,32 +564,14 @@ def apply_lake_meteo_forcings_to_flow(
     if not payloads:
         return False
 
-    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
-    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
-
-    factor = factor_to_m_per_s("mm/day")
-
-    def _mean_rate(result: LoadResultProto | None, label: str) -> list[float] | None:
-        if result is None:
-            return None
-        resolved = resolve_forcing(
-            result,
-            unit_conversion_factor=factor,
-            simulation_window=simulation_window,
-            spatial_mode="homogeneous",
-            label=label,
-        )
-        if resolved is None or resolved.series is None:
-            return None
-        return [float(v) for v in resolved.series]
-
-    rain = _mean_rate(precipitation, "lake_rainfall")
-    evap = _mean_rate(etp, "lake_evaporation")
-    runoff_rate = _mean_rate(runoff, "lake_runoff")
+    rain = _watershed_mean_rates(precipitation, "lake_rainfall", simulation_window)
+    evap = _watershed_mean_rates(etp, "lake_evaporation", simulation_window)
     runoff_vol: list[float] | None = None
-    if runoff_rate is not None and catchment_area_m2:
-        area = float(catchment_area_m2)
-        runoff_vol = [v * area for v in runoff_rate]
+    if not sfr_routes_catchment_runoff(flow):
+        runoff_rate = _watershed_mean_rates(runoff, "lake_runoff", simulation_window)
+        if runoff_rate is not None and catchment_area_m2:
+            area = float(catchment_area_m2)
+            runoff_vol = [v * area for v in runoff_rate]
 
     derived = (
         ("rainfall", rain, "m/s"),

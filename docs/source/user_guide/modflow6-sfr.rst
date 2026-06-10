@@ -109,6 +109,13 @@ rates (``m/s``) applied per reach. Non-constant forcings follow the shared
 TS6-versus-inline arbitration used by the lake package. ``streambed_k`` declares
 its unit through ``streambed_k_unit`` and reaches MF6 in ``m/s``.
 
+When the ``runoff`` data family is loaded (e.g. SIM2), an active SFR network
+takes it automatically: the watershed-mean rate times the catchment area becomes
+the routed ``runoff`` forcing, and the lake's legacy direct ``runoff * area``
+feed is skipped so the same water is never counted twice. Without SFR the
+runoff feeds the lake directly, as before. A ``runoff`` forcing declared in the
+network config always wins over the data family.
+
 Results and Display
 -------------------
 

@@ -16,6 +16,7 @@ from hydromodpy.physics.flow.structure_binders import (
     apply_lake_meteo_forcings_to_flow,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
+    apply_runoff_to_sfr_networks,
     apply_sfr_network_to_flow,
 )
 from hydromodpy.simulation import ensure_flow
@@ -144,13 +145,23 @@ def apply_structural_updates_from_data(
         simulation_window=window,
     )
     _catch_area_km2 = getattr(getattr(setup_state, "geographic", None), "catch_area", None)
+    _catch_area_m2 = float(_catch_area_km2) * 1.0e6 if _catch_area_km2 else None
+    # Routed-first precedence: an active SFR network takes the catchment runoff
+    # (the lake meteo binder then skips its direct runoff feed; the water reaches
+    # a coupled lake through MVR instead).
+    apply_runoff_to_sfr_networks(
+        flow=setup_state.flow,
+        runoff=getattr(data_state, "runoff", None),
+        simulation_window=window,
+        catchment_area_m2=_catch_area_m2,
+    )
     apply_lake_meteo_forcings_to_flow(
         flow=setup_state.flow,
         precipitation=getattr(data_state, "precipitation", None),
         etp=getattr(data_state, "etp", None),
         runoff=getattr(data_state, "runoff", None),
         simulation_window=window,
-        catchment_area_m2=(float(_catch_area_km2) * 1.0e6 if _catch_area_km2 else None),
+        catchment_area_m2=_catch_area_m2,
     )
     if setup_state.geographic_features is not None:
         setup_state.geographic_features = attach_reference_hydrographic_network(
