@@ -20,11 +20,15 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from hydromodpy.cli._conventions import profile_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     auto_scan_workspace,
+    profile_arg_from_toml,
+    profile_run,
+    resolve_profile_output,
 )
 
 NAME: str = "run"
@@ -42,7 +46,7 @@ def _step_choices() -> list[str]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     config_arg = parser.add_argument(
         "config",
         type=Path,
@@ -168,6 +172,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         resolve_workflow,
     )
 
+    profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
+
     print_hydromodpy()
     auto_scan_workspace(config_path)
 
@@ -184,6 +190,9 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         print(f"Invalid TOML: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     run_path = effective_path or config_path
+
+    if profile_output is None:
+        profile_output = resolve_profile_output(profile_arg_from_toml(raw_toml), config_path)
 
     dry_run = bool(getattr(args, "dry_run", False))
     try:
@@ -209,6 +218,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     parallel = not bool(getattr(args, "no_parallel", False))
 
     if dry_run:
+        if profile_output is not None:
+            print("[dry-run] --profile ignored (nothing is executed)", file=sys.stderr)
         _print_dry_run(
             workflow,
             run_path,
@@ -249,18 +260,19 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             sys.exit(EXIT_CONFIG)
 
     try:
-        if workflow == "simulation":
-            summary = hmp.run(
-                run_path,
-                resume=resume,
-                from_step=from_step,
-                until_step=until_step,
-                no_display=no_display,
-                frozen=frozen,
-                parallel=parallel,
-            )
-        else:
-            summary = hmp.run(run_path)
+        with profile_run(profile_output, description=f"hmp run {config_path.name} ({workflow})"):
+            if workflow == "simulation":
+                summary = hmp.run(
+                    run_path,
+                    resume=resume,
+                    from_step=from_step,
+                    until_step=until_step,
+                    no_display=no_display,
+                    frozen=frozen,
+                    parallel=parallel,
+                )
+            else:
+                summary = hmp.run(run_path)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
