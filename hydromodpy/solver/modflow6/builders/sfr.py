@@ -618,16 +618,23 @@ def build_drainage_mover_records(
     *,
     drn_spd: Mapping[int, Sequence[Sequence[float]]],
     cell_centroids: np.ndarray,
+    lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
 ) -> list[MoverRecord]:
-    """Route every remaining DRN cell's discharge to its nearest reach via MVR.
+    """Route every remaining DRN cell's discharge to its nearest water via MVR.
 
     The hillslope drainage exfiltrates at the land surface and converges towards
-    the river: each DRN boundary becomes an MVR provider handing its full
-    outflow (FACTOR 1.0) to the closest connected reach (planar centroid
-    distance). The MVR provider id of a list-based package is the boundary's
-    position in the period list, so the DRN stress-period data must be
-    single-period (a static drain); a per-period list would renumber the
-    providers and silently mis-route.
+    the nearest surface water: each DRN boundary becomes an MVR provider handing
+    its full outflow (FACTOR 1.0) to the closest target (planar centroid
+    distance). Targets are the connected reaches AND, when the network is
+    coupled to a lake, that lake's own cells: the network is truncated at the
+    shoreline, so the lakeside hillslopes have no local reach and their water
+    physically exfiltrates into the reservoir (DRN -> LAK), not into a far
+    upstream or below-dam reach.
+
+    The MVR provider id of a list-based package is the boundary's position in
+    the period list, so the DRN stress-period data must be single-period (a
+    static drain); a per-period list would renumber the providers and silently
+    mis-route.
     """
     if not sfr_routes_drainage(networks):
         return []
@@ -638,31 +645,39 @@ def build_drainage_mover_records(
             "order would renumber the MVR provider ids."
         )
 
-    reach_cells: list[tuple[int, int]] = []  # (cell2d, ifno)
+    # Targets: (cell2d, receiver package, receiver id). Reaches first, then the
+    # coupled lake's footprint cells.
+    targets: list[tuple[int, str, int]] = []
     for network in networks.values():
-        if not network.definition.get("route_drainage"):
+        definition = network.definition
+        if not definition.get("route_drainage"):
             continue
         for record in network.reaches:
             if record.cellid is not None:
-                reach_cells.append((int(record.cellid[1]), int(record.ifno)))
-    if not reach_cells:
+                targets.append((int(record.cellid[1]), _SFR_PACKAGE_NAME, int(record.ifno)))
+        lake_number = definition.get("outflow_to_lake")
+        if lake_number is not None and lake_cells_by_number:
+            lake_index = int(lake_number) - 1
+            for cell2d in lake_cells_by_number.get(lake_index, []):
+                targets.append((int(cell2d), _LAK_PACKAGE_NAME, lake_index))
+    if not targets:
         return []
 
-    reach_xy = np.asarray([cell_centroids[cell2d] for cell2d, _ in reach_cells], dtype=float)
-    reach_ifnos = np.asarray([ifno for _, ifno in reach_cells], dtype=int)
+    target_xy = np.asarray([cell_centroids[cell2d] for cell2d, _, _ in targets], dtype=float)
 
     records: list[MoverRecord] = []
     rows = next(iter(drn_spd.values()))
     for boundary_index, row in enumerate(rows):
         cell2d = int(row[1])
-        delta = reach_xy - cell_centroids[cell2d]
+        delta = target_xy - cell_centroids[cell2d]
         nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
+        _, receiver, receiver_id = targets[nearest]
         records.append(
             MoverRecord(
                 provider="DRN",
                 provider_id=int(boundary_index),
-                receiver=_SFR_PACKAGE_NAME,
-                receiver_id=int(reach_ifnos[nearest]),
+                receiver=receiver,
+                receiver_id=int(receiver_id),
                 mvrtype="FACTOR",
                 value=1.0,
             )

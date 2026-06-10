@@ -569,13 +569,17 @@ def run_pre_processing(  # noqa: PLR0915
         if sfr_networks:
             drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
             # route_drainage: every remaining DRN cell hands its discharge to the
-            # nearest reach (MVR), so the hillslope drainage converges to the
-            # river instead of leaving the model. The provider ids index the
-            # period-0 rows, hence the static-DRN requirement in the builder.
+            # nearest reach, or to the coupled lake when its shoreline is closer
+            # (MVR), so the hillslope drainage converges to the surface water
+            # instead of leaving the model. The provider ids index the period-0
+            # rows, hence the static-DRN requirement in the builder.
             drainage_movers = build_drainage_mover_records(
                 sfr_networks,
                 drn_spd=drn_spd,
                 cell_centroids=solver_mesh.cell_centroids(),
+                lake_cells_by_number={
+                    index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
+                },
             )
             if drainage_movers:
                 drainage_mover_rows = build_mvr_period_records(drainage_movers)
@@ -619,7 +623,10 @@ def run_pre_processing(  # noqa: PLR0915
             model,
             solver_mesh=solver_mesh,
             lake_cell_ids_by_lake=lake_cell_ids_by_lake,
-            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records),
+            external_mover_to_lake=(
+                any(record.receiver == "LAK" for record in sfr_mover_records)
+                or any(str(row[2]) == "LAK" for row in drainage_mover_rows)
+            ),
         )
         if lak_args is not None:
             laktab_specs = lak_args.pop("laktab_specs")

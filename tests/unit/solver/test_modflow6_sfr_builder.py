@@ -456,3 +456,32 @@ def test_drainage_mover_records_are_empty_without_the_opt_in() -> None:
         networks, drn_spd={0: [[0, 0, 100.0, 0.05]]}, cell_centroids=mesh.cell_centroids()
     )
     assert records == []
+
+
+def test_drainage_near_the_lake_routes_directly_to_the_lake() -> None:
+    # The network is truncated at the shoreline: a lakeside DRN cell has no
+    # local reach and its water exfiltrates into the reservoir (DRN -> LAK),
+    # not into a far reach.
+    mesh = _mesh()
+    model = _fake_model(
+        {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
+    )
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    # Pretend the lake occupies the north-east corner cell, away from the
+    # diagonal trace; the neighbouring drain is closer to the lake than to any
+    # reach, the far drain sits on the trace's path.
+    lake_cells = [24]
+    drn_spd = {
+        0: [
+            [0, 23, 100.0, 0.05],  # lakeside -> DRN -> LAK
+            [0, 4, 100.0, 0.05],  # on the trace path -> nearest reach
+        ]
+    }
+    records = build_drainage_mover_records(
+        networks,
+        drn_spd=drn_spd,
+        cell_centroids=mesh.cell_centroids(),
+        lake_cells_by_number={0: lake_cells},
+    )
+    assert [r.receiver for r in records] == ["LAK", "SFR"]
+    assert records[0].receiver_id == 0  # the coupled lake (0-based number)
