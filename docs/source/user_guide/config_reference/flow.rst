@@ -2059,6 +2059,20 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-lakes-id-steady-stage-hold
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.steady_stage_hold">
+                    <code class="hmp-field-name">steady_stage_hold</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L247>`__
+
+                  Hold the lake stage at stageinit during the steady warm-up period(s) (LAK status CONSTANT) and re-activate it on the first transient period. Use for a managed reservoir whose observed initial level is far from the natural steady equilibrium: the aquifer equilibrates around the observed stage instead of overriding it.
+
+
+            .. container:: hmp-field hmp-field-level-user
                :name: flow-sinks-sources-lakes-id-occupied-layers
 
                .. raw:: html
@@ -2067,7 +2081,7 @@ Fields
                     <code class="hmp-field-name">occupied_layers</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L247>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L257>`__
 
                   Number of top grid layers the lake occupies in each of its columns. 1 is a surface lake; a deeper reservoir embedded over several layers uses a higher count. Must leave at least one active layer below the lake for the VERTICAL leakage connection.
 
@@ -2083,7 +2097,7 @@ Fields
                     <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.outlets]]</code>
                   </div>
 
-               :bdg-primary:`couttype = "WEIR" | "MANNING" | "SPECIFIED"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L257>`__
+               :bdg-primary:`couttype = "WEIR" | "MANNING" | "SPECIFIED"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L267>`__
 
                   Surverse / spillway / controlled-release outlets for this lake.
 
@@ -2338,7 +2352,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L261>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L271>`__
 
                   Optional rainfall rate forcing [L/T] (per unit lake surface).
 
@@ -2604,7 +2618,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L265>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L275>`__
 
                   Optional open-water evaporation rate forcing [L/T].
 
@@ -2870,7 +2884,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L269>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L279>`__
 
                   Optional runoff forcing, volumetric [L^3/T].
 
@@ -3136,7 +3150,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L273>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L283>`__
 
                   Optional inflow forcing, volumetric [L^3/T].
 
@@ -3402,7 +3416,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L277>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L287>`__
 
                   Optional withdrawal forcing, volumetric [L^3/T].
 
@@ -3906,6 +3920,20 @@ Fields
 
 
             .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-sfr-id-route-drainage
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.route_drainage">
+                    <code class="hmp-field-name">route_drainage</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L240>`__
+
+                  Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell hands its outflow to the NEAREST reach through an MVR record (FACTOR 1.0) instead of leaving the model. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.
+
+
+            .. container:: hmp-field hmp-field-level-user
                :name: flow-sinks-sources-sfr-id-storage
 
                .. raw:: html
@@ -3914,7 +3942,7 @@ Fields
                     <code class="hmp-field-name">storage</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L240>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L251>`__
 
                   Enable the channel-storage term (transient first period / SIMPLE only).
 
@@ -3930,7 +3958,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L246>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L257>`__
 
                   External inflow [L^3/T] injected at the headwater reach(es).
 
@@ -4196,7 +4224,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.runoff]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L250>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L261>`__
 
                   Diffuse overland inflow [L^3/T], distributed per reach by length.
 
@@ -4462,7 +4490,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.rainfall]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L254>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L265>`__
 
                   Rainfall rate [L/T] on the reach surface.
 
@@ -4728,7 +4756,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.evaporation]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L258>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L269>`__
 
                   Open-channel evaporation rate [L/T] (positive, subtracted).
 
@@ -4994,7 +5022,7 @@ Fields
                     <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.reaches]]</code>
                   </div>
 
-               :bdg-primary:`list[FlowReachConfig] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L264>`__
+               :bdg-primary:`list[FlowReachConfig] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L275>`__
 
                   Explicit reach table; bypasses delineation. None = delineate from the DEM.
 
@@ -5135,7 +5163,7 @@ Fields
                     <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.diversions]]</code>
                   </div>
 
-               :bdg-primary:`list[FlowReachDiversionConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L268>`__
+               :bdg-primary:`list[FlowReachDiversionConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L279>`__
 
                   SFR-to-SFR diversions (controlled splits). Empty = none.
 
@@ -5218,7 +5246,7 @@ Fields
                     <code class="hmp-field-name">outflow_to_lake</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L274>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L285>`__
 
                   1-based lake number the terminal reach feeds via MVR (SFR -> LAK). None = the network outflow leaves the model (EXT-OUTFLOW).
 
@@ -5232,7 +5260,7 @@ Fields
                     <code class="hmp-field-name">outflow_mvrtype</code>
                   </div>
 
-               :bdg-primary:`Literal['FACTOR', 'UPTO', 'EXCESS', 'THRESHOLD']` :bdg-secondary:`default = "FACTOR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L282>`__
+               :bdg-primary:`Literal['FACTOR', 'UPTO', 'EXCESS', 'THRESHOLD']` :bdg-secondary:`default = "FACTOR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L293>`__
 
                   MVR transfer rule for the SFR -> LAK coupling.
 
@@ -5246,7 +5274,7 @@ Fields
                     <code class="hmp-field-name">outflow_value</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L288>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L299>`__
 
                   MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for UPTO / EXCESS / THRESHOLD.
 

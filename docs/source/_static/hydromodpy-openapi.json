@@ -6229,6 +6229,16 @@
             "title": "Stageinit",
             "x-hmp-profile": "user"
           },
+          "steady_stage_hold": {
+            "default": false,
+            "description": "Hold the lake stage at stageinit during the steady warm-up period(s) (LAK status CONSTANT) and re-activate it on the first transient period. Use for a managed reservoir whose observed initial level is far from the natural steady equilibrium: the aquifer equilibrates around the observed stage instead of overriding it.",
+            "examples": [
+              false
+            ],
+            "title": "Steady Stage Hold",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
           "occupied_layers": {
             "default": 1,
             "description": "Number of top grid layers the lake occupies in each of its columns. 1 is a surface lake; a deeper reservoir embedded over several layers uses a higher count. Must leave at least one active layer below the lake for the VERTICAL leakage connection.",
@@ -7360,6 +7370,16 @@
               true
             ],
             "title": "Connected To Aquifer",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "route_drainage": {
+            "default": false,
+            "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell hands its outflow to the NEAREST reach through an MVR record (FACTOR 1.0) instead of leaving the model. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
+            "examples": [
+              false
+            ],
+            "title": "Route Drainage",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
