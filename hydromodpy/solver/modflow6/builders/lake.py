@@ -650,6 +650,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "bedleak_unit": _lake_attr(payload, "bedleak_unit"),
             "abacus": _lake_attr(payload, "abacus"),
             "stageinit": _lake_attr(payload, "stageinit"),
+            "steady_stage_hold": _lake_attr(payload, "steady_stage_hold"),
             "occupied_layers": _lake_attr(payload, "occupied_layers"),
             "outlets": _lake_attr(payload, "outlets"),
             "rainfall": _lake_attr(payload, "rainfall"),
@@ -953,6 +954,9 @@ def build_lake_period_data(
     period_rows: dict[int, list[list[Any]]] = {}
     ts_series: list[Ts6Series] = []
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
+        _emit_steady_stage_hold_rows(
+            model, lake_index=lake_index, definition=definition, period_rows=period_rows
+        )
         for keyword in _RATE_FORCINGS:
             _emit_forcing_rows(
                 model,
@@ -982,6 +986,32 @@ def build_lake_period_data(
                 ts_series=ts_series,
             )
     return period_rows, ts_series
+
+
+def _emit_steady_stage_hold_rows(
+    model,
+    *,
+    lake_index: int,
+    definition: Mapping[str, Any],
+    period_rows: dict[int, list[list[Any]]],
+) -> None:
+    """Hold the lake CONSTANT at its starting stage over the steady warm-up.
+
+    Opt-in through ``steady_stage_hold``: a managed reservoir's observed initial
+    level is rarely the natural steady equilibrium, so the warm-up equilibrates
+    the aquifer AROUND ``stageinit`` (LAK status CONSTANT) instead of solving a
+    free stage that would override it. The lake re-activates on the first
+    transient period and starts the chronicle exactly at ``stageinit``.
+    """
+    if not definition.get("steady_stage_hold"):
+        return
+    steady = _steady_period_flags(model)
+    if not steady or not steady[0]:
+        return
+    period_rows.setdefault(0, []).append([int(lake_index), "status", "CONSTANT"])
+    first_transient = next((k for k, flag in enumerate(steady) if not flag), None)
+    if first_transient is not None:
+        period_rows.setdefault(first_transient, []).append([int(lake_index), "status", "ACTIVE"])
 
 
 def _emit_forcing_rows(
