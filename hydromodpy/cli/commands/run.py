@@ -171,6 +171,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         resolve_workflow,
     )
 
+    profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
+
     print_hydromodpy()
     auto_scan_workspace(config_path)
 
@@ -212,6 +214,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     parallel = not bool(getattr(args, "no_parallel", False))
 
     if dry_run:
+        if profile_output is not None:
+            print("[dry-run] --profile ignored (nothing is executed)", file=sys.stderr)
         _print_dry_run(
             workflow,
             run_path,
@@ -251,7 +255,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             _cleanup_effective_toml(effective_path, source=config_path)
             sys.exit(EXIT_CONFIG)
 
-    profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
     try:
         with profile_run(profile_output):
             if workflow == "simulation":

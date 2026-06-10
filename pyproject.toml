@@ -100,7 +100,7 @@ fair = [
     "stac-validator>=3.5,<5",
     "rocrate>=0.10,<1",
 ]
-test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0"]
+test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0", "pyinstrument>=5.0,<6"]
 performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
 profiling = ["pyinstrument>=5.0,<6"]
 docs = [
