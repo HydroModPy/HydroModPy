@@ -45,7 +45,7 @@ def run(args: argparse.Namespace) -> None:
 
     profile_output = resolve_profile_output(getattr(args, "profile", None), target)
     try:
-        with profile_run(profile_output):
+        with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
             result = hmp.calibrate(target)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)

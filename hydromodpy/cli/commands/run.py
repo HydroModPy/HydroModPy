@@ -256,7 +256,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             sys.exit(EXIT_CONFIG)
 
     try:
-        with profile_run(profile_output):
+        with profile_run(profile_output, description=f"hmp run {config_path.name} ({workflow})"):
             if workflow == "simulation":
                 summary = hmp.run(
                     run_path,

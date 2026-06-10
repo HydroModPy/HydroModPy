@@ -56,10 +56,12 @@ def test_profile_run_noop_without_output() -> None:
 def test_profile_run_writes_html(tmp_path: Path) -> None:
     pytest.importorskip("pyinstrument")
     out = tmp_path / "case.profile.html"
-    with profile_run(out):
+    with profile_run(out, description="hmp run case.toml (simulation)"):
         _burn()
     assert out.is_file()
-    assert "<html" in out.read_text(encoding="utf-8").lower()
+    html = out.read_text(encoding="utf-8")
+    assert "<html" in html.lower()
+    assert "hmp run case.toml (simulation)" in html
 
 
 def test_profile_run_writes_html_on_error(tmp_path: Path) -> None:

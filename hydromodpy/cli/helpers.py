@@ -202,12 +202,14 @@ def resolve_profile_output(profile_arg: str | None, config_path: Path) -> Path |
 
 
 @contextmanager
-def profile_run(output: Path | None) -> Iterator[None]:
+def profile_run(output: Path | None, *, description: str | None = None) -> Iterator[None]:
     """Profile the wrapped block with pyinstrument.
 
-    No-op when ``output`` is None. Writes the HTML report to ``output`` and
-    prints the call-tree summary to stderr, even when the block raises or is
-    interrupted. Exits with :data:`EXIT_CONFIG` when pyinstrument is missing.
+    No-op when ``output`` is None. ``description`` labels the report header
+    (defaults to pyinstrument's call-site text). Writes the HTML report to
+    ``output`` and prints the call-tree summary to stderr, even when the
+    block raises or is interrupted. Exits with :data:`EXIT_CONFIG` when
+    pyinstrument is missing.
     """
     if output is None:
         yield
@@ -216,7 +218,7 @@ def profile_run(output: Path | None) -> Iterator[None]:
     from pyinstrument import Profiler
 
     profiler = Profiler()
-    profiler.start()
+    profiler.start(target_description=description)
     try:
         yield
     finally:
