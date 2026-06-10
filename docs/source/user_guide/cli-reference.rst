@@ -130,8 +130,9 @@ flags only apply to ``[workflow].mode = "simulation"``:
    * - ``--profile [path.html]``
      - Profile the execution with pyinstrument and write an interactive HTML
        report (default: ``<config>.profile.html`` next to the config). Also
-       available on ``hmp calibrate``. Requires the ``profiling`` extra:
-       ``pip install 'hydromodpy[profiling]'``.
+       available on ``hmp calibrate``, and from the TOML via
+       ``[workflow] profile = true`` (or a report path); the CLI flag wins.
+       Requires the ``profiling`` extra: ``pip install 'hydromodpy[profiling]'``.
 
 Override precedence is, from lowest to highest: defaults, ``base_config``
 chain, ``--overlay`` files, then ``--set`` values. The XDG-aligned
