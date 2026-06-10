@@ -71,17 +71,32 @@ class WorkflowJournal:
         step_id = str(uuid4())
         started_at = _utcnow()
         db = self._catalog.connection
-        db.execute("BEGIN TRANSACTION")
-        try:
-            existing = db.execute(
-                "SELECT step_id FROM workflow_steps WHERE run_id = ? AND step_order = ?",
-                [run_id, int(step_order)],
-            ).fetchone()
-            if existing is not None:
+        # The delete and the insert run in SEPARATE transactions on purpose:
+        # deleting and re-inserting the same UNIQUE (run_id, step_order) key
+        # inside one transaction corrupts DuckDB's ART index on commit (the
+        # FatalException "Failed to append to UNIQUE_workflow_steps" seen when a
+        # simulation name is re-run). Committing the delete first keeps the
+        # index consistent; a crash between the two only loses a journal row.
+        existing = db.execute(
+            "SELECT step_id FROM workflow_steps WHERE run_id = ? AND step_order = ?",
+            [run_id, int(step_order)],
+        ).fetchone()
+        if existing is not None:
+            db.execute("BEGIN TRANSACTION")
+            try:
                 db.execute(
                     "DELETE FROM workflow_steps WHERE run_id = ? AND step_order = ?",
                     [run_id, int(step_order)],
                 )
+                db.execute("COMMIT")
+            except Exception:
+                try:
+                    db.execute("ROLLBACK")
+                except Exception:
+                    pass
+                raise
+        db.execute("BEGIN TRANSACTION")
+        try:
             db.execute(
                 """
                 INSERT INTO workflow_steps
