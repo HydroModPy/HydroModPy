@@ -7,9 +7,10 @@ import re
 import sys
 import tempfile
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.core.state.paths import find_catalog_root
 
@@ -186,6 +187,19 @@ def _require_pyinstrument() -> None:
         sys.exit(EXIT_CONFIG)
 
 
+def profile_arg_from_toml(raw_toml: Mapping[str, Any]) -> str | None:
+    """Map ``[workflow].profile`` to the ``--profile`` argument convention."""
+    workflow_section = raw_toml.get("workflow")
+    if not isinstance(workflow_section, dict):
+        return None
+    value = workflow_section.get("profile")
+    if value is True:
+        return ""
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
 def resolve_profile_output(profile_arg: str | None, config_path: Path) -> Path | None:
     """Resolve the ``--profile`` argument to an HTML report path.
 
@@ -303,6 +317,7 @@ __all__ = (
     "resolve_workspace",
     "resolve_sim_id",
     "auto_scan_workspace",
+    "profile_arg_from_toml",
     "resolve_profile_output",
     "profile_run",
     "resolve_test_scratch_root",

@@ -17,6 +17,7 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
+    profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
 )
@@ -43,7 +44,15 @@ def run(args: argparse.Namespace) -> None:
         print(f"Expected a .toml file, got: {target.suffix}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    profile_output = resolve_profile_output(getattr(args, "profile", None), target)
+    profile_arg = getattr(args, "profile", None)
+    if profile_arg is None:
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+        try:
+            profile_arg = profile_arg_from_toml(load_toml_with_base_config(target))
+        except Exception:
+            profile_arg = None
+    profile_output = resolve_profile_output(profile_arg, target)
     try:
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
             result = hmp.calibrate(target)

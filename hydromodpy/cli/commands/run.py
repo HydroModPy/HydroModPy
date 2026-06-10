@@ -26,6 +26,7 @@ from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     auto_scan_workspace,
+    profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
 )
@@ -189,6 +190,9 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         print(f"Invalid TOML: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     run_path = effective_path or config_path
+
+    if profile_output is None:
+        profile_output = resolve_profile_output(profile_arg_from_toml(raw_toml), config_path)
 
     dry_run = bool(getattr(args, "dry_run", False))
     try:

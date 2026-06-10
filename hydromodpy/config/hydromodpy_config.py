@@ -96,6 +96,15 @@ class WorkflowConfig(HydroModelBase):
         ...,
         description="Workflow mode dispatched by `hmp run`.",
     )
+    profile: Annotated[bool | str, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Profile the run with pyinstrument (honored by the hmp CLI; the "
+            "--profile flag wins over this field). true writes "
+            "<config>.profile.html next to the config; a string sets the "
+            "HTML report path."
+        ),
+    )
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
