@@ -40,7 +40,10 @@ Standalone Network
 
 A network with ``outflow_to_lake`` unset routes streamflow with no lake at all:
 the terminal reach's outflow leaves the model and is reported as
-``ext_outflow``.
+``ext_outflow``. This is the setup for streamflow studies (low flows,
+intermittency): the per-reach ``downstream_flow`` chronicle is the simulated
+discharge along the network, and a reach whose flow falls to zero is a drying
+reach.
 
 .. code-block:: toml
 
@@ -72,6 +75,24 @@ raster as the single stream-geometry source and raises on a mismatch.
 The reach width law is a discriminated union: ``constant`` (uniform width),
 ``by_order`` (one width per Strahler order) or ``power_law``
 (``width = coef * drainage_area_km2 ** exp``).
+
+Catchment streamflow generation
+-------------------------------
+
+Two mechanisms feed the network beyond its own streambed exchange:
+
+* ``route_drainage = true`` converges the hillslope drainage into the network:
+  every remaining DRN cell (the seepage outlets away from the stream) hands its
+  discharge to the NEAREST reach through an MVR record, so the drained water
+  travels down the river instead of leaving the model. Without it only the
+  reach cells' streambed captures baseflow and most of the catchment discharge
+  is lost; with it the reach ``downstream_flow`` is the actual catchment
+  streamflow. It requires a static (single-period) drain, because the MVR
+  provider ids index the DRN boundary list.
+* the ``runoff`` data family (previous section) adds the overland flow.
+
+For realistic discharge chronicles, and hence for intermittency mapping,
+enable both.
 
 Feeding a Lake (SFR -> LAK through MVR)
 ---------------------------------------

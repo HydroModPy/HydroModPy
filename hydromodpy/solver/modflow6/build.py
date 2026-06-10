@@ -672,17 +672,19 @@ def run_pre_processing(  # noqa: PLR0915
                     f"flow.sinks_sources.sfr outflow_to_lake={record.receiver_id + 1} "
                     f"has no matching lake ({n_lakes_built} lakes declared)."
                 )
-        sfr_args = build_sfr_package_args(model, networks=sfr_networks)
+        # A LAK -> SFR spillway or a DRN -> SFR drainage routing makes SFR an MVR
+        # receiver: the package advertises MOVER and the per-reach to/from-mvr
+        # series are observed even with no SFR-owned mover record.
+        sfr_args = build_sfr_package_args(
+            model,
+            networks=sfr_networks,
+            external_mover=any(str(row[2]) == "SFR" for row in all_mover_rows),
+        )
         if sfr_args is not None:
             sfr_args.pop("mover_records", None)
             sfr_obs_continuous = sfr_args.pop("obs_continuous", None)
             sfr_obs_meta = sfr_args.pop("sfr_obs_meta", None)
             sfr_ts_specs = sfr_args.pop("ts_specs", None)
-            rows_to_sfr = [row for row in all_mover_rows if str(row[2]) == "SFR"]
-            if rows_to_sfr:
-                # A LAK -> SFR spillway or a DRN -> SFR drainage routing makes
-                # SFR an MVR receiver.
-                sfr_args["mover"] = True
             sfr = flopy.mf6.ModflowGwfsfr(model.gwf, pname="SFR", **sfr_args)
             if sfr_ts_specs:
                 attach_time_series(sfr, sfr_ts_specs, filename=f"{model.model_output_name}.sfr.ts")

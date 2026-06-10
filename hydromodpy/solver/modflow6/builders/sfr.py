@@ -738,12 +738,18 @@ def build_sfr_package_args(
     model,
     *,
     networks: Mapping[str, ResolvedSfrNetwork],
+    external_mover: bool = False,
 ) -> dict[str, Any] | None:
     """Assemble the ``ModflowGwfsfr`` arguments for the active SFR network.
 
     Returns ``None`` when no network is active. The returned dict feeds
     ``flopy.mf6.ModflowGwfsfr`` plus side-channel keys popped in ``build.py``
     (``mover_records``, ``obs_continuous``, ``sfr_obs_meta``, ``ts_specs``).
+
+    ``external_mover`` flags MVR records from OTHER packages targeting this SFR
+    (a LAK spillway release or the routed hillslope drainage): the package then
+    advertises MOVER and the obs spec requests the per-reach to/from-mvr series
+    even with no SFR-owned mover record.
     """
     if not networks:
         return None
@@ -814,7 +820,7 @@ def build_sfr_package_args(
     time_conversion, length_conversion = package_unit_conversions(model)
     stem = _sfr_output_stem(model)
     obs_continuous, sfr_obs_meta = build_sfr_obs_spec(
-        stem=stem, network=network, has_mover=bool(mover_records)
+        stem=stem, network=network, has_mover=bool(mover_records) or bool(external_mover)
     )
 
     args: dict[str, Any] = {
@@ -839,8 +845,9 @@ def build_sfr_package_args(
     if definition.get("storage"):
         args["storage"] = True
     if mover_records:
-        args["mover"] = True
         args["mover_records"] = mover_records
+    if mover_records or external_mover:
+        args["mover"] = True
     if ts_series:
         args["ts_specs"] = ts_series
     args["obs_continuous"] = obs_continuous
