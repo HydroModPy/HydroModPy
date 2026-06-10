@@ -626,10 +626,12 @@ def build_drainage_mover_records(
     the nearest surface water: each DRN boundary becomes an MVR provider handing
     its full outflow (FACTOR 1.0) to the closest target (planar centroid
     distance). Targets are the connected reaches AND, when the network is
-    coupled to a lake, that lake's own cells: the network is truncated at the
-    shoreline, so the lakeside hillslopes have no local reach and their water
-    physically exfiltrates into the reservoir (DRN -> LAK), not into a far
-    upstream or below-dam reach.
+    coupled to a lake, that lake's footprint: the network is truncated at the
+    shoreline, so the lakeside hillslopes have no local reach. Their water still
+    enters through the nearest TERMINAL reach (the lake's tributary) rather than
+    through a direct DRN -> LAK record: the streamflow routing damps the stiff
+    same-iteration feedback (lake stage -> lakeside heads -> drains -> lake)
+    that otherwise oscillates when the spillway engages.
 
     The MVR provider id of a list-based package is the boundary's position in
     the period list, so the DRN stress-period data must be single-period (a
@@ -645,25 +647,33 @@ def build_drainage_mover_records(
             "order would renumber the MVR provider ids."
         )
 
-    # Targets: (cell2d, receiver package, receiver id). Reaches first, then the
-    # coupled lake's footprint cells.
-    targets: list[tuple[int, str, int]] = []
+    # Targets: (cell2d, reach ifno). Reach cells first; the coupled lake's
+    # footprint cells are added as proxies for its nearest terminal reach.
+    targets: list[tuple[int, int]] = []
     for network in networks.values():
         definition = network.definition
         if not definition.get("route_drainage"):
             continue
+        terminal_cells: list[tuple[int, int]] = []
         for record in network.reaches:
-            if record.cellid is not None:
-                targets.append((int(record.cellid[1]), _SFR_PACKAGE_NAME, int(record.ifno)))
+            if record.cellid is None:
+                continue
+            targets.append((int(record.cellid[1]), int(record.ifno)))
+            if record.is_terminal_to_lake:
+                terminal_cells.append((int(record.cellid[1]), int(record.ifno)))
         lake_number = definition.get("outflow_to_lake")
-        if lake_number is not None and lake_cells_by_number:
-            lake_index = int(lake_number) - 1
-            for cell2d in lake_cells_by_number.get(lake_index, []):
-                targets.append((int(cell2d), _LAK_PACKAGE_NAME, lake_index))
+        if lake_number is not None and lake_cells_by_number and terminal_cells:
+            terminal_xy = np.asarray(
+                [cell_centroids[cell2d] for cell2d, _ in terminal_cells], dtype=float
+            )
+            for cell2d in lake_cells_by_number.get(int(lake_number) - 1, []):
+                delta = terminal_xy - cell_centroids[int(cell2d)]
+                nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
+                targets.append((int(cell2d), terminal_cells[nearest][1]))
     if not targets:
         return []
 
-    target_xy = np.asarray([cell_centroids[cell2d] for cell2d, _, _ in targets], dtype=float)
+    target_xy = np.asarray([cell_centroids[cell2d] for cell2d, _ in targets], dtype=float)
 
     records: list[MoverRecord] = []
     rows = next(iter(drn_spd.values()))
@@ -671,13 +681,12 @@ def build_drainage_mover_records(
         cell2d = int(row[1])
         delta = target_xy - cell_centroids[cell2d]
         nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
-        _, receiver, receiver_id = targets[nearest]
         records.append(
             MoverRecord(
                 provider="DRN",
                 provider_id=int(boundary_index),
-                receiver=receiver,
-                receiver_id=int(receiver_id),
+                receiver=_SFR_PACKAGE_NAME,
+                receiver_id=int(targets[nearest][1]),
                 mvrtype="FACTOR",
                 value=1.0,
             )

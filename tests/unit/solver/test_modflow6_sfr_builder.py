@@ -458,10 +458,11 @@ def test_drainage_mover_records_are_empty_without_the_opt_in() -> None:
     assert records == []
 
 
-def test_drainage_near_the_lake_routes_directly_to_the_lake() -> None:
+def test_drainage_near_the_lake_routes_to_the_lake_tributary() -> None:
     # The network is truncated at the shoreline: a lakeside DRN cell has no
-    # local reach and its water exfiltrates into the reservoir (DRN -> LAK),
-    # not into a far reach.
+    # local reach. Its water enters through the nearest TERMINAL reach (the
+    # lake's tributary), damped by the routing, never through a direct
+    # DRN -> LAK record (stiff same-iteration feedback at the spillway).
     mesh = _mesh()
     model = _fake_model(
         {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
@@ -483,5 +484,7 @@ def test_drainage_near_the_lake_routes_directly_to_the_lake() -> None:
         cell_centroids=mesh.cell_centroids(),
         lake_cells_by_number={0: lake_cells},
     )
-    assert [r.receiver for r in records] == ["LAK", "SFR"]
-    assert records[0].receiver_id == 0  # the coupled lake (0-based number)
+    assert [r.receiver for r in records] == ["SFR", "SFR"]
+    # The lakeside drain lands on the terminal-to-lake reach, not a far one.
+    terminal = max(reach.ifno for reach in networks["net0"].reaches)
+    assert records[0].receiver_id == terminal
