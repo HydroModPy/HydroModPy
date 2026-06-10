@@ -7,6 +7,8 @@ import re
 import sys
 import tempfile
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from hydromodpy.core.state.paths import find_catalog_root
@@ -167,6 +169,57 @@ def auto_scan_workspace(config_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Profiling (--profile flag, pyinstrument)
+# ---------------------------------------------------------------------------
+
+
+def resolve_profile_output(profile_arg: str | None, config_path: Path) -> Path | None:
+    """Resolve the ``--profile`` argument to an HTML report path.
+
+    ``None`` means profiling is disabled. An empty string (bare ``--profile``)
+    defaults to ``<config>.profile.html`` next to the config.
+    """
+    if profile_arg is None:
+        return None
+    if profile_arg:
+        return Path(profile_arg).expanduser().resolve()
+    return config_path.with_suffix(".profile.html")
+
+
+@contextmanager
+def profile_run(output: Path | None) -> Iterator[None]:
+    """Profile the wrapped block with pyinstrument.
+
+    No-op when ``output`` is None. Writes the HTML report to ``output`` and
+    prints the call-tree summary to stderr, even when the block raises or is
+    interrupted. Exits with :data:`EXIT_CONFIG` when pyinstrument is missing.
+    """
+    if output is None:
+        yield
+        return
+    try:
+        from pyinstrument import Profiler
+    except ImportError:
+        print(
+            "pyinstrument is required for --profile. "
+            "Install it with: pip install 'hydromodpy[profiling]'",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+
+    profiler = Profiler()
+    profiler.start()
+    try:
+        yield
+    finally:
+        profiler.stop()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(profiler.output_html(), encoding="utf-8")
+        print(profiler.output_text(unicode=True, color=sys.stderr.isatty()), file=sys.stderr)
+        print(f"  Profile report: {output}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # Pytest scratch environment helpers
 # ---------------------------------------------------------------------------
 
@@ -234,6 +287,8 @@ __all__ = (
     "find_data_workspace",
     "resolve_workspace",
     "resolve_sim_id",
+    "resolve_profile_output",
+    "profile_run",
     "auto_scan_workspace",
     "resolve_test_scratch_root",
     "resolve_test_session_scratch_root",

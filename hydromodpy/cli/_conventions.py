@@ -7,6 +7,7 @@ usable through ``subparsers.add_parser(..., parents=[...])``:
 - :func:`workspace_parser` -- ``-w/--workspace`` selector
 - :func:`confirm_parser` -- ``-y/--yes`` confirmation flag
 - :func:`format_parser` -- ``--format {table,json,csv}`` for read commands
+- :func:`profile_parser` -- ``--profile [HTML_PATH]`` pyinstrument flag
 - :func:`add_sim_ref` -- canonical ``sim_ref`` positional
 
 :func:`add_action_subparsers` attaches a *required* action group: a bare
@@ -65,6 +66,28 @@ def format_parser(*, default: str = "table") -> argparse.ArgumentParser:
     return parser
 
 
+def profile_parser() -> argparse.ArgumentParser:
+    """Parent parser exposing the shared ``--profile`` flag.
+
+    Profiles the wrapped execution with pyinstrument and writes an HTML
+    report. Without a value the report lands next to the config as
+    ``<config>.profile.html``.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--profile",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="HTML_PATH",
+        help=(
+            "Profile the execution with pyinstrument and write an HTML report "
+            "(default: <config>.profile.html next to the config)."
+        ),
+    )
+    return parser
+
+
 def add_sim_ref(parser: argparse.ArgumentParser, *, help: str | None = None) -> None:
     """Add the canonical ``sim_ref`` positional (UUID / unique prefix / name)."""
     parser.add_argument(
@@ -105,5 +128,6 @@ __all__ = (
     "add_sim_ref",
     "confirm_parser",
     "format_parser",
+    "profile_parser",
     "workspace_parser",
 )

@@ -12,14 +12,21 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_SIGINT
+from hydromodpy.cli._conventions import profile_parser
+from hydromodpy.cli.helpers import (
+    EXIT_CONFIG,
+    EXIT_NOT_FOUND,
+    EXIT_SIGINT,
+    profile_run,
+    resolve_profile_output,
+)
 
 NAME: str = "calibrate"
 HELP: str = "Run a calibration workflow from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     parser.add_argument("config", type=Path, help="Path to a calibration TOML file")
     parser.set_defaults(_handler=run)
     return parser
@@ -36,8 +43,10 @@ def run(args: argparse.Namespace) -> None:
         print(f"Expected a .toml file, got: {target.suffix}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
+    profile_output = resolve_profile_output(getattr(args, "profile", None), target)
     try:
-        result = hmp.calibrate(target)
+        with profile_run(profile_output):
+            result = hmp.calibrate(target)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)

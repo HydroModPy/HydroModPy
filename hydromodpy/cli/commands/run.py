@@ -20,11 +20,14 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from hydromodpy.cli._conventions import profile_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     auto_scan_workspace,
+    profile_run,
+    resolve_profile_output,
 )
 
 NAME: str = "run"
@@ -42,7 +45,7 @@ def _step_choices() -> list[str]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     config_arg = parser.add_argument(
         "config",
         type=Path,
@@ -248,19 +251,21 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             _cleanup_effective_toml(effective_path, source=config_path)
             sys.exit(EXIT_CONFIG)
 
+    profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
     try:
-        if workflow == "simulation":
-            summary = hmp.run(
-                run_path,
-                resume=resume,
-                from_step=from_step,
-                until_step=until_step,
-                no_display=no_display,
-                frozen=frozen,
-                parallel=parallel,
-            )
-        else:
-            summary = hmp.run(run_path)
+        with profile_run(profile_output):
+            if workflow == "simulation":
+                summary = hmp.run(
+                    run_path,
+                    resume=resume,
+                    from_step=from_step,
+                    until_step=until_step,
+                    no_display=no_display,
+                    frozen=frozen,
+                    parallel=parallel,
+                )
+            else:
+                summary = hmp.run(run_path)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
