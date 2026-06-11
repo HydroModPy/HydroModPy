@@ -78,12 +78,23 @@ def list_simulations(
 
     import pandas as pd
 
+    from hydromodpy.results.errors import SchemaVersionMismatchError
+
     frames: list[pd.DataFrame] = []
     for project_dir in project_roots:
         if not (project_dir / CATALOG_FILENAME).exists():
             continue
-        with SimulationCatalog(project_dir) as catalog:
-            sims = catalog.list_simulations(order_by="created_at DESC")
+        try:
+            with SimulationCatalog(project_dir, read_only=True) as catalog:
+                sims = catalog.list_simulations(order_by="created_at DESC")
+        except SchemaVersionMismatchError:
+            import sys
+
+            print(
+                f"skipping {project_dir.name}: schema behind (run 'hmp doctor --migrate')",
+                file=sys.stderr,
+            )
+            continue
         if sims.empty:
             continue
         if solver:
@@ -176,7 +187,7 @@ def show_simulation(
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with SimulationCatalog(workspace_root, read_only=True) as catalog:
         sid = catalog.resolve(sim_ref)
         sim = catalog[sid]
         payload: dict = {
