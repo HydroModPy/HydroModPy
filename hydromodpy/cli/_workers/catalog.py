@@ -408,6 +408,29 @@ def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
         return catalog.diff(ref_a, ref_b)
 
 
+def export_package_run(sim_ref: str, *, workspace: Any, output: str | None = None) -> dict:
+    """Export the run referenced by ``sim_ref`` as a portable ``.hmp`` archive."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        run_name = catalog[sid].name or sid[:8]
+        dest = Path(output).expanduser() if output else Path.cwd() / f"{run_name}.hmp"
+        produced = catalog.export_package(sid, dest)
+        return {"sim_id": sid, "path": str(produced)}
+
+
+def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
+    """Import a ``.hmp`` archive into the workspace catalog (created if absent)."""
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    root = Path(workspace).expanduser().resolve()
+    pkg = Path(package_path).expanduser()
+    if not pkg.is_file():
+        raise FileNotFoundError(f"No archive at {pkg}")
+    with SimulationCatalog(root) as catalog:
+        sid = catalog.import_package(pkg, force=force)
+        return {"sim_id": sid}
+
+
 def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
     """Return running runs with heartbeat age and a staleness flag.
 
