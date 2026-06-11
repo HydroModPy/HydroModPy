@@ -256,38 +256,63 @@ class Modflow6OutputAdapter:
         except Exception:
             cbb = bf.CellBudgetFile(str(cbc_path), precision="double")
         record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
+        # Intercell face flows and the specific-discharge velocity are not
+        # scalar budget terms; skip them before reading or summing.
+        components = [name for name in record_names if is_scalar_budget_component(name)]
+        component_rank = {name: rank for rank, name in enumerate(components)}
 
         n_timesteps = len(times)
-        budget_records: list[dict] = []
-        for component in record_names:
-            # Intercell face flows and the specific-discharge velocity are not
-            # scalar budget terms; skip them before reading or summing.
-            if not is_scalar_budget_component(component):
+        # One sequential pass over the file-order record index. Per-record
+        # get_data(text, kstpkper, totim) calls rebuild a full boolean mask of
+        # the index each time, which is quadratic over a long chronicle.
+        headers = cbb.recordarray
+        timestep_by_kstpkper = {
+            (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
+        }
+        component_by_text: dict[bytes, str] = {}
+        seen: set[tuple[str, int]] = set()
+        ranked_records: list[tuple[int, int, dict]] = []
+        spatial_stacks: dict[str, np.ndarray] = {}
+        for idx in range(len(headers)):
+            raw_text = headers["text"][idx]
+            component = component_by_text.get(raw_text)
+            if component is None:
+                component = raw_text.decode().strip()
+                component_by_text[raw_text] = component
+            rank = component_rank.get(component)
+            if rank is None:
                 continue
-            spatial_stack: np.ndarray | None = None
-            for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
-                try:
-                    data = cbb.get_data(text=component, kstpkper=kstpkper, totim=time)
-                except Exception as exc:
-                    logger.debug(
-                        "Could not read MF6 budget '%s' at t=%d: %s",
-                        component,
-                        t,
-                        exc,
-                    )
-                    continue
-                if not data:
-                    continue
-                arr = data[0]
-                if hasattr(arr, "dtype") and arr.dtype.names is not None:
-                    arr = self._recarray_to_grid(arr, nlay, n_cells)
-                if hasattr(arr, "shape") and arr.ndim >= 1:
-                    flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
-                    flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
-                else:
-                    flux_in = 0.0
-                    flux_out = 0.0
-                budget_records.append(
+            t = timestep_by_kstpkper.get((int(headers["kstp"][idx]), int(headers["kper"][idx])))
+            if t is None:
+                continue
+            key = (component, t)
+            if key in seen:
+                # Several packages of one type share the record name; keep
+                # the first record like the historical data[0] read did.
+                continue
+            try:
+                arr = cbb.get_record(idx)
+            except Exception as exc:
+                logger.debug(
+                    "Could not read MF6 budget '%s' at t=%d: %s",
+                    component,
+                    t,
+                    exc,
+                )
+                continue
+            seen.add(key)
+            if hasattr(arr, "dtype") and arr.dtype.names is not None:
+                arr = self._recarray_to_grid(arr, nlay, n_cells)
+            if hasattr(arr, "shape") and arr.ndim >= 1:
+                flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
+                flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
+            else:
+                flux_in = 0.0
+                flux_out = 0.0
+            ranked_records.append(
+                (
+                    t,
+                    rank,
                     {
                         "timestep": t,
                         "zone_id": "0",
@@ -295,39 +320,44 @@ class Modflow6OutputAdapter:
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
                         "unit": "m3/s",
-                    }
+                    },
                 )
-                if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
-                    if arr.size == nlay * n_cells:
-                        field = np.asarray(arr).reshape(nlay, n_cells)
-                    elif arr.ndim == 1 and arr.size == n_cells:
-                        field = np.asarray(arr).reshape(1, n_cells)
-                    else:
-                        field = None
-                    if field is not None:
-                        if spatial_stack is None:
-                            spatial_stack = np.full(
-                                (n_timesteps, *field.shape), np.nan, dtype="float64"
-                            )
-                        if spatial_stack.shape[1:] == field.shape:
-                            spatial_stack[t] = field / seconds_per_time_unit
-            if spatial_stack is not None:
-                try:
-                    store.write_field_stack(
-                        sim_id,
-                        component.lower().strip(),
-                        spatial_stack,
-                        subgroup="budget",
-                    )
-                except Exception:
-                    logger.debug(
-                        "Skipped write_field_stack for MF6 budget '%s'",
-                        component,
-                        exc_info=True,
-                    )
+            )
+            if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
+                if arr.size == nlay * n_cells:
+                    field = np.asarray(arr).reshape(nlay, n_cells)
+                elif arr.ndim == 1 and arr.size == n_cells:
+                    field = np.asarray(arr).reshape(1, n_cells)
+                else:
+                    field = None
+                if field is not None:
+                    spatial_stack = spatial_stacks.get(component)
+                    if spatial_stack is None:
+                        spatial_stack = np.full(
+                            (n_timesteps, *field.shape), np.nan, dtype="float64"
+                        )
+                        spatial_stacks[component] = spatial_stack
+                    if spatial_stack.shape[1:] == field.shape:
+                        spatial_stack[t] = field / seconds_per_time_unit
 
-        # Keep the historical time-major record order for downstream readers.
-        budget_records.sort(key=lambda record: record["timestep"])
+        for component, spatial_stack in spatial_stacks.items():
+            try:
+                store.write_field_stack(
+                    sim_id,
+                    component.lower().strip(),
+                    spatial_stack,
+                    subgroup="budget",
+                )
+            except Exception:
+                logger.debug(
+                    "Skipped write_field_stack for MF6 budget '%s'",
+                    component,
+                    exc_info=True,
+                )
+
+        # Keep the historical order: time-major, then component declaration order.
+        ranked_records.sort(key=lambda item: (item[0], item[1]))
+        budget_records = [record for _, _, record in ranked_records]
         if budget_records:
             store.write_budgets(sim_id, budget_records)
         cbb.close()
@@ -366,13 +396,13 @@ class Modflow6OutputAdapter:
         obs_path = solver_output_dir / spec.obs_csv
         calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
         factor = _seconds_per_time_unit(time_units)
-        calendar_times: list[object] | None = None
+        calendar_times: np.ndarray | None = None
         if calendar_anchor is not None:
             relative = np.asarray(times, dtype=float) * factor
             axis = cf_time_axis_seconds(relative, calendar_anchor)
-            calendar_times = [
-                np.datetime64(int(value), "s").astype("datetime64[ms]") for value in axis
-            ]
+            calendar_times = (
+                np.asarray(axis).astype("int64").astype("datetime64[s]").astype("datetime64[ms]")
+            )
         timeseries, budgets = build_lake_records(
             spec,
             obs_path,
@@ -409,7 +439,7 @@ class Modflow6OutputAdapter:
         no-op.
         """
         from hydromodpy.solver.modflow6.extractors.sfr import (
-            build_sfr_records,
+            build_sfr_columns,
             read_sfr_meta,
         )
 
@@ -419,22 +449,22 @@ class Modflow6OutputAdapter:
         obs_path = solver_output_dir / spec.obs_csv
         calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
         factor = _seconds_per_time_unit(time_units)
-        calendar_times: list[object] | None = None
+        calendar_times: np.ndarray | None = None
         if calendar_anchor is not None:
             relative = np.asarray(times, dtype=float) * factor
             axis = cf_time_axis_seconds(relative, calendar_anchor)
-            calendar_times = [
-                np.datetime64(int(value), "s").astype("datetime64[ms]") for value in axis
-            ]
-        timeseries, budgets = build_sfr_records(
+            calendar_times = (
+                np.asarray(axis).astype("int64").astype("datetime64[s]").astype("datetime64[ms]")
+            )
+        columns, budgets = build_sfr_columns(
             spec,
             obs_path,
             times=times,
             seconds_per_time_unit=seconds_per_time_unit,
             calendar_times=calendar_times,
         )
-        if timeseries:
-            store.write_timeseries_batch(sim_id, timeseries)
+        if columns:
+            store.write_timeseries_columns(sim_id, columns)
         if budgets:
             store.write_budgets(sim_id, budgets)
 

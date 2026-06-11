@@ -14,11 +14,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 __all__ = [
     "ordered_unique",
     "read_obs_csv",
+    "rows_matrix",
     "timeseries_record",
     "verify_obs_time_alignment",
 ]
@@ -35,6 +37,24 @@ def read_obs_csv(obs_path: Path) -> tuple[list[str], list[list[float]]]:
                 continue
             rows.append([float(value) for value in raw])
     return header, rows
+
+
+def rows_matrix(rows: Sequence[Sequence[float]], n_steps: int) -> np.ndarray:
+    """Stack the first ``n_steps`` obs rows into a float matrix.
+
+    A truncated final row (killed run) pads with NaN so callers can mask the
+    missing cells; MF6 itself never writes NaN values.
+    """
+    rows = rows[:n_steps]
+    if not rows:
+        return np.empty((0, 0), dtype="float64")
+    lengths = {len(row) for row in rows}
+    if len(lengths) == 1:
+        return np.asarray(rows, dtype="float64")
+    matrix = np.full((len(rows), max(lengths)), np.nan, dtype="float64")
+    for t, row in enumerate(rows):
+        matrix[t, : len(row)] = row
+    return matrix
 
 
 def verify_obs_time_alignment(

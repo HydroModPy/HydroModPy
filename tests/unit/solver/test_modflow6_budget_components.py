@@ -26,22 +26,30 @@ class _FakeStore:
         self.fields.append((name, t, np.asarray(values)))
 
 
-def _fake_cbc(record_data: dict):
-    """record_data maps record name -> {kstpkper: [array]} or array (all steps)."""
+def _fake_cbc(record_data: dict, kstpkpers: list[tuple[int, int]]):
+    """record_data maps record name -> {kstpkper: array} or array (all steps)."""
+    flat: list[tuple[int, int, bytes, np.ndarray]] = []
+    for name, entry in record_data.items():
+        for kstpkper in kstpkpers:
+            payload = entry[kstpkper] if isinstance(entry, dict) else entry
+            flat.append((kstpkper[0] + 1, kstpkper[1] + 1, name.encode(), payload))
 
     class _FakeCBC:
         def __init__(self, path, *args, **kwargs):
             del path, args, kwargs
+            self.recordarray = np.zeros(
+                len(flat), dtype=[("kstp", "<i4"), ("kper", "<i4"), ("text", "S16")]
+            )
+            for idx, (kstp, kper, text, _) in enumerate(flat):
+                self.recordarray["kstp"][idx] = kstp
+                self.recordarray["kper"][idx] = kper
+                self.recordarray["text"][idx] = text
 
         def get_unique_record_names(self):
             return [name.encode() for name in record_data]
 
-        def get_data(self, *, text, kstpkper, totim):
-            del totim
-            entry = record_data[text.strip()]
-            if isinstance(entry, dict):
-                return [entry[kstpkper]]
-            return [entry]
+        def get_record(self, idx: int):
+            return flat[idx][3]
 
         def close(self) -> None:
             pass
@@ -51,7 +59,7 @@ def _fake_cbc(record_data: dict):
 
 def _extract(monkeypatch, tmp_path, record_data, *, times, kstpkpers, nlay=1, n_cells=2):
     monkeypatch.setattr(
-        "flopy.utils.binaryfile.CellBudgetFile", _fake_cbc(record_data), raising=True
+        "flopy.utils.binaryfile.CellBudgetFile", _fake_cbc(record_data, kstpkpers), raising=True
     )
     store = _FakeStore()
     Modflow6OutputAdapter()._extract_budget(

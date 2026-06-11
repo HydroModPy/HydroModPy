@@ -27,10 +27,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.obs_common import (
     read_obs_csv,
-    timeseries_record,
+    rows_matrix,
     verify_obs_time_alignment,
 )
 
@@ -39,7 +41,7 @@ logger = get_logger(__name__)
 __all__ = [
     "SfrObsEntry",
     "SfrObsSpec",
-    "build_sfr_records",
+    "build_sfr_columns",
     "read_sfr_meta",
     "sfr_station_id",
 ]
@@ -133,71 +135,105 @@ def read_sfr_meta(meta_path: Path) -> SfrObsSpec | None:
     return SfrObsSpec.from_mapping(payload)
 
 
-def build_sfr_records(
+def build_sfr_columns(
     spec: SfrObsSpec,
     obs_path: Path,
     *,
     times: Sequence[float],
     seconds_per_time_unit: float,
     calendar_times: Sequence[Any] | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Parse the SFR obs CSV into ``(timeseries_records, budget_records)``.
+) -> tuple[dict[str, np.ndarray], list[dict[str, Any]]]:
+    """Parse the SFR obs CSV into ``(timeseries_columns, budget_records)``.
 
     ``times`` are the solver output ``totim`` values (TDIS time unit); the obs CSV
     must align with them by row order. RATE quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / depth stay in meters. A
     budget row per network sums the reach-aquifer exchange (stream point of view)
     so the water-balance tables carry the stream-aquifer flux.
+
+    The timeseries land as TIMESERIES_SCHEMA column arrays (one column entry per
+    obs column x timestep), consumed by ``store.write_timeseries_columns``; a
+    chronicle-size obs CSV holds millions of points, so per-point record dicts
+    are too slow.
     """
     if not obs_path.is_file():
         logger.debug("SFR obs CSV %s is missing; no per-reach series extracted", obs_path)
-        return [], []
+        return {}, []
 
     header, rows = read_obs_csv(obs_path)
     if not rows:
-        return [], []
+        return {}, []
     col_index = {name: pos for pos, name in enumerate(header)}
 
     n_steps = min(len(rows), len(times))
     spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
     verify_obs_time_alignment(rows, times, col_index, n_steps, obs_path)
 
-    exchange_entries = [entry for entry in spec.entries if entry.quantity == "gw_exchange"]
+    # NaN marks the cells short rows do not cover; those points are skipped.
+    matrix = rows_matrix(rows, n_steps)
+    calendar: np.ndarray | None = None
+    if calendar_times is not None:
+        calendar = np.asarray(calendar_times[:n_steps], dtype="datetime64[ms]")
 
-    timeseries: list[dict[str, Any]] = []
+    station_parts: list[np.ndarray] = []
+    variable_parts: list[np.ndarray] = []
+    timestep_parts: list[np.ndarray] = []
+    time_parts: list[np.ndarray] = []
+    value_parts: list[np.ndarray] = []
+    unit_parts: list[np.ndarray] = []
+    for entry in spec.entries:
+        pos = col_index.get(entry.obsname.upper())
+        if pos is None or pos >= matrix.shape[1]:
+            continue
+        column = matrix[:, pos]
+        steps = np.flatnonzero(~np.isnan(column))
+        if steps.size == 0:
+            continue
+        values = column[steps]
+        if entry.quantity in _RATE_QUANTITIES:
+            values = values / spt
+        if entry.quantity in _NEGATED_QUANTITIES:
+            values = -values
+        station_parts.append(
+            np.full(steps.size, sfr_station_id(entry.network_id, entry.reach), dtype=object)
+        )
+        variable_parts.append(np.full(steps.size, entry.quantity, dtype=object))
+        timestep_parts.append(steps.astype("int64"))
+        value_parts.append(values.astype("float64"))
+        unit_parts.append(
+            np.full(steps.size, _UNIT_BY_QUANTITY.get(entry.quantity, "m3/s"), dtype=object)
+        )
+        if calendar is not None:
+            time_parts.append(calendar[steps])
+
+    columns: dict[str, np.ndarray] = {}
+    if value_parts:
+        columns = {
+            "station_id": np.concatenate(station_parts),
+            "variable": np.concatenate(variable_parts),
+            "timestep": np.concatenate(timestep_parts),
+            "value": np.concatenate(value_parts),
+            "unit": np.concatenate(unit_parts),
+        }
+        if calendar is not None:
+            columns["time"] = np.concatenate(time_parts)
+
     budgets: list[dict[str, Any]] = []
-    for t in range(n_steps):
-        row = rows[t]
-        calendar = calendar_times[t] if calendar_times is not None else None
-
-        for entry in spec.entries:
-            pos = col_index.get(entry.obsname.upper())
-            if pos is None or pos >= len(row):
-                continue
-            value = float(row[pos])
-            if entry.quantity in _RATE_QUANTITIES:
-                value /= spt
-            if entry.quantity in _NEGATED_QUANTITIES:
-                value = -value
-            timeseries.append(
-                timeseries_record(
-                    station=sfr_station_id(entry.network_id, entry.reach),
-                    quantity=entry.quantity,
-                    timestep=t,
-                    time=calendar,
-                    value=value,
-                    unit=_UNIT_BY_QUANTITY.get(entry.quantity, "m3/s"),
-                )
-            )
-
-        if exchange_entries:
-            total = 0.0
-            for entry in exchange_entries:
-                pos = col_index.get(entry.obsname.upper())
-                if pos is None or pos >= len(row):
-                    continue
-                # Negated to the stream POV: positive = the network gains baseflow.
-                total += -float(row[pos]) / spt
+    exchange_positions = [
+        pos
+        for entry in spec.entries
+        if entry.quantity == "gw_exchange"
+        and (pos := col_index.get(entry.obsname.upper())) is not None
+        and pos < matrix.shape[1]
+    ]
+    has_exchange_entries = any(entry.quantity == "gw_exchange" for entry in spec.entries)
+    if has_exchange_entries:
+        # Negated to the stream POV: positive = the network gains baseflow.
+        # nansum: cells missing from short rows contribute zero, like the
+        # historical per-row skip did.
+        totals = -np.nansum(matrix[:, exchange_positions], axis=1) / spt
+        for t in range(n_steps):
+            total = float(totals[t])
             budgets.append(
                 {
                     "timestep": t,
@@ -209,4 +245,4 @@ def build_sfr_records(
                 }
             )
 
-    return timeseries, budgets
+    return columns, budgets

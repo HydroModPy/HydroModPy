@@ -69,17 +69,24 @@ class _FakeHeadFile:
 
 
 def _fake_cbc_factory(records: dict[str, np.ndarray]):
+    flat = [(name.encode(), arr) for name, arr in records.items()]
+
     class _FakeCBC:
         def __init__(self, path, *args, **kwargs):
             del path, args, kwargs
+            self.recordarray = np.zeros(
+                len(flat), dtype=[("kstp", "<i4"), ("kper", "<i4"), ("text", "S16")]
+            )
+            for idx, (text, _) in enumerate(flat):
+                self.recordarray["kstp"][idx] = 1
+                self.recordarray["kper"][idx] = 1
+                self.recordarray["text"][idx] = text
 
         def get_unique_record_names(self):
-            return [name.encode() for name in records]
+            return [text for text, _ in flat]
 
-        def get_data(self, *, text, kstpkper, totim):
-            del kstpkper, totim
-            arr = records.get(text.strip())
-            return [arr] if arr is not None else []
+        def get_record(self, idx: int):
+            return flat[idx][1]
 
         def close(self) -> None:
             pass
