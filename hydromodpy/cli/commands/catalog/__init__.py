@@ -5,8 +5,9 @@ Sub-actions:
 - ``hmp catalog ls``: list simulations (filterable by solver/catchment/project).
 - ``hmp catalog query "<SQL>"``: run a raw SQL statement against the catalog.
 - ``hmp catalog show <sim_ref>``: show simulation metadata (with ``--detail``).
-- ``hmp catalog gc``: garbage-collect orphan caches and stale running sims.
-- ``hmp catalog vacuum``: compact DuckDB and consolidate Zarr metadata.
+- ``hmp catalog gc``: the one maintenance verb. Plans by default; ``--apply``
+  purges expired trash, removes orphan stores, replays interrupted purges,
+  marks stale runs failed, and compacts DuckDB + Zarr (absorbed ``vacuum``).
 - ``hmp catalog delete <sim_ref>``: move a run to the trash (``--now`` to purge).
 - ``hmp catalog restore <sim_ref>``: bring a trashed run back.
 - ``hmp catalog trash [--empty]``: list trashed runs or empty the trash.
@@ -40,7 +41,6 @@ from hydromodpy.cli.commands.catalog import (
     show,
     tag,
     trash,
-    vacuum,
     watch,
 )
 
@@ -52,7 +52,6 @@ ACTIONS = (
     query,
     show,
     gc,
-    vacuum,
     delete,
     restore,
     trash,

@@ -60,6 +60,9 @@ def test_gc_plan_on_empty_workspace(monkeypatch, tmp_path, capsys) -> None:
     assert "geographic_cache" in out
     assert "tmp_parquet" in out
     assert "stale_running_sims" in out
+    assert "expired_trash" in out
+    assert "orphan_stores" in out
+    assert "pending_purges" in out
 
 
 def test_gc_apply_invocation_no_targets(monkeypatch, tmp_path, capsys) -> None:
@@ -151,3 +154,90 @@ def test_gc_marks_stale_running_simulation(monkeypatch, tmp_path) -> None:
         conn.close()
     assert row is not None
     assert row[0] == "failed"
+
+
+# ---------------------------------------------------------------------------
+# Absorbed vacuum + expiry + orphan stores + purge replay
+# ---------------------------------------------------------------------------
+
+
+def _register_completed(catalog, sid, name):
+    catalog.register_simulation(sid, project="demo", solver="modflow6", name=name)
+    catalog._backend.execute(
+        "UPDATE simulations SET status_id = (SELECT id FROM statuses WHERE code = 'completed'), "
+        "ended_at = current_timestamp WHERE sim_id = ?",
+        [sid],
+    )
+
+
+def test_gc_apply_runs_maintenance(monkeypatch, tmp_path, capsys) -> None:
+    workspace = _make_minimal_workspace(tmp_path)
+    _make_project_with_catalog(workspace, "demo")
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "catalog_checkpoints" in out
+    assert "zarr_consolidated" in out
+
+
+def test_gc_purges_expired_trash_but_keeps_pinned(monkeypatch, tmp_path) -> None:
+    import uuid
+
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    old, pinned = str(uuid.uuid4()), str(uuid.uuid4())
+    with SimulationCatalog(project) as cat:
+        _register_completed(cat, old, "old")
+        _register_completed(cat, pinned, "keep")
+        cat.add_tag(pinned, "pinned")
+        cat.trash(old)
+        cat.trash(pinned, force=True)
+        cat._backend.execute(
+            "UPDATE simulations SET trashed_at = current_timestamp - INTERVAL '60 days' "
+            "WHERE sim_id IN (?, ?)",
+            [old, pinned],
+        )
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    with SimulationCatalog(project) as cat:
+        assert cat._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [old]) is None
+        assert (
+            cat._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [pinned])
+            is not None
+        )
+
+
+def test_gc_removes_orphan_store(monkeypatch, tmp_path) -> None:
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    orphan = project / "simulations" / "demo__deadbeef.zarr"
+    orphan.mkdir(parents=True)
+    (orphan / ".zgroup").write_text("{}")
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    assert not orphan.exists()
+
+
+def test_gc_replays_pending_purge(monkeypatch, tmp_path) -> None:
+    import uuid
+
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    sid = str(uuid.uuid4())
+    with SimulationCatalog(project) as cat:
+        _register_completed(cat, sid, "halfpurged")
+        cat._backend.execute(
+            "INSERT INTO purge_journal (sim_id, phase) VALUES (?, 'pending')", [sid]
+        )
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    with SimulationCatalog(project) as cat:
+        assert cat._backend.fetch_one("SELECT 1 FROM purge_journal WHERE sim_id = ?", [sid]) is None
+        assert cat._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
