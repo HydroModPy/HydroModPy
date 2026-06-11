@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 
 _SPT = 86400.0
@@ -15,24 +16,31 @@ _NAMES = [b"    FLOW-JA-FACE", b"            RCHA", b"             DRN", b"     
 
 
 class _FakeCbb:
-    """recordarray + get_record stand-in for flopy CellBudgetFile."""
+    """records + read_record stand-in for Mf6CellBudgetReader."""
 
     def __init__(self, records: list[tuple[int, int, bytes, Any]]):
-        self.recordarray = np.zeros(
-            len(records), dtype=[("kstp", "<i4"), ("kper", "<i4"), ("text", "S16")]
+        self.records = tuple(
+            CbcRecord(
+                kstp=kstp,
+                kper=kper,
+                text=text.decode().strip(),
+                imeth=1,
+                ndim1=4,
+                ndim2=1,
+                ndim3=-1,
+                nlist=0,
+                aux_names=(),
+                data_pos=0,
+            )
+            for kstp, kper, text, _ in records
         )
-        self._payloads: list[Any] = []
-        for idx, (kstp, kper, text, payload) in enumerate(records):
-            self.recordarray["kstp"][idx] = kstp
-            self.recordarray["kper"][idx] = kper
-            self.recordarray["text"][idx] = text
-            self._payloads.append(payload)
+        self._payloads: list[Any] = [payload for *_, payload in records]
         self.closed = False
 
-    def get_unique_record_names(self) -> list[bytes]:
-        return list(_NAMES)
+    def unique_record_names(self) -> list[str]:
+        return [name.decode().strip() for name in _NAMES]
 
-    def get_record(self, idx: int) -> Any:
+    def read_record(self, idx: int) -> Any:
         payload = self._payloads[idx]
         if isinstance(payload, Exception):
             raise payload
@@ -64,9 +72,9 @@ def _drn_recarray(node: int, q: float) -> np.recarray:
 
 
 def _run_extract(fake_cbb: _FakeCbb, monkeypatch: pytest.MonkeyPatch) -> _FakeStore:
-    import flopy.utils.binaryfile as bf
+    from hydromodpy.solver.modflow6.extractors import cbc_reader
 
-    monkeypatch.setattr(bf, "CellBudgetFile", lambda *args, **kwargs: fake_cbb)
+    monkeypatch.setattr(cbc_reader, "Mf6CellBudgetReader", lambda *args, **kwargs: fake_cbb)
     store = _FakeStore()
     Modflow6OutputAdapter()._extract_budget(
         "sim",

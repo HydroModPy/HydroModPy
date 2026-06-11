@@ -249,40 +249,32 @@ class Modflow6OutputAdapter:
         Fluxes are divided by ``seconds_per_time_unit`` so the stored values are
         m3/s regardless of the TDIS time unit (m3/s = flux / seconds_per_time_unit).
         """
-        import flopy.utils.binaryfile as bf
+        from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 
-        try:
-            cbb = bf.CellBudgetFile(str(cbc_path))
-        except Exception:
-            cbb = bf.CellBudgetFile(str(cbc_path), precision="double")
-        record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
+        cbb = Mf6CellBudgetReader(cbc_path)
         # Intercell face flows and the specific-discharge velocity are not
         # scalar budget terms; skip them before reading or summing.
-        components = [name for name in record_names if is_scalar_budget_component(name)]
+        components = [
+            name for name in cbb.unique_record_names() if is_scalar_budget_component(name)
+        ]
         component_rank = {name: rank for rank, name in enumerate(components)}
 
         n_timesteps = len(times)
         # One sequential pass over the file-order record index. Per-record
         # get_data(text, kstpkper, totim) calls rebuild a full boolean mask of
         # the index each time, which is quadratic over a long chronicle.
-        headers = cbb.recordarray
         timestep_by_kstpkper = {
             (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
         }
-        component_by_text: dict[bytes, str] = {}
         seen: set[tuple[str, int]] = set()
         ranked_records: list[tuple[int, int, dict]] = []
         spatial_stacks: dict[str, np.ndarray] = {}
-        for idx in range(len(headers)):
-            raw_text = headers["text"][idx]
-            component = component_by_text.get(raw_text)
-            if component is None:
-                component = raw_text.decode().strip()
-                component_by_text[raw_text] = component
+        for idx, record in enumerate(cbb.records):
+            component = record.text
             rank = component_rank.get(component)
             if rank is None:
                 continue
-            t = timestep_by_kstpkper.get((int(headers["kstp"][idx]), int(headers["kper"][idx])))
+            t = timestep_by_kstpkper.get((record.kstp, record.kper))
             if t is None:
                 continue
             key = (component, t)
@@ -291,7 +283,7 @@ class Modflow6OutputAdapter:
                 # the first record like the historical data[0] read did.
                 continue
             try:
-                arr = cbb.get_record(idx)
+                arr = cbb.read_record(idx)
             except Exception as exc:
                 logger.debug(
                     "Could not read MF6 budget '%s' at t=%d: %s",

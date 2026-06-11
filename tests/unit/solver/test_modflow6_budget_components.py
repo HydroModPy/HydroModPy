@@ -28,27 +28,37 @@ class _FakeStore:
 
 def _fake_cbc(record_data: dict, kstpkpers: list[tuple[int, int]]):
     """record_data maps record name -> {kstpkper: array} or array (all steps)."""
-    flat: list[tuple[int, int, bytes, np.ndarray]] = []
+    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
+
+    flat: list[tuple[int, int, str, np.ndarray]] = []
     for name, entry in record_data.items():
         for kstpkper in kstpkpers:
             payload = entry[kstpkper] if isinstance(entry, dict) else entry
-            flat.append((kstpkper[0] + 1, kstpkper[1] + 1, name.encode(), payload))
+            flat.append((kstpkper[0] + 1, kstpkper[1] + 1, name, payload))
 
     class _FakeCBC:
         def __init__(self, path, *args, **kwargs):
             del path, args, kwargs
-            self.recordarray = np.zeros(
-                len(flat), dtype=[("kstp", "<i4"), ("kper", "<i4"), ("text", "S16")]
+            self.records = tuple(
+                CbcRecord(
+                    kstp=kstp,
+                    kper=kper,
+                    text=text,
+                    imeth=1,
+                    ndim1=2,
+                    ndim2=1,
+                    ndim3=-1,
+                    nlist=0,
+                    aux_names=(),
+                    data_pos=0,
+                )
+                for kstp, kper, text, _ in flat
             )
-            for idx, (kstp, kper, text, _) in enumerate(flat):
-                self.recordarray["kstp"][idx] = kstp
-                self.recordarray["kper"][idx] = kper
-                self.recordarray["text"][idx] = text
 
-        def get_unique_record_names(self):
-            return [name.encode() for name in record_data]
+        def unique_record_names(self):
+            return list(record_data)
 
-        def get_record(self, idx: int):
+        def read_record(self, idx: int):
             return flat[idx][3]
 
         def close(self) -> None:
@@ -59,7 +69,9 @@ def _fake_cbc(record_data: dict, kstpkpers: list[tuple[int, int]]):
 
 def _extract(monkeypatch, tmp_path, record_data, *, times, kstpkpers, nlay=1, n_cells=2):
     monkeypatch.setattr(
-        "flopy.utils.binaryfile.CellBudgetFile", _fake_cbc(record_data, kstpkpers), raising=True
+        "hydromodpy.solver.modflow6.extractors.cbc_reader.Mf6CellBudgetReader",
+        _fake_cbc(record_data, kstpkpers),
+        raising=True,
     )
     store = _FakeStore()
     Modflow6OutputAdapter()._extract_budget(

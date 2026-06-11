@@ -69,23 +69,33 @@ class _FakeHeadFile:
 
 
 def _fake_cbc_factory(records: dict[str, np.ndarray]):
-    flat = [(name.encode(), arr) for name, arr in records.items()]
+    from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
+
+    flat = list(records.items())
 
     class _FakeCBC:
         def __init__(self, path, *args, **kwargs):
             del path, args, kwargs
-            self.recordarray = np.zeros(
-                len(flat), dtype=[("kstp", "<i4"), ("kper", "<i4"), ("text", "S16")]
+            self.records = tuple(
+                CbcRecord(
+                    kstp=1,
+                    kper=1,
+                    text=text,
+                    imeth=1,
+                    ndim1=2,
+                    ndim2=1,
+                    ndim3=-1,
+                    nlist=0,
+                    aux_names=(),
+                    data_pos=0,
+                )
+                for text, _ in flat
             )
-            for idx, (text, _) in enumerate(flat):
-                self.recordarray["kstp"][idx] = 1
-                self.recordarray["kper"][idx] = 1
-                self.recordarray["text"][idx] = text
 
-        def get_unique_record_names(self):
+        def unique_record_names(self):
             return [text for text, _ in flat]
 
-        def get_record(self, idx: int):
+        def read_record(self, idx: int):
             return flat[idx][1]
 
         def close(self) -> None:
@@ -104,7 +114,9 @@ def test_seconds_per_time_unit_collapses_to_core_units() -> None:
 def _run_extract(tmp_path: Path, monkeypatch, time_units: str, records: dict[str, np.ndarray]):
     monkeypatch.setattr("flopy.utils.binaryfile.HeadFile", _FakeHeadFile, raising=True)
     monkeypatch.setattr(
-        "flopy.utils.binaryfile.CellBudgetFile", _fake_cbc_factory(records), raising=True
+        "hydromodpy.solver.modflow6.extractors.cbc_reader.Mf6CellBudgetReader",
+        _fake_cbc_factory(records),
+        raising=True,
     )
     (tmp_path / "flow.cbc").write_text("", encoding="utf-8")
     (tmp_path / "flow.tdis").write_text(
@@ -135,7 +147,7 @@ def test_mf6_budget_flux_scaled_to_m3_per_s_under_days(tmp_path, monkeypatch) ->
 def test_mf6_budget_flux_seconds_is_identity(tmp_path, monkeypatch) -> None:
     adapter = Modflow6OutputAdapter()
     monkeypatch.setattr(
-        "flopy.utils.binaryfile.CellBudgetFile",
+        "hydromodpy.solver.modflow6.extractors.cbc_reader.Mf6CellBudgetReader",
         _fake_cbc_factory({"DRN": np.array([5.0, -5.0])}),
         raising=True,
     )
