@@ -277,6 +277,33 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
         logger.debug("Wrote %d provenance records for sim %s", written, ctx.sim_id)
 
 
+# Gridded forcing families reduced to a watershed-mean station series at
+# persist time. The catchment discharge derivation reads runoff back from
+# Zarr forcing/ when no stream network routes it.
+_WATERSHED_MEAN_FORCINGS = frozenset({"runoff"})
+_WATERSHED_MEAN_STATION = "_watershed"
+
+
+def _watershed_mean_series(load_result: object):
+    """Reduce a gridded forcing family to one tz-naive watershed-mean series."""
+    import pandas as pd
+
+    from hydromodpy.spatial.field.aggregation import extract_homogeneous_series_from_fields
+
+    try:
+        series = extract_homogeneous_series_from_fields(load_result)
+    except Exception:
+        logger.debug("Watershed-mean reduction failed", exc_info=True)
+        return None
+    if series is None or len(series) == 0:
+        return None
+    idx = pd.DatetimeIndex(series.index)
+    if idx.tz is not None:
+        idx = idx.tz_convert("UTC").tz_localize(None)
+    series.index = idx
+    return series
+
+
 def step_persist_forcings(ctx: WorkflowContext) -> None:
     """Persist input forcings into the Zarr ``forcing/`` group."""
     if ctx.store is None or ctx.sim_id is None:
@@ -409,6 +436,27 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
                             f.name,
                             getattr(rec, "variable", "?"),
                         )
+
+            # A gridded family has no station to land under
+            # forcing/<var>/<station>; its watershed mean keeps a
+            # station-shaped copy so post-processing (catchment discharge)
+            # can read the forcing back. Same reduction as the SFR / LAK
+            # forcing binders, so both accountings stay consistent.
+            if f.name in _WATERSHED_MEAN_FORCINGS and fields_list and not points:
+                series = _watershed_mean_series(obj)
+                if series is not None:
+                    try:
+                        sz.write_forcing_timeseries(
+                            f.name,
+                            _WATERSHED_MEAN_STATION,
+                            np.asarray(series.index.values, dtype="datetime64[ns]"),
+                            series.to_numpy(dtype="float64"),
+                            unit=getattr(fields_list[0], "unit", "") or "",
+                            source="watershed_mean",
+                        )
+                        written += 1
+                    except Exception:
+                        logger.debug("Failed to persist watershed-mean forcing %s", f.name)
     finally:
         sz.close()
 
