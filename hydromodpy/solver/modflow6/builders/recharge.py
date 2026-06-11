@@ -510,6 +510,35 @@ def mask_recharge_on_lake_cells(
     return spd
 
 
+RECHARGE_BINARY_MIN_PERIODS = 64
+
+
+def externalize_recharge_spd(
+    spd: dict[int, np.ndarray],
+    *,
+    basename: str,
+) -> dict[int, np.ndarray] | dict[int, dict]:
+    """Route long transient recharge stacks to external binary array files.
+
+    FloPy formats INTERNAL arrays value by value, which dominates
+    ``write_simulation`` on multi-thousand-period chronicles. External binary
+    files are written through numpy and read natively by MF6 via
+    ``OPEN/CLOSE <file> (BINARY)``. Short records stay internal so small
+    models keep human-readable input files.
+    """
+    if len(spd) < RECHARGE_BINARY_MIN_PERIODS:
+        return spd
+    return {
+        kper: {
+            "factor": 1.0,
+            "data": arr,
+            "filename": f"{basename}.rcha.{kper}.bin",
+            "binary": True,
+        }
+        for kper, arr in spd.items()
+    }
+
+
 def empty_recharge_aux(model) -> dict[int, list[np.ndarray]]:
     """Zero AUX concentration for period 0 only; MF6 repeats the last block.
 

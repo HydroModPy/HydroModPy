@@ -30,6 +30,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_well_stress_period_data,
     collapse_identical_periods,
     empty_recharge_aux,
+    externalize_recharge_spd,
     finalize_pending_recharge_evt,
     mask_recharge_on_lake_cells,
     mover_package_count,
@@ -533,7 +534,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.rch_spd = collapse_identical_periods(model.rch_spd)
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
-        recharge=model.rch_spd,
+        recharge=externalize_recharge_spd(model.rch_spd, basename=model.model_name_mf6),
         auxiliary=["CONCENTRATION"],
         aux=empty_recharge_aux(model),
         pname="RCHA",
