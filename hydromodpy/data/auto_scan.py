@@ -232,6 +232,10 @@ def _iter_files(custom_dir: Path, prefix: str, suffixes: frozenset[str]) -> list
             continue
         if is_scaffold_example(p):
             continue
+        # Provenance sidecar (sidecars.py: foo.parquet -> foo.parquet.json),
+        # not a data file.
+        if p.suffix.lower() == ".json" and p.with_suffix("").is_file():
+            continue
         out.append(p)
     return out
 
