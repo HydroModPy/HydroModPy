@@ -8,13 +8,13 @@ post-loop logic so the runners only deal with control flow.
 
 from __future__ import annotations
 
-import sys
 import uuid
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optimizer import EvaluationResult
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -111,25 +111,28 @@ def promote_iterations(
 ) -> tuple[int, list[str], str | None]:
     """Promote selected trials and return ``(count, failures, best_sim_id)``."""
     top = select_iterations_to_promote(cfg, persistence, session_id, best)
-    if top:
-        print(f"Promoting {len(top)} iteration(s) as full simulations...", file=sys.stderr)
+    if not top:
+        return 0, [], None
 
     failures: list[str] = []
     best_sim_id: str | None = None
     count = 0
-    for row in top:
+    for row in progress.track(top, "Promoting calibrated runs"):
+        run_name = f"{cfg.method}_iter_{row['iteration']:04d}"
+        logger.debug("Promoting %s", run_name)
         values = {
             name: stored_parameter_value(row["parameters"][name])
             for name in override_paths
             if name in row["parameters"]
         }
         try:
-            sim_id = promote_prepared_trial(
-                trial_ctx,
-                values,
-                name=f"{cfg.method}_iter_{row['iteration']:04d}",
-                session_id=session_id,
-            )
+            with progress.suppressed():
+                sim_id = promote_prepared_trial(
+                    trial_ctx,
+                    values,
+                    name=run_name,
+                    session_id=session_id,
+                )
         except Exception as exc:
             logger.exception("Promotion failed for iteration %d.", row["iteration"])
             failures.append(f"iteration {row['iteration']}: {exc}")
