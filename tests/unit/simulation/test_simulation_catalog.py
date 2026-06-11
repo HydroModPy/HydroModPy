@@ -126,27 +126,47 @@ class TestRegisterAndFinalize:
         assert row[0] is not None
         assert len(row[0]) == 64  # SHA-256 hex
 
-    def test_on_collision_replace_is_soft(self, catalog):
-        """``on_collision='replace'`` (default) moves the name pointer.
+    def test_if_exists_version_is_default(self, catalog):
+        """``if_exists='version'`` (default) mints ``stem.vN`` and keeps every run.
 
-        The previous sim_id survives in the catalog but loses its name,
-        preserving an immutable audit trail while keeping the name reusable.
+        The bare original is demoted to ``stem.v1`` so the bare name always
+        resolves to the latest version of the stem.
         """
-        sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
+        _register(catalog, name="r1", n_cells=10, n_layers=1)
         sid2, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
+        sid3, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
         count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
-        assert count == 2
-        current = catalog.connection.execute(
-            "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = ?",
-            ["r1"],
+        assert count == 3
+        names = {
+            r[0]
+            for r in catalog.connection.execute("SELECT name FROM simulations").fetchall()
+        }
+        assert names == {"r1.v1", "r1.v2", "r1.v3"}
+        latest = catalog.connection.execute(
+            "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = 'r1.v3'"
         ).fetchone()
-        assert current is not None
+        assert latest[0] == sid3
+
+    def test_if_exists_replace_trashes_predecessor(self, catalog):
+        """``if_exists='replace'`` trashes the predecessor and takes the name."""
+        sid1, _ = _register(catalog, name="solo", n_cells=10, n_layers=1)
+        sid2, _ = _register(catalog, name="solo", if_exists="replace", n_cells=10, n_layers=1)
+        current = catalog.connection.execute(
+            "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = 'solo'"
+        ).fetchone()
         assert current[0] == sid2
-        orphan_name = catalog.connection.execute(
-            "SELECT name FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
+        predecessor = catalog.connection.execute(
+            "SELECT s.name, st.code, s.original_name "
+            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "WHERE CAST(s.sim_id AS VARCHAR) = ?",
             [sid1],
         ).fetchone()
-        assert orphan_name[0] is None
+        assert predecessor == (None, "trashed", "solo")
+
+    def test_if_exists_fail_raises(self, catalog):
+        _register(catalog, name="solo", n_cells=10, n_layers=1)
+        with pytest.raises(registration_mod.DuplicateSimulationNameError):
+            _register(catalog, name="solo", if_exists="fail", n_cells=10, n_layers=1)
 
     def test_parent_sim_id(self, catalog):
         sid1, _ = _register(catalog)

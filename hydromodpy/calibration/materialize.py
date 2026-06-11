@@ -216,7 +216,7 @@ def materialize_candidate(
         Iteration number when no explicit label is given. Produces a
         folder like ``iter_0042``.
     run_id
-        Value to write at ``simulation.run_id`` in the overlay.
+        Value to write at ``simulation.name`` in the overlay.
     workspace_root
         Value to write at ``workspace.root``. Required when the parent
         simulation TOML does not already declare a workspace root.
@@ -258,7 +258,7 @@ def materialize_candidate(
 
     if run_id is not None:
         simulation_section = dict(overlay.get("simulation", {}))
-        simulation_section["run_id"] = str(run_id)
+        simulation_section["name"] = str(run_id)
         overlay["simulation"] = simulation_section
 
     workspace_section: dict[str, Any] = dict(base_raw.get("workspace", {}))

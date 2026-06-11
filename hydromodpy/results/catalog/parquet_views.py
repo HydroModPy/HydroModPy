@@ -116,7 +116,12 @@ def view_name_for(view: str, existing_tables: set[str]) -> str:
     return view
 
 
-def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path) -> None:
+def ensure_parquet_views(
+    conn: duckdb.DuckDBPyConnection,
+    simulations_dir: Path,
+    *,
+    temporary: bool = False,
+) -> None:
     """Create or refresh every Parquet-backed view on ``conn``.
 
     If no Parquet file exists for a given view, an empty typed view is
@@ -126,7 +131,8 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path)
 
     When a Parquet view collides with an existing DuckDB table (``metrics``,
     ``provenance``), a ``<view>_parquet`` alias is used instead so the SQL
-    table remains intact.
+    table remains intact. With ``temporary=True`` the views are session-local
+    ``TEMPORARY`` views so a read-only connection can rebuild them.
     """
     simulations_dir = Path(simulations_dir)
     existing = _existing_tables(conn)
@@ -136,6 +142,8 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, simulations_dir: Path)
             ddl = _read_parquet_view_ddl(target_view, _glob_for_view(simulations_dir, view))
         else:
             ddl = _empty_view_ddl_named(view, target_view)
+        if temporary:
+            ddl = ddl.replace("CREATE OR REPLACE VIEW", "CREATE OR REPLACE TEMPORARY VIEW", 1)
         conn.execute(ddl)
 
 

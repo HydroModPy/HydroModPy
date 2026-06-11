@@ -197,13 +197,17 @@ _ALL_VIEW_DDL: tuple[str, ...] = (
 )
 
 
-def ensure_views(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_views(conn: duckdb.DuckDBPyConnection, *, temporary: bool = False) -> None:
     """Create or replace the catalog summary views.
 
     Safe to call repeatedly. Depends on the v2 schema being present (the
-    migration runner must have applied the initial DDL first).
+    migration runner must have applied the initial DDL first). With
+    ``temporary=True`` the views are session-local ``TEMPORARY`` views, so a
+    read-only connection can rebuild them without writing to the database file.
     """
     for ddl in _ALL_VIEW_DDL:
+        if temporary:
+            ddl = ddl.replace("CREATE OR REPLACE VIEW", "CREATE OR REPLACE TEMPORARY VIEW", 1)
         conn.execute(ddl)
 
 

@@ -58,7 +58,7 @@ class SimulationStore(Protocol):
         solver: str,
         *,
         name: str | None = None,
-        on_collision: str = "replace",
+        if_exists: str = "version",
         **kwargs: Any,
     ) -> RegistrationResult:
         """Allocate a new simulation row and return its registration result."""

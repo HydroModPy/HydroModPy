@@ -53,7 +53,7 @@ def extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
         return artifacts
 
     paths = WorkspacePathRegistry.from_config(cfg.workspace)
-    run_id = str(cfg.simulation.run_id or config_path.stem)
+    run_id = str(cfg.simulation.name or config_path.stem)
     run_folder = paths.run_folder(run_id).resolve()
     simulations_root = paths.solver_scratch_folder.resolve()
     artifacts.update(

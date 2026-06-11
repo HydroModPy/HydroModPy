@@ -64,11 +64,26 @@ def register(subparsers) -> argparse.ArgumentParser:
             "(e.g. 20260520T143015Z)."
         ),
     )
+    parser.add_argument(
+        "--fix-config",
+        default=None,
+        metavar="FILE.toml",
+        help=(
+            "Migrate a project TOML to the current schema in place "
+            "(simulation.on_collision -> if_exists, run_id -> name). "
+            "Preserves comments and layout."
+        ),
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
+    fix_config = getattr(args, "fix_config", None)
+    if fix_config is not None:
+        _fix_config(fix_config)
+        return
+
     restore_ts = getattr(args, "restore_backup", None)
     if restore_ts is not None:
         _restore_backup(args.workspace, restore_ts)
@@ -90,6 +105,29 @@ def run(args: argparse.Namespace) -> None:
 
     if any(entry.get("status") == "KO" for entry in report["checks"]):
         sys.exit(1)
+
+
+def _fix_config(toml_path: str) -> None:
+    """Migrate a project TOML to the current simulation-management schema."""
+    from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+    from hydromodpy.config.config_migration import fix_config_file
+
+    path = Path(toml_path).expanduser()
+    try:
+        changes = fix_config_file(path)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    except Exception as exc:  # noqa: BLE001 - surface a clean parse error
+        print(f"Could not migrate {path}: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    if not changes:
+        print(f"{path} is already up to date.")
+        return
+    print(f"Migrated {path}:")
+    for change in changes:
+        print(f"  - {change}")
 
 
 def _restore_backup(workspace_arg: str | None, timestamp: str) -> None:

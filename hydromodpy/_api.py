@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     Readable = xr.DataArray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
-def open(workspace: Any, *, create: bool = False) -> Any:
+def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any:
     """Open a HydroModPy project catalog.
 
     The single door to a workspace catalog: returns a
@@ -31,8 +31,14 @@ def open(workspace: Any, *, create: bool = False) -> Any:
     ``catalog.duckdb``. It exposes object access (``latest``, ``best``,
     ``find``, ``cat[ref]``), tabular access (``frame``, ``sql``,
     ``list_simulations``), schema discovery (``describe``, ``tables``,
-    ``columns``, ``variables``, ``metrics``, ``stations``), per-id reads
-    (``read``), and the simulation writers used by the workflow engine.
+    ``columns``, ``variables``, ``metrics``, ``stations``), and per-id reads
+    (``read``).
+
+    The default open is **read-only**: inspecting a catalog never migrates it,
+    never rewrites a view, and never touches its mtime, so an archived project
+    can be browsed without leaving a trace and a reader never contends with a
+    running solve. Pass ``read_only=False`` (or ``create=True``) for the
+    writable handle used to initialise or annotate a catalog.
 
     Parameters
     ----------
@@ -41,8 +47,11 @@ def open(workspace: Any, *, create: bool = False) -> Any:
         ``.duckdb`` file).
     create
         ``False`` (default) raises :class:`FileNotFoundError` when no catalog
-        exists yet (no phantom catalog is created). ``True`` opens and
-        initialises an empty catalog.
+        exists yet (no phantom catalog is created). ``True`` opens a writable
+        handle and initialises an empty catalog.
+    read_only
+        ``True`` (default) opens the catalog read-only. Ignored when
+        ``create=True`` (initialisation requires a writable handle).
 
     Returns
     -------
@@ -80,7 +89,9 @@ def open(workspace: Any, *, create: bool = False) -> Any:
             f"No catalog at {catalog_file.parent}. Run a workflow there first, "
             f"or pass create=True to initialise an empty catalog."
         )
-    return SimulationCatalog(ws)
+    if create:
+        return SimulationCatalog(ws)
+    return SimulationCatalog(ws, read_only=read_only)
 
 
 def index(db_path: Any = None, *, read_only: bool = False) -> Any:

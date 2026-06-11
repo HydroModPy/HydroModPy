@@ -131,7 +131,7 @@ def step_register_simulation(
         project=project_name,
         solver=primary_solver,
         name=name,
-        on_collision=ctx.cfg.simulation.on_collision,
+        if_exists=ctx.cfg.simulation.if_exists,
         **reg_kwargs,
     )
     final_name = registration.name or name
@@ -214,14 +214,13 @@ def step_open_store(ctx: WorkflowContext) -> None:
     reg_kwargs = ps_module.collect_registration_kwargs(ctx)
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
-    on_collision = getattr(ctx.cfg.simulation, "on_collision", "replace")
     primary_solver = _primary_solver_for_simulation(plan)
     registration = ctx.store.register_simulation(
         ctx.sim_id,
         project=project_name,
         solver=primary_solver,
         name=ctx.setup.run_id,
-        on_collision=on_collision,
+        if_exists=ctx.cfg.simulation.if_exists,
         **reg_kwargs,
     )
     if registration.name and registration.name != ctx.setup.run_id:

@@ -14,6 +14,7 @@ import gc
 import hashlib
 import json
 import os
+import re
 import shutil
 import time
 from dataclasses import dataclass
@@ -37,10 +38,45 @@ from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 
 logger = get_logger(__name__)
 
-OnCollisionMode = Literal["replace", "fail", "version"]
+IfExistsMode = Literal["replace", "fail", "version"]
 
 STAGED_ZARR_RENAME_ATTEMPTS = 8
 STAGED_ZARR_RENAME_BASE_DELAY_SECONDS = 0.05
+
+_VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
+
+
+def _split_stem_version(name: str) -> tuple[str, int | None]:
+    """Split ``cheze_baseline.v3`` into ``("cheze_baseline", 3)``.
+
+    A bare name returns ``(name, None)``.
+    """
+    match = _VERSION_SUFFIX_RE.search(name)
+    if match:
+        return name[: match.start()], int(match.group(1))
+    return name, None
+
+
+_MEMORABLE_ADJECTIVES = (
+    "brisk", "calm", "bright", "swift", "quiet", "bold", "keen", "warm",
+    "clear", "deep", "fair", "lush", "mild", "wise", "amber", "azure",
+)
+_MEMORABLE_NOUNS = (
+    "heron", "otter", "marten", "willow", "alder", "brook", "fern", "moss",
+    "spring", "delta", "ridge", "meadow", "harrier", "kestrel", "ibis", "tern",
+)
+
+
+def _memorable_name(sim_id: str) -> str:
+    """Return a deterministic ``adjective_noun`` slug seeded from ``sim_id``.
+
+    Guarantees a programmatic run without an explicit name is still pronounceable
+    and never addressable by hex alone.
+    """
+    digest = int(hashlib.sha256(str(sim_id).encode()).hexdigest(), 16)
+    adjective = _MEMORABLE_ADJECTIVES[digest % len(_MEMORABLE_ADJECTIVES)]
+    noun = _MEMORABLE_NOUNS[(digest // len(_MEMORABLE_ADJECTIVES)) % len(_MEMORABLE_NOUNS)]
+    return f"{adjective}_{noun}"
 
 
 def _short_id(sim_id: str | UUID) -> str:
@@ -82,21 +118,60 @@ def _promote_staged_zarr(source: Path, target: Path) -> None:
             time.sleep(STAGED_ZARR_RENAME_BASE_DELAY_SECONDS * (attempt + 1))
 
 
-def _next_available_version(
+def _resolve_registration_name(
     backend: CatalogBackend,
     project: str,
-    base_name: str,
-) -> str:
-    """Return ``base_name.v{n}`` where ``n`` is the smallest free integer >= 2."""
+    requested: str,
+    if_exists: IfExistsMode,
+) -> tuple[str, str, int, str | None]:
+    """Resolve the final ``(name, name_stem, version_int, replaced_sid)``.
+
+    Versioning is keyed on ``name_stem`` (the requested name with any trailing
+    ``.vN`` stripped), so collisions never rely on the buggy ``LIKE`` scan.
+    Only live (non-trashed) rows count as collisions.
+
+    - ``version`` (default): mint the next free version. A bare original still
+      holding the clean stem is demoted to ``stem.v1`` so the bare name always
+      resolves to the latest version of the stem.
+    - ``replace``: trash the colliding predecessor (name freed, ``original_name``
+      kept, restorable) and let the new run take the requested name.
+    - ``fail``: raise :class:`DuplicateSimulationNameError`.
+    """
+    stem, requested_version = _split_stem_version(requested)
     rows = backend.fetch_all(
-        "SELECT name FROM simulations WHERE project = ? AND (name = ? OR name LIKE ?)",
-        [project, base_name, base_name + ".v%"],
+        "SELECT CAST(sim_id AS VARCHAR), name, version_int FROM simulations "
+        "WHERE project = ? AND name_stem = ? "
+        "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed')",
+        [project, stem],
     )
-    existing = {r[0] for r in rows}
-    n = 2
-    while f"{base_name}.v{n}" in existing:
-        n += 1
-    return f"{base_name}.v{n}"
+    if not rows:
+        return requested, stem, (requested_version or 1), None
+
+    if if_exists == "fail":
+        raise DuplicateSimulationNameError(project, requested, str(rows[0][0]))
+
+    if if_exists == "replace":
+        target = next((r for r in rows if r[1] == requested), None)
+        if target is None:
+            target = max(rows, key=lambda r: (r[2] or 1))
+        backend.execute(
+            "UPDATE simulations SET name = NULL, original_name = ?, "
+            "trashed_at = current_timestamp, "
+            "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+            "WHERE sim_id = ?",
+            [target[1], target[0]],
+        )
+        return requested, stem, (requested_version or 1), str(target[0])
+
+    # version (default): demote a bare original, then mint the next version.
+    for sid_x, name_x, _ in rows:
+        if name_x == stem:
+            backend.execute(
+                "UPDATE simulations SET name = ?, version_int = 1 WHERE sim_id = ?",
+                [f"{stem}.v1", sid_x],
+            )
+    next_version = max((r[2] or 1) for r in rows) + 1
+    return f"{stem}.v{next_version}", stem, next_version, None
 
 
 def _epsg_from_crs(crs: str) -> int | None:
@@ -118,7 +193,7 @@ def _epsg_from_crs(crs: str) -> int | None:
 
 
 class DuplicateSimulationNameError(ValueError):
-    """Raised when on_collision='fail' and a (project, name) pair already exists."""
+    """Raised when if_exists='fail' and a (project, name) pair already exists."""
 
     def __init__(self, project: str, name: str, existing_sim_id: str) -> None:
         self.project = project
@@ -127,7 +202,7 @@ class DuplicateSimulationNameError(ValueError):
         super().__init__(
             f"Simulation '{name}' already exists in project '{project}' "
             f"(existing sim_id {_short_id(existing_sim_id)}). "
-            f"Use on_collision='replace' or 'version' to proceed."
+            f"Use if_exists='replace' or 'version' to proceed."
         )
 
 
@@ -141,7 +216,7 @@ class RegistrationResult:
         UUID of the newly registered simulation.
     name
         Final name assigned to the simulation (may differ from the requested
-        name when ``on_collision='version'`` auto-suffixes it).
+        name when ``if_exists='version'`` auto-suffixes it).
     zarr
         The freshly created :class:`SimulationZarr`, or ``None`` when mesh
         dimensions are not yet known at registration time.
@@ -168,7 +243,7 @@ class RegistrationMixin:
         solver: str,
         *,
         name: str | None = None,
-        on_collision: OnCollisionMode = "replace",
+        if_exists: IfExistsMode = "version",
         solver_category: str | None = None,
         flow_regime: str | None = None,
         config: dict | None = None,
@@ -201,7 +276,10 @@ class RegistrationMixin:
     ) -> RegistrationResult:
         sid = str(sim_id)
         replaced_sid: str | None = None
-        final_name = name
+        requested_name = name if name else _memorable_name(sid)
+        final_name = requested_name
+        name_stem, _ = _split_stem_version(requested_name)
+        version_int = 1
         zarr_obj: SimulationZarr | None = None
         zarr_tmp: Path | None = None
         zarr_final: Path | None = None
@@ -214,38 +292,23 @@ class RegistrationMixin:
             # try block and let ``CatalogBackend.transaction()`` handle the
             # rollback on exception before the outer cleanup runs.
             with self._backend.transaction():
-                if name:
-                    existing = self._backend.fetch_one(
-                        "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
-                        [project, name],
+                final_name, name_stem, version_int, replaced_sid = _resolve_registration_name(
+                    self._backend, project, requested_name, if_exists
+                )
+                if replaced_sid is not None:
+                    logger.info(
+                        "Hard-replacing '%s' in project '%s' (previous sim %s trashed)",
+                        requested_name,
+                        project,
+                        _short_id(replaced_sid),
                     )
-                    if existing:
-                        existing_sid = str(existing[0])
-                        if on_collision == "fail":
-                            raise DuplicateSimulationNameError(project, name, existing_sid)
-                        if on_collision == "replace":
-                            self._backend.execute(
-                                "UPDATE simulations SET name = NULL WHERE sim_id = ?",
-                                [existing_sid],
-                            )
-                            replaced_sid = existing_sid
-                            logger.info(
-                                "Reassigning name '%s' in project '%s' "
-                                "(previous sim %s kept, name cleared)",
-                                name,
-                                project,
-                                _short_id(existing_sid),
-                            )
-                        elif on_collision == "version":
-                            final_name = _next_available_version(self._backend, project, name)
-                            logger.info(
-                                "Auto-versioned '%s' -> '%s' in project '%s'",
-                                name,
-                                final_name,
-                                project,
-                            )
-                        else:
-                            raise ValueError(f"Unknown on_collision mode: '{on_collision}'")
+                elif final_name != requested_name:
+                    logger.info(
+                        "Auto-versioned '%s' -> '%s' in project '%s'",
+                        requested_name,
+                        final_name,
+                        project,
+                    )
 
                 if solver_category is None:
                     solver_category = _resolve_solver_category(solver)
@@ -272,7 +335,7 @@ class RegistrationMixin:
                 p_start = _coerce_timestamp(period_start)
                 p_end = _coerce_timestamp(period_end)
 
-                storage_basename = build_storage_basename(project, final_name, sid)
+                storage_basename = build_storage_basename(project, sid)
                 zarr_path = f"{SIMULATIONS_DIRNAME}/{storage_basename}{ZARR_SUFFIX}"
                 parent_sid = str(parent_sim_id) if parent_sim_id else None
                 config_source_str = str(config_source) if config_source is not None else None
@@ -297,7 +360,7 @@ class RegistrationMixin:
 
                 self._backend.execute(
                     """INSERT INTO simulations
-                       (sim_id, name, project,
+                       (sim_id, name, name_stem, version_int, started_at, project,
                         solver_id, status_id, flow_regime_id, mesh_topology_id,
                         n_cells, n_layers, n_timesteps,
                         bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
@@ -308,7 +371,7 @@ class RegistrationMixin:
                         geographic_fingerprint, notes,
                         description, scientific_objective, contact_email, doi,
                         study_area_name, outlet_x, outlet_y)
-                       VALUES (?, ?, ?,
+                       VALUES (?, ?, ?, ?, current_timestamp, ?,
                                (SELECT id FROM solvers WHERE code = ?),
                                (SELECT id FROM statuses WHERE code = ?),
                                (SELECT id FROM flow_regimes WHERE code = ?),
@@ -322,6 +385,8 @@ class RegistrationMixin:
                     [
                         sid,
                         final_name,
+                        name_stem,
+                        version_int,
                         project,
                         solver_code_v2,
                         "running",

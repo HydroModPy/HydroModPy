@@ -69,15 +69,9 @@ def render_gallery(
             raise FileNotFoundError(f"No simulations found for {target_path.name}.")
 
         if sim_ref:
-            ref = sim_ref.lower()
-            matches = [
-                str(sid) for sid in sims["sim_id"].astype(str) if str(sid).lower().startswith(ref)
-            ]
-            if not matches:
-                raise FileNotFoundError(f"No run matches sim_ref {sim_ref!r}")
-            if len(matches) > 1:
-                raise ValueError(f"sim_ref {sim_ref!r} is ambiguous")
-            ids = matches
+            # Route through the single canonical resolver (UUID / prefix / name /
+            # stem / @-selectors), not a bespoke startswith matcher.
+            ids = [catalog.resolve(sim_ref, project=project_dir.name)]
         elif run_name:
             subset = sims[sims["name"] == run_name]
             if subset.empty:

@@ -1,11 +1,12 @@
 """Filesystem path resolution for catalog artefacts.
 
 A simulation's on-disk state lives at ``simulations/<basename>.zarr`` and
-``simulations/<basename>.parquet`` where ``<basename>`` is built from the
-simulation's ``(project, name, sim_id)`` so a plain ``ls`` is human readable.
-Older workspaces written before this scheme used the bare ``sim_id`` as the
-basename; ``ensure_schema`` back-fills ``storage_basename`` with that raw
-``sim_id`` so the resolver can read the column unconditionally.
+``simulations/<basename>.parquet`` where ``<basename>`` is ``<project>__<id8>``
+(id-only, immutable: the mutable human name lives only in the catalog). Older
+workspaces written before this scheme used the bare ``sim_id`` or the legacy
+``<project>__<name>__<id8>`` form; the basename is read from the stored
+``storage_basename`` column, so legacy mixed basenames keep resolving with no
+migration.
 """
 
 from __future__ import annotations
@@ -61,19 +62,19 @@ def short_uuid(sim_id: str | UUID) -> str:
 
 def build_storage_basename(
     project: str | None,
-    name: str | None,
     sim_id: str | UUID,
 ) -> str:
-    """Build the on-disk basename for a simulation's Zarr / Parquet folder.
+    """Build the immutable on-disk basename for a simulation's artefacts.
 
-    The format is ``{project}__{name}__{shortuuid}``; missing ``project`` or
-    ``name`` fall back to ``"unnamed"`` so the short UUID still guarantees
-    uniqueness within the workspace.
+    The format is ``{project}__{id8}`` where ``id8`` is the first 8 hex of the
+    ``sim_id``. The basename is id-only and never embeds the mutable human name:
+    renaming, versioning and replacing a run are pure catalog UPDATEs that do
+    not touch the filesystem. ``project`` falls back to ``"unnamed"`` and the
+    short id guarantees uniqueness within the workspace.
     """
     return SEPARATOR.join(
         (
             sanitize_segment(project),
-            sanitize_segment(name),
             short_uuid(sim_id),
         )
     )

@@ -21,14 +21,14 @@ from ._launcher_run_id_builders import (
 )
 
 
-def test_run_setup_uses_simulation_run_id(monkeypatch) -> None:
+def test_run_setup_uses_simulation_name(monkeypatch) -> None:
     _patch_launcher_deps(monkeypatch)
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
-        simulation=SimpleNamespace(run_id="my_run_id"),
+        simulation=SimpleNamespace(name="my_run_id"),
     )
     run_state = WorkflowContext(
         cfg=cfg,
@@ -41,14 +41,14 @@ def test_run_setup_uses_simulation_run_id(monkeypatch) -> None:
     assert run_state.setup.run_id == "my_run_id"
 
 
-def test_run_setup_defaults_run_id_when_empty(monkeypatch) -> None:
+def test_run_setup_defaults_run_id_when_name_empty(monkeypatch) -> None:
     _patch_launcher_deps(monkeypatch)
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
-        simulation=SimpleNamespace(run_id=""),
+        simulation=SimpleNamespace(name=""),
     )
     run_state = WorkflowContext(
         cfg=cfg,
@@ -79,7 +79,7 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
-        simulation=SimpleNamespace(run_id="test"),
+        simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
         cfg=cfg,
@@ -140,7 +140,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         workspace=SimpleNamespace(),
         geographic=geographic_cfg,
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(run_id="test"),
+        simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
         cfg=cfg,
@@ -235,7 +235,7 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(run_id="test"),
+        simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
         cfg=cfg,
@@ -272,7 +272,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(run_id="test"),
+        simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
         cfg=cfg,
@@ -332,7 +332,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(run_id="test"),
+        simulation=SimpleNamespace(name="test"),
     )
     run_state = WorkflowContext(
         cfg=cfg,

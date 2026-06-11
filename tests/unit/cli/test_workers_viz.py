@@ -97,6 +97,12 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
             calls["list_kwargs"] = kwargs
             return simulations
 
+        def resolve(self, ref: str, *, project: str | None = None) -> str:
+            matches = [
+                s for s in simulations["sim_id"].astype(str) if s.lower().startswith(ref.lower())
+            ]
+            return matches[0]
+
         def __getitem__(self, sim_id: str) -> SimpleNamespace:
             calls["selected_sim_id"] = sim_id
             return SimpleNamespace(name=f"run-{sim_id}")
@@ -199,6 +205,18 @@ def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> N
         def list_simulations(self, **kwargs: object) -> pd.DataFrame:
             return pd.DataFrame({"sim_id": ["abcd1111", "abcd2222"], "name": ["a", "b"]})
 
+        def resolve(self, ref: str, *, project: str | None = None) -> str:
+            from hydromodpy.results.catalog import AmbiguousReferenceError
+
+            matches = [
+                s
+                for s in self.list_simulations()["sim_id"].astype(str)
+                if s.lower().startswith(ref.lower())
+            ]
+            if len(matches) > 1:
+                raise AmbiguousReferenceError(ref, [(m, None) for m in matches])
+            return matches[0]
+
     monkeypatch.setattr(
         "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
         lambda path: {"display": {}},
@@ -206,7 +224,9 @@ def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> N
     monkeypatch.setattr("hydromodpy.display.config.DisplayConfig", FakeDisplayConfig)
     monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
 
-    with pytest.raises(ValueError, match="ambiguous"):
+    from hydromodpy.results.catalog import AmbiguousReferenceError
+
+    with pytest.raises(AmbiguousReferenceError):
         viz_worker.render_gallery(config, sim_ref="abcd")
 
 

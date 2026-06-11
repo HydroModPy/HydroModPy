@@ -345,27 +345,29 @@ class SimulationConfig(HydroModelBase):
         )
 
     name: Annotated[str, Profile.USER] = Field(
-        default="", description="Human-readable simulation name."
-    )
-    run_id: Annotated[str, Profile.USER] = Field(
         default="",
         description=(
-            "Run identifier used as the output subfolder name under "
-            "results_simulations/. When empty, derived from the TOML "
-            "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
+            "Human-readable simulation name and the run's identity. When empty, "
+            "derived from the TOML filename at load time (run_steady_nwt.toml -> "
+            "steady_nwt); a programmatic run without a name gets a deterministic "
+            "memorable slug."
         ),
-        examples=["steady_nwt"],
+        examples=["cheze_baseline"],
     )
-    on_collision: Annotated[
+    tags: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description="Free-text tags attached at registration; editable later via 'hmp tag'.",
+    )
+    if_exists: Annotated[
         Literal["replace", "fail", "version"],
         Profile.USER,
     ] = Field(
-        default="replace",
+        default="version",
         description=(
-            "Behavior when registering a simulation whose ``name`` already "
-            "exists in this project. ``replace`` soft-replaces (the previous "
-            "sim keeps its UUID but loses its name), ``fail`` raises an "
-            "error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ..."
+            "Behavior when registering a simulation whose ``name`` already exists "
+            "in this project. ``version`` (default) mints the next ``stem.vN`` and "
+            "keeps every run addressable; ``replace`` trashes the predecessor "
+            "(restorable) and takes the name; ``fail`` raises an error."
         ),
     )
     description: Annotated[str, Profile.USER] = Field(

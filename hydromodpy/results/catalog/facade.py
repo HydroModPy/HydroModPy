@@ -103,6 +103,7 @@ class SimulationCatalog(
         catalog_path: Path | str | None = None,
         simulations_dir: Path | str | None = None,
         persistence: PersistenceConfig | None = None,
+        read_only: bool = False,
     ) -> None:
         root = Path(workspace_path).expanduser()
         if catalog_path is None and root.suffix == ".duckdb":
@@ -116,27 +117,57 @@ class SimulationCatalog(
                 else root / CATALOG_FILENAME
             )
 
+        self._read_only = read_only
         self._workspace = root
-        self._workspace.mkdir(parents=True, exist_ok=True)
         self._persistence = persistence or PersistenceConfig()
-
         self._db_path = catalog
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = connect_with_retry(str(self._db_path))
-        self._backend: CatalogBackend = DuckDBBackend.from_connection(self._db, path=self._db_path)
-
         self._simulations_dir = (
             Path(simulations_dir).expanduser().resolve()
             if simulations_dir is not None
             else self._workspace / SIMULATIONS_DIRNAME
         )
-        self._simulations_dir.mkdir(parents=True, exist_ok=True)
+
+        if read_only:
+            # Inspection path: open read-only, never mutate. No mkdir, no
+            # migration, no DDL persisted; views are session-local TEMPORARY.
+            if not self._db_path.is_file():
+                raise FileNotFoundError(
+                    f"No catalog at {self._db_path} to open read-only. "
+                    f"Run a workflow there first, or open writable with create."
+                )
+            self._db = connect_with_retry(str(self._db_path), read_only=True)
+            self._backend = DuckDBBackend.from_connection(self._db, path=self._db_path)
+            self._require_schema_current()
+        else:
+            self._workspace.mkdir(parents=True, exist_ok=True)
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._db = connect_with_retry(str(self._db_path))
+            self._backend = DuckDBBackend.from_connection(self._db, path=self._db_path)
+            self._simulations_dir.mkdir(parents=True, exist_ok=True)
+
         self._open_zarr_handles: list[SimulationZarr] = []
         self._paths = StoragePathResolver(self._backend, self._simulations_dir)
 
-        self._backend.ensure_schema()
-        ensure_parquet_views(self._db, self._simulations_dir)
-        ensure_views(self._db)
+        if read_only:
+            ensure_parquet_views(self._db, self._simulations_dir, temporary=True)
+            ensure_views(self._db, temporary=True)
+        else:
+            self._backend.ensure_schema()
+            ensure_parquet_views(self._db, self._simulations_dir)
+            ensure_views(self._db)
+
+    def _require_schema_current(self) -> None:
+        """Raise when a read-only open hits a catalog whose schema is behind."""
+        from hydromodpy.results.catalog.migrations import current_version, target_version
+        from hydromodpy.results.errors import SchemaVersionMismatchError
+
+        current = current_version(self._db)
+        target = target_version()
+        if current < target:
+            raise SchemaVersionMismatchError(
+                f"Catalog schema is at version {current} but the runtime expects "
+                f"{target}. Run `hmp doctor --migrate` to upgrade it."
+            )
 
     @classmethod
     def from_workspace(

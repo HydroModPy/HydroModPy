@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.results.catalog import SimulationNotFoundError
+from hydromodpy.results.catalog.constants import OUTLET_STATION
 from hydromodpy.results.run import Run
 
 from ._test_simulation_api_builders import _register, catalog
@@ -23,7 +25,7 @@ class TestCatalogQueryMethods:
         assert sim.sim_id == sid
 
     def test_getitem_not_found(self, catalog):
-        with pytest.raises(KeyError):
+        with pytest.raises(SimulationNotFoundError):
             _ = catalog["nonexistent"]
 
     def test_find_by_project(self, catalog):
@@ -51,9 +53,9 @@ class TestCatalogQueryMethods:
         s1 = _register(catalog)
         s2 = _register(catalog)
         s3 = _register(catalog)
-        catalog.write_metric(s1, "P01", "nse", 0.5)
-        catalog.write_metric(s2, "P01", "nse", 0.8)
-        catalog.write_metric(s3, "P01", "nse", 0.9)
+        catalog.write_metric(s1, OUTLET_STATION, "nse", 0.5)
+        catalog.write_metric(s2, OUTLET_STATION, "nse", 0.8)
+        catalog.write_metric(s3, OUTLET_STATION, "nse", 0.9)
         group = catalog.find(nse_gt=0.7)
         assert group.count == 2
 
@@ -92,8 +94,8 @@ class TestCatalogQueryMethods:
     def test_best(self, catalog):
         s1 = _register(catalog, project="p1")
         s2 = _register(catalog, project="p1")
-        catalog.write_metric(s1, "P01", "nse", 0.6)
-        catalog.write_metric(s2, "P01", "nse", 0.9)
+        catalog.write_metric(s1, OUTLET_STATION, "nse", 0.6)
+        catalog.write_metric(s2, OUTLET_STATION, "nse", 0.9)
         catalog.finalize(s1, "completed")
         catalog.finalize(s2, "completed")
         sim = catalog.best("p1", metric="nse")
