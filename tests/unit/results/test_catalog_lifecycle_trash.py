@@ -141,3 +141,93 @@ def test_find_excludes_trashed_by_default(catalog):
     assert live == {"b"}
     trashed = list(catalog.find(project="p", status="trashed"))
     assert len(trashed) == 1
+
+
+# ---------------------------------------------------------------------------
+# Journaled two-phase hard purge (crash safety)
+# ---------------------------------------------------------------------------
+
+
+def _give_storage(catalog, sid):
+    """Create real Parquet + Zarr storage for a sim and wire its zarr_path."""
+    pq = catalog.parquet_dir_for(sid)
+    pq.mkdir(parents=True, exist_ok=True)
+    (pq / "data.parquet").write_bytes(b"x")
+    zz = catalog.zarr_path_for(sid)
+    zz.mkdir(parents=True, exist_ok=True)
+    (zz / ".zgroup").write_text("{}")
+    rel = zz.relative_to(catalog._workspace)
+    catalog._backend.execute(
+        "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?", [str(rel), sid]
+    )
+    return pq, zz
+
+
+def _journal_phases(catalog, sid):
+    return [
+        r[0]
+        for r in catalog._backend.fetch_all(
+            "SELECT phase FROM purge_journal WHERE sim_id = ?", [sid]
+        )
+    ]
+
+
+def test_empty_trash_removes_storage_and_clears_journal(catalog):
+    sid = _register(catalog, "doomed")
+    pq, zz = _give_storage(catalog, sid)
+    catalog.trash(sid)
+
+    assert catalog.empty_trash() == [sid]
+    # bytes gone, row gone, journal empty -> nothing left behind, nothing dangling
+    assert not pq.exists()
+    assert not zz.exists()
+    assert _journal_phases(catalog, sid) == []
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+
+def test_purge_crash_before_cascade_leaves_reachable_state(catalog, monkeypatch):
+    """A crash after rmtree but before the row delete must leave the row + a
+    journal entry so no byte is orphaned and replay can finish."""
+    sid = _register(catalog, "doomed")
+    pq, zz = _give_storage(catalog, sid)
+    catalog.trash(sid)
+
+    def _boom(_sid):
+        raise RuntimeError("crash in phase 3")
+
+    monkeypatch.setattr(catalog, "_cascade_delete_rows", _boom)
+    with pytest.raises(RuntimeError, match="crash in phase 3"):
+        catalog.delete(sid, audit_event_type="sim.purge")
+
+    # bytes are gone (phase 2 ran) but the row survives and the journal records
+    # the in-flight purge -> the (now empty) storage location is still reachable
+    assert not pq.exists()
+    assert not zz.exists()
+    assert _journal_phases(catalog, sid) == ["rmtree_done"]
+    assert (
+        catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is not None
+    )
+
+    # gc-style replay finishes the purge: row gone, journal cleared
+    monkeypatch.undo()
+    assert catalog.replay_purge_journal() == [sid]
+    assert _journal_phases(catalog, sid) == []
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+
+def test_replay_finishes_a_pending_purge_with_storage_intact(catalog):
+    """A crash right after phase 1 leaves storage on disk; replay removes it."""
+    sid = _register(catalog, "doomed")
+    pq, zz = _give_storage(catalog, sid)
+    catalog.trash(sid)
+    # simulate a phase-1-only crash: journal 'pending', storage + row intact
+    catalog._backend.execute(
+        "INSERT INTO purge_journal (sim_id, phase) VALUES (?, 'pending')", [sid]
+    )
+    assert pq.exists() and zz.exists()
+
+    assert catalog.replay_purge_journal() == [sid]
+    assert not pq.exists()
+    assert not zz.exists()
+    assert _journal_phases(catalog, sid) == []
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None

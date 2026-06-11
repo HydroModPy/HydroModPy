@@ -262,44 +262,33 @@ class LifecycleMixin:
     ) -> None:
         """Delete a simulation row and (optionally) its on-disk artefacts.
 
-        Cascades the delete across every per-sim DuckDB table and removes
-        the per-sim Parquet directory and Zarr store when
-        ``remove_storage`` is true. Emits one ``audit_log`` row in the same
-        transaction; callers (notably ``hmp privacy purge``) override
-        ``audit_event_type`` to ``"sim.purge"`` to distinguish a hard purge
-        from a routine delete.
+        With ``remove_storage`` true (the default) the hard purge is
+        crash-safe: it journals the intent (``purge_journal`` phase
+        ``pending`` + a ``sim.purge.begin`` audit row), removes the bytes,
+        then cascade-deletes every per-sim DuckDB table and clears the
+        journal in a final transaction tagged with ``audit_event_type``
+        (``sim.delete`` for routine deletes, ``sim.purge`` for
+        ``hmp privacy purge``). Because the simulation row survives until
+        that last commit, no delete/crash sequence can leave a byte under
+        ``simulations/`` unreachable: any interrupted purge leaves a
+        ``purge_journal`` row that :meth:`replay_purge_journal` finishes.
+
+        With ``remove_storage`` false there is nothing on disk to orphan, so
+        the cascade runs in a single transaction with one audit row.
         """
         sid = str(sim_id)
+        if remove_storage:
+            self._purge_with_journal(sid, audit_event_type, audit_payload)
+            return
 
-        row = self._backend.fetch_one(
-            "SELECT zarr_path, project FROM simulations WHERE sim_id = ?",
-            [sid],
-        )
-        # Resolve artefact paths while the row still exists so basename lookup
-        # works; clearing the cache and deleting the row first would push
-        # resolution onto the raw-UUID fallback and miss the real folder.
-        parquet_dir = self._paths.parquet_dir_for(sid) if remove_storage else None
-        zarr_abs = self._workspace / row[0] if remove_storage and row and row[0] else None
-        project_name = row[1] if row else None
+        row = self._backend.fetch_one("SELECT project FROM simulations WHERE sim_id = ?", [sid])
+        project_name = row[0] if row else None
         self._paths.forget(sid)
-
-        payload: dict = {"remove_storage": bool(remove_storage)}
+        payload: dict = {"remove_storage": False}
         if audit_payload:
             payload.update(audit_payload)
-
-        # Transactional block driven by the backend port. ``emit_audit_event``
-        # still takes the raw DuckDB connection because the audit module
-        # stays DuckDB-flavoured (hash-chain over the same connection); the
-        # transaction itself is now port-driven, so the rollback path goes
-        # through CatalogBackend.transaction() on a single shared connection.
         with self._backend.transaction():
-            for table in PER_SIM_TABLE_NAMES:
-                self._backend.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-            self._backend.execute(
-                "DELETE FROM calibration_iterations WHERE sim_id = ?",
-                [sid],
-            )
-            self._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+            self._cascade_delete_rows(sid)
             emit_audit_event(
                 self._db,
                 event_type=audit_event_type,  # type: ignore[arg-type]
@@ -308,6 +297,15 @@ class LifecycleMixin:
                 payload=payload,
             )
 
+    def _cascade_delete_rows(self, sid: str) -> None:
+        """Delete every per-sim row (12 tables + calibration). Caller owns the tx."""
+        for table in PER_SIM_TABLE_NAMES:
+            self._backend.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+        self._backend.execute("DELETE FROM calibration_iterations WHERE sim_id = ?", [sid])
+        self._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+
+    def _remove_sim_storage(self, parquet_dir, zarr_abs) -> None:
+        """Idempotently remove the per-sim Parquet dir and Zarr store."""
         if parquet_dir is not None and parquet_dir.is_dir():
             try:
                 shutil.rmtree(parquet_dir)
@@ -316,7 +314,6 @@ class LifecycleMixin:
             # Refresh views so a workspace whose last per-sim Parquet file
             # was just removed drops back to the empty-typed view form.
             ensure_parquet_views(self._db, self._simulations_dir)
-
         if zarr_abs is not None:
             if zarr_abs.is_file():
                 zarr_abs.unlink(missing_ok=True)
@@ -325,6 +322,100 @@ class LifecycleMixin:
                     shutil.rmtree(zarr_abs)
                 except OSError as exc:
                     raise RuntimeError(f"Could not remove Zarr directory: {zarr_abs}") from exc
+
+    def _purge_with_journal(
+        self, sid: str, audit_event_type: str, audit_payload: dict | None
+    ) -> None:
+        """Crash-safe two-phase hard purge (journal -> rmtree -> cascade)."""
+        row = self._backend.fetch_one(
+            "SELECT zarr_path, project FROM simulations WHERE sim_id = ?", [sid]
+        )
+        if row is None:
+            # Row already gone: clear any dangling journal entry and stop.
+            with self._backend.transaction():
+                self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
+            return
+
+        # Resolve artefact paths while the row still exists so basename lookup
+        # works; clearing the cache first would miss the real folder.
+        parquet_dir = self._paths.parquet_dir_for(sid)
+        zarr_abs = self._workspace / row[0] if row[0] else None
+        project_name = row[1]
+        payload: dict = {"remove_storage": True}
+        if audit_payload:
+            payload.update(audit_payload)
+
+        # Phase 1: journal the intent and commit. Row + bytes still present, so
+        # a crash here leaves a restorable row plus a 'pending' journal entry.
+        with self._backend.transaction():
+            self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
+            self._backend.execute(
+                "INSERT INTO purge_journal (sim_id, phase) VALUES (?, 'pending')", [sid]
+            )
+            emit_audit_event(
+                self._db,
+                event_type="sim.purge.begin",
+                sim_id=sid,
+                project=project_name,
+                payload=payload,
+            )
+
+        # Phase 2: remove the bytes (idempotent) and mark the journal.
+        self._remove_sim_storage(parquet_dir, zarr_abs)
+        with self._backend.transaction():
+            self._backend.execute(
+                "UPDATE purge_journal SET phase = 'rmtree_done' WHERE sim_id = ?", [sid]
+            )
+
+        # Phase 3: cascade-delete the rows and clear the journal atomically.
+        self._paths.forget(sid)
+        with self._backend.transaction():
+            self._cascade_delete_rows(sid)
+            self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
+            emit_audit_event(
+                self._db,
+                event_type=audit_event_type,  # type: ignore[arg-type]
+                sim_id=sid,
+                project=project_name,
+                payload=payload,
+            )
+
+    @with_lock_retry()
+    def replay_purge_journal(self) -> list[str]:
+        """Finish any interrupted hard purge. Returns the resolved sim_ids.
+
+        Idempotent crash recovery: for every ``purge_journal`` row, remove the
+        bytes (skipped when phase is already ``rmtree_done``), then cascade the
+        row delete and clear the journal. Run by ``gc``.
+        """
+        rows = self._backend.fetch_all("SELECT CAST(sim_id AS VARCHAR), phase FROM purge_journal")
+        resolved: list[str] = []
+        for sid, phase in rows:
+            sim_row = self._backend.fetch_one(
+                "SELECT zarr_path, project FROM simulations WHERE sim_id = ?", [sid]
+            )
+            if sim_row is None:
+                with self._backend.transaction():
+                    self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
+                resolved.append(sid)
+                continue
+            parquet_dir = self._paths.parquet_dir_for(sid)
+            zarr_abs = self._workspace / sim_row[0] if sim_row[0] else None
+            if phase != "rmtree_done":
+                self._remove_sim_storage(parquet_dir, zarr_abs)
+            self._paths.forget(sid)
+            with self._backend.transaction():
+                self._cascade_delete_rows(sid)
+                self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
+                emit_audit_event(
+                    self._db,
+                    event_type="sim.purge.commit",
+                    sim_id=sid,
+                    project=sim_row[1],
+                    payload={"replayed": True},
+                )
+            resolved.append(sid)
+        return resolved
 
     def _is_pinned(self, sim_id: str | UUID) -> bool:
         """Return True when ``sim_id`` carries the reserved ``pinned`` tag."""
@@ -424,8 +515,10 @@ class LifecycleMixin:
     def empty_trash(self, *, force: bool = False) -> list[str]:
         """Hard-delete every trashed run, returning the purged sim_ids.
 
-        Pinned runs are skipped unless ``force``. Each purge goes through
-        :meth:`delete` (cascade + storage removal) with a ``sim.purge`` audit.
+        Pinned runs are skipped unless ``force``. Each purge goes through the
+        crash-safe two-phase :meth:`delete` (journal -> rmtree -> cascade) with
+        a ``sim.purge`` commit audit. An interrupted purge is finished by
+        :meth:`replay_purge_journal`.
         """
         purged: list[str] = []
         for entry in self.list_trash():
