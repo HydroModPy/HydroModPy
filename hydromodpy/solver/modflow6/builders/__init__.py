@@ -61,6 +61,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     package_unit_conversions,
     resolve_forcing_mode,
     resolve_use_ts6,
+    sto_period_settings,
     ts6_times_and_values,
 )
 from hydromodpy.solver.modflow6.builders.recharge import (
@@ -200,6 +201,7 @@ __all__ = [
     "sfr_drain_cells_to_drop",
     "sfr_routes_drainage",
     "side_boundary_cell_ids",
+    "sto_period_settings",
     "stream_chd_support_mask",
     "ts6_times_and_values",
     "well_cell_to_disv",

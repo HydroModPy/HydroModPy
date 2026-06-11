@@ -412,22 +412,31 @@ def build_drain_stress_period_data(
     return drn_spd
 
 
-def collapse_identical_periods(
-    spd: dict[int, list[list[float]]],
-) -> dict[int, list[list[float]]]:
-    """Drop stress periods whose list data equals the previous emitted period.
+def _period_payloads_equal(left: object, right: object) -> bool:
+    """Compare two stress-period payloads (row lists or array data)."""
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        return np.array_equal(np.asarray(left), np.asarray(right))
+    return bool(left == right)
 
-    MF6 reuses the most recently specified stress_period_data, so emitting only
-    the periods where a boundary changes (period 0 always) is equivalent to
-    repeating it and avoids rewriting a static boundary for every period.
+
+def collapse_identical_periods(spd: dict[int, object]) -> dict[int, object]:
+    """Drop stress periods whose payload equals the previous emitted period.
+
+    MF6 reuses the most recently specified PERIOD data, so emitting only the
+    periods where the payload changes (period 0 always) is equivalent to
+    repeating it. Handles list rows and array payloads alike; fewer blocks
+    also keeps FloPy's per-period block-header bookkeeping (quadratic in the
+    number of provided periods) off long daily chronicles.
     """
-    collapsed: dict[int, list[list[float]]] = {}
-    previous: list[list[float]] | None = None
+    collapsed: dict[int, object] = {}
+    previous: object = None
+    has_previous = False
     for kper in sorted(spd):
-        cells = spd[kper]
-        if previous is None or cells != previous:
-            collapsed[kper] = cells
-        previous = cells
+        payload = spd[kper]
+        if not has_previous or not _period_payloads_equal(previous, payload):
+            collapsed[kper] = payload
+        previous = payload
+        has_previous = True
     return collapsed
 
 

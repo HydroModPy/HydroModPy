@@ -511,7 +511,13 @@ def mask_recharge_on_lake_cells(
 
 
 def empty_recharge_aux(model) -> dict[int, list[np.ndarray]]:
-    return {k: [np.zeros(int(model.ncpl), dtype=float)] for k in range(int(model.nper))}
+    """Zero AUX concentration for period 0 only; MF6 repeats the last block.
+
+    A single block keeps FloPy's per-period block-header bookkeeping (quadratic
+    in the number of provided periods) out of long daily chronicles. Transport
+    runs overwrite the data through ``rch.aux.set_data``.
+    """
+    return {0: [np.zeros(int(model.ncpl), dtype=float)]}
 
 
 def finalize_pending_recharge_evt(model) -> None:

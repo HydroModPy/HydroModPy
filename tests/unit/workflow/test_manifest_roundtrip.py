@@ -333,6 +333,28 @@ def test_verify_state_rejects_changed_config_hash():
         manifest.verify_state(mutated, _steps(), None)
 
 
+def test_workflow_profile_does_not_change_config_hash():
+    """Toggling [workflow].profile must not invalidate an existing checkpoint."""
+    base = _make_state(raw_toml={"workflow": {"mode": "simulation"}, "flow": {"k": 1.0}})
+    profiled = _make_state(
+        raw_toml={"workflow": {"mode": "simulation", "profile": True}, "flow": {"k": 1.0}}
+    )
+    m_base = ResolvedRunManifest.from_state(base, _steps(), workspace=None)
+    m_profiled = ResolvedRunManifest.from_state(profiled, _steps(), workspace=None)
+    assert m_base.config_sha256 == m_profiled.config_sha256
+    # Resume works across the toggle, in both directions.
+    m_base.verify_state(profiled, _steps(), None)
+    m_profiled.verify_state(base, _steps(), None)
+
+
+def test_workflow_mode_change_still_invalidates_resume():
+    a = _make_state(raw_toml={"workflow": {"mode": "simulation", "profile": True}})
+    b = _make_state(raw_toml={"workflow": {"mode": "overview", "profile": True}})
+    manifest = ResolvedRunManifest.from_state(a, _steps(), workspace=None)
+    with pytest.raises(ResumeError, match="Resolved configuration changed"):
+        manifest.verify_state(b, _steps(), None)
+
+
 def test_verify_state_skips_hash_when_manifest_hash_none():
     """No recorded hash means no config-change enforcement."""
     state = _make_state(raw_toml=None, config_path=None)

@@ -180,8 +180,7 @@ def _require_pyinstrument() -> None:
         import pyinstrument  # noqa: F401
     except ImportError:
         print(
-            "pyinstrument is required for --profile. "
-            "Install it with: pip install 'hydromodpy[profiling]'",
+            "pyinstrument is required for --profile. Install it with: pip install pyinstrument",
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)

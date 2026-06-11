@@ -127,21 +127,12 @@ def _head_shape(sim_zarr: SimulationZarr) -> tuple[int, int, int]:
     return n_timesteps, n_layers, n_cells
 
 
-def _write_derived(
+def _write_derived_stack(
     sim_zarr: SimulationZarr,
     variable: str,
-    timestep: int,
     values: np.ndarray,
-    *,
-    n_timesteps: int | None,
 ) -> None:
-    sim_zarr.write_field(
-        variable,
-        timestep,
-        values,
-        n_timesteps=n_timesteps,
-        subgroup="derived",
-    )
+    sim_zarr.write_field_stack(variable, values, subgroup="derived")
 
 
 # ---------------------------------------------------------------------------
@@ -172,20 +163,15 @@ def _run_watertable_elevation(sim_zarr: SimulationZarr) -> DerivedResult:
             status="skipped",
             reason="mesh surface elevation unavailable",
         )
-    head_arr = sim_zarr.root["head"]
+    head_stack = np.asarray(sim_zarr.root["head"][:], dtype="float64")[:n_timesteps]
+    wt_stack = np.empty((n_timesteps, n_cells), dtype="float64")
     for t in range(n_timesteps):
-        head_t = np.asarray(head_arr[t], dtype="float64")
+        head_t = head_stack[t]
         if head_t.ndim == 2:
             head_t = head_t.reshape(n_layers, n_cells)
         wt = _pure.watertable_elevation(head_t, top)
-        wt = np.asarray(wt, dtype="float64").ravel()[:n_cells]
-        _write_derived(
-            sim_zarr,
-            "watertable_elevation",
-            t,
-            wt,
-            n_timesteps=n_timesteps if t == 0 else None,
-        )
+        wt_stack[t] = np.asarray(wt, dtype="float64").ravel()[:n_cells]
+    _write_derived_stack(sim_zarr, "watertable_elevation", wt_stack)
     return DerivedResult(name="watertable_elevation", status="computed")
 
 
@@ -205,17 +191,10 @@ def _run_watertable_depth(sim_zarr: SimulationZarr) -> DerivedResult:
             status="skipped",
             reason="watertable_elevation missing",
         )
-    wt_arr = derived_grp["watertable_elevation"]
-    for t in range(n_timesteps):
-        wt = np.asarray(wt_arr[t], dtype="float64").ravel()[:n_cells]
-        depth = np.maximum(top - wt, 0.0)
-        _write_derived(
-            sim_zarr,
-            "watertable_depth",
-            t,
-            depth,
-            n_timesteps=n_timesteps if t == 0 else None,
-        )
+    wt_stack = np.asarray(derived_grp["watertable_elevation"][:], dtype="float64")
+    wt_stack = wt_stack.reshape(wt_stack.shape[0], -1)[:n_timesteps, :n_cells]
+    depth = np.maximum(top[None, :] - wt_stack, 0.0)
+    _write_derived_stack(sim_zarr, "watertable_depth", depth)
     return DerivedResult(name="watertable_depth", status="computed")
 
 
@@ -235,27 +214,20 @@ def _run_seepage_mask(sim_zarr: SimulationZarr) -> DerivedResult:
             status="skipped",
             reason="watertable_elevation missing",
         )
-    wt_arr = derived_grp["watertable_elevation"]
-    for t in range(n_timesteps):
-        wt = np.asarray(wt_arr[t], dtype="float64").ravel()[:n_cells]
-        surface_excess_mask = _surface_excess_seepage_mask(sim_zarr, t, n_cells)
-        if surface_excess_mask is not None:
-            mask = surface_excess_mask
-        else:
-            mask = wt >= top
-        _write_derived(
-            sim_zarr,
-            "seepage_mask",
-            t,
-            mask.astype("float64"),
-            n_timesteps=n_timesteps if t == 0 else None,
-        )
+    wt_stack = np.asarray(derived_grp["watertable_elevation"][:], dtype="float64")
+    wt_stack = wt_stack.reshape(wt_stack.shape[0], -1)[:n_timesteps, :n_cells]
+    surface_excess_mask = _surface_excess_seepage_stack(sim_zarr, n_timesteps, n_cells)
+    if surface_excess_mask is not None:
+        mask = surface_excess_mask
+    else:
+        mask = wt_stack >= top[None, :]
+    _write_derived_stack(sim_zarr, "seepage_mask", mask.astype("float64"))
     return DerivedResult(name="seepage_mask", status="computed")
 
 
-def _surface_excess_seepage_mask(
+def _surface_excess_seepage_stack(
     sim_zarr: SimulationZarr,
-    timestep: int,
+    n_timesteps: int,
     n_cells: int,
 ) -> np.ndarray | None:
     """Return seepage cells declared by solver surface-excess fields.
@@ -268,13 +240,13 @@ def _surface_excess_seepage_mask(
     """
     derived_grp = sim_zarr.root.get("derived")
     if derived_grp is not None and "seepage_rate" in derived_grp:
-        rate = np.asarray(derived_grp["seepage_rate"][timestep], dtype="float64")
-        return np.asarray(rate).reshape(-1)[:n_cells] > 0.0
+        rate = np.asarray(derived_grp["seepage_rate"][:], dtype="float64")
+        return rate.reshape(rate.shape[0], -1)[:n_timesteps, :n_cells] > 0.0
 
     budget_grp = sim_zarr.root.get("budget")
     if budget_grp is not None and "surface_excess" in budget_grp:
-        flux = np.asarray(budget_grp["surface_excess"][timestep], dtype="float64")
-        return np.asarray(flux).reshape(-1)[:n_cells] > 0.0
+        flux = np.asarray(budget_grp["surface_excess"][:], dtype="float64")
+        return flux.reshape(flux.shape[0], -1)[:n_timesteps, :n_cells] > 0.0
 
     return None
 
@@ -309,21 +281,12 @@ def _run_fluxes_from_budget(sim_zarr: SimulationZarr) -> DerivedResult:
             status="skipped",
             reason="no known budget component to normalise",
         )
-    comp_arr = budget_grp[component_name]
-    for t in range(n_timesteps):
-        field = np.asarray(comp_arr[t], dtype="float64")
-        if field.ndim == 2:
-            field = field.sum(axis=0)
-        field = field.ravel()[:n_cells]
-        flux = _pure.fluxes_from_budget(field, area)
-        flux = np.asarray(flux, dtype="float64").ravel()[:n_cells]
-        _write_derived(
-            sim_zarr,
-            "fluxes_from_budget",
-            t,
-            flux,
-            n_timesteps=n_timesteps if t == 0 else None,
-        )
+    comp_stack = np.asarray(budget_grp[component_name][:], dtype="float64")[:n_timesteps]
+    if comp_stack.ndim == 3:
+        comp_stack = comp_stack.sum(axis=1)
+    comp_stack = comp_stack.reshape(comp_stack.shape[0], -1)[:, :n_cells]
+    flux = np.asarray(_pure.fluxes_from_budget(comp_stack, area), dtype="float64")
+    _write_derived_stack(sim_zarr, "fluxes_from_budget", flux[:, :n_cells])
     return DerivedResult(name="fluxes_from_budget", status="computed")
 
 

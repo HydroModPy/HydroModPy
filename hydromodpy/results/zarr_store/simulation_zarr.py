@@ -232,6 +232,25 @@ class SimulationZarr:
             subgroup=subgroup,
         )
 
+    def write_field_stack(
+        self,
+        variable: str,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        timestep_offset: int = 0,
+        subgroup: str | None = None,
+    ) -> None:
+        """Write a full ``(time, ...)`` stack of ``variable`` in one batched call."""
+        zarr_writer.write_field_stack(
+            self,
+            variable,
+            values,
+            n_timesteps=n_timesteps,
+            timestep_offset=timestep_offset,
+            subgroup=subgroup,
+        )
+
     def read_field(
         self,
         variable: str,

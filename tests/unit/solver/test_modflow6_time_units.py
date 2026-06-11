@@ -37,6 +37,12 @@ class _FakeStore:
     def write_field(self, sim_id, name, t, values, n_timesteps=None, subgroup=None) -> None:
         self.fields.append((name, t, np.asarray(values)))
 
+    def write_field_stack(
+        self, sim_id, name, values, *, n_timesteps=None, timestep_offset=0, subgroup=None
+    ) -> None:
+        for offset, row in enumerate(np.asarray(values)):
+            self.fields.append((name, timestep_offset + offset, row))
+
     def write_budgets(self, sim_id, records) -> None:
         self.budgets = records
 
