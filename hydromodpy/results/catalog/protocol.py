@@ -131,6 +131,18 @@ class SimulationStore(Protocol):
     ) -> None:
         """Persist a 2D / 3D field array slice for ``sim_id`` at ``timestep``."""
 
+    def write_field_stack(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        timestep_offset: int = 0,
+        subgroup: str | None = None,
+    ) -> None:
+        """Persist a full ``(time, ...)`` field stack for ``sim_id`` in one call."""
+
     def write_time(
         self,
         sim_id: str | UUID,

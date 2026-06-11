@@ -337,6 +337,81 @@ def write_crs(
 # -- Fields ------------------------------------------------------------------
 
 
+def _field_target(store_obj: SimulationZarr, subgroup: str | None) -> zarr.Group:
+    """Return the group holding field arrays, creating ``subgroup`` if needed."""
+    if not subgroup:
+        return store_obj._root
+    if subgroup not in store_obj._root:
+        ensure_child_dir(store_obj, store_obj._root, subgroup)
+        store_obj._root.create_group(subgroup)
+    return store_obj._root[subgroup]
+
+
+def _create_field_array(
+    store_obj: SimulationZarr,
+    target: zarr.Group,
+    variable: str,
+    *,
+    n_timesteps: int,
+    per_step_shape: tuple[int, ...],
+    dtype: np.dtype,
+) -> None:
+    """Create the (time, ...) array for ``variable`` with balanced chunks/shards."""
+    itemsize = int(np.dtype(dtype).itemsize)
+    if len(per_step_shape) == 1:
+        n_layers, n_cells = 1, int(per_step_shape[0])
+        full_shape: tuple[int, ...] = (int(n_timesteps), n_cells)
+        if store_obj._balanced:
+            chunk_shape: tuple[int, ...] = compute_balanced_chunks_1d(
+                int(n_timesteps), n_cells, itemsize
+            )
+        else:
+            chunk_shape = (1, n_cells)
+    elif len(per_step_shape) == 2:
+        n_layers, n_cells = int(per_step_shape[0]), int(per_step_shape[1])
+        full_shape = (int(n_timesteps), n_layers, n_cells)
+        if store_obj._balanced:
+            chunk_shape = compute_balanced_chunks_2d(int(n_timesteps), n_layers, n_cells, itemsize)
+        else:
+            chunk_shape = (1, n_layers, n_cells)
+    else:
+        raise ValueError(f"Expected 1D or 2D per-step values, got shape {per_step_shape}")
+
+    ensure_child_dir(store_obj, target, variable)
+    shards = maybe_shards(
+        len(per_step_shape),
+        int(n_timesteps),
+        chunk_shape,
+        itemsize,
+        n_layers=n_layers,
+        n_cells=n_cells,
+    )
+    create_kwargs: dict[str, Any] = dict(
+        shape=full_shape,
+        chunks=chunk_shape,
+        dtype=dtype,
+        compressors=BLOSC_ZSTD,
+        fill_value=float("nan"),
+        overwrite=True,
+    )
+    if shards is not None:
+        try:
+            target.create_array(variable, shards=shards, **create_kwargs)
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                "ShardingCodec unavailable for %s (shape=%s, "
+                "shard=%s): %s. Falling back to plain chunks.",
+                variable,
+                full_shape,
+                shards,
+                exc,
+            )
+            target.create_array(variable, **create_kwargs)
+    else:
+        target.create_array(variable, **create_kwargs)
+    attach_field_attrs(target, variable)
+
+
 def write_field(
     store_obj: SimulationZarr,
     variable: str,
@@ -348,79 +423,78 @@ def write_field(
 ) -> None:
     """Append one timestep slice to ``variable`` under ``subgroup`` or root."""
     with store_obj._guard_write():
-        if subgroup:
-            if subgroup not in store_obj._root:
-                ensure_child_dir(store_obj, store_obj._root, subgroup)
-                store_obj._root.create_group(subgroup)
-            target = store_obj._root[subgroup]
-        else:
-            target = store_obj._root
-
+        target = _field_target(store_obj, subgroup)
         values = np.asarray(values)
-        itemsize = int(values.dtype.itemsize)
-        if values.ndim == 1:
-            n_cells = int(values.shape[0])
-            full_shape = (int(n_timesteps), n_cells) if n_timesteps is not None else None
-            if store_obj._balanced and n_timesteps is not None:
-                chunk_shape: tuple[int, ...] = compute_balanced_chunks_1d(
-                    int(n_timesteps), n_cells, itemsize
-                )
-            else:
-                chunk_shape = (1, n_cells)
-        elif values.ndim == 2:
-            n_layers, n_cells = int(values.shape[0]), int(values.shape[1])
-            full_shape = (int(n_timesteps), n_layers, n_cells) if n_timesteps is not None else None
-            if store_obj._balanced and n_timesteps is not None:
-                chunk_shape = compute_balanced_chunks_2d(
-                    int(n_timesteps), n_layers, n_cells, itemsize
-                )
-            else:
-                chunk_shape = (1, n_layers, n_cells)
-        else:
+        if values.ndim not in (1, 2):
             raise ValueError(f"Expected 1D or 2D values, got shape {values.shape}")
 
         if variable not in target:
             if n_timesteps is None:
                 raise ValueError(f"n_timesteps required on first write of '{variable}'")
-            ensure_child_dir(store_obj, target, variable)
-            shards = maybe_shards(
-                values.ndim,
-                int(n_timesteps),
-                chunk_shape,
-                itemsize,
-                n_layers=n_layers if values.ndim == 2 else 1,
-                n_cells=n_cells,
-            )
-            create_kwargs: dict[str, Any] = dict(
-                shape=full_shape,
-                chunks=chunk_shape,
+            _create_field_array(
+                store_obj,
+                target,
+                variable,
+                n_timesteps=int(n_timesteps),
+                per_step_shape=tuple(int(s) for s in values.shape),
                 dtype=values.dtype,
-                compressors=BLOSC_ZSTD,
-                fill_value=float("nan"),
-                overwrite=True,
             )
-            if shards is not None:
-                try:
-                    target.create_array(variable, shards=shards, **create_kwargs)
-                except (TypeError, ValueError) as exc:
-                    logger.warning(
-                        "ShardingCodec unavailable for %s (shape=%s, "
-                        "shard=%s): %s. Falling back to plain chunks.",
-                        variable,
-                        full_shape,
-                        shards,
-                        exc,
-                    )
-                    target.create_array(variable, **create_kwargs)
-            else:
-                target.create_array(variable, **create_kwargs)
-            attach_field_attrs(target, variable)
 
         arr = target[variable]
         if values.ndim == 1:
             arr[int(timestep), :] = values
         else:
             arr[int(timestep), :, :] = values
+
+
+def write_field_stack(
+    store_obj: SimulationZarr,
+    variable: str,
+    values: np.ndarray,
+    *,
+    n_timesteps: int | None = None,
+    timestep_offset: int = 0,
+    subgroup: str | None = None,
+) -> None:
+    """Write a ``(time, ...)`` stack of ``variable`` in one batched call.
+
+    Batched writes encode each chunk/shard once. Per-timestep writes into a
+    sharded array trigger one read-modify-write of a whole multi-MB shard per
+    timestep, which dominated long transient extractions. Use
+    ``timestep_offset`` with a total ``n_timesteps`` to stream large arrays in
+    time slabs without holding the full stack in memory.
+    """
+    with store_obj._guard_write():
+        target = _field_target(store_obj, subgroup)
+        values = np.asarray(values)
+        if values.ndim not in (2, 3):
+            raise ValueError(f"Expected a (time, ...) stack, got shape {values.shape}")
+
+        offset = int(timestep_offset)
+        total = int(n_timesteps) if n_timesteps is not None else offset + int(values.shape[0])
+        if offset + int(values.shape[0]) > total:
+            raise ValueError(
+                f"Stack slab [{offset}:{offset + int(values.shape[0])}] exceeds "
+                f"n_timesteps={total} for '{variable}'."
+            )
+
+        per_step_shape = tuple(int(s) for s in values.shape[1:])
+        full_shape = (total, *per_step_shape)
+        existing = target.get(variable)
+        if existing is None or tuple(int(s) for s in existing.shape) != full_shape:
+            if offset != 0:
+                raise ValueError(f"First slab of '{variable}' must start at timestep_offset=0.")
+            _create_field_array(
+                store_obj,
+                target,
+                variable,
+                n_timesteps=total,
+                per_step_shape=per_step_shape,
+                dtype=values.dtype,
+            )
+
+        arr = target[variable]
+        arr[offset : offset + int(values.shape[0])] = values
 
 
 # -- Forcing -----------------------------------------------------------------

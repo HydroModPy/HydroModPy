@@ -55,6 +55,30 @@ class WritesMixinZarr:
         finally:
             sz.close()
 
+    def write_field_stack(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        timestep_offset: int = 0,
+        subgroup: str | None = None,
+    ) -> None:
+        if not self._persistence.save_zarr:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            sz.write_field_stack(
+                variable,
+                values,
+                n_timesteps=n_timesteps,
+                timestep_offset=timestep_offset,
+                subgroup=subgroup,
+            )
+        finally:
+            sz.close()
+
     def write_time(
         self,
         sim_id: str | UUID,
