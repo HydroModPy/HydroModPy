@@ -355,15 +355,41 @@ def delete_simulation(
         }
 
 
-def _open_project_catalog(workspace: Any) -> Any:
-    """Open the writable project catalog at ``workspace`` or raise."""
+def _open_project_catalog(workspace: Any, *, read_only: bool = False) -> Any:
+    """Open the project catalog at ``workspace`` or raise."""
     from hydromodpy.core.state.paths import CATALOG_FILENAME
     from hydromodpy.results.catalog import SimulationCatalog
 
     root = Path(workspace).expanduser().resolve()
     if not (root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {root}")
-    return SimulationCatalog(root)
+    return SimulationCatalog(root, read_only=read_only)
+
+
+def rerun_simulation(
+    sim_ref: str,
+    *,
+    workspace: Any,
+    overrides: dict | None = None,
+    name: str | None = None,
+) -> dict:
+    """Re-launch a run from its config snapshot with dotted-path overrides.
+
+    Reads the snapshot through a short-lived read-only catalog (closed before
+    launching) so the fresh run's writable catalog never contends in-process.
+    """
+    from hydromodpy.results.rerun_contract import get_rerun_provider
+
+    with _open_project_catalog(workspace, read_only=True) as catalog:
+        sid = catalog.resolve(sim_ref)
+        run = catalog[sid]
+        snapshot = run.config_snapshot
+        base_name = run.name
+    if snapshot is None:
+        raise ValueError(f"Run {sid[:8]} has no config snapshot; cannot rerun.")
+    new_name = name or (f"{base_name}_rerun" if base_name else None)
+    new_sid = get_rerun_provider().rerun(snapshot, overrides=overrides or {}, name=new_name)
+    return {"sim_id": str(new_sid), "name": new_name}
 
 
 def tag_simulation(

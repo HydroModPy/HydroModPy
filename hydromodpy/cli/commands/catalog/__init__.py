@@ -30,6 +30,7 @@ from hydromodpy.cli.commands.catalog import (
     note,
     query,
     rename,
+    rerun,
     restore,
     show,
     tag,
@@ -57,6 +58,7 @@ ACTIONS = (
     watch,
     export,
     import_archive,
+    rerun,
 )
 
 

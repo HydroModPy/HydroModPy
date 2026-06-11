@@ -123,6 +123,14 @@ def _register_calibration_contracts() -> None:
     register_trial_promotion_provider(ProjectTrialPromotionProvider())
 
 
+def _register_rerun_provider() -> None:
+    """Wire the Project-backed rerun provider used by ``catalog.rerun``."""
+    from hydromodpy.project.dispatch.rerun import ProjectRerunProvider
+    from hydromodpy.results.rerun_contract import register_rerun_provider
+
+    register_rerun_provider(ProjectRerunProvider())
+
+
 def _register_solver_registry_provider() -> None:
     """Wire a single solver-registry provider for simulation and analysis.
 
@@ -234,6 +242,7 @@ _BOOTSTRAP_HOOKS: tuple[Callable[[], None], ...] = (
     _register_physics_contracts,
     _register_spatial_contracts,
     _register_calibration_contracts,
+    _register_rerun_provider,
     _register_solver_registry_provider,
     _register_analysis_contracts,
     _rebuild_forward_refs,
