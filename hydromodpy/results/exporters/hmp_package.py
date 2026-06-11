@@ -833,12 +833,11 @@ def import_hmp_package(
             _restore_catalog_snapshot(catalog.connection, snap_path)
             workspace = catalog.workspace_path
             row = catalog.backend.fetch_one(
-                "SELECT project, name FROM simulations WHERE sim_id = ?",
+                "SELECT project FROM simulations WHERE sim_id = ?",
                 [sid],
             )
             project_final = row[0] if row else None
-            name_final = row[1] if row else None
-            basename = build_storage_basename(project_final, name_final, sid)
+            basename = build_storage_basename(project_final, sid)
             zarr_path = f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_ZIP_SUFFIX}"
             catalog.backend.execute(
                 "UPDATE simulations SET zarr_path = ?, storage_basename = ? WHERE sim_id = ?",

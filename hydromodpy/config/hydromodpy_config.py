@@ -107,8 +107,8 @@ class WorkflowConfig(HydroModelBase):
     )
 
 
-def _derive_run_id_from_filename(toml_path: Path) -> str:
-    """Derive a run_id from a TOML filename.
+def _derive_name_from_filename(toml_path: Path) -> str:
+    """Derive a simulation name from a TOML filename.
 
     ``run_steady_nwt.toml`` -> ``steady_nwt``
     ``config.toml`` -> ``config``
@@ -423,9 +423,9 @@ class HydroModPyConfig(HydroModelBase):
             message = format_validation_error(exc, source_path=toml_path)
             raise ValueError(message) from exc
 
-        # Derive run_id from TOML filename if not set explicitly.
-        if not cfg.simulation.run_id:
-            cfg.simulation.run_id = _derive_run_id_from_filename(toml_path)
+        # Derive the simulation name from the TOML filename if not set explicitly.
+        if not cfg.simulation.name:
+            cfg.simulation.name = _derive_name_from_filename(toml_path)
 
         return cfg
 

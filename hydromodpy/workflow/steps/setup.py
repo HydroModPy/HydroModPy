@@ -395,9 +395,10 @@ def run_setup(
         geographic=setup_state.domain_geographic,
     )
 
-    # Set run_id: explicit config > derive from TOML filename > "default".
-    if cfg.simulation.run_id:
-        setup_state.run_id = cfg.simulation.run_id
+    # Internal run_id (journal/scratch key) follows the simulation name:
+    # explicit config name > derive from TOML filename > "default".
+    if cfg.simulation.name:
+        setup_state.run_id = cfg.simulation.name
     else:
         import re
 

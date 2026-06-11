@@ -43,7 +43,7 @@ def test_catalog_is_workspace_scoped_and_artifacts_are_per_simulation(tmp_path):
         assert reg.zarr is not None
         reg.zarr.close()
 
-        basename = build_storage_basename("Project A", "Run One", sid)
+        basename = build_storage_basename("Project A", sid)
         assert catalog.zarr_path_for(sid) == catalog.simulations_dir / f"{basename}{ZARR_SUFFIX}"
         assert catalog.parquet_dir_for(sid) == (
             catalog.simulations_dir / f"{basename}{PARQUET_DIR_SUFFIX}"
