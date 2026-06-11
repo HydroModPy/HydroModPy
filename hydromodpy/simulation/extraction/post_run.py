@@ -329,7 +329,10 @@ def auto_export_package(
     )
     output_dir = base_dir / label
     output_dir.mkdir(parents=True, exist_ok=True)
-    store.export_package(sim_id, output_dir / f"{Path(label).name}.hmp")
+    dest = output_dir / f"{Path(label).name}.hmp"
+    store.export_package(sim_id, dest)
+    store.record_export(sim_id, kind="hmp", path=dest)
+    _write_run_card(output_dir, sim_id, label)
 
 
 def cleanup_solver_outputs(
@@ -458,12 +461,25 @@ def _auto_export(
         return
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    _write_run_card(output_dir, sim_id, label)
     failures: list[str] = []
     for spec in specs:
         try:
-            store.export(sim_id, spec)
+            out_path = store.export(sim_id, spec)
+            kind = spec.fmt.value if spec.fmt is not None else Path(out_path).suffix.lstrip(".")
+            store.record_export(sim_id, kind=kind, path=out_path)
         except Exception as exc:
-            failures.append(f"{spec.fmt.value}:{spec.var}: {exc}")
+            failures.append(f"{Path(spec.dest).name}: {exc}")
 
     if failures:
         raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
+
+
+def _write_run_card(output_dir: Path, sim_id: str, label: str) -> None:
+    """Write a small RUN.txt so a copied export folder stays self-identifying."""
+    try:
+        (output_dir / "RUN.txt").write_text(
+            f"name: {label}\nid: {sim_id[:8]}\nsim_id: {sim_id}\n", encoding="utf-8"
+        )
+    except OSError:
+        pass

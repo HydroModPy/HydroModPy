@@ -231,3 +231,36 @@ def test_replay_finishes_a_pending_purge_with_storage_intact(catalog):
     assert not zz.exists()
     assert _journal_phases(catalog, sid) == []
     assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+
+# ---------------------------------------------------------------------------
+# export_log bookkeeping
+# ---------------------------------------------------------------------------
+
+
+def test_record_export_logs_artifact_with_checksum(catalog):
+    sid = _register(catalog, "r")
+    artifact = catalog.project_path / "exports" / "r" / "timeseries.csv"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text("a,b\n1,2\n")
+    catalog.record_export(sid, kind="csv", path=artifact)
+
+    exports = catalog.list_exports(sid)
+    assert len(exports) == 1
+    assert exports[0]["kind"] == "csv"
+    assert exports[0]["rel_path"] == "exports/r/timeseries.csv"
+    assert exports[0]["bytes"] == artifact.stat().st_size
+    assert len(exports[0]["sha256"]) == 64
+
+
+def test_record_export_is_noop_when_persistence_off(catalog):
+    sid = _register(catalog, "r")
+    artifact = catalog.project_path / "exports" / "r" / "x.csv"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text("x\n")
+    catalog._persistence.save_catalog = False
+    try:
+        catalog.record_export(sid, kind="csv", path=artifact)
+    finally:
+        catalog._persistence.save_catalog = True
+    assert catalog.list_exports(sid) == []

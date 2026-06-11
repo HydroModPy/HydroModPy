@@ -423,6 +423,23 @@ class ReadsMixin:
 
         raise ValueError(f"Unsupported export format '{fmt}'")
 
+    def list_exports(self, ref: str | UUID) -> list[dict]:
+        """Return the artefacts recorded for *ref* in ``export_log``.
+
+        Each entry has ``kind``, ``rel_path``, ``bytes``, ``sha256`` and
+        ``created_at``. Lets ``show``/``gc`` see exports without globbing.
+        """
+        sid = self.resolve(ref)
+        rows = self._backend.fetch_all(
+            "SELECT kind, rel_path, bytes, sha256, created_at "
+            "FROM export_log WHERE sim_id = ? ORDER BY created_at",
+            [sid],
+        )
+        return [
+            {"kind": r[0], "rel_path": r[1], "bytes": r[2], "sha256": r[3], "created_at": r[4]}
+            for r in rows
+        ]
+
     def _export_crs_for(self, sim_id: str) -> str | None:
         row = self._backend.fetch_one(
             "SELECT crs_epsg, crs_wkt FROM simulations WHERE sim_id = ?",

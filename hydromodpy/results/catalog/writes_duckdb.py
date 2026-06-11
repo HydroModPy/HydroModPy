@@ -144,6 +144,43 @@ class WritesMixinDuckDB:
             [str(sim_id), str(note), added_by],
         )
 
+    def record_export(self, sim_id: str | UUID, *, kind: str, path: str | Path) -> None:
+        """Record one emitted export artefact in ``export_log`` (best-effort).
+
+        No-op on a read-only catalog or when persistence is disabled, so read-
+        side export helpers never fail over bookkeeping. ``show``/``gc`` read
+        this table instead of globbing the export tree. Files get a SHA-256;
+        directories record their total size only.
+        """
+        if self._read_only or not self._persistence.save_catalog:
+            return
+        p = Path(path)
+        if not p.exists():
+            return
+        try:
+            n_bytes = _path_size_bytes(p)
+            sha: str | None = _sha256_streaming(p) if p.is_file() else None
+        except OSError:
+            return
+        try:
+            rel = str(p.resolve().relative_to(self.project_path.resolve()))
+        except ValueError:
+            rel = str(p)
+        self._backend.execute(
+            "INSERT INTO export_log (export_id, sim_id, kind, rel_path, bytes, sha256) "
+            "VALUES (gen_random_uuid(), ?, ?, ?, ?, ?)",
+            [str(sim_id), str(kind), rel, int(n_bytes), sha],
+        )
+        try:
+            emit_audit_event(
+                self._db,
+                event_type="export.write",
+                sim_id=str(sim_id),
+                payload={"kind": str(kind), "rel_path": rel},
+            )
+        except Exception:
+            pass
+
     @audited("sim.tag_remove", payload_keys=("tag",))
     @with_lock_retry()
     def remove_tag(

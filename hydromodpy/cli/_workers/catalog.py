@@ -212,6 +212,7 @@ def show_simulation(
             "duration_s": sim.duration_s,
             "n_cells": sim.n_cells,
             "n_timesteps": sim.n_timesteps,
+            "exports": catalog.list_exports(sid),
         }
         if detail:
             zarr_path = catalog.zarr_path_for(sid)
