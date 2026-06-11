@@ -37,6 +37,8 @@ def list_simulations(
     project: str | None = None,
     solver: str | None = None,
     catchment: str | None = None,
+    status: str | None = None,
+    tag: str | None = None,
     limit: int | None = None,
 ) -> Any:
     """List simulations recorded in a workspace catalog.
@@ -84,9 +86,15 @@ def list_simulations(
     for project_dir in project_roots:
         if not (project_dir / CATALOG_FILENAME).exists():
             continue
+        tagged_ids: set[str] | None = None
         try:
             with SimulationCatalog(project_dir, read_only=True) as catalog:
                 sims = catalog.list_simulations(order_by="created_at DESC")
+                if tag:
+                    rows = catalog.backend.fetch_all(
+                        "SELECT CAST(sim_id AS VARCHAR) FROM tags WHERE tag = ?", [tag]
+                    )
+                    tagged_ids = {r[0] for r in rows}
         except SchemaVersionMismatchError:
             import sys
 
@@ -105,6 +113,10 @@ def list_simulations(
             col = "study_area_name" if "study_area_name" in sims.columns else None
             if col is not None:
                 sims = sims[sims[col].fillna("").str.contains(catchment, case=False)]
+        if status:
+            sims = sims[sims["status"].fillna("") == status]
+        if tagged_ids is not None:
+            sims = sims[sims["sim_id"].astype(str).isin(tagged_ids)]
         sims = sims.assign(project=project_dir.name)
         frames.append(sims)
     if not frames:
@@ -112,7 +124,7 @@ def list_simulations(
     out = pd.concat(frames, ignore_index=True)
     if limit is not None:
         out = out.head(int(limit))
-    return _stable_listing_projection(out)
+    return _stable_listing_projection(out, drop_trashed=(status != "trashed"))
 
 
 _LISTING_COLUMNS: tuple[str, ...] = (
@@ -131,14 +143,15 @@ _LISTING_COLUMNS: tuple[str, ...] = (
 )
 
 
-def _stable_listing_projection(df: Any) -> Any:
+def _stable_listing_projection(df: Any, *, drop_trashed: bool = True) -> Any:
     """Return a scriptable 12-column projection (string ids, ISO dates).
 
     Keeps the listing cheap and JSON/CSV safe: ``sim_id`` and timestamps are
     cast to strings (raw ``uuid.UUID`` objects break ``DataFrame.to_json``) and
     config blobs are dropped so ``ls`` never moves megabytes to print a page.
+    Trashed runs are hidden unless ``drop_trashed`` is False.
     """
-    if "status" in df.columns:
+    if drop_trashed and "status" in df.columns:
         df = df[df["status"] != "trashed"]
     cols = [c for c in _LISTING_COLUMNS if c in df.columns]
     out = df[cols].copy()
