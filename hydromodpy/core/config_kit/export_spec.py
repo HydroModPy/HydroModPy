@@ -2,7 +2,7 @@
 
 One :class:`ExportSpec` == one output artifact. The same model is built from
 the Python facade (``run.export``), the CLI, and the TOML
-``[[simulation.results.export.artifacts]]`` section, so selection and
+``[[export.artifacts]]`` section, so selection and
 validation live in exactly one place. It mirrors the ``hmp.read`` selector
 (``var`` / ``time`` / ``layer``) and adds the output format, destination, and
 raster options.

@@ -70,6 +70,7 @@ from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
+from hydromodpy.simulation.planning.export_config import ExportConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
@@ -209,6 +210,15 @@ class HydroModPyConfig(HydroModelBase):
     display: Annotated[DisplayConfig, Profile.USER] = Field(
         default_factory=DisplayConfig,
         description=("Optional display and export toggles loaded from the [display] section."),
+    )
+    export: Annotated[ExportConfig, Profile.USER] = Field(
+        default_factory=ExportConfig,
+        description=(
+            "Automated export configuration loaded from the top-level [export] "
+            "section. Controls which formats (CSV time series, GeoTIFF, NetCDF, "
+            "VTU, shapefile), which variables and timesteps are written after a "
+            "run, and whether a portable '.hmp' archive is produced."
+        ),
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
@@ -566,6 +576,7 @@ class HydroModPyConfig(HydroModelBase):
             "modflownwt": ({}, _std(ModflowConfig)),
             "modflow6": ({}, _std(Modflow6Config)),
             "display": ({}, _std(DisplayConfig)),
+            "export": ({}, _std(ExportConfig)),
             "persistence": ({}, _std(PersistenceConfig)),
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),

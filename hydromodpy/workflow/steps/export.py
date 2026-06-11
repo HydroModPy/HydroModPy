@@ -229,17 +229,21 @@ class ExportStep:
         if ctx.store is not None:
             step_save_run_artifacts(ctx, wall_seconds)
             plan = ctx.execution.simulation_plan
-            if plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None:
+            packaged = plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None
+            if packaged:
                 from hydromodpy.simulation.extraction.post_run import (
                     auto_export_results,
                     cleanup_solver_outputs,
                 )
                 from hydromodpy.simulation.planning.plan import RunContext
 
+                export_cfg = ctx.cfg.export
+                save_catalog = bool(results_cfg.persistence.save_catalog)
                 auto_export_results(
                     sim_id=ctx.sim_id,
                     store=ctx.store,
-                    results_config=results_cfg,
+                    export_config=export_cfg,
+                    save_catalog=save_catalog,
                     run_id=ctx.setup.run_id,
                 )
                 for run in plan.runs:
@@ -251,6 +255,16 @@ class ExportStep:
                         keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
                     )
             step_finalize_store(ctx, wall_seconds=wall_seconds)
+            if packaged:
+                from hydromodpy.simulation.extraction.post_run import auto_export_package
+
+                auto_export_package(
+                    sim_id=ctx.sim_id,
+                    store=ctx.store,
+                    export_config=export_cfg,
+                    save_catalog=save_catalog,
+                    run_id=ctx.setup.run_id,
+                )
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),

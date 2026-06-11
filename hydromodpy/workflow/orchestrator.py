@@ -190,6 +190,7 @@ def execute_run(
             sim_id=sim_id,
             results_config=results_cfg,
             store=ctx.store,
+            export_config=ctx.cfg.export,
             run_id=final_name,
         )
 
@@ -296,6 +297,18 @@ def cleanup_run(
         step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)
     elif ctx.store is not None:
         ctx.store.finalize(sim_id, status=status, duration_s=wall_seconds)
+
+    if ctx.store is not None and status == "completed":
+        from hydromodpy.simulation.extraction.post_run import auto_export_package
+
+        results_cfg = effective or ctx.cfg.simulation.results
+        auto_export_package(
+            sim_id=sim_id,
+            store=ctx.store,
+            export_config=ctx.cfg.export,
+            save_catalog=bool(results_cfg.persistence.save_catalog),
+            run_id=ctx.setup.run_id,
+        )
 
 
 def standard_steps() -> tuple:

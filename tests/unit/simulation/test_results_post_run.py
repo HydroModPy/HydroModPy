@@ -130,7 +130,7 @@ class TestPostRunResults:
     def test_unknown_solver_raises(self, catalog, tmp_path, monkeypatch):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-        config = ResultsConfig(export={"csv_timeseries": False})
+        config = ResultsConfig()
         # Trigger the "no extractor" path via a run-context solver name the
         # _FakeProvider stub does not recognise.
         ctx = _build_run_context(solver_name="custom_solver", solver_output_dir=tmp_path)
@@ -146,7 +146,7 @@ class TestPostRunResults:
     def test_no_output_dir_raises(self, catalog, monkeypatch):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-        config = ResultsConfig(export={"csv_timeseries": False})
+        config = ResultsConfig()
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=None)
         _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
         with pytest.raises(FileNotFoundError, match="Solver output directory is missing"):
@@ -165,7 +165,7 @@ class TestPostRunResults:
         solver_dir.mkdir()
         (solver_dir / "model.hds").write_text("head data")
 
-        config = ResultsConfig(keep_solver_files=False, export={"csv_timeseries": False})
+        config = ResultsConfig(keep_solver_files=False)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
         provider = _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
         post_run_results(
@@ -185,7 +185,7 @@ class TestPostRunResults:
         solver_dir.mkdir()
         (solver_dir / "model.hds").write_text("head data")
 
-        config = ResultsConfig(keep_solver_files=True, export={"csv_timeseries": False})
+        config = ResultsConfig(keep_solver_files=True)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
         provider = _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
         post_run_results(
@@ -216,7 +216,7 @@ class TestPostRunResults:
             _fail_aggregation,
         )
 
-        config = ResultsConfig(keep_solver_files=True, export={"csv_timeseries": False})
+        config = ResultsConfig(keep_solver_files=True)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
         post_run_results(
             ctx=ctx,
