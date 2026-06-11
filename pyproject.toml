@@ -70,7 +70,7 @@ dependencies = [
     "pydantic>=2.13.3,<3",
     "duckdb>=1.5.2,<2",
     "dask>=2026.3.0,<2027",
-    "tqdm>=4.67.3,<5",
+    "rich>=13.9.4,<16",
     "zarr>=3.1.6,<4",
     "zstandard>=0.25.0,<1",
     "tomlkit>=0.14.0,<1",
@@ -262,6 +262,9 @@ ignore = [
 "__init__.py" = ["F401", "E402", "TID251"]
 # Logging subsystem is the canonical wrapper around stdlib `logging.getLogger`.
 "hydromodpy/core/logging/**" = ["TID251"]
+# core/progress is imported by core/logging (console handler); importing
+# get_logger back would be circular.
+"hydromodpy/core/progress.py" = ["TID251"]
 # Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
 # zip without strict=, kept assignments for readability, etc.
 "tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
