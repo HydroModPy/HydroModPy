@@ -12,6 +12,7 @@ from typing import Literal
 
 import requests
 
+from hydromodpy.core import progress
 from hydromodpy.data.common.administrative.france import department_code_to_padded
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DiscoveryFilters,
@@ -127,7 +128,7 @@ def download_ign_dem_departments(
         files = files[:max_files]
 
     paths: list[Path] = []
-    for file in files:
+    for file in progress.track(files, "Downloading IGN DEM archives"):
         destination = _department_output_dir(
             Path(output_dir),
             dataset=dataset,
@@ -257,7 +258,7 @@ def fetch_ign_dem(
         raise ValueError(f"No IGN DEM archive found for departments: {dept_codes}")
 
     asc_files: list[Path] = []
-    for archive_path in archive_paths:
+    for archive_path in progress.track(archive_paths, "Extracting IGN DEM archives"):
         archive_path = Path(archive_path)
         archive_extract_dir = _archive_extract_dir(extracted_dir, archive_path)
         marker = archive_extract_dir / ".extracted"
@@ -286,29 +287,30 @@ def fetch_ign_dem(
     import rasterio
     from rasterio.merge import merge
 
-    datasets = []
-    try:
-        for asc_path in asc_files:
-            datasets.append(rasterio.open(str(asc_path)))
-        mosaic, mosaic_transform = merge(datasets, bounds=bbox)
-    finally:
-        for dataset_handle in datasets:
-            dataset_handle.close()
-    mosaic = _normalize_dem_nodata(mosaic)
+    with progress.status("Merging DEM tiles"):
+        datasets = []
+        try:
+            for asc_path in asc_files:
+                datasets.append(rasterio.open(str(asc_path)))
+            mosaic, mosaic_transform = merge(datasets, bounds=bbox)
+        finally:
+            for dataset_handle in datasets:
+                dataset_handle.close()
+        mosaic = _normalize_dem_nodata(mosaic)
 
-    profile = {
-        "driver": "GTiff",
-        "height": mosaic.shape[1],
-        "width": mosaic.shape[2],
-        "count": mosaic.shape[0],
-        "transform": mosaic_transform,
-        "crs": "EPSG:2154",
-        "dtype": mosaic.dtype,
-        "compress": "deflate",
-        "nodata": -9999,
-    }
-    with rasterio.open(str(merged_tif), "w", **profile) as dst:
-        dst.write(mosaic)
+        profile = {
+            "driver": "GTiff",
+            "height": mosaic.shape[1],
+            "width": mosaic.shape[2],
+            "count": mosaic.shape[0],
+            "transform": mosaic_transform,
+            "crs": "EPSG:2154",
+            "dtype": mosaic.dtype,
+            "compress": "deflate",
+            "nodata": -9999,
+        }
+        with rasterio.open(str(merged_tif), "w", **profile) as dst:
+            dst.write(mosaic)
     _write_processed_cache_metadata(
         metadata_path,
         request=cache_request,

@@ -120,5 +120,5 @@ def fetch_sim2_cube(
                 user_name = VAR_MAPPING.get(sim2_var, sim2_var)
                 out = save_dir / f"{user_name}_SIM2_ID_{start}_{end}_D.nc"
                 result[[sim2_var]].to_netcdf(out)
-                logger.info("Saved %s to %s", sim2_var, out)
+                logger.debug("Saved %s to %s", sim2_var, out)
     return result

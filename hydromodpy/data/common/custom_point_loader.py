@@ -95,7 +95,7 @@ def load_custom_points(
         requested = set(station_ids)
         locations = [loc for loc in locations if loc.id in requested]
 
-    logger.info("Custom: %d stations from %s", len(locations), loc_file.name)
+    logger.debug("Custom: %d stations from %s", len(locations), loc_file.name)
 
     var_label = record_variable or variable_name
     records: list[PointRecord] = []
@@ -162,7 +162,7 @@ def load_custom_points(
             )
         )
 
-    logger.info("Custom: loaded %d station records", len(records))
+    logger.debug("Custom: loaded %d station records", len(records))
     return records
 
 

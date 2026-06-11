@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.core.io.http_client import HTTPClient, get_default_client
 from hydromodpy.data.common.api_client import check_status
@@ -67,7 +68,8 @@ class Sim2EDRClient:
             "datetime": self.date_range,
         }
         url = f"{BASE_URL}/cube"
-        resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        with progress.status("Fetching SIM2 climate cube"):
+            resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
         if not check_status(resp.status_code):
             raise NetworkError(
                 f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}",
@@ -175,7 +177,8 @@ class Sim2EDRClient:
                 [
                     t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
                     for t in axes["t"]["values"]
-                ]
+                ],
+                format="mixed",
             )
         else:
             t_coords = pd.date_range(

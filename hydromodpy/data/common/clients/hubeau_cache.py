@@ -79,7 +79,7 @@ def fetch_with_smart_cache(
                         merged = manager._merge_into_record(rec, *parts)
                         ready.append(merged)
                         to_persist.append(merged)
-                        logger.info(
+                        logger.debug(
                             "Hub'Eau cache merge: %s (+%d period(s))",
                             sid,
                             len(gaps),

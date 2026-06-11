@@ -17,6 +17,8 @@ from urllib.parse import quote, unquote, urlparse
 
 import requests
 
+from hydromodpy.core import progress
+
 CAPABILITIES_URL = "https://data.geopf.fr/telechargement/capabilities"
 RESOURCE_URL = "https://data.geopf.fr/telechargement/resource"
 DOWNLOAD_URL = "https://data.geopf.fr/telechargement/download"
@@ -249,10 +251,16 @@ def download_file(
         headers=headers,
     )
     mode = "ab" if existing_size and getattr(response, "status_code", 200) == 206 else "wb"
-    with partial.open(mode) as handle:
+    with (
+        progress.task(f"Downloading {file.file_name}", total=file.size, unit="bytes") as bar,
+        partial.open(mode) as handle,
+    ):
+        if mode == "ab":
+            bar.update(completed=existing_size)
         for chunk in response.iter_content(chunk_size=chunk_size):
             if chunk:
                 handle.write(chunk)
+                bar.advance(len(chunk))
     partial.replace(target)
     return target
 
