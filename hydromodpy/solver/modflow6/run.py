@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.steady_initial_conditions import (
     apply_modflow6_steady_state_initial_heads,
     flow_uses_steady_state_initial_condition,
@@ -14,6 +15,7 @@ from hydromodpy.solver.modflow_common import ModflowRunOptions
 
 def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
     """Write packages and run the MODFLOW 6 simulation. Returns success flag."""
+    install_flopy_header_cache()
     if options is None:
         options = ModflowRunOptions()
     elif not isinstance(options, ModflowRunOptions):

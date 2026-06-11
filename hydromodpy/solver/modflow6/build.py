@@ -50,6 +50,7 @@ from hydromodpy.solver.modflow6.builders import (
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow6.common import attach_time_series
+from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
@@ -305,6 +306,7 @@ def run_pre_processing(  # noqa: PLR0915
     flow_runtime_overrides: Mapping[str, object] | None = None,
 ) -> None:
     """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations."""
+    install_flopy_header_cache()
     model.flow = flow
     model.domain = domain
     model.runtime_mesh_planar = mesh_planar
