@@ -140,6 +140,15 @@ Sections
       Optional display and export toggles loaded from the [display] section.
 
    .. grid-item-card::
+      :link: export
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[export]**
+      ^^^
+      Automated export configuration loaded from the top-level [export] section. Controls which formats (CSV time series, GeoTIFF, NetCDF, VTU, shapefile), which variables and timesteps are written after a run, and whether a portable '.hmp' archive is produced.
+
+   .. grid-item-card::
       :link: persistence
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -239,6 +248,7 @@ Sections
    modflownwt
    modflow6
    display
+   export
    persistence
    analysis
    overview

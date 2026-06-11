@@ -4239,7 +4239,7 @@
     },
     "ExportConfig": {
       "additionalProperties": false,
-      "description": "Automated export configuration.",
+      "description": "Automated export configuration loaded from the top-level ``[export]`` section.",
       "properties": {
         "netcdf": {
           "default": false,
@@ -4291,6 +4291,16 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "package": {
+          "default": false,
+          "description": "Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.",
+          "examples": [
+            false
+          ],
+          "title": "Package",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
         "output_dir": {
           "anyOf": [
             {
@@ -4308,6 +4318,34 @@
         "variables": {
           "$ref": "#/$defs/ExportVariablesConfig",
           "description": "Which variables to include in exports.",
+          "x-hmp-profile": "user"
+        },
+        "times": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "enum": [
+                "first",
+                "last",
+                "all"
+              ],
+              "type": "string"
+            }
+          ],
+          "default": "last",
+          "description": "Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.",
+          "examples": [
+            "last"
+          ],
+          "title": "Times",
           "x-hmp-profile": "user"
         },
         "resolution": {
@@ -16693,7 +16731,7 @@
     },
     "ResultsConfig": {
       "additionalProperties": false,
-      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the SimulationCatalog,\nwhich derived variables are computed, and which export formats are\nproduced automatically after each run.",
+      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the SimulationCatalog and\nwhich derived variables are computed. Automated export formats live in the\ntop-level ``[export]`` section (:class:`ExportConfig`), not here.",
       "properties": {
         "persistence": {
           "$ref": "#/$defs/PersistenceConfig",
@@ -16728,10 +16766,6 @@
         "budget": {
           "$ref": "#/$defs/BudgetConfig",
           "x-hmp-profile": "dev"
-        },
-        "export": {
-          "$ref": "#/$defs/ExportConfig",
-          "x-hmp-profile": "user"
         }
       },
       "title": "ResultsConfig",
@@ -17208,27 +17242,26 @@
       "properties": {
         "name": {
           "default": "",
-          "description": "Human-readable simulation name.",
+          "description": "Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.",
           "examples": [
-            ""
+            "cheze_baseline"
           ],
           "title": "Name",
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "run_id": {
-          "default": "",
-          "description": "Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).",
-          "examples": [
-            "steady_nwt"
-          ],
-          "title": "Run Id",
-          "type": "string",
+        "tags": {
+          "description": "Free-text tags attached at registration; editable later via 'hmp tag'.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array",
           "x-hmp-profile": "user"
         },
-        "on_collision": {
-          "default": "replace",
-          "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...",
+        "if_exists": {
+          "default": "version",
+          "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.",
           "enum": [
             "replace",
             "fail",
@@ -17237,7 +17270,7 @@
           "examples": [
             "replace"
           ],
-          "title": "On Collision",
+          "title": "If Exists",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -20623,6 +20656,23 @@
           "title": "Mode",
           "type": "string",
           "x-hmp-profile": "user"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "default": false,
+          "description": "Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.",
+          "examples": [
+            false
+          ],
+          "title": "Profile",
+          "x-hmp-profile": "expert"
         }
       },
       "required": [
@@ -21639,6 +21689,11 @@
     "display": {
       "$ref": "#/$defs/DisplayConfig",
       "description": "Optional display and export toggles loaded from the [display] section.",
+      "x-hmp-profile": "user"
+    },
+    "export": {
+      "$ref": "#/$defs/ExportConfig",
+      "description": "Automated export configuration loaded from the top-level [export] section. Controls which formats (CSV time series, GeoTIFF, NetCDF, VTU, shapefile), which variables and timesteps are written after a run, and whether a portable '.hmp' archive is produced.",
       "x-hmp-profile": "user"
     },
     "persistence": {

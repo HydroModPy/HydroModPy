@@ -25,7 +25,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `workflow <workflow.html#workflow-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L95>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L96>`__
+   * - ``workflow.profile``
+     - ``bool | str``
+     - expert
+     - -
+     - `workflow <workflow.html#workflow-profile>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L100>`__
    * - ``workspace.project_root``
      - ``Path | UPath``
      - user
@@ -5882,60 +5888,60 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `simulation <simulation.html#simulation-name>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L304>`__
-   * - ``simulation.run_id``
-     - ``str``
+   * - ``simulation.tags``
+     - ``list[str]``
      - user
      - -
-     - `simulation <simulation.html#simulation-run-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L350>`__
-   * - ``simulation.on_collision``
+     - `simulation <simulation.html#simulation-tags>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L357>`__
+   * - ``simulation.if_exists``
      - ``Literal['replace', 'fail', 'version']``
      - user
      - -
-     - `simulation <simulation.html#simulation-on-collision>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L359>`__
+     - `simulation <simulation.html#simulation-if-exists>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L361>`__
    * - ``simulation.description``
      - ``str``
      - user
      - -
      - `simulation <simulation.html#simulation-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L352>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L349>`__
    * - ``simulation.scientific_objective``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-scientific-objective>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L375>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L377>`__
    * - ``simulation.contact_email``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-contact-email>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L379>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L381>`__
    * - ``simulation.doi``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-doi>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L383>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L385>`__
    * - ``simulation.study_area_name``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-study-area-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L387>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L389>`__
    * - ``simulation.outlet_x``
      - ``float | None``
      - user
      - -
      - `simulation <simulation.html#simulation-outlet-x>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L391>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L393>`__
    * - ``simulation.outlet_y``
      - ``float | None``
      - user
      - -
      - `simulation <simulation.html#simulation-outlet-y>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L395>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L397>`__
    * - ``simulation.time``
      - ``SimulationTimeConfig | None``
      - user
@@ -6049,13 +6055,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `simulation <simulation.html#simulation-results>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L417>`__
    * - ``simulation.results.persistence``
      - ``PersistenceConfig``
      - user
      - -
      - `simulation <simulation.html#simulation-results-persistence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L155>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L80>`__
    * - ``simulation.results.persistence.save_catalog``
      - ``bool``
      - user
@@ -6097,241 +6103,103 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `simulation <simulation.html#simulation-results-keep-solver-files>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L162>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L87>`__
    * - ``simulation.results.solver_scratch``
      - ``str``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-solver-scratch>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L166>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L91>`__
    * - ``simulation.results.derived``
      - ``DerivedConfig``
      - user
      - -
      - `simulation <simulation.html#simulation-results-derived>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L173>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L98>`__
    * - ``simulation.results.derived.watertable_elevation``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-derived-watertable-elevation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L18>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L17>`__
    * - ``simulation.results.derived.watertable_depth``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-derived-watertable-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L22>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L21>`__
    * - ``simulation.results.derived.seepage_areas``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-derived-seepage-areas>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L26>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L25>`__
    * - ``simulation.results.derived.groundwater_flux``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-groundwater-flux>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L30>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L29>`__
    * - ``simulation.results.derived.release_flux``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-release-flux>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L33>`__
    * - ``simulation.results.derived.accumulation_flux``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-accumulation-flux>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L38>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L37>`__
    * - ``simulation.results.derived.release_accumulation_flux``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-release-accumulation-flux>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L42>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L41>`__
    * - ``simulation.results.derived.outflow_drain``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-outflow-drain>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L46>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L45>`__
    * - ``simulation.results.derived.concentration_seepage``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-concentration-seepage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L50>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L49>`__
    * - ``simulation.results.derived.mass_seepage``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-mass-seepage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L54>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L53>`__
    * - ``simulation.results.derived.mass_accumulated``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-mass-accumulated>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L58>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L57>`__
    * - ``simulation.results.budget``
      - ``BudgetConfig``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-budget>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L177>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L102>`__
    * - ``simulation.results.budget.spatial_fields``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-budget-spatial-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L141>`__
-   * - ``simulation.results.export``
-     - ``ExportConfig``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L181>`__
-   * - ``simulation.results.export.netcdf``
-     - ``bool``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-netcdf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L97>`__
-   * - ``simulation.results.export.csv_timeseries``
-     - ``bool``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-csv-timeseries>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L100>`__
-   * - ``simulation.results.export.vtu``
-     - ``bool``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-vtu>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L103>`__
-   * - ``simulation.results.export.geotiff``
-     - ``bool``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-geotiff>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106>`__
-   * - ``simulation.results.export.shapefile``
-     - ``bool``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-shapefile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L107>`__
-   * - ``simulation.results.export.output_dir``
-     - ``str | None``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-output-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110>`__
-   * - ``simulation.results.export.variables``
-     - ``ExportVariablesConfig``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-variables>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114>`__
-   * - ``simulation.results.export.variables.head``
-     - ``bool``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-variables-head>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L67>`__
-   * - ``simulation.results.export.variables.concentration``
-     - ``bool``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-variables-concentration>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L68>`__
-   * - ``simulation.results.export.variables.budget``
-     - ``bool``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-variables-budget>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L71>`__
-   * - ``simulation.results.export.variables.pathlines``
-     - ``bool``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-variables-pathlines>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L74>`__
-   * - ``simulation.results.export.variables.derived``
-     - ``bool``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-variables-derived>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L77>`__
-   * - ``simulation.results.export.resolution``
-     - ``float | None``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-resolution>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L118>`__
-   * - ``simulation.results.export.artifacts``
-     - ``list[ExportSpec]``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L125>`__
-   * - ``simulation.results.export.artifacts.var``
-     - ``str | list[str]``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-var>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L65>`__
-   * - ``simulation.results.export.artifacts.dest``
-     - ``Path``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-dest>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L68>`__
-   * - ``simulation.results.export.artifacts.fmt``
-     - ``ExportFormat | None``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-fmt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L71>`__
-   * - ``simulation.results.export.artifacts.time``
-     - ``Union[int, list[int], Literal['first', 'last', 'all'], NoneType]``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-time>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L75>`__
-   * - ``simulation.results.export.artifacts.layer``
-     - ``int | None``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-layer>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L82>`__
-   * - ``simulation.results.export.artifacts.resolution``
-     - ``float | None``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-resolution>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L86>`__
-   * - ``simulation.results.export.artifacts.crs``
-     - ``str | None``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-crs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L90>`__
-   * - ``simulation.results.export.artifacts.nodata``
-     - ``float``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-export-artifacts-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L94>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L66>`__
    * - ``simulation.rng_seed``
      - ``int | None``
      - user
      - -
      - `simulation <simulation.html#simulation-rng-seed>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L423>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L425>`__
    * - ``solver.backend``
      - ``Modflow6Backend | ModflowNwtBackend | BoussinesqBackend | CustomBackend``
      - user
@@ -7172,6 +7040,150 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `display <display.html#display-transport-web-animation>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L103>`__
+   * - ``export.netcdf``
+     - ``bool``
+     - user
+     - -
+     - `export <export.html#export-netcdf>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L60>`__
+   * - ``export.csv_timeseries``
+     - ``bool``
+     - user
+     - -
+     - `export <export.html#export-csv-timeseries>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L63>`__
+   * - ``export.vtu``
+     - ``bool``
+     - dev
+     - -
+     - `export <export.html#export-vtu>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L66>`__
+   * - ``export.geotiff``
+     - ``bool``
+     - dev
+     - -
+     - `export <export.html#export-geotiff>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L69>`__
+   * - ``export.shapefile``
+     - ``bool``
+     - dev
+     - -
+     - `export <export.html#export-shapefile>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L70>`__
+   * - ``export.package``
+     - ``bool``
+     - user
+     - -
+     - `export <export.html#export-package>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L73>`__
+   * - ``export.output_dir``
+     - ``str | None``
+     - dev
+     - -
+     - `export <export.html#export-output-dir>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L81>`__
+   * - ``export.variables``
+     - ``ExportVariablesConfig``
+     - user
+     - -
+     - `export <export.html#export-variables>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L85>`__
+   * - ``export.variables.head``
+     - ``bool``
+     - user
+     - -
+     - `export <export.html#export-variables-head>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L30>`__
+   * - ``export.variables.concentration``
+     - ``bool``
+     - user
+     - -
+     - `export <export.html#export-variables-concentration>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L31>`__
+   * - ``export.variables.budget``
+     - ``bool``
+     - dev
+     - -
+     - `export <export.html#export-variables-budget>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L34>`__
+   * - ``export.variables.pathlines``
+     - ``bool``
+     - dev
+     - -
+     - `export <export.html#export-variables-pathlines>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L37>`__
+   * - ``export.variables.derived``
+     - ``bool``
+     - user
+     - -
+     - `export <export.html#export-variables-derived>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L40>`__
+   * - ``export.times``
+     - ``Union[int, list[int], Literal['first', 'last', 'all']]``
+     - user
+     - -
+     - `export <export.html#export-times>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L89>`__
+   * - ``export.resolution``
+     - ``float | None``
+     - dev
+     - -
+     - `export <export.html#export-resolution>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L96>`__
+   * - ``export.artifacts``
+     - ``list[ExportSpec]``
+     - dev
+     - -
+     - `export <export.html#export-artifacts>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/export_config.py#L103>`__
+   * - ``export.artifacts.var``
+     - ``str | list[str]``
+     - user
+     - -
+     - `export <export.html#export-artifacts-var>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L65>`__
+   * - ``export.artifacts.dest``
+     - ``Path``
+     - user
+     - -
+     - `export <export.html#export-artifacts-dest>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L68>`__
+   * - ``export.artifacts.fmt``
+     - ``ExportFormat | None``
+     - user
+     - -
+     - `export <export.html#export-artifacts-fmt>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L71>`__
+   * - ``export.artifacts.time``
+     - ``Union[int, list[int], Literal['first', 'last', 'all'], NoneType]``
+     - user
+     - -
+     - `export <export.html#export-artifacts-time>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L75>`__
+   * - ``export.artifacts.layer``
+     - ``int | None``
+     - dev
+     - -
+     - `export <export.html#export-artifacts-layer>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L82>`__
+   * - ``export.artifacts.resolution``
+     - ``float | None``
+     - dev
+     - -
+     - `export <export.html#export-artifacts-resolution>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L86>`__
+   * - ``export.artifacts.crs``
+     - ``str | None``
+     - dev
+     - -
+     - `export <export.html#export-artifacts-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L90>`__
+   * - ``export.artifacts.nodata``
+     - ``float``
+     - dev
+     - -
+     - `export <export.html#export-artifacts-nodata>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/export_spec.py#L94>`__
    * - ``persistence.save_catalog``
      - ``bool``
      - user
