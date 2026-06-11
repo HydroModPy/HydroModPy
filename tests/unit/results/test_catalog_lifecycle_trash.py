@@ -110,6 +110,37 @@ def test_diff_reports_param_and_metric_deltas(catalog):
     assert result["metrics"] == {("nse", "__outlet__"): (0.7, 0.8)}
 
 
+def test_run_python_api_params_metrics_tag_note_lineage(catalog):
+    parent = _register(catalog, "parent")
+    child = str(uuid.uuid4())
+    catalog.register_simulation(
+        child, project="p", solver="modflow6", name="child", parent_sim_id=parent
+    )
+    catalog._backend.execute(
+        "UPDATE simulations SET status_id = (SELECT id FROM statuses WHERE code = 'completed'), "
+        "ended_at = current_timestamp WHERE sim_id = ?",
+        [child],
+    )
+    catalog.write_parameters(child, [{"param_name": "K", "value": 8.6e-5}])
+    catalog._backend.execute(
+        "INSERT INTO metrics (sim_id, station_id, variable, metric_name, value) "
+        "VALUES (?, '__outlet__', 'discharge', 'nse', 0.86)",
+        [child],
+    )
+
+    run = catalog["child"]
+    assert run.params == {"K": 8.6e-5}
+    assert run.metrics == {"nse": 0.86}
+    assert run.parent.sim_id == parent
+    assert run.parent.name == "parent"
+
+    run.tag("+draft", "keep", "-draft").note("a note")
+    assert sorted(catalog["child"].tags or []) == ["keep"]
+
+    run.delete()  # not pinned -> trash
+    assert [e["original_name"] for e in catalog.list_trash()] == ["child"]
+
+
 def test_find_excludes_trashed_by_default(catalog):
     a = _register(catalog, "a")
     _register(catalog, "b")
