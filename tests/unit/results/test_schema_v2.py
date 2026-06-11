@@ -302,7 +302,7 @@ def test_metric_definitions_seeded(catalog: SimulationCatalog) -> None:
 def test_schema_version_records_catalog_v1(catalog: SimulationCatalog) -> None:
     """``_schema_version`` carries the latest catalog migration after init."""
     rows = catalog.connection.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert ("catalog", 6) in rows
+    assert ("catalog", 7) in rows
 
 
 def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatalog) -> None:

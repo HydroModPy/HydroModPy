@@ -34,6 +34,7 @@ EXIT_VALIDATION = 16
 EXIT_CROSS_PROJECTS = 17
 EXIT_BACKUP_FAILED = 18
 EXIT_MIGRATION_FAILED = 19
+EXIT_AMBIGUOUS_REFERENCE = 20
 EXIT_SIGINT = 130
 
 
@@ -44,9 +45,17 @@ def exit_code_for(exc: BaseException) -> int:
     :class:`KeyboardInterrupt` is routed to :data:`EXIT_SIGINT` (POSIX 130).
     """
     from hydromodpy.core import exceptions as hmp_exc
+    from hydromodpy.results.catalog.discovery import (
+        AmbiguousReferenceError,
+        SimulationNotFoundError,
+    )
 
     if isinstance(exc, KeyboardInterrupt):
         return EXIT_SIGINT
+    if isinstance(exc, AmbiguousReferenceError):
+        return EXIT_AMBIGUOUS_REFERENCE
+    if isinstance(exc, SimulationNotFoundError):
+        return EXIT_NOT_FOUND
     if isinstance(exc, FileNotFoundError):
         return EXIT_NOT_FOUND
     mapping: tuple[tuple[type[BaseException], int], ...] = (
@@ -118,27 +127,6 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
         )
         sys.exit(EXIT_NOT_FOUND)
     return root
-
-
-def resolve_sim_id(catalog, sim_id_or_prefix: str) -> str:
-    """Resolve a simulation reference to its full ``sim_id``.
-
-    Delegates to :meth:`SimulationCatalog.resolve` and exits the CLI with a
-    friendly message when the reference is ambiguous or missing.
-    """
-    from hydromodpy.results.catalog import (
-        AmbiguousReferenceError,
-        SimulationNotFoundError,
-    )
-
-    try:
-        return catalog.resolve(sim_id_or_prefix)
-    except AmbiguousReferenceError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except SimulationNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +295,7 @@ __all__ = (
     "EXIT_CROSS_PROJECTS",
     "EXIT_BACKUP_FAILED",
     "EXIT_MIGRATION_FAILED",
+    "EXIT_AMBIGUOUS_REFERENCE",
     "EXIT_SIGINT",
     "exit_code_for",
     "find_project_root",
@@ -314,7 +303,6 @@ __all__ = (
     "find_workspace_root",
     "find_data_workspace",
     "resolve_workspace",
-    "resolve_sim_id",
     "auto_scan_workspace",
     "profile_arg_from_toml",
     "resolve_profile_output",
