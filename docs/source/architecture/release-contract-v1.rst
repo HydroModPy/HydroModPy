@@ -107,6 +107,10 @@ Environment variables
    * - ``HMP_AUTO_MIGRATE``
      - stable
      - Set to ``0`` to block automatic schema migrations.
+   * - ``HMP_NO_PROGRESS``
+     - stable
+     - Set to any value to disable live progress rendering (checkmarks,
+       spinners, bars); progress falls back to plain log lines.
    * - ``HMP_PROJECT_ROOT``
      - test/dev
      - Overrides TOML project roots in test infrastructure. Not a user
