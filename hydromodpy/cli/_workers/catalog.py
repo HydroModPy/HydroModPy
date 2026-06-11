@@ -402,6 +402,12 @@ def restore_simulation(sim_ref: str, *, workspace: Any) -> dict:
         return {"sim_id": sid, "name": name}
 
 
+def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
+    """Compare two runs' parameters and outlet metrics."""
+    with _open_project_catalog(workspace) as catalog:
+        return catalog.diff(ref_a, ref_b)
+
+
 def list_trashed(workspace: Any) -> list[dict]:
     """Return the trashed runs in the workspace catalog."""
     with _open_project_catalog(workspace) as catalog:

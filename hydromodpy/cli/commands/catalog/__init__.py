@@ -22,6 +22,7 @@ import argparse
 from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.catalog import (
     delete,
+    diff,
     gc,
     ls,
     note,
@@ -37,7 +38,7 @@ from hydromodpy.cli.commands.catalog import (
 NAME: str = "catalog"
 HELP: str = "Inspect, query, and maintain workspace catalogs"
 
-ACTIONS = (ls, query, show, gc, vacuum, delete, restore, trash, tag, note, rename)
+ACTIONS = (ls, query, show, gc, vacuum, delete, restore, trash, tag, note, rename, diff)
 
 
 def register(subparsers) -> argparse.ArgumentParser:

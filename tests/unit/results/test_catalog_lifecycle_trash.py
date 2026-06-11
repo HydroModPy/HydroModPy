@@ -86,6 +86,30 @@ def test_empty_trash_purges_unpinned_only(catalog):
     assert {e["sim_id"] for e in catalog.list_trash()} == {b}
 
 
+def test_diff_reports_param_and_metric_deltas(catalog):
+    a = _register(catalog, "base.v2")
+    b = _register(catalog, "base.v3")
+    catalog.write_parameters(
+        a, [{"param_name": "K", "value": 1e-4}, {"param_name": "Sy", "value": 0.05}]
+    )
+    catalog.write_parameters(
+        b, [{"param_name": "K", "value": 2e-4}, {"param_name": "Sy", "value": 0.05}]
+    )
+    catalog._backend.execute(
+        "INSERT INTO metrics (sim_id, station_id, variable, metric_name, value) "
+        "VALUES (?, '__outlet__', 'discharge', 'nse', 0.7)",
+        [a],
+    )
+    catalog._backend.execute(
+        "INSERT INTO metrics (sim_id, station_id, variable, metric_name, value) "
+        "VALUES (?, '__outlet__', 'discharge', 'nse', 0.8)",
+        [b],
+    )
+    result = catalog.diff("base.v2", "base.v3")
+    assert result["params"] == {("K", "__global__"): (1e-4, 2e-4)}
+    assert result["metrics"] == {("nse", "__outlet__"): (0.7, 0.8)}
+
+
 def test_find_excludes_trashed_by_default(catalog):
     a = _register(catalog, "a")
     _register(catalog, "b")
