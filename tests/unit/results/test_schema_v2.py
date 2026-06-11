@@ -251,7 +251,7 @@ def test_dim_solvers_seeded(catalog: SimulationCatalog) -> None:
 
 
 def test_dim_statuses_seeded(catalog: SimulationCatalog) -> None:
-    """``statuses`` is pre-populated with the seven lifecycle states."""
+    """``statuses`` is pre-populated with the lifecycle states (incl. trashed)."""
     rows = catalog.connection.execute("SELECT code FROM statuses ORDER BY id").fetchall()
     codes = [r[0] for r in rows]
     assert codes == [
@@ -262,6 +262,7 @@ def test_dim_statuses_seeded(catalog: SimulationCatalog) -> None:
         "failed",
         "aborted",
         "resumed",
+        "trashed",
     ]
 
 
@@ -317,6 +318,7 @@ def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatal
         (4, "workflow_events"),
         (5, "drop_simulation_heartbeat"),
         (6, "drop_simulation_heartbeat_column"),
+        (7, "simulation_lifecycle"),
     ]
 
 
@@ -344,7 +346,7 @@ def test_double_init_is_idempotent(tmp_path: Path) -> None:
     cat2.close()
 
     assert tables_a == tables_b
-    assert rows[0] == 6, "schema_migrations should record every bundled migration"
+    assert rows[0] == 7, "schema_migrations should record every bundled migration"
     assert version_rows[0] == 1
 
 
