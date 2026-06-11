@@ -34,6 +34,7 @@ from hydromodpy.analysis.comparison.runtime.metadata import (
     discover_result_store,
     read_simulation_run_metadata,
 )
+from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.reporting.comparison.render import write_comparison_web_report
@@ -191,25 +192,28 @@ class SimulationComparisonLauncher:
     ) -> list[dict[str, Any]]:
         summaries: list[dict[str, Any]] = []
         execution = self.cfg.comparison.execution
-        for child in children:
-            if not execution.run_simulations or child.config_path is None:
-                summaries.append(self._reuse_child_summary(child))
-                continue
-            try:
-                result = run_child_with_hmp(
-                    child.config_path,
-                    python_executable=execution.python_executable,
-                    timeout_seconds=execution.timeout_seconds,
-                )
-                summary = self._summary_from_run_result(child, result)
-            except Exception as exc:
-                summary = self._failed_child_summary(child, exc)
-            summaries.append(summary)
-            if summary["status"] == "failed" and not self.cfg.comparison.continue_on_error:
-                raise RuntimeError(
-                    f"Comparison child '{child.simulation_id}' failed: "
-                    f"{summary.get('error_message', '')}"
-                )
+        with progress.task("Running comparison experiments", total=len(children)) as bar:
+            for child in children:
+                if not execution.run_simulations or child.config_path is None:
+                    summaries.append(self._reuse_child_summary(child))
+                    bar.advance()
+                    continue
+                try:
+                    result = run_child_with_hmp(
+                        child.config_path,
+                        python_executable=execution.python_executable,
+                        timeout_seconds=execution.timeout_seconds,
+                    )
+                    summary = self._summary_from_run_result(child, result)
+                except Exception as exc:
+                    summary = self._failed_child_summary(child, exc)
+                summaries.append(summary)
+                bar.advance()
+                if summary["status"] == "failed" and not self.cfg.comparison.continue_on_error:
+                    raise RuntimeError(
+                        f"Comparison child '{child.simulation_id}' failed: "
+                        f"{summary.get('error_message', '')}"
+                    )
         return summaries
 
     def _summary_from_run_result(

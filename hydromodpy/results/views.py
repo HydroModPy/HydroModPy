@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core import progress
+
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
@@ -86,7 +88,10 @@ def _catchment_mask(sim: Run) -> np.ndarray | None:
 def _stack_field(sim: Run, variable: str) -> np.ndarray:
     """Stack a per-timestep cell field into a ``(n_t, n_cells)`` array."""
     n = sim.n_timesteps or 1
-    frames = [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
+    # status, not track: views are called per sim and per figure, a bar
+    # per call would spam one INFO line each in non-TTY runs.
+    with progress.status(f"Reading {variable}"):
+        frames = [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
     return np.stack(frames)
 
 
@@ -803,11 +808,12 @@ def recharge_forcing(sim: Run) -> pd.Series:
         n_t = arr.shape[0]
         mask = _catchment_mask(sim)
         means = []
-        for t in range(n_t):
-            field = np.asarray(arr[t], dtype="float64").ravel()
-            if mask is not None and mask.size == field.size:
-                field = np.where(mask, field, np.nan)
-            means.append(float(np.nanmean(field)))
+        with progress.status("Reading recharge forcing"):
+            for t in range(n_t):
+                field = np.asarray(arr[t], dtype="float64").ravel()
+                if mask is not None and mask.size == field.size:
+                    field = np.where(mask, field, np.nan)
+                means.append(float(np.nanmean(field)))
     finally:
         sz.close()
 

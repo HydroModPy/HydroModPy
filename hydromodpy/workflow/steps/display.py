@@ -25,15 +25,40 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import ExportedState, PipelineState
 
 if TYPE_CHECKING:
+    from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.run import Run
     from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
+
+
+def _render_figures_tracked(
+    run: Run,
+    display_cfg: DisplayConfig,
+    *,
+    output_dir: Path,
+    figure_names: list[str],
+) -> list[Path]:
+    """Render figures one at a time so the progress bar advances per figure."""
+    from hydromodpy.display.runs import render_figures_for_run
+
+    written: list[Path] = []
+    for figure_name in progress.track(figure_names, "Rendering figures"):
+        written.extend(
+            render_figures_for_run(
+                run,
+                display_cfg,
+                output_dir=output_dir,
+                figure_names=[figure_name],
+            )
+        )
+    return written
 
 
 def step_render_figures(
@@ -61,10 +86,7 @@ def step_render_figures(
     if not requested:
         return []
 
-    from hydromodpy.display.runs import (
-        render_figures_for_run,
-        resolve_run_output_dir,
-    )
+    from hydromodpy.display.runs import resolve_run_output_dir
 
     workspace = ctx.setup.workspace
     if workspace is None:
@@ -77,7 +99,12 @@ def step_render_figures(
         sim_id=sim_id,
     )
     try:
-        return list(render_figures_for_run(run, display_cfg, output_dir=out_dir))
+        return _render_figures_tracked(
+            run,
+            display_cfg,
+            output_dir=out_dir,
+            figure_names=list(requested),
+        )
     except Exception:
         logger.exception("Auto-render of figures failed for sim %s", sim_id)
         return []
@@ -133,10 +160,7 @@ class DisplayStep:
         )
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.display.runs import (
-            render_figures_for_run,
-            resolve_run_output_dir,
-        )
+        from hydromodpy.display.runs import resolve_run_output_dir
         from hydromodpy.results.catalog import SimulationCatalog
 
         ctx = state.get("ctx")
@@ -169,13 +193,14 @@ class DisplayStep:
                         run_name=sim.name,
                         sim_id=sim_id,
                     )
-                    rendered = render_figures_for_run(
+                    rendered = _render_figures_tracked(
                         sim,
                         display_cfg,
                         output_dir=out_dir,
+                        figure_names=list(display_cfg.figures),
                     )
                     if rendered:
-                        logger.info(
+                        logger.debug(
                             "DisplayStep rendered %d figure(s) in %s",
                             len(rendered),
                             out_dir,

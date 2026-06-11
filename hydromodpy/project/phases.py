@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
 
@@ -188,7 +189,8 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
     and invalidates downstream data/mesh state.
     """
     if project._phase == "uninitialized":
-        setup_workspace(project)
+        with progress.phase("build_geographic"):
+            setup_workspace(project)
     project._phase = "geographic"
     project._data_loaded.clear()
     project._ctx.loaded_data.loaded_plan_types = None
@@ -203,13 +205,14 @@ def load_data(project: Project, *, types: list[str] | None = None) -> None:
 
     if project._phase == "uninitialized":
         build_geographic(project)
-    step_data_loading(project._ctx)
-    step_spatial_supports(
-        project._ctx,
-        phase="data",
-        requested_domain_supports=project._requested_domain_supports,
-        registry=project._spatial_support_registry,
-    )
+    with progress.phase("load_data"):
+        step_data_loading(project._ctx)
+        step_spatial_supports(
+            project._ctx,
+            phase="data",
+            requested_domain_supports=project._requested_domain_supports,
+            registry=project._spatial_support_registry,
+        )
     if types is None:
         project._data_loaded = set(getattr(project._ctx.data_plan, "types", ()))
     else:
@@ -251,12 +254,13 @@ def build_mesh(project: Project, **overrides: object) -> None:
         else:
             merged = {**project._cfg.mesh_catchment.model_dump(), **overrides}
             project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(merged)
-    step_mesh(
-        project._ctx,
-        mesh_section_data=project._mesh_section_data,
-        constraints_mode=project._mesh_constraints_mode,
-    )
-    step_mesh_input(project._ctx, external_mesh_input=project._external_mesh_input)
+    with progress.phase("build_mesh"):
+        step_mesh(
+            project._ctx,
+            mesh_section_data=project._mesh_section_data,
+            constraints_mode=project._mesh_constraints_mode,
+        )
+        step_mesh_input(project._ctx, external_mesh_input=project._external_mesh_input)
     project._phase = "mesh"
 
 

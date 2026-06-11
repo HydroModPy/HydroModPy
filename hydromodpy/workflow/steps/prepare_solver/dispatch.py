@@ -175,7 +175,7 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
     if not portable:
         return
     written = ctx.store.register_tracked_files(ctx.sim_id, portable)
-    logger.info(
+    logger.debug(
         "Registered %d tracked input file(s) for simulation %s",
         written,
         ctx.sim_id,

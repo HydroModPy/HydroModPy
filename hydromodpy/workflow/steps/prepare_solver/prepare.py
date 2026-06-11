@@ -274,7 +274,7 @@ def step_write_provenance(ctx: WorkflowContext) -> None:
                     ) from exc
 
     if written:
-        logger.info("Wrote %d provenance records for sim %s", written, ctx.sim_id)
+        logger.debug("Wrote %d provenance records for sim %s", written, ctx.sim_id)
 
 
 def step_persist_forcings(ctx: WorkflowContext) -> None:
@@ -413,7 +413,7 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
         sz.close()
 
     if written:
-        logger.info("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)
+        logger.debug("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)
 
 
 def _persist_reference_hydrographic_feature(

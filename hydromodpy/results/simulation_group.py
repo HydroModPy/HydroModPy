@@ -34,6 +34,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from hydromodpy.core import progress
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -350,7 +352,7 @@ class SimulationGroup:
 
         arrays: list[xr.DataArray] = []
         sim_ids: list[str] = []
-        for sid in self._sim_ids:
+        for sid in progress.track(self._sim_ids, "Opening simulation stores"):
             try:
                 ds = _open_simulation_lazy(self._catalog, sid)
             except (KeyError, FileNotFoundError, OSError):

@@ -30,6 +30,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import derived as _pure
@@ -375,10 +376,9 @@ class DerivedRegistry:
             if name not in self._entries:
                 raise KeyError(f"Unknown derived computation '{name}'")
 
+        selected = [name for name in ordered if name in wanted]
         results: list[DerivedResult] = []
-        for name in ordered:
-            if name not in wanted:
-                continue
+        for name in progress.track(selected, "Deriving variables"):
             comp = self._entries[name]
             for required in comp.required_inputs:
                 if not (

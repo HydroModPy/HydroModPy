@@ -68,7 +68,7 @@ def log_data_plan(data_plan: DataLoadPlan) -> None:
     for type_name in data_plan.inferred_types:
         reasons = data_plan.reasons_for(type_name)
         if reasons:
-            logger.info(
+            logger.debug(
                 "[DataPlanner] %s: %s",
                 type_name,
                 "; ".join(reasons),
