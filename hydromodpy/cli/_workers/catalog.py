@@ -127,6 +127,8 @@ def _stable_listing_projection(df: Any) -> Any:
     cast to strings (raw ``uuid.UUID`` objects break ``DataFrame.to_json``) and
     config blobs are dropped so ``ls`` never moves megabytes to print a page.
     """
+    if "status" in df.columns:
+        df = df[df["status"] != "trashed"]
     cols = [c for c in _LISTING_COLUMNS if c in df.columns]
     out = df[cols].copy()
     if "sim_id" in out.columns:

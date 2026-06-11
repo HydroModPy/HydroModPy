@@ -84,9 +84,64 @@ class WritesMixinDuckDB:
         )
         if clash is not None:
             raise DuplicateSimulationNameError(str(project), str(new_name), str(clash[0]))
+        from hydromodpy.results.catalog.registration import _split_stem_version
+
+        stem, version = _split_stem_version(str(new_name))
         self._backend.execute(
-            "UPDATE simulations SET name = ?, updated_at = current_timestamp WHERE sim_id = ?",
-            [str(new_name), sid],
+            "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
+            "updated_at = current_timestamp WHERE sim_id = ?",
+            [str(new_name), stem, version or 1, sid],
+        )
+
+    @audited("sim.tag_add", payload_keys=("tag",))
+    @with_lock_retry()
+    def add_tag(
+        self,
+        sim_id: str | UUID,
+        tag: str,
+    ) -> bool:
+        """Attach a ``(sim_id, tag)`` row to ``tags`` (idempotent).
+
+        Returns ``True`` when a row was inserted, ``False`` when the tag was
+        already present.
+        """
+        if not self._persistence.save_catalog:
+            return False
+        sid = str(sim_id)
+        existing = self._backend.fetch_one(
+            "SELECT 1 FROM tags WHERE sim_id = ? AND tag = ?",
+            [sid, str(tag)],
+        )
+        if existing is not None:
+            return False
+        self._backend.execute(
+            "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
+            [sid, str(tag)],
+        )
+        return True
+
+    def write_tags(self, sim_id: str | UUID, tags: list[str]) -> None:
+        """Attach several tags to ``sim_id`` (each idempotent and audited)."""
+        for tag in tags:
+            if tag and str(tag).strip():
+                self.add_tag(sim_id, str(tag).strip())
+
+    @audited("note.add")
+    @with_lock_retry()
+    def add_note(
+        self,
+        sim_id: str | UUID,
+        note: str,
+        *,
+        added_by: str | None = None,
+    ) -> None:
+        """Append a timestamped note to ``sim_notes`` for ``sim_id``."""
+        if not self._persistence.save_catalog:
+            return
+        self._backend.execute(
+            "INSERT INTO sim_notes (note_id, sim_id, note, added_by) "
+            "VALUES (gen_random_uuid(), ?, ?, ?)",
+            [str(sim_id), str(note), added_by],
         )
 
     @audited("sim.tag_remove", payload_keys=("tag",))

@@ -265,6 +265,7 @@ class DiscoveryMixin:
         clause_params: list = []
         # v2: tags moved out of simulations into a per-sim table.
         tag_join_added = False
+        has_status_filter = "status" in filters
 
         for key, val in filters.items():
             if key == "tags":
@@ -335,6 +336,10 @@ class DiscoveryMixin:
                     "flow_regime, mesh_topology, project, name, crs, tags, "
                     "<metric>_gt, <metric>_lt, <metric>_gte"
                 )
+
+        # Trashed runs are hidden from find() unless explicitly asked for.
+        if not has_status_filter:
+            clauses.append("st.code <> 'trashed'")
 
         if joins:
             query += " " + " ".join(joins)
