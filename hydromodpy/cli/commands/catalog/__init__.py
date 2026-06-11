@@ -13,6 +13,11 @@ Sub-actions:
 - ``hmp catalog tag <sim_ref> TAG... [--rm TAG]``: add/remove tags.
 - ``hmp catalog note <sim_ref> "<text>"``: append a timestamped note.
 - ``hmp catalog rename <sim_ref> <new_name>``: rename a run (storage never moves).
+- ``hmp catalog diff <ref_a> <ref_b>``: compare two runs' params and outlet metrics.
+- ``hmp catalog watch``: show running runs with heartbeat staleness.
+- ``hmp catalog export <sim_ref> [-o FILE]``: write a portable ``.hmp`` archive.
+- ``hmp catalog import <FILE.hmp>``: restore a run from an archive.
+- ``hmp catalog rerun <sim_ref> [--set path=value]``: re-launch from the snapshot.
 """
 
 from __future__ import annotations
