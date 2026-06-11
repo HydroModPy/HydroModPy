@@ -92,6 +92,13 @@ class DeriveStep:
                 ctx=ctx,
             )
 
+        # Solver models are consumed up to extraction only (provenance backfill,
+        # calibration trial metrics; trials cap the pipeline at extract). Past
+        # this point they are dead weight: a transient flopy model carries the
+        # full stress-period data, which reaches GBs on multi-thousand-period
+        # runs. Release them before the derive stacks allocate.
+        ctx.execution.models_by_run_id.clear()
+
         plan = ctx.execution.simulation_plan
         if plan is not None and not ctx.execution.lightweight:
             from hydromodpy.simulation.extraction.post_run import derive_run_outputs
