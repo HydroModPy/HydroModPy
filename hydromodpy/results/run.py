@@ -204,40 +204,9 @@ class Run(
         self._catalog.add_note(self._sim_id, text)
         return self
 
-    def rename(self, new_name: str) -> Run:
-        """Rename this run (storage basename is id-only and never moves)."""
-        self._catalog.rename_simulation(self._sim_id, new_name)
-        return self
-
     def delete(self) -> None:
         """Move this run to the trash (reversible). Raises if pinned."""
         self._catalog.trash(self._sim_id)
-
-    def restore(self) -> str:
-        """Restore this run from the trash, returning its (versioned) name."""
-        return self._catalog.restore(self._sim_id)
-
-    # -- Scalar tables -------------------------------------------------------
-
-    @property
-    def params(self) -> dict:
-        """Global-zone parameters as ``{param_name: value}``."""
-        rows = self._catalog.backend.fetch_all(
-            "SELECT param_name, value FROM parameters "
-            "WHERE sim_id = ? AND zone_id = '__global__'",
-            [self._sim_id],
-        )
-        return {r[0]: r[1] for r in rows}
-
-    @property
-    def metrics(self) -> dict:
-        """Outlet metrics as ``{metric_name: value}`` (canonical outlet scope)."""
-        rows = self._catalog.backend.fetch_all(
-            "SELECT metric_name, value FROM metrics "
-            "WHERE sim_id = ? AND station_id = '__outlet__'",
-            [self._sim_id],
-        )
-        return {r[0]: r[1] for r in rows}
 
     @property
     def parent(self) -> Run | None:
