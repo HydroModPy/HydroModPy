@@ -97,6 +97,7 @@ def run_data(
     )
     loader.load_all(run_state)
     apply_structural_updates_from_data(run_state)
+    run_state.loaded_data.loaded_plan_types = tuple(getattr(data_plan, "types", ()) or ())
 
 
 # ---------------------------------------------------------------------------
@@ -383,3 +384,13 @@ class LoadDataStep:
     ) -> PipelineState:
         """Re-run load_data: data managers consult their local caches."""
         return self.run(prior_state)
+
+    def is_prebuilt(self, state: PipelineState) -> bool:
+        """True when the in-memory ctx already covers the current data plan."""
+        ctx = state.get("ctx")
+        if ctx is None:
+            return False
+        loaded = getattr(ctx.loaded_data, "loaded_plan_types", None)
+        if loaded is None:
+            return False
+        return set(getattr(ctx.data_plan, "types", ()) or ()) <= set(loaded)

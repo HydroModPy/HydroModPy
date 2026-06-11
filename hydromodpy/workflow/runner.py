@@ -229,12 +229,22 @@ class Pipeline:
                         )
                         state = state.advance(step_index=index, step_name=name)
                 else:
-                    state = step.run(state)
-                    state = state.advance(
-                        step_index=index,
-                        step_name=name,
-                        data=state.data,
-                    )
+                    is_prebuilt = getattr(step, "is_prebuilt", None)
+                    if is_prebuilt is not None and is_prebuilt(state):
+                        # The in-memory ctx already carries this step's
+                        # products (eager facade build); advancing is enough.
+                        logger.debug(
+                            "pipeline.rebuild_skipped step=%s reason=prebuilt_in_memory",
+                            name,
+                        )
+                        state = state.advance(step_index=index, step_name=name)
+                    else:
+                        state = step.run(state)
+                        state = state.advance(
+                            step_index=index,
+                            step_name=name,
+                            data=state.data,
+                        )
             except Exception as exc:
                 raise ResumeIntegrityError(
                     f"pipeline rebuild failed at step {index} ({name}): {exc}",

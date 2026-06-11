@@ -191,6 +191,7 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
         setup_workspace(project)
     project._phase = "geographic"
     project._data_loaded.clear()
+    project._ctx.loaded_data.loaded_plan_types = None
     project._ctx.setup.mesh_planar = None
     project._ctx.setup.mesh_bundle = None
 
@@ -223,6 +224,13 @@ def reload_data(project: Project, *, types: list[str]) -> None:
 
 def rebuild_geographic(project: Project, *, reuse_dem: bool = False) -> None:
     """Rerun the geographic pipeline and invalidate the mesh."""
+    # Drop the setup products so the pipeline re-runs the geographic step
+    # instead of reusing the in-memory context.
+    setup = project._ctx.setup
+    setup.geographic = None
+    setup.geographic_features = None
+    setup.domain_geographic = None
+    setup.domain = None
     build_geographic(project, reuse_dem=reuse_dem)
 
 
