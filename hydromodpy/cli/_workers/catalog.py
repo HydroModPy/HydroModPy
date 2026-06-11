@@ -463,6 +463,27 @@ def export_package_run(sim_ref: str, *, workspace: Any, output: str | None = Non
         return {"sim_id": sid, "path": str(produced)}
 
 
+def export_package_runs(
+    sim_refs: list[str], *, workspace: Any, output_dir: str | None = None
+) -> list[dict]:
+    """Export several runs as one ``.hmp`` archive each (v1 multi-run export).
+
+    Each archive is named ``<run-name>.hmp`` under ``output_dir`` (default: the
+    current directory). A true single-container multi-run archive is a later
+    format bump; for now N references produce N archives.
+    """
+    out_dir = Path(output_dir).expanduser() if output_dir else Path.cwd()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    results: list[dict] = []
+    with _open_project_catalog(workspace) as catalog:
+        for ref in sim_refs:
+            sid = catalog.resolve(ref)
+            run_name = catalog[sid].name or sid[:8]
+            produced = catalog.export_package(sid, out_dir / f"{run_name}.hmp")
+            results.append({"sim_id": sid, "path": str(produced)})
+    return results
+
+
 def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
     """Import a ``.hmp`` archive into the workspace catalog (created if absent)."""
     from hydromodpy.results.catalog import SimulationCatalog

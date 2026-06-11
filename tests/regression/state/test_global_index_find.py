@@ -75,3 +75,57 @@ def test_find_filters_on_solver_code(tmp_path: Path) -> None:
 
     assert len(rows) == 1
     assert rows.iloc[0]["solver"] == "boussinesq"
+
+
+def _seed_row(workspace: Path, *, name: str, status_code: str, nse: float | None = None) -> str:
+    """Insert one simulation row (and optional nse metric) into a catalog."""
+    catalog_path = workspace / "catalog.duckdb"
+    workspace.mkdir(parents=True, exist_ok=True)
+    sim_id = str(uuid.uuid4())
+    connection = duckdb.connect(str(catalog_path))
+    try:
+        _ensure_catalog(connection)
+        solver_id = connection.execute("SELECT id FROM solvers WHERE code = 'modflow6'").fetchone()[
+            0
+        ]
+        status_id = connection.execute(
+            "SELECT id FROM statuses WHERE code = ?", [status_code]
+        ).fetchone()[0]
+        connection.execute(
+            "INSERT INTO simulations (sim_id, name, project, solver_id, status_id, "
+            "zarr_path, storage_basename) VALUES (?, ?, 'cheze', ?, ?, ?, ?)",
+            [sim_id, name, solver_id, status_id, "zarr/", name],
+        )
+        if nse is not None:
+            connection.execute(
+                "INSERT INTO metrics (sim_id, station_id, variable, metric_name, value) "
+                "VALUES (?, '__outlet__', 'head', 'nse', ?)",
+                [sim_id, nse],
+            )
+    finally:
+        connection.close()
+    return sim_id
+
+
+def test_find_keyword_filters_hide_trashed_and_compare(tmp_path: Path) -> None:
+    state_root = tmp_path / "state"
+    ws = tmp_path / "cheze"
+    _seed_row(ws, name="cheze_baseline", status_code="completed", nse=0.86)
+    _seed_row(ws, name="cheze_draft", status_code="trashed")
+
+    with GlobalIndex(state_root / "index.duckdb") as index:
+        index.register_workspace(str(ws), label="cheze")
+        index.refresh_federation()
+        default = index.find()
+        by_name = index.find(name_like="cheze_base%")
+        trashed = index.find(status="trashed")
+        good = index.find(nse_gt=0.8)
+        none = index.find(nse_gt=0.95)
+
+    # trashed runs are hidden unless explicitly requested
+    assert set(default["status"]) == {"completed"}
+    assert list(by_name["name"]) == ["cheze_baseline"]
+    assert list(trashed["status"]) == ["trashed"]
+    # comparison operator on a metric column
+    assert list(good["name"]) == ["cheze_baseline"]
+    assert none.empty

@@ -412,19 +412,26 @@ class GlobalIndex:
         *,
         scientific_objective: str | None = None,
         solver: str | None = None,
-        **metric_filters: float,
+        status: str | None = None,
+        name_like: str | None = None,
+        **filters: object,
     ) -> pd.DataFrame:
-        """Run a federated SELECT against ``all_simulations`` with equality filters.
+        """Run a federated SELECT against ``all_simulations`` with keyword filters.
 
         Parameters
         ----------
-        scientific_objective
-            Optional equality filter on the ``scientific_objective`` column.
-        solver
-            Optional equality filter on the ``solver`` column.
-        metric_filters
-            Extra equality filters keyed by column name. Unknown columns are
-            silently ignored.
+        scientific_objective, solver, status
+            Optional equality filters on the matching text columns.
+        name_like
+            Optional ``LIKE`` pattern on ``name`` (``%`` / ``_`` wildcards).
+        filters
+            Extra filters keyed by column name. A bare ``col=v`` is equality; a
+            suffixed key applies a comparison: ``col_gt`` (>), ``col_gte`` (>=),
+            ``col_lt`` (<), ``col_lte`` (<=), ``col_like`` (LIKE). So
+            ``find(nse_gt=0.8, status="completed", name_like="cheze%")`` is the
+            federated counterpart of the per-workspace ``find``. Unknown columns
+            are silently skipped. Trashed runs are hidden unless ``status`` is
+            given explicitly.
 
         Returns
         -------
@@ -434,21 +441,38 @@ class GlobalIndex:
         if not self._has_view("all_simulations"):
             return pd.DataFrame()
 
+        available = self._view_columns("all_simulations")
         clauses: list[str] = []
         params: list[object] = []
-        available = self._view_columns("all_simulations")
-        if scientific_objective is not None and "scientific_objective" in available:
-            clauses.append("scientific_objective = ?")
-            params.append(scientific_objective)
-        if solver is not None and "solver" in available:
-            clauses.append("solver = ?")
-            params.append(solver)
-        for column, value in metric_filters.items():
+
+        def add_eq(column: str, value: object | None) -> None:
+            if value is not None and column in available:
+                clauses.append(f"{_quote_identifier(column)} = ?")
+                params.append(value)
+
+        add_eq("scientific_objective", scientific_objective)
+        add_eq("solver", solver)
+        add_eq("status", status)
+        if name_like is not None and "name" in available:
+            clauses.append("name LIKE ?")
+            params.append(name_like)
+
+        operators = {"_gte": ">=", "_lte": "<=", "_gt": ">", "_lt": "<", "_like": "LIKE"}
+        for key, value in filters.items():
+            column, op = key, "="
+            for suffix, sql_op in operators.items():
+                if key.endswith(suffix) and len(key) > len(suffix):
+                    column, op = key[: -len(suffix)], sql_op
+                    break
             if column not in available:
                 logger.debug("Unknown filter column %s; skipping", column)
                 continue
-            clauses.append(f"{_quote_identifier(column)} = ?")
+            clauses.append(f"{_quote_identifier(column)} {op} ?")
             params.append(value)
+
+        # Hide trashed runs unless a status filter explicitly selects them.
+        if status is None and "status" in available:
+            clauses.append("status <> 'trashed'")
 
         sql = "SELECT * FROM all_simulations"
         if clauses:
