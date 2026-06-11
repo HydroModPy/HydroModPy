@@ -408,6 +408,39 @@ def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
         return catalog.diff(ref_a, ref_b)
 
 
+def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
+    """Return running runs with heartbeat age and a staleness flag.
+
+    A run is ``stale`` when its newest heartbeat is older than
+    ``stale_minutes`` (or it never emitted one), which usually means the
+    process died without finalizing.
+    """
+    with _open_project_catalog(workspace) as catalog:
+        rows = catalog._backend.fetch_all(
+            "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
+            "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
+            "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
+            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
+            "WHERE st.code = 'running' ORDER BY s.created_at DESC",
+        )
+        cutoff = stale_minutes * 60
+        out = []
+        for sid, name, created_at, last_heartbeat, age_s in rows:
+            stale = age_s is None or float(age_s) > cutoff
+            out.append(
+                {
+                    "sim_id": sid,
+                    "name": name,
+                    "created_at": created_at,
+                    "last_heartbeat": last_heartbeat,
+                    "age_s": None if age_s is None else float(age_s),
+                    "stale": stale,
+                }
+            )
+        return out
+
+
 def list_trashed(workspace: Any) -> list[dict]:
     """Return the trashed runs in the workspace catalog."""
     with _open_project_catalog(workspace) as catalog:

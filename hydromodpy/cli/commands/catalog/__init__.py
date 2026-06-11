@@ -33,12 +33,13 @@ from hydromodpy.cli.commands.catalog import (
     tag,
     trash,
     vacuum,
+    watch,
 )
 
 NAME: str = "catalog"
 HELP: str = "Inspect, query, and maintain workspace catalogs"
 
-ACTIONS = (ls, query, show, gc, vacuum, delete, restore, trash, tag, note, rename, diff)
+ACTIONS = (ls, query, show, gc, vacuum, delete, restore, trash, tag, note, rename, diff, watch)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
