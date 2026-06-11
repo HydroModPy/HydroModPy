@@ -232,6 +232,7 @@ class ExportStep:
             packaged = plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None
             if packaged:
                 from hydromodpy.simulation.extraction.post_run import (
+                    auto_export_package,
                     auto_export_results,
                     cleanup_solver_outputs,
                 )
@@ -254,10 +255,9 @@ class ExportStep:
                         results_config=results_cfg,
                         keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
                     )
-            step_finalize_store(ctx, wall_seconds=wall_seconds)
-            if packaged:
-                from hydromodpy.simulation.extraction.post_run import auto_export_package
-
+                # Package while the store is still open. ``step_finalize_store``
+                # closes it (sets ctx.store = None); the .hmp exporter repacks
+                # the live Zarr itself, so pre-finalize is correct.
                 auto_export_package(
                     sim_id=ctx.sim_id,
                     store=ctx.store,
@@ -265,6 +265,7 @@ class ExportStep:
                     save_catalog=save_catalog,
                     run_id=ctx.setup.run_id,
                 )
+            step_finalize_store(ctx, wall_seconds=wall_seconds)
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),

@@ -847,9 +847,10 @@ def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int
         try:
             if path.is_file():
                 path.unlink(missing_ok=True)
+                summary["tmp_parquet"] += 1
             elif path.is_dir():
                 shutil.rmtree(path, ignore_errors=True)
-            summary["tmp_parquet"] += 1
+                summary["tmp_parquet"] += 1
         except OSError:
             continue
     for path_str in plan["orphan_stores"]:
@@ -857,9 +858,10 @@ def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int
         try:
             if path.is_file():
                 path.unlink(missing_ok=True)
+                summary["orphan_stores"] += 1
             elif path.is_dir():
                 shutil.rmtree(path, ignore_errors=True)
-            summary["orphan_stores"] += 1
+                summary["orphan_stores"] += 1
         except OSError:
             continue
     summary["expired_trash"], summary["pending_purges"] = _gc_apply_per_project_purges(

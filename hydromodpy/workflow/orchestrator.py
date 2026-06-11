@@ -293,11 +293,7 @@ def cleanup_run(
             dump_cached_rasters_to_disk(geo)
         cleanup_stable_folder(geo)
 
-    if close_store:
-        step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)
-    elif ctx.store is not None:
-        ctx.store.finalize(sim_id, status=status, duration_s=wall_seconds)
-
+    # Package while the store is still open: step_finalize_store closes it.
     if ctx.store is not None and status == "completed":
         from hydromodpy.simulation.extraction.post_run import auto_export_package
 
@@ -309,6 +305,11 @@ def cleanup_run(
             save_catalog=bool(results_cfg.persistence.save_catalog),
             run_id=ctx.setup.run_id,
         )
+
+    if close_store:
+        step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)
+    elif ctx.store is not None:
+        ctx.store.finalize(sim_id, status=status, duration_s=wall_seconds)
 
 
 def standard_steps() -> tuple:

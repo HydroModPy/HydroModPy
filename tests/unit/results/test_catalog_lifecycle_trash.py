@@ -296,3 +296,44 @@ def test_adopt_already_registered_raises(catalog):
     catalog.finalize(sid, status="completed", duration_s=1.0)
     with pytest.raises(ValueError, match="already registered"):
         catalog.adopt(catalog.parquet_dir_for(sid))
+
+
+# ---------------------------------------------------------------------------
+# [export].package writes a .hmp while the store is open (regression: the step
+# must package BEFORE finalize closes the store, never with store=None)
+# ---------------------------------------------------------------------------
+
+
+def test_auto_export_package_writes_hmp_and_logs_it(catalog):
+    from hydromodpy.simulation.extraction.post_run import auto_export_package
+    from hydromodpy.simulation.planning.export_config import ExportConfig
+
+    sid = str(uuid.uuid4())
+    catalog.register_simulation(
+        sid, project="p", solver="modflow6", name="shareme", n_cells=4, n_layers=1, config={"k": 1}
+    )
+    auto_export_package(
+        sim_id=sid,
+        store=catalog,
+        export_config=ExportConfig(package=True),
+        save_catalog=True,
+        run_id="shareme",
+    )
+    archive = catalog.project_path / "exports" / "shareme" / "shareme.hmp"
+    assert archive.is_file()
+    assert "hmp" in [e["kind"] for e in catalog.list_exports(sid)]
+
+
+def test_auto_export_package_noop_when_disabled(catalog):
+    from hydromodpy.simulation.extraction.post_run import auto_export_package
+    from hydromodpy.simulation.planning.export_config import ExportConfig
+
+    sid = _register(catalog, "plain")
+    auto_export_package(
+        sim_id=sid,
+        store=catalog,
+        export_config=ExportConfig(package=False),
+        save_catalog=True,
+        run_id="plain",
+    )
+    assert not (catalog.project_path / "exports" / "plain").exists()

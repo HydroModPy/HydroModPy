@@ -263,10 +263,11 @@ class LifecycleMixin:
         try:
             parquet_dir = self._paths.parquet_dir_for(sid)
             parquet_dir.mkdir(parents=True, exist_ok=True)
-            dest = parquet_dir / "simulation.parquet"
+            dest_sql = (parquet_dir / "simulation.parquet").as_posix().replace("'", "''")
+            sid_sql = str(sid).replace("'", "''")
             self._backend.execute(
-                f"COPY (SELECT * FROM simulations WHERE sim_id = '{sid}') "
-                f"TO '{dest.as_posix()}' (FORMAT PARQUET)"
+                f"COPY (SELECT * FROM simulations WHERE sim_id = '{sid_sql}') "
+                f"TO '{dest_sql}' (FORMAT PARQUET)"
             )
         except Exception as exc:
             logger.debug("Could not write simulation snapshot for %s: %s", sid[:8], exc)
@@ -367,18 +368,25 @@ class LifecycleMixin:
 
         # Phase 1: journal the intent and commit. Row + bytes still present, so
         # a crash here leaves a restorable row plus a 'pending' journal entry.
+        # ``@with_lock_retry`` on delete() can re-enter this method, so only the
+        # first entry emits ``sim.purge.begin`` (the journal row is the guard).
+        already_journaled = (
+            self._backend.fetch_one("SELECT 1 FROM purge_journal WHERE sim_id = ?", [sid])
+            is not None
+        )
         with self._backend.transaction():
             self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
             self._backend.execute(
                 "INSERT INTO purge_journal (sim_id, phase) VALUES (?, 'pending')", [sid]
             )
-            emit_audit_event(
-                self._db,
-                event_type="sim.purge.begin",
-                sim_id=sid,
-                project=project_name,
-                payload=payload,
-            )
+            if not already_journaled:
+                emit_audit_event(
+                    self._db,
+                    event_type="sim.purge.begin",
+                    sim_id=sid,
+                    project=project_name,
+                    payload=payload,
+                )
 
         # Phase 2: remove the bytes (idempotent) and mark the journal.
         self._remove_sim_storage(parquet_dir, zarr_abs)
