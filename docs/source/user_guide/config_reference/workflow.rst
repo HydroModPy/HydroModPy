@@ -9,7 +9,7 @@ TOML section: ``[workflow]``
 
 Pydantic model: ``WorkflowConfig`` defined in ``hydromodpy.config.hydromodpy_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L92>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L93>`__
 
 Workflow selector configuration.
 
@@ -36,9 +36,23 @@ Fields
         <code class="hmp-field-name">mode</code>
       </div>
 
-   :bdg-primary:`Literal['simulation', 'calibration', 'overview', 'comparison', 'testbed', 'site_selection']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L95>`__
+   :bdg-primary:`Literal['simulation', 'calibration', 'overview', 'comparison', 'testbed', 'site_selection']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L96>`__
 
       Workflow mode dispatched by `hmp run`.
+
+
+.. container:: hmp-field hmp-field-level-expert
+   :name: workflow-profile
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="workflow.profile">
+        <code class="hmp-field-name">profile</code>
+      </div>
+
+   :bdg-primary:`bool | str` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L100>`__
+
+      Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
 
 
 Starter TOML snippet

@@ -14,6 +14,9 @@ GLOBAL_ZONE = "__global__"
 OUTLET_STATION = "__outlet__"
 """Sentinel station id for the catchment outlet."""
 
+TRASH_RETENTION_DAYS = 30
+"""Days a trashed run stays restorable before ``gc --apply`` may hard-purge it."""
+
 # v2 catalog table names (DuckDB). Kept in sync with
 # ``catalog/migrations/0001_initial.sql``.
 TABLE_NAMES: tuple[str, ...] = (
@@ -139,6 +142,7 @@ __all__ = [
     "PARQUET_VIEW_NAMES",
     "PER_SIM_TABLE_NAMES",
     "TABLE_NAMES",
+    "TRASH_RETENTION_DAYS",
     "VALID_SOLVER_CODES",
     "solver_category",
     "validate_solver_code",

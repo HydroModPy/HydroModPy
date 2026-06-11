@@ -86,6 +86,14 @@ def run(args: argparse.Namespace) -> None:
             for group in groups:
                 print(f"    - {group}")
 
+    exports = payload.get("exports") or []
+    if exports:
+        print(f"Exports ({len(exports)}):")
+        for art in exports:
+            size = art.get("bytes")
+            size_str = f" ({size} B)" if size is not None else ""
+            print(f"  - {art['kind']}: {art['rel_path']}{size_str}")
+
     # Tags, notes, metrics and parameters require a direct catalog read.
     with SimulationCatalog(workspace_root, read_only=True) as catalog:
         sim = catalog[payload["sim_id"]]

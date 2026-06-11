@@ -457,3 +457,53 @@ class RegistrationMixin:
             zarr=zarr_obj,
             replaced_sim_id=replaced_sid,
         )
+
+    @with_lock_retry()
+    def adopt(self, store_path: Path | str) -> str:
+        """Re-register an orphan store from its ``simulation.parquet`` snapshot.
+
+        *store_path* may point at any of the run's stores (``.zarr``,
+        ``.zarr.zip`` or ``.parquet``); the one-row snapshot is read from the
+        matching Parquet store directory. Returns the adopted ``sim_id``.
+
+        Raises
+        ------
+        FileNotFoundError
+            When no snapshot is present (the run predates snapshot adoption).
+        ValueError
+            When the store name is unrecognised, the run is already
+            registered, or the snapshot is empty.
+        """
+        name = Path(store_path).name
+        basename: str | None = None
+        for suffix in (".zarr.zip", ".zarr", ".parquet"):
+            if name.endswith(suffix):
+                basename = name[: -len(suffix)]
+                break
+        if basename is None:
+            raise ValueError(f"{name!r} is not a recognised store (.zarr/.zarr.zip/.parquet)")
+        snapshot = self._simulations_dir / f"{basename}.parquet" / "simulation.parquet"
+        if not snapshot.exists():
+            raise FileNotFoundError(
+                f"No simulation.parquet snapshot for {basename!r}; this run predates "
+                "snapshot-based adoption and cannot be re-registered."
+            )
+        posix = snapshot.as_posix().replace("'", "''")
+        row = self._backend.fetch_one(
+            f"SELECT CAST(sim_id AS VARCHAR), project FROM read_parquet('{posix}')"
+        )
+        if row is None:
+            raise ValueError(f"Empty snapshot at {snapshot}")
+        sid, project = row[0], row[1]
+        if self._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is not None:
+            raise ValueError(f"Run {sid[:8]} is already registered")
+        with self._backend.transaction():
+            self._backend.execute(f"INSERT INTO simulations SELECT * FROM read_parquet('{posix}')")
+            emit_audit_event(
+                self._db,
+                event_type="import",
+                sim_id=sid,
+                project=project,
+                payload={"adopted_from": str(store_path)},
+            )
+        return sid

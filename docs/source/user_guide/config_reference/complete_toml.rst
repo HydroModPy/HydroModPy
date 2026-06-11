@@ -24,6 +24,8 @@ Sub-models are linked back to their per-section page.
       [workflow]
       # Workflow mode dispatched by `hmp run`.
       # mode = ""  # REQUIRED
+      # Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
+      profile = false
 
 .. dropdown:: ``[workspace]`` (WorkspaceConfig)
    :icon: gear
@@ -254,13 +256,13 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [simulation]
-      # Human-readable simulation name.
+      # Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.
+      # example: name = "cheze_baseline"
       name = ""
-      # Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
-      # example: run_id = "steady_nwt"
-      run_id = ""
-      # Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
-      on_collision = "replace"
+      # Free-text tags attached at registration; editable later via 'hmp tag'.
+      # tags = ...  # uses factory default
+      # Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
+      if_exists = "version"
       # Short free-text description of the simulation intent.
       description = ""
       # Scientific objective used for catalog and ML stratification.
@@ -361,6 +363,37 @@ Sub-models are linked back to their per-section page.
       # particles = ...  # uses factory default
       # Transport figure switches.
       # transport = ...  # uses factory default
+
+.. dropdown:: ``[export]`` (ExportConfig)
+   :icon: gear
+
+   See :doc:`export` for the full description.
+
+   .. code-block:: toml
+
+      [export]
+      # Export to NetCDF-4/UGRID.
+      netcdf = false
+      # Export time series to CSV.
+      csv_timeseries = true
+      # Export to VTU (ParaView).
+      vtu = false
+      # Export to GeoTIFF.
+      geotiff = false
+      # Export to Shapefile.
+      shapefile = false
+      # Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
+      package = false
+      # Output directory for exports. Defaults to project results folder.
+      # output_dir = ...  # default = None
+      # Which variables to include in exports.
+      # variables = ...  # uses factory default
+      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
+      times = "last"
+      # GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
+      # resolution = ...  # default = None
+      # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
+      # artifacts = ...  # uses factory default
 
 .. dropdown:: ``[persistence]`` (PersistenceConfig)
    :icon: gear

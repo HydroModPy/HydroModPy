@@ -141,3 +141,199 @@ def test_find_excludes_trashed_by_default(catalog):
     assert live == {"b"}
     trashed = list(catalog.find(project="p", status="trashed"))
     assert len(trashed) == 1
+
+
+# ---------------------------------------------------------------------------
+# Journaled two-phase hard purge (crash safety)
+# ---------------------------------------------------------------------------
+
+
+def _give_storage(catalog, sid):
+    """Create real Parquet + Zarr storage for a sim and wire its zarr_path."""
+    pq = catalog.parquet_dir_for(sid)
+    pq.mkdir(parents=True, exist_ok=True)
+    (pq / "data.parquet").write_bytes(b"x")
+    zz = catalog.zarr_path_for(sid)
+    zz.mkdir(parents=True, exist_ok=True)
+    (zz / ".zgroup").write_text("{}")
+    rel = zz.relative_to(catalog._workspace)
+    catalog._backend.execute(
+        "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?", [str(rel), sid]
+    )
+    return pq, zz
+
+
+def _journal_phases(catalog, sid):
+    return [
+        r[0]
+        for r in catalog._backend.fetch_all(
+            "SELECT phase FROM purge_journal WHERE sim_id = ?", [sid]
+        )
+    ]
+
+
+def test_empty_trash_removes_storage_and_clears_journal(catalog):
+    sid = _register(catalog, "doomed")
+    pq, zz = _give_storage(catalog, sid)
+    catalog.trash(sid)
+
+    assert catalog.empty_trash() == [sid]
+    # bytes gone, row gone, journal empty -> nothing left behind, nothing dangling
+    assert not pq.exists()
+    assert not zz.exists()
+    assert _journal_phases(catalog, sid) == []
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+
+def test_purge_crash_before_cascade_leaves_reachable_state(catalog, monkeypatch):
+    """A crash after rmtree but before the row delete must leave the row + a
+    journal entry so no byte is orphaned and replay can finish."""
+    sid = _register(catalog, "doomed")
+    pq, zz = _give_storage(catalog, sid)
+    catalog.trash(sid)
+
+    def _boom(_sid):
+        raise RuntimeError("crash in phase 3")
+
+    monkeypatch.setattr(catalog, "_cascade_delete_rows", _boom)
+    with pytest.raises(RuntimeError, match="crash in phase 3"):
+        catalog.delete(sid, audit_event_type="sim.purge")
+
+    # bytes are gone (phase 2 ran) but the row survives and the journal records
+    # the in-flight purge -> the (now empty) storage location is still reachable
+    assert not pq.exists()
+    assert not zz.exists()
+    assert _journal_phases(catalog, sid) == ["rmtree_done"]
+    assert (
+        catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is not None
+    )
+
+    # gc-style replay finishes the purge: row gone, journal cleared
+    monkeypatch.undo()
+    assert catalog.replay_purge_journal() == [sid]
+    assert _journal_phases(catalog, sid) == []
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+
+def test_replay_finishes_a_pending_purge_with_storage_intact(catalog):
+    """A crash right after phase 1 leaves storage on disk; replay removes it."""
+    sid = _register(catalog, "doomed")
+    pq, zz = _give_storage(catalog, sid)
+    catalog.trash(sid)
+    # simulate a phase-1-only crash: journal 'pending', storage + row intact
+    catalog._backend.execute(
+        "INSERT INTO purge_journal (sim_id, phase) VALUES (?, 'pending')", [sid]
+    )
+    assert pq.exists() and zz.exists()
+
+    assert catalog.replay_purge_journal() == [sid]
+    assert not pq.exists()
+    assert not zz.exists()
+    assert _journal_phases(catalog, sid) == []
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+
+# ---------------------------------------------------------------------------
+# export_log bookkeeping
+# ---------------------------------------------------------------------------
+
+
+def test_record_export_logs_artifact_with_checksum(catalog):
+    sid = _register(catalog, "r")
+    artifact = catalog.project_path / "exports" / "r" / "timeseries.csv"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text("a,b\n1,2\n")
+    catalog.record_export(sid, kind="csv", path=artifact)
+
+    exports = catalog.list_exports(sid)
+    assert len(exports) == 1
+    assert exports[0]["kind"] == "csv"
+    assert exports[0]["rel_path"] == "exports/r/timeseries.csv"
+    assert exports[0]["bytes"] == artifact.stat().st_size
+    assert len(exports[0]["sha256"]) == 64
+
+
+def test_record_export_is_noop_when_persistence_off(catalog):
+    sid = _register(catalog, "r")
+    artifact = catalog.project_path / "exports" / "r" / "x.csv"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text("x\n")
+    catalog._persistence.save_catalog = False
+    try:
+        catalog.record_export(sid, kind="csv", path=artifact)
+    finally:
+        catalog._persistence.save_catalog = True
+    assert catalog.list_exports(sid) == []
+
+
+# ---------------------------------------------------------------------------
+# Orphan adoption (finalize snapshot -> re-register)
+# ---------------------------------------------------------------------------
+
+
+def test_finalize_writes_snapshot_and_store_can_be_adopted(catalog):
+    sid = _register(catalog, "r")
+    catalog.finalize(sid, status="completed", duration_s=1.0)
+    parquet_dir = catalog.parquet_dir_for(sid)
+    assert (parquet_dir / "simulation.parquet").exists()
+
+    # orphan the catalog row, keep the storage on disk
+    catalog._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+    assert catalog.adopt(parquet_dir) == sid
+    row = catalog._backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
+    assert row[0] == "r"
+
+
+def test_adopt_without_snapshot_raises(catalog):
+    with pytest.raises(FileNotFoundError):
+        catalog.adopt(catalog._simulations_dir / "missing__deadbeef.parquet")
+
+
+def test_adopt_already_registered_raises(catalog):
+    sid = _register(catalog, "r")
+    catalog.finalize(sid, status="completed", duration_s=1.0)
+    with pytest.raises(ValueError, match="already registered"):
+        catalog.adopt(catalog.parquet_dir_for(sid))
+
+
+# ---------------------------------------------------------------------------
+# [export].package writes a .hmp while the store is open (regression: the step
+# must package BEFORE finalize closes the store, never with store=None)
+# ---------------------------------------------------------------------------
+
+
+def test_auto_export_package_writes_hmp_and_logs_it(catalog):
+    from hydromodpy.simulation.extraction.post_run import auto_export_package
+    from hydromodpy.simulation.planning.export_config import ExportConfig
+
+    sid = str(uuid.uuid4())
+    catalog.register_simulation(
+        sid, project="p", solver="modflow6", name="shareme", n_cells=4, n_layers=1, config={"k": 1}
+    )
+    auto_export_package(
+        sim_id=sid,
+        store=catalog,
+        export_config=ExportConfig(package=True),
+        save_catalog=True,
+        run_id="shareme",
+    )
+    archive = catalog.project_path / "exports" / "shareme" / "shareme.hmp"
+    assert archive.is_file()
+    assert "hmp" in [e["kind"] for e in catalog.list_exports(sid)]
+
+
+def test_auto_export_package_noop_when_disabled(catalog):
+    from hydromodpy.simulation.extraction.post_run import auto_export_package
+    from hydromodpy.simulation.planning.export_config import ExportConfig
+
+    sid = _register(catalog, "plain")
+    auto_export_package(
+        sim_id=sid,
+        store=catalog,
+        export_config=ExportConfig(package=False),
+        save_catalog=True,
+        run_id="plain",
+    )
+    assert not (catalog.project_path / "exports" / "plain").exists()

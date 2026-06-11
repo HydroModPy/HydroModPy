@@ -55,6 +55,37 @@ def test_idempotent_and_noop_returns_empty(tmp_path: Path) -> None:
     assert fix_config_file(path) == []
 
 
+def test_promotes_export_to_top_level(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        '[simulation]\nname = "cheze"\n\n'
+        "[simulation.results.export]\ncsv_timeseries = true\ngeotiff = true\n\n"
+        '[[simulation.results.export.artifacts]]\nvar = "head"\ndest = "h.tif"\n',
+    )
+    changes = fix_config_file(path)
+    assert any("simulation.results.export -> [export]" in c for c in changes)
+
+    parsed = tomllib.loads(path.read_text())
+    assert "export" in parsed
+    assert parsed["export"]["csv_timeseries"] is True
+    assert parsed["export"]["geotiff"] is True
+    assert parsed["export"]["artifacts"][0]["var"] == "head"
+    # the buried section is gone
+    assert "export" not in parsed.get("simulation", {}).get("results", {})
+
+
+def test_export_promotion_skips_when_top_level_exists(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "[export]\nnetcdf = true\n\n[simulation.results.export]\ncsv_timeseries = false\n",
+    )
+    changes = fix_config_file(path)
+    assert any("top-level [export] already set" in c for c in changes)
+    parsed = tomllib.loads(path.read_text())
+    assert parsed["export"]["netcdf"] is True
+    assert "export" not in parsed.get("simulation", {}).get("results", {})
+
+
 def test_missing_file_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         fix_config_file(tmp_path / "absent.toml")

@@ -38,9 +38,13 @@ AuditEventType = Literal[
     "sim.finalize",
     "sim.delete",
     "sim.purge",
+    "sim.purge.begin",
+    "sim.purge.commit",
     "sim.rename",
     "sim.tag_add",
     "sim.tag_remove",
+    "sim.trash",
+    "sim.restore",
     "param.write",
     "param.update",
     "metric.write",
@@ -52,7 +56,9 @@ AuditEventType = Literal[
     "gc",
     "vacuum",
     "export",
+    "export.write",
     "import",
+    "note.add",
 ]
 
 AuditActorKind = Literal["os_user", "principal", "system", "cli", "api"]

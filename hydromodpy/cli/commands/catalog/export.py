@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
+from hydromodpy.cli._conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for, find_catalog_root
 
 NAME: str = "export"
@@ -18,28 +18,47 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser()],
-        epilog="Example:\n  hmp catalog export cheze_baseline.v3 -o paper.hmp",
+        epilog=(
+            "Examples:\n"
+            "  hmp catalog export cheze_baseline.v3 -o paper.hmp\n"
+            "  hmp catalog export trial-007 trial-013 -o paper2026/"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    add_sim_ref(parser)
+    parser.add_argument(
+        "sim_refs",
+        nargs="+",
+        metavar="SIM_REF",
+        help="One or more run references. Multiple refs write one .hmp each.",
+    )
     parser.add_argument(
         "-o",
         "--output",
         default=None,
-        help="Destination .hmp path (default: <name>.hmp in the current directory)",
+        help=(
+            "Single ref: destination .hmp path (default <name>.hmp here). "
+            "Multiple refs: output directory for the per-run archives."
+        ),
     )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import export_package_run
+    from hydromodpy.cli._workers.catalog import export_package_run, export_package_runs
 
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:
-        result = export_package_run(args.sim_ref, workspace=workspace_root, output=args.output)
+        if len(args.sim_refs) == 1:
+            results = [
+                export_package_run(args.sim_refs[0], workspace=workspace_root, output=args.output)
+            ]
+        else:
+            results = export_package_runs(
+                args.sim_refs, workspace=workspace_root, output_dir=args.output
+            )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -47,4 +66,7 @@ def run(args: argparse.Namespace) -> None:
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
 
-    print(f"wrote {result['path']}  [{result['sim_id'][:8]}]")
+    for result in results:
+        print(f"wrote {result['path']}  [{result['sim_id'][:8]}]")
+    if len(results) > 1:
+        print(f"{len(results)} archives written")

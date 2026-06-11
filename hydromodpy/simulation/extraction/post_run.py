@@ -15,6 +15,7 @@ from typing import Any
 
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.simulation.planning.export_config import ExportConfig
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 
@@ -58,6 +59,7 @@ def post_run_results(
     sim_id: str,
     results_config: ResultsConfig,
     store: Any,
+    export_config: ExportConfig | None = None,
     keep_solver_files: bool | None = None,
     run_id: str | None = None,
 ) -> None:
@@ -75,6 +77,8 @@ def post_run_results(
         The ``[simulation.results]`` config block.
     store : SimulationCatalog
         The open result store.
+    export_config : ExportConfig, optional
+        The top-level ``[export]`` block. Defaults to :class:`ExportConfig`.
     run_id : str, optional
         Human-readable run identifier used to name export subdirectories.
         Falls back to the first 8 characters of *sim_id* when absent.
@@ -99,7 +103,8 @@ def post_run_results(
     auto_export_results(
         sim_id=sim_id,
         store=store,
-        results_config=results_config,
+        export_config=export_config or ExportConfig(),
+        save_catalog=results_config.persistence.save_catalog,
         run_id=run_id,
     )
     cleanup_solver_outputs(
@@ -288,15 +293,47 @@ def auto_export_results(
     *,
     sim_id: str,
     store: Any,
-    results_config: ResultsConfig,
+    export_config: ExportConfig,
+    save_catalog: bool,
     run_id: str | None = None,
 ) -> None:
     """Run automated exports for one simulation when configured."""
-    if not results_config.persistence.save_catalog:
+    if not save_catalog:
         return
 
     export_label = run_id or sim_id[:8]
-    _auto_export(sim_id, store, results_config, export_label=export_label)
+    _auto_export(sim_id, store, export_config, export_label=export_label)
+
+
+def auto_export_package(
+    *,
+    sim_id: str,
+    store: Any,
+    export_config: ExportConfig,
+    save_catalog: bool,
+    run_id: str | None = None,
+) -> None:
+    """Write the portable ``.hmp`` archive when ``[export].package`` is set.
+
+    Called while the store is still open (just before ``step_finalize_store``
+    closes it). The ``.hmp`` exporter repacks the live Zarr itself, so it does
+    not need the finalized ``.zarr.zip``.
+    """
+    if not save_catalog or not export_config.package:
+        return
+
+    label = run_id or sim_id[:8]
+    base_dir = (
+        Path(export_config.output_dir)
+        if export_config.output_dir
+        else store.project_path / "exports"
+    )
+    output_dir = base_dir / label
+    output_dir.mkdir(parents=True, exist_ok=True)
+    dest = output_dir / f"{Path(label).name}.hmp"
+    store.export_package(sim_id, dest)
+    store.record_export(sim_id, kind="hmp", path=dest)
+    _write_run_card(output_dir, sim_id, label)
 
 
 def cleanup_solver_outputs(
@@ -340,21 +377,35 @@ def _accepts_kwarg(callable_obj: Any, name: str) -> bool:
     )
 
 
+def _single_timestep(times: Any) -> int | str:
+    """Collapse a times selector to one timestep for single-timestep formats."""
+    if isinstance(times, int):
+        return times
+    if isinstance(times, list):
+        return times[-1] if times else "last"
+    if times == "all":
+        return "last"
+    return times
+
+
+def _time_token(selector: int | str) -> str:
+    """Filename token for a single-timestep selector (e.g. 't3', 'last')."""
+    return f"t{selector}" if isinstance(selector, int) else str(selector)
+
+
 def _auto_export(
     sim_id: str,
     store: Any,
-    config: ResultsConfig,
+    export: ExportConfig,
     *,
     export_label: str = "",
 ) -> None:
-    """Run automated exports based on config.
+    """Run automated exports based on the top-level ``[export]`` config.
 
     Exports are written to ``exports/{export_label}/`` so that the
     directory tree is organized by human-readable run name, not UUID.
     """
     from hydromodpy.core.config_kit.export_spec import ExportSpec
-
-    export = config.export
 
     label = export_label or sim_id[:8]
     base_dir = Path(export.output_dir) if export.output_dir else store.project_path / "exports"
@@ -362,32 +413,43 @@ def _auto_export(
 
     specs: list[ExportSpec] = []
 
-    # Format toggles -> one spec per artifact (rasters use the first timestep,
-    # preserving the historical filename convention).
+    # Format toggles -> one spec per artifact. Single-timestep rasters use the
+    # configured times selector collapsed to one step; NetCDF honors the full
+    # selector (it is multi-step capable).
     if export.any_enabled():
         var_names = export.variables.active_names()
+        raster_time = _single_timestep(export.times)
+        token = _time_token(raster_time)
         if export.csv_timeseries:
             specs.append(ExportSpec(var="*", dest=output_dir / "timeseries.csv"))
         if var_names:
             if export.netcdf:
-                specs.append(ExportSpec(var=list(var_names), dest=output_dir / "fields.nc"))
+                specs.append(
+                    ExportSpec(
+                        var=list(var_names), dest=output_dir / "fields.nc", time=export.times
+                    )
+                )
             for var in var_names:
                 if export.vtu:
                     specs.append(
-                        ExportSpec(var=var, dest=output_dir / f"{var}_t0.vtu", time="first")
+                        ExportSpec(
+                            var=var, dest=output_dir / f"{var}_{token}.vtu", time=raster_time
+                        )
                     )
                 if export.geotiff:
                     specs.append(
                         ExportSpec(
                             var=var,
-                            dest=output_dir / f"{var}_t0.tif",
-                            time="first",
+                            dest=output_dir / f"{var}_{token}.tif",
+                            time=raster_time,
                             resolution=export.resolution,
                         )
                     )
                 if export.shapefile:
                     specs.append(
-                        ExportSpec(var=var, dest=output_dir / f"{var}_t0.shp", time="first")
+                        ExportSpec(
+                            var=var, dest=output_dir / f"{var}_{token}.shp", time=raster_time
+                        )
                     )
 
     # Explicit artifact specs (the full contract). Relative dests resolve under
@@ -400,12 +462,25 @@ def _auto_export(
         return
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    _write_run_card(output_dir, sim_id, label)
     failures: list[str] = []
     for spec in specs:
         try:
-            store.export(sim_id, spec)
+            out_path = store.export(sim_id, spec)
+            kind = spec.fmt.value if spec.fmt is not None else Path(out_path).suffix.lstrip(".")
+            store.record_export(sim_id, kind=kind, path=out_path)
         except Exception as exc:
-            failures.append(f"{spec.fmt.value}:{spec.var}: {exc}")
+            failures.append(f"{Path(spec.dest).name}: {exc}")
 
     if failures:
         raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
+
+
+def _write_run_card(output_dir: Path, sim_id: str, label: str) -> None:
+    """Write a small RUN.txt so a copied export folder stays self-identifying."""
+    try:
+        (output_dir / "RUN.txt").write_text(
+            f"name: {label}\nid: {sim_id[:8]}\nsim_id: {sim_id}\n", encoding="utf-8"
+        )
+    except OSError:
+        pass

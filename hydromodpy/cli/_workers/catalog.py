@@ -212,6 +212,7 @@ def show_simulation(
             "duration_s": sim.duration_s,
             "n_cells": sim.n_cells,
             "n_timesteps": sim.n_timesteps,
+            "exports": catalog.list_exports(sid),
         }
         if detail:
             zarr_path = catalog.zarr_path_for(sid)
@@ -314,27 +315,21 @@ def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
             catalog.close()
 
 
-def vacuum(
-    workspace: Any = None,
-    *,
-    catalog: bool = True,
-    cache: bool = True,
-) -> dict:
-    """Compact DuckDB catalogs and consolidate Zarr metadata.
+def adopt_store(store_path: Any, *, workspace: Any) -> dict:
+    """Re-register an orphan store into the workspace catalog.
 
-    Returns a dict with ``catalog_checkpoints``, ``cache_checkpoints``,
-    ``zarr_consolidated`` counts.
+    Returns ``{"sim_id": ...}``. Raises ``FileNotFoundError`` when the
+    catalog or the snapshot is missing, ``ValueError`` on a bad store.
     """
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
 
-    workspace_root = Path(workspace).expanduser().resolve() if workspace else _resolve_ws(None)
-    counts = {"catalog_checkpoints": 0, "cache_checkpoints": 0, "zarr_consolidated": 0}
-    if catalog:
-        counts["catalog_checkpoints"] = _vacuum_checkpoint_catalogs(workspace_root)
-    if cache:
-        counts["cache_checkpoints"] = _vacuum_checkpoint_data_cache(workspace_root)
-        counts["zarr_consolidated"] = _vacuum_consolidate_zarr_stores(workspace_root)
-    return {"workspace": str(workspace_root), "counts": counts}
+    workspace_root = Path(workspace).expanduser().resolve()
+    if not (workspace_root / CATALOG_FILENAME).exists():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+
+    with SimulationCatalog(workspace_root) as catalog:
+        return {"sim_id": catalog.adopt(store_path)}
 
 
 def delete_simulation(
@@ -468,6 +463,27 @@ def export_package_run(sim_ref: str, *, workspace: Any, output: str | None = Non
         return {"sim_id": sid, "path": str(produced)}
 
 
+def export_package_runs(
+    sim_refs: list[str], *, workspace: Any, output_dir: str | None = None
+) -> list[dict]:
+    """Export several runs as one ``.hmp`` archive each (v1 multi-run export).
+
+    Each archive is named ``<run-name>.hmp`` under ``output_dir`` (default: the
+    current directory). A true single-container multi-run archive is a later
+    format bump; for now N references produce N archives.
+    """
+    out_dir = Path(output_dir).expanduser() if output_dir else Path.cwd()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    results: list[dict] = []
+    with _open_project_catalog(workspace) as catalog:
+        for ref in sim_refs:
+            sid = catalog.resolve(ref)
+            run_name = catalog[sid].name or sid[:8]
+            produced = catalog.export_package(sid, out_dir / f"{run_name}.hmp")
+            results.append({"sim_id": sid, "path": str(produced)})
+    return results
+
+
 def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
     """Import a ``.hmp`` archive into the workspace catalog (created if absent)."""
     from hydromodpy.results.catalog import SimulationCatalog
@@ -584,14 +600,118 @@ def _gc_collect_plan(workspace: Path) -> dict[str, list[str]]:
         "geographic_cache": [],
         "tmp_parquet": [],
         "stale_running_sims": [],
+        "expired_trash": [],
+        "pending_purges": [],
+        "orphan_stores": [],
     }
     project_roots = _gc_iter_project_roots(workspace)
     for project_root in project_roots:
         plan["calibration_sessions"].extend(_gc_orphan_calibration_sessions(project_root))
         plan["stale_running_sims"].extend(_gc_stale_running_simulations(project_root))
+        plan["expired_trash"].extend(_gc_expired_trash(project_root))
+        plan["pending_purges"].extend(_gc_pending_purges(project_root))
+        plan["orphan_stores"].extend(_gc_orphan_stores(project_root))
     plan["geographic_cache"].extend(_gc_orphan_geographic_cache(workspace, project_roots))
     plan["tmp_parquet"].extend(_gc_tmp_parquet_files(workspace))
     return plan
+
+
+def _gc_expired_trash(project_root: Path) -> list[str]:
+    """Trashed, non-pinned runs older than the retention window."""
+    from datetime import UTC, datetime, timedelta
+
+    import duckdb
+
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog.constants import TRASH_RETENTION_DAYS
+
+    catalog_path = project_root / CATALOG_FILENAME
+    cutoff = datetime.now(UTC) - timedelta(days=TRASH_RETENTION_DAYS)
+    try:
+        conn = duckdb.connect(str(catalog_path), read_only=True)
+    except duckdb.Error:
+        return []
+    try:
+        rows = conn.execute(
+            """
+            SELECT CAST(s.sim_id AS VARCHAR)
+              FROM simulations s
+              JOIN statuses st ON s.status_id = st.id
+         LEFT JOIN tags t ON t.sim_id = s.sim_id AND t.tag = 'pinned'
+             WHERE st.code = 'trashed'
+               AND s.trashed_at IS NOT NULL AND s.trashed_at < ?
+               AND t.sim_id IS NULL
+            """,
+            [cutoff],
+        ).fetchall()
+    except duckdb.Error:
+        rows = []
+    finally:
+        conn.close()
+    return [f"{project_root.name}:{r[0]}" for r in rows]
+
+
+def _gc_pending_purges(project_root: Path) -> list[str]:
+    """Hard purges interrupted by a crash (a ``purge_journal`` row remains)."""
+    import duckdb
+
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    catalog_path = project_root / CATALOG_FILENAME
+    try:
+        conn = duckdb.connect(str(catalog_path), read_only=True)
+    except duckdb.Error:
+        return []
+    try:
+        rows = conn.execute("SELECT CAST(sim_id AS VARCHAR) FROM purge_journal").fetchall()
+    except duckdb.Error:
+        rows = []
+    finally:
+        conn.close()
+    return [f"{project_root.name}:{r[0]}" for r in rows]
+
+
+def _gc_orphan_stores(project_root: Path) -> list[str]:
+    """Zarr/Parquet stores on disk with no matching ``storage_basename`` row."""
+    import duckdb
+
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    simulations_dir = project_root / "simulations"
+    if not simulations_dir.is_dir():
+        return []
+    catalog_path = project_root / CATALOG_FILENAME
+    try:
+        conn = duckdb.connect(str(catalog_path), read_only=True)
+    except duckdb.Error:
+        return []
+    try:
+        known = {
+            r[0]
+            for r in conn.execute(
+                "SELECT storage_basename FROM simulations WHERE storage_basename IS NOT NULL"
+            ).fetchall()
+        }
+    except duckdb.Error:
+        known = set()
+    finally:
+        conn.close()
+
+    orphans: list[str] = []
+    for entry in sorted(simulations_dir.iterdir()):
+        basename = _gc_store_basename(entry.name)
+        if basename is None or basename in known:
+            continue
+        orphans.append(str(entry))
+    return orphans
+
+
+def _gc_store_basename(entry_name: str) -> str | None:
+    """Strip a store suffix (.zarr / .zarr.zip / .parquet) to its basename."""
+    for suffix in (".zarr.zip", ".zarr", ".parquet"):
+        if entry_name.endswith(suffix):
+            return entry_name[: -len(suffix)]
+    return None
 
 
 def _gc_orphan_calibration_sessions(project_root: Path) -> list[str]:
@@ -727,12 +847,65 @@ def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int
         try:
             if path.is_file():
                 path.unlink(missing_ok=True)
+                summary["tmp_parquet"] += 1
             elif path.is_dir():
                 shutil.rmtree(path, ignore_errors=True)
-            summary["tmp_parquet"] += 1
+                summary["tmp_parquet"] += 1
         except OSError:
             continue
+    for path_str in plan["orphan_stores"]:
+        path = Path(path_str)
+        try:
+            if path.is_file():
+                path.unlink(missing_ok=True)
+                summary["orphan_stores"] += 1
+            elif path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+                summary["orphan_stores"] += 1
+        except OSError:
+            continue
+    summary["expired_trash"], summary["pending_purges"] = _gc_apply_per_project_purges(
+        workspace, plan["expired_trash"], plan["pending_purges"]
+    )
+    # Absorbed maintenance (the old `vacuum` verb): checkpoint catalogs and the
+    # data cache, then consolidate Zarr metadata. Safe to run every sweep.
+    summary["catalog_checkpoints"] = _vacuum_checkpoint_catalogs(workspace)
+    summary["cache_checkpoints"] = _vacuum_checkpoint_data_cache(workspace)
+    summary["zarr_consolidated"] = _vacuum_consolidate_zarr_stores(workspace)
     return summary
+
+
+def _gc_apply_per_project_purges(
+    workspace: Path, expired_refs: list[str], pending_refs: list[str]
+) -> tuple[int, int]:
+    """Purge expired trash and replay interrupted purges, one catalog open per project."""
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    expired_by_project: dict[str, list[str]] = {}
+    for ref in expired_refs:
+        project_name, sim_id = ref.split(":", 1)
+        expired_by_project.setdefault(project_name, []).append(sim_id)
+    pending_projects = {ref.split(":", 1)[0] for ref in pending_refs}
+
+    expired_count = 0
+    pending_count = 0
+    for project_name in sorted(set(expired_by_project) | pending_projects):
+        project_root = _gc_project_root_by_name(workspace, project_name)
+        if project_root is None:
+            continue
+        with SimulationCatalog(project_root) as catalog:
+            for sim_id in expired_by_project.get(project_name, []):
+                try:
+                    catalog.delete(sim_id, audit_event_type="sim.purge")
+                    expired_count += 1
+                except Exception:
+                    continue
+            if project_name in pending_projects:
+                try:
+                    pending_count += len(catalog.replay_purge_journal())
+                except Exception:
+                    pass
+    return expired_count, pending_count
 
 
 def _gc_project_root_by_name(workspace: Path, project_name: str) -> Path | None:

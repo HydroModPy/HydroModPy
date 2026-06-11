@@ -190,6 +190,7 @@ def execute_run(
             sim_id=sim_id,
             results_config=results_cfg,
             store=ctx.store,
+            export_config=ctx.cfg.export,
             run_id=final_name,
         )
 
@@ -291,6 +292,19 @@ def cleanup_run(
         if geo_cfg is not None and getattr(geo_cfg, "write_intermediates", False):
             dump_cached_rasters_to_disk(geo)
         cleanup_stable_folder(geo)
+
+    # Package while the store is still open: step_finalize_store closes it.
+    if ctx.store is not None and status == "completed":
+        from hydromodpy.simulation.extraction.post_run import auto_export_package
+
+        results_cfg = effective or ctx.cfg.simulation.results
+        auto_export_package(
+            sim_id=sim_id,
+            store=ctx.store,
+            export_config=ctx.cfg.export,
+            save_catalog=bool(results_cfg.persistence.save_catalog),
+            run_id=ctx.setup.run_id,
+        )
 
     if close_store:
         step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)

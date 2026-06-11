@@ -1,4 +1,4 @@
-"""Tests for the ``hmp catalog`` family (ls, query, show, gc, vacuum, delete)."""
+"""Tests for the ``hmp catalog`` family (ls, query, show, gc, delete)."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def test_catalog_family_help_lists_actions(monkeypatch, capsys) -> None:
     code = _run(monkeypatch, ["hmp", "catalog", "--help"])
     assert code == 0
     out = capsys.readouterr().out
-    for action in ("ls", "query", "show", "gc", "vacuum", "delete"):
+    for action in ("ls", "query", "show", "gc", "delete"):
         assert action in out
 
 

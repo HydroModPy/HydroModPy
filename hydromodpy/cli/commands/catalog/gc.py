@@ -1,4 +1,9 @@
-"""``hmp catalog gc`` - thin wrapper around :func:`hydromodpy.gc`."""
+"""``hmp catalog gc`` - the single workspace maintenance verb.
+
+Plans by default; ``--apply`` purges expired trash, removes orphan stores,
+replays interrupted purges, marks stale running runs failed, cleans orphan
+caches and tmp parquet, and compacts DuckDB + Zarr (the absorbed ``vacuum``).
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,7 @@ import sys
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "gc"
-HELP: str = "Garbage-collect orphan caches, tmp parquet, and stale running simulations"
+HELP: str = "Maintenance: expire trash, drop orphan stores, replay purges, compact DuckDB + Zarr"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

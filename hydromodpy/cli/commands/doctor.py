@@ -70,7 +70,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         metavar="FILE.toml",
         help=(
             "Migrate a project TOML to the current schema in place "
-            "(simulation.on_collision -> if_exists, run_id -> name). "
+            "(simulation.on_collision -> if_exists, run_id -> name, "
+            "[simulation.results.export] -> [export]). "
             "Preserves comments and layout."
         ),
     )
