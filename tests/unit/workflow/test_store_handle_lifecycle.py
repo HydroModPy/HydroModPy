@@ -38,7 +38,7 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
     ctx = SimpleNamespace(
         parent_sim_id="parent-123",
         store=store,
-        cfg=SimpleNamespace(simulation=SimpleNamespace(on_collision="replace")),
+        cfg=SimpleNamespace(simulation=SimpleNamespace(if_exists="replace")),
         setup=SimpleNamespace(time_grid=None, workspace=SimpleNamespace(project_root=None)),
     )
     plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq", process_type="flow")])
@@ -83,7 +83,7 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True)),
-                on_collision="replace",
+                if_exists="replace",
             ),
             domain=None,
         ),

@@ -236,7 +236,7 @@ class TestReimportableByTomllib:
         )
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)
-        assert payload["simulation"]["run_id"] == "case_a_run"
+        assert payload["simulation"]["name"] == "case_a_run"
         assert payload["workspace"]["root"]
 
 

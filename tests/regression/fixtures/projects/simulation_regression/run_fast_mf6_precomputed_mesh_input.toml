@@ -18,8 +18,7 @@ mesh_path = "results_stable/mesh/mesh_catchment.msh"
 bundle_dir = "results_stable/mesh/mesh_catchment_bundle"
 
 [simulation]
-name = "Example 12 launcher fast MODFLOW 6 precomputed mesh"
-run_id = "example12_fast_mf6_precomputed_mesh"
+name = "example12_fast_mf6_precomputed_mesh"
 
 [[simulation.process]]
 id = "flow_main"

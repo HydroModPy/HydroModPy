@@ -158,14 +158,16 @@ class TestFullCycle:
         catalog.register_simulation(real, project="test", solver="modflow6", name="real_run")
         catalog.finalize(real, status="completed")
 
-        # Effective-config snapshot keeps a dotted name.
+        # Effective-config snapshot keeps a dotted name; named_only drops it.
         snap = str(uuid4())
         catalog.register_simulation(
             snap, project="test", solver="modflow6", name=".real_run.effective.abc123"
         )
         catalog.finalize(snap, status="completed")
 
-        # Re-registering the same (project, name) clears the old run's name to NULL.
+        # Default if_exists='version': re-registering the same (project, name)
+        # demotes the bare original to '<stem>.v1' and mints '<stem>.v2'.
+        # Both stay live and named.
         old = str(uuid4())
         catalog.register_simulation(old, project="test", solver="modflow6", name="dup")
         catalog.finalize(old, status="completed")
@@ -176,7 +178,33 @@ class TestFullCycle:
         assert len(catalog.list_simulations()) == 4
 
         named = catalog.list_simulations(named_only=True)
-        assert set(named["name"]) == {"real_run", "dup"}
+        assert set(named["name"]) == {"real_run", "dup.v1", "dup.v2"}
+
+    def test_list_simulations_named_only_drops_replaced_rows(self, catalog):
+        # if_exists='replace' trashes the predecessor: its name is NULLed and
+        # its status becomes 'trashed', while the new run takes the name.
+        old = str(uuid4())
+        catalog.register_simulation(old, project="test", solver="modflow6", name="dup")
+        catalog.finalize(old, status="completed")
+        new = str(uuid4())
+        reg = catalog.register_simulation(
+            new, project="test", solver="modflow6", name="dup", if_exists="replace"
+        )
+        catalog.finalize(new, status="completed")
+
+        assert reg.replaced_sim_id == old
+
+        # Both rows still exist: the trashed predecessor (name NULL) and the
+        # new named run.
+        all_rows = catalog.list_simulations()
+        assert len(all_rows) == 2
+        trashed = all_rows[all_rows["sim_id"].astype(str) == old].iloc[0]
+        assert trashed["name"] is None
+        assert trashed["status"] == "trashed"
+
+        # named_only drops the technical (NULL-name) trashed predecessor.
+        named = catalog.list_simulations(named_only=True)
+        assert set(named["name"]) == {"dup"}
 
 
 class TestTimeseriesCycle:

@@ -52,7 +52,7 @@ def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
     payload = load_toml_with_base_config(example_config)
 
     assert payload["mesh_catchment"]["constraints_mode"] == "geology_rivers"
-    assert payload["simulation"]["run_id"] == "example12_fast_mf6_mesh_catchment"
+    assert payload["simulation"]["name"] == "example12_fast_mf6_mesh_catchment"
     assert payload["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert payload["simulation"]["process"][1]["solvers"] == ["modflow6"]
     assert payload["simulation"]["time"]["step_value"] == "10 day"
