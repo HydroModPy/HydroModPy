@@ -81,7 +81,7 @@ def test_package_no_longer_exposes_whitebox_tools_alias() -> None:
         raise AssertionError("WhiteboxToolsBackend alias should no longer be exposed")
 
 
-def test_whitebox_workflows_backend_supports_native_stdio_redirection(
+def test_whitebox_workflows_backend_redirects_native_stdout(
     capfd,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -97,7 +97,9 @@ def test_whitebox_workflows_backend_supports_native_stdio_redirection(
     assert backend.raster._run_env_operation(_noisy_native_operation) == 123
     captured = capfd.readouterr()
     assert captured.out == ""
-    assert captured.err == ""
+    # fd 2 is deliberately left alone: it carries the live progress display.
+    # Whitebox native output (progress, warnings) goes to stdout.
+    assert captured.err == "native-stderr\n"
 
 
 def test_whitebox_tools_backend_module_is_no_longer_importable() -> None:

@@ -9,6 +9,8 @@ from pathlib import Path
 
 import whitebox_workflows as wbw
 
+from hydromodpy.core import progress
+
 _VECTOR_EXTENSIONS = {
     ".shp",
     ".geojson",
@@ -25,9 +27,15 @@ class WhiteboxRasterBackend:
     def __init__(self) -> None:
         self._env = wbw.WbEnvironment()
         self._verbose = self._is_truthy_env(os.environ.get("HMP_WHITEBOX_VERBOSE"))
-        self._redirect_native_stdio = self._is_truthy_env(
-            os.environ.get("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO")
-        )
+        redirect_env = os.environ.get("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO")
+        if redirect_env is not None:
+            self._redirect_native_stdio = self._is_truthy_env(redirect_env)
+        else:
+            # Native Whitebox warnings write to fd 1/2 directly and bypass
+            # Python-level redirection, corrupting the live progress display.
+            # fd redirection is the default; pytest workers keep the Python
+            # path (repeated dup2 cycles crash the binding under xdist).
+            self._redirect_native_stdio = "PYTEST_CURRENT_TEST" not in os.environ
         try:
             self._env.verbose = bool(self._verbose)
         except Exception:
@@ -68,7 +76,6 @@ class WhiteboxRasterBackend:
 
             try:
                 stdout_fd = os.dup(1)
-                stderr_fd = os.dup(2)
             except OSError:
                 with redirect_stdout(devnull), redirect_stderr(devnull):
                     yield
@@ -78,25 +85,21 @@ class WhiteboxRasterBackend:
                     sys.stdout.flush()
                 except Exception:
                     pass
-                try:
-                    sys.stderr.flush()
-                except Exception:
-                    pass
 
+                # Only fd 1: native Whitebox warnings print to stdout, and
+                # fd 2 carries the live progress display.
                 with redirect_stdout(devnull), redirect_stderr(devnull):
                     os.dup2(devnull.fileno(), 1)
-                    os.dup2(devnull.fileno(), 2)
                     yield
             finally:
                 try:
                     os.dup2(stdout_fd, 1)
-                    os.dup2(stderr_fd, 2)
                 finally:
                     os.close(stdout_fd)
-                    os.close(stderr_fd)
 
     def _run_env_operation(self, operation, *args, **kwargs):
-        with self._silence_stdio():
+        op_name = getattr(operation, "__name__", "operation").replace("_", " ")
+        with progress.status(f"Whitebox: {op_name}"), self._silence_stdio():
             return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.mesh.batch_io import (
@@ -216,24 +217,27 @@ class MeshCatchmentBatchRunner:
         manifest_path = self._resolve_manifest_path(batch_cfg)
         results: list[MeshCatchmentBatchResultRow] = []
 
-        for record in records:
-            outcome = self._run_child_record(
-                batch_cfg=batch_cfg,
-                record=record,
-            )
-            self._persist_result(
-                manifest_path=manifest_path,
-                results=results,
-                row=outcome.row,
-            )
+        with progress.task("Meshing catchments", total=len(records)) as handle:
+            for record in records:
+                handle.update(description=f"Meshing catchments - {record.outlet_id}")
+                outcome = self._run_child_record(
+                    batch_cfg=batch_cfg,
+                    record=record,
+                )
+                self._persist_result(
+                    manifest_path=manifest_path,
+                    results=results,
+                    row=outcome.row,
+                )
+                handle.advance()
 
-            if outcome.error_message is None:
-                continue
-            if batch_cfg.continue_on_error:
-                continue
-            if outcome.caught_exception is not None:
-                raise outcome.caught_exception
-            raise RuntimeError(outcome.error_message)
+                if outcome.error_message is None:
+                    continue
+                if batch_cfg.continue_on_error:
+                    continue
+                if outcome.caught_exception is not None:
+                    raise outcome.caught_exception
+                raise RuntimeError(outcome.error_message)
 
         write_mesh_catchment_batch_manifest(manifest_path, results)
         return MeshCatchmentBatchSummary(

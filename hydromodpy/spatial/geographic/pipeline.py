@@ -14,6 +14,7 @@ from typing import Any
 import geopandas as gpd
 from geopy.geocoders import Nominatim
 
+from hydromodpy.core import progress
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
@@ -488,36 +489,38 @@ def build_geographic_runtime_context(
             setup.paths.watershed_contour_shp,
         )
 
-        river_network_products = build_river_network_products(
-            river_network=config.river_network,
-            dem_correc_path=flow_products.correc,
-            d8_pointer_path=flow_products.direc,
-            watershed_shp=setup.paths.watershed_shp,
-            geographic_dir=setup.paths.geographic_path,
-            correcflow_dir=setup.paths.correcflow_path,
-            dem_res_m=float(setup.dem_res),
-            streams_tif_path=setup.paths.river_streams_tif,
-            streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
-            stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
-            stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
-            network_shp_path=setup.paths.hydrographic_network_generated_shp,
-            summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
-            network_crs=setup.crs_project,
-            backend=tool,
-        )
+        with progress.status("Extracting river network"):
+            river_network_products = build_river_network_products(
+                river_network=config.river_network,
+                dem_correc_path=flow_products.correc,
+                d8_pointer_path=flow_products.direc,
+                watershed_shp=setup.paths.watershed_shp,
+                geographic_dir=setup.paths.geographic_path,
+                correcflow_dir=setup.paths.correcflow_path,
+                dem_res_m=float(setup.dem_res),
+                streams_tif_path=setup.paths.river_streams_tif,
+                streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
+                stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
+                stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
+                network_shp_path=setup.paths.hydrographic_network_generated_shp,
+                summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
+                network_crs=setup.crs_project,
+                backend=tool,
+            )
 
-        raster_products = build_domain_rasters(
-            dem_init_path=setup.dem_init_path,
-            correc_path=flow_products.correc,
-            direc_path=flow_products.direc,
-            correc_data=flow_products.correc_data,
-            direc_data=flow_products.direc_data,
-            watershed_shp=setup.paths.watershed_shp,
-            watershed_buff_shp=domain_products.watershed_buff_shp,
-            paths=setup.paths,
-            crs_project=setup.crs_project,
-            backend=tool,
-        )
+        with progress.status("Clipping domain rasters"):
+            raster_products = build_domain_rasters(
+                dem_init_path=setup.dem_init_path,
+                correc_path=flow_products.correc,
+                direc_path=flow_products.direc,
+                correc_data=flow_products.correc_data,
+                direc_data=flow_products.direc_data,
+                watershed_shp=setup.paths.watershed_shp,
+                watershed_buff_shp=domain_products.watershed_buff_shp,
+                paths=setup.paths,
+                crs_project=setup.crs_project,
+                backend=tool,
+            )
         _write_geographic_cache_manifest(
             config=config,
             paths=setup.paths,
