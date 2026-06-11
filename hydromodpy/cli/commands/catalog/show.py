@@ -86,9 +86,29 @@ def run(args: argparse.Namespace) -> None:
             for group in groups:
                 print(f"    - {group}")
 
-    # Metrics / parameters tables still require a direct catalog read.
-    with SimulationCatalog(workspace_root) as catalog:
+    # Tags, notes, metrics and parameters require a direct catalog read.
+    with SimulationCatalog(workspace_root, read_only=True) as catalog:
         sim = catalog[payload["sim_id"]]
+        ident = catalog.backend.fetch_one(
+            "SELECT version_int, config_hash FROM simulations WHERE sim_id = ?",
+            [payload["sim_id"]],
+        )
+        if ident is not None:
+            if ident[0] is not None:
+                print(f"  version   : v{ident[0]}")
+            if ident[1]:
+                print(f"  config    : {ident[1][:12]}")
+        tags = sim.tags or []
+        if tags:
+            print(f"  tags      : {', '.join(tags)}")
+        note_rows = catalog.backend.fetch_all(
+            "SELECT note FROM sim_notes WHERE sim_id = ? ORDER BY added_at",
+            [payload["sim_id"]],
+        )
+        if note_rows:
+            print("Notes:")
+            for (note,) in note_rows:
+                print(f"  - {note}")
         metrics = sim.metrics
         if not metrics.empty:
             print("Metrics:")
@@ -96,4 +116,12 @@ def run(args: argparse.Namespace) -> None:
         params = sim.parameters
         if not params.empty:
             print("Parameters:")
-            print(params.to_string(index=False))
+            # parameters is indexed by param_name; keep the index so the
+            # parameter names are not dropped (audit P14).
+            print(params.to_string())
+
+    ref = payload.get("name") or payload["sim_id"][:8]
+    print(
+        f"next: hmp catalog tag {ref} +pinned | "
+        f"hmp catalog diff {ref} <other> | hmp catalog rename {ref} <new>"
+    )

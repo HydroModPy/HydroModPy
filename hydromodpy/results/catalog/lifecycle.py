@@ -25,6 +25,14 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+class PinnedRunError(Exception):
+    """Raised when a destructive action targets a ``pinned`` run without force."""
+
+    def __init__(self, sim_id: str) -> None:
+        self.sim_id = sim_id
+        super().__init__(f"Run {sim_id[:8]} is pinned; pass force=True (CLI --force) to act on it.")
+
+
 class LifecycleMixin:
     """Open/finalize/delete/cleanup/close for :class:`SimulationCatalog`.
 
@@ -317,6 +325,116 @@ class LifecycleMixin:
                     shutil.rmtree(zarr_abs)
                 except OSError as exc:
                     raise RuntimeError(f"Could not remove Zarr directory: {zarr_abs}") from exc
+
+    def _is_pinned(self, sim_id: str | UUID) -> bool:
+        """Return True when ``sim_id`` carries the reserved ``pinned`` tag."""
+        row = self._backend.fetch_one(
+            "SELECT 1 FROM tags WHERE sim_id = ? AND tag = 'pinned'",
+            [str(sim_id)],
+        )
+        return row is not None
+
+    @with_lock_retry()
+    def trash(self, sim_id: str | UUID, *, force: bool = False) -> None:
+        """Move a simulation to the trash (status flip, no bytes moved).
+
+        The row keeps its UUID and storage; its name is freed (saved in
+        ``original_name``) so the bare name can be reused, and it stays
+        listable and restorable. A ``pinned`` run is refused unless ``force``.
+        """
+        sid = str(sim_id)
+        if self._is_pinned(sid) and not force:
+            raise PinnedRunError(sid)
+        row = self._backend.fetch_one(
+            "SELECT name, project FROM simulations WHERE sim_id = ?", [sid]
+        )
+        if row is None:
+            raise KeyError(f"No simulation with sim_id={sid[:8]}")
+        with self._backend.transaction():
+            self._backend.execute(
+                "UPDATE simulations SET "
+                "status_id = (SELECT id FROM statuses WHERE code = 'trashed'), "
+                "trashed_at = current_timestamp, "
+                "original_name = COALESCE(original_name, name), "
+                "name = NULL, updated_at = current_timestamp "
+                "WHERE sim_id = ?",
+                [sid],
+            )
+            emit_audit_event(
+                self._db,
+                event_type="sim.trash",
+                sim_id=sid,
+                project=row[1],
+                payload={"original_name": row[0]},
+            )
+
+    @with_lock_retry()
+    def restore(self, sim_id: str | UUID) -> str:
+        """Restore a trashed simulation, returning its (possibly versioned) name.
+
+        If the original name was taken since, the stem is version-bumped so the
+        restore never collides. The status returns to ``completed`` when the run
+        had finished, otherwise ``failed``.
+        """
+        from hydromodpy.results.catalog.registration import _resolve_registration_name
+
+        sid = str(sim_id)
+        row = self._backend.fetch_one(
+            "SELECT original_name, project, ended_at FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
+            "WHERE sim_id = ? AND st.code = 'trashed'",
+            [sid],
+        )
+        if row is None:
+            raise KeyError(f"No trashed simulation with sim_id={sid[:8]}")
+        original_name, project, ended_at = row[0], row[1], row[2]
+        restored_status = "completed" if ended_at is not None else "failed"
+        with self._backend.transaction():
+            final_name, name_stem, version_int, _ = _resolve_registration_name(
+                self._backend, project, original_name or sid[:8], "version"
+            )
+            self._backend.execute(
+                "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
+                "original_name = NULL, trashed_at = NULL, "
+                "status_id = (SELECT id FROM statuses WHERE code = ?), "
+                "updated_at = current_timestamp WHERE sim_id = ?",
+                [final_name, name_stem, version_int, restored_status, sid],
+            )
+            emit_audit_event(
+                self._db,
+                event_type="sim.restore",
+                sim_id=sid,
+                project=project,
+                payload={"name": final_name},
+            )
+        return final_name
+
+    def list_trash(self) -> list[dict]:
+        """Return trashed runs (id, original_name, project, trashed_at)."""
+        rows = self._backend.fetch_all(
+            "SELECT CAST(sim_id AS VARCHAR), original_name, project, trashed_at "
+            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "WHERE st.code = 'trashed' ORDER BY trashed_at DESC",
+        )
+        return [
+            {"sim_id": r[0], "original_name": r[1], "project": r[2], "trashed_at": r[3]}
+            for r in rows
+        ]
+
+    def empty_trash(self, *, force: bool = False) -> list[str]:
+        """Hard-delete every trashed run, returning the purged sim_ids.
+
+        Pinned runs are skipped unless ``force``. Each purge goes through
+        :meth:`delete` (cascade + storage removal) with a ``sim.purge`` audit.
+        """
+        purged: list[str] = []
+        for entry in self.list_trash():
+            sid = entry["sim_id"]
+            if self._is_pinned(sid) and not force:
+                continue
+            self.delete(sid, audit_event_type="sim.purge")
+            purged.append(sid)
+        return purged
 
     def close(self) -> None:
         self._close_open_zarr_handles()

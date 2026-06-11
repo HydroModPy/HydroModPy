@@ -37,6 +37,8 @@ def list_simulations(
     project: str | None = None,
     solver: str | None = None,
     catchment: str | None = None,
+    status: str | None = None,
+    tag: str | None = None,
     limit: int | None = None,
 ) -> Any:
     """List simulations recorded in a workspace catalog.
@@ -78,12 +80,29 @@ def list_simulations(
 
     import pandas as pd
 
+    from hydromodpy.results.errors import SchemaVersionMismatchError
+
     frames: list[pd.DataFrame] = []
     for project_dir in project_roots:
         if not (project_dir / CATALOG_FILENAME).exists():
             continue
-        with SimulationCatalog(project_dir) as catalog:
-            sims = catalog.list_simulations(order_by="created_at DESC")
+        tagged_ids: set[str] | None = None
+        try:
+            with SimulationCatalog(project_dir, read_only=True) as catalog:
+                sims = catalog.list_simulations(order_by="created_at DESC")
+                if tag:
+                    rows = catalog.backend.fetch_all(
+                        "SELECT CAST(sim_id AS VARCHAR) FROM tags WHERE tag = ?", [tag]
+                    )
+                    tagged_ids = {r[0] for r in rows}
+        except SchemaVersionMismatchError:
+            import sys
+
+            print(
+                f"skipping {project_dir.name}: schema behind (run 'hmp doctor --migrate')",
+                file=sys.stderr,
+            )
+            continue
         if sims.empty:
             continue
         if solver:
@@ -94,6 +113,10 @@ def list_simulations(
             col = "study_area_name" if "study_area_name" in sims.columns else None
             if col is not None:
                 sims = sims[sims[col].fillna("").str.contains(catchment, case=False)]
+        if status:
+            sims = sims[sims["status"].fillna("") == status]
+        if tagged_ids is not None:
+            sims = sims[sims["sim_id"].astype(str).isin(tagged_ids)]
         sims = sims.assign(project=project_dir.name)
         frames.append(sims)
     if not frames:
@@ -101,7 +124,7 @@ def list_simulations(
     out = pd.concat(frames, ignore_index=True)
     if limit is not None:
         out = out.head(int(limit))
-    return _stable_listing_projection(out)
+    return _stable_listing_projection(out, drop_trashed=(status != "trashed"))
 
 
 _LISTING_COLUMNS: tuple[str, ...] = (
@@ -120,13 +143,16 @@ _LISTING_COLUMNS: tuple[str, ...] = (
 )
 
 
-def _stable_listing_projection(df: Any) -> Any:
+def _stable_listing_projection(df: Any, *, drop_trashed: bool = True) -> Any:
     """Return a scriptable 12-column projection (string ids, ISO dates).
 
     Keeps the listing cheap and JSON/CSV safe: ``sim_id`` and timestamps are
     cast to strings (raw ``uuid.UUID`` objects break ``DataFrame.to_json``) and
     config blobs are dropped so ``ls`` never moves megabytes to print a page.
+    Trashed runs are hidden unless ``drop_trashed`` is False.
     """
+    if drop_trashed and "status" in df.columns:
+        df = df[df["status"] != "trashed"]
     cols = [c for c in _LISTING_COLUMNS if c in df.columns]
     out = df[cols].copy()
     if "sim_id" in out.columns:
@@ -174,7 +200,7 @@ def show_simulation(
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with SimulationCatalog(workspace_root, read_only=True) as catalog:
         sid = catalog.resolve(sim_ref)
         sim = catalog[sid]
         payload: dict = {
@@ -340,6 +366,164 @@ def delete_simulation(
             "freed_bytes": freed_bytes,
             "removed_paths": [str(p) for p in existing] if not keep_storage else [],
         }
+
+
+def _open_project_catalog(workspace: Any, *, read_only: bool = False) -> Any:
+    """Open the project catalog at ``workspace`` or raise."""
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    root = Path(workspace).expanduser().resolve()
+    if not (root / CATALOG_FILENAME).exists():
+        raise FileNotFoundError(f"No catalog at {root}")
+    return SimulationCatalog(root, read_only=read_only)
+
+
+def rerun_simulation(
+    sim_ref: str,
+    *,
+    workspace: Any,
+    overrides: dict | None = None,
+    name: str | None = None,
+) -> dict:
+    """Re-launch a run from its config snapshot with dotted-path overrides.
+
+    Reads the snapshot through a short-lived read-only catalog (closed before
+    launching) so the fresh run's writable catalog never contends in-process.
+    """
+    from hydromodpy.results.rerun_contract import get_rerun_provider
+
+    with _open_project_catalog(workspace, read_only=True) as catalog:
+        sid = catalog.resolve(sim_ref)
+        run = catalog[sid]
+        snapshot = run.config_snapshot
+        base_name = run.name
+    if snapshot is None:
+        raise ValueError(f"Run {sid[:8]} has no config snapshot; cannot rerun.")
+    new_name = name or (f"{base_name}_rerun" if base_name else None)
+    new_sid = get_rerun_provider().rerun(snapshot, overrides=overrides or {}, name=new_name)
+    return {"sim_id": str(new_sid), "name": new_name}
+
+
+def tag_simulation(
+    sim_ref: str,
+    *,
+    workspace: Any,
+    add: tuple[str, ...] = (),
+    remove: tuple[str, ...] = (),
+) -> dict:
+    """Add and/or remove tags on the run referenced by ``sim_ref``."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        added = [t for t in add if catalog.add_tag(sid, t)]
+        removed = [t for t in remove if catalog.remove_tag(sid, t)]
+        return {"sim_id": sid, "added": added, "removed": removed}
+
+
+def note_simulation(sim_ref: str, *, workspace: Any, note: str) -> dict:
+    """Append a timestamped note to the run referenced by ``sim_ref``."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        catalog.add_note(sid, note)
+        return {"sim_id": sid}
+
+
+def rename_simulation(sim_ref: str, *, workspace: Any, new_name: str) -> dict:
+    """Rename the run referenced by ``sim_ref`` to ``new_name``."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        catalog.rename_simulation(sid, new_name)
+        return {"sim_id": sid, "name": new_name}
+
+
+def trash_simulation(sim_ref: str, *, workspace: Any, force: bool = False) -> dict:
+    """Move the run referenced by ``sim_ref`` to the trash (storage stays)."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        catalog.trash(sid, force=force)
+        return {"sim_id": sid}
+
+
+def restore_simulation(sim_ref: str, *, workspace: Any) -> dict:
+    """Restore a trashed run, returning its (possibly versioned) name."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        name = catalog.restore(sid)
+        return {"sim_id": sid, "name": name}
+
+
+def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
+    """Compare two runs' parameters and outlet metrics."""
+    with _open_project_catalog(workspace) as catalog:
+        return catalog.diff(ref_a, ref_b)
+
+
+def export_package_run(sim_ref: str, *, workspace: Any, output: str | None = None) -> dict:
+    """Export the run referenced by ``sim_ref`` as a portable ``.hmp`` archive."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        run_name = catalog[sid].name or sid[:8]
+        dest = Path(output).expanduser() if output else Path.cwd() / f"{run_name}.hmp"
+        produced = catalog.export_package(sid, dest)
+        return {"sim_id": sid, "path": str(produced)}
+
+
+def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
+    """Import a ``.hmp`` archive into the workspace catalog (created if absent)."""
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    root = Path(workspace).expanduser().resolve()
+    pkg = Path(package_path).expanduser()
+    if not pkg.is_file():
+        raise FileNotFoundError(f"No archive at {pkg}")
+    with SimulationCatalog(root) as catalog:
+        sid = catalog.import_package(pkg, force=force)
+        return {"sim_id": sid}
+
+
+def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
+    """Return running runs with heartbeat age and a staleness flag.
+
+    A run is ``stale`` when its newest heartbeat is older than
+    ``stale_minutes`` (or it never emitted one), which usually means the
+    process died without finalizing.
+    """
+    with _open_project_catalog(workspace) as catalog:
+        rows = catalog._backend.fetch_all(
+            "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
+            "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
+            "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
+            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
+            "WHERE st.code = 'running' ORDER BY s.created_at DESC",
+        )
+        cutoff = stale_minutes * 60
+        out = []
+        for sid, name, created_at, last_heartbeat, age_s in rows:
+            stale = age_s is None or float(age_s) > cutoff
+            out.append(
+                {
+                    "sim_id": sid,
+                    "name": name,
+                    "created_at": created_at,
+                    "last_heartbeat": last_heartbeat,
+                    "age_s": None if age_s is None else float(age_s),
+                    "stale": stale,
+                }
+            )
+        return out
+
+
+def list_trashed(workspace: Any) -> list[dict]:
+    """Return the trashed runs in the workspace catalog."""
+    with _open_project_catalog(workspace) as catalog:
+        return catalog.list_trash()
+
+
+def empty_trashed(workspace: Any, *, force: bool = False) -> list[str]:
+    """Hard-delete trashed runs (pinned skipped unless ``force``)."""
+    with _open_project_catalog(workspace) as catalog:
+        return catalog.empty_trash(force=force)
 
 
 def _path_size(path: Path) -> int:

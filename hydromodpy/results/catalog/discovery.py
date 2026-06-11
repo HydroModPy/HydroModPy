@@ -265,6 +265,7 @@ class DiscoveryMixin:
         clause_params: list = []
         # v2: tags moved out of simulations into a per-sim table.
         tag_join_added = False
+        has_status_filter = "status" in filters
 
         for key, val in filters.items():
             if key == "tags":
@@ -324,6 +325,8 @@ class DiscoveryMixin:
             elif key in (
                 "project",
                 "name",
+                "name_stem",
+                "config_hash",
                 "crs_wkt",
                 "geographic_fingerprint",
             ):
@@ -332,9 +335,13 @@ class DiscoveryMixin:
             else:
                 raise ValueError(
                     f"Unknown filter {key!r}. Valid: solver, solver_category, status, "
-                    "flow_regime, mesh_topology, project, name, crs, tags, "
-                    "<metric>_gt, <metric>_lt, <metric>_gte"
+                    "flow_regime, mesh_topology, project, name, name_stem, config_hash, "
+                    "crs, tags, <metric>_gt, <metric>_lt, <metric>_gte"
                 )
+
+        # Trashed runs are hidden from find() unless explicitly asked for.
+        if not has_status_filter:
+            clauses.append("st.code <> 'trashed'")
 
         if joins:
             query += " " + " ".join(joins)
@@ -369,6 +376,52 @@ class DiscoveryMixin:
         if row is None:
             raise KeyError(f"No completed simulation {where}")
         return Run(str(row[0]), self)
+
+    def diff(
+        self,
+        ref_a: str,
+        ref_b: str,
+        *,
+        project: str | None = None,
+    ) -> dict:
+        """Compare two runs' parameters and outlet metrics.
+
+        Returns ``{"a", "b", "params", "metrics"}`` where ``params``/``metrics``
+        map each differing key to ``(value_a, value_b)`` (``None`` when absent
+        from one side).
+        """
+        sid_a = self.resolve(ref_a, project=project)
+        sid_b = self.resolve(ref_b, project=project)
+
+        def _params(sid: str) -> dict:
+            rows = self._backend.fetch_all(
+                "SELECT param_name, zone_id, value FROM parameters WHERE sim_id = ?",
+                [sid],
+            )
+            return {(r[0], r[1]): r[2] for r in rows}
+
+        def _metrics(sid: str) -> dict:
+            rows = self._backend.fetch_all(
+                "SELECT metric_name, station_id, value FROM metrics WHERE sim_id = ?",
+                [sid],
+            )
+            return {(r[0], r[1]): r[2] for r in rows}
+
+        def _delta(map_a: dict, map_b: dict) -> dict:
+            keys = sorted(set(map_a) | set(map_b), key=lambda k: (str(k[0]), str(k[1])))
+            out: dict = {}
+            for key in keys:
+                va, vb = map_a.get(key), map_b.get(key)
+                if va != vb:
+                    out[key] = (va, vb)
+            return out
+
+        return {
+            "a": sid_a,
+            "b": sid_b,
+            "params": _delta(_params(sid_a), _params(sid_b)),
+            "metrics": _delta(_metrics(sid_a), _metrics(sid_b)),
+        }
 
     def best(self, project: str, metric: str = "nse") -> Run:
         return self.rank(project, metric, ascending=False, n=1)[0]

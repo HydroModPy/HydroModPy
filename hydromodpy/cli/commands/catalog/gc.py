@@ -14,7 +14,11 @@ HELP: str = "Garbage-collect orphan caches, tmp parquet, and stale running simul
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("--workspace", default=None, help="Workspace root")
-    parser.add_argument("--dry-run", action="store_true", help="List candidates only")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Execute the plan and free resources (default: print the plan only)",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -22,18 +26,22 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import gc
 
+    # Safe by default: planner unless --apply (mirrors `audit prune`,
+    # the inverse of the old destructive-by-default --dry-run opt-in).
+    dry_run = not args.apply
     try:
-        result = gc(args.workspace, dry_run=args.dry_run)
+        result = gc(args.workspace, dry_run=dry_run)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    label = "[dry-run] " if args.dry_run else ""
+    label = "[plan] " if dry_run else ""
     for key, items in result["plan"].items():
         print(f"{label}{key}: {len(items)} candidate(s)")
         for item in items:
             print(f"  - {item}")
-    if args.dry_run:
+    if dry_run:
+        print("\nPlan only. Re-run with --apply to execute.")
         sys.exit(EXIT_OK)
     print()
     print("Summary:")

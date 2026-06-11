@@ -38,6 +38,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--catchment", default=None, help="Filter by study area name (substring match)"
     )
+    parser.add_argument(
+        "--status",
+        default=None,
+        help="Filter by status (completed, running, failed, trashed, ...)",
+    )
+    parser.add_argument("--tag", default=None, help="Filter by an exact tag (e.g. pinned)")
     parser.add_argument("--limit", type=int, default=None, help="Maximum number of rows to print")
     parser.set_defaults(_handler=run)
     return parser
@@ -70,6 +76,8 @@ def run(args: argparse.Namespace) -> None:
         project=args.project,
         solver=args.solver,
         catchment=args.catchment,
+        status=args.status,
+        tag=args.tag,
         limit=args.limit,
     )
     if df.empty:

@@ -74,6 +74,11 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Preserves comments and layout."
         ),
     )
+    parser.add_argument(
+        "--migrate",
+        action="store_true",
+        help="Upgrade the workspace catalog schema to the latest version",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -82,6 +87,10 @@ def run(args: argparse.Namespace) -> None:
     fix_config = getattr(args, "fix_config", None)
     if fix_config is not None:
         _fix_config(fix_config)
+        return
+
+    if getattr(args, "migrate", False):
+        _migrate_catalogs(args.workspace)
         return
 
     restore_ts = getattr(args, "restore_backup", None)
@@ -105,6 +114,36 @@ def run(args: argparse.Namespace) -> None:
 
     if any(entry.get("status") == "KO" for entry in report["checks"]):
         sys.exit(1)
+
+
+def _migrate_catalogs(workspace_arg: str | None) -> None:
+    """Upgrade the catalog schema of every project under the workspace."""
+    from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog.migrations import apply_migrations
+
+    base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
+    catalogs: list[Path] = []
+    projects = base / "projects"
+    if projects.is_dir():
+        catalogs = sorted(
+            p / CATALOG_FILENAME for p in projects.iterdir() if (p / CATALOG_FILENAME).is_file()
+        )
+    else:
+        try:
+            root = find_catalog_root(base)
+        except FileNotFoundError:
+            root = None
+        if root is not None and (root / CATALOG_FILENAME).is_file():
+            catalogs = [root / CATALOG_FILENAME]
+
+    if not catalogs:
+        print(f"No catalog found under {base}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    for catalog_path in catalogs:
+        new_version = apply_migrations(catalog_path)
+        print(f"{catalog_path.parent.name}: schema at v{new_version}")
 
 
 def _fix_config(toml_path: str) -> None:
