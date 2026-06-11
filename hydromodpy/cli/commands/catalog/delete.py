@@ -14,7 +14,7 @@ from hydromodpy.cli.helpers import (
 )
 
 NAME: str = "delete"
-HELP: str = "Delete a simulation (DuckDB row + Zarr store)"
+HELP: str = "Move a simulation to the trash (reversible); --now to purge permanently"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -22,32 +22,41 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), confirm_parser()],
-        epilog="Example:\n  hmp catalog delete ab12cd34 -y",
+        epilog="Examples:\n  hmp catalog delete ab12cd34 -y\n  hmp catalog delete ab12cd34 --now -y",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)
     parser.add_argument(
-        "--keep-storage",
+        "--now",
         action="store_true",
-        help="Drop catalog rows but keep Zarr/Parquet on disk",
+        help="Permanently purge now (cascade + remove storage) instead of trashing",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Act on a pinned run",
     )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.catalog import delete_simulation
+    from hydromodpy.cli._workers.catalog import delete_simulation, trash_simulation
+    from hydromodpy.cli.helpers import exit_code_for
 
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
 
+    verb = "Permanently purge" if args.now else "Trash"
     if not args.yes:
         if not sys.stdin.isatty():
-            print("Refusing to delete without -y in non-interactive mode.", file=sys.stderr)
+            print(
+                f"Refusing to {verb.lower()} without -y in non-interactive mode.", file=sys.stderr
+            )
             sys.exit(EXIT_SIGINT)
         try:
-            resp = input(f"Delete simulation {args.sim_ref!r}? [y/N] ").strip().lower()
+            resp = input(f"{verb} simulation {args.sim_ref!r}? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print("\nAborted.", file=sys.stderr)
             sys.exit(EXIT_SIGINT)
@@ -56,15 +65,21 @@ def run(args: argparse.Namespace) -> None:
             sys.exit(EXIT_SIGINT)
 
     try:
-        result = delete_simulation(
-            args.sim_ref,
-            workspace=workspace_root,
-            keep_storage=args.keep_storage,
-        )
+        if args.now:
+            result = delete_simulation(args.sim_ref, workspace=workspace_root, keep_storage=False)
+            for removed_path in result["removed_paths"]:
+                print(f"  removed: {removed_path}")
+            print(f"Purged simulation {result['sim_id']}")
+        else:
+            result = trash_simulation(args.sim_ref, workspace=workspace_root, force=args.force)
+            sid8 = result["sim_id"][:8]
+            print(
+                f"moved to trash [{sid8}]. Bytes freed at 'hmp catalog trash --empty'. "
+                f"Restore: hmp catalog restore {sid8}"
+            )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
-
-    for removed_path in result["removed_paths"]:
-        print(f"  removed: {removed_path}")
-    print(f"Deleted simulation {result['sim_id']}")
+    except Exception as exc:  # noqa: BLE001 - map PinnedRunError / resolver errors
+        print(str(exc), file=sys.stderr)
+        sys.exit(exit_code_for(exc))

@@ -344,6 +344,76 @@ def delete_simulation(
         }
 
 
+def _open_project_catalog(workspace: Any) -> Any:
+    """Open the writable project catalog at ``workspace`` or raise."""
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    root = Path(workspace).expanduser().resolve()
+    if not (root / CATALOG_FILENAME).exists():
+        raise FileNotFoundError(f"No catalog at {root}")
+    return SimulationCatalog(root)
+
+
+def tag_simulation(
+    sim_ref: str,
+    *,
+    workspace: Any,
+    add: tuple[str, ...] = (),
+    remove: tuple[str, ...] = (),
+) -> dict:
+    """Add and/or remove tags on the run referenced by ``sim_ref``."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        added = [t for t in add if catalog.add_tag(sid, t)]
+        removed = [t for t in remove if catalog.remove_tag(sid, t)]
+        return {"sim_id": sid, "added": added, "removed": removed}
+
+
+def note_simulation(sim_ref: str, *, workspace: Any, note: str) -> dict:
+    """Append a timestamped note to the run referenced by ``sim_ref``."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        catalog.add_note(sid, note)
+        return {"sim_id": sid}
+
+
+def rename_simulation(sim_ref: str, *, workspace: Any, new_name: str) -> dict:
+    """Rename the run referenced by ``sim_ref`` to ``new_name``."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        catalog.rename_simulation(sid, new_name)
+        return {"sim_id": sid, "name": new_name}
+
+
+def trash_simulation(sim_ref: str, *, workspace: Any, force: bool = False) -> dict:
+    """Move the run referenced by ``sim_ref`` to the trash (storage stays)."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        catalog.trash(sid, force=force)
+        return {"sim_id": sid}
+
+
+def restore_simulation(sim_ref: str, *, workspace: Any) -> dict:
+    """Restore a trashed run, returning its (possibly versioned) name."""
+    with _open_project_catalog(workspace) as catalog:
+        sid = catalog.resolve(sim_ref)
+        name = catalog.restore(sid)
+        return {"sim_id": sid, "name": name}
+
+
+def list_trashed(workspace: Any) -> list[dict]:
+    """Return the trashed runs in the workspace catalog."""
+    with _open_project_catalog(workspace) as catalog:
+        return catalog.list_trash()
+
+
+def empty_trashed(workspace: Any, *, force: bool = False) -> list[str]:
+    """Hard-delete trashed runs (pinned skipped unless ``force``)."""
+    with _open_project_catalog(workspace) as catalog:
+        return catalog.empty_trash(force=force)
+
+
 def _path_size(path: Path) -> int:
     if not path.exists():
         return 0
