@@ -99,9 +99,35 @@ def step_finalize_store(
             status=status,
             duration_s=wall_seconds,
         )
+        _log_run_epilogue(ctx, wall_seconds=wall_seconds, status=status)
     finally:
         ctx.store.close()
         ctx.store = None
+
+
+def _log_run_epilogue(ctx: WorkflowContext, *, wall_seconds: float, status: str) -> None:
+    """Best-effort self-teaching epilogue: identity card + next commands."""
+    try:
+        store = ctx.store
+        sid = str(ctx.sim_id)
+        row = store.backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
+        name = (row[0] if row else None) or sid[:8]
+        nse = store.backend.fetch_one(
+            "SELECT value FROM metrics WHERE sim_id = ? "
+            "AND station_id = '__outlet__' AND metric_name = 'nse'",
+            [sid],
+        )
+        metric = f" nse={nse[0]:.2f}" if nse and nse[0] is not None else ""
+        duration = f" {wall_seconds:.0f}s" if wall_seconds else ""
+        logger.info("Run %s: %s [%s]%s%s", status, name, sid[:8], duration, metric)
+        logger.info(
+            "next: hmp catalog show %s | hmp catalog diff %s <other> | hmp catalog export %s",
+            name,
+            name,
+            name,
+        )
+    except Exception:  # noqa: BLE001 - the epilogue must never disrupt a run
+        return
 
 
 # ---------------------------------------------------------------------------
