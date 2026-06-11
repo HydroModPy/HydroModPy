@@ -80,15 +80,10 @@ class BoussinesqOutputAdapter:
                 n_cells,
             )
 
-            for t in range(n_timesteps):
-                values = head_history[t].reshape(1, n_cells)
-                store.write_field(
-                    sim_id,
-                    "head",
-                    t,
-                    values,
-                    n_timesteps=n_timesteps if t == 0 else None,
-                )
+            head_stack = np.asarray(head_history[:n_timesteps], dtype="float64").reshape(
+                n_timesteps, 1, n_cells
+            )
+            store.write_field_stack(sim_id, "head", head_stack)
 
             self._persist_state_history(sim_id, store, payload)
             self._write_budget_fields(
@@ -163,54 +158,29 @@ class BoussinesqOutputAdapter:
             if area is None:
                 raise KeyError("Boussinesq recharge history requires cell_area_m2")
             recharge_flux = recharge_rate * area.reshape(1, -1)
-            for timestep, values in enumerate(recharge_flux):
-                store.write_field(
-                    sim_id,
-                    "recharge",
-                    timestep,
-                    values,
-                    n_timesteps=n_timesteps if timestep == 0 else None,
-                    subgroup="budget",
-                )
+            store.write_field_stack(sim_id, "recharge", recharge_flux, subgroup="budget")
 
         drainage_flux = _history("drainage_flux_history_m3_s")
         if drainage_flux is not None:
-            for timestep, values in enumerate(drainage_flux):
-                store.write_field(
-                    sim_id,
-                    "drain",
-                    timestep,
-                    values,
-                    n_timesteps=n_timesteps if timestep == 0 else None,
-                    subgroup="budget",
-                )
+            store.write_field_stack(sim_id, "drain", drainage_flux, subgroup="budget")
 
         well_flux = _history("well_flux_history_m3_s")
         if well_flux is not None:
-            for timestep, values in enumerate(well_flux):
-                store.write_field(
-                    sim_id,
-                    "well",
-                    timestep,
-                    values.reshape(1, -1),
-                    n_timesteps=n_timesteps if timestep == 0 else None,
-                    subgroup="budget",
-                )
+            store.write_field_stack(
+                sim_id,
+                "well",
+                well_flux.reshape(well_flux.shape[0], 1, -1),
+                subgroup="budget",
+            )
 
         saturation_excess = _history("saturation_excess_history_m_s")
         if saturation_excess is not None:
             if area is None:
                 raise KeyError("Boussinesq saturation excess history requires cell_area_m2")
             surface_excess_flux = saturation_excess * area.reshape(1, -1)
-            for timestep, values in enumerate(surface_excess_flux):
-                store.write_field(
-                    sim_id,
-                    "surface_excess",
-                    timestep,
-                    values,
-                    n_timesteps=n_timesteps if timestep == 0 else None,
-                    subgroup="budget",
-                )
+            store.write_field_stack(
+                sim_id, "surface_excess", surface_excess_flux, subgroup="budget"
+            )
             BoussinesqOutputAdapter._write_surface_excess_seepage_fields(
                 sim_id,
                 store,
@@ -242,25 +212,10 @@ class BoussinesqOutputAdapter:
                 "Boussinesq surface excess history has fewer timesteps than head "
                 f"history: {rates.shape[0]} < {int(n_timesteps)}"
             )
-        for timestep, values in enumerate(rates[:n_timesteps]):
-            positive_rate = np.maximum(np.asarray(values, dtype=float).reshape(-1), 0.0)
-            active_mask = (positive_rate > 0.0).astype("float64")
-            store.write_field(
-                sim_id,
-                "seepage_rate",
-                timestep,
-                positive_rate,
-                n_timesteps=n_timesteps if timestep == 0 else None,
-                subgroup="derived",
-            )
-            store.write_field(
-                sim_id,
-                "seepage_mask",
-                timestep,
-                active_mask,
-                n_timesteps=n_timesteps if timestep == 0 else None,
-                subgroup="derived",
-            )
+        positive_rate = np.maximum(np.asarray(rates[:n_timesteps], dtype="float64"), 0.0)
+        active_mask = (positive_rate > 0.0).astype("float64")
+        store.write_field_stack(sim_id, "seepage_rate", positive_rate, subgroup="derived")
+        store.write_field_stack(sim_id, "seepage_mask", active_mask, subgroup="derived")
 
     def _write_surface_elevation(
         self,

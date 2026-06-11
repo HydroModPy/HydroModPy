@@ -17,6 +17,9 @@ from hydromodpy.core.units.time import (
 
 logger = get_logger(__name__)
 
+# Upper bound on the in-memory slab used for batched head-stack writes.
+_STACK_SLAB_BYTES = 256 * 1024 * 1024
+
 
 def _seconds_per_itmuni(itmuni: int) -> float:
     """Seconds per MODFLOW ITMUNI code; 0 (undefined) means seconds (1.0)."""
@@ -153,17 +156,23 @@ class ModflowNwtOutputAdapter:
 
         # Mask HDRY/HNOFLO sentinels to NaN so all downstream consumers
         # (watertable, seepage, cross-section, etc.) receive clean data.
-        for t, time in enumerate(times):
-            head = head_file.get_data(totim=time)
-            values = head.reshape(nlay, n_cells).astype("float64")
-            values[np.isclose(values, hdry, atol=1.0)] = np.nan
-            values[np.isclose(values, hnoflo, atol=1.0)] = np.nan
-            store.write_field(
+        # Batched stack writes: per-timestep writes into a sharded Zarr array
+        # cost one whole-shard read-modify-write per timestep.
+        slab_steps = max(1, _STACK_SLAB_BYTES // (nlay * n_cells * 8))
+        for t0 in range(0, n_timesteps, slab_steps):
+            t1 = min(t0 + slab_steps, n_timesteps)
+            slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
+            for t in range(t0, t1):
+                head = head_file.get_data(totim=times[t])
+                slab[t - t0] = head.reshape(nlay, n_cells)
+            slab[np.isclose(slab, hdry, atol=1.0)] = np.nan
+            slab[np.isclose(slab, hnoflo, atol=1.0)] = np.nan
+            store.write_field_stack(
                 sim_id,
                 "head",
-                t,
-                values,
-                n_timesteps=n_timesteps if t == 0 else None,
+                slab,
+                n_timesteps=n_timesteps,
+                timestep_offset=t0,
             )
 
         if cbc_path.exists():
@@ -211,9 +220,11 @@ class ModflowNwtOutputAdapter:
         record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
 
         n_cells = nrow * ncol
+        n_timesteps = len(times)
         budget_records: list[dict] = []
-        for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
-            for component in record_names:
+        for component in record_names:
+            spatial_stack: np.ndarray | None = None
+            for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
                 try:
                     data = cbb.get_data(
                         text=component,
@@ -250,15 +261,22 @@ class ModflowNwtOutputAdapter:
                 )
                 if spatial_fields and arr.ndim >= 2:
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
-                    store.write_field(
-                        sim_id,
-                        component.lower().strip(),
-                        t,
-                        field,
-                        n_timesteps=len(times),
-                        subgroup="budget",
-                    )
+                    if spatial_stack is None:
+                        spatial_stack = np.full(
+                            (n_timesteps, *field.shape), np.nan, dtype="float64"
+                        )
+                    if spatial_stack.shape[1:] == field.shape:
+                        spatial_stack[t] = field
+            if spatial_stack is not None:
+                store.write_field_stack(
+                    sim_id,
+                    component.lower().strip(),
+                    spatial_stack,
+                    subgroup="budget",
+                )
 
+        # Keep the historical time-major record order for downstream readers.
+        budget_records.sort(key=lambda record: record["timestep"])
         if budget_records:
             store.write_budgets(sim_id, budget_records)
         cbb.close()

@@ -45,6 +45,11 @@ class _RecordingStore:
     def write_field(self, sim_id, name, t, values, n_timesteps=None, subgroup=None) -> None:
         del sim_id, name, t, values, n_timesteps, subgroup
 
+    def write_field_stack(
+        self, sim_id, name, values, *, n_timesteps=None, timestep_offset=0, subgroup=None
+    ) -> None:
+        del sim_id, name, values, n_timesteps, timestep_offset, subgroup
+
     def write_budgets(self, sim_id, records) -> None:
         del sim_id
         self.budgets.extend(records)

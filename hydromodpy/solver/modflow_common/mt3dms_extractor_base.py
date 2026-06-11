@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -77,16 +79,12 @@ class Mt3dmsExtractorBase:
             n_cells,
         )
 
+        # Batched stack write: one shard encode instead of one read-modify-write
+        # per timestep.
+        stack = np.empty((n_timesteps, nlay, n_cells), dtype="float64")
         for t, time in enumerate(times):
-            conc = ucn.get_data(totim=time)
-            values = conc.reshape(nlay, n_cells)
-            store.write_field(
-                sim_id,
-                "concentration",
-                t,
-                values,
-                n_timesteps=n_timesteps if t == 0 else None,
-            )
+            stack[t] = ucn.get_data(totim=time).reshape(nlay, n_cells)
+        store.write_field_stack(sim_id, "concentration", stack)
 
         ucn.close()
 
