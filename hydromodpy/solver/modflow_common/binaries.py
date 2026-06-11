@@ -39,6 +39,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import cache_dir
 from hydromodpy.solver.modflow_common.executables import ensure_platform_executable
@@ -206,7 +207,8 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
         return Path(ensure_platform_executable(located))
 
     if bin_path is None or is_managed_cache(target):
-        download_solver_binaries(target, subset=[solver])
+        with progress.status(f"Fetching {solver} binary"):
+            download_solver_binaries(target, subset=[solver], quiet=True)
         located = locate_solver_binary(target, solver)
         if located is not None:
             return Path(ensure_platform_executable(located))

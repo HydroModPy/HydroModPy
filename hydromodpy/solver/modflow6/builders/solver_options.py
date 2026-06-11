@@ -60,7 +60,7 @@ def resolve_ims_complexity(model, solver_mesh=None) -> str:
 
 def log_xt3d_resolution(model, solver_mesh=None) -> None:
     """Log the resolved XT3D mode once the solver mesh is known."""
-    logger.info(
+    logger.debug(
         "MF6 XT3D resolution: mode=%s enabled=%s structured=%s",
         xt3d_activation_mode(model, solver_mesh),
         xt3d_is_enabled(model, solver_mesh),

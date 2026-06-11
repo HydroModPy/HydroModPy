@@ -15,7 +15,7 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 
-from ._progress import ITMUNI_TO_SECONDS, scale_rate_payload
+from ._rates import ITMUNI_TO_SECONDS, scale_rate_payload
 from .diagnostics import check_water_flow_connectivity
 from .flow_to_modflow_adapter import FlowModflowInputs
 

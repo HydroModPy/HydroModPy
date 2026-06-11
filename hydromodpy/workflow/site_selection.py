@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import csv
 import json
-import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import (
     ConfigError,
     ConfigMissingError,
     ConfigValidationError,
     DataContractViolation,
 )
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
@@ -75,6 +76,8 @@ from hydromodpy.workflow.site_selection_data import (
     load_dem_path,
     load_hydrometry_records,
 )
+
+logger = get_logger(__name__)
 
 PLAN_MANIFEST_NAME = "site_selection_plan.json"
 ProgressCallback = Callable[[str], None]
@@ -437,7 +440,7 @@ def _maybe_delineate_from_outlets(
             reference_network_source=("" if reference_bundle is None else reference_bundle.source),
             reference_network_max_distance_m=config.outlets.reference_network_max_distance_m,
         )
-        for catchment in catchments
+        for catchment in progress.track(catchments, "Delineating catchments")
     ]
     flow_manifest = flow_products.to_manifest_record()
     flow_manifest["dem_path"] = str(dem_path)
@@ -818,8 +821,8 @@ def _emit_progress(callback: ProgressCallback | None, message: str) -> None:
         callback(message)
 
 
-def _stderr_progress(message: str) -> None:
-    print(f"[site_selection] {message}", file=sys.stderr)
+def _log_progress(message: str) -> None:
+    logger.debug("[site_selection] %s", message)
 
 
 def _format_project_extent(
@@ -1143,7 +1146,7 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             config_path=path,
             workspace_root=cfg.input.workspace_root,
             data_root=cfg.input.data_root,
-            progress_callback=_stderr_progress,
+            progress_callback=_log_progress,
         )
         return {
             "action": "generated_candidates",
@@ -1180,7 +1183,7 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             config_path=path,
             workspace_root=cfg.input.workspace_root,
             data_root=cfg.input.data_root,
-            progress_callback=_stderr_progress,
+            progress_callback=_log_progress,
         )
         return {
             "action": "dem_area_light",
@@ -1219,7 +1222,7 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
         config_path=path,
         workspace_root=cfg.input.workspace_root,
         data_root=cfg.input.data_root,
-        progress_callback=_stderr_progress,
+        progress_callback=_log_progress,
     )
     return {
         "action": "hydrometry",

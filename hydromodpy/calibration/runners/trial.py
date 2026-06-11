@@ -43,6 +43,7 @@ from hydromodpy.calibration.runners.contracts import (
     get_trial_pipeline_provider,
     get_trial_promotion_provider,
 )
+from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
@@ -296,6 +297,7 @@ def prepare_trials(
         },
     )
     if prep_slice:
+        # The pipeline phases render the prep checklist themselves.
         state = provider.make_pipeline(prep_slice).run(state)
 
     ctx = state.get("ctx")
@@ -382,67 +384,68 @@ def run_trial_light(
     provider = get_trial_pipeline_provider()
 
     t0 = time.monotonic()
-    try:
-        forked = trial_ctx.fork(values)
-    except Exception as exc:  # pragma: no cover - value injection bug
-        return TrialResult(
-            values=dict(values),
-            metrics={},
-            primary_metric=float("nan"),
-            status="failed",
-            duration_s=time.monotonic() - t0,
-            error=f"fork: {type(exc).__name__}: {exc}",
+    with progress.suppressed():
+        try:
+            forked = trial_ctx.fork(values)
+        except Exception as exc:  # pragma: no cover - value injection bug
+            return TrialResult(
+                values=dict(values),
+                metrics={},
+                primary_metric=float("nan"),
+                status="failed",
+                duration_s=time.monotonic() - t0,
+                error=f"fork: {type(exc).__name__}: {exc}",
+            )
+
+        # Trials only run [earliest..8]. Derive/export/display are reserved
+        # for promotion (steps 09-11).
+        downstream_slice = forked.downstream_steps[forked.earliest : 9]
+        state = provider.make_state(
+            "calibration-trial",
+            {
+                "cfg": forked.ctx.cfg,
+                "config_path": forked.cfg_path,
+                "raw_toml": dict(forked.raw_toml),
+                "ctx": forked.ctx,
+                **dict(forked.mesh_runtime_sections),
+            },
         )
 
-    # Trials only run [earliest..8]. Derive/export/display are reserved
-    # for promotion (steps 09-11).
-    downstream_slice = forked.downstream_steps[forked.earliest : 9]
-    state = provider.make_state(
-        "calibration-trial",
-        {
-            "cfg": forked.ctx.cfg,
-            "config_path": forked.cfg_path,
-            "raw_toml": dict(forked.raw_toml),
-            "ctx": forked.ctx,
-            **dict(forked.mesh_runtime_sections),
-        },
-    )
+        try:
+            if downstream_slice:
+                state = provider.make_pipeline(downstream_slice).run(state)
+        except Exception as exc:
+            return TrialResult(
+                values=dict(values),
+                metrics={},
+                primary_metric=float("nan"),
+                status="crashed",
+                duration_s=time.monotonic() - t0,
+                error=f"{type(exc).__name__}: {exc}",
+            )
 
-    try:
-        if downstream_slice:
-            state = provider.make_pipeline(downstream_slice).run(state)
-    except Exception as exc:
-        return TrialResult(
-            values=dict(values),
-            metrics={},
-            primary_metric=float("nan"),
-            status="crashed",
-            duration_s=time.monotonic() - t0,
-            error=f"{type(exc).__name__}: {exc}",
-        )
+        extractor = metric_fn if metric_fn is not None else _default_metric_extractor
+        try:
+            primary, metrics = extractor(forked.ctx, objective=objective, variable=variable)
+        except Exception as exc:
+            return TrialResult(
+                values=dict(values),
+                metrics={},
+                primary_metric=float("nan"),
+                status="failed",
+                duration_s=time.monotonic() - t0,
+                error=f"metric_fn: {type(exc).__name__}: {exc}",
+            )
 
-    extractor = metric_fn if metric_fn is not None else _default_metric_extractor
-    try:
-        primary, metrics = extractor(forked.ctx, objective=objective, variable=variable)
-    except Exception as exc:
-        return TrialResult(
-            values=dict(values),
-            metrics={},
-            primary_metric=float("nan"),
-            status="failed",
-            duration_s=time.monotonic() - t0,
-            error=f"metric_fn: {type(exc).__name__}: {exc}",
-        )
-
-    if not math.isfinite(float(primary)):
-        return TrialResult(
-            values=dict(values),
-            metrics=dict(metrics),
-            primary_metric=float("nan"),
-            status="failed",
-            duration_s=time.monotonic() - t0,
-            error="metric_fn returned a non-finite objective",
-        )
+        if not math.isfinite(float(primary)):
+            return TrialResult(
+                values=dict(values),
+                metrics=dict(metrics),
+                primary_metric=float("nan"),
+                status="failed",
+                duration_s=time.monotonic() - t0,
+                error="metric_fn returned a non-finite objective",
+            )
 
     return TrialResult(
         values=dict(values),

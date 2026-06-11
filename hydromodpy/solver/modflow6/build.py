@@ -30,7 +30,9 @@ from hydromodpy.solver.modflow6.builders import (
     build_well_stress_period_data,
     collapse_identical_periods,
     empty_recharge_aux,
+    externalize_recharge_spd,
     finalize_pending_recharge_evt,
+    log_xt3d_resolution,
     mask_recharge_on_lake_cells,
     mover_package_count,
     recharge_to_spd,
@@ -46,10 +48,10 @@ from hydromodpy.solver.modflow6.builders import (
     sfr_drain_cells_to_drop,
     sto_period_settings,
     xt3d_activation_mode,
-    xt3d_is_enabled,
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow6.common import attach_time_series
+from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
@@ -188,16 +190,6 @@ def optional_ims_kwargs(runtime) -> dict[str, object]:
     return kwargs
 
 
-def log_xt3d_resolution(model, solver_mesh=None) -> None:
-    """Log the resolved XT3D mode."""
-    logger.info(
-        "MF6 XT3D resolution: mode=%s enabled=%s structured=%s",
-        xt3d_mode(model, solver_mesh),
-        xt3d_is_enabled(model, solver_mesh),
-        bool(solver_mesh is not None and solver_mesh.is_structured),
-    )
-
-
 def write_solver_grid_template(model) -> str:
     """Write a solver-grid template raster for structured grids."""
     if model.grid_ctx is None:
@@ -305,6 +297,7 @@ def run_pre_processing(  # noqa: PLR0915
     flow_runtime_overrides: Mapping[str, object] | None = None,
 ) -> None:
     """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations."""
+    install_flopy_header_cache()
     model.flow = flow
     model.domain = domain
     model.runtime_mesh_planar = mesh_planar
@@ -531,7 +524,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.rch_spd = collapse_identical_periods(model.rch_spd)
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
-        recharge=model.rch_spd,
+        recharge=externalize_recharge_spd(model.rch_spd, basename=model.model_name_mf6),
         auxiliary=["CONCENTRATION"],
         aux=empty_recharge_aux(model),
         pname="RCHA",

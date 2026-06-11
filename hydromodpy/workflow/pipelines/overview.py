@@ -93,7 +93,7 @@ class DataOverviewLauncher:
         from hydromodpy.core.workspace.workspace import Workspace
 
         state.workspace = Workspace(config=state.cfg.workspace)
-        logger.info("[overview] Workspace: %s", state.workspace.project_root)
+        logger.debug("[overview] Workspace: %s", state.workspace.project_root)
 
     # ------------------------------------------------------------------
     # Phase 1b - DEM bootstrap (API download)
@@ -132,7 +132,7 @@ class DataOverviewLauncher:
                 "or:\n"
                 '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )
-        logger.info("[overview] DEM resolved from [data.dem]: %s", resolved)
+        logger.debug("[overview] DEM resolved from [data.dem]: %s", resolved)
         geo_cfg.dem_init_path = resolved
 
     # ------------------------------------------------------------------

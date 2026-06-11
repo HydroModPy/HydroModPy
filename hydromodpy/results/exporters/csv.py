@@ -5,10 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pandas as pd
-
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 
 if TYPE_CHECKING:
     import duckdb
@@ -25,6 +22,9 @@ def export_csv(
     variable: str | None = None,
 ) -> Path:
     """Export time series for a simulation to a CSV file.
+
+    The rows stream from DuckDB straight to disk through ``COPY``; a pandas
+    round-trip spends most of its time formatting datetimes.
 
     Parameters
     ----------
@@ -53,31 +53,31 @@ def export_csv(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    query = (
-        "SELECT time AS datetime, station_id, variable, value, unit "
-        "FROM timeseries WHERE sim_id = ?"
-    )
+    filters = ["sim_id = ?"]
     params: list = [sim_id]
 
     if station_id is not None:
-        query += " AND station_id = ?"
+        filters.append("station_id = ?")
         params.append(station_id)
     if variable is not None:
-        query += " AND variable = ?"
+        filters.append("variable = ?")
         params.append(variable)
 
-    query += " ORDER BY station_id, variable, timestep"
-
-    backend = DuckDBBackend.from_connection(conn)
-    result = backend.query(query, params)
-
-    if result.empty:
+    # DuckDB renders whole-hour offsets as '+00'; pad to the '+00:00' form the
+    # previous pandas export wrote.
+    target = str(output_path).replace("'", "''")
+    query = (
+        "COPY ("
+        "SELECT regexp_replace(CAST(time AS VARCHAR), '([+-][0-9]{2})$', '\\1:00') AS datetime, "
+        "station_id, variable, value, unit "
+        "FROM timeseries WHERE " + " AND ".join(filters) + " "
+        "ORDER BY station_id, variable, timestep"
+        f") TO '{target}' (FORMAT CSV, HEADER)"
+    )
+    row = conn.execute(query, params).fetchone()
+    n_rows = int(row[0]) if row else 0
+    if n_rows:
+        logger.info("Exported CSV: %s (%d rows)", output_path, n_rows)
+    else:
         logger.debug("No timeseries found for sim=%s", sim_id)
-        pd.DataFrame(columns=["datetime", "station_id", "variable", "value", "unit"]).to_csv(
-            output_path, index=False
-        )
-        return output_path
-
-    result.to_csv(output_path, index=False)
-    logger.info("Exported CSV: %s (%d rows)", output_path, len(result))
     return output_path

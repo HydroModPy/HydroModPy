@@ -274,7 +274,7 @@ class HydrographyManager:
         cached_path = Path(entry.file_path)
         if not cached_path.exists():
             return None
-        logger.info("Cache hit for hydrography/%s: %s", source, cached_path)
+        logger.debug("Cache hit for hydrography/%s: %s", source, cached_path)
         return gpd.read_file(cached_path)
 
     def _persist_and_register(

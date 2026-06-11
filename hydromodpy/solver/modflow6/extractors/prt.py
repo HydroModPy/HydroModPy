@@ -100,7 +100,7 @@ class Modflow6PrtOutputAdapter:
         finally:
             sz.close()
 
-        logger.info(
+        logger.debug(
             "Extracted %d MODFLOW 6 PRT particle tracks (max %d steps) for sim %s",
             arrays.n_particles,
             arrays.max_steps,

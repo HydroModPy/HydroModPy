@@ -33,6 +33,7 @@ from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+from hydromodpy.solver.modflow_common.progress import run_model_with_progress
 from hydromodpy.solver.modflow_grid import (
     SolverGridContext,
     build_spatial_discretization,
@@ -44,7 +45,6 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfi
 
 from ._post_processing import run_post_processing
 from ._pre_processing import assemble_flopy_packages
-from ._progress import run_model_with_progress
 from .flow_to_modflow_adapter import FlowToModflowAdapter
 from .nwt_config import (
     ModflowConfig,
@@ -69,8 +69,8 @@ class ModflowNwt:
 
     - ``_pre_processing.assemble_flopy_packages`` for FLOPY package wiring,
     - ``_post_processing.run_post_processing`` for output reduction,
-    - ``_progress.run_model_with_progress`` and ``scale_rate_payload``
-      for runtime helpers.
+    - ``modflow_common.progress.run_model_with_progress`` and
+      ``_rates.scale_rate_payload`` for runtime helpers.
     """
 
     def __init__(
@@ -448,19 +448,15 @@ class ModflowNwt:
         self.last_flow_solve_time_seconds = None
         if options.run_model:
             solve_start = time.perf_counter()
-            if options.verbose:
-                try:
-                    success_model, _ = run_model_with_progress(
-                        self.mf,
-                        int(self.nper),
-                    )
-                finally:
-                    self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
-            else:
-                try:
-                    success_model, _ = self.mf.run_model(silent=True)
-                finally:
-                    self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
+            try:
+                success_model, _ = run_model_with_progress(
+                    self.mf.exe_name,
+                    self.mf.namefile,
+                    self.mf.model_ws,
+                    int(self.nper),
+                )
+            finally:
+                self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
 
         return success_model
 

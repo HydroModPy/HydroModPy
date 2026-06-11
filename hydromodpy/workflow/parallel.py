@@ -22,6 +22,7 @@ from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Protocol
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 
 
@@ -87,18 +88,22 @@ def run_sweep(
     if not points:
         return []
 
-    def _one(point: dict[str, float]) -> str:
-        param, value = next(iter(point.items()))
-        name = name_template.format(param=param, value=value)
-        run = project.simulate(name=name, **point)
-        return run.sim_id
+    with progress.task("Running parameter sweep", total=len(points)) as bar:
 
-    if parallel == 1 or len(points) == 1:
-        return [_one(point) for point in points]
+        def _one(point: dict[str, float]) -> str:
+            param, value = next(iter(point.items()))
+            name = name_template.format(param=param, value=value)
+            with progress.suppressed():
+                run = project.simulate(name=name, **point)
+            bar.advance()
+            return run.sim_id
 
-    workers = min(parallel, len(points))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(_one, points))
+        if parallel == 1 or len(points) == 1:
+            return [_one(point) for point in points]
+
+        workers = min(parallel, len(points))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            return list(pool.map(_one, points))
 
 
 # ---------------------------------------------------------------------------

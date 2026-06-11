@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core import progress
 from hydromodpy.workflow.steps.display import step_render_figures
 from hydromodpy.workflow.steps.export import (
     step_cleanup_scratch,
@@ -222,7 +223,8 @@ def ingest_run(
     callback. This step covers the complementary ingestion that does not
     require the solver output directory to stay open.
     """
-    step_ingest_observations(ctx, sim_id)
+    with progress.status("Ingesting observations"):
+        step_ingest_observations(ctx, sim_id)
 
 
 def render_run(

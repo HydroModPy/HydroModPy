@@ -292,3 +292,8 @@ class BuildMeshStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+    def is_prebuilt(self, state: PipelineState) -> bool:
+        """True when the in-memory ctx already carries the mesh."""
+        ctx = state.get("ctx")
+        return ctx is not None and getattr(ctx.setup, "mesh_planar", None) is not None

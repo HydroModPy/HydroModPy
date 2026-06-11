@@ -34,6 +34,7 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ResumeIntegrityError, StepError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
@@ -217,11 +218,12 @@ class Pipeline:
                 if has_artifacts and row_completed:
                     rebuild = getattr(step, "rebuild_state", None)
                     if rebuild is not None:
-                        state = rebuild(
-                            prior_state=state,
-                            workspace=self.workspace or Path(),
-                            run_id=state.run_id,
-                        )
+                        with progress.phase(name):
+                            state = rebuild(
+                                prior_state=state,
+                                workspace=self.workspace or Path(),
+                                run_id=state.run_id,
+                            )
                     else:
                         logger.warning(
                             "pipeline.rebuild_skipped step=%s reason=no_rebuild_state",
@@ -229,12 +231,23 @@ class Pipeline:
                         )
                         state = state.advance(step_index=index, step_name=name)
                 else:
-                    state = step.run(state)
-                    state = state.advance(
-                        step_index=index,
-                        step_name=name,
-                        data=state.data,
-                    )
+                    is_prebuilt = getattr(step, "is_prebuilt", None)
+                    if is_prebuilt is not None and is_prebuilt(state):
+                        # The in-memory ctx already carries this step's
+                        # products (eager facade build); advancing is enough.
+                        logger.debug(
+                            "pipeline.rebuild_skipped step=%s reason=prebuilt_in_memory",
+                            name,
+                        )
+                        state = state.advance(step_index=index, step_name=name)
+                    else:
+                        with progress.phase(name):
+                            state = step.run(state)
+                        state = state.advance(
+                            step_index=index,
+                            step_name=name,
+                            data=state.data,
+                        )
             except Exception as exc:
                 raise ResumeIntegrityError(
                     f"pipeline rebuild failed at step {index} ({name}): {exc}",
@@ -442,7 +455,8 @@ class Pipeline:
 
         t0 = time.monotonic()
         try:
-            out = step.run(state)
+            with progress.phase(name):
+                out = step.run(state)
         except (KeyboardInterrupt, SystemExit):
             self._finish_journal_step(
                 journal,

@@ -534,6 +534,19 @@ class BuildGeographicStep:
         """Re-run setup: idempotent given the cached DEM / watershed."""
         return self.run(prior_state)
 
+    def is_prebuilt(self, state: PipelineState) -> bool:
+        """True when the in-memory ctx already carries the setup products."""
+        ctx = state.get("ctx")
+        if ctx is None:
+            return False
+        setup = ctx.setup
+        return (
+            setup.workspace is not None
+            and setup.geographic is not None
+            and setup.geographic_features is not None
+            and setup.domain is not None
+        )
+
 
 class SetupProcessStep:
     """Instantiate flow / transport process objects bound to the domain."""

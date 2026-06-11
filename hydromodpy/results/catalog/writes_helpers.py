@@ -12,6 +12,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 
@@ -158,6 +159,66 @@ def _table_from_records(
     ).replace_schema_metadata(schema.metadata)
 
 
+def _is_column_array(value: Any) -> bool:
+    """Return True for per-row array-likes; str/bytes and scalars broadcast."""
+    return isinstance(value, np.ndarray | list | tuple | pd.Series | pd.Index)
+
+
+def _timestamp_array_ms(value: Any, n_rows: int, dtype: pa.DataType) -> pa.Array:
+    """Build a millisecond-resolution timestamp array; naive input is UTC."""
+    if value is None:
+        return pa.nulls(n_rows, dtype)
+    if not _is_column_array(value):
+        ts = _coerce_timestamp_utc(value)
+        ms = None if ts is None else int(ts.value // 1_000_000)
+        return pa.array([ms] * n_rows, type=dtype)
+    index = pd.DatetimeIndex(value)
+    index = index.tz_localize("UTC") if index.tz is None else index.tz_convert("UTC")
+    return pa.array(index.as_unit("ms").asi8, type=dtype, mask=index.isna())
+
+
+def _table_from_columns(
+    columns: Mapping[str, Any],
+    schema: pa.Schema,
+    *,
+    defaults: Mapping[str, Any] | None = None,
+) -> pa.Table:
+    """Columnar sibling of :func:`_table_from_records`.
+
+    ``columns`` maps schema column names to equal-length per-row arrays;
+    scalar values broadcast and missing columns fall back to ``defaults`` or
+    null. This skips the per-record Python loop entirely, which matters for
+    multi-million-row solver series.
+    """
+    field_names = [field.name for field in schema]
+    unknown = set(columns) - set(field_names)
+    if unknown:
+        raise ValueError(f"columns not in schema: {sorted(unknown)}")
+    n_rows = None
+    for value in columns.values():
+        if _is_column_array(value):
+            n_rows = len(value)
+            break
+    if n_rows is None:
+        raise ValueError("at least one column must be a per-row array")
+    arrays: list[pa.Array] = []
+    for field in schema:
+        value = columns.get(field.name)
+        if value is None and defaults is not None and field.name in defaults:
+            value = defaults[field.name]
+        if pa.types.is_timestamp(field.type):
+            arrays.append(_timestamp_array_ms(value, n_rows, field.type))
+        elif value is None:
+            arrays.append(pa.nulls(n_rows, field.type))
+        elif _is_column_array(value):
+            if len(value) != n_rows:
+                raise ValueError(f"column '{field.name}' has {len(value)} rows, expected {n_rows}")
+            arrays.append(pa.array(value, type=field.type, from_pandas=True))
+        else:
+            arrays.append(pa.array([value] * n_rows, type=field.type))
+    return pa.Table.from_arrays(arrays, names=field_names).replace_schema_metadata(schema.metadata)
+
+
 def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[str]) -> pa.Table:
     """Last-write-wins merge of an existing Parquet file with ``new_table``.
 
@@ -191,5 +252,6 @@ __all__ = [
     "_python_value_type",
     "_sha256_directory",
     "_sha256_streaming",
+    "_table_from_columns",
     "_table_from_records",
 ]

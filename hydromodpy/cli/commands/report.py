@@ -22,6 +22,7 @@ from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     find_catalog_root,
 )
+from hydromodpy.core import progress
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.display.catchment_report.cli import add_catchment_report_arguments
 
@@ -97,7 +98,8 @@ def _cmd_render(args: argparse.Namespace) -> None:
 
     workspace_root = args.workspace or find_catalog_root(Path.cwd())
     try:
-        out_path = hmp.report(args.sim_ref, workspace=workspace_root)
+        with progress.status("Rendering calibration report"):
+            out_path = hmp.report(args.sim_ref, workspace=workspace_root)
     except ConfigMissingError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

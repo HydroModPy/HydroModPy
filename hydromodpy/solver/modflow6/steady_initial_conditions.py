@@ -9,6 +9,7 @@ from pathlib import Path
 import flopy
 import numpy as np
 
+from hydromodpy.core import progress
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
@@ -140,9 +141,11 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
         mesh_support=getattr(model, "runtime_mesh_support", None),
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
     )
-    success = steady_model.processing(
-        ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
-    )
+    # Auxiliary single-period solve: keep it out of the live display.
+    with progress.suppressed():
+        success = steady_model.processing(
+            ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
+        )
 
     output_name = str(getattr(steady_model, "model_output_name", steady_model.model_name))
     head_path = Path(str(steady_model.full_path)) / f"{output_name}.hds"

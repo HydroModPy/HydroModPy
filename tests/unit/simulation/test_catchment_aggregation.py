@@ -435,6 +435,94 @@ class TestAggregateEndToEnd:
             catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
 
 
+class TestRoutedDischarge:
+    """discharge = SFR/LAK ext_outflow + direct DRN when a network is extracted."""
+
+    def _setup_sim(self, catalog, n_ts=3, n_cells=4, with_drains=True):
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="modflow6",
+            n_cells=n_cells,
+            n_layers=1,
+            n_timesteps=n_ts,
+            period_start="2020-01-01",
+            period_end="2020-01-03",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
+        for t in range(n_ts):
+            catalog.write_field(
+                sid, "head", t, np.full((1, n_cells), 5.0), n_timesteps=n_ts if t == 0 else None
+            )
+        if with_drains:
+            drain_frames = {
+                0: np.array([[-1.0, -2.0, -3.0, -4.0]]),  # abs_sum = 10
+                1: np.array([[-2.0, -2.0, -2.0, -2.0]]),  # abs_sum = 8
+                2: np.array([[1.0, 1.0, 1.0, 1.0]]),  # abs_sum = 4
+            }
+            for t in range(n_ts):
+                catalog.write_field(
+                    sid, "drn", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
+                )
+        return sid
+
+    def _write_ext_outflow(self, catalog, sid, station, values):
+        idx = pd.date_range("2020-01-01", periods=len(values), freq="D")
+        catalog.write_timeseries(
+            sid, station, "ext_outflow", pd.Series(values, index=idx), unit="m3/s"
+        )
+
+    def test_discharge_adds_routed_outflow_to_direct_drains(self, catalog):
+        sid = self._setup_sim(catalog)
+        # SFR stores ext_outflow positive; LAK keeps MF6's negative convention.
+        self._write_ext_outflow(catalog, sid, "sfr:net:7", [1.0, 2.0, 3.0])
+        self._write_ext_outflow(catalog, sid, "sfr:net:2", [0.0, 0.0, 0.0])
+        self._write_ext_outflow(catalog, sid, "lake:res", [-0.5, -0.5, -1.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        # |drn| + sfr + |lake| per timestep.
+        np.testing.assert_allclose(ts.values, [11.5, 10.5, 8.0])
+
+    def test_routed_branch_skips_lumped_runoff(self, catalog, monkeypatch):
+        import hydromodpy.simulation.extraction.derivation.catchment_aggregation as mod
+
+        def _must_not_run(*args, **kwargs):
+            raise AssertionError("lumped runoff must not be added on the routed branch")
+
+        monkeypatch.setattr(mod, "_add_runoff_to_discharge_series", _must_not_run)
+        sid = self._setup_sim(catalog)
+        self._write_ext_outflow(catalog, sid, "sfr:net:7", [1.0, 1.0, 1.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [11.0, 9.0, 5.0])
+
+    def test_routed_only_discharge_written_without_drain_field(self, catalog):
+        # Pure SFR drainage: no DRN array at all, discharge = routed outflow.
+        sid = self._setup_sim(catalog, with_drains=False)
+        self._write_ext_outflow(catalog, sid, "sfr:net:7", [2.0, 4.0, 6.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [2.0, 4.0, 6.0])
+
+    def test_non_network_stations_do_not_trigger_routed_branch(self, catalog):
+        # An ext_outflow series on a foreign station must not be summed.
+        sid = self._setup_sim(catalog)
+        self._write_ext_outflow(catalog, sid, "piezo:42", [100.0, 100.0, 100.0])
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [10.0, 8.0, 4.0])
+
+
 class TestReadCatchmentArea:
     def _register(self, catalog):
         sid = str(uuid4())

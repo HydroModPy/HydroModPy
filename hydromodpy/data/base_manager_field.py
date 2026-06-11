@@ -143,7 +143,7 @@ class BaseFieldManager(BaseManagerCommon):
                 raise ValueError(
                     f"Cached field {var_name!r} from {source!r} is missing CRS metadata."
                 )
-            logger.info("Cache hit: %s from %s", var_name, nc_path.name)
+            logger.debug("Cache hit: %s from %s", var_name, nc_path.name)
 
             results.append(
                 FieldRecord(
@@ -184,7 +184,7 @@ class BaseFieldManager(BaseManagerCommon):
 
             if not rec.is_file_reference:
                 rec.data.to_netcdf(nc_path)
-                logger.info("Saved: %s", nc_path.name)
+                logger.debug("Saved: %s", nc_path.name)
             else:
                 nc_path = Path(rec.data)
 
@@ -200,7 +200,7 @@ class BaseFieldManager(BaseManagerCommon):
                     exclude_id=entry_id,
                 )
                 if removed:
-                    logger.info("Subsumed %d smaller grid(s) for %s", removed, rec.variable)
+                    logger.debug("Subsumed %d smaller grid(s) for %s", removed, rec.variable)
 
     def _register_field(
         self,

@@ -30,6 +30,7 @@ from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.catalog.writes_helpers import (
     _merge_with_existing,
     _normalize_geometry_kind,
+    _table_from_columns,
     _table_from_records,
 )
 from hydromodpy.results.geoparquet_io import write_geoparquet_atomic
@@ -134,6 +135,38 @@ class WritesMixinParquet:
             target=self._paths.parquet_path_for(sid, "timeseries"),
             records=normalised,
             schema=TIMESERIES_SCHEMA,
+            pk_cols=("sim_id", "station_id", "variable", "timestep"),
+            sim_id=sid,
+        )
+
+    @with_lock_retry()
+    def write_timeseries_columns(
+        self,
+        sim_id: str | UUID,
+        columns: Mapping[str, Any],
+    ) -> None:
+        """Columnar fast path of :meth:`write_timeseries_batch`.
+
+        ``columns`` maps :data:`TIMESERIES_SCHEMA` column names to equal-length
+        per-row arrays; scalars broadcast and missing columns get the batch
+        defaults. Building the Arrow table from arrays skips the per-record
+        Python loop, which matters for multi-million-row solver series.
+        """
+        if not self._persistence.save_parquet:
+            return
+        if not columns:
+            return
+        sid = str(sim_id)
+        table = _table_from_columns(
+            columns,
+            TIMESERIES_SCHEMA,
+            defaults={"sim_id": sid, "unit": "", "qflag": "simulated"},
+        )
+        if table.num_rows == 0:
+            return
+        self._write_parquet_table(
+            target=self._paths.parquet_path_for(sid, "timeseries"),
+            new_table=table,
             pk_cols=("sim_id", "station_id", "variable", "timestep"),
             sim_id=sid,
         )
@@ -513,6 +546,19 @@ class WritesMixinParquet:
         """
         defaults = {"sim_id": sim_id}
         new_table = _table_from_records(records, schema, defaults=defaults)
+        self._write_parquet_table(
+            target=target, new_table=new_table, pk_cols=pk_cols, sim_id=sim_id
+        )
+
+    def _write_parquet_table(
+        self,
+        *,
+        target: Path,
+        new_table: pa.Table,
+        pk_cols: Sequence[str],
+        sim_id: str,
+    ) -> None:
+        """Persist a prebuilt Arrow table atomically, merging with the target."""
         existing = target.exists()
         if existing:
             try:

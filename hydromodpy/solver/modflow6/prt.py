@@ -12,6 +12,10 @@ import numpy as np
 from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.solver.modflow_common.progress import (
+    run_simulation_with_progress,
+    write_listing_status,
+)
 
 
 def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
@@ -422,11 +426,17 @@ class Modflow6Prt:
         run_model: bool = False,
         verbose: bool = True,
     ) -> bool:
+        del verbose  # the write listing always goes to the debug log
         if write_model:
-            self.model_modflow.sim.write_simulation(silent=not verbose)
+            with write_listing_status("Writing particle tracking input files"):
+                self.model_modflow.sim.write_simulation(silent=False)
         success = False
         if run_model:
-            success, _ = self.model_modflow.sim.run_simulation(silent=not verbose)
+            success, _ = run_simulation_with_progress(
+                self.model_modflow.sim,
+                int(self.model_modflow.nper),
+                description="Solving particle tracking",
+            )
         return success
 
 

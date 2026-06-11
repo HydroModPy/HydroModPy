@@ -24,7 +24,6 @@ covers the standard NSE / KGE / RMSE cases.
 
 from __future__ import annotations
 
-import sys
 import time
 import tomllib
 import uuid
@@ -40,6 +39,7 @@ from hydromodpy.calibration.optimizer import (
     ParamSuggestion,
     build_optimizer,
 )
+from hydromodpy.calibration.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.promotion import (
     promote_iterations,
     update_best_sim_id,
@@ -239,12 +239,14 @@ def run_calibration_core(
             result,
             detail=cfg.persist_iteration_detail,
         )
-        obj = result.objective_value
-        obj_str = f"{obj:.6g}" if obj == obj else "nan"  # NaN-safe format
-        print(
-            f"  iter {result.trial_id:>4d}  obj={obj_str:>10} status={result.status}",
-            file=sys.stderr,
-        )
+
+    logger.info(
+        "Calibration session %s | method=%s max_iter=%d save_runs=%s",
+        session_id,
+        cfg.method,
+        cfg.max_iter,
+        cfg.save_runs,
+    )
 
     engine = CalibrationEngine(
         space=space,
@@ -255,14 +257,9 @@ def run_calibration_core(
         parallel=cfg.parallel,
         cache=engine_cache,
         cache_context=cache_context,
+        progress=ConsoleProgressReporter(cfg.method, cfg.max_iter),
         session_id=session_id,
         on_iteration=on_iteration,
-    )
-
-    print(
-        f"Calibration session {session_id} | method={cfg.method} "
-        f"max_iter={cfg.max_iter} save_runs={cfg.save_runs}",
-        file=sys.stderr,
     )
 
     t0 = time.perf_counter()

@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core import progress
 from hydromodpy.core.field_routing import (
     accumulate_on_downhill_graph,
     active_surface_mask,
@@ -593,7 +594,7 @@ def _accumulate_cell_stack_raster_d8(
         )
 
         acc_stack = np.empty((int(n_timesteps), int(n_cells)), dtype="float64")
-        for t in range(n_timesteps):
+        for t in progress.track(range(int(n_timesteps)), "Routing surface flow"):
             local_2d = np.maximum(np.asarray(local_stack[t], dtype="float64"), 0.0).reshape(
                 grid_shape
             )

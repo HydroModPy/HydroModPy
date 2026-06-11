@@ -248,6 +248,7 @@ class DatasetLoader:
         """
         import xarray as xr
 
+        from hydromodpy.core import progress
         from hydromodpy.core.logging import get_logger
 
         logger = get_logger(__name__)
@@ -255,7 +256,7 @@ class DatasetLoader:
         per_var_arrays: dict[str, list[xr.DataArray]] = {v: [] for v in fields}
         per_var_ids: dict[str, list[str]] = {v: [] for v in fields}
 
-        for sid in sim_ids:
+        for sid in progress.track(sim_ids, "Opening simulation stores"):
             try:
                 ds_sim = self._open_simulation_lazy(sid)
             except (KeyError, FileNotFoundError, OSError) as exc:

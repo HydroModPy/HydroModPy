@@ -1,5 +1,8 @@
 import logging
 import os
+import warnings
+
+from hydromodpy.core import progress as core_progress
 
 
 class LogManager:
@@ -50,6 +53,7 @@ class LogManager:
 
         self._setup_logging()
         self._suppress_library_logs()
+        self._route_warnings_to_logging()
 
     def _setup_logging(self):
         """
@@ -59,10 +63,14 @@ class LogManager:
 
         # Remove console handlers, keep file handlers
         for handler in self.logger.handlers[:]:
-            if isinstance(handler, logging.StreamHandler) and not isinstance(
-                handler, logging.FileHandler
-            ):
+            is_console = isinstance(
+                handler, (logging.StreamHandler, core_progress.ConsoleLogHandler)
+            )
+            if is_console and not isinstance(handler, logging.FileHandler):
                 self.logger.removeHandler(handler)
+
+        # Keep the live progress display in sync with the console mode
+        core_progress.set_console_mode(self.mode)
 
         # Set the base logger level
         self.logger.setLevel(logging.DEBUG)
@@ -78,19 +86,19 @@ class LogManager:
 
         # Console handler based on mode
         if self.mode == "dev":
-            console_handler = logging.StreamHandler()
+            console_handler = core_progress.make_console_handler()
             console_handler.setLevel(logging.DEBUG)
             console_handler.setFormatter(detailed_formatter_console)
             self.logger.addHandler(console_handler)
 
         elif self.mode == "verbose":
-            console_handler = logging.StreamHandler()
+            console_handler = core_progress.make_console_handler()
             console_handler.setLevel(logging.INFO)
             console_handler.setFormatter(simple_formatter_console)
             self.logger.addHandler(console_handler)
 
         elif self.mode == "quiet":
-            console_handler = logging.StreamHandler()
+            console_handler = core_progress.make_console_handler()
             console_handler.setLevel(logging.WARNING)
             console_handler.setFormatter(simple_formatter_console)
             self.logger.addHandler(console_handler)
@@ -235,6 +243,21 @@ class LogManager:
         """
         self.verbose_libraries = show
         self._suppress_library_logs()
+
+    @staticmethod
+    def _route_warnings_to_logging():
+        """Route ``warnings.warn`` output through the hydromodpy logger.
+
+        Raw warnings written to stderr corrupt the live progress display;
+        through logging they render above it and reach the file logs.
+        """
+        warnings_logger = logging.getLogger("hydromodpy.warnings")
+
+        def showwarning(message, category, filename, lineno, file=None, line=None):
+            del file, line
+            warnings_logger.warning("%s: %s (%s:%s)", category.__name__, message, filename, lineno)
+
+        warnings.showwarning = showwarning
 
     def _suppress_library_logs(self):
         """

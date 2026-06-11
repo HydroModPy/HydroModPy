@@ -19,7 +19,6 @@ from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
-    log_xt3d_resolution,
     mf6_safe_name,
     resolve_flow_regime,
     resolve_ims_complexity_for,
@@ -27,10 +26,10 @@ from hydromodpy.solver.modflow6.build import (
     run_pre_processing,
     select_active_dem,
     write_solver_grid_template,
-    xt3d_is_enabled,
     xt3d_mode,
     xt3d_requested,
 )
+from hydromodpy.solver.modflow6.builders import log_xt3d_resolution, xt3d_is_enabled
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     _coerce_modflow6_config,

@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, WorkspacePathRegistry
 from hydromodpy.data._dispatch import VARIABLE_SPECS, VariableSpec
-from hydromodpy.data.common.progress import data_phase
 from hydromodpy.data.plan import DataLoadPlan
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.data.store import DataStore
@@ -125,7 +125,7 @@ class DataManagersRuntimeLoader:
         if spec is None:
             logger.warning("Unsupported data type '%s' in plan.", type_name)
             return
-        with data_phase(type_name):
+        with progress.status(f"Loading {type_name}"):
             if spec.loader_method is not None:
                 getattr(self, spec.loader_method)(result)
             else:
