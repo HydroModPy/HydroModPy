@@ -101,6 +101,39 @@ def list_simulations(
     out = pd.concat(frames, ignore_index=True)
     if limit is not None:
         out = out.head(int(limit))
+    return _stable_listing_projection(out)
+
+
+_LISTING_COLUMNS: tuple[str, ...] = (
+    "sim_id",
+    "name",
+    "project",
+    "solver",
+    "status",
+    "created_at",
+    "started_at",
+    "duration_s",
+    "n_cells",
+    "n_layers",
+    "config_hash",
+    "version_int",
+)
+
+
+def _stable_listing_projection(df: Any) -> Any:
+    """Return a scriptable 12-column projection (string ids, ISO dates).
+
+    Keeps the listing cheap and JSON/CSV safe: ``sim_id`` and timestamps are
+    cast to strings (raw ``uuid.UUID`` objects break ``DataFrame.to_json``) and
+    config blobs are dropped so ``ls`` never moves megabytes to print a page.
+    """
+    cols = [c for c in _LISTING_COLUMNS if c in df.columns]
+    out = df[cols].copy()
+    if "sim_id" in out.columns:
+        out["sim_id"] = out["sim_id"].astype(str)
+    for time_col in ("created_at", "started_at"):
+        if time_col in out.columns:
+            out[time_col] = out[time_col].astype(str)
     return out
 
 
