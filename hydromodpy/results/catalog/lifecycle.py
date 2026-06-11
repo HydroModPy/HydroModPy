@@ -251,6 +251,26 @@ class LifecycleMixin:
                     [status, duration_s, sid],
                 )
 
+        if status == "completed":
+            self._write_simulation_snapshot(sid)
+
+    def _write_simulation_snapshot(self, sid: str) -> None:
+        """Write a one-row ``simulation.parquet`` so an orphan store stays adoptable.
+
+        Dropped next to the per-sim Parquet views. The view builder only globs
+        the named views (``PARQUET_VIEW_NAMES``), so this extra file is inert.
+        """
+        try:
+            parquet_dir = self._paths.parquet_dir_for(sid)
+            parquet_dir.mkdir(parents=True, exist_ok=True)
+            dest = parquet_dir / "simulation.parquet"
+            self._backend.execute(
+                f"COPY (SELECT * FROM simulations WHERE sim_id = '{sid}') "
+                f"TO '{dest.as_posix()}' (FORMAT PARQUET)"
+            )
+        except Exception as exc:
+            logger.debug("Could not write simulation snapshot for %s: %s", sid[:8], exc)
+
     @with_lock_retry()
     def delete(
         self,

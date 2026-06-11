@@ -315,6 +315,23 @@ def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
             catalog.close()
 
 
+def adopt_store(store_path: Any, *, workspace: Any) -> dict:
+    """Re-register an orphan store into the workspace catalog.
+
+    Returns ``{"sim_id": ...}``. Raises ``FileNotFoundError`` when the
+    catalog or the snapshot is missing, ``ValueError`` on a bad store.
+    """
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace_root = Path(workspace).expanduser().resolve()
+    if not (workspace_root / CATALOG_FILENAME).exists():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+
+    with SimulationCatalog(workspace_root) as catalog:
+        return {"sim_id": catalog.adopt(store_path)}
+
+
 def delete_simulation(
     sim_ref: str,
     *,

@@ -264,3 +264,35 @@ def test_record_export_is_noop_when_persistence_off(catalog):
     finally:
         catalog._persistence.save_catalog = True
     assert catalog.list_exports(sid) == []
+
+
+# ---------------------------------------------------------------------------
+# Orphan adoption (finalize snapshot -> re-register)
+# ---------------------------------------------------------------------------
+
+
+def test_finalize_writes_snapshot_and_store_can_be_adopted(catalog):
+    sid = _register(catalog, "r")
+    catalog.finalize(sid, status="completed", duration_s=1.0)
+    parquet_dir = catalog.parquet_dir_for(sid)
+    assert (parquet_dir / "simulation.parquet").exists()
+
+    # orphan the catalog row, keep the storage on disk
+    catalog._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+    assert catalog.adopt(parquet_dir) == sid
+    row = catalog._backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
+    assert row[0] == "r"
+
+
+def test_adopt_without_snapshot_raises(catalog):
+    with pytest.raises(FileNotFoundError):
+        catalog.adopt(catalog._simulations_dir / "missing__deadbeef.parquet")
+
+
+def test_adopt_already_registered_raises(catalog):
+    sid = _register(catalog, "r")
+    catalog.finalize(sid, status="completed", duration_s=1.0)
+    with pytest.raises(ValueError, match="already registered"):
+        catalog.adopt(catalog.parquet_dir_for(sid))
