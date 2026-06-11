@@ -325,6 +325,8 @@ class DiscoveryMixin:
             elif key in (
                 "project",
                 "name",
+                "name_stem",
+                "config_hash",
                 "crs_wkt",
                 "geographic_fingerprint",
             ):
@@ -333,8 +335,8 @@ class DiscoveryMixin:
             else:
                 raise ValueError(
                     f"Unknown filter {key!r}. Valid: solver, solver_category, status, "
-                    "flow_regime, mesh_topology, project, name, crs, tags, "
-                    "<metric>_gt, <metric>_lt, <metric>_gte"
+                    "flow_regime, mesh_topology, project, name, name_stem, config_hash, "
+                    "crs, tags, <metric>_gt, <metric>_lt, <metric>_gte"
                 )
 
         # Trashed runs are hidden from find() unless explicitly asked for.

@@ -89,6 +89,15 @@ def run(args: argparse.Namespace) -> None:
     # Tags, notes, metrics and parameters require a direct catalog read.
     with SimulationCatalog(workspace_root, read_only=True) as catalog:
         sim = catalog[payload["sim_id"]]
+        ident = catalog.backend.fetch_one(
+            "SELECT version_int, config_hash FROM simulations WHERE sim_id = ?",
+            [payload["sim_id"]],
+        )
+        if ident is not None:
+            if ident[0] is not None:
+                print(f"  version   : v{ident[0]}")
+            if ident[1]:
+                print(f"  config    : {ident[1][:12]}")
         tags = sim.tags or []
         if tags:
             print(f"  tags      : {', '.join(tags)}")
