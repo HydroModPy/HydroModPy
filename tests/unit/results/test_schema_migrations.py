@@ -63,13 +63,14 @@ def test_ensure_schema_on_empty_db_creates_system_tables_and_applies_initial(
         (4, "workflow_events"),
         (5, "drop_simulation_heartbeat"),
         (6, "drop_simulation_heartbeat_column"),
+        (7, "simulation_lifecycle"),
     ]
 
     version_rows = conn.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert version_rows == [(CATALOG_COMPONENT, 6)]
+    assert version_rows == [(CATALOG_COMPONENT, 7)]
 
-    assert current_version(conn) == 6
-    assert target_version() == 6
+    assert current_version(conn) == 7
+    assert target_version() == 7
 
 
 def test_ensure_schema_is_idempotent(conn: duckdb.DuckDBPyConnection) -> None:
@@ -85,7 +86,7 @@ def test_ensure_schema_is_idempotent(conn: duckdb.DuckDBPyConnection) -> None:
     rows = conn.execute(
         "SELECT version, applied_at FROM schema_migrations ORDER BY version"
     ).fetchall()
-    assert len(rows) == 6
+    assert len(rows) == 7
     assert rows == first_applied_at
 
 

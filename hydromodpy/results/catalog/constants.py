@@ -44,12 +44,17 @@ TABLE_NAMES: tuple[str, ...] = (
     "geographic_metadata",
     "parquet_files",
     "tags",
+    "sim_notes",
+    "export_log",
+    "purge_journal",
     "calibration_sessions",
     "calibration_iterations",
     "workflow_steps",
 )
 
 # Per-simulation DuckDB tables (used by lifecycle deletion and hmp_package).
+# ``purge_journal`` is deliberately excluded: it is the two-phase hard-purge
+# journal cleared by the purge process itself, not part of the normal cascade.
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "parameters",
     "metrics",
@@ -59,6 +64,8 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "geographic_metadata",
     "runs_environment",
     "tags",
+    "sim_notes",
+    "export_log",
     "tracked_files",
     "parquet_files",
 )
