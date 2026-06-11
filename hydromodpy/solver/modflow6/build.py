@@ -32,6 +32,7 @@ from hydromodpy.solver.modflow6.builders import (
     empty_recharge_aux,
     externalize_recharge_spd,
     finalize_pending_recharge_evt,
+    log_xt3d_resolution,
     mask_recharge_on_lake_cells,
     mover_package_count,
     recharge_to_spd,
@@ -47,7 +48,6 @@ from hydromodpy.solver.modflow6.builders import (
     sfr_drain_cells_to_drop,
     sto_period_settings,
     xt3d_activation_mode,
-    xt3d_is_enabled,
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow6.common import attach_time_series
@@ -188,16 +188,6 @@ def optional_ims_kwargs(runtime) -> dict[str, object]:
     if runtime.mf6_under_relaxation is not None:
         kwargs["under_relaxation"] = runtime.mf6_under_relaxation
     return kwargs
-
-
-def log_xt3d_resolution(model, solver_mesh=None) -> None:
-    """Log the resolved XT3D mode."""
-    logger.info(
-        "MF6 XT3D resolution: mode=%s enabled=%s structured=%s",
-        xt3d_mode(model, solver_mesh),
-        xt3d_is_enabled(model, solver_mesh),
-        bool(solver_mesh is not None and solver_mesh.is_structured),
-    )
 
 
 def write_solver_grid_template(model) -> str:

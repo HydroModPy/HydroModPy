@@ -45,6 +45,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_library
@@ -263,6 +264,15 @@ def _read_tdis_scalars(sim: Any) -> tuple[int, int, float]:
     return max(kper, 0), max(kstp, 0), totim
 
 
+def _read_nper(sim: Any) -> int | None:
+    """Read TDIS NPER from the live library, or None when unreadable."""
+    try:
+        addr = sim.mf6.get_var_address("NPER", "TDIS")
+        return int(sim.mf6.get_value(addr).ravel()[0])
+    except Exception:
+        return None
+
+
 def run_mf6_api(
     sim_ws: str | os.PathLike[str],
     callback: Callable[[Mf6ApiContext], None],
@@ -333,30 +343,38 @@ def run_mf6_api(
         callbacks.finalize: Mf6ApiStep.finalize,
     }
 
-    def _native_callback(sim: Any, mf_step: Any) -> None:
-        phase = phase_by_callback.get(mf_step)
-        if phase is None:
-            return
-        kper, kstp, totim = _read_tdis_scalars(sim)
-        ctx = Mf6ApiContext(
-            step=phase,
-            kper=kper,
-            kstp=kstp,
-            totim=totim,
-            _sim=sim,
-        )
-        try:
-            callback(ctx)
-        except Exception as exc:
-            raise SolverError(
-                f"MF6 API callback failed at {phase.name} "
-                f"(kper={ctx.kper}, kstp={ctx.kstp}, totim={ctx.totim}): {exc}"
-            ) from exc
-
     if verbose:
-        logger.info("Running MF6 API on %s with %s", workspace, resolved_lib.name)
+        logger.debug("Running MF6 API on %s with %s", workspace, resolved_lib.name)
 
-    success = modflowapi.run_simulation(
-        str(resolved_lib), str(workspace), _native_callback, verbose=verbose
-    )
+    with progress.task("Solving stress periods") as handle:
+
+        def _native_callback(sim: Any, mf_step: Any) -> None:
+            phase = phase_by_callback.get(mf_step)
+            if phase is None:
+                return
+            kper, kstp, totim = _read_tdis_scalars(sim)
+            if phase is Mf6ApiStep.initialize:
+                nper = _read_nper(sim)
+                if nper is not None:
+                    handle.update(total=nper)
+            elif phase is Mf6ApiStep.timestep_end:
+                handle.update(completed=kper + 1)
+            ctx = Mf6ApiContext(
+                step=phase,
+                kper=kper,
+                kstp=kstp,
+                totim=totim,
+                _sim=sim,
+            )
+            try:
+                callback(ctx)
+            except Exception as exc:
+                raise SolverError(
+                    f"MF6 API callback failed at {phase.name} "
+                    f"(kper={ctx.kper}, kstp={ctx.kstp}, totim={ctx.totim}): {exc}"
+                ) from exc
+
+        success = modflowapi.run_simulation(
+            str(resolved_lib), str(workspace), _native_callback, verbose=verbose
+        )
     return _resolve_api_success(success, workspace)

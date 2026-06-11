@@ -138,7 +138,7 @@ def _build_cellular_property_from_flow_domain(
             dtype=float,
         ).reshape(-1)
 
-    logger.info(
+    logger.debug(
         "%s mapped from flow.%s using %s",
         property_label,
         selected_name,
@@ -218,7 +218,7 @@ def fill_missing_flow_properties_from_mesh_support(
             continue
         arr[replace_mask] = replacement[replace_mask]
         out[key] = arr
-        logger.info(
+        logger.debug(
             "Completed %s for %d unstructured cell value(s) from mesh bundle conductivity.",
             key,
             int(np.count_nonzero(replace_mask)),

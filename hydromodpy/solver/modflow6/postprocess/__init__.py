@@ -14,6 +14,7 @@ import numpy as np
 import rasterio
 from flopy.utils import postprocessing as pp
 
+from hydromodpy.core import progress
 from hydromodpy.core.io import filesystem, raster_io
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common import masstransfer
@@ -115,7 +116,8 @@ def run_flow_post_processing(
     dem_flat = np.asarray(model.dem, dtype=float).reshape(-1)
     east_cells = east_side_cell_ids(model)
 
-    for item, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
+    steps = list(zip(times, kstpkpers, strict=False))
+    for item, (time, kstpkper) in enumerate(progress.track(steps, "Post-processing flow fields")):
         head = head_fpu.get_data(totim=time)
         wt = compute_watertable_elevation(head)
 
@@ -328,7 +330,7 @@ def run_transport_post_processing(
         )
     n_steps = min(n_conc, n_seep) if n_seep else n_conc
 
-    for i in range(n_steps):
+    for i in progress.track(range(n_steps), "Post-processing transport fields"):
         # Label TIFs by the 0-based output index, matching the flow rasters and
         # the per-index dict keys (was i+1, off by one from the dicts).
         the_time = str(i)

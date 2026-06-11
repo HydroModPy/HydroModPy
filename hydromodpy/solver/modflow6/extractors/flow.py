@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -151,7 +152,7 @@ class Modflow6OutputAdapter:
             nlay = 1
             n_cells = head0.size
 
-        logger.info(
+        logger.debug(
             "Extracting MODFLOW 6 results: %d timesteps, %d layers, %d cells",
             n_timesteps,
             nlay,
@@ -161,20 +162,22 @@ class Modflow6OutputAdapter:
         # Batched stack writes: per-timestep writes into a sharded Zarr array
         # cost one whole-shard read-modify-write per timestep.
         slab_steps = max(1, _STACK_SLAB_BYTES // (nlay * n_cells * 8))
-        for t0 in range(0, n_timesteps, slab_steps):
-            t1 = min(t0 + slab_steps, n_timesteps)
-            slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
-            for t in range(t0, t1):
-                head = head_file.get_data(totim=times[t])
-                slab[t - t0] = head.reshape(nlay, n_cells)
-            slab[np.abs(slab) > 1e20] = np.nan
-            store.write_field_stack(
-                sim_id,
-                "head",
-                slab,
-                n_timesteps=n_timesteps,
-                timestep_offset=t0,
-            )
+        with progress.task("Extracting heads", total=n_timesteps) as handle:
+            for t0 in range(0, n_timesteps, slab_steps):
+                t1 = min(t0 + slab_steps, n_timesteps)
+                slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
+                for t in range(t0, t1):
+                    head = head_file.get_data(totim=times[t])
+                    slab[t - t0] = head.reshape(nlay, n_cells)
+                slab[np.abs(slab) > 1e20] = np.nan
+                store.write_field_stack(
+                    sim_id,
+                    "head",
+                    slab,
+                    n_timesteps=n_timesteps,
+                    timestep_offset=t0,
+                )
+                handle.update(completed=t1)
 
         if cbc_path.exists():
             self._extract_budget(
@@ -269,68 +272,70 @@ class Modflow6OutputAdapter:
         seen: set[tuple[str, int]] = set()
         ranked_records: list[tuple[int, int, dict]] = []
         spatial_stacks: dict[str, np.ndarray] = {}
-        for idx, record in enumerate(cbb.records):
-            component = record.text
-            rank = component_rank.get(component)
-            if rank is None:
-                continue
-            t = timestep_by_kstpkper.get((record.kstp, record.kper))
-            if t is None:
-                continue
-            key = (component, t)
-            if key in seen:
-                # Several packages of one type share the record name; keep
-                # the first record like the historical data[0] read did.
-                continue
-            try:
-                arr = cbb.read_record(idx)
-            except Exception as exc:
-                logger.debug(
-                    "Could not read MF6 budget '%s' at t=%d: %s",
-                    component,
-                    t,
-                    exc,
-                )
-                continue
-            seen.add(key)
-            if hasattr(arr, "dtype") and arr.dtype.names is not None:
-                arr = self._recarray_to_grid(arr, nlay, n_cells)
-            if hasattr(arr, "shape") and arr.ndim >= 1:
-                flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
-                flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
-            else:
-                flux_in = 0.0
-                flux_out = 0.0
-            ranked_records.append(
-                (
-                    t,
-                    rank,
-                    {
-                        "timestep": t,
-                        "zone_id": "0",
-                        "component": component.lower().strip(),
-                        "flux_in": flux_in,
-                        "flux_out": abs(flux_out),
-                        "unit": "m3/s",
-                    },
-                )
-            )
-            if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
-                if arr.size == nlay * n_cells:
-                    field = np.asarray(arr).reshape(nlay, n_cells)
-                elif arr.ndim == 1 and arr.size == n_cells:
-                    field = np.asarray(arr).reshape(1, n_cells)
+        with progress.task("Extracting budget terms", total=len(cbb.records)) as handle:
+            for idx, record in enumerate(cbb.records):
+                handle.advance()
+                component = record.text
+                rank = component_rank.get(component)
+                if rank is None:
+                    continue
+                t = timestep_by_kstpkper.get((record.kstp, record.kper))
+                if t is None:
+                    continue
+                key = (component, t)
+                if key in seen:
+                    # Several packages of one type share the record name; keep
+                    # the first record like the historical data[0] read did.
+                    continue
+                try:
+                    arr = cbb.read_record(idx)
+                except Exception as exc:
+                    logger.debug(
+                        "Could not read MF6 budget '%s' at t=%d: %s",
+                        component,
+                        t,
+                        exc,
+                    )
+                    continue
+                seen.add(key)
+                if hasattr(arr, "dtype") and arr.dtype.names is not None:
+                    arr = self._recarray_to_grid(arr, nlay, n_cells)
+                if hasattr(arr, "shape") and arr.ndim >= 1:
+                    flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
+                    flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
                 else:
-                    field = None
-                if field is not None:
-                    spatial_stack = spatial_stacks.get(component)
-                    if spatial_stack is None:
-                        spatial_stack = np.full(
-                            (n_timesteps, *field.shape), np.nan, dtype="float64"
-                        )
-                        spatial_stacks[component] = spatial_stack
-                    if spatial_stack.shape[1:] == field.shape:
-                        spatial_stack[t] = field / seconds_per_time_unit
+                    flux_in = 0.0
+                    flux_out = 0.0
+                ranked_records.append(
+                    (
+                        t,
+                        rank,
+                        {
+                            "timestep": t,
+                            "zone_id": "0",
+                            "component": component.lower().strip(),
+                            "flux_in": flux_in,
+                            "flux_out": abs(flux_out),
+                            "unit": "m3/s",
+                        },
+                    )
+                )
+                if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
+                    if arr.size == nlay * n_cells:
+                        field = np.asarray(arr).reshape(nlay, n_cells)
+                    elif arr.ndim == 1 and arr.size == n_cells:
+                        field = np.asarray(arr).reshape(1, n_cells)
+                    else:
+                        field = None
+                    if field is not None:
+                        spatial_stack = spatial_stacks.get(component)
+                        if spatial_stack is None:
+                            spatial_stack = np.full(
+                                (n_timesteps, *field.shape), np.nan, dtype="float64"
+                            )
+                            spatial_stacks[component] = spatial_stack
+                        if spatial_stack.shape[1:] == field.shape:
+                            spatial_stack[t] = field / seconds_per_time_unit
 
         for component, spatial_stack in spatial_stacks.items():
             try:
@@ -385,27 +390,31 @@ class Modflow6OutputAdapter:
         spec = read_lake_meta(solver_output_dir / f"{model_name}.lak.meta.json")
         if spec is None:
             return
-        obs_path = solver_output_dir / spec.obs_csv
-        calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
-        factor = _seconds_per_time_unit(time_units)
-        calendar_times: np.ndarray | None = None
-        if calendar_anchor is not None:
-            relative = np.asarray(times, dtype=float) * factor
-            axis = cf_time_axis_seconds(relative, calendar_anchor)
-            calendar_times = (
-                np.asarray(axis).astype("int64").astype("datetime64[s]").astype("datetime64[ms]")
+        with progress.status("Building lake timeseries"):
+            obs_path = solver_output_dir / spec.obs_csv
+            calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
+            factor = _seconds_per_time_unit(time_units)
+            calendar_times: np.ndarray | None = None
+            if calendar_anchor is not None:
+                relative = np.asarray(times, dtype=float) * factor
+                axis = cf_time_axis_seconds(relative, calendar_anchor)
+                calendar_times = (
+                    np.asarray(axis)
+                    .astype("int64")
+                    .astype("datetime64[s]")
+                    .astype("datetime64[ms]")
+                )
+            timeseries, budgets = build_lake_records(
+                spec,
+                obs_path,
+                times=times,
+                seconds_per_time_unit=seconds_per_time_unit,
+                calendar_times=calendar_times,
             )
-        timeseries, budgets = build_lake_records(
-            spec,
-            obs_path,
-            times=times,
-            seconds_per_time_unit=seconds_per_time_unit,
-            calendar_times=calendar_times,
-        )
-        if timeseries:
-            store.write_timeseries_batch(sim_id, timeseries)
-        if budgets:
-            store.write_budgets(sim_id, budgets)
+            if timeseries:
+                store.write_timeseries_batch(sim_id, timeseries)
+            if budgets:
+                store.write_budgets(sim_id, budgets)
 
     def _extract_sfr_series(
         self,
@@ -438,27 +447,31 @@ class Modflow6OutputAdapter:
         spec = read_sfr_meta(solver_output_dir / f"{model_name}.sfr.meta.json")
         if spec is None:
             return
-        obs_path = solver_output_dir / spec.obs_csv
-        calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
-        factor = _seconds_per_time_unit(time_units)
-        calendar_times: np.ndarray | None = None
-        if calendar_anchor is not None:
-            relative = np.asarray(times, dtype=float) * factor
-            axis = cf_time_axis_seconds(relative, calendar_anchor)
-            calendar_times = (
-                np.asarray(axis).astype("int64").astype("datetime64[s]").astype("datetime64[ms]")
+        with progress.status("Building SFR timeseries"):
+            obs_path = solver_output_dir / spec.obs_csv
+            calendar_anchor = _read_start_datetime(tdis_path) or start_datetime
+            factor = _seconds_per_time_unit(time_units)
+            calendar_times: np.ndarray | None = None
+            if calendar_anchor is not None:
+                relative = np.asarray(times, dtype=float) * factor
+                axis = cf_time_axis_seconds(relative, calendar_anchor)
+                calendar_times = (
+                    np.asarray(axis)
+                    .astype("int64")
+                    .astype("datetime64[s]")
+                    .astype("datetime64[ms]")
+                )
+            columns, budgets = build_sfr_columns(
+                spec,
+                obs_path,
+                times=times,
+                seconds_per_time_unit=seconds_per_time_unit,
+                calendar_times=calendar_times,
             )
-        columns, budgets = build_sfr_columns(
-            spec,
-            obs_path,
-            times=times,
-            seconds_per_time_unit=seconds_per_time_unit,
-            calendar_times=calendar_times,
-        )
-        if columns:
-            store.write_timeseries_columns(sim_id, columns)
-        if budgets:
-            store.write_budgets(sim_id, budgets)
+            if columns:
+                store.write_timeseries_columns(sim_id, columns)
+            if budgets:
+                store.write_budgets(sim_id, budgets)
 
     @staticmethod
     def _recarray_to_grid(

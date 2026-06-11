@@ -98,7 +98,7 @@ def aggregate_catchment_timeseries(
         sz.close()
 
     if written:
-        logger.info("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
+        logger.debug("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
 
 
 def _add_runoff_to_discharge_series(

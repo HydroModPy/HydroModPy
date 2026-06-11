@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from hydromodpy.core import progress
 from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.steady_initial_conditions import (
     apply_modflow6_steady_state_initial_heads,
@@ -11,6 +12,10 @@ from hydromodpy.solver.modflow6.steady_initial_conditions import (
     run_modflow6_steady_state_initialization,
 )
 from hydromodpy.solver.modflow_common import ModflowRunOptions
+from hydromodpy.solver.modflow_common.progress import (
+    run_simulation_with_progress,
+    write_listing_status,
+)
 
 
 def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
@@ -27,10 +32,11 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
         and getattr(model, "flow_regime", None) == "transient"
         and flow_uses_steady_state_initial_condition(getattr(model, "flow", None))
     ):
-        steady_heads = run_modflow6_steady_state_initialization(
-            model,
-            verbose=bool(options.verbose),
-        )
+        with progress.status("Steady-state initialization"):
+            steady_heads = run_modflow6_steady_state_initialization(
+                model,
+                verbose=bool(options.verbose),
+            )
         apply_modflow6_steady_state_initial_heads(model, steady_heads)
         steady_initial_heads_applied = True
 
@@ -46,7 +52,8 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
                 model.ic.write()
             model._runtime_dirty_packages = ()
         else:
-            model.sim.write_simulation(silent=not options.verbose)
+            with write_listing_status():
+                model.sim.write_simulation(silent=False)
     elif steady_initial_heads_applied:
         model.ic.write()
 
@@ -58,7 +65,7 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
             if getattr(options, "runner", "subprocess") == "api":
                 success_model = _run_via_api(model, verbose=bool(options.verbose))
             else:
-                success_model, _ = model.sim.run_simulation(silent=not options.verbose)
+                success_model, _ = run_simulation_with_progress(model.sim, int(model.nper))
         finally:
             model.last_flow_solve_time_seconds = time.perf_counter() - solve_start
     return success_model

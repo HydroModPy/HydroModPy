@@ -129,6 +129,7 @@ def test_modflow6_processing_writes_only_dirty_packages() -> None:
     model.npf = _FakePackage()
     model.sto = _FakePackage()
     model.drn = _FakePackage()
+    model.nper = 1
     model._runtime_dirty_packages = ("npf", "sto")
 
     success = Modflow6.processing(
