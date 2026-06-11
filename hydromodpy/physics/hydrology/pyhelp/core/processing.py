@@ -19,6 +19,7 @@ import time
 # ---- Third Party imports
 import numpy as np
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 
 # ---- Local Libraries Imports
@@ -61,24 +62,16 @@ def run_help_allcells(cellparams, ncore=None):
     output = {}
     ncore = max(mp.cpu_count() if ncore is None else ncore, 1)
     tstart = time.perf_counter()
-    calcul_progress = 0
     N = len(cellparams)
+    # Warm the binary cache in the parent so spawn workers never race
+    # the download (and never render from a child process).
+    ensure_help3o_loaded()
     pool = mp.get_context("spawn").Pool(ncore)
     try:
-        for cell in pool.imap_unordered(run_help_singlecell, cellparams.items()):
-            output[cell[0]] = cell[1]
-            calcul_progress += 1
-            if calcul_progress % 100 == 0 or calcul_progress == N:
-                progress_pct = calcul_progress / N * 100
-                tpassed = time.perf_counter() - tstart
-                tremain = (
-                    (100 - progress_pct) * tpassed / progress_pct / 60 if progress_pct > 0 else 0
-                )
-                logger.debug(
-                    "HELP simulation in progress: %3.1f%% (%0.1f min remaining)",
-                    progress_pct,
-                    tremain,
-                )
+        with progress.task("Running HELP simulation", total=N) as handle:
+            for cell in pool.imap_unordered(run_help_singlecell, cellparams.items()):
+                output[cell[0]] = cell[1]
+                handle.advance()
         pool.close()
         pool.join()
     except Exception:
