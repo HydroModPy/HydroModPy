@@ -44,6 +44,7 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_sfr_networks,
     resolve_xt3d_npf_options,
     sfr_drain_cells_to_drop,
+    sto_period_settings,
     xt3d_activation_mode,
     xt3d_is_enabled,
     xt3d_requested_value,
@@ -510,13 +511,16 @@ def run_pre_processing(  # noqa: PLR0915
         save_specific_discharge=True,
         save_saturation=True,
     )
+    steady_state_spd, transient_spd = sto_period_settings(
+        [bool(model.steady[i]) for i in range(int(model.nper))]
+    )
     model.sto = flopy.mf6.ModflowGwfsto(
         model.gwf,
         sy=model.sy,
         ss=model.ss,
         iconvert=np.ones((model.nlay,), dtype=int),
-        steady_state={0: bool(model.steady[0])},
-        transient={i: not bool(model.steady[i]) for i in range(int(model.nper))},
+        steady_state=steady_state_spd or None,
+        transient=transient_spd or None,
     )
 
     model.rch_spd = recharge_to_spd(model)
@@ -524,6 +528,7 @@ def run_pre_processing(  # noqa: PLR0915
         model.rch_spd = mask_recharge_on_lake_cells(
             model.rch_spd, lake_cell_ids=model._lake_cell_ids
         )
+    model.rch_spd = collapse_identical_periods(model.rch_spd)
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
         recharge=model.rch_spd,
@@ -542,7 +547,7 @@ def run_pre_processing(  # noqa: PLR0915
         maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
         model.evt = flopy.mf6.ModflowGwfevt(
             model.gwf,
-            stress_period_data=evt_spd,
+            stress_period_data=collapse_identical_periods(evt_spd),
             maxbound=maxbound,
             save_flows=True,
         )

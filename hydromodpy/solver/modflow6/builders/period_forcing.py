@@ -10,7 +10,7 @@ per-reach scaling) stays in each builder.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from numbers import Real
 
 import numpy as np
@@ -134,6 +134,27 @@ def package_unit_conversions(model) -> tuple[float, float]:
     return float(seconds_per_unit.get(time_units, 1.0)), 1.0
 
 
+def sto_period_settings(
+    steady_flags: Sequence[bool],
+) -> tuple[dict[int, bool], dict[int, bool]]:
+    """Return change-point ``(steady_state, transient)`` STO period settings.
+
+    MF6 keeps the previous STO setting until a new PERIOD block declares the
+    other one, so only the transitions need an entry. One entry per period
+    would put FloPy's quadratic block-header bookkeeping on the critical path
+    of multi-thousand-period chronicles.
+    """
+    steady_state: dict[int, bool] = {}
+    transient: dict[int, bool] = {}
+    previous: bool | None = None
+    for kper, flag in enumerate(steady_flags):
+        is_steady = bool(flag)
+        if previous is None or is_steady != previous:
+            (steady_state if is_steady else transient)[kper] = True
+        previous = is_steady
+    return steady_state, transient
+
+
 def ts6_times_and_values(
     model, per_period_si: tuple[float, ...]
 ) -> tuple[tuple[float, ...], tuple[float, ...]]:
@@ -161,5 +182,6 @@ __all__ = [
     "package_unit_conversions",
     "resolve_forcing_mode",
     "resolve_use_ts6",
+    "sto_period_settings",
     "ts6_times_and_values",
 ]
