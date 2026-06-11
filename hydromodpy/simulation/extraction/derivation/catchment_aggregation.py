@@ -30,8 +30,10 @@ VARIABLE_UNITS: dict[str, str] = {
 # ``hydromodpy.core.metrics`` / ``Run`` methods, so the
 # catalog stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
-    # Outlet discharge (m3/s) - sum of |drain flux| over the catchment,
-    # consumed by hydrograph, watershed_id_card, calibration.
+    # Direct drain outflow (m3/s) - sum of |drain flux| over the catchment.
+    # The MVR-routed share lives in the separate DRN-TO-MVR budget record and
+    # is therefore excluded: it re-enters the model through SFR and surfaces
+    # in the routed ext_outflow series instead.
     ("drains|drn|drain", "discharge", "abs_sum"),
     # Well pumping total (m3/s).
     ("wells|wel", "well_pumping", "sum"),
@@ -45,6 +47,14 @@ def aggregate_catchment_timeseries(
     time_index: pd.DatetimeIndex | None = None,
 ) -> None:
     """Read spatial fields from the store and write catchment-aggregated timeseries.
+
+    The ``discharge`` series is the total surface water leaving the model.
+    When the run carries SFR / LAK extracted series, the routed outflow
+    (``ext_outflow`` at terminal reaches and lake outlets) is summed with the
+    direct (non-MVR) drain outflow; the routed signal already contains the
+    runoff forcing and the MVR drainage, so nothing else is added. Without a
+    stream network the series falls back to the lumped accounting: sum of
+    |DRN| plus the watershed runoff forcing read from Zarr ``forcing/``.
 
     Parameters
     ----------
@@ -74,7 +84,8 @@ def aggregate_catchment_timeseries(
                 continue
             pending.append((output_var, values))
 
-        if not pending:
+        routed = _routed_outflow_by_timestep(store, sim_id, n_timesteps)
+        if not pending and routed is None:
             return
 
         if time_index is not None and len(time_index) == n_timesteps:
@@ -86,11 +97,24 @@ def aggregate_catchment_timeseries(
                 logger.warning("Skipping catchment timeseries for sim %s: %s", sim_id, exc)
                 return
 
+        series_by_var: dict[str, pd.Series] = {
+            output_var: pd.Series(values, index=ts_index, name=output_var, dtype="float64")
+            for output_var, values in pending
+        }
+        if routed is not None:
+            ts = pd.Series(routed, index=ts_index, name="discharge", dtype="float64")
+            base = series_by_var.get("discharge")
+            if base is not None:
+                ts = ts.add(base, fill_value=0.0)
+            series_by_var["discharge"] = ts
+            logger.debug("Catchment discharge for sim %s uses routed SFR/LAK outflow", sim_id)
+        elif "discharge" in series_by_var:
+            series_by_var["discharge"] = _add_runoff_to_discharge_series(
+                series_by_var["discharge"], sim_id, store, grp
+            )
+
         written = 0
-        for output_var, values in pending:
-            ts = pd.Series(values, index=ts_index, name=output_var, dtype="float64")
-            if output_var == "discharge":
-                ts = _add_runoff_to_discharge_series(ts, sim_id, store, grp)
+        for output_var, ts in series_by_var.items():
             unit = VARIABLE_UNITS.get(output_var, "")
             store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
             written += 1
@@ -99,6 +123,41 @@ def aggregate_catchment_timeseries(
 
     if written:
         logger.debug("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
+
+
+def _routed_outflow_by_timestep(
+    store: Any,
+    sim_id: str,
+    n_timesteps: int,
+) -> np.ndarray | None:
+    """Sum of |ext_outflow| over SFR reaches and lake outlets, per timestep.
+
+    ``ext_outflow`` is the surface water leaving the model at a terminal
+    reach or a lake outlet (stations ``sfr:*`` / ``lake:*``, extracted from
+    the MF6 obs CSVs in m3/s). Magnitudes are summed because the SFR
+    extractor stores it positive while LAK keeps MF6's negative outflow
+    convention. Returns None when no such series exists (no SFR / LAK run).
+    """
+    conn = getattr(store, "connection", None) or store._db
+    try:
+        rows = conn.execute(
+            "SELECT timestep, SUM(ABS(value)) FROM timeseries "
+            "WHERE sim_id = ? AND variable = 'ext_outflow' "
+            "  AND (station_id LIKE 'sfr:%' OR station_id LIKE 'lake:%') "
+            "GROUP BY timestep",
+            [str(sim_id)],
+        ).fetchall()
+    except Exception:
+        logger.debug("No readable timeseries table for sim %s", sim_id, exc_info=True)
+        return None
+    if not rows:
+        return None
+    values = np.zeros(n_timesteps, dtype="float64")
+    for timestep, total in rows:
+        t = int(timestep)
+        if 0 <= t < n_timesteps and total is not None:
+            values[t] = float(total)
+    return values
 
 
 def _add_runoff_to_discharge_series(
