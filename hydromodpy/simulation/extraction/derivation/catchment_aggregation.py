@@ -13,6 +13,8 @@ logger = get_logger(__name__)
 
 _CATCHMENT_STATION = "_catchment"
 
+_SLAB_TARGET_BYTES = 64 * 1024 * 1024
+
 VARIABLE_UNITS: dict[str, str] = {
     "discharge": "m3/s",
     "well_pumping": "m3/s",
@@ -216,15 +218,19 @@ def _aggregate_variable(
         return None
 
     arr = target_grp[resolved_key]
+    if arr.shape[0] < n_timesteps:
+        return None
 
-    values = []
-    for t in range(n_timesteps):
-        try:
-            field = np.asarray(arr[t], dtype="float64")
-        except (IndexError, KeyError):
-            return None
-        scalar = _reduce(field, active_mask, reducer)
-        values.append(scalar)
+    # Slab reads: one Zarr selection per block instead of one per timestep.
+    bytes_per_step = max(int(np.prod(arr.shape[1:])) * 8, 1)
+    block = max(1, min(n_timesteps, _SLAB_TARGET_BYTES // bytes_per_step))
+
+    values: list[float] = []
+    for t0 in range(0, n_timesteps, block):
+        t1 = min(t0 + block, n_timesteps)
+        fields = np.asarray(arr[t0:t1], dtype="float64")
+        for field in fields:
+            values.append(_reduce(field, active_mask, reducer))
 
     return values
 
