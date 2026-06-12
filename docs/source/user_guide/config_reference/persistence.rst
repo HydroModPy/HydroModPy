@@ -16,7 +16,7 @@ Orthogonal switch governing every persistence sink.
 Toggles are independent: disabling ``save_zarr`` does not silence the
 catalog, and vice versa. ``save_catalog`` is the master switch for the
 project DuckDB; when False, every write through
-:class:`SimulationCatalog` becomes a no-op.
+:class:`Catalog` becomes a no-op.
 
 .. raw:: html
 

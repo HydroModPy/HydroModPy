@@ -281,7 +281,7 @@ Sub-models are linked back to their per-section page.
       # time = ...  # default = None
       # Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.
       # process = ...  # uses factory default
-      # Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.
+      # Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
       # results = ...  # uses factory default
       # Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
       # rng_seed = ...  # default = None

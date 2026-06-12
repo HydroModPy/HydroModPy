@@ -340,7 +340,7 @@
 <!-- hydromodpy.core.config_kit.persistence.PersistenceConfig -->
 <g id="node7" class="node">
 <title>hydromodpy.core.config_kit.persistence.PersistenceConfig</title>
-<g id="a_node7"><a xlink:title="hydromodpy.core.config_kit.persistence.PersistenceConfig&#10;&#10;Orthogonal switch governing every persistence sink.&#10;&#10;Toggles are independent: disabling ``save_zarr`` does not silence the&#10;catalog, and vice versa. ``save_catalog`` is the master switch for the&#10;project DuckDB; when False, every write through&#10;:class:`SimulationCatalog` becomes a no&#45;op.&#10;">
+<g id="a_node7"><a xlink:title="hydromodpy.core.config_kit.persistence.PersistenceConfig&#10;&#10;Orthogonal switch governing every persistence sink.&#10;&#10;Toggles are independent: disabling ``save_zarr`` does not silence the&#10;catalog, and vice versa. ``save_catalog`` is the master switch for the&#10;project DuckDB; when False, every write through&#10;:class:`Catalog` becomes a no&#45;op.&#10;">
 <polygon fill="none" stroke="black" points="640.5,-153.5 640.5,-176 978,-176 978,-153.5 640.5,-153.5"/>
 <text xml:space="preserve" text-anchor="start" x="757.5" y="-160.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">PersistenceConfig</text>
 <polygon fill="none" stroke="black" points="640.5,-131 640.5,-153.5 748.5,-153.5 748.5,-131 640.5,-131"/>

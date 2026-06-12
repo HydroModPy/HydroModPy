@@ -444,7 +444,7 @@ Fields
 
    :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L417>`__
 
-      Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.
+      Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
 
    .. dropdown:: Fields of ``ResultsConfig``
       :icon: list-unordered

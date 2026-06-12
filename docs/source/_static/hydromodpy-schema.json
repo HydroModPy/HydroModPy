@@ -14355,7 +14355,7 @@
     },
     "PersistenceConfig": {
       "additionalProperties": false,
-      "description": "Orthogonal switch governing every persistence sink.\n\nToggles are independent: disabling ``save_zarr`` does not silence the\ncatalog, and vice versa. ``save_catalog`` is the master switch for the\nproject DuckDB; when False, every write through\n:class:`SimulationCatalog` becomes a no-op.",
+      "description": "Orthogonal switch governing every persistence sink.\n\nToggles are independent: disabling ``save_zarr`` does not silence the\ncatalog, and vice versa. ``save_catalog`` is the master switch for the\nproject DuckDB; when False, every write through\n:class:`Catalog` becomes a no-op.",
       "properties": {
         "save_catalog": {
           "default": true,
@@ -16731,7 +16731,7 @@
     },
     "ResultsConfig": {
       "additionalProperties": false,
-      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the SimulationCatalog and\nwhich derived variables are computed. Automated export formats live in the\ntop-level ``[export]`` section (:class:`ExportConfig`), not here.",
+      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the Catalog and\nwhich derived variables are computed. Automated export formats live in the\ntop-level ``[export]`` section (:class:`ExportConfig`), not here.",
       "properties": {
         "persistence": {
           "$ref": "#/$defs/PersistenceConfig",
@@ -17411,7 +17411,7 @@
         },
         "results": {
           "$ref": "#/$defs/ResultsConfig",
-          "description": "Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.",
+          "description": "Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.",
           "x-hmp-profile": "dev"
         },
         "rng_seed": {
