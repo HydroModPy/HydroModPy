@@ -238,10 +238,10 @@ class TestRunCalibrationCli:
 
     def test_iterations_persisted_to_duckdb(self, calib_toml, fake_pipeline, quadratic_metric):
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         workspace_root = calib_toml.parent
-        with SimulationCatalog(workspace_root) as catalog:
+        with Catalog(workspace_root) as catalog:
             rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
                 [uuid.UUID(summary["session_id"])],
@@ -257,10 +257,10 @@ class TestRunCalibrationCli:
 
     def test_session_row_is_finalized(self, calib_toml, fake_pipeline, quadratic_metric):
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         workspace_root = calib_toml.parent
-        with SimulationCatalog(workspace_root) as catalog:
+        with Catalog(workspace_root) as catalog:
             row = catalog.connection.execute(
                 "SELECT st.code, cs.n_iterations, cs.best_objective, cs.best_sim_id "
                 "FROM calibration_sessions cs "
@@ -448,9 +448,9 @@ class TestSessionLifecycle:
     """No zombie ``status='running'`` rows: failures and aborts must finalize."""
 
     def _read_session(self, workspace_root, session_id):
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        with SimulationCatalog(workspace_root) as catalog:
+        with Catalog(workspace_root) as catalog:
             return catalog.connection.execute(
                 "SELECT st.code, cs.error_message, cs.n_iterations "
                 "FROM calibration_sessions cs "

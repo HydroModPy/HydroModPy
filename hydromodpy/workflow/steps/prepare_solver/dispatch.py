@@ -1,6 +1,6 @@
 """Concern 3 of PrepareSolverStep: registration + store opening.
 
-Hosts the helpers that open the SimulationCatalog, register the
+Hosts the helpers that open the Catalog, register the
 simulation row, and write the per-sim CRS/time metadata to the Zarr.
 These functions mutate the catalog and the on-disk store, so they are
 kept separate from the pure validation helpers in :mod:`validate`.
@@ -183,7 +183,7 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
 
 
 def step_open_store(ctx: WorkflowContext) -> None:
-    """Open a ``SimulationCatalog`` and register the current simulation.
+    """Open a ``Catalog`` and register the current simulation.
 
     Helpers are looked up on the :mod:`hydromodpy.workflow.steps.prepare_solver`
     package namespace so unit tests can monkeypatch them via
@@ -197,12 +197,12 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     from uuid import uuid4
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = ctx.setup.workspace
     if workspace is None:
         raise PipelineError("Workspace is required before opening the simulation catalog.")
-    ctx.store = SimulationCatalog.from_workspace(
+    ctx.store = Catalog.from_workspace(
         workspace,
         persistence=results_cfg.persistence,
     )

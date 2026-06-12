@@ -299,9 +299,9 @@ class TestRunCalibrationProgrammatic:
             project=fake_project,
             metric_fn=quadratic_metric,
         )
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        with SimulationCatalog(tmp_path) as catalog:
+        with Catalog(tmp_path) as catalog:
             rows = catalog.connection.execute(
                 "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
                 [uuid.UUID(report.session_id)],
@@ -338,9 +338,9 @@ class TestRunCalibrationProgrammatic:
             metric_fn=quadratic_metric,
         )
 
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        with SimulationCatalog(tmp_path) as catalog:
+        with Catalog(tmp_path) as catalog:
             row = catalog.connection.execute(
                 "SELECT st.code, cs.error_message FROM calibration_sessions cs "
                 "JOIN statuses st ON cs.status_id = st.id "

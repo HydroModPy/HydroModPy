@@ -8,19 +8,19 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import JournalError
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.journal import WorkflowJournal, WorkflowStepRow
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> SimulationCatalog:
+def catalog(tmp_path: Path) -> Catalog:
     with simulation_catalog(tmp_path) as cat:
         yield cat
 
 
 @pytest.fixture
-def journal(catalog: SimulationCatalog) -> WorkflowJournal:
+def journal(catalog: Catalog) -> WorkflowJournal:
     return WorkflowJournal(catalog)
 
 

@@ -6,7 +6,7 @@ workspace.
 
 Public API
 ----------
-- :class:`SimulationCatalog`: connection-managed entry point. Methods cover
+- :class:`Catalog`: connection-managed entry point. Methods cover
   registration (``register_simulation``), per-simulation writers
   (``write_parameters``, ``write_timeseries``, ``write_budget``,
   ``write_field``, ``write_mesh`` ...), readers / queries (``query_field``,
@@ -25,7 +25,7 @@ from hydromodpy.results.catalog.discovery import (
     SimulationNotFoundError,
     short_id,
 )
-from hydromodpy.results.catalog.facade import SimulationCatalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.registration import (
     DuplicateSimulationNameError,
     RegistrationResult,
@@ -35,7 +35,7 @@ __all__ = [
     "AmbiguousReferenceError",
     "DuplicateSimulationNameError",
     "RegistrationResult",
-    "SimulationCatalog",
+    "Catalog",
     "SimulationNotFoundError",
     "short_id",
 ]

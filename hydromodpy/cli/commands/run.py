@@ -190,7 +190,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     from hydromodpy.project import Project
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
-        SimulationCatalog,
+        Catalog,
         SimulationNotFoundError,
     )
 
@@ -204,7 +204,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        with SimulationCatalog(workspace, read_only=True) as catalog:
+        with Catalog(workspace, read_only=True) as catalog:
             sid = catalog.resolve(ref)
             run_obj = catalog[sid]
             snapshot = run_obj.config_snapshot
@@ -442,7 +442,7 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     """
     from hydromodpy.cli.helpers import find_catalog_root
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     try:
@@ -453,7 +453,7 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     if not catalog_path.is_file():
         return
     try:
-        with SimulationCatalog(workspace) as catalog:
+        with Catalog(workspace) as catalog:
             emit_audit_event(
                 catalog.connection,
                 event_type="config.replay",

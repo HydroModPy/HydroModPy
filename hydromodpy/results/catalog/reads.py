@@ -116,7 +116,7 @@ _SIMULATIONS_VIEW_SELECT = (
 
 
 class ReadsMixin:
-    """Read-only queries for :class:`SimulationCatalog`.
+    """Read-only queries for :class:`Catalog`.
 
     Relies on attributes provided by the facade: ``self._backend``
     (CatalogBackend port), ``self._db`` (DuckDB connection, kept for

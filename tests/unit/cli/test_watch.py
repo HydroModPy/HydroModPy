@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from hydromodpy.cli._workers.catalog import watch_running
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 def _running(catalog, name: str, *, heartbeat_sql: str) -> str:
@@ -22,7 +22,7 @@ def _running(catalog, name: str, *, heartbeat_sql: str) -> str:
 
 def test_watch_flags_stale_and_live_runs(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         _running(catalog, "stale_run", heartbeat_sql="TIMESTAMP '2000-01-01 00:00:00+00'")
         _running(catalog, "live_run", heartbeat_sql="current_timestamp")
 
@@ -34,7 +34,7 @@ def test_watch_flags_stale_and_live_runs(tmp_path: Path) -> None:
 
 def test_watch_empty_when_nothing_running(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         sid = str(uuid.uuid4())
         catalog.register_simulation(sid, project="p", solver="modflow6", name="done")
         catalog._backend.execute(
@@ -63,7 +63,7 @@ def test_watch_fresh_sidecar_overrides_db_stale(tmp_path: Path) -> None:
     from hydromodpy.workflow.heartbeat import write_sidecar
 
     workspace = tmp_path / "ws"
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         sid = _running(
             catalog, "live_by_sidecar", heartbeat_sql="TIMESTAMP '2000-01-01 00:00:00+00'"
         )

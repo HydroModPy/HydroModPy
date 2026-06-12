@@ -3,7 +3,7 @@
 What
 ----
 Iterable, filterable view over a list of ``sim_id`` resolved against a single
-``SimulationCatalog``. Builds pivoted ``parameters`` and ``metrics`` frames,
+``Catalog``. Builds pivoted ``parameters`` and ``metrics`` frames,
 ranks runs (``best``, ``worst``, ``sort_by``), compares scalar metrics across
 simulations (``compare``), exports tabular bundles (``to_dataframe``,
 ``to_csv``), stacks field arrays lazily into an ``xarray.DataArray``
@@ -17,13 +17,13 @@ Calibration ensembles, gallery sweeps, and ad hoc cohorts share the same
 
 Public API
 ----------
-- ``SimulationGroup``: returned by ``SimulationCatalog.find`` and similar
+- ``RunSet``: returned by ``Catalog.find`` and similar
   multi-result entry points. Iteration yields ``Run`` instances; indexing,
   ``len()``, and HTML repr are supported.
 
 Cross-refs
 ----------
-- ``hydromodpy.results.catalog.SimulationCatalog`` is the upstream owner.
+- ``hydromodpy.results.catalog.Catalog`` is the upstream owner.
 - ``hydromodpy.results.run.Run`` is the unit element of the group.
 - ``to_xarray`` opens each per-sim Zarr lazily (dask-backed concat).
 """
@@ -41,11 +41,11 @@ if TYPE_CHECKING:
 
     import xarray as xr
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
 
 
-def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset:
+def _open_simulation_lazy(catalog: Catalog, sim_id: str) -> xr.Dataset:
     """Open one simulation's Zarr root as a lazy ``xr.Dataset``.
 
     Delegates to :meth:`SimulationZarr.to_xarray` so the registry-driven
@@ -58,10 +58,10 @@ def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset
     return xr.decode_cf(sz.to_xarray(), decode_times=True)
 
 
-class SimulationGroup:
+class RunSet:
     """Collection view over several simulations from one catalog.
 
-    ``SimulationGroup`` is returned by catalog queries that match more than one
+    ``RunSet`` is returned by catalog queries that match more than one
     run. It behaves like a lightweight list of ``Run`` objects and adds cohort
     utilities: pivot parameter tables, pivot metric tables, rank runs, compare
     scalar metrics, export a wide DataFrame, and stack fields lazily.
@@ -83,14 +83,14 @@ class SimulationGroup:
     --------
     hydromodpy.results.run.Run
         Per-simulation view yielded during iteration.
-    hydromodpy.results.catalog.SimulationCatalog
+    hydromodpy.results.catalog.Catalog
         Catalog that creates simulation groups.
     """
 
     def __init__(
         self,
         sim_ids: list[str],
-        catalog: SimulationCatalog,
+        catalog: Catalog,
     ) -> None:
         self._sim_ids = sim_ids
         self._catalog = catalog
@@ -248,7 +248,7 @@ class SimulationGroup:
             raise KeyError(f"No metric '{metric}' found in group")
         return Run(str(row[0]), self._catalog)
 
-    def sort_by(self, metric: str, ascending: bool = True) -> SimulationGroup:
+    def sort_by(self, metric: str, ascending: bool = True) -> RunSet:
         """Return a new group ordered by one metric.
 
         Parameters
@@ -260,7 +260,7 @@ class SimulationGroup:
 
         Returns
         -------
-        SimulationGroup
+        RunSet
             New group containing the sorted subset that has the metric.
         """
         if not self._sim_ids:
@@ -274,7 +274,7 @@ class SimulationGroup:
             self._sim_ids + [metric],
         )
         sorted_ids = [str(r[0]) for r in rows]
-        return SimulationGroup(sorted_ids, self._catalog)
+        return RunSet(sorted_ids, self._catalog)
 
     # -- ML-ready export -----------------------------------------------------
 
@@ -332,7 +332,7 @@ class SimulationGroup:
         """Return a lazy stacked ``xarray.DataArray`` of ``variable`` across sims.
 
         Each per-simulation Zarr store is opened via
-        :meth:`SimulationCatalog.open_zarr` and assembled into an
+        :meth:`Catalog.open_zarr` and assembled into an
         ``xarray.Dataset`` by :meth:`SimulationZarr.to_xarray` (dask-backed).
         Arrays are concatenated along ``dim`` whose coordinate values are
         the simulation ids. Nothing is read into memory until the caller
@@ -377,7 +377,7 @@ class SimulationGroup:
 
     # -- Filter --------------------------------------------------------------
 
-    def filter(self, **criteria) -> SimulationGroup:
+    def filter(self, **criteria) -> RunSet:
         """Intersect with another ``catalog.find(**criteria)`` call.
 
         Equivalent to ``catalog.find(...)`` but restricted to this group's
@@ -387,20 +387,20 @@ class SimulationGroup:
             return self
         subgroup = self._catalog.find(**criteria)
         common = [sid for sid in self._sim_ids if sid in subgroup.sim_ids]
-        return SimulationGroup(common, self._catalog)
+        return RunSet(common, self._catalog)
 
     # -- Repr ----------------------------------------------------------------
 
     def __repr__(self) -> str:
-        return f"SimulationGroup(count={self.count})"
+        return f"RunSet(count={self.count})"
 
     def _repr_html_(self) -> str:
         if not self._sim_ids:
-            return "<div><b>SimulationGroup</b> <i>(empty)</i></div>"
+            return "<div><b>RunSet</b> <i>(empty)</i></div>"
         preview = self.to_dataframe()
         try:
             cols = [c for c in ("sim_id", "project", "solver") if c in preview.columns]
             head = preview[cols].head(10).to_html(index=False)
         except Exception:
             head = ""
-        return f"<div><b>SimulationGroup</b> ({self.count} simulations)</div>{head}"
+        return f"<div><b>RunSet</b> ({self.count} simulations)</div>{head}"

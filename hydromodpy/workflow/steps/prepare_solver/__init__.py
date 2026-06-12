@@ -115,7 +115,7 @@ class PrepareSolverStep:
         run_id: str,
     ) -> PipelineState:
         """Reopen the simulation store written by a previous ``run`` call."""
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         ctx = prior_state.get("ctx")
         if ctx is None:
@@ -130,7 +130,7 @@ class PrepareSolverStep:
         sim_id = getattr(ctx, "sim_id", None)
         results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
         if ctx.store is None and results_cfg.persistence.save_catalog:
-            ctx.store = SimulationCatalog.from_workspace(
+            ctx.store = Catalog.from_workspace(
                 ws,
                 persistence=results_cfg.persistence,
             )

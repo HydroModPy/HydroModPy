@@ -1,6 +1,6 @@
 """Catalog facade composing every concern mixin.
 
-:class:`SimulationCatalog` is the single object every caller depends on.
+:class:`Catalog` is the single object every caller depends on.
 It owns the DuckDB connection, the workspace layout, the open-Zarr-handle
 tracker, and a :class:`StoragePathResolver`. Domain operations live in
 sibling modules (writes, reads, discovery, package_io, lifecycle) and
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     import xarray as xr
 
 
-class SimulationCatalog(
+class Catalog(
     LifecycleMixin,
     RegistrationMixin,
     WritesMixin,
@@ -92,7 +92,7 @@ class SimulationCatalog(
     --------
     hydromodpy.results.run.Run
         Per-simulation view returned by catalog queries.
-    hydromodpy.results.simulation_group.SimulationGroup
+    hydromodpy.results.simulation_group.RunSet
         Multi-run view returned by cohort queries.
     """
 
@@ -175,7 +175,7 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-    ) -> SimulationCatalog:
+    ) -> Catalog:
         """Open the project catalog declared by a runtime workspace object.
 
         Parameters
@@ -188,7 +188,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the workspace database.
         """
         return cls(
@@ -204,7 +204,7 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-    ) -> SimulationCatalog:
+    ) -> Catalog:
         """Open the project catalog declared by a workspace configuration.
 
         Parameters
@@ -216,7 +216,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the configured workspace.
         """
         return cls(
@@ -227,7 +227,7 @@ class SimulationCatalog(
         )
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path) -> SimulationCatalog:
+    def from_toml(cls, toml_path: str | Path) -> Catalog:
         """Open the project catalog declared in a TOML config.
 
         Parameters
@@ -237,7 +237,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the resolved workspace.
 
         Raises
@@ -251,7 +251,7 @@ class SimulationCatalog(
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
-    def from_json(cls, payload: str | bytes) -> SimulationCatalog:
+    def from_json(cls, payload: str | bytes) -> Catalog:
         """Open the project catalog declared in a JSON config string.
 
         Parameters
@@ -261,7 +261,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the resolved workspace.
 
         Raises
@@ -273,7 +273,7 @@ class SimulationCatalog(
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
-    def from_dict(cls, payload: dict) -> SimulationCatalog:
+    def from_dict(cls, payload: dict) -> Catalog:
         """Open the project catalog declared in a dict config payload.
 
         Parameters
@@ -283,7 +283,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the resolved workspace.
 
         Raises
@@ -408,7 +408,7 @@ class SimulationCatalog(
             count = row[0] if row is not None else "?"
         except Exception:
             count = "?"
-        return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
+        return f"Catalog(workspace={str(self._workspace)!r}, simulations={count})"
 
     def _repr_html_(self) -> str:
         try:
@@ -435,7 +435,7 @@ class SimulationCatalog(
             f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>" for k, v in rows
         )
         return (
-            "<div><b>SimulationCatalog</b>"
+            "<div><b>Catalog</b>"
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )

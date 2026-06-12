@@ -209,7 +209,7 @@ class CompactNetworkSynthesisBuilder:
 
     def generate_missing_distance_metrics(self, records: list[SimulationRecord]) -> int:
         try:
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.results.catalog import Catalog
         except Exception:
             return 0
 
@@ -252,7 +252,7 @@ class CompactNetworkSynthesisBuilder:
                     continue
                 catalog = None
                 try:
-                    catalog = SimulationCatalog(resolve_recorded_path(run_folder))
+                    catalog = Catalog(resolve_recorded_path(run_folder))
                     run = catalog[str(sim_id)]
                     if not run.has_field(variable):
                         continue
@@ -316,7 +316,7 @@ class CompactNetworkSynthesisBuilder:
 
     def generate_context_figure(self, records: list[SimulationRecord]) -> bool:
         try:
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.results.catalog import Catalog
         except Exception:
             return False
 
@@ -328,7 +328,7 @@ class CompactNetworkSynthesisBuilder:
                 continue
             catalog = None
             try:
-                catalog = SimulationCatalog(resolve_recorded_path(run_folder))
+                catalog = Catalog(resolve_recorded_path(run_folder))
                 run = catalog[str(sim_id)]
                 maps.render_topographic_context_figure(
                     run,
@@ -366,7 +366,7 @@ class CompactNetworkSynthesisBuilder:
 
     def generate_field_figures(self, records: list[SimulationRecord]) -> int:
         try:
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.results.catalog import Catalog
         except Exception:
             return 0
 
@@ -380,7 +380,7 @@ class CompactNetworkSynthesisBuilder:
                 continue
             catalog = None
             try:
-                catalog = SimulationCatalog(resolve_recorded_path(run_folder))
+                catalog = Catalog(resolve_recorded_path(run_folder))
                 run = catalog[str(sim_id)]
                 for variable, title in (
                     ("release_flux", "Emergences avant routage - intensite moyenne positive"),

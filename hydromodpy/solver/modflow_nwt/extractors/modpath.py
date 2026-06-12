@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 class ModpathOutputAdapter:
-    """Read MODPATH pathline / endpoint files and inject into a SimulationCatalog.
+    """Read MODPATH pathline / endpoint files and inject into a Catalog.
 
     Stores pathline data as Zarr arrays under the ``particles/`` subgroup:
     x, y, z, time - each shaped ``(n_particles, max_steps)`` with NaN

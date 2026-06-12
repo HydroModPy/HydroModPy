@@ -33,15 +33,15 @@ module-level functions in :mod:`hydromodpy.results.views` and consume a
 
 Public API
 ----------
-- ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
+- ``Run``: instantiated by ``Catalog`` resolution methods. Also
   exposes ``run.array`` for xarray / UGRID readers.
 - :class:`hydromodpy.results.run_array.RunArrayProvider` exposes
   ``dataset`` and ``to_xarray_batch``.
 
 Cross-refs
 ----------
-- ``hydromodpy.results.catalog.SimulationCatalog`` owns this object's data.
-- ``hydromodpy.results.simulation_group.SimulationGroup`` iterates over
+- ``hydromodpy.results.catalog.Catalog`` owns this object's data.
+- ``hydromodpy.results.simulation_group.RunSet`` iterates over
   ``Run`` instances.
 - ``hydromodpy.results.grid.Grid`` backs the spatial helpers.
 - ``hydromodpy.results.derived`` provides the derived-metric implementations.
@@ -66,7 +66,7 @@ logger = get_logger(__name__)
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 
 class Run(
@@ -86,7 +86,7 @@ class Run(
     sim_id
         Simulation UUID stored in the catalog.
     catalog
-        Open ``SimulationCatalog`` that owns the run metadata and storage paths.
+        Open ``Catalog`` that owns the run metadata and storage paths.
 
     Raises
     ------
@@ -103,13 +103,13 @@ class Run(
 
     See Also
     --------
-    hydromodpy.results.catalog.SimulationCatalog
+    hydromodpy.results.catalog.Catalog
         Workspace-level catalog that creates ``Run`` instances.
-    hydromodpy.results.simulation_group.SimulationGroup
+    hydromodpy.results.simulation_group.RunSet
         Collection view for many runs.
     """
 
-    def __init__(self, sim_id: str, catalog: SimulationCatalog) -> None:
+    def __init__(self, sim_id: str, catalog: Catalog) -> None:
         self._sim_id = sim_id
         self._catalog = catalog
         self._row: dict | None = None

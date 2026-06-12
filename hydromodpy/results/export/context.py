@@ -1,7 +1,7 @@
 """Shared context object that gathers data from the catalog for FAIR exports.
 
 A :class:`FairExportContext` is a pure-data view of one simulation. It is
-built once from the live :class:`SimulationCatalog` and then handed to the
+built once from the live :class:`Catalog` and then handed to the
 specialised RO-Crate / STAC / PROV-O builders. Keeping a single
 collector here means the rest of the exporters never touch DuckDB directly,
 which also makes the layer matrix (``results -> core/schema/results/spatial``)

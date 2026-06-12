@@ -8,18 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.audit import audited
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> SimulationCatalog:
+def catalog(tmp_path: Path) -> Catalog:
     with simulation_catalog(tmp_path / "ws") as cat:
         yield cat
 
 
-def _register(catalog: SimulationCatalog, project: str = "lab") -> str:
+def _register(catalog: Catalog, project: str = "lab") -> str:
     sid = str(uuid.uuid4())
     catalog.register_simulation(
         sid,
@@ -80,7 +80,7 @@ def test_audited_decorator_does_not_raise_when_emit_fails() -> None:
     assert _Target().do("abc") == "abc"
 
 
-def test_register_simulation_emits_sim_register(catalog: SimulationCatalog) -> None:
+def test_register_simulation_emits_sim_register(catalog: Catalog) -> None:
     """``register_simulation`` writes a ``sim.register`` row to audit_log."""
     sid = _register(catalog)
     rows = catalog.connection.execute(
@@ -96,7 +96,7 @@ def test_register_simulation_emits_sim_register(catalog: SimulationCatalog) -> N
     assert body["solver"] == "modflow6"
 
 
-def test_finalize_emits_sim_finalize(catalog: SimulationCatalog) -> None:
+def test_finalize_emits_sim_finalize(catalog: Catalog) -> None:
     """``finalize`` writes a ``sim.finalize`` row to audit_log."""
     sid = _register(catalog)
     catalog.finalize(sid, status="completed")
@@ -111,7 +111,7 @@ def test_finalize_emits_sim_finalize(catalog: SimulationCatalog) -> None:
     assert body["status"] == "completed"
 
 
-def test_write_parameters_emits_param_write(catalog: SimulationCatalog) -> None:
+def test_write_parameters_emits_param_write(catalog: Catalog) -> None:
     """``write_parameters`` writes a ``param.write`` row to audit_log."""
     sid = _register(catalog)
     catalog.write_parameters(sid, [{"param_name": "k", "value": 1.0}])
@@ -122,7 +122,7 @@ def test_write_parameters_emits_param_write(catalog: SimulationCatalog) -> None:
     assert len(rows) == 1
 
 
-def test_write_metric_emits_metric_write(catalog: SimulationCatalog) -> None:
+def test_write_metric_emits_metric_write(catalog: Catalog) -> None:
     """``write_metric`` writes a ``metric.write`` row to audit_log."""
     sid = _register(catalog)
     catalog.write_metric(sid, "__outlet__", "nse", 0.91)

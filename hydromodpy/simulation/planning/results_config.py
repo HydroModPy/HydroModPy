@@ -72,7 +72,7 @@ class BudgetConfig(HydroModelBase):
 class ResultsConfig(HydroModelBase):
     """Configuration for ``[simulation.results]``.
 
-    Controls whether simulation outputs are stored in the SimulationCatalog and
+    Controls whether simulation outputs are stored in the Catalog and
     which derived variables are computed. Automated export formats live in the
     top-level ``[export]`` section (:class:`ExportConfig`), not here.
     """

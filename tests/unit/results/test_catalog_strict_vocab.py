@@ -16,7 +16,7 @@ from hydromodpy.results.catalog.constants import (
     VALID_SOLVER_CODES,
     validate_solver_code,
 )
-from hydromodpy.results.catalog.facade import SimulationCatalog
+from hydromodpy.results.catalog.facade import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 

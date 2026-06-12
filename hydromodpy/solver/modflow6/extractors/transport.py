@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 
 class Modflow6GwtOutputAdapter(Mt3dmsExtractorBase):
-    """Ingest MODFLOW 6 GWT concentration outputs into a SimulationCatalog."""
+    """Ingest MODFLOW 6 GWT concentration outputs into a Catalog."""
 
     solver_name = "modflow6"
 

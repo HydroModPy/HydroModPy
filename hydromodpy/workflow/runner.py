@@ -41,7 +41,7 @@ from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.internals.step import Step
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.journal import WorkflowJournal
 
 logger = get_logger(__name__)
@@ -55,7 +55,7 @@ class Pipeline:
         steps: Sequence[Step],
         *,
         workspace: Path | None = None,
-        catalog: SimulationCatalog | None = None,
+        catalog: Catalog | None = None,
     ) -> None:
         self.steps: tuple[Step, ...] = tuple(steps)
         self.workspace = Path(workspace) if workspace is not None else None
@@ -116,9 +116,9 @@ class Pipeline:
         owns_catalog = False
         if catalog is None and self.workspace is not None:
             try:
-                from hydromodpy.results.catalog import SimulationCatalog
+                from hydromodpy.results.catalog import Catalog
 
-                catalog = SimulationCatalog(self.workspace)
+                catalog = Catalog(self.workspace)
                 owns_catalog = True
             except Exception as exc:
                 logger.debug("pipeline.journal_disabled reason=%s", exc)

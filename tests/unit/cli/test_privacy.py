@@ -23,14 +23,14 @@ def _run(monkeypatch, argv: list[str]) -> int:
 
 
 def _make_workspace_with_project(tmp_path: Path) -> tuple[Path, Path]:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
     project = workspace / "projects" / "demo"
     project.mkdir(parents=True)
     (project / "simulations").mkdir()
-    with SimulationCatalog(project):
+    with Catalog(project):
         pass
     return workspace, project
 

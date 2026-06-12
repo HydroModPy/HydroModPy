@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_ZIP_SUFFIX
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -100,13 +100,13 @@ class TestImportSimulation:
         ws1 = tmp_path / "ws1"
         ws2 = tmp_path / "ws2"
 
-        cat1 = SimulationCatalog(ws1)
+        cat1 = Catalog(ws1)
         sid = _sid()
         _populate(cat1, sid)
         pkg = cat1.export_package(sid, tmp_path / "transfer.hmp")
         cat1.close()
 
-        cat2 = SimulationCatalog(ws2)
+        cat2 = Catalog(ws2)
         imported_sid = cat2.import_package(pkg)
         assert imported_sid == sid
 
@@ -133,7 +133,7 @@ class TestImportSimulation:
         ws1 = tmp_path / "ws1"
         ws2 = tmp_path / "ws2"
 
-        cat1 = SimulationCatalog(ws1)
+        cat1 = Catalog(ws1)
         sid = _sid()
         _populate(cat1, sid)
         pkg = cat1.export_package(sid, tmp_path / "tampered.hmp")
@@ -144,7 +144,7 @@ class TestImportSimulation:
         raw[len(raw) // 2] ^= 0xFF
         pkg.write_bytes(bytes(raw))
 
-        cat2 = SimulationCatalog(ws2)
+        cat2 = Catalog(ws2)
         with pytest.raises((ValueError, Exception)):
             cat2.import_package(pkg)
         cat2.close()
@@ -166,13 +166,13 @@ class TestImportSimulation:
         ws1 = tmp_path / "ws1"
         ws2 = tmp_path / "ws2"
 
-        cat1 = SimulationCatalog(ws1)
+        cat1 = Catalog(ws1)
         sid = _sid()
         _populate(cat1, sid)
         pkg = cat1.export_package(sid, tmp_path / "path_test.hmp")
         cat1.close()
 
-        cat2 = SimulationCatalog(ws2)
+        cat2 = Catalog(ws2)
         cat2.import_package(pkg)
         zarr_path, basename = cat2.connection.execute(
             "SELECT zarr_path, storage_basename FROM simulations WHERE sim_id = ?",

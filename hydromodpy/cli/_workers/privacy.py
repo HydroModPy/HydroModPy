@@ -24,7 +24,7 @@ def purge_simulation(
 
     from hydromodpy.cli.helpers import find_catalog_root
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_deletion_tombstone
 
     workspace_root = find_catalog_root(
@@ -33,7 +33,7 @@ def purge_simulation(
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         sid = catalog.resolve(sim_ref)
         snapshot = _purge_collect_snapshot(catalog, sid)
         zarr_path = catalog.zarr_path_for(sid)

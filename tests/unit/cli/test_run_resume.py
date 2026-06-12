@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import run as run_cmd
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 def _args(**kw) -> argparse.Namespace:
@@ -26,7 +26,7 @@ def _args(**kw) -> argparse.Namespace:
 
 def _seed_run(workspace: Path, name: str) -> str:
     sid = str(uuid.uuid4())
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         catalog.register_simulation(
             sid, project="cheze", solver="modflow6", name=name, config={"workflow": {"mode": "x"}}
         )

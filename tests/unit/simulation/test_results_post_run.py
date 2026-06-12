@@ -11,7 +11,7 @@ import pytest
 
 import hydromodpy.simulation.extraction.post_run as post_run_module
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig

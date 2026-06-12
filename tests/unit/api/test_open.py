@@ -19,10 +19,10 @@ def test_open_missing_catalog_raises(tmp_path: Path) -> None:
 
 
 def test_open_create_returns_simulation_catalog(tmp_path: Path) -> None:
-    """``create=True`` opens (and initialises) a SimulationCatalog."""
+    """``create=True`` opens (and initialises) a Catalog."""
     cat = hmp.open(tmp_path, create=True)
     try:
-        assert isinstance(cat, hmp.SimulationCatalog)
+        assert isinstance(cat, hmp.Catalog)
     finally:
         cat.close()
 
@@ -31,7 +31,7 @@ def test_open_accepts_string_workspace(tmp_path: Path) -> None:
     """``hmp.open`` accepts a string path."""
     cat = hmp.open(str(tmp_path), create=True)
     try:
-        assert isinstance(cat, hmp.SimulationCatalog)
+        assert isinstance(cat, hmp.Catalog)
     finally:
         cat.close()
 
@@ -41,7 +41,7 @@ def test_open_existing_catalog_without_create(tmp_path: Path) -> None:
     hmp.open(tmp_path, create=True).close()
     cat = hmp.open(tmp_path)
     try:
-        assert isinstance(cat, hmp.SimulationCatalog)
+        assert isinstance(cat, hmp.Catalog)
         assert cat.frame.empty
     finally:
         cat.close()

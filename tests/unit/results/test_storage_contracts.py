@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from shapely.geometry import Polygon
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.geoparquet_io import read_geoparquet, write_geoparquet_atomic
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -23,7 +23,7 @@ def _sim_id() -> str:
     return str(uuid.uuid4())
 
 
-def _seed_field(catalog: SimulationCatalog) -> str:
+def _seed_field(catalog: Catalog) -> str:
     sid = _sim_id()
     reg = catalog.register_simulation(
         sid,

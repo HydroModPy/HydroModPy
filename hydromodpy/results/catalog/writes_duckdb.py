@@ -1,4 +1,4 @@
-"""DuckDB write concern for :class:`SimulationCatalog`.
+"""DuckDB write concern for :class:`Catalog`.
 
 Tabular catalog writes against the DuckDB backend: parameters, metrics,
 stations, scientific objectives, run environment snapshots, geographic

@@ -2,7 +2,7 @@
 
 ``Gr4jAdapter`` is pure I/O wiring: it reads a simulated GR4J series back
 either from the per-trial ``LumpedRamCache`` (hot path) or from a real
-``SimulationCatalog`` (cold path). There is no GR4J production/routing
+``Catalog`` (cold path). There is no GR4J production/routing
 physics in this module, so these tests drive the *real* adapter against a
 *real* DuckDB/Parquet catalog and a *real* RAM cache, and assert:
 
@@ -197,7 +197,7 @@ class TestHotPathRamCache:
 
 
 class TestColdPathCatalog:
-    """store non-None: round-trip through a real SimulationCatalog."""
+    """store non-None: round-trip through a real Catalog."""
 
     def _persist(self, catalog, run, *, station_id="outlet", solver="gr4j"):
         sid = str(uuid4())

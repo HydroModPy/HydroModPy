@@ -12,13 +12,13 @@ from hydromodpy.cli._workers.catalog import (
     export_package_runs,
     import_package_run,
 )
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 def test_export_import_preserves_identity(tmp_path: Path) -> None:
     src = tmp_path / "src"
     sid = str(uuid.uuid4())
-    with SimulationCatalog(src) as catalog:
+    with Catalog(src) as catalog:
         catalog.register_simulation(
             sid,
             project="cheze",
@@ -39,7 +39,7 @@ def test_export_import_preserves_identity(tmp_path: Path) -> None:
     imported = import_package_run(exported["path"], workspace=dst)
     assert imported["sim_id"] == sid
 
-    with SimulationCatalog(dst, read_only=True) as fresh:
+    with Catalog(dst, read_only=True) as fresh:
         assert fresh["baseline"].sim_id == sid
 
 
@@ -51,7 +51,7 @@ def test_import_missing_archive_raises(tmp_path: Path) -> None:
 def test_export_multiple_runs_writes_one_archive_each(tmp_path: Path) -> None:
     src = tmp_path / "src"
     names = ["trial-007", "trial-013"]
-    with SimulationCatalog(src) as catalog:
+    with Catalog(src) as catalog:
         for name in names:
             sid = str(uuid.uuid4())
             catalog.register_simulation(

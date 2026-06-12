@@ -31,13 +31,13 @@ def _make_minimal_workspace(tmp_path: Path) -> Path:
 
 
 def _make_project_with_catalog(workspace: Path, project_name: str = "demo") -> Path:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     project = workspace / "projects" / project_name
     project.mkdir(parents=True)
     (project / "simulations").mkdir()
     # touch a catalog by opening it once
-    with SimulationCatalog(project):
+    with Catalog(project):
         pass
     return project
 
@@ -183,12 +183,12 @@ def test_gc_apply_runs_maintenance(monkeypatch, tmp_path, capsys) -> None:
 def test_gc_purges_expired_trash_but_keeps_pinned(monkeypatch, tmp_path) -> None:
     import uuid
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
     old, pinned = str(uuid.uuid4()), str(uuid.uuid4())
-    with SimulationCatalog(project) as cat:
+    with Catalog(project) as cat:
         _register_completed(cat, old, "old")
         _register_completed(cat, pinned, "keep")
         cat.add_tag(pinned, "pinned")
@@ -202,7 +202,7 @@ def test_gc_purges_expired_trash_but_keeps_pinned(monkeypatch, tmp_path) -> None
 
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
     assert code == 0
-    with SimulationCatalog(project) as cat:
+    with Catalog(project) as cat:
         assert cat._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [old]) is None
         assert (
             cat._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [pinned])
@@ -225,12 +225,12 @@ def test_gc_removes_orphan_store(monkeypatch, tmp_path) -> None:
 def test_gc_replays_pending_purge(monkeypatch, tmp_path) -> None:
     import uuid
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
     sid = str(uuid.uuid4())
-    with SimulationCatalog(project) as cat:
+    with Catalog(project) as cat:
         _register_completed(cat, sid, "halfpurged")
         cat._backend.execute(
             "INSERT INTO purge_journal (sim_id, phase) VALUES (?, 'pending')", [sid]
@@ -238,6 +238,6 @@ def test_gc_replays_pending_purge(monkeypatch, tmp_path) -> None:
 
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
     assert code == 0
-    with SimulationCatalog(project) as cat:
+    with Catalog(project) as cat:
         assert cat._backend.fetch_one("SELECT 1 FROM purge_journal WHERE sim_id = ?", [sid]) is None
         assert cat._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None

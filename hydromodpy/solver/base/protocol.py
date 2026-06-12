@@ -67,7 +67,7 @@ class SolverAdapter(Protocol):
 
         Lightweight calibration trials read straight from the solver scratch dir
         via ``ctx.state.execution.output_dirs_by_run_id``; ``store`` is the
-        cold-path :class:`SimulationCatalog` reserved for backends that already
+        cold-path :class:`Catalog` reserved for backends that already
         wrote results to it. ``station_cells``
         carries a station-id to ``(layer, row, col)`` mapping for head-style
         targets and is unused by discharge-style targets.

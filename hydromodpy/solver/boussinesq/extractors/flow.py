@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 class BoussinesqOutputAdapter:
-    """Read Boussinesq state history and inject fields into a SimulationCatalog.
+    """Read Boussinesq state history and inject fields into a Catalog.
 
     Expects a solver output directory with ``_boussinesq_state_history.npz``
     (head history, derived fluxes) and ``_boussinesq_summary.json``

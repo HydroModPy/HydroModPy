@@ -20,7 +20,7 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ class WorkflowEventStream:
     emission must never bring a live pipeline down.
     """
 
-    def __init__(self, catalog: SimulationCatalog) -> None:
+    def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
         backend = getattr(catalog, "_backend", None)
         if backend is None:

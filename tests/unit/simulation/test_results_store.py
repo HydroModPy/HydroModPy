@@ -1,4 +1,4 @@
-"""Tests for results/catalog.py - SimulationCatalog integration."""
+"""Tests for results/catalog.py - Catalog integration."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.array_fingerprint import fingerprint
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 

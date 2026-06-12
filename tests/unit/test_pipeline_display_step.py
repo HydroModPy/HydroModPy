@@ -95,7 +95,7 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
             del args, kwargs
             return fake_catalog
 
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
     renderer = MagicMock(return_value=[tmp_path / "figures" / "baseline" / "piezometric_map.png"])
     monkeypatch.setattr(display_runs, "render_figures_for_run", renderer)
 

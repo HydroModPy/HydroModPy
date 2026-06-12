@@ -13,7 +13,7 @@ from typing import ClassVar
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.journal import WorkflowJournal
 from hydromodpy.workflow.runner import Pipeline
@@ -108,7 +108,7 @@ def test_full_run_writes_artefacts_and_journal(tmp_path: Path) -> None:
     for name in ("p2", "p3", "p4"):
         assert (tmp_path / "artefacts" / f"{name}.txt").is_file()
 
-    catalog = SimulationCatalog(tmp_path)
+    catalog = Catalog(tmp_path)
     try:
         journal = WorkflowJournal(catalog)
         rows = journal.list_steps("run-A")

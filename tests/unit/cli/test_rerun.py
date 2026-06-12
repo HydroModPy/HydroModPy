@@ -11,7 +11,7 @@ import hydromodpy
 from hydromodpy.cli._workers.catalog import rerun_simulation
 from hydromodpy.cli.commands.catalog import rerun as rerun_cmd
 from hydromodpy.results import rerun_contract
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def test_rerun_reads_snapshot_and_forwards_overrides(tmp_path: Path, restore_pro
     rerun_contract.register_rerun_provider(MockProvider())
 
     sid = str(uuid.uuid4())
-    with SimulationCatalog(tmp_path) as catalog:
+    with Catalog(tmp_path) as catalog:
         catalog.register_simulation(
             sid,
             project="cheze",
@@ -64,7 +64,7 @@ def test_rerun_reads_snapshot_and_forwards_overrides(tmp_path: Path, restore_pro
 
 def test_rerun_without_snapshot_raises(tmp_path: Path, restore_provider) -> None:
     sid = str(uuid.uuid4())
-    with SimulationCatalog(tmp_path) as catalog:
+    with Catalog(tmp_path) as catalog:
         catalog.register_simulation(sid, project="cheze", solver="modflow6", name="nosnap")
     with pytest.raises(ValueError, match="no config snapshot"):
         rerun_simulation("nosnap", workspace=tmp_path, overrides={}, name=None)

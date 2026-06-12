@@ -73,7 +73,7 @@ class ModpathTransportAdapter:
             )
         # Legacy post_processing / filt_processing skipped:
         # ModpathOutputAdapter.extract() reads pathlines/endpoints into
-        # the SimulationCatalog (Zarr).  Shapefile generation is no longer needed.
+        # the Catalog (Zarr).  Shapefile generation is no longer needed.
         return RunExecutionResult(
             primary_model=model_modpath,
             solver_output_dir=Path(model_modpath.full_path)

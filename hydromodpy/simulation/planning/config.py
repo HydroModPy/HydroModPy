@@ -418,7 +418,7 @@ class SimulationConfig(HydroModelBase):
         default_factory=ResultsConfig,
         description=(
             "Results storage and export configuration loaded from "
-            "[simulation.results]. Controls SimulationCatalog, derived variables, "
+            "[simulation.results]. Controls Catalog, derived variables, "
             "and automated exports."
         ),
     )

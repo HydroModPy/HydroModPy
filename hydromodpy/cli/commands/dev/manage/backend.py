@@ -174,7 +174,7 @@ class _WorkspaceManagerBackend:
         return {"rows": rows}
 
     def list_simulations(self, workspace_ref: str | None = None) -> dict[str, Any]:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         workspace_root = self._resolve_workspace(workspace_ref)
         catalog_path = workspace_root / CATALOG_FILENAME
@@ -182,7 +182,7 @@ class _WorkspaceManagerBackend:
             return {"rows": []}
 
         rows: list[dict[str, Any]] = []
-        with SimulationCatalog(workspace_root) as catalog:
+        with Catalog(workspace_root) as catalog:
             df = catalog.list_simulations(order_by="created_at DESC")
             for _, raw in df.iterrows():
                 record = {str(key): _json_value(value) for key, value in raw.items()}
@@ -211,11 +211,11 @@ class _WorkspaceManagerBackend:
         workspace_ref: str | None,
         sim_ids: list[str],
     ) -> dict[str, Any]:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         workspace_root = self._resolve_workspace(workspace_ref)
         deleted: list[dict[str, Any]] = []
-        with SimulationCatalog(workspace_root) as catalog:
+        with Catalog(workspace_root) as catalog:
             for sim_id in sim_ids:
                 run = catalog[sim_id]
                 result = delete_simulation_artifacts(catalog, sim_id)
@@ -238,9 +238,9 @@ class _WorkspaceManagerBackend:
         simulations_dir = workspace_root / SIMULATIONS_DIRNAME
         registered: set[str] = set()
         if catalog_path.exists():
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.results.catalog import Catalog
 
-            with SimulationCatalog(workspace_root) as catalog:
+            with Catalog(workspace_root) as catalog:
                 rows = catalog.connection.execute(
                     "SELECT CAST(sim_id AS VARCHAR) AS sim_id, storage_basename FROM simulations"
                 ).fetchall()

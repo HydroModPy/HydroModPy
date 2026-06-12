@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from importlib import import_module
 
-__all__ = ["SimulationCatalog"]
+__all__ = ["Catalog"]
 
 _LAZY_IMPORTS = {
-    "SimulationCatalog": "hydromodpy.results.catalog:SimulationCatalog",
+    "Catalog": "hydromodpy.results.catalog:Catalog",
 }
 
 

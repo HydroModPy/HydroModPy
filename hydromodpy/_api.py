@@ -27,7 +27,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any
     """Open a HydroModPy project catalog.
 
     The single door to a workspace catalog: returns a
-    :class:`hydromodpy.results.catalog.SimulationCatalog` backed by
+    :class:`hydromodpy.results.catalog.Catalog` backed by
     ``catalog.duckdb``. It exposes object access (``latest``, ``best``,
     ``find``, ``cat[ref]``), tabular access (``frame``, ``sql``,
     ``list_simulations``), schema discovery (``describe``, ``tables``,
@@ -55,7 +55,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any
 
     Returns
     -------
-    hydromodpy.results.catalog.SimulationCatalog
+    hydromodpy.results.catalog.Catalog
         Catalog handle for the project.
 
     Raises
@@ -77,7 +77,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any
         Machine-wide federation across registered workspaces.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     ws = Path(workspace).expanduser().resolve()
     if ws.suffix == ".duckdb":
@@ -90,8 +90,8 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any
             f"or pass create=True to initialise an empty catalog."
         )
     if create:
-        return SimulationCatalog(ws)
-    return SimulationCatalog(ws, read_only=read_only)
+        return Catalog(ws)
+    return Catalog(ws, read_only=read_only)
 
 
 def index(db_path: Any = None, *, read_only: bool = False) -> Any:
@@ -336,7 +336,7 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     """
     from hydromodpy.calibration.report import resolve_calibration_session_id
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
     if workspace is None:
@@ -348,7 +348,7 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     else:
         workspace_root = Path(workspace).expanduser().resolve()
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         full_id = resolve_calibration_session_id(catalog, session_id_or_prefix)
         return step_render_calibration_report(
             catalog=catalog,
@@ -504,7 +504,7 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
         If the workspace does not host a ``catalog.duckdb``.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import apply_retention
 
     workspace_root = find_catalog_root(
@@ -513,7 +513,7 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
     catalog_path = workspace_root / CATALOG_FILENAME
     if not catalog_path.is_file():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         return apply_retention(catalog.connection, dry_run=not apply)
 
 

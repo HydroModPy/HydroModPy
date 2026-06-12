@@ -286,7 +286,7 @@ def _domain_head_profile_series(
             continue
         try:
             from hydromodpy.analysis.comparison.runtime import load_variable_series
-            from hydromodpy.results.catalog import SimulationCatalog
+            from hydromodpy.results.catalog import Catalog
         except Exception:
             continue
         simulation_id = str(simulation.get("id", "") or "")
@@ -294,7 +294,7 @@ def _domain_head_profile_series(
         solver = str(simulation.get("solver", "") or "")
         store = None
         try:
-            store = SimulationCatalog(run_folder)
+            store = Catalog(run_folder)
             series = load_variable_series(
                 run_folder=run_folder,
                 variable="watertable_elevation",

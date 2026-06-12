@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.audit import (
     _compute_chain_hash,
     emit_audit_event,
@@ -17,12 +17,12 @@ from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> SimulationCatalog:
+def catalog(tmp_path: Path) -> Catalog:
     with simulation_catalog(tmp_path / "ws") as cat:
         yield cat
 
 
-def _emit_three_events(catalog: SimulationCatalog) -> list[str]:
+def _emit_three_events(catalog: Catalog) -> list[str]:
     """Emit three events directly through ``emit_audit_event`` and return ids."""
     ids: list[str] = []
     for index in range(3):
@@ -37,7 +37,7 @@ def _emit_three_events(catalog: SimulationCatalog) -> list[str]:
     return ids
 
 
-def test_hash_chain_consistency(catalog: SimulationCatalog) -> None:
+def test_hash_chain_consistency(catalog: Catalog) -> None:
     """Three sequential events form a verifiable chain anchored on the last emit."""
     # The catalog already emitted ``migrate`` events while applying the
     # bundled migrations. Capture the last chain_hash before emitting more.
@@ -75,7 +75,7 @@ def test_hash_chain_consistency(catalog: SimulationCatalog) -> None:
     assert verify_chain(catalog.connection) is True
 
 
-def test_hash_chain_corruption_detected(catalog: SimulationCatalog) -> None:
+def test_hash_chain_corruption_detected(catalog: Catalog) -> None:
     """Mutating one row's payload after the fact breaks ``verify_chain``."""
     _emit_three_events(catalog)
 
@@ -90,7 +90,7 @@ def test_hash_chain_corruption_detected(catalog: SimulationCatalog) -> None:
     assert verify_chain(catalog.connection) is False
 
 
-def test_retention_policies_table_exists(catalog: SimulationCatalog) -> None:
+def test_retention_policies_table_exists(catalog: Catalog) -> None:
     """Migration 0003 creates ``retention_policies`` with the expected shape."""
     rows = catalog.connection.execute(
         "SELECT table_name FROM information_schema.tables WHERE table_name = 'retention_policies'"
@@ -107,7 +107,7 @@ def test_retention_policies_table_exists(catalog: SimulationCatalog) -> None:
     assert {"policy_id", "event_type", "retention_days", "created_at"}.issubset(cols)
 
 
-def test_apply_retention_dry_run_counts_eligible(catalog: SimulationCatalog) -> None:
+def test_apply_retention_dry_run_counts_eligible(catalog: Catalog) -> None:
     """``apply_retention(dry_run=True)`` returns counts without deleting rows."""
     from hydromodpy.results.catalog.audit import apply_retention
 

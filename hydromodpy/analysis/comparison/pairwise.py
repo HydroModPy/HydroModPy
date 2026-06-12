@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from hydromodpy.core.state.paths import CATALOG_FILENAME
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 def _discover_catalog_root(start: Path) -> Path:
@@ -38,7 +38,7 @@ def compare_pair(
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         sid_a = catalog.resolve(sim_a)
         sid_b = catalog.resolve(sim_b)
         df = catalog.sql(

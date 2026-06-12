@@ -1,4 +1,4 @@
-"""Post-run hook that ingests solver outputs into the SimulationCatalog.
+"""Post-run hook that ingests solver outputs into the Catalog.
 
 Called by ``SimulationRunner`` after each solver execution completes.
 Orchestrates the full results lifecycle: extract → derive → export →
@@ -63,7 +63,7 @@ def post_run_results(
     keep_solver_files: bool | None = None,
     run_id: str | None = None,
 ) -> None:
-    """Ingest solver outputs into the SimulationCatalog after a run completes.
+    """Ingest solver outputs into the Catalog after a run completes.
 
     Parameters
     ----------
@@ -75,7 +75,7 @@ def post_run_results(
         Simulation UUID.
     results_config : ResultsConfig
         The ``[simulation.results]`` config block.
-    store : SimulationCatalog
+    store : Catalog
         The open result store.
     export_config : ExportConfig, optional
         The top-level ``[export]`` block. Defaults to :class:`ExportConfig`.
@@ -121,7 +121,7 @@ def extract_run_outputs(
     results_config: ResultsConfig,
     store: Any,
 ) -> None:
-    """Extract raw solver outputs into the SimulationCatalog."""
+    """Extract raw solver outputs into the Catalog."""
     if not ctx.run.is_solver_backed:
         return
     if not results_config.persistence.save_catalog:

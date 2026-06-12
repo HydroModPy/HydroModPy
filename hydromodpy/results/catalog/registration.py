@@ -208,7 +208,7 @@ class DuplicateSimulationNameError(ValueError):
 
 @dataclass(frozen=True)
 class RegistrationResult:
-    """Outcome of :meth:`SimulationCatalog.register_simulation`.
+    """Outcome of :meth:`Catalog.register_simulation`.
 
     Attributes
     ----------
@@ -232,7 +232,7 @@ class RegistrationResult:
 
 
 class RegistrationMixin:
-    """``register_simulation`` for :class:`SimulationCatalog`."""
+    """``register_simulation`` for :class:`Catalog`."""
 
     @audited("sim.register", payload_keys=("solver", "name"))
     @with_lock_retry()

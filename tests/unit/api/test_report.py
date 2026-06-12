@@ -27,7 +27,7 @@ def test_report_with_explicit_workspace(monkeypatch, tmp_path: Path) -> None:
         return Path("/tmp/report.html")
 
     monkeypatch.setattr(
-        "hydromodpy.results.catalog.SimulationCatalog", make_capturing_catalog(captured)
+        "hydromodpy.results.catalog.Catalog", make_capturing_catalog(captured)
     )
     monkeypatch.setattr(
         "hydromodpy.calibration.report.resolve_calibration_session_id",
@@ -55,7 +55,7 @@ def test_report_default_workspace_uses_cwd(monkeypatch, tmp_path: Path) -> None:
     captured: dict = {}
 
     monkeypatch.setattr(
-        "hydromodpy.results.catalog.SimulationCatalog", make_capturing_catalog(captured)
+        "hydromodpy.results.catalog.Catalog", make_capturing_catalog(captured)
     )
     monkeypatch.setattr(
         "hydromodpy.calibration.report.resolve_calibration_session_id",
@@ -78,7 +78,7 @@ def test_report_propagates_session_lookup_error(monkeypatch, tmp_path: Path) -> 
         raise FileNotFoundError("no session")
 
     monkeypatch.setattr(
-        "hydromodpy.results.catalog.SimulationCatalog", make_capturing_catalog(captured)
+        "hydromodpy.results.catalog.Catalog", make_capturing_catalog(captured)
     )
     monkeypatch.setattr(
         "hydromodpy.calibration.report.resolve_calibration_session_id", fake_resolve

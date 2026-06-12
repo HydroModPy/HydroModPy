@@ -29,7 +29,7 @@ from hydromodpy.results.catalog.writes_zarr import WritesMixinZarr
 
 
 class WritesMixin(WritesMixinDuckDB, WritesMixinParquet, WritesMixinZarr):
-    """Mutating operations for :class:`SimulationCatalog`.
+    """Mutating operations for :class:`Catalog`.
 
     Composes the per-sink mixins:
     :class:`WritesMixinDuckDB`, :class:`WritesMixinParquet`,
@@ -39,7 +39,7 @@ class WritesMixin(WritesMixinDuckDB, WritesMixinParquet, WritesMixinZarr):
     work through normal Python method resolution.
 
     Each write method relies on facade attributes provided by
-    :class:`SimulationCatalog`: ``self._backend`` (CatalogBackend port),
+    :class:`Catalog`: ``self._backend`` (CatalogBackend port),
     ``self._db`` (DuckDB connection for perf paths only),
     ``self._workspace``, ``self._paths`` (StoragePathResolver),
     ``self._persistence`` (PersistenceConfig), and ``self.open_zarr``

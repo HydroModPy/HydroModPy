@@ -34,7 +34,7 @@ class PinnedRunError(Exception):
 
 
 class LifecycleMixin:
-    """Open/finalize/delete/cleanup/close for :class:`SimulationCatalog`.
+    """Open/finalize/delete/cleanup/close for :class:`Catalog`.
 
     Relies on the facade attributes ``self._backend`` (CatalogBackend port
     driving every SQL read/write and the transaction context manager),

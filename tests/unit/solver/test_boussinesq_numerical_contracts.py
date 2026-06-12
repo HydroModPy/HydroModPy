@@ -7,7 +7,7 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
@@ -95,7 +95,7 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
         encoding="utf-8",
     )
 
-    catalog = SimulationCatalog(tmp_path / "workspace")
+    catalog = Catalog(tmp_path / "workspace")
     sim_id = str(uuid4())
     registration = catalog.register_simulation(
         sim_id,
@@ -152,7 +152,7 @@ def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path)
     )
     (output_dir / "_boussinesq_summary.json").write_text("{invalid", encoding="utf-8")
 
-    catalog = SimulationCatalog(tmp_path / "workspace")
+    catalog = Catalog(tmp_path / "workspace")
     sim_id = str(uuid4())
     registration = catalog.register_simulation(
         sim_id,

@@ -94,7 +94,7 @@ def _write_time_coordinate(
 
 
 class Modflow6OutputAdapter:
-    """Read MODFLOW 6 binary outputs and inject them into a SimulationCatalog.
+    """Read MODFLOW 6 binary outputs and inject them into a Catalog.
 
     Expects a solver output directory with ``{model_name}.hds`` and
     ``{model_name}.cbc`` in MODFLOW 6 format.

@@ -3,7 +3,7 @@
 ``resolve`` is the canonical lookup that turns a user reference (full UUID,
 prefix, or ``name`` within a project) into a simulation ``sim_id``.
 ``__getitem__`` / ``find`` / ``latest`` / ``best`` build :class:`Run` and
-:class:`SimulationGroup` views on top of it.
+:class:`RunSet` views on top of it.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from hydromodpy.results.catalog.constants import OUTLET_STATION
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
-    from hydromodpy.results.simulation_group import SimulationGroup
+    from hydromodpy.results.simulation_group import RunSet
 
 _MIN_PREFIX_LEN = 4
 _UUID_FULL_RE = re.compile(
@@ -62,7 +62,7 @@ class AmbiguousReferenceError(ReferenceResolutionError):
 
 
 class DiscoveryMixin:
-    """Reference-resolution and view-builder methods for :class:`SimulationCatalog`.
+    """Reference-resolution and view-builder methods for :class:`Catalog`.
 
     Relies on the facade attribute ``self._backend`` (CatalogBackend port).
     """
@@ -246,8 +246,8 @@ class DiscoveryMixin:
         sid = self.resolve(ref)
         return Run(sid, self)
 
-    def find(self, **filters) -> SimulationGroup:
-        from hydromodpy.results.simulation_group import SimulationGroup
+    def find(self, **filters) -> RunSet:
+        from hydromodpy.results.simulation_group import RunSet
 
         # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
         # Always-on JOINs keep the WHERE clause uniform whether or not the
@@ -351,7 +351,7 @@ class DiscoveryMixin:
 
         rows = self._backend.fetch_all(query, join_params + clause_params)
         sim_ids = [str(r[0]) for r in rows]
-        return SimulationGroup(sim_ids, self)
+        return RunSet(sim_ids, self)
 
     def latest(self, project: str | None = None) -> Run:
         from hydromodpy.results.run import Run
@@ -436,8 +436,8 @@ class DiscoveryMixin:
         *,
         ascending: bool = False,
         n: int = 1,
-    ) -> SimulationGroup:
-        from hydromodpy.results.simulation_group import SimulationGroup
+    ) -> RunSet:
+        from hydromodpy.results.simulation_group import RunSet
 
         order = "ASC" if ascending else "DESC"
         rows = self._backend.fetch_all(
@@ -453,4 +453,4 @@ class DiscoveryMixin:
             raise KeyError(
                 f"No completed simulation with metric '{metric}' at outlet for project '{project}'"
             )
-        return SimulationGroup([str(r[0]) for r in rows], self)
+        return RunSet([str(r[0]) for r in rows], self)

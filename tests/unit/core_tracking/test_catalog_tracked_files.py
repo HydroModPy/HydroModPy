@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 @dataclass
@@ -18,8 +18,8 @@ class _Entry:
     portable: bool = True
 
 
-def _make_catalog(tmp_path: Path) -> SimulationCatalog:
-    catalog = SimulationCatalog(tmp_path / "ws")
+def _make_catalog(tmp_path: Path) -> Catalog:
+    catalog = Catalog(tmp_path / "ws")
     return catalog
 
 

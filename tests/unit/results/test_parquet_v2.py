@@ -22,7 +22,7 @@ from shapely.geometry import Point, Polygon
 
 pl = pytest.importorskip("polars")
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.geoparquet_io import (
     GEOPARQUET_SCHEMA_VERSION,
@@ -54,7 +54,7 @@ from hydromodpy.results.parquet_schemas import (
 from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
 
 
-def _register(catalog: SimulationCatalog, name: str = "sim") -> str:
+def _register(catalog: Catalog, name: str = "sim") -> str:
     sid = str(uuid.uuid4())
     catalog.register_simulation(sid, project="p", solver="modflow6", name=name)
     return sid
@@ -152,7 +152,7 @@ class TestWriteOptionsForced:
 
 class TestKvMetadataEnriched:
     def test_kv_metadata_enriched(self, tmp_path: Path):
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid = _register(cat, name="rich")
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             target = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
@@ -168,7 +168,7 @@ class TestKvMetadataEnriched:
 
 class TestSchemaVersion:
     def test_parquet_schema_version_stored(self, tmp_path: Path):
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             target = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
@@ -210,7 +210,7 @@ class TestGeoParquetOgc:
         assert any(b"geo" == k for k in raw)
 
     def test_geographic_feature_written_as_geoparquet(self, tmp_path: Path):
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid = _register(cat)
             gdf = gpd.GeoDataFrame(
                 {"name": ["domain"]},
@@ -230,7 +230,7 @@ class TestGeoParquetOgc:
 class TestBatchWrite:
     def test_batch_write_timeseries_eliminates_quadratic_merge(self, tmp_path: Path):
         n_records = 200
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid_batch = _register(cat, name="batch")
             batch_records = [
                 {
@@ -278,7 +278,7 @@ class TestBatchWrite:
 
 class TestLazyLoaders:
     def test_lazy_loader_scan_timeseries(self, tmp_path: Path):
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid1 = _register(cat, name="a")
             sid2 = _register(cat, name="b")
             cat.write_timeseries(sid1, "P01", "head", _make_series(n=4), unit="m")
@@ -288,12 +288,12 @@ class TestLazyLoaders:
             df = lf.collect()
         assert len(df) == 10
         # Filter pushdown round-trip
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             df_sid1 = scan_timeseries(cat, filters={"sim_id": sid1}).collect()
         assert len(df_sid1) == 4
 
     def test_lazy_loader_scan_field(self, tmp_path: Path):
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             ds = scan_field(cat)
@@ -302,7 +302,7 @@ class TestLazyLoaders:
         assert "path" in df.columns
 
     def test_list_parquet_paths_round_trip(self, tmp_path: Path):
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             paths = list_parquet_paths(cat, "timeseries")
@@ -330,7 +330,7 @@ class TestParquetViewNames:
     def test_view_aliased_when_table_collides(self, tmp_path: Path):
         # ``metrics`` and ``provenance`` are DuckDB tables. The Parquet view
         # falls back to ``<view>_parquet`` to avoid clobbering the table.
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             views = cat.connection.execute(
                 "SELECT view_name FROM duckdb_views() WHERE schema_name='main'"
             ).fetchall()

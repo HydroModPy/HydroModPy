@@ -1,4 +1,4 @@
-"""Ensemble envelope band for a SimulationGroup."""
+"""Ensemble envelope band for a RunSet."""
 
 from __future__ import annotations
 
@@ -40,9 +40,9 @@ class EnsembleBandFigure(BaseFigure):
     ) -> Axes:
         import pandas as pd
 
-        # ``sim`` is expected to be a SimulationGroup (iterable of Run).
+        # ``sim`` is expected to be a RunSet (iterable of Run).
         if not hasattr(sim, "__iter__"):
-            raise TypeError("ensemble_band: 'sim' must be a SimulationGroup (iterable)")
+            raise TypeError("ensemble_band: 'sim' must be a RunSet (iterable)")
         series: list[pd.Series] = []
         for member in sim:
             try:

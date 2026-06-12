@@ -14,7 +14,7 @@ from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.core.workspace.resolve import locate_workspace_root
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ def restore_seepage_raster_from_store(
     base_raster_path: str | Path,
     seepage_tif_path: str | Path,
 ) -> bool:
-    """Rebuild the seepage GeoTIFF from the SimulationCatalog.
+    """Rebuild the seepage GeoTIFF from the Catalog.
 
     Returns ``True`` when the raster has been written, ``False`` otherwise.
     """
@@ -69,7 +69,7 @@ def restore_seepage_raster_from_store(
 
     seepage_tif = Path(seepage_tif_path)
     try:
-        catalog = SimulationCatalog(workspace_root)
+        catalog = Catalog(workspace_root)
         try:
             sims = catalog.list_simulations()
             if sims.empty:
@@ -86,7 +86,7 @@ def restore_seepage_raster_from_store(
         os.makedirs(seepage_tif.parent, exist_ok=True)
         export_tif(str(base_raster), seepage_array, str(seepage_tif), -9999.0)
     except Exception as exc:
-        logger.debug("Failed to rebuild seepage from SimulationCatalog: %s", exc)
+        logger.debug("Failed to rebuild seepage from Catalog: %s", exc)
         return False
 
     return seepage_tif.is_file()

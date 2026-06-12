@@ -24,7 +24,7 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 logger = get_logger(__name__)
 
@@ -50,11 +50,11 @@ class WorkflowStepRow:
 class WorkflowJournal:
     """Append-only writer for the ``workflow_steps`` table."""
 
-    def __init__(self, catalog: SimulationCatalog) -> None:
+    def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
 
     @property
-    def catalog(self) -> SimulationCatalog:
+    def catalog(self) -> Catalog:
         """Underlying catalog facade."""
         return self._catalog
 

@@ -62,7 +62,7 @@ def list_simulations(
         catalog or no row matches the filters.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     projects_dir = workspace_root / "projects"
@@ -88,7 +88,7 @@ def list_simulations(
             continue
         tagged_ids: set[str] | None = None
         try:
-            with SimulationCatalog(project_dir, read_only=True) as catalog:
+            with Catalog(project_dir, read_only=True) as catalog:
                 sims = catalog.list_simulations(order_by="created_at DESC")
                 if tag:
                     rows = catalog.backend.fetch_all(
@@ -194,13 +194,13 @@ def show_simulation(
         If ``sim_ref`` cannot be resolved.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root, read_only=True) as catalog:
+    with Catalog(workspace_root, read_only=True) as catalog:
         sid = catalog.resolve(sim_ref)
         sim = catalog[sid]
         payload: dict = {
@@ -293,12 +293,12 @@ def gc(workspace: Any = None, *, dry_run: bool = False) -> dict:
 
 def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
     """Emit one ``gc`` audit row per project catalog reflecting the sweep summary."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     for project_root in _gc_iter_project_roots(workspace):
         try:
-            catalog = SimulationCatalog(project_root)
+            catalog = Catalog(project_root)
         except Exception:
             continue
         try:
@@ -322,13 +322,13 @@ def adopt_store(store_path: Any, *, workspace: Any) -> dict:
     catalog or the snapshot is missing, ``ValueError`` on a bad store.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         return {"sim_id": catalog.adopt(store_path)}
 
 
@@ -343,13 +343,13 @@ def delete_simulation(
     Returns a dict with ``sim_id``, ``freed_bytes``, ``removed_paths``.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         sid = catalog.resolve(sim_ref)
         zarr_path = catalog.zarr_path_for(sid)
         parquet_dir = catalog.parquet_dir_for(sid)
@@ -366,12 +366,12 @@ def delete_simulation(
 def _open_project_catalog(workspace: Any, *, read_only: bool = False) -> Any:
     """Open the project catalog at ``workspace`` or raise."""
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     root = Path(workspace).expanduser().resolve()
     if not (root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {root}")
-    return SimulationCatalog(root, read_only=read_only)
+    return Catalog(root, read_only=read_only)
 
 
 def rerun_simulation(
@@ -486,13 +486,13 @@ def export_package_runs(
 
 def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
     """Import a ``.hmp`` archive into the workspace catalog (created if absent)."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     root = Path(workspace).expanduser().resolve()
     pkg = Path(package_path).expanduser()
     if not pkg.is_file():
         raise FileNotFoundError(f"No archive at {pkg}")
-    with SimulationCatalog(root) as catalog:
+    with Catalog(root) as catalog:
         sid = catalog.import_package(pkg, force=force)
         return {"sim_id": sid}
 
@@ -949,7 +949,7 @@ def _gc_apply_per_project_purges(
     workspace: Path, expired_refs: list[str], pending_refs: list[str]
 ) -> tuple[int, int]:
     """Purge expired trash and replay interrupted purges, one catalog open per project."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     expired_by_project: dict[str, list[str]] = {}
     for ref in expired_refs:
@@ -963,7 +963,7 @@ def _gc_apply_per_project_purges(
         project_root = _gc_project_root_by_name(workspace, project_name)
         if project_root is None:
             continue
-        with SimulationCatalog(project_root) as catalog:
+        with Catalog(project_root) as catalog:
             for sim_id in expired_by_project.get(project_name, []):
                 try:
                     catalog.delete(sim_id, audit_event_type="sim.purge")
@@ -990,12 +990,12 @@ def _gc_project_root_by_name(workspace: Path, project_name: str) -> Path | None:
 
 
 def _gc_delete_calibration_session(workspace: Path, project_name: str, session_id: str) -> bool:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     project_root = _gc_project_root_by_name(workspace, project_name)
     if project_root is None:
         return False
-    with SimulationCatalog(project_root) as catalog:
+    with Catalog(project_root) as catalog:
         catalog.connection.execute(
             "DELETE FROM calibration_iterations WHERE session_id = ?", [session_id]
         )
@@ -1006,12 +1006,12 @@ def _gc_delete_calibration_session(workspace: Path, project_name: str, session_i
 
 
 def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) -> bool:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     project_root = _gc_project_root_by_name(workspace, project_name)
     if project_root is None:
         return False
-    with SimulationCatalog(project_root) as catalog:
+    with Catalog(project_root) as catalog:
         catalog.connection.execute(
             """
             UPDATE simulations
@@ -1050,13 +1050,13 @@ def _vacuum_iter_catalog_files(workspace: Path) -> list[Path]:
 def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
     import duckdb
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     count = 0
     for catalog_path in _vacuum_iter_catalog_files(workspace):
         try:
-            with SimulationCatalog(catalog_path.parent) as catalog:
+            with Catalog(catalog_path.parent) as catalog:
                 catalog.connection.execute("CHECKPOINT")
                 try:
                     emit_audit_event(

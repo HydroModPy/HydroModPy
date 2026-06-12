@@ -1,6 +1,6 @@
 """Catalog and lifecycle helper bound to :class:`hydromodpy.project.Project`.
 
-Encapsulates the SimulationCatalog access (``store``, ``runs``, ``data``,
+Encapsulates the Catalog access (``store``, ``runs``, ``data``,
 ``__getitem__``) and lifecycle hooks (``close``). Split from
 :mod:`hydromodpy.project.facade` so the facade keeps a small surface and the
 god-class limit holds.
@@ -15,7 +15,7 @@ from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccesso
 
 if TYPE_CHECKING:
     from hydromodpy.project.facade import Project
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
@@ -32,8 +32,8 @@ class ProjectCatalog:
         self._project = project
 
     @property
-    def store(self) -> SimulationCatalog | None:
-        """Open SimulationCatalog for direct queries across all runs."""
+    def store(self) -> Catalog | None:
+        """Open Catalog for direct queries across all runs."""
         return self._project._store
 
     @property
@@ -56,7 +56,7 @@ class ProjectCatalog:
         return self._project._store[sim_id]
 
     def close(self) -> None:
-        """Close the SimulationCatalog and clean up preprocessing files.
+        """Close the Catalog and clean up preprocessing files.
 
         Reads the geographic object directly from the context (never triggers
         a lazy build), so closing an unused Project stays cheap.

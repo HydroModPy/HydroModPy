@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage_diagnostics import (
     diagnose_result_storage,
@@ -17,7 +17,7 @@ def test_clean_workspace_storage_reports_ok(tmp_path):
     workspace = tmp_path / "workspace"
     sid = "00000000-0000-4000-8000-000000000010"
 
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         reg = catalog.register_simulation(
             sid,
             project="p",
@@ -40,7 +40,7 @@ def test_completed_row_missing_zarr_is_reported(tmp_path):
     workspace = tmp_path / "workspace"
     sid = "00000000-0000-4000-8000-000000000011"
 
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         reg = catalog.register_simulation(
             sid,
             project="p",
@@ -66,7 +66,7 @@ def test_orphans_and_tmp_parquet_are_reported(tmp_path):
     workspace = tmp_path / "workspace"
     sid = "00000000-0000-4000-8000-000000000012"
 
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         reg = catalog.register_simulation(
             sid,
             project="p",
@@ -120,7 +120,7 @@ def test_doctor_probe_returns_cli_check_shape(tmp_path):
     from hydromodpy.cli.commands.doctor import _probe_result_storage
 
     workspace = tmp_path / "workspace"
-    with SimulationCatalog(workspace):
+    with Catalog(workspace):
         pass
 
     checks = {check["name"]: check for check in _probe_result_storage(workspace)}
@@ -133,7 +133,7 @@ def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
     from hydromodpy.cli.commands.dev.manage import _WorkspaceManagerBackend
 
     workspace = tmp_path / "workspace"
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         sid = "00000000-0000-4000-8000-000000000013"
         reg = catalog.register_simulation(
             sid,

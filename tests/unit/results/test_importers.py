@@ -10,7 +10,7 @@ import pytest
 
 from hydromodpy.core.config_kit.export_spec import ExportSpec
 from hydromodpy.core.exceptions import UnknownFieldError
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.importers import (
     import_csv_timeseries,
     import_netcdf_fields,

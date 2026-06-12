@@ -72,7 +72,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
-        SimulationCatalog,
+        Catalog,
         SimulationNotFoundError,
         short_id,
     )
@@ -84,7 +84,7 @@ def run(args: argparse.Namespace) -> None:
         print(f"No catalog found at {project_dir}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    catalog = SimulationCatalog(project_dir)
+    catalog = Catalog(project_dir)
     latest_sid: str | None = None
 
     if args.list:
