@@ -53,7 +53,7 @@ concern:
   ``requested_support_ids``, ``requested_domain_supports``.
 - **Workflow runtime**: ``ctx`` (the
   :class:`~hydromodpy.core.state.run_state.WorkflowContext`), ``store``
-  (the open :class:`~hydromodpy.results.catalog.SimulationCatalog`).
+  (the open :class:`~hydromodpy.results.catalog.Catalog`).
 - **Bookkeeping**: ``project_name``, ``run_counter``, ``active_runs``,
   ``last_wall_seconds``, ``phase``, ``data_loaded``, ``run_history``.
 

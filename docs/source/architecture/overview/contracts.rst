@@ -25,7 +25,7 @@ package exposes a flat set of verbs and helpers re-exported from
    * - Symbol
      - Role
    * - ``hmp.open(project_path)``
-     - Open a project catalog. Returns a ``SimulationCatalog``
+     - Open a project catalog. Returns a ``Catalog``
        backed by ``catalog.duckdb`` at the project root. Calls
        ``ensure_schema()`` on the underlying backend.
    * - ``hmp.read(run, field, **selectors)``
@@ -86,7 +86,7 @@ adapters, and post-run extractors actually call:
   protocol.
 
 The default implementation is
-:class:`~hydromodpy.results.catalog.SimulationCatalog`. Conforming
+:class:`~hydromodpy.results.catalog.Catalog`. Conforming
 alternative backends (PostgreSQL, Parquet-only, in-memory, remote
 object storage) can plug in without touching workflow code.
 

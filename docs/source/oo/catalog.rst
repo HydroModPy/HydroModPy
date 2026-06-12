@@ -9,7 +9,7 @@ hmp.open
 --------
 
 :func:`hydromodpy.open` returns a
-:class:`hydromodpy.results.catalog.SimulationCatalog` rooted at the
+:class:`hydromodpy.results.catalog.Catalog` rooted at the
 given workspace. It is the read-side complement of
 :meth:`Project.simulate` and mirrors the ``xarray.open_dataset`` intent:
 one call, a ready-to-query object.
@@ -33,7 +33,7 @@ Query surface
 -------------
 
 The catalog is the single door. :meth:`cat.find` is the one filtered
-entry point and returns a ``SimulationGroup``; an unknown filter key
+entry point and returns a ``RunSet``; an unknown filter key
 raises ``ValueError`` listing the valid filters. :attr:`cat.frame`
 returns the full ``DataFrame``. Federation across workspaces lives on
 :func:`hmp.index`. Inputs are reached via

@@ -67,10 +67,10 @@ workflow_steps) plus the views ``v_simulation_summary`` and
 
 Exposed through:
 
-- :class:`hydromodpy.results.catalog.SimulationCatalog`
+- :class:`hydromodpy.results.catalog.Catalog`
 - :class:`hydromodpy.results.run.Run`
-- :class:`hydromodpy.results.simulation_group.SimulationGroup`
-- ``hmp.open(project_path)`` door (returns the ``SimulationCatalog``;
+- :class:`hydromodpy.results.simulation_group.RunSet`
+- ``hmp.open(project_path)`` door (returns the ``Catalog``;
   ``cat.find(...)``, ``cat.frame``, ``cat.latest()``, ``cat[ref]``)
 - CLI verb ``hmp catalog ...``
 
@@ -111,7 +111,7 @@ A single set of patterns governs the three databases:
   directory containing one ``0001_initial.sql``.
 - **Per-scope doors**:
   :mod:`hydromodpy.catalog` exposes each database through its own door:
-  ``hmp.open(ws)`` returns the project ``SimulationCatalog``,
+  ``hmp.open(ws)`` returns the project ``Catalog``,
   ``hmp.index()`` federates the machine-wide scope, and
   :class:`~hydromodpy.catalog.InputsNamespace` reaches the input cache.
   Users write ``hmp.open(ws).find(solver="modflow6")`` on the catalog
@@ -144,6 +144,6 @@ The catalog stack used to concentrate three god-classes (each above
   ``writes_parquet`` + ``writes_zarr`` + ``writes_helpers``.
 
 The original public symbols (``SimulationZarr``, ``DataCatalogDuckDB``,
-``SimulationCatalog``, ``WritesMixin``) keep their import path and
+``Catalog``, ``WritesMixin``) keep their import path and
 their full API; golden tests pin bit-identical artefacts before and
 after each split.

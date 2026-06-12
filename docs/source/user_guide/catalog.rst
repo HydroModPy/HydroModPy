@@ -22,10 +22,10 @@ Opening a catalog
    import hydromodpy as hmp
 
    cat = hmp.open("~/proj/naizin")
-   sims = cat.find(solver="modflow6")          # SimulationGroup
+   sims = cat.find(solver="modflow6")          # RunSet
    workspaces = hmp.index()                     # machine-wide federation
 
-``hmp.open`` returns a :class:`~hydromodpy.results.catalog.SimulationCatalog`
+``hmp.open`` returns a :class:`~hydromodpy.results.catalog.Catalog`
 (the engine itself, not a wrapper). With the default ``create=False`` it
 raises ``FileNotFoundError`` when no ``catalog.duckdb`` exists; pass
 ``create=True`` to initialise an empty catalog instead.
@@ -119,7 +119,7 @@ Underlying objects
 Callers that need a finer surface (custom SQL, transaction control,
 register/unregister) reach the underlying objects directly:
 
-- :class:`hydromodpy.results.catalog.SimulationCatalog`
+- :class:`hydromodpy.results.catalog.Catalog`
 - :class:`hydromodpy.data.registry.DataCatalogDuckDB`
 - :class:`hydromodpy.core.state.global_index.GlobalIndex`
 

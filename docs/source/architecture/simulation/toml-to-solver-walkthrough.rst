@@ -139,7 +139,7 @@ Step 7: result persistence
 --------------------------
 
 The result layer keeps one DuckDB catalog per workspace. ``prepare_solver``
-opens ``SimulationCatalog``, registers the current ``sim_id``, and creates the
+opens ``Catalog``, registers the current ``sim_id``, and creates the
 per-simulation Zarr/Parquet artefact paths. ``extract`` writes solver outputs
 into those artefacts. ``derive`` computes derived fields. ``export`` finalizes
 the catalog row, optionally packs the Zarr store, and removes transient solver
