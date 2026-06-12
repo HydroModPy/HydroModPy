@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 
 class Mt3dmsExtractorBase:
-    """Read MT3DMS / MF6-GWT binary outputs and inject them into a SimulationCatalog.
+    """Read MT3DMS / MF6-GWT binary outputs and inject them into a Catalog.
 
     Expects a solver output directory containing ``{model_name}.ucn``
     (unformatted concentration file). Subclasses must override

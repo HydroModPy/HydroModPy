@@ -8,7 +8,7 @@ outputs and downstream consumers (display, analysis, exports).
 Sub-modules
 -----------
 
-- ``results/catalog/`` -- ``SimulationCatalog`` facade plus
+- ``results/catalog/`` -- ``Catalog`` facade plus
   read / write mixins. One DuckDB file per project
   (``catalog.duckdb``); see :doc:`/architecture/storage-layout`.
 - ``results/catalog/ports.py`` -- :class:`CatalogBackend` Protocol
@@ -30,7 +30,7 @@ Sub-modules
   v2.6 writers, KV-metadata mixin, ``PARQUET_SCHEMA_VERSION``.
 - ``results/geoparquet_io.py`` -- GeoParquet 1.1 writers
   (``GEOPARQUET_SCHEMA_VERSION``).
-- ``results/simulation_group.py`` -- ``SimulationGroup`` view across
+- ``results/simulation_group.py`` -- ``RunSet`` view across
   multiple runs (used by comparison and calibration analysis).
 - ``results/exporters/`` -- format writers: ``csv``, ``netcdf``,
   ``geotiff``, ``vtu``, ``shapefile``, ``hmp_package``.
@@ -64,13 +64,13 @@ Run API
 Catalog operations
 ------------------
 
-``SimulationCatalog`` exposes:
+``Catalog`` exposes:
 
 - ``hmp.open(project_path)`` -- single catalog door. Default
   ``create=False`` raises ``FileNotFoundError`` when no
   ``catalog.duckdb`` exists; pass ``create=True`` to initialise an
   empty one.
-- ``find(**filters)`` -- one return type (a ``SimulationGroup``);
+- ``find(**filters)`` -- one return type (a ``RunSet``);
   raises ``ValueError`` listing valid filters on an unknown key.
 - ``frame`` -- the full simulations ``DataFrame``.
 - ``resolve(prefix)`` -- expand a sim id prefix.
@@ -120,7 +120,7 @@ Recommended reading path
 2. ``hydromodpy/results/catalog/ports.py`` (Protocol).
 3. ``hydromodpy/results/catalog/adapters/duckdb.py`` (in-tree
    implementation).
-4. ``hydromodpy/results/catalog/facade.py`` (``SimulationCatalog``).
+4. ``hydromodpy/results/catalog/facade.py`` (``Catalog``).
 5. ``hydromodpy/results/run.py`` (``Run`` facade).
 6. ``hydromodpy/results/field_registry.py`` for the field dispatch
    used by ``hmp.read``.

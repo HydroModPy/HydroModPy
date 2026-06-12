@@ -592,9 +592,9 @@ def _attach_tags_to_simulation(ctx: WorkflowContext, sim_id: str, tags: Sequence
     workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
     if workspace is None:
         return
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
-    with SimulationCatalog.from_workspace(workspace) as catalog:
+    with Catalog.from_workspace(workspace) as catalog:
         writer = getattr(catalog, "write_tags", None)
         if callable(writer):
             writer(sim_id, list(tags))

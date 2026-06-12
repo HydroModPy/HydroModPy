@@ -27,7 +27,7 @@ from hydromodpy.workflow.steps.setup import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 
 # ---------------------------------------------------------------------------
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 def step_render_calibration_report(
     *,
-    catalog: SimulationCatalog,
+    catalog: Catalog,
     session_id: str,
     workspace_root: Path,
     figure_names: list[str] | tuple[str, ...] | None = None,

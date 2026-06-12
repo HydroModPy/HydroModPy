@@ -98,7 +98,7 @@ def _budget_value(row: np.void, fields: dict[str, str], *candidates: str) -> flo
 
 
 class ModflowNwtOutputAdapter:
-    """Read MODFLOW-NWT binary outputs and inject them into a SimulationCatalog.
+    """Read MODFLOW-NWT binary outputs and inject them into a Catalog.
 
     Expects a solver output directory containing ``{model_name}.hds``,
     ``{model_name}.cbc``, and optionally ``{model_name}.lst``.

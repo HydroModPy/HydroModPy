@@ -101,7 +101,7 @@ def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def read_catalog_run_metadata(store: Any, sim_id: str | None) -> dict[str, Any]:
-    """Read run metadata from the SimulationCatalog when available."""
+    """Read run metadata from the Catalog when available."""
     if store is None or sim_id in (None, ""):
         return {}
     try:
@@ -266,7 +266,7 @@ def discover_result_store(
     preferred_sim_id: str | None = None,
     preferred_name: str | None = None,
 ) -> tuple[Any, str | None]:
-    """Open a SimulationCatalog from the project root inferred from a config path.
+    """Open a Catalog from the project root inferred from a config path.
 
     Returns ``(catalog, sim_id)`` on success, ``(None, None)`` when the
     catalog is unavailable.  The caller is responsible for closing the
@@ -292,9 +292,9 @@ def discover_result_store(
         workspace_root = locate_workspace_root(project_root) or project_root
 
     try:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        catalog = SimulationCatalog(workspace_root)
+        catalog = Catalog(workspace_root)
         sims = catalog.list_simulations()
         if sims.empty:
             catalog.close()
@@ -322,7 +322,7 @@ def discover_result_store(
         sim_id = str(completed_sims.iloc[-1]["sim_id"])
         return catalog, sim_id
     except Exception:
-        logger.debug("Could not open SimulationCatalog from %s", workspace_root, exc_info=True)
+        logger.debug("Could not open Catalog from %s", workspace_root, exc_info=True)
         return None, None
 
 

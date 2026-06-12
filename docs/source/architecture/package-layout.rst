@@ -57,7 +57,7 @@ Subpackages
    * - ``catalog/``
      - Read-only view over the workspace data cache. The simulation
        catalog itself is opened with ``hmp.open`` (returns a
-       ``SimulationCatalog``); the machine-wide index is reached via
+       ``Catalog``); the machine-wide index is reached via
        ``hmp.index()``. Entry: ``catalog/inputs.py``. See
        :doc:`packages/catalog`.
    * - ``cli/``

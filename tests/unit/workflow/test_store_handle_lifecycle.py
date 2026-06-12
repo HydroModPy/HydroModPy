@@ -104,7 +104,7 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
 
     import hydromodpy.results.catalog as catalog_module
 
-    monkeypatch.setattr(catalog_module, "SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr(catalog_module, "Catalog", FakeCatalog)
     monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
     monkeypatch.setattr(prepare_solver_module, "_register_tracked_input_files", lambda ctx: None)
     monkeypatch.setattr(prepare_solver_module, "step_persist_params", lambda *args, **kwargs: None)

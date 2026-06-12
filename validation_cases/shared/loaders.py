@@ -379,7 +379,7 @@ def load_field(
     expected_shape : tuple[int, ...], optional
         When provided and the loaded array has compatible element count
         but a different shape, reshape it.  This bridges the flat
-        per-cell vectors returned by the SimulationCatalog with the
+        per-cell vectors returned by the Catalog with the
         ``(nrow, ncol)`` grids expected by validation comparisons.
 
     Returns

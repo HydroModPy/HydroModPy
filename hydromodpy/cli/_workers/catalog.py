@@ -62,7 +62,7 @@ def list_simulations(
         catalog or no row matches the filters.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     projects_dir = workspace_root / "projects"
@@ -88,7 +88,7 @@ def list_simulations(
             continue
         tagged_ids: set[str] | None = None
         try:
-            with SimulationCatalog(project_dir, read_only=True) as catalog:
+            with Catalog(project_dir, read_only=True) as catalog:
                 sims = catalog.list_simulations(order_by="created_at DESC")
                 if tag:
                     rows = catalog.backend.fetch_all(
@@ -194,13 +194,13 @@ def show_simulation(
         If ``sim_ref`` cannot be resolved.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root, read_only=True) as catalog:
+    with Catalog(workspace_root, read_only=True) as catalog:
         sid = catalog.resolve(sim_ref)
         sim = catalog[sid]
         payload: dict = {
@@ -293,12 +293,12 @@ def gc(workspace: Any = None, *, dry_run: bool = False) -> dict:
 
 def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
     """Emit one ``gc`` audit row per project catalog reflecting the sweep summary."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     for project_root in _gc_iter_project_roots(workspace):
         try:
-            catalog = SimulationCatalog(project_root)
+            catalog = Catalog(project_root)
         except Exception:
             continue
         try:
@@ -322,13 +322,13 @@ def adopt_store(store_path: Any, *, workspace: Any) -> dict:
     catalog or the snapshot is missing, ``ValueError`` on a bad store.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         return {"sim_id": catalog.adopt(store_path)}
 
 
@@ -343,13 +343,13 @@ def delete_simulation(
     Returns a dict with ``sim_id``, ``freed_bytes``, ``removed_paths``.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         sid = catalog.resolve(sim_ref)
         zarr_path = catalog.zarr_path_for(sid)
         parquet_dir = catalog.parquet_dir_for(sid)
@@ -366,12 +366,12 @@ def delete_simulation(
 def _open_project_catalog(workspace: Any, *, read_only: bool = False) -> Any:
     """Open the project catalog at ``workspace`` or raise."""
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     root = Path(workspace).expanduser().resolve()
     if not (root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {root}")
-    return SimulationCatalog(root, read_only=read_only)
+    return Catalog(root, read_only=read_only)
 
 
 def rerun_simulation(
@@ -486,48 +486,111 @@ def export_package_runs(
 
 def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
     """Import a ``.hmp`` archive into the workspace catalog (created if absent)."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     root = Path(workspace).expanduser().resolve()
     pkg = Path(package_path).expanduser()
     if not pkg.is_file():
         raise FileNotFoundError(f"No archive at {pkg}")
-    with SimulationCatalog(root) as catalog:
+    with Catalog(root) as catalog:
         sid = catalog.import_package(pkg, force=force)
         return {"sim_id": sid}
+
+
+def _read_running_sidecars(project_root: Path, cutoff_s: float) -> dict[str, dict]:
+    """Read live-run heartbeat sidecars under ``project_root`` keyed by id8.
+
+    Lets ``watch`` see liveness without touching the DuckDB catalog, which a
+    live solve holds locked.
+    """
+    import json
+    from datetime import UTC, datetime
+
+    from hydromodpy.core.state.paths import running_sidecar_dir
+
+    sidecar_dir = running_sidecar_dir(project_root)
+    out: dict[str, dict] = {}
+    if not sidecar_dir.is_dir():
+        return out
+    now = datetime.now(UTC)
+    for path in sidecar_dir.glob("*.json"):
+        sim_id: str | None = None
+        ts: str | None = None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            sim_id = data.get("sim_id")
+            ts = data.get("ts")
+            age_s = max(0.0, (now - datetime.fromisoformat(ts)).total_seconds())
+        except (OSError, ValueError, KeyError):
+            try:
+                age_s = max(0.0, now.timestamp() - path.stat().st_mtime)
+            except OSError:
+                continue
+        out[path.stem] = {
+            "sim_id": sim_id,
+            "ts": ts,
+            "age_s": age_s,
+            "stale": age_s > cutoff_s,
+        }
+    return out
 
 
 def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
     """Return running runs with heartbeat age and a staleness flag.
 
-    A run is ``stale`` when its newest heartbeat is older than
-    ``stale_minutes`` (or it never emitted one), which usually means the
-    process died without finalizing.
+    A run is ``stale`` when neither its sidecar nor its newest DB heartbeat is
+    fresher than ``stale_minutes``, which usually means the process died
+    without finalizing. Sidecars are read first so ``watch`` stays usable even
+    while a solve holds the catalog locked.
     """
-    with _open_project_catalog(workspace) as catalog:
-        rows = catalog._backend.fetch_all(
-            "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
-            "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
-            "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
-            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
-            "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
-            "WHERE st.code = 'running' ORDER BY s.created_at DESC",
-        )
-        cutoff = stale_minutes * 60
-        out = []
-        for sid, name, created_at, last_heartbeat, age_s in rows:
-            stale = age_s is None or float(age_s) > cutoff
-            out.append(
-                {
-                    "sim_id": sid,
-                    "name": name,
-                    "created_at": created_at,
-                    "last_heartbeat": last_heartbeat,
-                    "age_s": None if age_s is None else float(age_s),
-                    "stale": stale,
-                }
+    root = Path(workspace).expanduser().resolve()
+    cutoff = stale_minutes * 60
+    sidecars = _read_running_sidecars(root, cutoff)
+    by_id8: dict[str, dict] = {}
+
+    try:
+        with _open_project_catalog(workspace, read_only=True) as catalog:
+            rows = catalog._backend.fetch_all(
+                "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
+                "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
+                "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
+                "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+                "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
+                "WHERE st.code = 'running' ORDER BY s.created_at DESC",
             )
-        return out
+        for sid, name, created_at, last_heartbeat, age_s in rows:
+            id8 = sid.replace("-", "")[:8]
+            sc = sidecars.get(id8)
+            if sc is not None and not sc["stale"]:
+                stale, eff_age, hb = False, sc["age_s"], sc["ts"]
+            else:
+                stale = age_s is None or float(age_s) > cutoff
+                eff_age = None if age_s is None else float(age_s)
+                hb = last_heartbeat
+            by_id8[id8] = {
+                "sim_id": sid,
+                "name": name,
+                "created_at": created_at,
+                "last_heartbeat": hb,
+                "age_s": eff_age,
+                "stale": stale,
+            }
+    except Exception:
+        # Catalog locked (a live solve) or absent: report from sidecars alone.
+        pass
+
+    for id8, sc in sidecars.items():
+        if id8 in by_id8:
+            continue
+        by_id8[id8] = {
+            "sim_id": sc["sim_id"],
+            "name": None,
+            "created_at": None,
+            "last_heartbeat": sc["ts"],
+            "age_s": sc["age_s"],
+            "stale": sc["stale"],
+        }
+    return list(by_id8.values())
 
 
 def list_trashed(workspace: Any) -> list[dict]:
@@ -769,7 +832,14 @@ def _gc_stale_running_simulations(project_root: Path) -> list[str]:
         rows = []
     finally:
         conn.close()
-    return [f"{project_root.name}:{r[0]!s}" for r in rows]
+    # A fresh heartbeat sidecar means the run is still alive (it just holds the
+    # catalog lock, so its DB heartbeat is invisible to this read-only probe).
+    fresh = {
+        id8 for id8, sc in _read_running_sidecars(project_root, 10 * 60).items() if not sc["stale"]
+    }
+    return [
+        f"{project_root.name}:{r[0]!s}" for r in rows if str(r[0]).replace("-", "")[:8] not in fresh
+    ]
 
 
 def _gc_orphan_geographic_cache(workspace: Path, project_roots: list[Path]) -> list[str]:
@@ -879,7 +949,7 @@ def _gc_apply_per_project_purges(
     workspace: Path, expired_refs: list[str], pending_refs: list[str]
 ) -> tuple[int, int]:
     """Purge expired trash and replay interrupted purges, one catalog open per project."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     expired_by_project: dict[str, list[str]] = {}
     for ref in expired_refs:
@@ -893,7 +963,7 @@ def _gc_apply_per_project_purges(
         project_root = _gc_project_root_by_name(workspace, project_name)
         if project_root is None:
             continue
-        with SimulationCatalog(project_root) as catalog:
+        with Catalog(project_root) as catalog:
             for sim_id in expired_by_project.get(project_name, []):
                 try:
                     catalog.delete(sim_id, audit_event_type="sim.purge")
@@ -920,12 +990,12 @@ def _gc_project_root_by_name(workspace: Path, project_name: str) -> Path | None:
 
 
 def _gc_delete_calibration_session(workspace: Path, project_name: str, session_id: str) -> bool:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     project_root = _gc_project_root_by_name(workspace, project_name)
     if project_root is None:
         return False
-    with SimulationCatalog(project_root) as catalog:
+    with Catalog(project_root) as catalog:
         catalog.connection.execute(
             "DELETE FROM calibration_iterations WHERE session_id = ?", [session_id]
         )
@@ -936,12 +1006,12 @@ def _gc_delete_calibration_session(workspace: Path, project_name: str, session_i
 
 
 def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) -> bool:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     project_root = _gc_project_root_by_name(workspace, project_name)
     if project_root is None:
         return False
-    with SimulationCatalog(project_root) as catalog:
+    with Catalog(project_root) as catalog:
         catalog.connection.execute(
             """
             UPDATE simulations
@@ -952,6 +1022,10 @@ def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) 
             """,
             [sim_id],
         )
+    # The crashed run left a stale sidecar behind; drop it.
+    from hydromodpy.core.state.paths import running_sidecar_path
+
+    running_sidecar_path(project_root, sim_id).unlink(missing_ok=True)
     return True
 
 
@@ -976,13 +1050,13 @@ def _vacuum_iter_catalog_files(workspace: Path) -> list[Path]:
 def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
     import duckdb
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     count = 0
     for catalog_path in _vacuum_iter_catalog_files(workspace):
         try:
-            with SimulationCatalog(catalog_path.parent) as catalog:
+            with Catalog(catalog_path.parent) as catalog:
                 catalog.connection.execute("CHECKPOINT")
                 try:
                     emit_audit_event(

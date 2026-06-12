@@ -43,7 +43,7 @@ class ProjectDataAccessor:
 class ProjectRunsAccessor:
     """Helper exposed as ``project.runs``.
 
-    Thin wrapper around :class:`~hydromodpy.results.catalog.SimulationCatalog`
+    Thin wrapper around :class:`~hydromodpy.results.catalog.Catalog`
     that pre-filters queries by the current project name.
     """
 

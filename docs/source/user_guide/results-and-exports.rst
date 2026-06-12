@@ -42,13 +42,13 @@ Core objects
 
    * - Object
      - Role
-   * - ``SimulationCatalog``
+   * - ``Catalog``
      - Project-level registry opened by ``hydromodpy.open(project_path)``.
        It owns the single ``catalog.duckdb`` file for the project.
    * - ``Run``
      - One persisted simulation resolved from the catalog. It reads one
        catalog row plus that simulation's Zarr/Parquet artefacts.
-   * - ``SimulationGroup``
+   * - ``RunSet``
      - A set of runs used for comparison, calibration, or testbed analysis.
    * - ``ResultsConfig``
      - Configuration block controlling result persistence and export options.
@@ -191,16 +191,16 @@ Export formats
      - Command / API
      - Typical use
    * - CSV
-     - ``hmp export`` / ``SimulationCatalog.export``
+     - ``hmp export`` / ``Catalog.export``
      - Tables, metrics, timeseries, and lightweight exchange.
    * - GeoTIFF
-     - ``hmp export`` / ``SimulationCatalog.export``
+     - ``hmp export`` / ``Catalog.export``
      - Raster fields for GIS tools.
    * - NetCDF
-     - ``hmp export`` / ``SimulationCatalog.export``
+     - ``hmp export`` / ``Catalog.export``
      - Gridded scientific arrays and model outputs.
    * - Shapefile
-     - ``hmp export`` / ``SimulationCatalog.export``
+     - ``hmp export`` / ``Catalog.export``
      - Vector GIS exchange where legacy tooling needs shapefiles.
    * - VTU
      - ``hmp export --vtu``

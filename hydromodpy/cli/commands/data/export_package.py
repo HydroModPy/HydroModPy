@@ -44,7 +44,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
-        SimulationCatalog,
+        Catalog,
         SimulationNotFoundError,
     )
 
@@ -57,7 +57,7 @@ def run(args: argparse.Namespace) -> None:
     output_path = Path(args.output).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         try:
             sim_id = catalog.resolve(args.sim_ref, project=args.project)
         except (AmbiguousReferenceError, SimulationNotFoundError) as exc:

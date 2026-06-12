@@ -20,7 +20,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from hydromodpy import __version__ as HYDROMODPY_VERSION
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 # Fields whose value depends on wall-clock time. Strip before snapshotting.
 _NON_DETERMINISTIC_FIELDS: frozenset[str] = frozenset(
@@ -58,7 +58,7 @@ def _table_data_sha256(parquet_path: Path) -> str:
     ).hexdigest()
 
 
-def _capture_state(catalog: SimulationCatalog, sim_id: str) -> dict[str, Any]:
+def _capture_state(catalog: Catalog, sim_id: str) -> dict[str, Any]:
     """Capture deterministic state after the standard write sequence."""
     parameters = catalog.connection.execute(
         "SELECT sim_id, param_name, zone_id, value, unit, parameterization "
@@ -88,7 +88,7 @@ def _capture_state(catalog: SimulationCatalog, sim_id: str) -> dict[str, Any]:
     }
 
 
-def _run_standard_writes(catalog: SimulationCatalog) -> str:
+def _run_standard_writes(catalog: Catalog) -> str:
     """Apply a fixed set of write calls and return the new sim_id."""
     sid = str(uuid.UUID("12345678-1234-5678-1234-567812345678"))
     reg = catalog.register_simulation(
@@ -157,7 +157,7 @@ GOLDEN_TIMESERIES_SHA256 = "9b63e82da82f5bdabaf8fc1becaaee8f3496555bda6e0d35e48e
 
 def test_writes_golden(tmp_path: Path) -> None:
     """Pin the deterministic surface of the write API to a known baseline."""
-    catalog = SimulationCatalog(tmp_path / "ws")
+    catalog = Catalog(tmp_path / "ws")
     try:
         sid = _run_standard_writes(catalog)
         state = _capture_state(catalog, sid)

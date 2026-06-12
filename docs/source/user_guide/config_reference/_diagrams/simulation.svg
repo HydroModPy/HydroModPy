@@ -13,7 +13,7 @@
 <!-- hydromodpy.core.config_kit.persistence.PersistenceConfig -->
 <g id="node1" class="node">
 <title>hydromodpy.core.config_kit.persistence.PersistenceConfig</title>
-<g id="a_node1"><a xlink:title="hydromodpy.core.config_kit.persistence.PersistenceConfig&#10;&#10;Orthogonal switch governing every persistence sink.&#10;&#10;Toggles are independent: disabling ``save_zarr`` does not silence the&#10;catalog, and vice versa. ``save_catalog`` is the master switch for the&#10;project DuckDB; when False, every write through&#10;:class:`SimulationCatalog` becomes a no&#45;op.&#10;">
+<g id="a_node1"><a xlink:title="hydromodpy.core.config_kit.persistence.PersistenceConfig&#10;&#10;Orthogonal switch governing every persistence sink.&#10;&#10;Toggles are independent: disabling ``save_zarr`` does not silence the&#10;catalog, and vice versa. ``save_catalog`` is the master switch for the&#10;project DuckDB; when False, every write through&#10;:class:`Catalog` becomes a no&#45;op.&#10;">
 <polygon fill="none" stroke="black" points="1094.25,-541.25 1094.25,-563.75 1431.75,-563.75 1431.75,-541.25 1094.25,-541.25"/>
 <text xml:space="preserve" text-anchor="start" x="1211.25" y="-548.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">PersistenceConfig</text>
 <polygon fill="none" stroke="black" points="1094.25,-518.75 1094.25,-541.25 1202.25,-541.25 1202.25,-518.75 1094.25,-518.75"/>
@@ -250,7 +250,7 @@
 <!-- hydromodpy.simulation.planning.results_config.ResultsConfig -->
 <g id="node7" class="node">
 <title>hydromodpy.simulation.planning.results_config.ResultsConfig</title>
-<g id="a_node7"><a xlink:title="hydromodpy.simulation.planning.results_config.ResultsConfig&#10;&#10;Configuration for ``[simulation.results]``.&#10;&#10;Controls whether simulation outputs are stored in the SimulationCatalog and&#10;which derived variables are computed. Automated export formats live in the&#10;top&#45;level ``[export]`` section (:class:`ExportConfig`), not here.&#10;">
+<g id="a_node7"><a xlink:title="hydromodpy.simulation.planning.results_config.ResultsConfig&#10;&#10;Configuration for ``[simulation.results]``.&#10;&#10;Controls whether simulation outputs are stored in the Catalog and&#10;which derived variables are computed. Automated export formats live in the&#10;top&#45;level ``[export]`` section (:class:`ExportConfig`), not here.&#10;">
 <polygon fill="none" stroke="black" points="699.75,-437 699.75,-459.5 905.25,-459.5 905.25,-437 699.75,-437"/>
 <text xml:space="preserve" text-anchor="start" x="762" y="-444.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ResultsConfig</text>
 <polygon fill="none" stroke="black" points="699.75,-414.5 699.75,-437 801,-437 801,-414.5 699.75,-414.5"/>

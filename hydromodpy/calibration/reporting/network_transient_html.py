@@ -17,7 +17,7 @@ from hydromodpy.calibration.reporting.network_transient import args as _nt_args
 from hydromodpy.calibration.reporting.network_transient import blocks as _blocks
 from hydromodpy.calibration.reporting.network_transient import io as _nt_io
 from hydromodpy.calibration.reporting.network_transient import state as _state
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
 
 REPO_ROOT = _state.REPO_ROOT
@@ -458,8 +458,8 @@ def _prune_stale_figures(figures: dict[str, Path]) -> None:
             path.unlink()
 
 
-def _open_first_run(root: Path) -> tuple[SimulationCatalog, Run]:
-    catalog = SimulationCatalog(root)
+def _open_first_run(root: Path) -> tuple[Catalog, Run]:
+    catalog = Catalog(root)
     try:
         sims = catalog.simulations
         if sims.empty:
@@ -477,7 +477,7 @@ def _save_watershed_id_card(root: Path, path: Path) -> None:
     import matplotlib.pyplot as plt
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    catalog: SimulationCatalog | None = None
+    catalog: Catalog | None = None
     fig = None
     try:
         try:
@@ -1444,7 +1444,7 @@ def _steady_drain_from_score_row(row: dict[str, str]) -> np.ndarray | None:
     if catalog_path is None or not catalog_path.is_dir():
         return None
     try:
-        with SimulationCatalog(catalog_path) as catalog:
+        with Catalog(catalog_path) as catalog:
             run = catalog[catalog.resolve(row.get("steady_ref", "run_0001"))]
             return np.asarray(run.field("outflow_drain", timestep=-1), dtype=float).reshape(-1)
     except Exception:
@@ -1780,7 +1780,7 @@ def _q_total_release_series(
         if catalog_path is None or not catalog_path.is_dir():
             continue
         try:
-            with SimulationCatalog(catalog_path) as catalog:
+            with Catalog(catalog_path) as catalog:
                 ref = row.get("transient_ref") or "run_0001"
                 run = catalog[ref]
                 stack = np.vstack(

@@ -1,4 +1,4 @@
-"""Boussinesq output adapters: solver files → SimulationCatalog."""
+"""Boussinesq output adapters: solver files → Catalog."""
 
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 

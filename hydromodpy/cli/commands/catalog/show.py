@@ -40,7 +40,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import show_simulation
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
-        SimulationCatalog,
+        Catalog,
         SimulationNotFoundError,
     )
 
@@ -95,7 +95,7 @@ def run(args: argparse.Namespace) -> None:
             print(f"  - {art['kind']}: {art['rel_path']}{size_str}")
 
     # Tags, notes, metrics and parameters require a direct catalog read.
-    with SimulationCatalog(workspace_root, read_only=True) as catalog:
+    with Catalog(workspace_root, read_only=True) as catalog:
         sim = catalog[payload["sim_id"]]
         ident = catalog.backend.fetch_one(
             "SELECT version_int, config_hash FROM simulations WHERE sim_id = ?",

@@ -32,12 +32,12 @@ def rank_simulations(
 ) -> Any:
     """Rank simulations of one project by a metric. Returns a DataFrame."""
     from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = find_catalog_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         order = "DESC" if top else "ASC"
         sql = (
             "SELECT s.sim_id, s.name, s.solver, m.metric_name, m.value "

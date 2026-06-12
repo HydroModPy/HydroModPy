@@ -30,7 +30,7 @@ Lecture mentale recommandee :
    -> Pipeline (Step, PipelineState)
    -> SimulationRunner
    -> SolverAdapter
-   -> SimulationCatalog
+   -> Catalog
    -> Run
 
 En parallele, les donnees d'entree suivent plutot ce chemin :
@@ -60,7 +60,7 @@ Quand on lit ou debogue HydroModPy, le parcours le plus utile est :
    ``PipelineState`` entre ses ``Step``.
 6. ``SimulationRunner`` parcourt les ``ProcessRun`` et choisit le ``SolverAdapter``
    qui appelle le solveur concret.
-7. Les sorties sont persistees dans le ``SimulationCatalog``.
+7. Les sorties sont persistees dans le ``Catalog``.
 8. L'utilisateur relit ensuite les resultats via un ``Run``.
 
 Si la question est "comment un TOML devient un resultat ?", suivre cet
@@ -88,7 +88,7 @@ Module : ``hydromodpy.core.workspace.workspace.Workspace``.
 
 Relation :
 
-- un ``Workspace`` heberge un ``SimulationCatalog``
+- un ``Workspace`` heberge un ``Catalog``
 - plusieurs ``Project`` peuvent y ecrire
 
 Project
@@ -103,7 +103,7 @@ Relation :
 
 - lit la config utilisateur
 - travaille dans un ``Workspace``
-- ecrit dans le ``SimulationCatalog``
+- ecrit dans le ``Catalog``
 - retourne un ``Run``
 
 Attention :
@@ -125,16 +125,16 @@ Relation :
 
 - est retourne par ``project.run(...)``
 - peut etre recupere via ``catalog[sim_id]``, ``catalog.best(...)`` ou
-  ``SimulationGroup``
-- recharge ses donnees via le ``SimulationCatalog``
+  ``RunSet``
+- recharge ses donnees via le ``Catalog``
 
-SimulationCatalog
+Catalog
 ~~~~~~~~~~~~~~~~~
 
 Catalogue de sortie du workspace. C'est le registre central des simulations
 persistees.
 
-Module : ``hydromodpy.results.catalog.SimulationCatalog``, expose aussi comme
+Module : ``hydromodpy.results.catalog.Catalog``, expose aussi comme
 ``hmp.Catalog`` dans l'API publique.
 
 Relation :
@@ -158,7 +158,7 @@ Relation :
 
 Ne pas confondre :
 
-- ``SimulationCatalog`` = sorties de simulation
+- ``Catalog`` = sorties de simulation
 - ``DataCatalogDuckDB`` = cache d'entree
 
 SolverAdapter
@@ -170,13 +170,13 @@ structurel : trois ClassVars (``process_type``, ``solver_name``, ``requires``)
 plus trois methods (``validate``, ``execute``, ``cleanup``) qu'un adaptateur
 doit exposer pour passer ``isinstance(obj, SolverAdapter)``.
 
-SimulationGroup
+RunSet
 ~~~~~~~~~~~~~~~
 
 Vue de groupe sur plusieurs ``Run``, utile pour comparer plusieurs
 simulations ensemble.
 
-Module : ``hydromodpy.results.simulation_group.SimulationGroup``.
+Module : ``hydromodpy.results.simulation_group.RunSet``.
 
 Relation :
 
@@ -392,7 +392,7 @@ Identifiants a ne pas confondre
 sim_id
 ~~~~~~
 
-Identifiant technique du resultat persiste dans le ``SimulationCatalog``.
+Identifiant technique du resultat persiste dans le ``Catalog``.
 C'est l'identifiant que porte un ``Run``.
 
 Usage typique :

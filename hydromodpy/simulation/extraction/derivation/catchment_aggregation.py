@@ -1,4 +1,4 @@
-"""Catchment-aggregated timeseries from spatial fields in the SimulationCatalog."""
+"""Catchment-aggregated timeseries from spatial fields in the Catalog."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def aggregate_catchment_timeseries(
     ----------
     sim_id : str
         Simulation UUID.
-    store : SimulationCatalog
+    store : Catalog
         Store containing spatial fields from extract + derive phases.
     time_index : pd.DatetimeIndex, optional
         Datetime labels for each timestep. When None, integer indices are used.

@@ -1714,9 +1714,9 @@ def run_twin_benchmark_case(
         )
         session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
-        with SimulationCatalog(benchmark_root / "project") as catalog:
+        with Catalog(benchmark_root / "project") as catalog:
             iterations_df = catalog.calibration_iterations(report.session_id)
         candidate_timing_values = _candidate_timing_values_from_iterations(iterations_df)
 

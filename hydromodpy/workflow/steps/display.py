@@ -161,7 +161,7 @@ class DisplayStep:
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.display.runs import resolve_run_output_dir
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
 
         ctx = state.get("ctx")
         if ctx is None:
@@ -185,7 +185,7 @@ class DisplayStep:
             else:
                 workspace = ctx.setup.workspace
                 project_root = workspace.project_root
-                with SimulationCatalog.from_workspace(workspace) as catalog:
+                with Catalog.from_workspace(workspace) as catalog:
                     sim = catalog[sim_id]
                     out_dir = resolve_run_output_dir(
                         display_cfg,

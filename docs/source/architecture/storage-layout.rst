@@ -311,6 +311,6 @@ See also
 - :doc:`overview/schema-evolution` for the migration policy.
 - :doc:`artifact-policy` for non-canonical artifacts and sidecars.
 - :doc:`/architecture/packages/results` for the Python API on top of
-  this storage (``SimulationCatalog``, ``Run``, ``SimulationGroup``,
+  this storage (``Catalog``, ``Run``, ``RunSet``,
   ``hmp.read`` facade).
 - :doc:`/architecture/packages/data` for the input cache writer.

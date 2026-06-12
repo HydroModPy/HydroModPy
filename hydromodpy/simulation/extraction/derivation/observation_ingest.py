@@ -48,7 +48,7 @@ def ingest_observations(
     ----------
     sim_id : str
         Simulation UUID.
-    store : SimulationCatalog
+    store : Catalog
         Open catalog.
     loaded_data : LoadedDataContext
         Project-level data context (``project._ctx.loaded_data``).

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hydromodpy.core.state.paths import CATALOG_FILENAME
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.storage_contract import (
     PARQUET_DIR_SUFFIX,
@@ -28,7 +28,7 @@ def test_catalog_is_workspace_scoped_and_artifacts_are_per_simulation(tmp_path):
     workspace = tmp_path / "workspace"
     sid = "00000000-0000-4000-8000-000000000001"
 
-    with SimulationCatalog(workspace) as catalog:
+    with Catalog(workspace) as catalog:
         assert catalog.catalog_path == workspace.resolve() / CATALOG_FILENAME
         assert catalog.simulations_dir == workspace.resolve() / SIMULATIONS_DIRNAME
 

@@ -114,10 +114,10 @@ def show_project(name: str, *, workspace: Any = None) -> dict:
     }
     db_path = project_dir / CATALOG_FILENAME
     if db_path.exists():
-        from hydromodpy.results.catalog import SimulationCatalog, short_id
+        from hydromodpy.results.catalog import Catalog, short_id
 
         try:
-            with SimulationCatalog(project_dir) as catalog:
+            with Catalog(project_dir) as catalog:
                 sims = catalog.list_simulations(order_by="created_at DESC")
             payload["simulations"] = [
                 {

@@ -22,7 +22,7 @@ Covered:
 - Parquet v2.6 outputs with ``hmp.schema_version`` in KV metadata
   (``PARQUET_SCHEMA_VERSION``).
 - Portable ``.hmp`` packages produced by
-  ``SimulationCatalog.export_package``.
+  ``Catalog.export_package``.
 
 Out of scope: user TOML files. Their versioning is handled by Pydantic
 v2 with ``ConfigDict(extra="forbid")``.

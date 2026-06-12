@@ -1,6 +1,6 @@
 """Integration coverage for the data access patterns of HydroModPy.
 
-Validates that ``SimulationCatalog`` exposes its results through:
+Validates that ``Catalog`` exposes its results through:
 
 - DuckDB SQL queries on ``simulations`` (with scientific metadata columns).
 - Parquet files readable directly by ``pandas.read_parquet`` (with KV
@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -29,7 +29,7 @@ def catalog(tmp_path):
 
 
 def _seed_run(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
     *,
     project: str,
     name: str,

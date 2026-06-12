@@ -17,12 +17,12 @@ Sub-modules
      - Role
    * - ``catalog/facade.py``
      - :func:`hmp.open`. Resolves the workspace and returns a
-       :class:`SimulationCatalog`. Default ``create=False`` raises
+       :class:`Catalog`. Default ``create=False`` raises
        ``FileNotFoundError`` when no ``catalog.duckdb`` exists; pass
        ``create=True`` to initialise an empty one.
    * - ``catalog/simulations.py``
-     - :class:`SimulationCatalog`. Read-mostly access to the
-       project catalog rows (``find`` returning a ``SimulationGroup``,
+     - :class:`Catalog`. Read-mostly access to the
+       project catalog rows (``find`` returning a ``RunSet``,
        ``frame``, ``latest``, ``best``, ``worst``, ``rank``,
        ``cat[ref]``) plus schema discovery (``describe``, ``tables``,
        ``columns``, ``variables``, ``metrics``, ``stations``).
@@ -40,7 +40,7 @@ Mutators (since v1.x.6)
 
 The catalog write surface lives on
 :class:`hydromodpy.results.catalog.writes_duckdb.WritesMixinDuckDB`
-(consumed by the project-scope :class:`SimulationCatalog`). Four
+(consumed by the project-scope :class:`Catalog`). Four
 mutators ship with T6.B, each audited and wrapped in
 ``with_lock_retry`` so concurrent CLI calls serialise cleanly:
 

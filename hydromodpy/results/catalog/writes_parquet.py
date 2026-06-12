@@ -1,4 +1,4 @@
-"""Parquet write concern for :class:`SimulationCatalog`.
+"""Parquet write concern for :class:`Catalog`.
 
 Per-simulation Parquet outputs: timeseries, observations, budgets,
 mass balance, geographic features. Shared parquet plumbing

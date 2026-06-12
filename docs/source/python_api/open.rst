@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   hmp.open(workspace_path, *, create=False) -> SimulationCatalog
+   hmp.open(workspace_path, *, create=False) -> Catalog
 
 Reference
 ---------

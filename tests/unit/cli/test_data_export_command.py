@@ -49,7 +49,7 @@ def test_data_export_sim_defaults_to_csv_and_prints_export_count(monkeypatch, tm
         def close(self) -> None:
             calls["closed"] = True
 
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
 
     result = CliRunner().invoke(["data", "export", str(project), "--sim", "run-one"])
 
@@ -97,7 +97,7 @@ def test_data_export_geotiff_requires_resolution_and_closes_catalog(
         def close(self) -> None:
             calls["closed"] = True
 
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
 
     result = CliRunner().invoke(["data", "export", str(project), "--sim", "run-one", "--geotiff"])
 

@@ -22,7 +22,7 @@ pytestmark = pytest.mark.fast
 
 
 class _FakeStore:
-    """Minimal stand-in for SimulationCatalog implementing only the seams
+    """Minimal stand-in for Catalog implementing only the seams
     that ProjectRunsAccessor touches."""
 
     def __init__(self, rows: pd.DataFrame) -> None:

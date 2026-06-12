@@ -7,7 +7,7 @@ This module contains only MODFLOW-agnostic flow lifecycle logic:
 - run the common pre/process sequence once a concrete flow model exists.
 
 Post-processing (derived variables, result extraction) is handled by
-the ``SimulationCatalog`` pipeline via ``post_run_results()``.
+the ``Catalog`` pipeline via ``post_run_results()``.
 
 Keeping that code here avoids duplicating the same lifecycle in both
 ``modflow_nwt`` and ``modflow6`` adapters.

@@ -26,6 +26,7 @@ from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     auto_scan_workspace,
+    find_catalog_root,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
@@ -49,14 +50,20 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     config_arg = parser.add_argument(
         "config",
+        nargs="?",
         type=Path,
-        help="Path to a TOML config",
+        default=None,
+        help="Path to a TOML config (omit when using --resume REF)",
     )
     parser.add_argument(
         "--resume",
         default=None,
-        metavar="RUN_ID",
-        help="Resume a simulation from its last checkpoint.",
+        metavar="REF",
+        help=(
+            "Resume a simulation from its last journalled checkpoint. With a TOML "
+            "config, REF is the run name/id to resume; without a config, REF is a "
+            "catalog reference and the config is rebuilt from its snapshot."
+        ),
     )
     from_arg = parser.add_argument(
         "--from",
@@ -136,7 +143,19 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    target = Path(args.config).expanduser().resolve()
+    config = getattr(args, "config", None)
+    if config is None:
+        resume = getattr(args, "resume", None)
+        if resume is None:
+            print(
+                "Provide a TOML config, or --resume REF to resume a catalog run.",
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_CONFIG)
+        _resume_from_ref(str(resume), args=args)
+        return
+
+    target = Path(config).expanduser().resolve()
     if not target.is_file():
         print(f"File not found: {target}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -156,6 +175,65 @@ def run(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)
+
+
+def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
+    """Resume an interrupted run by catalog reference; config from its snapshot.
+
+    Resolves REF in the catalog discovered from the current directory, rebuilds
+    the run's config from its stored snapshot, and resumes it through the same
+    journal-driven machinery as ``hmp run config.toml --resume NAME`` (the
+    journal is keyed by the run name, so no extra identity plumbing is needed).
+    """
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.project import Project
+    from hydromodpy.results.catalog import (
+        AmbiguousReferenceError,
+        Catalog,
+        SimulationNotFoundError,
+    )
+
+    workspace = find_catalog_root(Path.cwd().resolve())
+    if not (workspace / CATALOG_FILENAME).exists():
+        print(
+            f"No catalog at {workspace}; run --resume REF must be invoked from a "
+            "workspace, or pass a TOML config explicitly.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_NOT_FOUND)
+
+    try:
+        with Catalog(workspace, read_only=True) as catalog:
+            sid = catalog.resolve(ref)
+            run_obj = catalog[sid]
+            snapshot = run_obj.config_snapshot
+            name = run_obj.name
+    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    if snapshot is None:
+        print(f"Run {sid[:8]} has no config snapshot; cannot resume.", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    if not name:
+        print(f"Run {sid[:8]} has no name; cannot resume by reference.", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    print_hydromodpy()
+    project = Project(dict(snapshot))
+    try:
+        project.simulate(
+            name=name,
+            resume=name,
+            from_step=getattr(args, "from_step", None),
+            until_step=getattr(args, "until_step", None),
+            no_display=bool(getattr(args, "no_display", False)),
+            parallel=not bool(getattr(args, "no_parallel", False)),
+            dry_run=bool(getattr(args, "dry_run", False)),
+        )
+    except KeyboardInterrupt:
+        sys.exit(EXIT_SIGINT)
 
 
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
@@ -364,7 +442,7 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     """
     from hydromodpy.cli.helpers import find_catalog_root
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     try:
@@ -375,7 +453,7 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     if not catalog_path.is_file():
         return
     try:
-        with SimulationCatalog(workspace) as catalog:
+        with Catalog(workspace) as catalog:
             emit_audit_event(
                 catalog.connection,
                 event_type="config.replay",

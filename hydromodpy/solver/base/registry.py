@@ -13,7 +13,7 @@ live in ``solver/compatibility`` (class-based) and ``simulation/adapters``
 
 The module also tracks **output extractors** keyed on the same
 ``(process_type, solver_name)`` pair. Extractors parse raw solver outputs
-into the ``SimulationCatalog`` after a run completes.
+into the ``Catalog`` after a run completes.
 
 Built-in adapters and extractors shipped in-tree are declared as dotted
 paths and imported lazily on first lookup. That keeps

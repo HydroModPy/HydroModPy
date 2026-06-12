@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -25,7 +25,7 @@ def _make_dem(nrow: int = 5, ncol: int = 4) -> np.ndarray:
 
 
 def _register_sim(
-    catalog: SimulationCatalog,
+    catalog: Catalog,
     *,
     mesh_topology: str = "structured_3d",
     with_metadata: bool = True,

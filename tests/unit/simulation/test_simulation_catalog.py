@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog import registration as registration_mod
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from tests._helpers.fixtures_catalog import simulation_catalog
@@ -359,7 +359,7 @@ class TestDelete:
 
 class TestContextManager:
     def test_enter_exit(self, tmp_path):
-        with SimulationCatalog(tmp_path / "ws") as cat:
+        with Catalog(tmp_path / "ws") as cat:
             sid, _ = _register(cat)
             row = cat.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
             assert row[0] == 1

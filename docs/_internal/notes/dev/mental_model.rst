@@ -36,7 +36,7 @@ Le chemin principal, cote execution, est :
    -> Pipeline / SimulationRunner
    -> SolverAdapter
    -> solveur concret
-   -> SimulationCatalog
+   -> Catalog
    -> Run
 
 Le chemin principal, cote donnees d'entree, est :
@@ -215,7 +215,7 @@ Memoire des donnees d'entree :
 - ce qui a ete lu depuis du custom,
 - ce qui peut etre reutilise sans recharger la source.
 
-``SimulationCatalog``
+``Catalog``
 ~~~~~~~~~~~~~~~~~~~~~
 
 Memoire des sorties de simulation :
@@ -298,7 +298,7 @@ repond a des besoins differents.
 ``sim_id``
 ~~~~~~~~~~
 
-Identifie un resultat persiste dans le ``SimulationCatalog``.
+Identifie un resultat persiste dans le ``Catalog``.
 
 Question couverte :
 "quel objet persiste suis-je en train de relire ?"
@@ -391,7 +391,7 @@ But :
 montrer une execution nominale :
 
 ``hmp run`` -> ``Project`` -> ``SimulationPlanner`` -> ``Pipeline`` ->
-``SimulationRunner`` -> ``SolverAdapter`` -> solveur -> ``SimulationCatalog`` -> ``Run``
+``SimulationRunner`` -> ``SolverAdapter`` -> solveur -> ``Catalog`` -> ``Run``
 
 Valeur :
 ideal pour relier les objets du glossaire a une histoire concrete.
@@ -407,9 +407,9 @@ montrer les relations entre :
 
 - ``Workspace``
 - ``Project``
-- ``SimulationCatalog``
+- ``Catalog``
 - ``Run``
-- ``SimulationGroup``
+- ``RunSet``
 - ``DataCatalogDuckDB``
 
 Valeur :

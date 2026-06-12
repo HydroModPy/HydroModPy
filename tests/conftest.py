@@ -262,7 +262,7 @@ def tmp_workspace(tmp_path: Path) -> Path:
     Populates the standard layout (``data/``, ``projects/``, one
     ``data/<variable>/`` folder per variable) using the same code path as
     ``hmp workspace init``, so integration tests can open the workspace with
-    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.SimulationCatalog`
+    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.Catalog`
     on top of it.  The catalog itself is opened lazily - this fixture
     only creates folders (without the geospatial example files), keeping it
     cheap and free of DuckDB I/O until a test explicitly needs it.

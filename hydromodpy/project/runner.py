@@ -83,12 +83,12 @@ def _resolve_resume_step_index(
     when no row exists for ``run_id`` the run is treated as fresh and starts
     from step 0.
     """
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.journal import WorkflowJournal
     from hydromodpy.workflow.resume import ResumePlanner
 
     try:
-        catalog = SimulationCatalog(workspace)
+        catalog = Catalog(workspace)
     except Exception as exc:
         raise ResumeError(
             f"Could not open the catalog at {workspace} to resume '{run_id}': {exc}"
@@ -317,7 +317,7 @@ class ProjectRunner:
         catalog, Zarr store, in-memory ``WorkflowContext``) is not
         pickle-safe.
         """
-        from hydromodpy.results.simulation_group import SimulationGroup
+        from hydromodpy.results.simulation_group import RunSet
         from hydromodpy.workflow.parallel import run_sweep
 
         self._project._ensure_model_built()
@@ -328,7 +328,7 @@ class ProjectRunner:
             name_template=name_template,
             parallel=parallel,
         )
-        return SimulationGroup(sim_ids, self._project._store)
+        return RunSet(sim_ids, self._project._store)
 
     # -- Helpers ----------------------------------------------------------
 

@@ -16,12 +16,12 @@ def render_figure(
     """Render one registered figure for a simulation. Returns the output path."""
     from hydromodpy.cli.helpers import find_catalog_root
     from hydromodpy.display import get as get_figure
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = find_catalog_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         sim = catalog[sim_ref]
         save = (
             Path(output).expanduser().resolve()
@@ -47,7 +47,7 @@ def render_gallery(
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.runs import render_figures_for_run, resolve_run_output_dir
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     target_path = Path(config_toml).expanduser()
     if not target_path.is_file() or target_path.suffix != ".toml":
@@ -61,7 +61,7 @@ def render_gallery(
     config_source = str(target_path.resolve())
 
     written_paths: list[Path] = []
-    with SimulationCatalog(project_dir) as catalog:
+    with Catalog(project_dir) as catalog:
         sims = catalog.list_simulations(config_source=config_source, order_by="created_at DESC")
         if sims.empty:
             sims = catalog.list_simulations(project=project_dir.name, order_by="created_at DESC")

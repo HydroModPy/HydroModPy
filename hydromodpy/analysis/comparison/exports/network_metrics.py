@@ -21,7 +21,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 logger = get_logger(__name__)
 
@@ -311,7 +311,7 @@ def _simulation_metric_row_base(
     }
 
 
-def _has_plottable_mesh(store: SimulationCatalog, sim_id: str) -> bool:
+def _has_plottable_mesh(store: Catalog, sim_id: str) -> bool:
     zarr = store.open_zarr(str(sim_id))
     try:
         mesh = zarr.root.get("mesh")

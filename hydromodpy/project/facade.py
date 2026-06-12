@@ -60,7 +60,7 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.spatial.geographic.catchment_delineation import (
@@ -344,8 +344,8 @@ class Project:
         return self._ctx.setup.domain
 
     @property
-    def store(self) -> SimulationCatalog | None:
-        """Open SimulationCatalog for direct queries across all runs. Triggers build."""
+    def store(self) -> Catalog | None:
+        """Open Catalog for direct queries across all runs. Triggers build."""
         self._ensure_model_built()
         return self._catalog.store
 
@@ -562,7 +562,7 @@ class Project:
     # -- Lifecycle --------------------------------------------------------
 
     def close(self) -> None:
-        """Close the SimulationCatalog and clean up preprocessing files."""
+        """Close the Catalog and clean up preprocessing files."""
         self._catalog.close()
 
     def __enter__(self):

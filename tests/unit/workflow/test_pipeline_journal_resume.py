@@ -1,7 +1,7 @@
 """Pipeline resume driven by the workflow_steps journal.
 
 Replaces the legacy pickle-based checkpoint tests. Each scenario exercises
-a small synthetic pipeline against a real :class:`SimulationCatalog`, then
+a small synthetic pipeline against a real :class:`Catalog`, then
 asserts the journal rows and the absence of pickle artefacts.
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.journal import WorkflowJournal
 from hydromodpy.workflow.runner import Pipeline
@@ -58,8 +58,8 @@ class _RecoveredCrash:
         )
 
 
-def _journal_for(workspace: Path) -> tuple[WorkflowJournal, SimulationCatalog]:
-    catalog = SimulationCatalog(workspace)
+def _journal_for(workspace: Path) -> tuple[WorkflowJournal, Catalog]:
+    catalog = Catalog(workspace)
     return WorkflowJournal(catalog), catalog
 
 

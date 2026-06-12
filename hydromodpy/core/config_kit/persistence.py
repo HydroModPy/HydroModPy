@@ -1,7 +1,7 @@
 """Single-switch persistence configuration (Principe 8).
 
 ``PersistenceConfig`` is the orthogonal save/no-save knob shared by every
-write path: the DuckDB SimulationCatalog, the per-sim Zarr and Parquet
+write path: the DuckDB Catalog, the per-sim Zarr and Parquet
 artifacts, and the reproducibility lockfile.
 """
 
@@ -23,7 +23,7 @@ class PersistenceConfig(HydroModelBase):
     Toggles are independent: disabling ``save_zarr`` does not silence the
     catalog, and vice versa. ``save_catalog`` is the master switch for the
     project DuckDB; when False, every write through
-    :class:`SimulationCatalog` becomes a no-op.
+    :class:`Catalog` becomes a no-op.
     """
 
     save_catalog: Annotated[bool, Profile.USER] = Field(

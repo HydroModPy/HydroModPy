@@ -1,7 +1,7 @@
 """Smoke tests for the public ``hydromodpy`` API surface.
 
 These checks pin down the top-level symbols that the P10 spec promises to
-users - ``hmp.open``, ``hmp.Project``, ``hmp.Run``, ``hmp.SimulationCatalog``,
+users - ``hmp.open``, ``hmp.Project``, ``hmp.Run``, ``hmp.Catalog``,
 etc. Regressions here usually mean a refactor broke the import contract.
 """
 
@@ -24,8 +24,8 @@ EXPECTED_TOP_LEVEL = [
     "Project",
     "Run",
     "SimulationPlan",
-    "SimulationCatalog",
-    "SimulationGroup",
+    "Catalog",
+    "RunSet",
     # Core
     "Workspace",
     "CatchmentDelineation",
@@ -41,9 +41,13 @@ def test_public_symbol_available(symbol: str) -> None:
     assert hasattr(hmp, symbol), f"hmp.{symbol} missing from public API"
 
 
-def test_catalog_alias_is_not_exposed() -> None:
+def test_old_simulation_catalog_name_is_not_exposed() -> None:
+    # Clean break: the V1 facade is ``Catalog`` / ``RunSet``; the old
+    # ``SimulationCatalog`` / ``SimulationGroup`` names are gone (no alias).
     with pytest.raises(AttributeError):
-        hmp.Catalog  # noqa: B018
+        hmp.SimulationCatalog  # noqa: B018
+    with pytest.raises(AttributeError):
+        hmp.SimulationGroup  # noqa: B018
 
 
 def test_removed_batch_api_is_not_exposed() -> None:
@@ -55,7 +59,7 @@ def test_open_returns_simulation_catalog() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         cat = hmp.open(tmp, create=True)
         try:
-            assert isinstance(cat, hmp.SimulationCatalog)
+            assert isinstance(cat, hmp.Catalog)
         finally:
             cat.close()
 
@@ -65,18 +69,18 @@ def test_simulation_catalog_repr_html() -> None:
         cat = hmp.open(tmp, create=True)
         try:
             html = cat._repr_html_()
-            assert "<b>SimulationCatalog</b>" in html
+            assert "<b>Catalog</b>" in html
             assert "<table" in html
         finally:
             cat.close()
 
 
 def test_simulation_group_fluent_methods_present() -> None:
-    from hydromodpy.results.simulation_group import SimulationGroup
+    from hydromodpy.results.simulation_group import RunSet
 
-    assert hasattr(SimulationGroup, "filter")
-    assert hasattr(SimulationGroup, "to_dataframe")
-    assert hasattr(SimulationGroup, "_repr_html_")
+    assert hasattr(RunSet, "filter")
+    assert hasattr(RunSet, "to_dataframe")
+    assert hasattr(RunSet, "_repr_html_")
 
 
 def test_simulation_view_fluent_methods_present() -> None:

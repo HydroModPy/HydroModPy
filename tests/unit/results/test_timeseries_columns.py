@@ -9,12 +9,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.writes_helpers import _table_from_columns, _table_from_records
 from hydromodpy.results.parquet_schemas import TIMESERIES_SCHEMA
 
 
-def _register(catalog: SimulationCatalog, name: str = "sim") -> str:
+def _register(catalog: Catalog, name: str = "sim") -> str:
     sid = str(uuid.uuid4())
     catalog.register_simulation(sid, project="p", solver="modflow6", name=name)
     return sid
@@ -87,7 +87,7 @@ class TestWriteTimeseriesColumns:
         times = np.array(
             [f"2020-01-{2 + i:02d}T00:00:00" for i in range(n)], dtype="datetime64[ms]"
         )
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid_cols = _register(cat, name="cols")
             cat.write_timeseries_columns(
                 sid_cols,
@@ -126,7 +126,7 @@ class TestWriteTimeseriesColumns:
         assert df_cols["value"].tolist() == pytest.approx([1.0, 2.0, 3.0, 4.0])
 
     def test_last_write_wins_merge(self, tmp_path: Path) -> None:
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid = _register(cat)
             base = {
                 "station_id": "P1",
@@ -144,7 +144,7 @@ class TestWriteTimeseriesColumns:
         assert rows == [(0, 0.0), (1, 1.0), (2, 1.0)]
 
     def test_empty_columns_are_a_noop(self, tmp_path: Path) -> None:
-        with SimulationCatalog(tmp_path) as cat:
+        with Catalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries_columns(sid, {})
             cat.write_timeseries_columns(

@@ -33,7 +33,7 @@ def isolated_state(monkeypatch, tmp_path):
 
 
 def _make_workspace_with_catalog(tmp_path: Path) -> Path:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -41,7 +41,7 @@ def _make_workspace_with_catalog(tmp_path: Path) -> Path:
     project.mkdir(parents=True)
     (project / "simulations").mkdir()
     (workspace / "data").mkdir()
-    with SimulationCatalog(project):
+    with Catalog(project):
         pass
     return workspace
 

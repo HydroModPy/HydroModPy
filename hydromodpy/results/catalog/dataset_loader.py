@@ -22,7 +22,7 @@ import pandas as pd
 if TYPE_CHECKING:
     import xarray as xr
 
-    from hydromodpy.results.catalog.facade import SimulationCatalog
+    from hydromodpy.results.catalog.facade import Catalog
 
 
 # Columns selected from simulations s with dim-table joins. Some are resolved
@@ -56,11 +56,11 @@ class DatasetLoader:
     """Build an ``xr.Dataset`` joining scalars + Zarr fields for a cohort.
 
     The loader is stateless apart from the catalog it wraps. ``load`` accepts
-    the same ``filters`` keyword set as :meth:`SimulationCatalog.find` plus
+    the same ``filters`` keyword set as :meth:`Catalog.find` plus
     an optional ``fields`` list selecting which Zarr variables to attach.
     """
 
-    def __init__(self, catalog: SimulationCatalog) -> None:
+    def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
 
     def load(
@@ -77,7 +77,7 @@ class DatasetLoader:
         Parameters
         ----------
         filters
-            Forwarded to :meth:`SimulationCatalog.find`. ``None`` means
+            Forwarded to :meth:`Catalog.find`. ``None`` means
             "every simulation in the catalog".
         fields
             Optional list of Zarr field names (e.g. ``["head"]``) to attach
@@ -119,12 +119,12 @@ class DatasetLoader:
 
     def _resolve_group(self, filters: dict[str, Any] | None):
         if not filters:
-            from hydromodpy.results.simulation_group import SimulationGroup
+            from hydromodpy.results.simulation_group import RunSet
 
             rows = self._catalog.backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations ORDER BY created_at DESC"
             )
-            return SimulationGroup([str(r[0]) for r in rows], self._catalog)
+            return RunSet([str(r[0]) for r in rows], self._catalog)
         return self._catalog.find(**filters)
 
     def _build_scalar_frame(

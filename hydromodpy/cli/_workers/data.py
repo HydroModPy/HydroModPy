@@ -248,14 +248,14 @@ def import_package(
     force: bool = False,
 ) -> str:
     """Import a ``.hmp`` archive into a workspace catalog. Returns the sim_id."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     src = Path(package).expanduser().resolve()
     if not src.is_file():
         raise FileNotFoundError(f"Archive not found: {src}")
     workspace_root = Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     workspace_root.mkdir(parents=True, exist_ok=True)
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         return catalog.import_package(src, force=force, as_project=as_project, dry_run=dry_run)
 
 
@@ -268,13 +268,13 @@ def export_simulation_package(
 ) -> Path:
     """Export a simulation as a portable ``.hmp`` archive."""
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog found at {workspace_root}")
     output_path = Path(output).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         sim_id = catalog.resolve(sim_ref, project=project)
         return catalog.export_package(sim_id, output_path)

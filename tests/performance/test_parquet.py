@@ -1,4 +1,4 @@
-"""Timeseries write/query baseline benchmarks (SimulationCatalog Parquet backend).
+"""Timeseries write/query baseline benchmarks (Catalog Parquet backend).
 
 Guards the thin HydroModPy tabular wrapper (``write_timeseries`` /
 ``query_timeseries``) backed by Parquet that the calibration and extraction

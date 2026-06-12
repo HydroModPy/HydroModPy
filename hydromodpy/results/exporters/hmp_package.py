@@ -477,7 +477,7 @@ def _write_readme(
             f"- **format_version**: `{HMP_FORMAT_VERSION}`\n"
             f"- **hydromodpy_version**: `{_hydromodpy_version()}`\n"
             f"{inputs_line}\n"
-            "Import with `SimulationCatalog.import_package(<path>.hmp)` "
+            "Import with `Catalog.import_package(<path>.hmp)` "
             "or the `hmp add <archive>.hmp` CLI.\n"
             "Integrity of the archive is verified against `manifest.json` "
             "on import (SHA-256 per file).\n"
@@ -535,7 +535,7 @@ def export_hmp_package(
     Parameters
     ----------
     catalog
-        The source :class:`SimulationCatalog` instance (passed as ``Any`` to
+        The source :class:`Catalog` instance (passed as ``Any`` to
         avoid a circular import).
     sim_id
         The simulation UUID to export.

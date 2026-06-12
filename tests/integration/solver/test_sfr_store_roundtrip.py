@@ -1,7 +1,7 @@
 """SFR series land in a REAL results store and survive a close / reopen cycle.
 
 The shared standalone model runs real MF6, the production
-``Modflow6OutputAdapter`` extracts into a real ``SimulationCatalog``
+``Modflow6OutputAdapter`` extracts into a real ``Catalog``
 (DuckDB + Zarr/Parquet) registered in a tmp workspace, the catalog is CLOSED and
 REOPENED, and the per-reach series are queried back under
 ``station_id = sfr:<network>:<reach>`` and compared to the values read directly
@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow6.extractors.sfr import sfr_station_id
 from tests.integration.solver._sfr_models import (
@@ -40,7 +40,7 @@ def test_sfr_series_roundtrip_through_reopened_store(tmp_path: Path) -> None:
     catalog_ws.mkdir()
     sim_id = str(uuid.uuid4())
 
-    store = SimulationCatalog(catalog_ws)
+    store = Catalog(catalog_ws)
     try:
         store.register_simulation(sim_id, project="sfr-roundtrip", solver="modflow6")
         Modflow6OutputAdapter().extract(sim_id, model_ws, store, model_name=MODEL_NAME)
@@ -49,7 +49,7 @@ def test_sfr_series_roundtrip_through_reopened_store(tmp_path: Path) -> None:
         store.close()
 
     # The store value must come from a FRESHLY REOPENED catalog, not memory.
-    reopened = SimulationCatalog(catalog_ws)
+    reopened = Catalog(catalog_ws)
     try:
         flow = reopened.query_timeseries(
             sim_id, sfr_station_id(NETWORK_ID, terminal), "ext_outflow"

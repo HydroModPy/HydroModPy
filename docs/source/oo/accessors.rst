@@ -31,7 +31,7 @@ project.runs
 
 :attr:`Project.runs` returns a
 :class:`hydromodpy.project.accessors.ProjectRunsAccessor`. It wraps the
-project's :class:`~hydromodpy.results.catalog.SimulationCatalog` and
+project's :class:`~hydromodpy.results.catalog.Catalog` and
 pre-filters every query by the current project name.
 
 The accessor exposes four common queries:

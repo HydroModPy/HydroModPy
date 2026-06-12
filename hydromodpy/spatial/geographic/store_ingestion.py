@@ -1,4 +1,4 @@
-"""Ingest geographic preprocessing outputs into the SimulationCatalog.
+"""Ingest geographic preprocessing outputs into the Catalog.
 
 Called once per project after :class:`CatchmentDelineation` processing completes.
 Reads rasters (via rasterio) and shapefiles (via geopandas) from the

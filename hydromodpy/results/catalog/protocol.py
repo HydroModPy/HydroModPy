@@ -1,7 +1,7 @@
 """SimulationStore Protocol for result-catalog backends.
 
 The default in-tree implementation is
-:class:`hydromodpy.results.catalog.SimulationCatalog`, backed by DuckDB
+:class:`hydromodpy.results.catalog.Catalog`, backed by DuckDB
 for tabular state and Zarr / Parquet for field arrays and timeseries.
 
 Conforming alternative backends (PostgreSQL, Parquet-only, in-memory for
@@ -11,7 +11,7 @@ conform structurally - no base class to inherit from.
 
 The contract is the minimal write/read surface that workflow steps,
 solver adapters, and post-run extractors actually call. Methods absent
-from this Protocol stay implementation-specific to ``SimulationCatalog``
+from this Protocol stay implementation-specific to ``Catalog``
 (``find``, ``rank``, archive package_io ...).
 """
 

@@ -76,10 +76,10 @@ Skeleton:
        logger.info("Exported myfmt: %s", output_path)
        return output_path
 
-Wire it through ``SimulationCatalog.export``
+Wire it through ``Catalog.export``
 --------------------------------------------
 
-The ``SimulationCatalog.export`` method dispatches on ``fmt``. Add the
+The ``Catalog.export`` method dispatches on ``fmt``. Add the
 new branch in ``hydromodpy/results/catalog/reads.py``:
 
 .. code-block:: python
@@ -115,7 +115,7 @@ Most exporters fall in one of three families:
 - **Bundle**: read both plus the catalog rows. ``.hmp`` is the
   reference (see ``hmp_package.py``).
 
-Reuse the connection handed by ``SimulationCatalog`` rather than
+Reuse the connection handed by ``Catalog`` rather than
 opening a new one. Reuse ``Run.field`` rather than reading raw Zarr
 keys.
 

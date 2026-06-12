@@ -265,15 +265,15 @@ def build_mesh(project: Project, **overrides: object) -> None:
 
 
 def open_catalog(project: Project) -> None:
-    """Open the SimulationCatalog for this workspace (idempotent)."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    """Open the Catalog for this workspace (idempotent)."""
+    from hydromodpy.results.catalog import Catalog
 
     if project._store is not None:
         return
     ws = project._ctx.setup.workspace
     if ws is None:
         return
-    project._store = SimulationCatalog.from_workspace(ws)
+    project._store = Catalog.from_workspace(ws)
     project._project_name = ws.project_root.name
 
 

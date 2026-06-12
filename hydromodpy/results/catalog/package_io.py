@@ -15,7 +15,7 @@ from hydromodpy.results.catalog.audit import audited
 
 
 class PackageIOMixin:
-    """``.hmp`` archive helpers for :class:`SimulationCatalog`."""
+    """``.hmp`` archive helpers for :class:`Catalog`."""
 
     @audited("export")
     def export_package(

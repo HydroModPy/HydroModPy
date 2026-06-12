@@ -1,4 +1,4 @@
-"""Zarr write concern for :class:`SimulationCatalog`.
+"""Zarr write concern for :class:`Catalog`.
 
 Field/time/CRS/mesh and geographic raster writes are forwarded to the
 per-simulation :class:`SimulationZarr` handle opened through

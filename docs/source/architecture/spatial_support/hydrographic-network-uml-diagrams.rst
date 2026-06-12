@@ -96,7 +96,7 @@ From a developer point of view, the most important operational split is:
   ``data.hydrography`` produced one usable vector network.
 - ``store_ingestion.py`` persists the generated role when the geographic
   preprocessing produced one usable DEM-derived network.
-- ``SimulationCatalog`` stores those features under canonical names only.
+- ``Catalog`` stores those features under canonical names only.
 - ``Run`` does not guess. It first exposes the stored roles through
   ``available_hydrographic_network_roles()`` and ``has_hydrographic_network(...)``,
   then only enables comparison if both roles are present.

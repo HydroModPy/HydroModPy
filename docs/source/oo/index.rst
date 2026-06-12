@@ -30,4 +30,4 @@ See Also
 
 - :class:`hydromodpy.project.Project` -- public facade.
 - :class:`hydromodpy.project.state.ProjectState` -- typed runtime container.
-- :class:`hydromodpy.results.catalog.SimulationCatalog` -- workspace catalog.
+- :class:`hydromodpy.results.catalog.Catalog` -- workspace catalog.

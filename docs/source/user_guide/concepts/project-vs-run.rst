@@ -32,7 +32,7 @@ Three levels
      - One simulation result in the project catalog, identified by
        UUID v7. Built by ``project.simulate(**overrides)`` or retrieved
        from ``catalog[sim_ref]`` / ``catalog.best(...)`` /
-       ``SimulationGroup`` queries as a
+       ``RunSet`` queries as a
        :class:`~hydromodpy.results.run.Run`.
 
 Programmatic flow

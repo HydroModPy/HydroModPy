@@ -38,7 +38,7 @@ def _register_demo_sim(catalog, *, project: str, nse: float, sim_name: str):
 def test_open_returns_catalog_with_empty_dataframe(tmp_path: Path) -> None:
     """``hmp.open`` on a fresh directory yields an empty simulations table."""
     with hmp.open(tmp_path / "workspace", create=True) as catalog:
-        assert isinstance(catalog, hmp.SimulationCatalog)
+        assert isinstance(catalog, hmp.Catalog)
         df = catalog.simulations
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
@@ -67,13 +67,13 @@ def test_register_write_query_roundtrip(tmp_path: Path) -> None:
 
 
 def test_find_returns_simulation_group_filtered_by_metric(tmp_path: Path) -> None:
-    """``catalog.find(project=..., nse_gt=...)`` returns a SimulationGroup."""
+    """``catalog.find(project=..., nse_gt=...)`` returns a RunSet."""
     with hmp.open(tmp_path / "workspace", create=True) as catalog:
         sid_good = _register_demo_sim(catalog, project="demo", nse=0.92, sim_name="good")
         _register_demo_sim(catalog, project="demo", nse=0.45, sim_name="bad")
 
         group = catalog.find(project="demo", nse_gt=0.7)
-        assert isinstance(group, hmp.SimulationGroup)
+        assert isinstance(group, hmp.RunSet)
         assert group.sim_ids == [sid_good]
         assert len(group) == 1
 

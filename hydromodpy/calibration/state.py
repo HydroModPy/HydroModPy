@@ -36,9 +36,9 @@ CalibrationStoreFactory = Callable[[Path, object], Any]
 
 def default_store_factory(workspace: Path, persistence: object) -> Any:
     """Open the default calibration store (project catalog DuckDB)."""
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
-    return SimulationCatalog(workspace, persistence=persistence)
+    return Catalog(workspace, persistence=persistence)
 
 
 # ---------------------------------------------------------------------------

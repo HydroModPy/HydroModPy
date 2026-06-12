@@ -42,7 +42,7 @@ def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("hydromodpy.cli.helpers.find_catalog_root", fake_find_catalog_root)
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
     monkeypatch.setattr("hydromodpy.display.get", lambda name: FakeFigure())
 
     output = viz_worker.render_figure("abc123", "head_map", workspace=workspace)
@@ -142,7 +142,7 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
         lambda path: {"display": {"show": True}},
     )
     monkeypatch.setattr("hydromodpy.display.config.DisplayConfig", FakeDisplayConfig)
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
     monkeypatch.setattr(
         "hydromodpy.display.runs.resolve_run_output_dir",
         fake_resolve_run_output_dir,
@@ -222,7 +222,7 @@ def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> N
         lambda path: {"display": {}},
     )
     monkeypatch.setattr("hydromodpy.display.config.DisplayConfig", FakeDisplayConfig)
-    monkeypatch.setattr("hydromodpy.results.catalog.SimulationCatalog", FakeCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
 
     from hydromodpy.results.catalog import AmbiguousReferenceError
 

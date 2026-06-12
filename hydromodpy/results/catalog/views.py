@@ -1,6 +1,6 @@
 """Materialised DuckDB views used by the catalog read path.
 
-These views are installed by :class:`SimulationCatalog` after the migration
+These views are installed by :class:`Catalog` after the migration
 runner has applied the latest DDL. They expose denormalised projections of
 the v2 schema, joining the dimension tables (``solvers``, ``statuses``,
 ``flow_regimes``, ``mesh_topologies``) so callers can keep using the
