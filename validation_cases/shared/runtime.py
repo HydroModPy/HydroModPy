@@ -530,7 +530,7 @@ def resolve_model_workspace(
 
 
 def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
-    """Try to open a SimulationCatalog from a project directory and find its sim_id.
+    """Try to open a Catalog from a project directory and find its sim_id.
 
     Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
     The caller is responsible for closing the store when done.
@@ -540,9 +540,9 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
     db_path = project_path / CATALOG_FILENAME
     if not db_path.exists():
         return None, None
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
-    store = SimulationCatalog(project_path)
+    store = Catalog(project_path)
     sims = store.list_simulations()
     if sims.empty:
         store.close()
@@ -577,7 +577,7 @@ def write_validation_fields_to_store(
     solver_name: str,
     flow_regime: str = "steady",
 ) -> tuple[Any, str | None]:
-    """Write in-memory validation field series to a SimulationCatalog."""
+    """Write in-memory validation field series to a Catalog."""
     payloads = _normalize_validation_field_series(fields)
     if not payloads:
         return None, None
@@ -591,9 +591,9 @@ def write_validation_fields_to_store(
     n_timesteps = max(len(series) for series in payloads.values())
     sim_id = str(uuid.uuid4())
 
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
-    store = SimulationCatalog(out_path)
+    store = Catalog(out_path)
     registration = store.register_simulation(
         sim_id,
         project=Path(out_path).name,
@@ -910,7 +910,7 @@ def run_launcher_validation_case(
                     command=command,
                     completed=completed,
                     workspace_error=AssertionError(
-                        f"Results folder not found and no SimulationCatalog available at {out_path}"
+                        f"Results folder not found and no Catalog available at {out_path}"
                     ),
                 )
             ) from None
