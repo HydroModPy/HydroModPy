@@ -585,6 +585,7 @@ class Pipeline:
             events=events,
             run_id=sim_id,
             step_name="pipeline",
+            sidecar_workspace=self.workspace,
         )
 
 

@@ -119,3 +119,16 @@ def test_pulse_does_not_write_simulation_heartbeat_column(catalog: SimulationCat
     }
     assert "last_heartbeat" not in cols
     assert _read_heartbeat(catalog, sim_id) is not None
+
+
+def test_pulse_writes_and_clears_sidecar(catalog: SimulationCatalog, tmp_path: Path) -> None:
+    from hydromodpy.core.state.paths import running_sidecar_path
+
+    sim_id = "77777777-7777-7777-7777-777777777777"
+    _register_running_sim(catalog, sim_id)
+    events = WorkflowEventStream(catalog)
+    sidecar = running_sidecar_path(tmp_path, sim_id)
+
+    with HeartbeatPulse(sim_id, interval_s=5.0, events=events, sidecar_workspace=tmp_path):
+        assert sidecar.exists()
+    assert not sidecar.exists()

@@ -497,37 +497,100 @@ def import_package_run(package_path: Any, *, workspace: Any, force: bool = False
         return {"sim_id": sid}
 
 
+def _read_running_sidecars(project_root: Path, cutoff_s: float) -> dict[str, dict]:
+    """Read live-run heartbeat sidecars under ``project_root`` keyed by id8.
+
+    Lets ``watch`` see liveness without touching the DuckDB catalog, which a
+    live solve holds locked.
+    """
+    import json
+    from datetime import UTC, datetime
+
+    from hydromodpy.core.state.paths import running_sidecar_dir
+
+    sidecar_dir = running_sidecar_dir(project_root)
+    out: dict[str, dict] = {}
+    if not sidecar_dir.is_dir():
+        return out
+    now = datetime.now(UTC)
+    for path in sidecar_dir.glob("*.json"):
+        sim_id: str | None = None
+        ts: str | None = None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            sim_id = data.get("sim_id")
+            ts = data.get("ts")
+            age_s = max(0.0, (now - datetime.fromisoformat(ts)).total_seconds())
+        except (OSError, ValueError, KeyError):
+            try:
+                age_s = max(0.0, now.timestamp() - path.stat().st_mtime)
+            except OSError:
+                continue
+        out[path.stem] = {
+            "sim_id": sim_id,
+            "ts": ts,
+            "age_s": age_s,
+            "stale": age_s > cutoff_s,
+        }
+    return out
+
+
 def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
     """Return running runs with heartbeat age and a staleness flag.
 
-    A run is ``stale`` when its newest heartbeat is older than
-    ``stale_minutes`` (or it never emitted one), which usually means the
-    process died without finalizing.
+    A run is ``stale`` when neither its sidecar nor its newest DB heartbeat is
+    fresher than ``stale_minutes``, which usually means the process died
+    without finalizing. Sidecars are read first so ``watch`` stays usable even
+    while a solve holds the catalog locked.
     """
-    with _open_project_catalog(workspace) as catalog:
-        rows = catalog._backend.fetch_all(
-            "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
-            "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
-            "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
-            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
-            "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
-            "WHERE st.code = 'running' ORDER BY s.created_at DESC",
-        )
-        cutoff = stale_minutes * 60
-        out = []
-        for sid, name, created_at, last_heartbeat, age_s in rows:
-            stale = age_s is None or float(age_s) > cutoff
-            out.append(
-                {
-                    "sim_id": sid,
-                    "name": name,
-                    "created_at": created_at,
-                    "last_heartbeat": last_heartbeat,
-                    "age_s": None if age_s is None else float(age_s),
-                    "stale": stale,
-                }
+    root = Path(workspace).expanduser().resolve()
+    cutoff = stale_minutes * 60
+    sidecars = _read_running_sidecars(root, cutoff)
+    by_id8: dict[str, dict] = {}
+
+    try:
+        with _open_project_catalog(workspace, read_only=True) as catalog:
+            rows = catalog._backend.fetch_all(
+                "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
+                "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
+                "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
+                "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+                "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
+                "WHERE st.code = 'running' ORDER BY s.created_at DESC",
             )
-        return out
+        for sid, name, created_at, last_heartbeat, age_s in rows:
+            id8 = sid.replace("-", "")[:8]
+            sc = sidecars.get(id8)
+            if sc is not None and not sc["stale"]:
+                stale, eff_age, hb = False, sc["age_s"], sc["ts"]
+            else:
+                stale = age_s is None or float(age_s) > cutoff
+                eff_age = None if age_s is None else float(age_s)
+                hb = last_heartbeat
+            by_id8[id8] = {
+                "sim_id": sid,
+                "name": name,
+                "created_at": created_at,
+                "last_heartbeat": hb,
+                "age_s": eff_age,
+                "stale": stale,
+            }
+    except Exception:
+        # Catalog locked (a live solve) or absent: report from sidecars alone.
+        pass
+
+    for id8, sc in sidecars.items():
+        if id8 in by_id8:
+            continue
+        by_id8[id8] = {
+            "sim_id": sc["sim_id"],
+            "name": None,
+            "created_at": None,
+            "last_heartbeat": sc["ts"],
+            "age_s": sc["age_s"],
+            "stale": sc["stale"],
+        }
+    return list(by_id8.values())
 
 
 def list_trashed(workspace: Any) -> list[dict]:
@@ -769,7 +832,14 @@ def _gc_stale_running_simulations(project_root: Path) -> list[str]:
         rows = []
     finally:
         conn.close()
-    return [f"{project_root.name}:{r[0]!s}" for r in rows]
+    # A fresh heartbeat sidecar means the run is still alive (it just holds the
+    # catalog lock, so its DB heartbeat is invisible to this read-only probe).
+    fresh = {
+        id8 for id8, sc in _read_running_sidecars(project_root, 10 * 60).items() if not sc["stale"]
+    }
+    return [
+        f"{project_root.name}:{r[0]!s}" for r in rows if str(r[0]).replace("-", "")[:8] not in fresh
+    ]
 
 
 def _gc_orphan_geographic_cache(workspace: Path, project_roots: list[Path]) -> list[str]:
@@ -952,6 +1022,10 @@ def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) 
             """,
             [sim_id],
         )
+    # The crashed run left a stale sidecar behind; drop it.
+    from hydromodpy.core.state.paths import running_sidecar_path
+
+    running_sidecar_path(project_root, sim_id).unlink(missing_ok=True)
     return True
 
 

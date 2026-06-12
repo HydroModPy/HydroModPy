@@ -39,6 +39,23 @@ WORKSPACE_TOML_FILENAME = "workspace.toml"
 INDEX_FILENAME = "index.duckdb"
 """Machine-wide global index file living under ``state_dir()``."""
 
+
+def running_sidecar_dir(workspace: Path) -> Path:
+    """Directory of live-run heartbeat sidecars under a project root.
+
+    A solving run keeps ``<workspace>/.hmp/running/<id8>.json`` fresh so
+    ``hmp watch`` and ``gc`` can read liveness from a file, never the DuckDB
+    catalog (which a live solve holds locked).
+    """
+    return Path(workspace) / ".hmp" / "running"
+
+
+def running_sidecar_path(workspace: Path, sim_id: str) -> Path:
+    """Heartbeat sidecar path for a run, keyed by its first 8 hex digits."""
+    id8 = str(sim_id).replace("-", "")[:8]
+    return running_sidecar_dir(workspace) / f"{id8}.json"
+
+
 # Portable URI schemes ------------------------------------------------------
 
 _LOCAL_SCHEMES: tuple[str, ...] = ("file",)
@@ -203,6 +220,8 @@ __all__: Iterable[str] = (
     "from_workspace_relative",
     "is_under_workspace",
     "resolve_workspace",
+    "running_sidecar_dir",
+    "running_sidecar_path",
     "state_dir",
     "to_workspace_relative",
     "to_workspace_uri",
