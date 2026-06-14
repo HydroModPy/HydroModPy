@@ -313,9 +313,14 @@ class _StoreStub:
 
 class _CtxStub:
     def __init__(self, store, sim_id: str = "stub") -> None:
+        from hydromodpy.core.state.execution import ExecutionRegistry
+
         self.store = store
         self.sim_id = sim_id
-        self.execution = SimpleNamespace(simulation_plan=None, lightweight=True)
+        # Use the real ExecutionRegistry so the stub honours the same contract as
+        # WorkflowContext.execution (notably models_by_run_id, which DeriveStep
+        # clears); a bare SimpleNamespace was missing that attribute.
+        self.execution = ExecutionRegistry(simulation_plan=None, lightweight=True)
 
 
 def test_derive_step_runs_registry(tmp_path):

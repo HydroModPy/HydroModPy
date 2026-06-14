@@ -1077,7 +1077,7 @@ def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
 def _vacuum_checkpoint_data_cache(workspace: Path) -> int:
     import duckdb
 
-    from hydromodpy.data.registry._backend import DuckDBCacheBackend
+    from hydromodpy.data.registry import DuckDBCacheBackend
 
     cache_path = workspace / "data" / "cache.duckdb"
     if not cache_path.is_file():
