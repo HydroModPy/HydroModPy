@@ -19,31 +19,52 @@ def _patch_planner(monkeypatch, plan: ResumePlan) -> None:
     monkeypatch.setattr("hydromodpy.workflow.resume.ResumePlanner", _FakePlanner)
 
 
-def test_full_restart_logs_a_warning(tmp_path: Path, monkeypatch, capsys) -> None:
-    plan = ResumePlan(
-        run_id="r",
-        restart_index=0,
-        last_completed=None,
-        invalidated=(),
-        full_restart=True,
-        reason="blueprint mismatch",
+def _capture_logs(monkeypatch) -> dict[str, list[str]]:
+    logs: dict[str, list[str]] = {"warning": [], "info": []}
+
+    def _rec(level: str):
+        def _fn(msg, *args, **kwargs):
+            logs[level].append(msg % args if args else msg)
+
+        return _fn
+
+    monkeypatch.setattr(runner_mod.logger, "warning", _rec("warning"))
+    monkeypatch.setattr(runner_mod.logger, "info", _rec("info"))
+    return logs
+
+
+def test_full_restart_logs_a_warning(tmp_path: Path, monkeypatch) -> None:
+    _patch_planner(
+        monkeypatch,
+        ResumePlan(
+            run_id="r",
+            restart_index=0,
+            last_completed=None,
+            invalidated=(),
+            full_restart=True,
+            reason="blueprint mismatch",
+        ),
     )
-    _patch_planner(monkeypatch, plan)
+    logs = _capture_logs(monkeypatch)
     idx = runner_mod._resolve_resume_step_index(tmp_path / "ws", "r", steps_blueprint=("a", "b"))
     assert idx == 0
-    assert "cannot pick up where it left off" in capsys.readouterr().err
+    assert any("cannot pick up where it left off" in m for m in logs["warning"])
 
 
-def test_clean_resume_does_not_warn(tmp_path: Path, monkeypatch, capsys) -> None:
-    plan = ResumePlan(
-        run_id="r",
-        restart_index=3,
-        last_completed=None,
-        invalidated=(),
-        full_restart=False,
-        reason=None,
+def test_clean_resume_logs_info_not_warning(tmp_path: Path, monkeypatch) -> None:
+    _patch_planner(
+        monkeypatch,
+        ResumePlan(
+            run_id="r",
+            restart_index=3,
+            last_completed=None,
+            invalidated=(),
+            full_restart=False,
+            reason=None,
+        ),
     )
-    _patch_planner(monkeypatch, plan)
+    logs = _capture_logs(monkeypatch)
     idx = runner_mod._resolve_resume_step_index(tmp_path / "ws", "r", steps_blueprint=("a", "b"))
     assert idx == 3
-    assert "cannot pick up" not in capsys.readouterr().err
+    assert logs["warning"] == []
+    assert any("picks up from step 3" in m for m in logs["info"])
