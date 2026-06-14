@@ -48,6 +48,22 @@ def test_import_missing_archive_raises(tmp_path: Path) -> None:
         import_package_run(tmp_path / "absent.hmp", workspace=tmp_path / "ws")
 
 
+def test_export_package_run_records_in_export_log(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    sid = str(uuid.uuid4())
+    with Catalog(src) as catalog:
+        catalog.register_simulation(
+            sid, project="cheze", solver="modflow6", name="baseline", n_cells=4, n_layers=1
+        )
+        catalog.finalize(sid, status="completed", duration_s=1.0)
+
+    export_package_run("baseline", workspace=src, output=str(tmp_path / "paper.hmp"))
+
+    with Catalog(src, read_only=True) as fresh:
+        kinds = [e["kind"] for e in fresh.list_exports(sid)]
+    assert "hmp" in kinds
+
+
 def test_export_multiple_runs_writes_one_archive_each(tmp_path: Path) -> None:
     src = tmp_path / "src"
     names = ["trial-007", "trial-013"]

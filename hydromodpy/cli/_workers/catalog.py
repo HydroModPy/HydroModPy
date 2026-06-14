@@ -460,6 +460,7 @@ def export_package_run(sim_ref: str, *, workspace: Any, output: str | None = Non
         run_name = catalog[sid].name or sid[:8]
         dest = Path(output).expanduser() if output else Path.cwd() / f"{run_name}.hmp"
         produced = catalog.export_package(sid, dest)
+        catalog.record_export(sid, kind="hmp", path=produced)
         return {"sim_id": sid, "path": str(produced)}
 
 
@@ -480,6 +481,7 @@ def export_package_runs(
             sid = catalog.resolve(ref)
             run_name = catalog[sid].name or sid[:8]
             produced = catalog.export_package(sid, out_dir / f"{run_name}.hmp")
+            catalog.record_export(sid, kind="hmp", path=produced)
             results.append({"sim_id": sid, "path": str(produced)})
     return results
 
