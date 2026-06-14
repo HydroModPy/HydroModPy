@@ -298,6 +298,23 @@ def test_adopt_already_registered_raises(catalog):
         catalog.adopt(catalog.parquet_dir_for(sid))
 
 
+def test_adopt_survives_schema_drift_new_column(catalog):
+    # Snapshot written, then the table gains a column the snapshot lacks: adopt
+    # must still work (explicit common-column INSERT), the new column defaulting.
+    sid = _register(catalog, "r")
+    catalog.finalize(sid, status="completed", duration_s=1.0)
+    parquet_dir = catalog.parquet_dir_for(sid)
+    catalog._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+    catalog._backend.execute("ALTER TABLE simulations ADD COLUMN drift_marker VARCHAR")
+
+    assert catalog.adopt(parquet_dir) == sid
+    row = catalog._backend.fetch_one(
+        "SELECT name, drift_marker FROM simulations WHERE sim_id = ?", [sid]
+    )
+    assert row[0] == "r"
+    assert row[1] is None
+
+
 # ---------------------------------------------------------------------------
 # [export].package writes a .hmp while the store is open (regression: the step
 # must package BEFORE finalize closes the store, never with store=None)

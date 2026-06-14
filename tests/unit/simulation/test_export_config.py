@@ -41,6 +41,10 @@ class TestExportConfig:
         with pytest.raises(ValidationError):
             ExportConfig(times="middle")
 
+    def test_times_rejects_empty_list(self):
+        with pytest.raises(ValidationError):
+            ExportConfig(times=[])
+
     def test_output_dir(self):
         cfg = ExportConfig(output_dir="/tmp/exports")
         assert cfg.output_dir == "/tmp/exports"

@@ -497,8 +497,20 @@ class RegistrationMixin:
         sid, project = row[0], row[1]
         if self._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is not None:
             raise ValueError(f"Run {sid[:8]} is already registered")
+        # Insert only the columns common to the live table and the snapshot, in
+        # table order, so a snapshot written under an older or newer schema still
+        # adopts cleanly (removed columns are skipped; new columns take their
+        # default) instead of failing on a ``SELECT *`` column-count mismatch.
+        table_cols = [r[0] for r in self._backend.fetch_all("DESCRIBE simulations")]
+        snap_cols = {
+            r[0] for r in self._backend.fetch_all(f"DESCRIBE SELECT * FROM read_parquet('{posix}')")
+        }
+        col_list = ", ".join(f'"{c}"' for c in table_cols if c in snap_cols)
         with self._backend.transaction():
-            self._backend.execute(f"INSERT INTO simulations SELECT * FROM read_parquet('{posix}')")
+            self._backend.execute(
+                f"INSERT INTO simulations ({col_list}) "
+                f"SELECT {col_list} FROM read_parquet('{posix}')"
+            )
             emit_audit_event(
                 self._db,
                 event_type="import",
