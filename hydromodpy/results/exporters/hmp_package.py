@@ -746,6 +746,7 @@ def import_hmp_package(
     as_project: str | None = None,
     dematerialise_inputs: bool = True,
     dry_run: bool = False,
+    allow_existing_project: bool = False,
 ) -> str:
     """Import a ``.hmp`` archive into the given catalog's workspace.
 
@@ -799,7 +800,7 @@ def import_hmp_package(
         if existing is not None:
             if not force:
                 raise ValueError(f"Simulation '{sid}' already exists. Use force=True to overwrite.")
-        else:
+        elif not allow_existing_project:
             _check_project_conflict(catalog, manifest, as_project)
 
         if dry_run:
@@ -872,6 +873,114 @@ def import_hmp_package(
     return sid
 
 
+def export_hmp_package_multi(
+    catalog: Any,
+    sim_ids: list[str],
+    output_path: Path | str,
+) -> Path:
+    """Export several simulations as one portable multi-run ``.hmp`` archive.
+
+    Each run is bundled as a self-contained single-run archive under
+    ``runs/<sim_id>.hmp`` and listed in a top-level v2.0 manifest. Import reuses
+    the single-run path verbatim, and single-run archives stay readable.
+    """
+    ids = [str(s) for s in sim_ids]
+    if not ids:
+        raise ValueError("export_hmp_package_multi requires at least one sim_id")
+    output = Path(output_path)
+    if output.suffix != ".hmp":
+        output = output.with_suffix(".hmp")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp)
+        runs_dir = staging / "runs"
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        runs_meta: list[dict] = []
+        for sid in ids:
+            inner = export_hmp_package(catalog, sid, runs_dir / f"{sid}.hmp")
+            runs_meta.append(
+                {
+                    "sim_id": sid,
+                    "rel_path": inner.relative_to(staging).as_posix(),
+                    "sha256": _sha256_file(inner),
+                }
+            )
+        manifest = {
+            "format": HMP_MAGIC,
+            "format_version": "2.0",
+            "archive_type": "multi-run",
+            "hydromodpy_version": _hydromodpy_version(),
+            "runs": runs_meta,
+        }
+        (staging / MANIFEST_NAME).write_text(
+            json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        _write_tar_zst(staging, output)
+    logger.info("Exported %d simulations to %s (multi-run)", len(ids), output)
+    return output
+
+
+def import_hmp_package_multi(
+    catalog: Any,
+    package_path: Path | str,
+    *,
+    force: bool = False,
+    dematerialise_inputs: bool = True,
+    dry_run: bool = False,
+) -> list[str]:
+    """Import a ``.hmp`` archive (single-run or multi-run); return the sim_ids.
+
+    A single-run archive (no ``archive_type == "multi-run"``) is delegated to
+    :func:`import_hmp_package`; a multi-run archive restores each nested run
+    after verifying its SHA-256.
+    """
+    pkg = Path(package_path)
+    if not pkg.is_file():
+        raise FileNotFoundError(f"No archive at {pkg}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp)
+        _read_tar_zst(pkg, staging)
+        # A multi-run container carries manifest.json at the archive root with
+        # ``archive_type == "multi-run"``. A single-run archive instead nests its
+        # payload under one top-level directory, so its root manifest is absent.
+        root_manifest = staging / MANIFEST_NAME
+        manifest: dict = {}
+        if root_manifest.is_file():
+            manifest = json.loads(root_manifest.read_text(encoding="utf-8"))
+        if manifest.get("archive_type") != "multi-run":
+            return [
+                import_hmp_package(
+                    catalog,
+                    pkg,
+                    force=force,
+                    dematerialise_inputs=dematerialise_inputs,
+                    dry_run=dry_run,
+                )
+            ]
+        sids: list[str] = []
+        for run in manifest.get("runs", []):
+            inner = staging / run["rel_path"]
+            if not inner.is_file():
+                raise ValueError(f"multi-run archive is missing {run['rel_path']}")
+            if _sha256_file(inner) != run.get("sha256"):
+                raise ValueError(f"checksum mismatch for run {run.get('sim_id')}")
+            # Runs in a container legitimately share a project, so allow the
+            # project to already exist (the per-sim id guard still applies).
+            sids.append(
+                import_hmp_package(
+                    catalog,
+                    inner,
+                    force=force,
+                    dematerialise_inputs=dematerialise_inputs,
+                    dry_run=dry_run,
+                    allow_existing_project=True,
+                )
+            )
+        logger.info("Imported %d simulations from %s (multi-run)", len(sids), pkg)
+        return sids
+
+
 __all__ = [
     "CACHE_DIRNAME",
     "GEOGRAPHIC_SUBDIR",
@@ -881,5 +990,7 @@ __all__ = [
     "INPUTS_MANIFEST_NAME",
     "MANIFEST_NAME",
     "export_hmp_package",
+    "export_hmp_package_multi",
     "import_hmp_package",
+    "import_hmp_package_multi",
 ]

@@ -44,4 +44,6 @@ def run(args: argparse.Namespace) -> None:
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
 
-    print(f"imported {result['sim_id'][:8]}")
+    sids = result["sim_ids"]
+    ids = ", ".join(s[:8] for s in sids)
+    print(f"imported {len(sids)} run(s): {ids}")

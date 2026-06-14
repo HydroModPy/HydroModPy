@@ -464,30 +464,27 @@ def export_package_run(sim_ref: str, *, workspace: Any, output: str | None = Non
         return {"sim_id": sid, "path": str(produced)}
 
 
-def export_package_runs(
-    sim_refs: list[str], *, workspace: Any, output_dir: str | None = None
-) -> list[dict]:
-    """Export several runs as one ``.hmp`` archive each (v1 multi-run export).
+def export_package_runs(sim_refs: list[str], *, workspace: Any, output: str | None = None) -> dict:
+    """Export several runs as ONE portable multi-run ``.hmp`` container.
 
-    Each archive is named ``<run-name>.hmp`` under ``output_dir`` (default: the
-    current directory). A true single-container multi-run archive is a later
-    format bump; for now N references produce N archives.
+    Returns ``{"sim_ids": [...], "path": ...}``. Each run is a self-contained
+    single-run archive nested in the container; ``import`` restores them all.
     """
-    out_dir = Path(output_dir).expanduser() if output_dir else Path.cwd()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    results: list[dict] = []
+    dest = Path(output).expanduser() if output else Path.cwd() / "runs.hmp"
     with _open_project_catalog(workspace) as catalog:
-        for ref in sim_refs:
-            sid = catalog.resolve(ref)
-            run_name = catalog[sid].name or sid[:8]
-            produced = catalog.export_package(sid, out_dir / f"{run_name}.hmp")
+        sids = [catalog.resolve(ref) for ref in sim_refs]
+        produced = catalog.export_package_multi(sids, dest)
+        for sid in sids:
             catalog.record_export(sid, kind="hmp", path=produced)
-            results.append({"sim_id": sid, "path": str(produced)})
-    return results
+    return {"sim_ids": sids, "path": str(produced)}
 
 
 def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
-    """Import a ``.hmp`` archive into the workspace catalog (created if absent)."""
+    """Import a single- or multi-run ``.hmp`` archive (catalog created if absent).
+
+    Returns ``{"sim_ids": [...]}`` (one id for a single-run archive, one per run
+    for a multi-run container).
+    """
     from hydromodpy.results.catalog import Catalog
 
     root = Path(workspace).expanduser().resolve()
@@ -495,8 +492,7 @@ def import_package_run(package_path: Any, *, workspace: Any, force: bool = False
     if not pkg.is_file():
         raise FileNotFoundError(f"No archive at {pkg}")
     with Catalog(root) as catalog:
-        sid = catalog.import_package(pkg, force=force)
-        return {"sim_id": sid}
+        return {"sim_ids": catalog.import_package_multi(pkg, force=force)}
 
 
 def _read_running_sidecars(project_root: Path, cutoff_s: float) -> dict[str, dict]:
