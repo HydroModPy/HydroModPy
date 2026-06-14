@@ -37,7 +37,7 @@ from hydromodpy.simulation.extraction.derivation.derived import (
     _compute_release_accumulation_flux,
     _compute_release_flux,
     _drain_outflow_stack,
-    _positive_cell_flux,
+    _positive_cell_flux_stack,
     compute_derived,
 )
 from tests._helpers.fixtures_catalog import simulation_catalog
@@ -567,24 +567,29 @@ class TestMeshGraphRouting:
 
 
 class TestPositiveCellFlux:
-    """_positive_cell_flux sums only finite, positive per-cell contributions."""
+    """_positive_cell_flux_stack sums only finite, positive per-cell contributions.
+
+    The single-field helper was folded into the time-vectorised stack version;
+    one timestep with shape ``(1, layers, cells)`` reproduces the old behaviour.
+    """
 
     def test_drops_negative_and_nodata_and_sums_layers(self):
         n_cells = 4
-        # two layers stacked: positives kept, negatives/nodata zeroed.
-        field = np.array(
+        # one timestep, two layers: positives kept, negatives/nodata zeroed.
+        stack = np.array(
             [
-                [1.0, -2.0, 3.0, -99999.0],
-                [0.5, 4.0, np.nan, 2.0],
+                [
+                    [1.0, -2.0, 3.0, -99999.0],
+                    [0.5, 4.0, np.nan, 2.0],
+                ]
             ]
-        )
-        out = _positive_cell_flux(field, n_cells=n_cells)
+        )  # shape (time=1, layers=2, cells=4)
+        out = _positive_cell_flux_stack(stack, n_cells=n_cells)[0]
         # cell0: 1.0+0.5; cell1: 0+4.0; cell2: 3.0+0(nan); cell3: 0(nodata)+2.0
         assert np.allclose(out, [1.5, 4.0, 3.0, 2.0])
         assert np.all(out >= 0.0)
         assert out.shape == (n_cells,)
 
-    def test_empty_field_returns_zeros(self):
-        out = _positive_cell_flux(np.array([]), n_cells=3)
-        assert out.shape == (3,)
-        assert np.all(out == 0.0)
+    def test_empty_stack_returns_zeros(self):
+        out = _positive_cell_flux_stack(np.empty((0, 1, 3)), n_cells=3)
+        assert out.shape == (0, 3)

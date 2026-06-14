@@ -29,15 +29,15 @@ def register(subparsers) -> argparse.ArgumentParser:
         "sim_refs",
         nargs="+",
         metavar="SIM_REF",
-        help="One or more run references. Multiple refs write one .hmp each.",
+        help="One or more run references. Multiple refs write one multi-run .hmp container.",
     )
     parser.add_argument(
         "-o",
         "--output",
         default=None,
         help=(
-            "Single ref: destination .hmp path (default <name>.hmp here). "
-            "Multiple refs: output directory for the per-run archives."
+            "Destination .hmp path. Single ref defaults to <name>.hmp; multiple "
+            "refs default to runs.hmp (one container holding every run)."
         ),
     )
     parser.set_defaults(_handler=run)
@@ -52,21 +52,19 @@ def run(args: argparse.Namespace) -> None:
     )
     try:
         if len(args.sim_refs) == 1:
-            results = [
-                export_package_run(args.sim_refs[0], workspace=workspace_root, output=args.output)
-            ]
-        else:
-            results = export_package_runs(
-                args.sim_refs, workspace=workspace_root, output_dir=args.output
+            single = export_package_run(
+                args.sim_refs[0], workspace=workspace_root, output=args.output
             )
+            print(f"wrote {single['path']}  [{single['sim_id'][:8]}]")
+        else:
+            multi = export_package_runs(
+                args.sim_refs, workspace=workspace_root, output=args.output
+            )
+            ids = ", ".join(s[:8] for s in multi["sim_ids"])
+            print(f"wrote {multi['path']}  ({len(multi['sim_ids'])} runs: {ids})")
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
     except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
-
-    for result in results:
-        print(f"wrote {result['path']}  [{result['sim_id'][:8]}]")
-    if len(results) > 1:
-        print(f"{len(results)} archives written")

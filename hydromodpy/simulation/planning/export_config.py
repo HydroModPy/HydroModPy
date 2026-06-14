@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.export_spec import ExportSpec
@@ -111,6 +111,17 @@ class ExportConfig(HydroModelBase):
     def any_enabled(self) -> bool:
         """Return True if at least one export format toggle is enabled."""
         return any([self.netcdf, self.csv_timeseries, self.vtu, self.geotiff, self.shapefile])
+
+    @field_validator("times")
+    @classmethod
+    def _reject_empty_times(cls, value: TimesSelector) -> TimesSelector:
+        """An empty list is a no-op trap; require an explicit selector."""
+        if isinstance(value, list) and not value:
+            raise ValueError(
+                "export.times cannot be an empty list; use 'first', 'last', 'all', "
+                "an index, or a non-empty list of indices."
+            )
+        return value
 
 
 __all__ = [

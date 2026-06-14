@@ -722,9 +722,9 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
         except duckdb.Error:
             continue
         try:
-            stale = conn.execute(
+            stale_rows = conn.execute(
                 """
-                SELECT COUNT(*)
+                SELECT CAST(s.sim_id AS VARCHAR)
                   FROM simulations s
                   JOIN statuses st ON s.status_id = st.id
              LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = s.sim_id
@@ -732,8 +732,22 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
                    AND (wh.last_heartbeat IS NULL OR wh.last_heartbeat < ?)
                 """,
                 [cutoff],
-            ).fetchone()
-            stale_running += int(stale[0]) if stale else 0
+            ).fetchall()
+            # A fresh heartbeat sidecar means the run is still alive (it holds the
+            # catalog lock, so its DB heartbeat is invisible to this read-only
+            # probe); do not flag those as stale.
+            from hydromodpy.cli._workers.catalog import _read_running_sidecars
+
+            fresh = {
+                id8
+                for id8, sc in _read_running_sidecars(
+                    catalog_path.parent, _STALE_HEARTBEAT_MINUTES * 60
+                ).items()
+                if not sc["stale"]
+            }
+            stale_running += sum(
+                1 for (sid,) in stale_rows if str(sid).replace("-", "")[:8] not in fresh
+            )
 
             orphans = conn.execute(
                 """

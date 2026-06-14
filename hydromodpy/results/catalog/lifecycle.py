@@ -270,7 +270,15 @@ class LifecycleMixin:
                 f"TO '{dest_sql}' (FORMAT PARQUET)"
             )
         except Exception as exc:
-            logger.debug("Could not write simulation snapshot for %s: %s", sid[:8], exc)
+            # Surface this: the run is complete but its store will not be
+            # adoptable if it later orphans. We do not fail finalize over a
+            # best-effort recovery aid, but it must be visible, not silent.
+            logger.warning(
+                "Could not write adoption snapshot for sim %s; the store will not "
+                "be re-adoptable if it orphans: %s",
+                sid[:8],
+                exc,
+            )
 
     @with_lock_retry()
     def delete(
