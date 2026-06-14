@@ -107,6 +107,28 @@ def _resolve_resume_step_index(
             catalog.close()
         except Exception:
             pass
+
+    # Make a degraded resume visible: a snapshot-rebuilt config or a changed
+    # pipeline can force a full restart, which otherwise looks like a normal run.
+    if plan.full_restart:
+        logger.warning(
+            "resume %r cannot pick up where it left off (%s); restarting from step 0",
+            run_id,
+            plan.reason or "pipeline or config changed",
+        )
+    elif plan.restart_index == 0:
+        logger.warning(
+            "resume %r found no resumable journal (%s); starting fresh from step 0",
+            run_id,
+            plan.reason or "no journal entries",
+        )
+    else:
+        logger.info(
+            "resume %r picks up from step %d (last completed: %s)",
+            run_id,
+            plan.restart_index,
+            plan.last_completed.step_name if plan.last_completed is not None else "?",
+        )
     return plan.restart_index
 
 
