@@ -103,6 +103,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Run even if a completed run with an identical resolved config "
+            "already exists (default: skip the re-run and point to it)."
+        ),
+    )
+    parser.add_argument(
         "--no-lock",
         action="store_true",
         dest="no_lock",
@@ -294,6 +302,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     frozen = bool(getattr(args, "frozen", False))
     no_lock = bool(getattr(args, "no_lock", False))
     parallel = not bool(getattr(args, "no_parallel", False))
+    force = bool(getattr(args, "force", False))
 
     if dry_run:
         if profile_output is not None:
@@ -348,6 +357,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                     no_display=no_display,
                     frozen=frozen,
                     parallel=parallel,
+                    force=force,
                 )
             else:
                 summary = hmp.run(run_path)
@@ -363,6 +373,16 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
     finally:
         _cleanup_effective_toml(effective_path, source=config_path)
+
+    if isinstance(summary, Mapping) and summary.get("skipped"):
+        sid = str(summary.get("sim_id") or "")
+        label = summary.get("name") or sid[:8]
+        print(
+            f"Config identical to completed run '{label}' [{sid[:8]}]; nothing to do.",
+            file=sys.stderr,
+        )
+        print("Re-run with --force to run it again.", file=sys.stderr)
+        return
 
     if not no_lock:
         _post_run_lockfile_write(run_path, raw_toml)
