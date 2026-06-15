@@ -30,11 +30,15 @@ def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
     """Pull observation timeseries from the loaded-data context.
 
     ``variable`` is the calibration-target variable (``"discharge"``,
-    ``"head"``). Discharge comes from ``hydrometry``, head from
-    ``piezometry``. Returns one ``ObservedSeries`` per station so
-    multi-station calibration works uniformly.
+    ``"head"``, ``"lake_level"``). Discharge comes from ``hydrometry``, head
+    from ``piezometry``, lake level from ``lake_levels``. Returns one
+    ``ObservedSeries`` per station so multi-station calibration works uniformly.
     """
-    field_name = {"discharge": "hydrometry", "head": "piezometry"}.get(variable)
+    field_name = {
+        "discharge": "hydrometry",
+        "head": "piezometry",
+        "lake_level": "lake_levels",
+    }.get(variable)
     if field_name is None:
         return []
     result = getattr(ctx.loaded_data, field_name, None)

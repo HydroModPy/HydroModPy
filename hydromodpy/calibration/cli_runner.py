@@ -28,7 +28,7 @@ import time
 import tomllib
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
@@ -81,6 +81,53 @@ def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
     return CalibrationConfig.model_validate(raw["calibration"]), raw
+
+
+def _assert_parallel_safe(trial_ctx: Any, parallel: int) -> None:
+    """Reject parallel trials on a non-thread-safe solver runner.
+
+    Parallel trials each run an independent solver subprocess (thread + its own
+    sandbox), which is safe. The MODFLOW 6 ``api`` runner instead drives libmf6
+    in-process via BMI, sharing global state across threads, so concurrent
+    trials would corrupt each other. Fail fast with a clear message rather than
+    produce silently wrong results.
+    """
+    if parallel <= 1:
+        return
+    cfg = getattr(getattr(trial_ctx, "ctx", None), "cfg", None)
+    runtime = getattr(getattr(cfg, "modflow6", None), "runtime", None)
+    if getattr(runtime, "mf6_runner", "subprocess") == "api":
+        raise ValueError(
+            "calibration.parallel > 1 is not supported with the MODFLOW 6 'api' "
+            "(libmf6 in-process) runner: concurrent trials would share the BMI "
+            "state. Use mf6_runner='subprocess' (the default) to parallelize "
+            "trials, one independent mf6 process each."
+        )
+
+
+def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) -> None:
+    """Store the calibration observations so the report can draw obs-vs-sim.
+
+    The promoted run writes the simulated series to the catalog; the matching
+    observed series is sim-independent, so it lands once in the ``observations``
+    table keyed by station. Only the lake-level family is wired today; the
+    observed station is prefixed ``lake:<id>`` to line up with the simulated
+    LAK stage station.
+    """
+    if variable != "lake_level":
+        return
+    ctx = getattr(trial_ctx, "ctx", None)
+    write = getattr(catalog, "write_observations", None)
+    if ctx is None or write is None:
+        return
+    from hydromodpy.calibration.metrics.series import load_observed
+
+    for obs in load_observed(ctx, "lake_level"):
+        station = obs.station_id if obs.station_id.startswith("lake:") else f"lake:{obs.station_id}"
+        try:
+            write(station, "lake_level", obs.series, unit="m", quality="observed")
+        except Exception as exc:
+            logger.warning("Could not persist observed lake level %s for report: %s", station, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +189,8 @@ def run_calibration_core(
                 objective_blocks=cfg.objective_blocks or None,
             )
 
+    _assert_parallel_safe(trial_ctx, cfg.parallel)
+
     session_id = uuid.uuid4().hex
     persistence.start_session(
         session_id=session_id,
@@ -192,6 +241,7 @@ def run_calibration_core(
             objective=cfg.objective,
             variable=cfg.variable,
             metric_fn=metric_fn,
+            trial_id=sugg.trial_id,
         )
         # calibration_iterations CHECK accepts only finite lifecycle states.
         # Map "failed" metric errors onto "crashed" for persistence.
@@ -292,6 +342,8 @@ def run_calibration_core(
                 best=best,
                 override_paths=override_paths,
             )
+            if best_sim_id is not None:
+                _persist_observed_for_report(catalog, trial_ctx, cfg.variable)
 
         n_total = len(session.history)
         n_ok = sum(1 for h in session.history if h.status in ("completed", "cached"))

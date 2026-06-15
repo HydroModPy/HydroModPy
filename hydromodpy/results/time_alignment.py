@@ -2,8 +2,34 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
+
+
+def solver_time_index(catalog: Any, sim_id: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
+    """Return the solver's CF ``/time`` axis as a tz-naive ``DatetimeIndex``.
+
+    This is the exact stress-period clock the solver persisted, shared by every
+    field array. Reusing it keeps derived/aggregated series (e.g. the catchment
+    discharge) on the same clock as the native solver series instead of
+    re-deriving a drifting ``date_range(..., periods=n)``.
+
+    Returns ``None`` when the axis is unavailable or its length does not match
+    ``n_timesteps`` so the caller can fall back.
+    """
+    opener = getattr(catalog, "open_zarr", None)
+    if not callable(opener):
+        return None
+    try:
+        with opener(sim_id) as store_zarr:
+            times = store_zarr.read_time()
+    except Exception:
+        return None
+    if times is None or len(times) != int(n_timesteps):
+        return None
+    return pd.DatetimeIndex(times)
 
 
 def normalize_datetime_series(series: pd.Series) -> pd.Series:

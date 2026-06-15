@@ -55,7 +55,7 @@ from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
-OutputSupport = Literal["point", "boundary", "cell"]
+OutputSupport = Literal["point", "boundary", "cell", "lake"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
@@ -244,8 +244,48 @@ class CalibOutputCell(HydroModelBase):
         return self
 
 
+class CalibOutputLake(HydroModelBase):
+    """Observable extracted from a MODFLOW 6 LAK lake stage.
+
+    Use this variant to score a lake water level (stage) inside a composite
+    objective. ``lake_id`` matches the lake declared under
+    ``flow.sinks_sources.lakes.<lake_id>``.
+
+    For calibration against a real observed chronicle, prefer the top-level
+    ``variable = "lake_level"`` path: it loads the ``lake_levels`` data family
+    and time-aligns the simulated stage to the observations. This output
+    variant scores positionally against ``observed_values``, like the other
+    composite outputs.
+    """
+
+    variable: Annotated[Literal["stage"], Profile.USER] = Field(
+        default="stage",
+        description="Simulated lake quantity. Only 'stage' (water level, m) is supported.",
+    )
+    support: Annotated[Literal["lake"], Profile.USER] = Field(
+        default="lake",
+        description="Discriminator tag. 'lake' reads a LAK lake stage by lake_id.",
+    )
+    lake_id: Annotated[str, Profile.USER] = Field(
+        description="Lake identifier, matching flow.sinks_sources.lakes.<lake_id>.",
+    )
+    time: Annotated[OutputTime, Profile.USER] = Field(
+        default="all",
+        description="'all' keeps every time step; 'last' / 'first' selects one; "
+        "a list of ISO timestamps selects specific steps.",
+    )
+    reducer: Annotated[OutputReducer, Profile.USER] = Field(
+        default="none",
+        description="Aggregation over the retained time slice.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Hard-coded observed values (used by twin-synthetic cases).",
+    )
+
+
 CalibOutputDecl: TypeAlias = Annotated[
-    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell,
+    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake,
     Field(
         discriminator="support",
         description="Discriminated union of calibration output variants selected by 'support'.",
@@ -257,7 +297,9 @@ CalibOutputDecl: TypeAlias = Annotated[
 _CALIB_OUTPUT_ADAPTER: TypeAdapter[CalibOutputDecl] = TypeAdapter(CalibOutputDecl)
 
 
-def validate_calib_output(payload: Any) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell:
+def validate_calib_output(
+    payload: Any,
+) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake:
     """Validate one output mapping and return the concrete variant instance."""
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
 
@@ -494,6 +536,7 @@ __all__ = [
     "CalibOutputPoint",
     "CalibOutputBoundary",
     "CalibOutputCell",
+    "CalibOutputLake",
     "CalibObjectiveBlockDecl",
     "SaveRunsMode",
     "ParameterMode",

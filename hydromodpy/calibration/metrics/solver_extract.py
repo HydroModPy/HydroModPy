@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.config import (
         CalibOutputBoundary,
         CalibOutputCell,
+        CalibOutputLake,
         CalibOutputPoint,
     )
 
@@ -64,6 +65,14 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
     return adapter, run_ctx
 
 
+def _adapter_supports_keyword(adapter: Any, keyword: str) -> bool:
+    """Return True when ``extract_calibration_series`` accepts ``keyword``."""
+    signature = inspect.signature(adapter.extract_calibration_series)
+    return keyword in signature.parameters or any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+    )
+
+
 def call_extract_calibration_series(
     adapter: Any,
     run_ctx: RunContext,
@@ -71,9 +80,10 @@ def call_extract_calibration_series(
     variable: str,
     station_cells: Mapping[str, Any] | None = None,
     boundary_id: str | None = None,
+    lake_id: str | None = None,
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.Series:
-    """Call an adapter while enforcing explicit boundary filtering support."""
+    """Call an adapter while enforcing explicit boundary/lake filtering support."""
     kwargs: dict[str, Any] = {
         "variable": variable,
         "time_index": time_index,
@@ -81,16 +91,18 @@ def call_extract_calibration_series(
     if station_cells is not None:
         kwargs["station_cells"] = station_cells
     if boundary_id is not None:
-        signature = inspect.signature(adapter.extract_calibration_series)
-        supports_keyword = "boundary_id" in signature.parameters or any(
-            param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
-        )
-        if not supports_keyword:
+        if not _adapter_supports_keyword(adapter, "boundary_id"):
             raise NotImplementedError(
                 f"Solver {run_ctx.run.solver!r} cannot filter calibration boundary_id="
                 f"{boundary_id!r}"
             )
         kwargs["boundary_id"] = boundary_id
+    if lake_id is not None:
+        if not _adapter_supports_keyword(adapter, "lake_id"):
+            raise NotImplementedError(
+                f"Solver {run_ctx.run.solver!r} cannot extract calibration lake_id={lake_id!r}"
+            )
+        kwargs["lake_id"] = lake_id
     return adapter.extract_calibration_series(run_ctx, None, **kwargs)
 
 
@@ -184,6 +196,25 @@ def extract_boundary(ctx: Any, output: CalibOutputBoundary) -> list[float]:
     )
     if sim.empty:
         raise NotImplementedError("Solver returned no boundary calibration series")
+    return slice_time(sim.values, output.time, output.reducer)
+
+
+def extract_lake(ctx: Any, output: CalibOutputLake) -> list[float]:
+    """Extract a lake stage time series for the lake named by ``output.lake_id``."""
+    resolved = resolve_flow_adapter(ctx)
+    if resolved is None:
+        raise NotImplementedError("No flow solver adapter available for lake extraction")
+    adapter, run_ctx = resolved
+
+    sim = call_extract_calibration_series(
+        adapter,
+        run_ctx,
+        variable="lake_stage",
+        lake_id=str(output.lake_id),
+        time_index=None,
+    )
+    if sim.empty:
+        raise NotImplementedError("Solver returned no lake calibration series")
     return slice_time(sim.values, output.time, output.reducer)
 
 
@@ -362,6 +393,7 @@ __all__ = [
     "extract_point",
     "extract_boundary",
     "extract_cell",
+    "extract_lake",
     "resolve_station_cells",
     "find_cell_at_point",
 ]

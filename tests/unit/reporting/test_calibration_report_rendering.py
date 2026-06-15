@@ -16,6 +16,7 @@ class _Payload:
     best_sim_id: str | None = None
     sim_timeseries: pd.DataFrame | None = None
     obs_timeseries: pd.DataFrame | None = None
+    variable: str = "discharge"
 
 
 class _Figure:
@@ -40,20 +41,23 @@ def _payload(tmp_path: Path) -> _Payload:
     )
 
 
-def test_render_session_raises_when_requested_figure_is_unknown(tmp_path, monkeypatch) -> None:
+def test_render_session_skips_unknown_figure_and_still_writes_html(tmp_path, monkeypatch) -> None:
     import hydromodpy.reporting.calibration_report as report
 
     monkeypatch.setattr(report, "_figure_names", lambda: ["calibration_trace"])
 
-    with pytest.raises(RuntimeError, match="missing_figure: figure is not registered"):
-        report.render_session(
-            _payload(tmp_path),
-            figure_names=["missing_figure"],
-            output_dir=tmp_path / "report",
-        )
+    # An unknown figure is skipped (logged), not fatal: the HTML still renders.
+    written = report.render_session(
+        _payload(tmp_path),
+        figure_names=["missing_figure"],
+        output_dir=tmp_path / "report",
+    )
+    html_path = tmp_path / "report" / "report.html"
+    assert html_path in written
+    assert html_path.exists()
 
 
-def test_render_session_raises_when_registered_figure_fails(tmp_path, monkeypatch) -> None:
+def test_render_session_skips_failing_figure_and_still_writes_html(tmp_path, monkeypatch) -> None:
     import hydromodpy.reporting.calibration_report as report
 
     class _FailingFigure:
@@ -64,15 +68,18 @@ def test_render_session_raises_when_registered_figure_fails(tmp_path, monkeypatc
     monkeypatch.setattr(report, "_figure_names", lambda: ["calibration_trace"])
     monkeypatch.setattr(report, "_get_figure", lambda name: _FailingFigure())
 
-    with pytest.raises(RuntimeError, match="calibration_trace: bad inputs"):
-        report.render_session(
-            _payload(tmp_path),
-            figure_names=["calibration_trace"],
-            output_dir=tmp_path / "report",
-        )
+    # A registered figure that raises is skipped, not fatal.
+    written = report.render_session(
+        _payload(tmp_path),
+        figure_names=["calibration_trace"],
+        output_dir=tmp_path / "report",
+    )
+    html_path = tmp_path / "report" / "report.html"
+    assert html_path in written
+    assert html_path.exists()
 
 
-def test_best_obs_vs_sim_requires_observed_data(tmp_path, monkeypatch) -> None:
+def test_best_obs_vs_sim_skips_when_observed_data_missing(tmp_path, monkeypatch) -> None:
     import hydromodpy.reporting.calibration_report as report
 
     monkeypatch.setattr(report, "_figure_names", lambda: ["calibration_trace"])
@@ -84,12 +91,72 @@ def test_best_obs_vs_sim_requires_observed_data(tmp_path, monkeypatch) -> None:
     )
     payload.obs_timeseries = pd.DataFrame(columns=["datetime", "value"])
 
-    with pytest.raises(ValueError, match="no observed discharge"):
-        report.render_session(
-            payload,
-            figure_names=["calibration_trace"],
-            output_dir=tmp_path / "report",
-        )
+    # Missing observed series skips the obs-vs-sim panel but still renders the report.
+    written = report.render_session(
+        payload,
+        figure_names=["calibration_trace"],
+        output_dir=tmp_path / "report",
+    )
+    figures_dir = tmp_path / "report" / "figures"
+    assert (tmp_path / "report" / "report.html").exists()
+    assert not (figures_dir / "best_obs_vs_sim.png").exists()
+    assert all(p.name != "best_obs_vs_sim.png" for p in written)
+
+
+def test_render_session_renders_lake_level_fit_panel(tmp_path, monkeypatch) -> None:
+    import hydromodpy.reporting.calibration_report as report
+
+    monkeypatch.setattr(report, "_figure_names", lambda: ["calibration_trace"])
+    monkeypatch.setattr(report, "_get_figure", lambda name: _Figure())
+    payload = _payload(tmp_path)
+    payload.variable = "lake_level"
+    payload.best_sim_id = "1" * 32
+    dates = pd.date_range("2019-01-01", periods=5)
+    payload.sim_timeseries = pd.DataFrame(
+        {"datetime": dates, "value": [80.0, 81.0, 82.0, 83.0, 84.0]}
+    )
+    payload.obs_timeseries = pd.DataFrame(
+        {"datetime": dates, "value": [80.1, 81.1, 82.1, 83.1, 84.1]}
+    )
+
+    written = report.render_session(
+        payload,
+        figure_names=["calibration_trace"],
+        output_dir=tmp_path / "report",
+    )
+    fit = tmp_path / "report" / "figures" / "best_lake_level_fit.png"
+    assert fit.exists()
+    assert fit in written
+    assert "best_lake_level_fit.png" in (tmp_path / "report" / "report.html").read_text()
+
+
+def test_flatten_iterations_lifts_params_into_numeric_columns() -> None:
+    import hydromodpy.reporting.calibration_report as report
+
+    rows = [
+        {
+            "iteration": 0,
+            "objective_value": 0.5,
+            "status": "completed",
+            "sim_id": "deadbeef",
+            "parameters": {
+                "K": {"value": 1e-4, "transform": "log"},
+                "bedleak": {"value": 2e-6},
+            },
+        },
+        # parameters as a JSON string (as persisted in DuckDB)
+        {
+            "iteration": 1,
+            "objective_value": 0.3,
+            "parameters": '{"K": {"value": 5e-5}, "bedleak": {"value": 9e-6}}',
+        },
+    ]
+    flat = report._flatten_iterations(rows)
+    assert flat[0] == {"iteration": 0, "objective": 0.5, "K": 1e-4, "bedleak": 2e-6}
+    assert flat[1]["K"] == 5e-5
+    assert flat[1]["bedleak"] == 9e-6
+    # No nested dict / non-numeric leaks through (figures float-convert columns).
+    assert all(isinstance(v, (int, float)) for v in flat[0].values())
 
 
 def test_render_html_escapes_session_rows_figures_and_iteration_preview() -> None:

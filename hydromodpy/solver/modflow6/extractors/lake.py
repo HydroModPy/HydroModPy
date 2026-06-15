@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.obs_common import (
     ordered_unique,
@@ -43,9 +45,14 @@ __all__ = [
     "LakeObsEntry",
     "LakeObsSpec",
     "build_lake_records",
+    "extract_lake_series",
     "lake_station_id",
     "read_lake_meta",
 ]
+
+# Lake scalar states stored in native units (no time scaling). These are the
+# quantities a calibration can target directly from the LAK obs CSV.
+_STATE_QUANTITIES = frozenset({"stage", "volume", "surface_area"})
 
 # Lake quantities reported as a volumetric/areal RATE (length^N / time-unit) that
 # must be divided by seconds_per_time_unit to reach m3/s. Stage (m), volume (m3)
@@ -142,6 +149,61 @@ def read_lake_meta(meta_path: Path) -> LakeObsSpec | None:
         logger.debug("Could not read LAK output meta %s", meta_path, exc_info=True)
         return None
     return LakeObsSpec.from_mapping(payload)
+
+
+def extract_lake_series(
+    output_dir: Path,
+    model_name: str,
+    *,
+    lake_id: str,
+    quantity: str = "stage",
+    time_index: pd.DatetimeIndex | None = None,
+) -> pd.Series:
+    """Return one lake's simulated scalar series read from the LAK obs CSV.
+
+    Reads ``{model_name}.lak.meta.json`` to locate the obs column for
+    ``(lake_id, quantity)`` and pulls that column out of ``{model_name}.lak.obs.csv``.
+    ``quantity`` defaults to ``"stage"`` (water level, m); ``volume`` (m3) and
+    ``surface_area`` (m2) are also accepted. States are returned in native units,
+    never time-scaled. The series carries ``time_index`` when its length matches
+    the obs rows, else a positional index. Used by the calibration extraction
+    path, where Parquet/Zarr writes are skipped.
+    """
+    if quantity not in _STATE_QUANTITIES:
+        raise NotImplementedError(
+            f"Lake calibration supports {sorted(_STATE_QUANTITIES)}, not {quantity!r}."
+        )
+    meta_path = output_dir / f"{model_name}.lak.meta.json"
+    spec = read_lake_meta(meta_path)
+    if spec is None:
+        raise FileNotFoundError(f"LAK output sidecar not found or unreadable: {meta_path}")
+
+    entry = next(
+        (
+            item
+            for item in spec.entries
+            if item.lake_id == lake_id and item.quantity == quantity and item.iconn is None
+        ),
+        None,
+    )
+    if entry is None:
+        known = sorted({item.lake_id for item in spec.entries})
+        raise KeyError(
+            f"No {quantity!r} observation for lake {lake_id!r} in {meta_path.name}. "
+            f"Known lakes: {known}."
+        )
+
+    obs_path = output_dir / spec.obs_csv
+    header, rows = read_obs_csv(obs_path)
+    col_index = {name: pos for pos, name in enumerate(header)}
+    pos = col_index.get(entry.obsname.upper())
+    if pos is None:
+        raise KeyError(f"Column {entry.obsname!r} missing from {obs_path.name}.")
+
+    values = [float(row[pos]) for row in rows if pos < len(row)]
+    if time_index is not None and len(time_index) == len(values):
+        return pd.Series(values, index=time_index, name=quantity)
+    return pd.Series(values, name=quantity)
 
 
 def build_lake_records(

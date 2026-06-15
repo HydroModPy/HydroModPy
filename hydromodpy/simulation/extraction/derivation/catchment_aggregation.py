@@ -295,7 +295,20 @@ def _aggregate_variable(
 
 
 def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.DatetimeIndex:
-    """Build a DatetimeIndex from simulation metadata or synthetic."""
+    """Return the catchment series time axis, sharing the solver's clock.
+
+    The aggregation reduces the Zarr field arrays, so it reuses their CF
+    ``/time`` axis: the exact stress-period timestamps the solver wrote. This
+    keeps the derived catchment series on the same clock as the native solver
+    series (head, stage, budgets) instead of re-deriving a
+    ``date_range(..., periods=n)`` that drifts (n-1 intervals over the window).
+    Falls back to the catalog ``period_start/period_end`` only when the axis is
+    unavailable.
+    """
+    times = _read_solver_time_axis(store, sim_id)
+    if times is not None and len(times) == n_timesteps:
+        return pd.DatetimeIndex(times)
+
     conn = getattr(store, "connection", None) or store._db
     row = conn.execute(
         "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
@@ -307,6 +320,18 @@ def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.Datetim
         f"Simulation {sim_id} is missing period_start/period_end; "
         "cannot write catchment timeseries with synthetic timestamps."
     )
+
+
+def _read_solver_time_axis(store: Any, sim_id: str) -> np.ndarray | None:
+    """Read the persisted CF ``/time`` axis via the injected store (duck-typed)."""
+    opener = getattr(store, "open_zarr", None)
+    if not callable(opener):
+        return None
+    try:
+        with opener(sim_id) as store_zarr:
+            return store_zarr.read_time()
+    except Exception:
+        return None
 
 
 def _detect_n_timesteps(grp) -> int:
