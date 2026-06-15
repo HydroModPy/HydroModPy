@@ -74,7 +74,7 @@ def run(args: argparse.Namespace) -> None:
             print(str(exc), file=sys.stderr)
             sys.exit(EXIT_CONFIG)
         print(result["message"])
-        sys.exit(EXIT_OK)
+        sys.exit(EXIT_OK if result.get("status") == "ok" else EXIT_CONFIG)
     if sub == "prune":
         try:
             counts = hmp.audit_prune(args.workspace, apply=bool(args.prune_apply))
