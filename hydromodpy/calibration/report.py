@@ -15,6 +15,7 @@ Two concerns live here, both purely data-side:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -184,6 +185,7 @@ class SessionReportData:
     best_sim_id: str | None
     sim_timeseries: pd.DataFrame | None
     obs_timeseries: pd.DataFrame | None
+    variable: str = "discharge"
 
 
 # ---------------------------------------------------------------------------
@@ -252,10 +254,15 @@ def load_session_report_data(
     """
     session_row = _load_session(catalog, session_id)
     iterations = _load_iterations(catalog, session_id)
+    variable = _calibration_variable(session_row)
     best_sim_id = _pick_report_sim_id(session_row, iterations)
     sim_df = obs_df = None
     if best_sim_id is not None:
-        sim_df, obs_df = _load_best_discharge(catalog, best_sim_id)
+        sid = _dashed(best_sim_id)
+        if variable == "lake_level":
+            sim_df, obs_df = _load_best_lake_level(catalog, sid)
+        else:
+            sim_df, obs_df = _load_best_discharge(catalog, sid)
     return SessionReportData(
         session_id=session_id,
         session=session_row,
@@ -264,6 +271,7 @@ def load_session_report_data(
         best_sim_id=best_sim_id,
         sim_timeseries=sim_df,
         obs_timeseries=obs_df,
+        variable=variable,
     )
 
 
@@ -278,11 +286,13 @@ def _load_session(catalog: Any, session_id: str) -> dict:
     sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
     row = catalog.connection.execute(
         """
-        SELECT session_id, project, method, objective_name,
-               n_iterations, config, started_at, ended_at, status,
-               best_sim_id, best_objective, duration_s
-          FROM calibration_sessions
-         WHERE session_id = ?
+        SELECT s.session_id, s.project, s.method, s.objective_name,
+               s.n_iterations, s.config, s.started_at, s.ended_at,
+               st.code AS status,
+               s.best_sim_id, s.best_objective, s.duration_s
+          FROM calibration_sessions s
+          LEFT JOIN statuses st ON st.id = s.status_id
+         WHERE s.session_id = ?
         """,
         [sid],
     ).fetchone()
@@ -309,6 +319,66 @@ def _load_iterations(catalog: Any, session_id: str) -> list[dict]:
     from hydromodpy.calibration.persistence import CalibrationPersistence
 
     return CalibrationPersistence(catalog).load_iterations(session_id)
+
+
+def _calibration_variable(session_row: dict) -> str:
+    """Return the calibrated variable from the persisted session config."""
+    config = session_row.get("config")
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except (TypeError, ValueError):
+            config = {}
+    if isinstance(config, dict):
+        return str(config.get("variable", "discharge"))
+    return "discharge"
+
+
+def _dashed(value: Any) -> str:
+    """Normalize a sim id to the dashed UUID form stored in the catalog."""
+    import uuid
+
+    hexed = _hex(value)
+    try:
+        return str(uuid.UUID(hexed))
+    except ValueError:
+        return str(value)
+
+
+def _load_best_lake_level(
+    catalog: Any, sim_id: str
+) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+    """Return (simulated stage, observed lake level) for ``sim_id``.
+
+    The simulated LAK stage comes from the catalog ``timeseries`` (one
+    ``lake:<id>`` station per lake); the observed series comes from the
+    ``observations`` table populated at promotion. Either side may be ``None``
+    when the catalog has no matching rows.
+    """
+    try:
+        stations = catalog.backend.query(
+            "SELECT DISTINCT station_id FROM timeseries "
+            "WHERE sim_id = ? AND variable = 'stage' AND station_id LIKE 'lake:%' "
+            "ORDER BY station_id",
+            [sim_id],
+        )
+        if stations.empty:
+            return None, None
+        station = str(stations.iloc[0, 0])
+        sim_df = catalog.backend.query(
+            "SELECT time AS datetime, value FROM timeseries "
+            "WHERE sim_id = ? AND station_id = ? AND variable = 'stage' ORDER BY timestep",
+            [sim_id, station],
+        )
+        obs_df = catalog.backend.query(
+            "SELECT datetime, value FROM observations "
+            "WHERE station_id = ? AND variable_type = 'lake_level' ORDER BY datetime",
+            [station],
+        )
+    except Exception as exc:
+        logger.warning("best_lake_level: catalog query failed: %s", exc)
+        return None, None
+    return sim_df, obs_df
 
 
 def _load_best_discharge(

@@ -65,6 +65,9 @@ class SessionReportPayload(Protocol):
     @property
     def obs_timeseries(self) -> pd.DataFrame | None: ...
 
+    @property
+    def variable(self) -> str: ...
+
 
 _DEFAULT_FIGURE_NAMES: tuple[str, ...] = (
     "calibration_convergence",
@@ -127,15 +130,26 @@ def render_session(
     written.extend(path for _, path in rendered)
 
     if session_data.best_sim_id is not None:
-        obs_vs_sim_path = _render_best_obs_vs_sim(
-            sim_id=session_data.best_sim_id,
-            sim_df=session_data.sim_timeseries,
-            obs_df=session_data.obs_timeseries,
-            figures_dir=figures_dir,
-        )
-        if obs_vs_sim_path is not None:
-            rendered.append(("best_obs_vs_sim", obs_vs_sim_path))
-            written.append(obs_vs_sim_path)
+        variable = getattr(session_data, "variable", "discharge")
+        if variable == "lake_level":
+            panel_path = _render_best_lake_level(
+                sim_id=session_data.best_sim_id,
+                sim_df=session_data.sim_timeseries,
+                obs_df=session_data.obs_timeseries,
+                figures_dir=figures_dir,
+            )
+            panel_name = "best_lake_level_fit"
+        else:
+            panel_path = _render_best_obs_vs_sim(
+                sim_id=session_data.best_sim_id,
+                sim_df=session_data.sim_timeseries,
+                obs_df=session_data.obs_timeseries,
+                figures_dir=figures_dir,
+            )
+            panel_name = "best_obs_vs_sim"
+        if panel_path is not None:
+            rendered.append((panel_name, panel_path))
+            written.append(panel_path)
 
     html_path = out_dir / "report.html"
     html_path.write_text(
@@ -164,7 +178,7 @@ class _SessionRunStub:
 
     def __init__(self, session_id: str, iterations: list[dict]) -> None:
         self.session_id = session_id
-        self._iterations = iterations
+        self._iterations = _flatten_iterations(iterations)
         self.name = f"calibration_{session_id[:8]}"
         self.sim_id = session_id
 
@@ -175,9 +189,45 @@ class _SessionRunStub:
     def timeseries(self, variable: str, station: str | None = None):  # noqa: ARG002
         import pandas as pd
 
-        values = [row["objective_value"] for row in self._iterations]
+        values = [row.get("objective", float("nan")) for row in self._iterations]
         idx = pd.RangeIndex(len(values), name="iteration")
         return pd.DataFrame({variable: values}, index=idx)
+
+
+def _flatten_iterations(iterations: list[dict]) -> list[dict]:
+    """Lift each iteration's nested ``parameters`` into numeric columns.
+
+    The registered ``calibration_*`` figures consume one DataFrame row per
+    iteration with one column per parameter plus an ``objective`` column. The
+    persisted rows instead carry the parameters as a nested mapping (or a JSON
+    string), so this flattens them: ``{"K": value, "bedleak": value,
+    "objective": cost, "iteration": i}``. Non-numeric or missing values are
+    dropped so the figures never try to plot a string.
+    """
+    flat: list[dict] = []
+    for row in iterations:
+        rec: dict[str, Any] = {"iteration": row.get("iteration")}
+        obj = row.get("objective_value")
+        if obj is not None:
+            try:
+                rec["objective"] = float(obj)
+            except (TypeError, ValueError):
+                pass
+        params = row.get("parameters") or {}
+        if isinstance(params, str):
+            try:
+                params = json.loads(params)
+            except (TypeError, ValueError):
+                params = {}
+        if isinstance(params, dict):
+            for pname, pinfo in params.items():
+                value = pinfo.get("value") if isinstance(pinfo, dict) else pinfo
+                try:
+                    rec[str(pname)] = float(value)
+                except (TypeError, ValueError):
+                    continue
+        flat.append(rec)
+    return flat
 
 
 def _render_figures(
@@ -214,7 +264,14 @@ def _render_figures(
         else:
             failures.append(f"{figure_name}: no output file was written")
     if failures:
-        raise RuntimeError("Calibration report figure rendering failed: " + "; ".join(failures))
+        # A figure that does not fit this session (too few parameters, a
+        # hard-coded parameter default, a degenerate surface) is skipped, not
+        # fatal: the report still renders every figure that did succeed.
+        logger.warning(
+            "calibration report: skipped %d figure(s): %s",
+            len(failures),
+            "; ".join(failures),
+        )
     return rendered
 
 
@@ -224,12 +281,16 @@ def _render_best_obs_vs_sim(
     sim_df: pd.DataFrame | None,
     obs_df: pd.DataFrame | None,
     figures_dir: Path,
-) -> Path:
+) -> Path | None:
     """Plot observed vs simulated discharge for the best promoted run.
 
     The simulated column already includes the ``DRN + runoff``
     aggregation. The figure shows a time-series panel and a 1:1 scatter
     side by side, in m³/s, restricted to the simulation window.
+
+    Returns ``None`` (and skips the panel) when the catalog has no matching
+    simulated or observed series, so a session without persisted observations
+    still renders the rest of the report instead of crashing.
     """
     import matplotlib
 
@@ -239,9 +300,11 @@ def _render_best_obs_vs_sim(
     import pandas as pd
 
     if sim_df is None or sim_df.empty:
-        raise ValueError(f"best_obs_vs_sim: no simulated discharge for sim {sim_id}")
+        logger.info("best_obs_vs_sim: no simulated discharge for sim %s; skipping panel", sim_id)
+        return None
     if obs_df is None or obs_df.empty:
-        raise ValueError(f"best_obs_vs_sim: no observed discharge for sim {sim_id}")
+        logger.info("best_obs_vs_sim: no observed discharge for sim %s; skipping panel", sim_id)
+        return None
 
     sim = normalize_datetime_series(
         pd.Series(sim_df["value"].values, index=pd.DatetimeIndex(sim_df["datetime"]))
@@ -299,6 +362,51 @@ def _render_best_obs_vs_sim(
     fig.tight_layout()
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
+    return out_path
+
+
+def _render_best_lake_level(
+    *,
+    sim_id: str,
+    sim_df: pd.DataFrame | None,
+    obs_df: pd.DataFrame | None,
+    figures_dir: Path,
+) -> Path | None:
+    """Plot observed vs simulated lake level (stage) for the best promoted run.
+
+    Reuses the shared ``plot_lake_level_fit`` display figure. Returns ``None``
+    (and skips the panel) when the catalog has no simulated stage or no
+    persisted observed lake level for the run.
+    """
+    import pandas as pd
+
+    from hydromodpy.display.figures.lake_level_fit import plot_lake_level_fit
+
+    if sim_df is None or sim_df.empty:
+        logger.info("best_lake_level: no simulated stage for sim %s; skipping panel", sim_id)
+        return None
+    if obs_df is None or obs_df.empty:
+        logger.info("best_lake_level: no observed lake level for sim %s; skipping panel", sim_id)
+        return None
+
+    sim = pd.Series(
+        sim_df["value"].to_numpy(),
+        index=pd.DatetimeIndex(sim_df["datetime"]),
+        name="stage",
+    )
+    obs = pd.Series(
+        obs_df["value"].to_numpy(),
+        index=pd.DatetimeIndex(obs_df["datetime"]),
+        name="lake_level",
+    )
+    out_path = figures_dir / "best_lake_level_fit.png"
+    plot_lake_level_fit(
+        obs,
+        sim,
+        out_path=out_path,
+        lake_id="lake",
+        title=f"Best run lake level vs observation - sim_id={sim_id[:8]}",
+    )
     return out_path
 
 
