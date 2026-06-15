@@ -35,6 +35,36 @@ def run_comparison(config_path: str | Path) -> dict[str, Any]:
     return run_comparison_config(config_path)
 
 
+def _completed_run_with_same_config(project: Any) -> tuple[str | None, str] | None:
+    """Return ``(name, sim_id)`` of a completed run whose resolved config is
+    byte-identical to ``project``'s, or None.
+
+    Mirrors the ``config_hash`` the catalog records at registration
+    (``sha256`` of the resolved config JSON). Read-only and fail-open: any
+    error returns None so the run proceeds normally.
+    """
+    import hashlib
+    import json
+
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import Catalog
+
+    try:
+        config_dict = project.config.model_dump(mode="json")
+        config_hash = hashlib.sha256(json.dumps(config_dict, sort_keys=True).encode()).hexdigest()
+        root = Path(project.config.workspace.project_root)
+        if not (root / CATALOG_FILENAME).exists():
+            return None
+        with Catalog(root, read_only=True) as catalog:
+            matches = catalog.find(config_hash=config_hash, status="completed")
+            if len(matches) == 0:
+                return None
+            run = matches[0]
+            return (run.name, run.sim_id)
+    except Exception:
+        return None
+
+
 def run_simulation(
     config_path: str | Path,
     *,
@@ -45,8 +75,14 @@ def run_simulation(
     frozen: bool = False,
     dry_run: bool = False,
     parallel: bool = True,
+    force: bool = False,
 ) -> dict[str, Any]:
-    """Execute a single simulation from a TOML file."""
+    """Execute a single simulation from a TOML file.
+
+    A plain run whose resolved config matches an already-completed run is
+    skipped (returns a ``{"skipped": True, ...}`` summary) unless ``force`` is
+    set; resume / partial / dry runs always proceed.
+    """
     from hydromodpy.project import Project
 
     with Project(config_path, no_display=no_display) as project:
@@ -54,6 +90,18 @@ def run_simulation(
         # run_-stripped TOML stem at config load). Honour it so the CLI matches
         # the Python API and the declared name is not silently dropped.
         run_name = project.config.simulation.name or Path(config_path).stem
+        plain_run = (
+            not force
+            and resume is None
+            and from_step is None
+            and until_step is None
+            and not dry_run
+        )
+        if plain_run:
+            existing = _completed_run_with_same_config(project)
+            if existing is not None:
+                exist_name, exist_sid = existing
+                return {"skipped": True, "name": exist_name, "sim_id": exist_sid}
         result = project.simulate(
             name=run_name,
             resume=resume,
