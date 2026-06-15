@@ -33,12 +33,17 @@ ALTER TABLE simulations ADD COLUMN version_int   INTEGER;
 ALTER TABLE simulations ADD COLUMN trashed_at    TIMESTAMPTZ;
 ALTER TABLE simulations ADD COLUMN original_name VARCHAR;
 
+-- Create the index on the (still NULL) columns BEFORE backfilling them.
+-- DuckDB refuses CREATE INDEX on a pre-existing table that has outstanding
+-- (uncommitted) row updates in the same transaction, and the runner wraps
+-- every migration in one transaction; building the index first and letting
+-- the UPDATE maintain it incrementally sidesteps that limitation.
+CREATE INDEX ix_sim_name_stem ON simulations(project, name_stem, version_int);
+
 UPDATE simulations
 SET name_stem   = regexp_replace(name, '\.v[0-9]+$', ''),
     version_int = coalesce(try_cast(regexp_extract(name, '\.v([0-9]+)$', 1) AS INTEGER), 1)
 WHERE name IS NOT NULL;
-
-CREATE INDEX ix_sim_name_stem ON simulations(project, name_stem, version_int);
 
 -- ---------------------------------------------------------------------
 -- audit_log: widen event_type CHECK (DuckDB cannot ALTER a CHECK, so

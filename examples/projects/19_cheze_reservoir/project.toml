@@ -11,7 +11,9 @@
 #
 # Meteo comes from the SIM2 Meteo-France API (recharge), fetched at run time.
 # Lake geometry, abacus and the managed inflow/withdrawal series live under
-# the shared examples/data/ tree.
+# the shared examples/data/ tree: this project sits at
+# <workspace>/projects/<name>/, so bare filenames resolve against
+# <workspace>/data/<variable>/ (workspace data convention).
 # ======================================================================
 
 [workflow]
@@ -45,7 +47,7 @@ dem_correc_type = "breach"
 [geographic.catchment]
 catch_def = "from_outlet_coord"
 # Shared regional DEM (Armorican massif), reused from the Canut example.
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+dem_init_path = "DEM_armorican_massif.tif"
 # Outlet just downstream of the dam ("pont romain"), legacy from_xyv.
 x_outlet = 331315.0
 y_outlet = 6781273.0
@@ -113,21 +115,22 @@ extent = "watershed"
 # Reservoir footprint polygon (EPSG:2154) -> LAK cell selection.
 [[data.lake_geometry.sources]]
 source = "custom"
-path = "../../data/lake_geometry/reservoir_cheze.gpkg"
+path = "reservoir_cheze.gpkg"
 
 # Stage-volume-area abacus -> ModflowUtllaktab.
 [[data.lake_abacus.sources]]
 source = "custom"
-path = "../../data/lake_abacus/reservoir_cheze.csv"
+path = "reservoir_cheze.csv"
 lake_id = "reservoir_cheze"
 
-# Managed transfers INTO the lake (Meu + Canut), m3/day.
+# Managed transfers INTO the lake (Meu + Canut), m3/day. The path names the
+# <workspace>/data/lake_inflow/ directory (location file + chronicle CSVs).
 [data.lake_inflow]
 date_start = "2019-01-01"
 date_end = "2019-12-31"
 [[data.lake_inflow.sources]]
 source = "custom"
-path = "../../data/lake_inflow"
+path = "lake_inflow"
 
 # Managed abstraction + restitution leaving the lake, m3/day.
 [data.lake_withdrawal]
@@ -135,7 +138,7 @@ date_start = "2019-01-01"
 date_end = "2019-12-31"
 [[data.lake_withdrawal.sources]]
 source = "custom"
-path = "../../data/lake_withdrawal"
+path = "lake_withdrawal"
 
 # ---------------------------------------------------------------------- flow
 [flow]

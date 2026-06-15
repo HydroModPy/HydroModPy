@@ -50,7 +50,10 @@ def run_simulation(
     from hydromodpy.project import Project
 
     with Project(config_path, no_display=no_display) as project:
-        run_name = Path(config_path).stem
+        # ``[simulation] name`` is the single identity entry (it defaults to the
+        # run_-stripped TOML stem at config load). Honour it so the CLI matches
+        # the Python API and the declared name is not silently dropped.
+        run_name = project.config.simulation.name or Path(config_path).stem
         result = project.simulate(
             name=run_name,
             resume=resume,

@@ -625,20 +625,33 @@ def _path_size(path: Path) -> int:
 
 
 def _gc_resolve_workspace(workspace: Any) -> Path:
-    import sys as _sys
+    import os
 
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
+    from hydromodpy.cli.helpers import find_workspace_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.data.scaffold import DEFAULT_ROOT
 
     if workspace is not None:
         root = Path(workspace).expanduser().resolve()
         if not root.is_dir():
             raise FileNotFoundError(f"Workspace {root} does not exist.")
         return root
-    try:
-        return _resolve_ws(None)
-    except SystemExit:  # pragma: no cover - defensive
-        print("Workspace resolution failed", file=_sys.stderr)
-        raise
+    # Auto-detect from cwd like the other catalog verbs (ls/show/diff) rather
+    # than defaulting straight to ~/hydromodpy: walk up to the workspace root,
+    # or stay on a bare project directory that carries its own catalog.
+    start = Path(os.environ.get("HMP_WORKSPACE") or Path.cwd()).expanduser().resolve()
+    if (start / CATALOG_FILENAME).is_file():
+        return start
+    found = find_workspace_root(start)
+    if (found / "projects").is_dir() or (found / "data").is_dir():
+        return found
+    default = Path(DEFAULT_ROOT).expanduser().resolve()
+    if not default.is_dir():
+        raise FileNotFoundError(
+            f"No workspace found from {start} and the default {default} does not exist. "
+            "Pass --workspace or run 'hmp workspace init' first."
+        )
+    return default
 
 
 def _gc_iter_project_roots(workspace: Path) -> list[Path]:

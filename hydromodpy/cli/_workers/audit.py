@@ -27,9 +27,9 @@ def audit_list(
     sql = "SELECT * FROM audit_log"
     params: list[object] = []
     if since:
-        sql += " WHERE event_ts >= ?"
+        sql += " WHERE occurred_at >= ?"
         params.append(since)
-    sql += " ORDER BY event_ts DESC LIMIT ?"
+    sql += " ORDER BY occurred_at DESC LIMIT ?"
     params.append(int(limit))
     conn = duckdb.connect(str(catalog_path), read_only=True)
     try:
@@ -41,12 +41,16 @@ def audit_list(
 def audit_verify(workspace: Any = None, *, strict: bool = False) -> dict:
     """Verify the workspace audit log hash chain.
 
-    Returns ``{"status": "ok"|"placeholder"|"missing", "message": str}``.
+    Recomputes the chain through
+    :func:`hydromodpy.results.catalog.audit.verify_chain` and returns
+    ``{"status": "ok"|"failed", "message": str}``. With ``strict`` a broken
+    chain raises ``RuntimeError`` instead of returning a ``failed`` status.
     """
     import duckdb
 
     from hydromodpy.cli.helpers import find_catalog_root
     from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog.audit import verify_chain
 
     workspace_root = find_catalog_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
@@ -56,12 +60,12 @@ def audit_verify(workspace: Any = None, *, strict: bool = False) -> dict:
         raise FileNotFoundError(f"No catalog at {workspace_root}")
     conn = duckdb.connect(str(catalog_path), read_only=True)
     try:
-        cols = [row[0] for row in conn.execute("PRAGMA table_info(audit_log)").fetchall()]
+        ok = verify_chain(conn)
     finally:
         conn.close()
-    if "hash_chain" not in cols and "row_hash" not in cols:
-        msg = "hash chain not yet wired into audit_log"
-        if strict:
-            raise RuntimeError(msg)
-        return {"status": "placeholder", "message": msg}
-    return {"status": "ok", "message": "audit_log hash chain verifies (placeholder check)"}
+    if ok:
+        return {"status": "ok", "message": "audit_log hash chain verifies"}
+    msg = "audit_log hash chain verification FAILED"
+    if strict:
+        raise RuntimeError(msg)
+    return {"status": "failed", "message": msg}

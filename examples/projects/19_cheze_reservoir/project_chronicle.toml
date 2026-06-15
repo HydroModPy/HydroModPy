@@ -43,7 +43,9 @@ dem_correc_type = "breach"
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+# Bare filename: resolved via the workspace data convention into
+# <workspace>/data/dem/ (this project sits at <workspace>/projects/<name>/).
+dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 331315.0
 y_outlet = 6781273.0
 snap_dist = "200 m"
@@ -101,21 +103,23 @@ extent = "watershed"
 # Reservoir footprint polygon (EPSG:2154) -> LAK cell selection.
 [[data.lake_geometry.sources]]
 source = "custom"
-path = "../../data/lake_geometry/reservoir_cheze.gpkg"
+path = "reservoir_cheze.gpkg"
 
 # Stage-volume-area abacus -> ModflowUtllaktab.
 [[data.lake_abacus.sources]]
 source = "custom"
-path = "../../data/lake_abacus/reservoir_cheze.csv"
+path = "reservoir_cheze.csv"
 lake_id = "reservoir_cheze"
 
-# Managed transfers INTO the lake (Meu + Canut), m3/day, full chronicle.
+# Managed transfers INTO the lake (Meu + Canut), m3/day, full chronicle. The
+# path names the <workspace>/data/lake_inflow/ directory (location file +
+# chronicle CSVs).
 [data.lake_inflow]
 date_start = "2007-01-01"
 date_end = "2025-12-31"
 [[data.lake_inflow.sources]]
 source = "custom"
-path = "../../data/lake_inflow"
+path = "lake_inflow"
 
 # Managed abstraction + restitution leaving the lake, m3/day, full chronicle.
 [data.lake_withdrawal]
@@ -123,7 +127,7 @@ date_start = "2007-01-01"
 date_end = "2025-12-31"
 [[data.lake_withdrawal.sources]]
 source = "custom"
-path = "../../data/lake_withdrawal"
+path = "lake_withdrawal"
 
 # ---------------------------------------------------------------------- flow
 [flow]

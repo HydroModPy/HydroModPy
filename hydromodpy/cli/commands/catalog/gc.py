@@ -18,7 +18,12 @@ HELP: str = "Maintenance: expire trash, drop orphan stores, replay purges, compa
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument("--workspace", default=None, help="Workspace root")
+    parser.add_argument(
+        "-w",
+        "--workspace",
+        default=None,
+        help="Workspace root or project directory (default: auto-detect from cwd)",
+    )
     parser.add_argument(
         "--apply",
         action="store_true",
