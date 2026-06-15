@@ -35,6 +35,20 @@ from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.internals.step import Step  # noqa: F401
 
+
+@pytest.fixture(scope="module", autouse=True)
+def _ensure_bootstrap():
+    """Register the deferred runtime hooks the trial primitive needs.
+
+    ``import hydromodpy`` only installs the bootstrap hook; providers such as
+    ``TrialPipelineProvider`` are wired on first real use. Trigger it here so
+    these tests do not depend on suite-ordering side effects.
+    """
+    import hydromodpy
+
+    hydromodpy.bootstrap()
+
+
 # ---------------------------------------------------------------------------
 # Tiny cfg/ctx doubles that look enough like the real thing for the tests
 # ---------------------------------------------------------------------------
@@ -209,6 +223,17 @@ class TestFork:
         assert forked.ctx.loaded_data is trial_ctx.ctx.loaded_data
         assert forked.ctx.loaded_data.hydrometry is hydro
 
+    def test_flow_runtime_overrides_seed_the_forked_setup(self, tmp_path: Path) -> None:
+        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
+        overrides = {"model_name_override": "toy_trial000001"}
+        forked = trial_ctx.fork({"K": 1.0}, flow_runtime_overrides=overrides)
+        assert forked.ctx.setup.flow_runtime_overrides == overrides
+        # A copy, not the caller's dict.
+        assert forked.ctx.setup.flow_runtime_overrides is not overrides
+        # Without overrides the forked setup resets them to None (legacy default).
+        plain = trial_ctx.fork({"K": 1.0})
+        assert plain.ctx.setup.flow_runtime_overrides is None
+
 
 # ---------------------------------------------------------------------------
 # run_trial_light - scheduling + no-disk-I/O
@@ -274,6 +299,46 @@ class TestRunTrialLight:
         result = run_trial_light(trial_ctx, {"K": 1.0}, metric_fn=_metric)
         assert result.primary_metric == pytest.approx(0.42)
         assert result.metrics == {"nse@outlet": 0.58}
+
+    def test_trials_get_isolated_model_identity_and_cleanup(self, tmp_path: Path) -> None:
+        """Each trial gets a unique model_name_override and its outputs are cleaned."""
+        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
+        trial_ctx.ctx.setup.run_id = "toy"
+
+        seen: list[str] = []
+        created: list[Path] = []
+
+        def _capture(ctx, *, objective, variable):
+            name = ctx.setup.flow_runtime_overrides["model_name_override"]
+            seen.append(name)
+            # Simulate the solver having written an output folder for this run.
+            out = tmp_path / name
+            out.mkdir(parents=True, exist_ok=True)
+            ctx.execution.output_dirs_by_run_id["run"] = out
+            created.append(out)
+            return 0.0, {}
+
+        r1 = run_trial_light(trial_ctx, {"K": 1.0}, metric_fn=_capture, trial_id=1)
+        r2 = run_trial_light(trial_ctx, {"K": 2.0}, metric_fn=_capture, trial_id=2)
+
+        assert r1.status == "completed" and r2.status == "completed"
+        # Distinct, deterministic per-trial model identities.
+        assert seen == ["toy_trial000001", "toy_trial000002"]
+        # Ephemeral: each trial's solver output is removed on exit.
+        assert all(not d.exists() for d in created)
+
+    def test_trial_without_id_has_no_overrides(self, tmp_path: Path) -> None:
+        """trial_id=None keeps the legacy path: no sandbox, no overrides."""
+        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
+
+        captured: dict[str, object] = {}
+
+        def _capture(ctx, *, objective, variable):
+            captured["overrides"] = ctx.setup.flow_runtime_overrides
+            return 0.0, {}
+
+        run_trial_light(trial_ctx, {"K": 1.0}, metric_fn=_capture)
+        assert captured["overrides"] is None
 
 
 # ---------------------------------------------------------------------------
