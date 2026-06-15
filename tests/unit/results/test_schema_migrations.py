@@ -180,6 +180,76 @@ def test_migration_model_rejects_extra_fields(tmp_path: Path) -> None:
         )
 
 
+def test_lifecycle_migration_applies_on_populated_catalog(tmp_path: Path) -> None:
+    """Migration 0007 must apply when ``simulations`` already holds rows.
+
+    Regression: 0007 backfills ``name_stem``/``version_int`` with an
+    ``UPDATE simulations`` and then builds ``ix_sim_name_stem`` in the same
+    transaction. DuckDB rejects ``CREATE INDEX`` on a pre-existing table that
+    has outstanding row updates, so the migration crashed on any non-empty
+    catalog. An empty table makes the UPDATE a no-op, which hid the bug from
+    the empty-DB migration tests.
+    """
+    import shutil
+
+    from hydromodpy.results.catalog.migrations import MIGRATIONS_DIR
+
+    # Stage migrations 1..6 (pre-lifecycle) in an isolated dir, reach v6.
+    pre = tmp_path / "pre"
+    pre.mkdir()
+    for migration in discover_migrations(MIGRATIONS_DIR):
+        if migration.version <= 6:
+            shutil.copy(migration.sql_path, pre / migration.sql_path.name)
+
+    db_path = tmp_path / "catalog.duckdb"
+    conn = duckdb.connect(str(db_path))
+    try:
+        ensure_schema(conn, versions_dir=pre)
+        assert current_version(conn) == 6
+
+        # Seed a real simulation row and an audit row so the 0007 backfill and
+        # the audit_log table rebuild both operate on outstanding data.
+        conn.execute(
+            "INSERT INTO simulations "
+            "(sim_id, name, project, solver_id, status_id, zarr_path, "
+            " zarr_packed, storage_basename) VALUES "
+            "(gen_random_uuid(), 'baseline.v2', 'demo', 1, 3, 's.zarr', "
+            " false, 'demo__abcd1234')"
+        )
+        conn.execute(
+            "INSERT INTO audit_log (event_id, actor, actor_kind, event_type, payload) "
+            "VALUES (gen_random_uuid(), 'tester', 'cli', 'sim.register', '{}')"
+        )
+
+        # The full bundled dir applies the pending 0007 on the populated DB.
+        ensure_schema(conn)
+
+        assert current_version(conn) == 7
+        stem, version_int = conn.execute(
+            "SELECT name_stem, version_int FROM simulations"
+        ).fetchone()
+        assert stem == "baseline"
+        assert version_int == 2
+        # The audit_log table is rebuilt by 0007; the seeded row must survive
+        # the verbatim copy (the hash chain depends on it).
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM audit_log "
+                "WHERE event_type = 'sim.register' AND actor = 'tester'"
+            ).fetchone()[0]
+            == 1
+        )
+        index_names = {
+            name
+            for (name,) in conn.execute(
+                "SELECT index_name FROM duckdb_indexes() WHERE table_name = 'simulations'"
+            ).fetchall()
+        }
+        assert "ix_sim_name_stem" in index_names
+    finally:
+        conn.close()
+
+
 def test_apply_migration_rolls_back_on_failure(
     conn: duckdb.DuckDBPyConnection, tmp_path: Path
 ) -> None:
