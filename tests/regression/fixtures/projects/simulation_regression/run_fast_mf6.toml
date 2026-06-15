@@ -15,12 +15,14 @@ id = "transport_main"
 type = "transport"
 solvers = ["modflow6"]
 
+# MF6 GWT runs on the SI SECONDS clock: diffu_coeff is m2/s and rate_decay is
+# 1/s. rate_decay below is a 506-day half-life (ln2 / 1.585e-8 s^-1).
 [transport.modflow6gwt.parameters]
 sconc_init = 0.1
 sconc_input = 0.05
-diffu_coeff = 8.64e-06
+diffu_coeff = 1e-10
 react_order = 1
-rate_decay = 0.00136986301369863
+rate_decay = 1.585489599e-08
 
 [simulation.results]
 

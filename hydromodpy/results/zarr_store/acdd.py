@@ -59,7 +59,7 @@ def compose_acdd_root_attrs(
 
     ``runs_env``: a ``runs_environment`` row dict. Recognised: ``user_name``,
     ``hostname``, ``hydromodpy_version``, ``git_commit``, ``rng_seed``,
-    ``mf6_binary_sha256``, ``mf6_version_text``.
+    ``solver_binary_sha256``, ``solver_version_text``.
 
     ``project_table``: optional ``[project]`` block from ``workspace.toml``
     (creator_name, creator_email, license, etc.). Acts as a fallback when
@@ -94,7 +94,7 @@ def compose_acdd_root_attrs(
         "HydroModPy distributed groundwater simulation."
     )
     keywords_default = "groundwater, hydrology"
-    solver = sim.get("solver") or env.get("solver") or ""
+    solver = sim.get("solver") or env.get("solver_name") or ""
     if solver:
         keywords_default = f"{keywords_default}, {solver}"
     keywords = pick("keywords") or keywords_default
@@ -108,8 +108,8 @@ def compose_acdd_root_attrs(
     resolution_iso = pick("time_coverage_resolution") or _iso_resolution(sim.get("time_unit"))
 
     source_parts = [f"HydroModPy {_HMP_VERSION}"]
-    if env.get("mf6_version_text"):
-        source_parts.append(str(env["mf6_version_text"]))
+    if env.get("solver_version_text"):
+        source_parts.append(str(env["solver_version_text"]))
     elif solver:
         source_parts.append(str(solver))
 
@@ -180,7 +180,7 @@ def compose_acdd_root_attrs(
         "hydromodpy_version": str(env.get("hydromodpy_version") or _HMP_VERSION),
         "hydromodpy_git_commit": str(env.get("git_commit") or ""),
         "hydromodpy_solver": str(solver),
-        "hydromodpy_solver_binary_sha256": str(env.get("mf6_binary_sha256") or ""),
+        "hydromodpy_solver_binary_sha256": str(env.get("solver_binary_sha256") or ""),
         "hydromodpy_rng_seed": int(env["rng_seed"]) if env.get("rng_seed") is not None else -1,
         "zarr_schema_version": ZARR_SCHEMA_VERSION,
     }

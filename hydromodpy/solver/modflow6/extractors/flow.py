@@ -8,17 +8,28 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.time import (
+    CF_EPOCH,
+    CF_TIME_UNITS,
+    cf_time_axis_seconds,
+    factor_to_seconds,
+)
+from hydromodpy.solver.modflow_common.budget_components import is_scalar_budget_component
 
 logger = get_logger(__name__)
 
-_TIME_UNIT_SECONDS: dict[str, float] = {
-    "UNKNOWN": 1.0,
-    "SECONDS": 1.0,
-    "MINUTES": 60.0,
-    "HOURS": 3600.0,
-    "DAYS": 86400.0,
-    "YEARS": 31557600.0,
-}
+
+def _seconds_per_time_unit(time_units: str) -> float:
+    """Seconds per MF6 TDIS TIME_UNITS token; UNKNOWN/blank means seconds (1.0)."""
+    token = (time_units or "").strip().upper()
+    if token in ("", "UNKNOWN"):
+        return 1.0
+    return factor_to_seconds(token)
+
+
+def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
+    """Return one MF6 listing-budget field, or 0.0 when the field is absent."""
+    return float(row[key]) if names is not None and key in names else 0.0
 
 
 def _read_time_units(tdis_path: Path) -> str:
@@ -36,14 +47,46 @@ def _read_time_units(tdis_path: Path) -> str:
     return "SECONDS"
 
 
-def _write_time_coordinate(store: Any, sim_id: str, times: list[float], time_units: str) -> None:
-    """Persist solver times as CF seconds since epoch."""
+def _read_start_datetime(tdis_path: Path) -> str | None:
+    """Return the MF6 TDIS START_DATE_TIME option, or None when absent."""
+    if not tdis_path.is_file():
+        return None
+    try:
+        with tdis_path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                tokens = raw.strip().split()
+                if len(tokens) >= 2 and tokens[0].upper() == "START_DATE_TIME":
+                    return tokens[1]
+    except OSError:
+        return None
+    return None
+
+
+def _write_time_coordinate(
+    store: Any,
+    sim_id: str,
+    times: list[float],
+    time_units: str,
+    tdis_path: Path,
+    start_datetime: object | None = None,
+) -> None:
+    """Persist solver times as a CF axis at field-array resolution.
+
+    MF6 reports relative ``totim`` on the TDIS clock, one value per saved output
+    time, so the axis must keep the same length as the head/budget arrays. We
+    anchor it to the model START_DATE_TIME (TDIS, else the launcher start) so the
+    CF ``/time`` axis decodes to real calendar dates; writing relative totim under
+    a 'seconds since 1970' label would decode ~33 years too early. With no
+    calendar anchor the relative seconds are kept (reference epoch 1970).
+    """
     writer = getattr(store, "write_time", None)
     if writer is None:
         raise TypeError("Simulation store must implement write_time().")
-    factor = _TIME_UNIT_SECONDS.get(time_units.upper(), 1.0)
-    values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
-    writer(sim_id, values)
+    start = _read_start_datetime(tdis_path) or start_datetime
+    factor = _seconds_per_time_unit(time_units)
+    relative = np.asarray(times, dtype=float) * factor
+    values = cf_time_axis_seconds(relative, start)
+    writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
 
 class Modflow6OutputAdapter:
@@ -64,6 +107,7 @@ class Modflow6OutputAdapter:
         *,
         model_name: str | None = None,
         budget_spatial_fields: bool = False,
+        start_datetime: object | None = None,
     ) -> None:
         """Read MF6 .hds and .cbc files and write into the store."""
         import flopy.utils.binaryfile as bf
@@ -85,7 +129,10 @@ class Modflow6OutputAdapter:
         tdis_path = solver_output_dir / f"{model_name}.tdis"
         if not tdis_path.is_file():
             tdis_path = next(iter(solver_output_dir.glob("*.tdis")), tdis_path)
-        _write_time_coordinate(store, sim_id, times, _read_time_units(tdis_path))
+        time_units = _read_time_units(tdis_path)
+        # MF6 emits fluxes in length^3 per TDIS time unit; convert to m3/s.
+        seconds_per_time_unit = _seconds_per_time_unit(time_units)
+        _write_time_coordinate(store, sim_id, times, time_units, tdis_path, start_datetime)
 
         head0 = head_file.get_data(totim=times[0])
         grid_shape: tuple[int, int] | None = None
@@ -131,11 +178,14 @@ class Modflow6OutputAdapter:
                 spatial_fields=budget_spatial_fields,
                 nlay=nlay,
                 n_cells=n_cells,
+                seconds_per_time_unit=seconds_per_time_unit,
             )
 
         lst_path = solver_output_dir / f"{model_name}.lst"
         if lst_path.exists():
-            self._extract_mass_balance(sim_id, store, lst_path)
+            self._extract_mass_balance(
+                sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
+            )
 
         head_file.close()
 
@@ -160,8 +210,13 @@ class Modflow6OutputAdapter:
         spatial_fields: bool = False,
         nlay: int = 1,
         n_cells: int = 0,
+        seconds_per_time_unit: float = 1.0,
     ) -> None:
-        """Extract cell budget data from MF6 .cbc file."""
+        """Extract cell budget data from MF6 .cbc file.
+
+        Fluxes are divided by ``seconds_per_time_unit`` so the stored values are
+        m3/s regardless of the TDIS time unit (m3/s = flux / seconds_per_time_unit).
+        """
         import flopy.utils.binaryfile as bf
 
         try:
@@ -173,6 +228,10 @@ class Modflow6OutputAdapter:
         budget_records: list[dict] = []
         for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
             for component in record_names:
+                # Intercell face flows and the specific-discharge velocity are not
+                # scalar budget terms; skip them before reading or summing.
+                if not is_scalar_budget_component(component):
+                    continue
                 try:
                     data = cbb.get_data(text=component, kstpkper=kstpkper, totim=time)
                 except Exception as exc:
@@ -189,8 +248,8 @@ class Modflow6OutputAdapter:
                 if hasattr(arr, "dtype") and arr.dtype.names is not None:
                     arr = self._recarray_to_grid(arr, nlay, n_cells)
                 if hasattr(arr, "shape") and arr.ndim >= 1:
-                    flux_in = float(np.maximum(arr, 0).sum())
-                    flux_out = float(np.minimum(arr, 0).sum())
+                    flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
+                    flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
                 else:
                     flux_in = 0.0
                     flux_out = 0.0
@@ -206,9 +265,9 @@ class Modflow6OutputAdapter:
                 )
                 if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
                     if arr.size == nlay * n_cells:
-                        field = arr.reshape(nlay, n_cells)
+                        field = arr.reshape(nlay, n_cells) / seconds_per_time_unit
                     elif arr.ndim == 1 and arr.size == n_cells:
-                        field = arr.reshape(1, n_cells)
+                        field = arr.reshape(1, n_cells) / seconds_per_time_unit
                     else:
                         field = None
                     if field is not None:
@@ -243,18 +302,13 @@ class Modflow6OutputAdapter:
 
         MF6 stress packages store sparse records with 1-based ``node``
         IDs and ``q`` flux values.  This scatters them into a dense
-        ``(nlay, n_cells)`` array.
+        ``(nlay, n_cells)`` array. Vector records (DATA-SPDIS) are excluded
+        upstream by ``is_scalar_budget_component`` and never reach here.
         """
         names = rec.dtype.names
-        if names is not None and {"qx", "qy", "qz"}.issubset(names):
-            qx = np.asarray(rec["qx"], dtype="float64")
-            qy = np.asarray(rec["qy"], dtype="float64")
-            qz = np.asarray(rec["qz"], dtype="float64")
-            q = np.sqrt(qx * qx + qy * qy + qz * qz)
-        else:
-            q = np.asarray(
-                rec["q"] if names is not None and "q" in names else rec[names[-1]], dtype="float64"
-            )
+        q = np.asarray(
+            rec["q"] if names is not None and "q" in names else rec[names[-1]], dtype="float64"
+        )
 
         if n_cells == 0:
             return q
@@ -277,8 +331,16 @@ class Modflow6OutputAdapter:
         sim_id: str,
         store: Any,
         lst_path: Path,
+        *,
+        seconds_per_time_unit: float = 1.0,
     ) -> None:
-        """Parse MODFLOW 6 listing file for mass balance summary."""
+        """Parse MODFLOW 6 listing file for mass balance summary.
+
+        MF6 splits storage into specific storage (STO-SS, confined) and specific
+        yield (STO-SY, unconfined); total storage flux = STO-SS + STO-SY. Totals
+        and storage scale to m3/s like the budget fluxes; PERCENT_DISCREPANCY is
+        unitless and must not be scaled.
+        """
         try:
             from flopy.utils import Mf6ListBudget
 
@@ -286,23 +348,26 @@ class Modflow6OutputAdapter:
             inc, cum = mf6_list.get_budget()
             if inc is not None:
                 names = inc.dtype.names
+                spt = seconds_per_time_unit
                 records = []
                 for t in range(len(inc)):
-                    total_in = float(inc[t]["TOTAL_IN"]) if "TOTAL_IN" in names else 0.0
-                    total_out = float(inc[t]["TOTAL_OUT"]) if "TOTAL_OUT" in names else 0.0
-                    pct_err = (
-                        float(inc[t]["PERCENT_DISCREPANCY"])
-                        if "PERCENT_DISCREPANCY" in names
-                        else 0.0
-                    )
+                    row = inc[t]
+                    storage_in = (
+                        _budget_field(row, names, "STO-SS_IN")
+                        + _budget_field(row, names, "STO-SY_IN")
+                    ) / spt
+                    storage_out = (
+                        _budget_field(row, names, "STO-SS_OUT")
+                        + _budget_field(row, names, "STO-SY_OUT")
+                    ) / spt
                     records.append(
                         {
                             "timestep": t,
-                            "total_in": total_in,
-                            "total_out": total_out,
-                            "storage_in": 0.0,
-                            "storage_out": 0.0,
-                            "percent_error": pct_err,
+                            "total_in": _budget_field(row, names, "TOTAL_IN") / spt,
+                            "total_out": _budget_field(row, names, "TOTAL_OUT") / spt,
+                            "storage_in": storage_in,
+                            "storage_out": storage_out,
+                            "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
                         }
                     )
                 store.write_mass_balances(sim_id, records)
@@ -329,10 +394,7 @@ class Modflow6OutputAdapter:
             vertices = None
             face_node_connectivity = None
             if grb_files:
-                try:
-                    from flopy.mf6.utils import MfGrdFile
-                except ImportError:
-                    from flopy.utils import MfGrdFile
+                from flopy.mf6.utils import MfGrdFile
 
                 grd = MfGrdFile(str(grb_files[0]))
                 grid_type = str(getattr(grd, "grid_type", "") or "").lower() or None
@@ -372,9 +434,15 @@ class Modflow6OutputAdapter:
             if vertices is None or face_node_connectivity is None:
                 return
             structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
+            # Only fall back to a real 2D rectangle. For DISV the head array is
+            # (nlay, 1, ncpl), so grid_shape is the degenerate (1, ncpl); applying
+            # it would persist a bogus structured_shape=(1, ncpl) for genuinely
+            # unstructured meshes. Leaving it None makes them persist as null.
             if (
                 structured_shape is None
                 and grid_shape is not None
+                and int(grid_shape[0]) > 1
+                and int(grid_shape[1]) > 1
                 and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
             ):
                 structured_shape = (int(grid_shape[0]), int(grid_shape[1]))

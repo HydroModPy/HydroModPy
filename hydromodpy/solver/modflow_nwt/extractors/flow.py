@@ -8,18 +8,24 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.time import (
+    CF_EPOCH,
+    CF_TIME_UNITS,
+    cf_time_axis_seconds,
+    factor_to_seconds,
+)
 
 logger = get_logger(__name__)
 
-# Map MODFLOW ITMUNI codes to seconds per model-time unit.
-_ITMUNI_SECONDS: dict[int, float] = {
-    0: 1.0,
-    1: 1.0,
-    2: 60.0,
-    3: 3600.0,
-    4: 86400.0,
-    5: 31557600.0,
-}
+
+def _seconds_per_itmuni(itmuni: int) -> float:
+    """Seconds per MODFLOW ITMUNI code; 0 (undefined) means seconds (1.0)."""
+    if itmuni == 0:
+        return 1.0
+    try:
+        return factor_to_seconds(int(itmuni))
+    except ValueError:
+        return 1.0
 
 
 def _read_itmuni(dis_path: Path) -> int:
@@ -53,14 +59,20 @@ def _read_itmuni(dis_path: Path) -> int:
     return 1
 
 
-def _write_time_coordinate(store: Any, sim_id: str, times: list[float], itmuni: int) -> None:
-    """Persist solver times as CF seconds since epoch."""
+def _write_time_coordinate(
+    store: Any,
+    sim_id: str,
+    times: list[float],
+    itmuni: int,
+    start_datetime: object | None,
+) -> None:
+    """Persist solver times as a CF axis at field-array resolution."""
     writer = getattr(store, "write_time", None)
     if writer is None:
         raise TypeError("Simulation store must implement write_time().")
-    factor = _ITMUNI_SECONDS.get(itmuni, 1.0)
-    values = np.rint(np.asarray(times, dtype=float) * factor).astype("int64")
-    writer(sim_id, values)
+    relative = np.asarray(times, dtype=float) * _seconds_per_itmuni(itmuni)
+    values = cf_time_axis_seconds(relative, start_datetime)
+    writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
 
 def _budget_key(name: str) -> str:
@@ -102,6 +114,7 @@ class ModflowNwtOutputAdapter:
         budget_spatial_fields: bool = False,
         hdry: float = -100.0,
         hnoflo: float = -9999.0,
+        start_datetime: object | None = None,
     ) -> None:
         """Read .hds and .cbc files and write fields into the store."""
         import flopy.utils.binaryfile as bf
@@ -121,8 +134,11 @@ class ModflowNwtOutputAdapter:
         kstpkpers = head_file.get_kstpkper()
         n_timesteps = len(times)
         itmuni = _read_itmuni(solver_output_dir / f"{model_name}.dis")
-        flux_scale_to_m3_s = 1.0 / float(_ITMUNI_SECONDS.get(itmuni, 1.0))
-        _write_time_coordinate(store, sim_id, times, itmuni)
+        flux_scale_to_m3_s = 1.0 / _seconds_per_itmuni(itmuni)
+        # Write /time at field-array resolution. MODFLOW-2005/NWT output carries
+        # no start date, so anchor to the launcher start_datetime so the CF axis
+        # decodes to real dates instead of relative seconds since 1970.
+        _write_time_coordinate(store, sim_id, times, itmuni, start_datetime)
 
         head0 = head_file.get_data(totim=times[0])
         nlay, nrow, ncol = head0.shape

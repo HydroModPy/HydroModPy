@@ -129,8 +129,8 @@ docs = [
     "sphinxext-opengraph",
     "sphinx-lint",
     "doc8",
-    "erdantic",
 ]
+docs-uml = ["erdantic"]
 ide = [
     "ipykernel",
     "ipython",

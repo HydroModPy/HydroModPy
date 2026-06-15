@@ -312,8 +312,6 @@ Sub-models are linked back to their per-section page.
       # process_specific = ...  # uses factory default
       # Solver-grid payload split into planar and vertical sections.
       # sgrid = ...  # uses factory default
-      # Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; steady/transient policy is driven by [flow].flow_regime and [flow].first_period_steady.
-      # tgrid = ...  # default = None
 
 .. dropdown:: ``[display]`` (DisplayConfig)
    :icon: gear

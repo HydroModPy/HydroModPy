@@ -15,7 +15,6 @@ vka = 1.0
 [modflow6.sgrid.vertical]
 nlay = 1
 
-[modflow6.tgrid]
 [flow.sinks_sources.wells.P1]
 units = "m3/day"
 description = "Central pumping well on irregular triangular mesh"

@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       # Split whitebox backend out of the parallel run; the native library
       # segfaults under pytest-xdist.
@@ -63,6 +63,10 @@ jobs:
       - name: Run whitebox backend tests (serial)
         shell: bash
         run: python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q
+
+      - name: Install solver binaries
+        shell: bash
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
       - name: Run fast regression
         shell: bash
@@ -91,7 +95,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -102,22 +106,20 @@ jobs:
               pth.unlink()
           "
 
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
       - name: Run e2e tests
         run: |
-          coverage run --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT" \
-            -m pytest tests/e2e/ -q
+          python -m pytest tests/e2e/ \
+            --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
 
       - name: Report coverage
         if: always()
         run: |
-          coverage report --rcfile=/dev/null --show-missing \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
-          coverage xml --rcfile=/dev/null \
-            --include="hydromodpy/*" \
-            --omit="$COVERAGE_OMIT"
+          coverage combine || true
+          coverage report --show-missing || true
+          coverage xml || true
 
       - name: Upload coverage to Codecov
         if: always()
@@ -148,7 +150,10 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
       - name: Run full regression
         run: python -m pytest tests/regression/ -n auto --dist loadgroup -q

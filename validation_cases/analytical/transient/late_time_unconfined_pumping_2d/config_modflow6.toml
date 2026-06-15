@@ -13,5 +13,3 @@ resampling = "nearest"
 
 [modflow6.sgrid.vertical]
 nlay = 1
-
-[modflow6.tgrid]

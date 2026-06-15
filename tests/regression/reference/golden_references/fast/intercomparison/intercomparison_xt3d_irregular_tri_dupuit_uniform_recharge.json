@@ -11,12 +11,12 @@
       "dupuit_uniform_recharge_1d": {
         "title": "Dupuit Uniform Recharge 1D",
         "improved": true,
-        "rmse_without_xt3d": 0.233314,
-        "rmse_with_xt3d": 0.02948,
-        "rmse_delta": -0.203834,
-        "rmse_improvement_factor": 7.9144,
-        "max_error_without_xt3d": 0.32501,
-        "max_error_with_xt3d": 0.046404
+        "rmse_without_xt3d": 0.237705,
+        "rmse_with_xt3d": 0.035398,
+        "rmse_delta": -0.202307,
+        "rmse_improvement_factor": 6.7152,
+        "max_error_without_xt3d": 0.330401,
+        "max_error_with_xt3d": 0.053354
       }
     }
   }

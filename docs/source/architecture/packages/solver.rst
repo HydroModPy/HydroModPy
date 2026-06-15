@@ -36,8 +36,7 @@ Sub-modules
   (executables, boundary packages, flux translators, runtime arrays,
   calibration extractors).
 - ``solver/modflow_grid/`` -- backend-agnostic grid primitives:
-  ``SolverMesh``, ``SolverGridContext``, ``DisDescriptor``,
-  ``DisvDescriptor``, ``build_spatial_discretization``,
+  ``SolverMesh``, ``SolverGridContext``, ``build_spatial_discretization``,
   ``build_temporal_discretization``.
 - ``discretization/time/`` -- ``TimeGrid``,
   ``TmeshGenerator``, ``TMeshConfig`` for stress-period generation.
@@ -94,8 +93,7 @@ Key public symbols
   register_extractor, get_extractor, list_pairs, capabilities,
   required_bindings, load_plugins}``
 - ``hydromodpy.solver.modflow_grid.{SolverMesh, SolverGridContext,
-  DisDescriptor, DisvDescriptor, build_spatial_discretization,
-  build_temporal_discretization}``
+  build_spatial_discretization, build_temporal_discretization}``
 - ``hydromodpy.discretization.time.{TimeGrid, TmeshGenerator, TMeshConfig,
   load_tmesh_toml, validate_tmesh_config_data}``
 - ``hydromodpy.solver.modflow_common.{flow_adapter_helpers,

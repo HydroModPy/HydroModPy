@@ -142,7 +142,115 @@ def extract_run_outputs(
         "budget_spatial_fields",
     ):
         extract_kwargs["budget_spatial_fields"] = True
+    start_datetime = _resolve_run_start_datetime(ctx)
+    if start_datetime is not None and _accepts_kwarg(extractor.extract, "start_datetime"):
+        extract_kwargs["start_datetime"] = start_datetime
     extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
+
+    _finalize_run_provenance(ctx=ctx, sim_id=sim_id, store=store)
+
+
+def _run_model(ctx: RunContext) -> Any:
+    """Return the model the runner produced for this run, or None."""
+    execution = getattr(getattr(ctx, "state", None), "execution", None)
+    models = getattr(execution, "models_by_run_id", None)
+    if isinstance(models, Mapping):
+        return models.get(ctx.run.id)
+    return None
+
+
+def _finalize_run_provenance(*, ctx: RunContext, sim_id: str, store: Any) -> None:
+    """Backfill provenance known only after the solver grid is built and run.
+
+    The simulation row is registered before the solver grid exists (NULL grid
+    metadata for DISV-from-raster runs), and the recorded binary is a best guess;
+    both are refined here from the model the run actually produced.
+    """
+    model = _run_model(ctx)
+    if model is None:
+        return
+    grid = _resolve_run_grid_metadata(model)
+    if grid is not None:
+        try:
+            store.update_simulation_grid_metadata(sim_id, **grid)
+        except Exception:
+            logger.debug("Could not backfill grid metadata for sim %s", sim_id, exc_info=True)
+    binary_path = getattr(model, "exe", None)
+    if binary_path:
+        try:
+            store.update_run_environment_solver_binary(sim_id, solver_binary_path=binary_path)
+        except Exception:
+            logger.debug(
+                "Could not refine solver binary identity for sim %s", sim_id, exc_info=True
+            )
+
+
+def _resolve_run_grid_metadata(model: Any) -> dict | None:
+    """Duck-type grid metadata (n_cells, n_layers, bbox, hash, topology) off a model."""
+    solver_mesh = getattr(model, "solver_mesh", None)
+    if solver_mesh is None:
+        return None
+    import hashlib
+
+    import numpy as np
+
+    n_cells = getattr(solver_mesh, "n_cells", None)
+    n_layers = getattr(solver_mesh, "nlay", None)
+    meta: dict[str, Any] = {
+        "n_cells": None if n_cells is None else int(n_cells),
+        "n_layers": None if n_layers is None else int(n_layers),
+    }
+    try:
+        dims = "3d" if int(n_layers or 1) > 1 else "2d"
+        kind = "structured" if bool(solver_mesh.is_structured) else "unstructured"
+        meta["mesh_topology"] = f"{kind}_{dims}"
+    except Exception:
+        pass
+    planar = getattr(solver_mesh, "planar_mesh", None)
+    if planar is None:
+        return meta
+    try:
+        # HydroMesh.bounds() -> (xmin, ymin, [zmin,] xmax, ymax, [zmax]); keep XY.
+        raw_bounds = planar.bounds
+        raw_bounds = raw_bounds() if callable(raw_bounds) else raw_bounds
+        bounds = tuple(float(v) for v in raw_bounds)
+        if len(bounds) >= 4:
+            half = len(bounds) // 2
+            meta["bbox"] = [bounds[0], bounds[1], bounds[half], bounds[half + 1]]
+    except Exception:
+        pass
+    try:
+        vertices = np.asarray(planar.vertices, dtype=float)
+        connectivity = np.asarray(planar.flat_connectivity)
+        meta["mesh_hash"] = hashlib.sha256(vertices.tobytes() + connectivity.tobytes()).hexdigest()
+    except Exception:
+        pass
+    return meta
+
+
+def _resolve_run_start_datetime(ctx: RunContext) -> str | None:
+    """Return the simulation start as an ISO string, or None.
+
+    The /time CF coordinate is written by each extractor at field-array
+    resolution (one entry per solver output time). Backends whose output carries
+    no calendar (MODFLOW-2005/NWT, Boussinesq) anchor it to this start so the
+    axis decodes to real dates instead of relative seconds since 1970.
+    """
+    setup = getattr(getattr(ctx, "state", None), "setup", None)
+    time_grid = getattr(setup, "time_grid", None)
+    if time_grid is None:
+        return None
+    boundaries = getattr(time_grid, "boundaries", None)
+    if boundaries:
+        return str(boundaries[0])
+    window = getattr(time_grid, "window", None)
+    start = getattr(window, "start", None)
+    if start is not None:
+        return str(start)
+    datetimes = getattr(time_grid, "datetimes", None)
+    if datetimes:
+        return str(datetimes[0])
+    return None
 
 
 def derive_run_outputs(

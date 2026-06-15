@@ -21,8 +21,8 @@ class _DummyBudgetFileWithDrnAndChd:
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, totim
         if text == "DRN":
             return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
         if text == "CHD":
@@ -45,8 +45,8 @@ class _DummyBudgetFileUnexpectedValueError:
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper, text
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, text, totim
         raise ValueError("Corrupted DRN record payload")
 
 
