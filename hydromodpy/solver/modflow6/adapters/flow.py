@@ -15,6 +15,7 @@ import pandas as pd
 
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.calibration_extractors import (
     extract_discharge_from_cbc,
@@ -71,13 +72,16 @@ class Modflow6FlowAdapter:
         *,
         variable: str,
         station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        lake_id: str | None = None,
         time_index: pd.DatetimeIndex | None = None,
     ) -> pd.Series:
         """Read the simulated calibration series from the scratch CBC/HDS files.
 
         MF6 binaries share the FloPy-readable format used by MODFLOW-NWT, so
         the same helpers in ``modflow_common.calibration_extractors`` apply.
-        ``store`` is accepted for Protocol uniformity but unused on this path.
+        The ``lake_stage`` variable instead reads the LAK obs CSV via
+        ``extractors.lake`` and requires ``lake_id``. ``store`` is accepted for
+        Protocol uniformity but unused on this path.
         """
         del store
         output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
@@ -95,6 +99,15 @@ class Modflow6FlowAdapter:
 
         if variable == "discharge":
             return extract_discharge_from_cbc(output_dir, model_name, time_index)
+        if variable == "lake_stage":
+            if not lake_id:
+                raise ValueError("lake_stage calibration requires lake_id")
+            return extract_lake_series(
+                output_dir,
+                model_name,
+                lake_id=lake_id,
+                time_index=time_index,
+            )
         if variable == "head":
             if not station_cells:
                 raise ValueError("head calibration requires station_cells")

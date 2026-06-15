@@ -21,8 +21,10 @@ from hydromodpy.calibration.metrics.series import (
     resolve_time_index,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
+    call_extract_calibration_series,
     extract_boundary,
     extract_cell,
+    extract_lake,
     extract_point,
     resolve_flow_adapter,
     resolve_station_cells,
@@ -124,6 +126,29 @@ def build_metric_extractor(
                     raise ValueError("No finite head calibration costs were produced")
                 return float(np.mean(costs)), components
 
+            elif variable == "lake_level":
+                components = {}
+                costs = []
+                for obs_rec in observed:
+                    sim = call_extract_calibration_series(
+                        adapter,
+                        run_ctx,
+                        variable="lake_stage",
+                        lake_id=obs_rec.station_id,
+                        time_index=time_idx,
+                    )
+                    if sim.empty:
+                        raise NotImplementedError(
+                            f"Solver {run_ctx.run.solver!r} returned no lake stage series"
+                        )
+                    cost = score(obs_rec.series, sim, objective)
+                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    if np.isfinite(cost):
+                        costs.append(cost)
+                if not costs:
+                    raise ValueError("No finite lake-level calibration costs were produced")
+                return float(np.mean(costs)), components
+
             else:
                 raise NotImplementedError(f"Calibration variable {variable!r} is not supported")
         except Exception:
@@ -150,6 +175,8 @@ def _build_composite_metric_extractor(
                     simulated_by_output[name] = extract_point(trial_ctx, decl)
                 elif decl.support == "boundary":
                     simulated_by_output[name] = extract_boundary(trial_ctx, decl)
+                elif decl.support == "lake":
+                    simulated_by_output[name] = extract_lake(trial_ctx, decl)
                 else:
                     simulated_by_output[name] = extract_cell(trial_ctx, decl)
             except Exception as exc:
