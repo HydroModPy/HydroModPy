@@ -261,6 +261,31 @@ class SimulationZarr:
     ) -> np.ndarray:
         return zarr_reader.read_field(self, variable, timestep, subgroup=subgroup, layer=layer)
 
+    def read_time(self) -> np.ndarray | None:
+        """Return the CF ``/time`` axis as ``datetime64[ns]``, or ``None``.
+
+        This axis is the single source of truth for the simulation clock: the
+        exact stress-period timestamps the solver wrote, shared by every field
+        array. Stored as integer offsets since the CF epoch (1970-01-01), so a
+        plain numpy cast decodes it without a calendar library.
+        """
+        root = self._root
+        if root is None or "time" not in root:
+            return None
+        arr = root["time"]
+        values = np.asarray(arr[:])
+        if values.size == 0:
+            return None
+        units = str(dict(arr.attrs).get("units", "seconds since 1970-01-01"))
+        unit_code = "s"
+        if units.startswith("days"):
+            unit_code = "D"
+        elif units.startswith("hours"):
+            unit_code = "h"
+        elif units.startswith("minutes"):
+            unit_code = "m"
+        return values.astype(f"datetime64[{unit_code}]").astype("datetime64[ns]")
+
     # -- Forcing -------------------------------------------------------------
 
     def write_forcing_timeseries(

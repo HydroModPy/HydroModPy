@@ -12,6 +12,7 @@ from functools import cached_property
 
 import pandas as pd
 
+from hydromodpy.results.time_alignment import solver_time_index
 from hydromodpy.results.timeseries_downsample import (
     DEFAULT_TARGET_POINTS,
     lttb_downsample,
@@ -291,11 +292,18 @@ class RunTimeseriesMixin:
         """
         row = self._load_row()
         n = row.get("n_timesteps")
-        start, end = row.get("period_start"), row.get("period_end")
         if n is None:
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' has no n_timesteps recorded (is it completed?)"
             )
+        # Prefer the solver's persisted CF /time axis so this index matches the
+        # field arrays exactly (no drift). Fall back to the catalog period bounds.
+        idx = solver_time_index(self._catalog, self._sim_id, n)
+        if idx is not None:
+            if idx.tz is not None:
+                idx = idx.tz_localize(None)
+            return idx
+        start, end = row.get("period_start"), row.get("period_end")
         if start is None or end is None or pd.isna(start) or pd.isna(end):
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' missing period_start/period_end "

@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core import progress
+from hydromodpy.results.time_alignment import solver_time_index
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -64,7 +65,15 @@ __all__ = [
 
 
 def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
-    """Return a ``pd.DatetimeIndex`` aligned with the simulation timesteps."""
+    """Return a ``pd.DatetimeIndex`` aligned with the simulation timesteps.
+
+    Prefers the solver's persisted CF ``/time`` axis (the exact stress-period
+    clock shared by every field array) so derived series never drift relative to
+    the native solver series. Falls back to the catalog period bounds.
+    """
+    idx = solver_time_index(sim._catalog, sim._sim_id, n)
+    if idx is not None:
+        return idx
     row = sim._load_row()
     start, end = row.get("period_start"), row.get("period_end")
     if start is not None and end is not None:
