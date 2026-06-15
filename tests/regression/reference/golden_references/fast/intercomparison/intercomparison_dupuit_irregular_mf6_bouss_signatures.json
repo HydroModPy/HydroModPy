@@ -6,43 +6,43 @@
     "audit_schema_version": "simulation_comparison_audit_v1",
     "comparison_id": "dupuit_mf6_vs_bouss",
     "reference_simulation": "mf6_ref",
-    "audit_status": "pass",
+    "audit_status": "warn",
     "summary": {
       "bouss_candidate::head_east_last": {
         "unit": "m",
         "n_pairs": 1,
-        "bias": 0.0024757414105884834,
-        "mae": 0.0024757414105884834,
-        "rmse": 0.0024757414105884834,
-        "max_abs_error": 0.0024757414105884834,
-        "mean_relative_error": 0.0002889657764801688
+        "bias": 0.008522071538905607,
+        "mae": 0.008522071538905607,
+        "rmse": 0.008522071538905607,
+        "max_abs_error": 0.008522071538905607,
+        "mean_relative_error": 0.0009953891530873069
       },
       "bouss_candidate::head_map_last": {
         "unit": "m",
         "n_pairs": 176,
-        "bias": -0.006722690054796431,
-        "mae": 0.01772674033495538,
-        "rmse": 0.023497269080101076,
-        "max_abs_error": 0.09245819765776364,
-        "mean_relative_error": 0.002389144615161803
+        "bias": -0.0016330232466905076,
+        "mae": 0.01695713333458617,
+        "rmse": 0.022669623135249516,
+        "max_abs_error": 0.08437022195291988,
+        "mean_relative_error": 0.002291392646641714
       },
       "bouss_candidate::head_middle_last": {
         "unit": "m",
         "n_pairs": 1,
-        "bias": 0.0017847419116527874,
-        "mae": 0.0017847419116527874,
-        "rmse": 0.0017847419116527874,
-        "max_abs_error": 0.0017847419116527874,
-        "mean_relative_error": 0.0002074818717177927
+        "bias": 0.00772776723893287,
+        "mae": 0.00772776723893287,
+        "rmse": 0.00772776723893287,
+        "max_abs_error": 0.00772776723893287,
+        "mean_relative_error": 0.0008989984089252242
       },
       "bouss_candidate::head_west_last": {
         "unit": "m",
         "n_pairs": 1,
-        "bias": 1.921207029020877e-05,
-        "mae": 1.921207029020877e-05,
-        "rmse": 1.921207029020877e-05,
-        "max_abs_error": 1.921207029020877e-05,
-        "mean_relative_error": 1.9753848821423123e-06
+        "bias": 0.0012870501401174295,
+        "mae": 0.0012870501401174295,
+        "rmse": 0.0012870501401174295,
+        "max_abs_error": 0.0012870501401174295,
+        "mean_relative_error": 0.00013235173625988003
       }
     }
   }

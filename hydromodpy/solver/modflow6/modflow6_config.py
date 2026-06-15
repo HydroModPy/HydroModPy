@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
-from hydromodpy.discretization.time.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 
@@ -22,9 +21,9 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default="mf6",
         description="MODFLOW 6 executable name or absolute path.",
     )
-    mf6_ims_complexity: Annotated[str, Profile.EXPERT] = Field(
+    mf6_ims_complexity: Annotated[Literal["SIMPLE", "MODERATE", "COMPLEX"], Profile.EXPERT] = Field(
         default="COMPLEX",
-        description="IMS complexity keyword for MODFLOW 6 (e.g. SIMPLE, MODERATE, COMPLEX).",
+        description="IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX.",
     )
     mf_verbose: Annotated[bool, Profile.EXPERT] = Field(
         default=False,
@@ -46,6 +45,29 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=500,
         description="Maximum number of IMS inner iterations.",
     )
+    mf6_inner_rclose: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "IMS inner-iteration flow-residual closure (L^3/T in run units). "
+            "None keeps the complexity-preset default."
+        ),
+    )
+    mf6_linear_acceleration: Annotated[Literal["CG", "BICGSTAB"] | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "IMS linear acceleration: CG for symmetric matrices, BICGSTAB for the "
+            "non-symmetric Newton formulation. None keeps the preset default."
+        ),
+    )
+    mf6_under_relaxation: Annotated[
+        Literal["NONE", "SIMPLE", "COOLEY", "DBD"] | None, Profile.EXPERT
+    ] = Field(
+        default=None,
+        description=(
+            "IMS non-linear under-relaxation scheme. DBD is recommended with Newton. "
+            "None keeps the preset default."
+        ),
+    )
     mf6_enable_rewet: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(
@@ -54,9 +76,11 @@ class Modflow6RuntimeConfig(HydroModelBase):
         ),
     )
     mf6_newton: Annotated[bool, Profile.EXPERT] = Field(
-        default=False,
+        default=True,
         description=(
-            "Enable the MODFLOW 6 Newton-Raphson formulation for convertible groundwater cells."
+            "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are "
+            "always convertible (unconfined), so Newton with under-relaxation is the "
+            "robust default and matches the MODFLOW-NWT backend."
         ),
     )
     mf6_newton_under_relaxation: Annotated[bool, Profile.EXPERT] = Field(
@@ -93,13 +117,18 @@ class Modflow6RuntimeConfig(HydroModelBase):
 class Modflow6ProcessSpecificConfig(HydroModelBase):
     """Process-specific parameters used by selected MODFLOW 6 packages."""
 
-    vka: Annotated[float, Profile.EXPERT] = Field(
+    vka: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
-        description="Vertical anisotropy factor used to derive k33 from k.",
+        description="Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka.",
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
-        description="MF6 EVT extinction depth in meters when recharge negatives are routed to EVT.",
+        description=(
+            "Meters; extinction depth for the EVT sink used when recharge negatives "
+            "are routed to EVT. The routed deficit tapers linearly from the cell top "
+            "to this depth and stops below it, so a sustained climatic deficit can "
+            "saturate near this value."
+        ),
     )
 
 
@@ -117,15 +146,6 @@ class Modflow6Config(HydroModelBase):
     sgrid: Annotated[SolverSGridConfig, Profile.USER] = Field(
         default_factory=SolverSGridConfig,
         description="Solver-grid payload split into planar and vertical sections.",
-    )
-    tgrid: Annotated[TMeshConfig | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional temporal discretization payload as TMeshConfig. In "
-            "launcher mode, stress periods are driven by [simulation.time]; "
-            "steady/transient policy is driven by [flow].flow_regime and "
-            "[flow].first_period_steady."
-        ),
     )
 
 
@@ -154,7 +174,6 @@ class Modflow6SpecifParams:
         default_factory=Modflow6ProcessSpecificConfig,
     )
     sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
-    tgrid: TMeshConfig | None = None
 
     @classmethod
     def from_config(
@@ -166,5 +185,4 @@ class Modflow6SpecifParams:
             runtime=validated.runtime,
             process_specific=validated.process_specific,
             sgrid=validated.sgrid,
-            tgrid=validated.tgrid,
         )

@@ -238,6 +238,44 @@ class TestWriteMethods:
         assert len(rows) == 2
         assert rows[0] == (0, 5.0)
 
+    def test_write_mass_balance_separates_water_and_solute(self, catalog):
+        sid, _ = _register(catalog)
+        catalog.write_mass_balances(sid, [{"timestep": 0, "percent_error": 1.0}])
+        catalog.write_mass_balances(
+            sid, [{"timestep": 0, "percent_error": 2.0, "quantity": "solute", "unit": "kg/s"}]
+        )
+        rows = catalog.connection.execute(
+            "SELECT quantity, unit, percent_error FROM mass_balance "
+            "WHERE sim_id = ? ORDER BY quantity",
+            [sid],
+        ).fetchall()
+        # Both budgets coexist on the same (sim_id, timestep); no collision.
+        assert rows == [("solute", "kg/s", 2.0), ("water", "m3/s", 1.0)]
+
+    def test_update_simulation_grid_metadata_backfills_nulls(self, catalog):
+        sid, _ = _register(catalog)
+        catalog.update_simulation_grid_metadata(
+            sid,
+            n_cells=3600,
+            n_layers=2,
+            mesh_hash="abc123",
+            mesh_topology="structured_3d",
+            bbox=[10.0, 20.0, 110.0, 220.0],
+        )
+        row = catalog.connection.execute(
+            "SELECT s.n_cells, s.n_layers, s.mesh_hash, mt.code, s.bbox_xmin, s.bbox_ymax "
+            "FROM simulations s LEFT JOIN mesh_topologies mt ON mt.id = s.mesh_topology_id "
+            "WHERE s.sim_id = ?",
+            [sid],
+        ).fetchone()
+        assert row == (3600, 2, "abc123", "structured_3d", 10.0, 220.0)
+        # COALESCE keeps existing values when None is passed.
+        catalog.update_simulation_grid_metadata(sid, n_cells=None, mesh_hash=None)
+        kept = catalog.connection.execute(
+            "SELECT n_cells, mesh_hash FROM simulations WHERE sim_id = ?", [sid]
+        ).fetchone()
+        assert kept == (3600, "abc123")
+
     def test_write_metric_upsert(self, catalog):
         sid, _ = _register(catalog)
         catalog.write_metric(sid, "P01", "nse", 0.7)

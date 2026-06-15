@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Mapping, Sequence
 
 import flopy
 import numpy as np
 
-from hydromodpy.core.units.time import SECONDS_PER_DAY
+from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.transport import _mf6_safe_name
+from hydromodpy.solver.modflow6.build import mf6_safe_name
 
 
 def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
@@ -43,18 +44,13 @@ def _regular_track_times_days(
     return [float(value) for value in values]
 
 
-_TIME_UNIT_SECONDS = {
-    "UNKNOWN": 1.0,
-    "SECONDS": 1.0,
-    "MINUTES": 60.0,
-    "HOURS": 3600.0,
-    "DAYS": SECONDS_PER_DAY,
-    "YEARS": 31557600.0,
-}
-
 # Numerical tolerance (days) used to clip the last regular track time to
 # stop_time_days without losing it to floating-point rounding.
 _TRACK_TIME_TOLERANCE_DAYS = 1.0e-9
+
+# Last-resort porosity when no transport porosity is set and specific yield is
+# non-positive. 0.30 is a generic unconsolidated-aquifer placeholder.
+_PRT_DEFAULT_POROSITY = 0.30
 
 
 class Modflow6Prt:
@@ -85,7 +81,7 @@ class Modflow6Prt:
         self.model_name = model_name
         self.suffix_name = suffix_name
         self.model_name_prt = model_name + suffix_name
-        self.model_name_prt_mf6 = _mf6_safe_name(self.model_name_prt)
+        self.model_name_prt_mf6 = mf6_safe_name(self.model_name_prt)
         self.full_path = os.path.join(model_folder, model_name)
         self.exe = getattr(model_modflow, "exe", "mf6")
 
@@ -111,11 +107,12 @@ class Modflow6Prt:
         self.stop_travel_time_days = prt_params.get("stop_travel_time_days")
         self.extend_tracking = bool(prt_params.get("extend_tracking", True))
         self.dry_tracking_method = str(prt_params.get("dry_tracking_method", "drop"))
-        self.exit_solve_tolerance = float(prt_params.get("exit_solve_tolerance", 1.0e-10))
+        self.exit_solve_tolerance = float(prt_params.get("exit_solve_tolerance", 1.0e-5))
         self.write_track_csv = bool(prt_params.get("write_track_csv", True))
         self.write_track_binary = bool(prt_params.get("write_track_binary", True))
 
     def _model_time_unit_seconds(self) -> float:
+        """Seconds per model TDIS time unit. Defaults to DAYS when TDIS is absent."""
         raw_units = "DAYS"
         tdis = getattr(self.model_modflow, "tdis", None)
         units = getattr(tdis, "time_units", None)
@@ -123,7 +120,13 @@ class Modflow6Prt:
             raw_units = str(units.get_data())
         elif units is not None:
             raw_units = str(units)
-        return _TIME_UNIT_SECONDS.get(raw_units.upper(), SECONDS_PER_DAY)
+        token = raw_units.strip().upper()
+        if token == "UNKNOWN":
+            return 1.0
+        try:
+            return factor_to_seconds(token)
+        except ValueError:
+            return SECONDS_PER_DAY
 
     def _days_to_model_time(self, value: float | None) -> float | None:
         if value is None:
@@ -139,17 +142,26 @@ class Modflow6Prt:
         )
 
     def _build_porosity(self) -> np.ndarray:
+        """Return PRT MIP porosity. Pore velocity v = q / porosity needs total
+        porosity, not specific yield; the Sy fallback warns and is a placeholder."""
         nlay = int(self.model_modflow.nlay)
         ncpl = int(self.model_modflow.ncpl)
         if self.porosity is not None:
             return np.full((nlay, ncpl), float(self.porosity), dtype=float)
 
-        sy = np.asarray(getattr(self.model_modflow, "sy", 0.30), dtype=float)
+        warnings.warn(
+            "No PRT porosity set; falling back to the flow specific yield "
+            f"(or {_PRT_DEFAULT_POROSITY} where non-positive), which overstates particle "
+            "speed. Set transport.modflow6prt.parameters.porosity.",
+            UserWarning,
+            stacklevel=2,
+        )
+        sy = np.asarray(getattr(self.model_modflow, "sy", _PRT_DEFAULT_POROSITY), dtype=float)
         if sy.size == 1:
             sy = np.full((nlay, ncpl), float(sy.reshape(-1)[0]), dtype=float)
         else:
             sy = sy.reshape(nlay, ncpl)
-        return np.where(sy > 0.0, sy, 0.30).astype(float)
+        return np.where(sy > 0.0, sy, _PRT_DEFAULT_POROSITY).astype(float)
 
     def _active_planar_mask(self) -> np.ndarray:
         solver_mesh = self.model_modflow.solver_mesh
@@ -266,6 +278,19 @@ class Modflow6Prt:
             raise ValueError(f"MODFLOW 6 PRT release zone {self.release_zone!r} selected no cells.")
         return selected
 
+    def _topmost_active_layer(self, cell_id: int) -> int:
+        """Return the highest (smallest index) active layer for a planar cell.
+
+        Releasing in layer 0 fails when layer 0 is inactive (idomain<=0) but a
+        deeper layer is active, so the release layer follows the cell column.
+        """
+        inactive = np.asarray(self.model_modflow.solver_mesh.inactive_mask, dtype=bool)
+        if inactive.ndim == 2:
+            active_layers = np.flatnonzero(~inactive[:, int(cell_id)])
+            if active_layers.size:
+                return int(active_layers[0])
+        return 0
+
     def _build_packagedata(self) -> list[tuple]:
         centroids = np.asarray(
             self.model_modflow.solver_mesh.cell_centroids(), dtype=float
@@ -274,10 +299,11 @@ class Modflow6Prt:
         packagedata: list[tuple] = []
         for iprt, cell_id in enumerate(cells):
             x, y = centroids[int(cell_id)]
+            lay = self._topmost_active_layer(int(cell_id))
             packagedata.append(
                 (
                     int(iprt),
-                    (0, int(cell_id)),
+                    (lay, int(cell_id)),
                     float(x),
                     float(y),
                     float(self.local_z),
@@ -297,7 +323,7 @@ class Modflow6Prt:
         sim = self.model_modflow.sim
         self.gwf = self.model_modflow.gwf
         solver_mesh = self.model_modflow.solver_mesh
-        idomain = np.where(solver_mesh.inactive_mask, 0, 1).astype(int)
+        idomain = solver_mesh.idomain()
 
         self.prt = flopy.mf6.ModflowPrt(
             sim,
@@ -305,13 +331,17 @@ class Modflow6Prt:
             save_flows=True,
         )
         disv_kwargs = solver_mesh.to_disv_kwargs()
+        # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
+        # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
+        # the whole grid by one full origin (double offset). PRP release points use
+        # absolute centroids, so they only line up with an un-offset grid.
         self.prtdis = flopy.mf6.ModflowPrtdisv(
             self.prt,
             nlay=self.model_modflow.nlay,
             **disv_kwargs,
             idomain=idomain,
-            xorigin=float(solver_mesh.xoffset),
-            yorigin=float(solver_mesh.yoffset),
+            xorigin=0.0,
+            yorigin=0.0,
             length_units="METERS",
         )
         self.mip = flopy.mf6.ModflowPrtmip(self.prt, porosity=self._build_porosity())
@@ -345,7 +375,11 @@ class Modflow6Prt:
             else None,
             dry_tracking_method=self.dry_tracking_method,
             exit_solve_tolerance=self.exit_solve_tolerance,
-            coordinate_check_method="eager",
+            # COORDINATE_CHECK_METHOD is a regular PRP option in MF6 6.7.0
+            # (prt-prp.dfn) but was added after 6.6.3, so the installed release
+            # binary rejects it. flopy defaults this option to "eager" and writes
+            # the tag, so an explicit None is required to suppress it.
+            coordinate_check_method=None,
             nreleasepts=len(packagedata),
             nreleasetimes=len(releasetimes) if releasetimes is not None else None,
             packagedata=packagedata,

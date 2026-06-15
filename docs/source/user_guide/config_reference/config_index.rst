@@ -3505,19 +3505,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `transport <transport.html#transport-active-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283>`__
    * - ``transport.active_bc``
      - ``list[str]``
      - user
      - -
      - `transport <transport.html#transport-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283>`__
    * - ``transport.modpath``
      - ``TransportModpathConfig``
      - user
      - -
      - `transport <transport.html#transport-modpath>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L279>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L314>`__
    * - ``transport.modpath.parameters``
      - ``ModpathParametersConfig``
      - user
@@ -3571,13 +3571,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `transport <transport.html#transport-mt3dms>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L318>`__
    * - ``transport.mt3dms.parameters``
      - ``ConcentrationTransportParametersConfig``
      - user
      - -
      - `transport <transport.html#transport-mt3dms-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L109>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L142>`__
    * - ``transport.mt3dms.parameters.spc_name``
      - ``str``
      - dev
@@ -3621,35 +3621,47 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `transport <transport.html#transport-mt3dms-parameters-diffu-coeff>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L88>`__
    * - ``transport.mt3dms.parameters.react_order``
-     - ``int | None``
+     - ``Literal[None, 0, 1]``
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-react-order>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
+   * - ``transport.mt3dms.parameters.scheme``
+     - ``Literal['upstream', 'central', 'TVD']``
+     - dev
+     - -
+     - `transport <transport.html#transport-mt3dms-parameters-scheme>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
    * - ``transport.mt3dms.parameters.rate_decay``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-rate-decay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L113>`__
+   * - ``transport.mt3dms.parameters.porosity``
+     - ``float | None``
+     - dev
+     - -
+     - `transport <transport.html#transport-mt3dms-parameters-porosity>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L122>`__
    * - ``transport.mt3dms.parameters.plot_conc``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-mt3dms-parameters-plot-conc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L133>`__
    * - ``transport.modflow6gwt``
      - ``TransportModflow6GwtConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6gwt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L287>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L322>`__
    * - ``transport.modflow6gwt.parameters``
      - ``ConcentrationTransportParametersConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L118>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L151>`__
    * - ``transport.modflow6gwt.parameters.spc_name``
      - ``str``
      - dev
@@ -3693,149 +3705,161 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `transport <transport.html#transport-modflow6gwt-parameters-diffu-coeff>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L88>`__
    * - ``transport.modflow6gwt.parameters.react_order``
-     - ``int | None``
+     - ``Literal[None, 0, 1]``
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-react-order>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
+   * - ``transport.modflow6gwt.parameters.scheme``
+     - ``Literal['upstream', 'central', 'TVD']``
+     - dev
+     - -
+     - `transport <transport.html#transport-modflow6gwt-parameters-scheme>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L105>`__
    * - ``transport.modflow6gwt.parameters.rate_decay``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-rate-decay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L113>`__
+   * - ``transport.modflow6gwt.parameters.porosity``
+     - ``float | None``
+     - dev
+     - -
+     - `transport <transport.html#transport-modflow6gwt-parameters-porosity>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L122>`__
    * - ``transport.modflow6gwt.parameters.plot_conc``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6gwt-parameters-plot-conc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L133>`__
    * - ``transport.modflow6prt``
      - ``TransportModflow6PrtConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6prt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L291>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L326>`__
    * - ``transport.modflow6prt.parameters``
      - ``Modflow6PrtParametersConfig``
      - user
      - -
      - `transport <transport.html#transport-modflow6prt-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L242>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L277>`__
    * - ``transport.modflow6prt.parameters.release_zone``
      - ``str``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-release-zone>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L127>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L160>`__
    * - ``transport.modflow6prt.parameters.upstream_top_quantile``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-upstream-top-quantile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L134>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L167>`__
    * - ``transport.modflow6prt.parameters.outlet_bottom_quantile``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-outlet-bottom-quantile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L176>`__
    * - ``transport.modflow6prt.parameters.track_dir``
      - ``Literal['forward']``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-track-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L152>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L185>`__
    * - ``transport.modflow6prt.parameters.porosity``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-porosity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L156>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L189>`__
    * - ``transport.modflow6prt.parameters.local_z``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-local-z>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L164>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L199>`__
    * - ``transport.modflow6prt.parameters.particle_cell_ids``
      - ``list[int] | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-particle-cell-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L170>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L205>`__
    * - ``transport.modflow6prt.parameters.max_particles``
      - ``int | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-max-particles>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L177>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L212>`__
    * - ``transport.modflow6prt.parameters.sel_slice``
      - ``int | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-sel-slice>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L182>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L217>`__
    * - ``transport.modflow6prt.parameters.release_times_days``
      - ``list[float] | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-release-times-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L187>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L222>`__
    * - ``transport.modflow6prt.parameters.track_times_days``
      - ``list[float] | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-track-times-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L194>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L226>`__
    * - ``transport.modflow6prt.parameters.track_time_step_days``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-track-time-step-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L198>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L230>`__
    * - ``transport.modflow6prt.parameters.stop_time_days``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-stop-time-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L206>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L238>`__
    * - ``transport.modflow6prt.parameters.stop_travel_time_days``
      - ``float | None``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-stop-travel-time-days>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L211>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L243>`__
    * - ``transport.modflow6prt.parameters.extend_tracking``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-extend-tracking>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L216>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
    * - ``transport.modflow6prt.parameters.dry_tracking_method``
      - ``Literal['drop', 'stop', 'stay']``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-dry-tracking-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L220>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L252>`__
    * - ``transport.modflow6prt.parameters.exit_solve_tolerance``
      - ``float``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-exit-solve-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L224>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L256>`__
    * - ``transport.modflow6prt.parameters.write_track_csv``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-write-track-csv>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L229>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L264>`__
    * - ``transport.modflow6prt.parameters.write_track_binary``
      - ``bool``
      - dev
      - -
      - `transport <transport.html#transport-modflow6prt-parameters-write-track-binary>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L233>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L268>`__
    * - ``simulation.name``
      - ``str``
      - user
@@ -4723,121 +4747,139 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L109>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L138>`__
    * - ``modflow6.runtime.mf6_executable_name``
      - ``str``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-executable-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L21>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L20>`__
    * - ``modflow6.runtime.mf6_ims_complexity``
-     - ``str``
+     - ``Literal['SIMPLE', 'MODERATE', 'COMPLEX']``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-ims-complexity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L25>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L24>`__
    * - ``modflow6.runtime.mf_verbose``
      - ``bool``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf-verbose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L29>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L28>`__
    * - ``modflow6.runtime.mf6_outer_dvclose``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-outer-dvclose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L33>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L32>`__
    * - ``modflow6.runtime.mf6_inner_dvclose``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-inner-dvclose>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L37>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L36>`__
    * - ``modflow6.runtime.mf6_outer_maximum``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-outer-maximum>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L40>`__
    * - ``modflow6.runtime.mf6_inner_maximum``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-inner-maximum>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L45>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L44>`__
+   * - ``modflow6.runtime.mf6_inner_rclose``
+     - ``Optional[float]``
+     - expert
+     - -
+     - `modflow6 <modflow6.html#modflow6-runtime-mf6-inner-rclose>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L48>`__
+   * - ``modflow6.runtime.mf6_linear_acceleration``
+     - ``Optional[Literal['CG', 'BICGSTAB']]``
+     - expert
+     - -
+     - `modflow6 <modflow6.html#modflow6-runtime-mf6-linear-acceleration>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L55>`__
+   * - ``modflow6.runtime.mf6_under_relaxation``
+     - ``Optional[Literal['NONE', 'SIMPLE', 'COOLEY', 'DBD']]``
+     - expert
+     - -
+     - `modflow6 <modflow6.html#modflow6-runtime-mf6-under-relaxation>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L62>`__
    * - ``modflow6.runtime.mf6_enable_rewet``
      - ``bool | None``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-enable-rewet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L71>`__
    * - ``modflow6.runtime.mf6_newton``
      - ``bool``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-newton>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L56>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L78>`__
    * - ``modflow6.runtime.mf6_newton_under_relaxation``
      - ``bool``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-newton-under-relaxation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L62>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L86>`__
    * - ``modflow6.runtime.mf6_enable_xt3d``
      - ``bool | None``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-enable-xt3d>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L66>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L90>`__
    * - ``modflow6.runtime.mf6_rewet_wetfct``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-wetfct>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L75>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L99>`__
    * - ``modflow6.runtime.mf6_rewet_iwetit``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-iwetit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L79>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L103>`__
    * - ``modflow6.runtime.mf6_rewet_ihdwet``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-ihdwet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L107>`__
    * - ``modflow6.runtime.mf6_rewet_wetdry``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-wetdry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L87>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L111>`__
    * - ``modflow6.process_specific``
      - ``Modflow6ProcessSpecificConfig``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L113>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L142>`__
    * - ``modflow6.process_specific.vka``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-vka>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L96>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L120>`__
    * - ``modflow6.process_specific.evt_extinction_depth``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-evt-extinction-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L100>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L124>`__
    * - ``modflow6.sgrid``
      - ``SolverSGridConfig``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L117>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L146>`__
    * - ``modflow6.sgrid.planar``
      - ``PlanarGridConfig``
      - user
@@ -4904,90 +4946,6 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical-nodata>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79>`__
-   * - ``modflow6.tgrid``
-     - ``TMeshConfig | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L121>`__
-   * - ``modflow6.tgrid.itmuni``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-itmuni>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L25>`__
-   * - ``modflow6.tgrid.genmtd``
-     - ``Literal['synthetic_regular', 'from_chron']``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-genmtd>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L32>`__
-   * - ``modflow6.tgrid.nper``
-     - ``int``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-nper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L39>`__
-   * - ``modflow6.tgrid.lenper``
-     - ``float | int | list[int] | list[float] | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-lenper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L46>`__
-   * - ``modflow6.tgrid.chron_path``
-     - ``str | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L55>`__
-   * - ``modflow6.tgrid.chron_dateformat``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-dateformat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L62>`__
-   * - ``modflow6.tgrid.chron_colsep``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-colsep>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L66>`__
-   * - ``modflow6.tgrid.chron_time_col``
-     - ``str``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-chron-time-col>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L70>`__
-   * - ``modflow6.tgrid.start_datetime``
-     - ``Any | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-start-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L74>`__
-   * - ``modflow6.tgrid.end_datetime``
-     - ``Any | None``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-end-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L81>`__
-   * - ``modflow6.tgrid.tsmult``
-     - ``int | float | list[int] | list[float]``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-tsmult>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L88>`__
-   * - ``modflow6.tgrid.ntsp``
-     - ``int | list[int]``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-ntsp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L95>`__
-   * - ``modflow6.tgrid.temporal_nodata``
-     - ``float``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-tgrid-temporal-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/discretization/time/tmesh_config.py#L102>`__
    * - ``display.enabled``
      - ``bool``
      - user

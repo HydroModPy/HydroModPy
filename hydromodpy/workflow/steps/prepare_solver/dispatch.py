@@ -20,6 +20,26 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Catalog solver code -> canonical binary name for provenance lookup.
+_SOLVER_BINARY_NAMES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
+
+
+def _resolve_solver_binary_path(solver_name: str | None) -> str | None:
+    """Resolve the cached solver binary path for provenance, or None.
+
+    Failures (unknown solver, binary not yet installed) are swallowed so a
+    provenance lookup never breaks simulation registration.
+    """
+    binary = _SOLVER_BINARY_NAMES.get(str(solver_name or ""))
+    if binary is None:
+        return None
+    try:
+        from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+
+        return str(ensure_solver_binary(binary))
+    except Exception:
+        return None
+
 
 def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
     """Return CF grid-mapping attrs for a CRS value."""
@@ -132,6 +152,8 @@ def step_register_simulation(
         ctx.store.write_run_environment(
             sim_id,
             project_root=project_root,
+            solver_name=primary_solver,
+            solver_binary_path=_resolve_solver_binary_path(primary_solver),
             rng_seed=rng_seed,
         )
     except Exception:
@@ -215,6 +237,8 @@ def step_open_store(ctx: WorkflowContext) -> None:
         ctx.store.write_run_environment(
             ctx.sim_id,
             project_root=project_root,
+            solver_name=primary_solver,
+            solver_binary_path=_resolve_solver_binary_path(primary_solver),
             rng_seed=rng_seed,
         )
     except Exception:

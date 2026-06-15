@@ -27,7 +27,9 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
             "output_root": str(workspace_root),
         },
         "flow": {
-            "first_period_steady": False,
+            # first_period_steady is fixed by the base config_modflownwt.toml
+            # ([flow] first_period_steady = false); the numeric overlay forbids
+            # repeating it here.
             "bc": {
                 "dirichlet": {
                     "west_side": {

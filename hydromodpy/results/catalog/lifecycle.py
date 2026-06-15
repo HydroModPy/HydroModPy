@@ -128,9 +128,9 @@ class LifecycleMixin:
             "hydromodpy_version",
             "git_commit",
             "rng_seed",
-            "mf6_binary_sha256",
-            "mf6_version_text",
-            "solver",
+            "solver_binary_sha256",
+            "solver_version_text",
+            "solver_name",
         )
         return dict(zip(cols, rows[0], strict=False))
 

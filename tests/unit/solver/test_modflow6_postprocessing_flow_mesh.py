@@ -32,10 +32,6 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
         _DummyBudgetFile,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
-        lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
-    )
-    monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
@@ -103,10 +99,6 @@ def test_modflow6_post_processing_accumulates_unstructured_flow_on_mesh(
         _DummyBudgetFileWithDrn,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
-        lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
-    )
-    monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
@@ -141,10 +133,6 @@ def test_modflow6_post_processing_tolerates_missing_meshio_for_vtu_export(
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         _DummyBudgetFile,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
-        lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
@@ -208,10 +196,6 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         _DummyBudgetFile,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
-        lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",

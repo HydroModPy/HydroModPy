@@ -145,6 +145,10 @@ class SolverMesh:
         centers_z = 0.5 * (tops + self.botm)
         return self.top.reshape(1, -1) - centers_z
 
+    def idomain(self) -> np.ndarray:
+        """Return MODFLOW IDOMAIN, shape (nlay, n_cells): 1 active, 0 inactive."""
+        return np.where(self.inactive_mask, 0, 1).astype(int)
+
     # -- Reshape helpers (structured only) ------------------------------------
 
     def reshape_to_grid(self, flat_values: np.ndarray) -> np.ndarray:
@@ -322,49 +326,6 @@ class SolverMesh:
             mask = np.tile(mask_flat, (botm.shape[0], 1))
         elif mask.ndim == 3:
             mask = mask.reshape(mask.shape[0], -1)
-
-        return cls(
-            planar_mesh=planar_mesh,
-            top=top,
-            botm=botm,
-            inactive_mask=mask,
-        )
-
-    @classmethod
-    def from_extruded_mesh(
-        cls,
-        mesh_3d: object,
-        *,
-        inactive_mask: np.ndarray | None = None,
-    ) -> SolverMesh:
-        """Build from an ExtrudedPrismMesh3D.
-
-        Parameters
-        ----------
-        mesh_3d : ExtrudedPrismMesh3D
-            3D mesh built by vertical extrusion of a 2D planar mesh.
-        inactive_mask : ndarray, optional
-            If None, all cells are active.
-        """
-        planar_mesh = mesh_3d.planar_mesh.to_hydro_mesh()
-        z_interfaces = np.asarray(mesh_3d.z_interfaces, dtype=float).reshape(-1)
-        n_cells_2d = planar_mesh.n_cells
-        nlay = len(z_interfaces) - 1
-
-        # Build top and botm from z_interfaces (uniform layering across cells)
-        top = np.full(n_cells_2d, float(z_interfaces[0]), dtype=float)
-        botm = np.zeros((nlay, n_cells_2d), dtype=float)
-        for ilay in range(nlay):
-            botm[ilay, :] = float(z_interfaces[ilay + 1])
-
-        if inactive_mask is None:
-            mask = np.zeros((nlay, n_cells_2d), dtype=bool)
-        else:
-            mask = np.asarray(inactive_mask, dtype=bool)
-            if mask.ndim == 1:
-                mask = np.tile(mask.reshape(1, -1), (nlay, 1))
-            elif mask.ndim == 2 and mask.shape != (nlay, n_cells_2d):
-                mask = mask.reshape(nlay, n_cells_2d)
 
         return cls(
             planar_mesh=planar_mesh,

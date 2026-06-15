@@ -1,0 +1,112 @@
+# Build ONLY the pushed version of the docs and publish it into its own
+# subfolder on HydroModPy/hydromodpy.github.io (served at the root
+# https://hydromodpy.github.io/). The other versions already on gh-pages are
+# kept (keep_files: true), so a push rebuilds one version (~8 min) instead of
+# every version, and the wall time stays flat as versions grow.
+#
+# The full multi-version build via poly.py (sphinx-polyversion) stays available
+# for local use; it is not used here.
+#
+# One-time setup:
+#   - ACTIONS_DEPLOY_KEY secret (this repo) = private deploy key,
+#   - matching public deploy key with write access on hydromodpy.github.io,
+#   - hydromodpy.github.io Pages source = gh-pages branch.
+
+name: Docs / Deploy Pages (multi-version)
+
+on:
+  push:
+    branches: [main, dev]
+    tags: ["v*"]
+    paths:
+      - ".github/workflows/docs-deploy-pages.yml"
+      - "tools/docs_pages_postbuild.py"
+      - "docs/**"
+      - "hydromodpy/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+# Single group: serialize deploys so concurrent pushes never race on the
+# gh-pages push. Bursts collapse to the latest pending run.
+concurrency:
+  group: docs-deploy-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  build-deploy:
+    name: Build ${{ github.ref_name }} and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config pandoc plantuml
+
+      - name: Install package and docs extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Build this version only
+        id: build
+        run: |
+          version="${GITHUB_REF_NAME}"
+          if [ ! -f docs/source/conf.py ]; then
+            echo "no docs/source/conf.py at ${version}, nothing to publish"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          HMP_DOC_VERSION="${version}" python -m sphinx -j auto -b html docs/source "site/${version}"
+
+      - name: Build switcher.json (all versions) and shrink gallery PNGs
+        if: steps.build.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ steps.build.outputs.version }}"
+          existing=$(gh api "repos/HydroModPy/hydromodpy.github.io/contents?ref=gh-pages" \
+            --jq '.[] | select(.type=="dir") | .name' 2>/dev/null || true)
+          versions=$(printf '%s\n%s\n' "${existing}" "${version}" | grep -v '^$' | sort -u | paste -sd, -)
+          echo "versions on site: ${versions}"
+          python tools/docs_pages_postbuild.py site https://hydromodpy.github.io --versions "${versions}"
+
+      - name: Add a root redirect to the default version
+        if: steps.build.outputs.skip != '1'
+        run: >
+          printf '%s'
+          '<!doctype html><meta charset="utf-8">'
+          '<meta http-equiv="refresh" content="0; url=./main/">'
+          '<link rel="canonical" href="https://hydromodpy.github.io/main/">'
+          '<title>HydroModPy documentation</title>'
+          '<a href="./main/">HydroModPy documentation</a>'
+          > site/index.html
+
+      - name: Publish to hydromodpy.github.io
+        if: steps.build.outputs.skip != '1'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          external_repository: HydroModPy/hydromodpy.github.io
+          publish_branch: gh-pages
+          publish_dir: ./site
+          keep_files: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: "docs: deploy ${{ steps.build.outputs.version }}"

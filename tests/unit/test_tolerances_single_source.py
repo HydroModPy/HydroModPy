@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 21 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 22 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 21 loadable rows split into three enforcement classes (W5 classification):
+The 22 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 21 loadable TOLERANCES.md rows.
+# W5 classification of the 22 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -61,6 +61,8 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "regression_goldens_arrays__atol",
         "signature_stats_post_v0_5__rtol",
         "signature_stats_post_v0_5__atol",
+        "mf6_prt_uniform_velocity_streamline__max_relative_position_error_x_x_exp_x_exp_x0",
+        "mf6_gwt_first_order_decay_0d__max_relative_concentration_error_vs_c0_exp_k_t",
     }
 )
 
@@ -151,10 +153,10 @@ def _resolve(slug: str) -> str:
 
 @pytest.mark.fast
 def test_classification_partitions_all_loadable_rows() -> None:
-    """INLINE, CASE_TOML and UNUSED partition exactly the 21 loadable rows."""
+    """INLINE, CASE_TOML and UNUSED partition exactly the 23 loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 21, sorted(loadable)
+    assert len(loadable) == 23, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
@@ -179,7 +181,7 @@ def test_every_tol_call_resolves_to_one_real_row() -> None:
 
 @pytest.mark.fast
 def test_referenced_rows_are_subset_of_loadable_keys() -> None:
-    """Every row reached through tol() is one of the 21 loadable keys."""
+    """Every row reached through tol() is one of the 22 loadable keys."""
     referenced = {_resolve(slug) for slug in _collect_tol_arguments()}
     assert referenced <= set(TOLERANCES), sorted(referenced - set(TOLERANCES))
 
@@ -193,15 +195,15 @@ def test_every_inline_row_is_referenced_by_a_tol_call() -> None:
 
 
 @pytest.mark.fast
-def test_known_case_toml_vs_doc_disagreement_is_documented() -> None:
-    """Flag the one CASE_TOML doc-vs-TOML disagreement so it stays visible.
+def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
+    """The Dupuit fixed-head head-RMSE doc rows match their enforced case-TOML.
 
-    TOLERANCES.md row 12 documents the Dupuit MF6 head RMSE as ``0.02 m`` but the
-    enforced case-TOML value (validation_cases/.../dupuit_fixed_head_1d/
-    tolerances_modflow6.toml ``head_profile.rmse``) is ``2e-4`` (100x tighter).
-    The NWT row 11 (0.05) agrees with its case-TOML. Neither value is changed by
-    W5; this assertion records the documented mismatch so a silent edit to either
-    store surfaces here.
+    MODFLOW 6 now runs the Newton default; its ``tolerances_modflow6.toml``
+    ``head_profile.rmse`` was re-aligned to the documented literature value
+    (0.02 m, TOLERANCES.md row 12), closing the old 100x doc-vs-TOML gap (the
+    override used to enforce 2e-4 to fit the standard formulation). NWT (row 11)
+    stays at 0.05 m. This keeps both stores in sync: a silent edit to either side
+    surfaces here.
     """
     doc_mf6 = tol("dupuit_fixed_head_1d_mf6__head_rmse")
     doc_nwt = tol("dupuit_fixed_head_1d_nwt__head_rmse")
@@ -213,7 +215,7 @@ def test_known_case_toml_vs_doc_disagreement_is_documented() -> None:
     )
     mf6_toml = (case_root / "tolerances_modflow6.toml").read_text(encoding="utf-8")
     nwt_toml = (case_root / "tolerances.toml").read_text(encoding="utf-8")
-    # Enforced MF6 head_profile.rmse is tighter than the documented 0.02.
-    assert "rmse = 2e-4" in mf6_toml, "dupuit MF6 case-TOML rmse changed; revisit row 12"
-    # Enforced NWT head_profile.rmse agrees with the documented 0.05.
+    # Enforced MF6 head_profile.rmse now matches the documented 0.02 m.
+    assert "rmse = 0.02" in mf6_toml, "dupuit MF6 case-TOML rmse changed; revisit row 12"
+    # Enforced NWT head_profile.rmse agrees with the documented 0.05 m.
     assert "rmse = 0.05" in nwt_toml, "dupuit NWT case-TOML rmse changed; revisit row 11"

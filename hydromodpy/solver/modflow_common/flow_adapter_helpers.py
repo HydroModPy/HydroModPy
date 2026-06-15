@@ -15,6 +15,7 @@ Keeping that code here avoids duplicating the same lifecycle in both
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -29,6 +30,34 @@ from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+
+_PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
+
+
+def _last_percent_discrepancy(listing_dir: Path) -> float | None:
+    """Return the final water-budget PERCENT DISCREPANCY from a per-model listing.
+
+    Best-effort and never raises: scans every ``*.lst`` except the simulation
+    listing and returns the last parsed value, or None when none is found.
+    """
+    last: float | None = None
+    try:
+        listings = sorted(listing_dir.glob("*.lst"))
+    except OSError:
+        return None
+    for listing in listings:
+        if listing.name == "mfsim.lst":
+            continue
+        try:
+            text = listing.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for match in _PERCENT_DISCREPANCY_RE.finditer(text):
+            try:
+                last = float(match.group(1))
+            except ValueError:
+                continue
+    return last
 
 
 def _has_single_process_run(plan: SimulationPlan, process_type: str) -> bool:
@@ -158,12 +187,17 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         )
     )
     if not success:
-        diagnostics_path = Path(getattr(model_modflow, "full_path", "")).resolve()
+        model_dir = Path(getattr(model_modflow, "full_path", "")).resolve()
+        diagnostics_path = model_dir
+        detail = ""
         if ctx.run.solver == "modflow6":
-            diagnostics_path = diagnostics_path / "mfsim.lst"
+            percent = _last_percent_discrepancy(model_dir)
+            if percent is not None:
+                detail = f" Final water-budget PERCENT DISCREPANCY = {percent}."
+            diagnostics_path = model_dir / "mfsim.lst"
         raise SolverDivergedError(
-            f"[HMPY.E401] Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
-            f"See {diagnostics_path} for diagnostics.",
+            f"[HMPY.E401] Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'."
+            f"{detail} See {diagnostics_path} for diagnostics.",
             run_id=ctx.run.id,
         )
     metrics: dict[str, float] = {}

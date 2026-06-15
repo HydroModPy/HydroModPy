@@ -101,6 +101,56 @@ def resolve_ims_complexity_for(model, solver_mesh=None) -> str:
     return resolve_ims_complexity(model, solver_mesh)
 
 
+def newton_options(runtime) -> list[str] | None:
+    """Return MF6 GWF newtonoptions. Catchment cells are convertible, so Newton
+    with under-relaxation is the robust default."""
+    if not runtime.mf6_newton:
+        return None
+    options = ["NEWTON"]
+    if runtime.mf6_newton_under_relaxation:
+        options.append("UNDER_RELAXATION")
+    return options
+
+
+def guard_newton_rewet(runtime, rewet_record) -> None:
+    """Reject NEWTON + REWET: MF6 forbids rewetting under the Newton formulation,
+    which uses continuous upstream weighting."""
+    if runtime.mf6_newton and rewet_record is not None:
+        raise ValueError(
+            "[HMPY.E405] mf6_newton and mf6_enable_rewet are mutually exclusive in "
+            "MODFLOW 6: the Newton formulation uses continuous upstream weighting and "
+            "forbids NPF rewetting. Disable one of them."
+        )
+
+
+def guard_newton_linear_acceleration(runtime) -> None:
+    """Reject CG linear acceleration under Newton: the Newton formulation builds
+    a non-symmetric Jacobian, which the conjugate-gradient solver (symmetric
+    matrices only) cannot solve. BICGSTAB is required."""
+    if runtime.mf6_newton and runtime.mf6_linear_acceleration == "CG":
+        raise ValueError(
+            "[HMPY.E406] mf6_linear_acceleration='CG' is invalid with "
+            "mf6_newton=True: the MODFLOW 6 Newton formulation produces a "
+            "non-symmetric Jacobian that CG cannot solve. Use BICGSTAB, or leave "
+            "mf6_linear_acceleration unset to keep the preset default."
+        )
+
+
+def optional_ims_kwargs(runtime) -> dict[str, object]:
+    """Return the optional IMS knobs that are set; None values keep flopy presets."""
+    kwargs: dict[str, object] = {}
+    if runtime.mf6_inner_rclose is not None:
+        # flopy exposes inner_rclose only through the rcloserecord record
+        # (inner_rclose + rclose_option). The empty option keeps MF6's default
+        # absolute infinity-norm criterion (sln-ims.dfn: no option = infinity).
+        kwargs["rcloserecord"] = [(float(runtime.mf6_inner_rclose), "")]
+    if runtime.mf6_linear_acceleration is not None:
+        kwargs["linear_acceleration"] = runtime.mf6_linear_acceleration
+    if runtime.mf6_under_relaxation is not None:
+        kwargs["under_relaxation"] = runtime.mf6_under_relaxation
+    return kwargs
+
+
 def log_xt3d_resolution(model, solver_mesh=None) -> None:
     """Log the resolved XT3D mode."""
     logger.info(
@@ -226,6 +276,8 @@ def run_pre_processing(  # noqa: PLR0915
     active_options = model.preprocess_options if options is None else options
     apply_preprocess_options(model, active_options)
     validate_pre_processing_inputs(model)
+    # Reject invalid solver-config combinations before any expensive grid build.
+    guard_newton_linear_acceleration(model.modflow_config.runtime)
     bind_recharge_from_flow(model)
     model._calibration_raw_output_payload_cache = {}
 
@@ -265,6 +317,9 @@ def run_pre_processing(  # noqa: PLR0915
     model.nper = temporal.nper
     model.nstp = temporal.nstp
     model.steady = temporal.steady
+    # MF6 runs in SI seconds: the launcher delivers perlen in seconds, so TDIS
+    # declares SECONDS and the output budget factor stays exactly 1.0. The flow
+    # extractor converts fluxes back from this declared unit.
     time_units = "seconds"
     finalize_pending_recharge_evt(model)
 
@@ -315,6 +370,11 @@ def run_pre_processing(  # noqa: PLR0915
     model.sim = flopy.mf6.MFSimulation(
         sim_name=sim_name, sim_ws=model.full_path, exe_name=model.exe
     )
+    # MF6 TDIS START_DATE_TIME is a free-form ISO 8601 string (flopy rejects a
+    # datetime object). None means no calendar anchor is written.
+    start_date_time = (
+        temporal.start_datetime.isoformat() if temporal.start_datetime is not None else None
+    )
     model.tdis = flopy.mf6.ModflowTdis(
         model.sim,
         nper=int(model.nper),
@@ -322,6 +382,7 @@ def run_pre_processing(  # noqa: PLR0915
             (float(model.perlen[i]), int(model.nstp[i]), 1.0) for i in range(int(model.nper))
         ],
         time_units=time_units,
+        start_date_time=start_date_time,
     )
     model.ims = flopy.mf6.ModflowIms(
         model.sim,
@@ -333,12 +394,9 @@ def run_pre_processing(  # noqa: PLR0915
         inner_maximum=int(runtime.mf6_inner_maximum),
         filename=f"{model.model_name_mf6}_gwf.ims",
         pname="IMS_GWF",
+        **optional_ims_kwargs(runtime),
     )
-    newtonoptions = None
-    if bool(getattr(runtime, "mf6_newton", False)):
-        newtonoptions = ["NEWTON"]
-        if bool(getattr(runtime, "mf6_newton_under_relaxation", True)):
-            newtonoptions.append("UNDER_RELAXATION")
+    newtonoptions = newton_options(runtime)
     model.gwf = flopy.mf6.ModflowGwf(
         model.sim,
         modelname=model.model_name_mf6,
@@ -348,16 +406,22 @@ def run_pre_processing(  # noqa: PLR0915
         newtonoptions=newtonoptions,
     )
     model.sim.register_ims_package(model.ims, [model.gwf.name])
-    idomain = np.where(solver_mesh.inactive_mask, 0, 1).astype(int)
+    idomain = solver_mesh.idomain()
 
+    # MF6 uses DISV for every grid (structured and unstructured) so one code path
+    # covers both. Native DIS is reserved for the NWT backend, which only supports
+    # structured grids.
     disv_kwargs = solver_mesh.to_disv_kwargs()
+    # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
+    # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
+    # the whole grid by one full origin (double offset).
     model.dis = flopy.mf6.ModflowGwfdisv(
         model.gwf,
         nlay=solver_mesh.nlay,
         **disv_kwargs,
         idomain=idomain,
-        xorigin=float(solver_mesh.xoffset),
-        yorigin=float(solver_mesh.yoffset),
+        xorigin=0.0,
+        yorigin=0.0,
         length_units="METERS",
     )
 
@@ -368,23 +432,15 @@ def run_pre_processing(  # noqa: PLR0915
     model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
     model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
     rewet_record, wetdry = resolve_rewet_npf_options(model, solver_mesh)
+    guard_newton_rewet(runtime, rewet_record)
     xt3doptions = resolve_xt3d_options(model, solver_mesh)
 
     model.npf = flopy.mf6.ModflowGwfnpf(
         model.gwf,
         icelltype=np.ones((model.nlay,), dtype=int),
         k=model.hk,
-        k33=model.hk
-        / max(
-            float(
-                getattr(
-                    getattr(model.modflow_config, "process_specific", object()),
-                    "vka",
-                    1.0,
-                )
-            ),
-            1e-12,
-        ),
+        # k33 = k / vka (vka = kh/kv vertical anisotropy ratio, > 0).
+        k33=model.hk / float(model.modflow_config.process_specific.vka),
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,
         wetdry=wetdry,

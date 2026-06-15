@@ -20,6 +20,45 @@ def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, 
     return (lay, row * int(ncol) + col)
 
 
+def _validate_resolved_well_cell(model, *, well_id: str, lay: int, cell_id: int) -> None:
+    """A WEL cell must exist in the grid and be active (idomain != 0).
+
+    MODFLOW errors here are cryptic, so we fail early naming the well. Layers and
+    cells are 0-based. The per-layer mask ``solver_mesh.inactive_mask`` (nlay,
+    n_cells) is used when present; otherwise ``model.dem_mask`` is the flat
+    layer-0 active mask. In both, True means inactive.
+    """
+    nlay = int(model.nlay)
+    if lay < 0 or lay >= nlay:
+        raise ValueError(
+            f"flow.sinks_sources.wells.{well_id} layer {lay} is outside the grid: "
+            f"valid layers are 0..{nlay - 1} (0-based)."
+        )
+    solver_mesh = getattr(model, "solver_mesh", None)
+    if solver_mesh is not None:
+        mask = np.asarray(solver_mesh.inactive_mask, dtype=bool)
+        n_cells = int(mask.shape[1])
+        if cell_id < 0 or cell_id >= n_cells:
+            raise ValueError(
+                f"flow.sinks_sources.wells.{well_id} cell {cell_id} is outside the grid "
+                f"({n_cells} cells)."
+            )
+        inactive = bool(mask[lay, cell_id])
+    else:
+        flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
+        if cell_id < 0 or cell_id >= flat.size:
+            raise ValueError(
+                f"flow.sinks_sources.wells.{well_id} cell {cell_id} is outside the grid "
+                f"({int(flat.size)} cells)."
+            )
+        inactive = bool(flat[cell_id])
+    if inactive:
+        raise ValueError(
+            f"flow.sinks_sources.wells.{well_id} targets an inactive cell (layer {lay}, "
+            f"cell {cell_id}); place the well inside the catchment."
+        )
+
+
 def _forcing_units(forcing: object, *, fallback: object) -> object:
     if isinstance(forcing, Mapping):
         return forcing.get("units", fallback)
@@ -78,12 +117,9 @@ def resolve_well_disv_cell(
             raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell row is outside the grid.")
         if ncol > 0 and (col < 0 or col >= ncol):
             raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell col is outside the grid.")
-        return well_cell_to_disv(
-            ncol=ncol,
-            lay=lay,
-            row=row,
-            col=col,
-        )
+        lay_cell = well_cell_to_disv(ncol=ncol, lay=lay, row=row, col=col)
+        _validate_resolved_well_cell(model, well_id=well_id, lay=lay_cell[0], cell_id=lay_cell[1])
+        return lay_cell
 
     if solver_mesh is None or getattr(solver_mesh, "is_structured", False):
         if grid is None:
@@ -119,7 +155,9 @@ def resolve_well_disv_cell(
         if row == int(grid.nrow) and y_m == ymin:
             row = int(grid.nrow) - 1
         lay = layer
-        return well_cell_to_disv(ncol=ncol, lay=int(lay), row=int(row), col=int(col))
+        lay_cell = well_cell_to_disv(ncol=ncol, lay=int(lay), row=int(row), col=int(col))
+        _validate_resolved_well_cell(model, well_id=well_id, lay=lay_cell[0], cell_id=lay_cell[1])
+        return lay_cell
 
     support = getattr(model, "runtime_mesh_support", None)
     if support is None:
@@ -142,6 +180,7 @@ def resolve_well_disv_cell(
             f"{location_kind!r}."
         )
     cell_id = int(support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False))
+    _validate_resolved_well_cell(model, well_id=well_id, lay=layer, cell_id=cell_id)
     return (layer, cell_id)
 
 
@@ -220,13 +259,18 @@ def build_well_stress_period_data(
             parsed = np.asarray(raw_flux_seq, dtype=float)
             if parsed.size == 1:
                 flux_vector = np.full((n_stress_periods,), float(parsed[0]), dtype=float)
-            else:
-                if parsed.size != int(n_stress_periods):
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.flux length ({parsed.size}) "
-                        f"must be 1 or match nper ({int(n_stress_periods)})."
-                    )
+            elif parsed.size == int(n_stress_periods):
                 flux_vector = parsed.astype(float)
+            elif int(n_stress_periods) == 1:
+                # The steady spin-up collapses the transient window to one
+                # period. Carry the time-mean well flux, like recharge/EVT,
+                # instead of the first-period value.
+                flux_vector = np.full((1,), float(np.mean(parsed)), dtype=float)
+            else:
+                raise ValueError(
+                    f"flow.sinks_sources.wells.{well_id}.flux length ({parsed.size}) "
+                    f"must be 1 or match nper ({int(n_stress_periods)})."
+                )
         if not np.all(np.isfinite(flux_vector)):
             raise ValueError(f"flow.sinks_sources.wells.{well_id}.flux must be finite.")
         normalized_wells.append((cell, flux_vector))

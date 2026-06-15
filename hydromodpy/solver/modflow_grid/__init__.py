@@ -17,25 +17,15 @@ from .discretization_temporal import (
     resolve_first_period_steady,
 )
 from .grid_context import SolverGridContext, grid_reference_from_solver_mesh
-from .grid_mapping import (
-    DiscretizationKind,
-    DisDescriptor,
-    DisvDescriptor,
-    describe_grid,
-)
 from .solver_mesh import SolverMesh
 
 __all__ = [
-    "DiscretizationKind",
-    "DisDescriptor",
-    "DisvDescriptor",
     "SolverGridContext",
     "SolverMesh",
     "TemporalDiscretizationResult",
     "build_spatial_discretization",
     "build_temporal_discretization",
     "build_temporal_discretization_from_time_grid",
-    "describe_grid",
     "grid_reference_from_solver_mesh",
     "project_surfaces_to_planar_grid",
     "resolve_first_period_steady",

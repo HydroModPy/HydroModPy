@@ -86,7 +86,7 @@ the recipe that matches your platform.
              Includes the default Optuna calibration sampler.
          * - ``env_hydromodpy_pkg.yml``
            - Editable stack: same packages plus
-             ``pip install -e "..[docs,test]"`` for local doc builds
+             ``pip install -e "..[docs,docs-uml,test]"`` for local doc builds
              and test execution.
          * - ``env_hydromodpy_light_pkg.yml``
            - Smaller editable stack, recommended on Linux/WSL for
@@ -103,13 +103,13 @@ the recipe that matches your platform.
          pre-commit install
 
       Run the command from the repository root: the relative
-      ``pip install -e "..[docs,test]"`` inside the YAML must reach the
+      ``pip install -e "..[docs,docs-uml,test]"`` inside the YAML must reach the
       project source. The Python version is pinned by each YAML; no
-      need to set it on the command line. On Windows, these editable
-      YAMLs preinstall ``graphviz`` and ``pygraphviz`` from
-      ``conda-forge`` before the editable ``pip`` step. This avoids
-      compiling ``pygraphviz`` from source while installing the
-      documentation extra.
+      need to set it on the command line. These editable YAMLs
+      preinstall ``graphviz`` and ``pygraphviz`` from ``conda-forge``
+      before the editable ``pip`` step. This avoids compiling
+      ``pygraphviz`` from source while installing the ``docs-uml``
+      extra (``erdantic`` regenerates the config ER diagrams).
 
       Quick option without cloning, when you only need the runtime
       env: download ``env_hydromodpy.yml`` from the install folder
@@ -191,7 +191,11 @@ command, for example ``pip install -e ".[dev,test,docs]"``.
      - ``ruff`` and ``pre-commit`` for linting and Git hooks.
    * - ``[docs]``
      - Sphinx, the PyData theme, ``myst-parser``, ``nbsphinx``, plus
-       all extensions used to build this documentation.
+       all extensions used to build this documentation. Pure wheels,
+       no system Graphviz needed.
+   * - ``[docs-uml]``
+     - ``erdantic`` to regenerate the config ER diagrams. Needs a
+       system Graphviz install; ``pygraphviz`` has no wheels.
    * - ``[ide]``
      - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
    * - ``[viewer3d]``
@@ -314,13 +318,18 @@ SHA256 verification and installs the local Graphviz bundle on Windows.
 Pass ``--skip-graphviz`` if the system already provides the ``dot``
 command.
 
-On an existing Windows Conda environment, install the Graphviz Python
-bindings with Conda before rerunning the editable docs install:
+The config ER diagrams are regenerated with ``erdantic``, which builds
+on ``pygraphviz``. ``pygraphviz`` ships no Linux or Windows wheels and
+compiles against the system Graphviz headers. Install the Graphviz
+stack from conda-forge first, then add the ``docs-uml`` extra:
 
-.. code-block:: powershell
+.. code-block:: bash
 
    conda install -c conda-forge graphviz pygraphviz
-   python -m pip install -e ".[docs]"
+   python -m pip install -e ".[docs-uml]"
+
+The plain ``[docs]`` build does not need this step. The committed SVGs
+are reused when ``erdantic`` is absent.
 
 For live preview during edits:
 

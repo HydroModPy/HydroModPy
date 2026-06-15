@@ -483,11 +483,12 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
 def apply_explicit_time_window_to_tgrids(
     cfg: Any,
 ) -> ResolvedSimulationTimeWindow | None:
-    """Apply resolved ``simulation.time`` to flow-solver ``tgrid`` sections.
+    """Apply resolved ``simulation.time`` to the MODFLOW-NWT ``tgrid`` section.
 
     The launcher keeps temporal authority in ``[simulation.time]`` and writes
-    synchronized values into ``modflow_nwt.tgrid`` and ``modflow6.tgrid`` when
-    those sections are present.
+    synchronized values into ``modflownwt.tgrid`` when present. The MODFLOW 6
+    build reads its stress periods from ``[simulation.time]`` directly and has no
+    ``tgrid`` section.
     """
     time_cfg = _simulation_time_config(cfg)
     if time_cfg is None:
@@ -503,7 +504,7 @@ def apply_explicit_time_window_to_tgrids(
     perlen_seconds = list(grid.period_lengths_seconds)
     nper = grid.nper
 
-    for solver_section_name in ("modflownwt", "modflow6"):
+    for solver_section_name in ("modflownwt",):
         solver_cfg = getattr(cfg, solver_section_name, None)
         tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
         if tgrid_cfg is None:

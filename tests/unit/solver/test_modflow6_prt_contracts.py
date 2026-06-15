@@ -12,7 +12,6 @@ import zarr
 from hydromodpy.display.figures.particle_tracks import _read_particles
 from hydromodpy.physics.transport.transport import Transport
 from hydromodpy.physics.transport.transport_config import TransportConfig
-from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow6.prt_tracks import read_prt_track_csv
@@ -431,24 +430,6 @@ def test_modflow6_prt_extractor_converts_model_seconds_to_days(tmp_path: Path) -
     assert np.allclose(time[0], [0.0, 2.0])
     assert attrs["source_time_units"] == "SECONDS"
     assert attrs["time_units"] == "days"
-
-
-def test_modflow6_flow_extractor_writes_spdis_magnitude_from_vector_recarray() -> None:
-    rec = np.array(
-        [(1, 1, 0.0, 3.0, 4.0, 0.0), (2, 2, 0.0, 0.0, 12.0, 5.0)],
-        dtype=[
-            ("node", "<i4"),
-            ("node2", "<i4"),
-            ("q", "<f8"),
-            ("qx", "<f8"),
-            ("qy", "<f8"),
-            ("qz", "<f8"),
-        ],
-    )
-
-    field = Modflow6OutputAdapter._recarray_to_grid(rec, nlay=1, n_cells=2)
-
-    assert np.allclose(field, [[5.0, 13.0]])
 
 
 def test_particle_tracks_reader_supports_vectorized_layout(tmp_path: Path) -> None:

@@ -15,6 +15,7 @@ from hydromodpy.physics.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
+from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt._chd_payloads import is_scalar_number
 
@@ -143,31 +144,27 @@ def extract_negative_recharge_evt_payload(
     *,
     payload: object,
     nper: int,
+    steady: object,
 ) -> tuple[object, dict[int, object] | None]:
-    """Route negative recharge values to EVT and keep RCH non-negative."""
+    """Route negative recharge values to EVT and keep RCH non-negative.
+
+    Steady periods carry the time-mean deficit; transient periods keep their own
+    split (shared with MODFLOW 6 via ``route_negative_recharge_to_evt``).
+    """
     if not payload_has_negative_values(payload):
         return payload, None
 
     if isinstance(payload, Mapping):
-        evt_data: dict[int, object] = {}
-        clipped: dict[int, object] = {}
-        for raw_kper, raw_value in payload.items():
-            kper = int(raw_kper)
-            arr = np.asarray(raw_value, dtype=float)
-            evt_data[kper] = (
-                np.zeros_like(arr, dtype=float)
-                if kper == 0
-                else np.abs(np.minimum(arr, 0.0)).astype(float, copy=False)
-            )
-            clipped[kper] = np.maximum(arr, 0.0).astype(float, copy=False)
-        return clipped, evt_data
+        normalized = {int(k): np.asarray(v, dtype=float) for k, v in payload.items()}
+        return route_negative_recharge_to_evt(normalized, steady=steady)
 
     payload_for_rch = clip_negative_payload(payload)
     negative = np.abs(np.minimum(np.asarray(payload, dtype=float), 0.0))
     evt_spd: dict[int, object] = {}
     for kper in range(int(nper)):
-        if kper == 0:
-            evt_spd[kper] = 0.0
+        is_steady = bool(steady[kper]) if kper < len(steady) else False
+        if is_steady:
+            evt_spd[kper] = float(np.mean(negative)) if negative.ndim else float(negative)
         elif negative.ndim == 0:
             evt_spd[kper] = float(negative)
         else:
@@ -306,6 +303,7 @@ def build_heterogeneous_recharge_payload(
         payload, evt_payload = extract_negative_recharge_evt_payload(
             payload=payload,
             nper=adapter.nper,
+            steady=[resolve_flow_regime(adapter.flow) == "steady"] * int(adapter.nper),
         )
         adapter._negative_recharge_evt_spd = evt_payload
     return payload
@@ -376,6 +374,7 @@ def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
         rch_data, evt_payload = extract_negative_recharge_evt_payload(
             payload=rch_data,
             nper=adapter.nper,
+            steady=[resolve_flow_regime(adapter.flow) == "steady"] * int(adapter.nper),
         )
         adapter._negative_recharge_evt_spd = evt_payload
     return rch_data

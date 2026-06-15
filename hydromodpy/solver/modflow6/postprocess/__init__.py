@@ -49,6 +49,18 @@ from ._watertable import compute_watertable_depth, compute_watertable_elevation
 logger = get_logger(__name__)
 
 
+def _close_quietly(reader: object) -> None:
+    """Close a flopy binary reader if it exposes close(). Releasing the file
+    handle is pure cleanup, so a reader without close() (or a failing close) must
+    never abort post-processing."""
+    closer = getattr(reader, "close", None)
+    if callable(closer):
+        try:
+            closer()
+        except Exception:
+            logger.debug("Failed to close reader %r", reader, exc_info=True)
+
+
 def run_flow_post_processing(
     model: FlowPostprocessModel,
     options: ModflowPostprocessOptions | None = None,
@@ -72,6 +84,14 @@ def run_flow_post_processing(
     cbb = open_budget_file(cbc_path)
 
     times = head_fpu.get_times()
+    kstpkpers = head_fpu.get_kstpkper()
+    if len(kstpkpers) != len(times):
+        logger.warning(
+            "MF6 head output has %d times but %d (kstp,kper) entries; "
+            "budget reads pair by the shorter length.",
+            len(times),
+            len(kstpkpers),
+        )
     model.times = times
     dict_watertable_elevation: dict[int, np.ndarray] = {}
     dict_watertable_depth: dict[int, np.ndarray] = {}
@@ -95,7 +115,7 @@ def run_flow_post_processing(
     dem_flat = np.asarray(model.dem, dtype=float).reshape(-1)
     east_cells = east_side_cell_ids(model)
 
-    for item, time in enumerate(times):
+    for item, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
         head = head_fpu.get_data(totim=time)
         wt = compute_watertable_elevation(head)
 
@@ -126,7 +146,7 @@ def run_flow_post_processing(
                     NODATA,
                 )
 
-        drn = get_budget_records_or_none(cbb, kstpkper=(0, item), text="DRN")
+        drn = get_budget_records_or_none(cbb, kstpkper=kstpkper, totim=time, text="DRN")
         outflow, seepage = compute_drain_outflow_and_seepage(drn, ncpl=ncpl)
         outflow[dem_mask_flat] = NODATA
         seepage[dem_mask_flat] = NODATA
@@ -155,7 +175,7 @@ def run_flow_post_processing(
                 )
 
         if options.outlet_discharge_east_side_m3_s:
-            chd = get_budget_records_or_none(cbb, kstpkper=(0, item), text="CHD")
+            chd = get_budget_records_or_none(cbb, kstpkper=kstpkper, totim=time, text="CHD")
             outlet_discharge_m3_s = compute_chd_outlet_discharge_east_side_m3_s(
                 chd,
                 ncpl=ncpl,
@@ -191,6 +211,9 @@ def run_flow_post_processing(
             )
             accumulated_flow[dem_mask_flat] = float(NODATA)
             dict_accumulation_flux[item] = model._to_export_array(accumulated_flow)
+
+    _close_quietly(head_fpu)
+    _close_quietly(cbb)
 
     if options.watertable_elevation:
         np.save(os.path.join(model.save_file, "watertable_elevation"), dict_watertable_elevation)
@@ -261,15 +284,15 @@ def run_transport_post_processing(
             conc_reader = headobj
             concobj_1c = headobj.get_alldata(mflay=None)
     concobj_1c[concobj_1c >= 1e30] = np.nan
-    conc_last_idx = max(int(concobj_1c.shape[0]) - 1, 0)
-    times = list(getattr(transport_model.model_modflow, "times", []) or [])
-    if len(times) != int(transport_model.model_modflow.nper):
-        try:
-            times = [float(value) for value in conc_reader.get_times()]
-        except Exception:
-            times = []
-    if len(times) != int(transport_model.model_modflow.nper):
-        times = [float(i + 1) for i in range(int(transport_model.model_modflow.nper))]
+    # Drive the loop from the real concentration output slices, not nper: with
+    # nstp_per_period > 1 there are nper*nstp slices, one per output time.
+    n_conc = int(concobj_1c.shape[0])
+    try:
+        times = [float(value) for value in conc_reader.get_times()]
+    except Exception:
+        times = []
+    if len(times) != n_conc:
+        times = [float(k + 1) for k in range(n_conc)]
 
     outflow_drain = getattr(transport_model.model_modflow, "dict_outflow_drain", {})
     dem_mask = np.asarray(
@@ -294,15 +317,27 @@ def run_transport_post_processing(
             np.asarray(arr, dtype=float).reshape(-1)
         )
 
-    for i in range(transport_model.model_modflow.nper):
-        the_time = str(i + 1)
+    # Pair concentration slice k with the flow seepage at the same output index k.
+    n_seep = len(outflow_drain)
+    if n_seep and n_seep != n_conc:
+        logger.warning(
+            "MF6 transport has %d concentration slices but %d seepage steps; "
+            "pairing by the shorter length.",
+            n_conc,
+            n_seep,
+        )
+    n_steps = min(n_conc, n_seep) if n_seep else n_conc
+
+    for i in range(n_steps):
+        # Label TIFs by the 0-based output index, matching the flow rasters and
+        # the per-index dict keys (was i+1, off by one from the dicts).
+        the_time = str(i)
         seep = outflow_drain.get(i, np.zeros(int(transport_model.model_modflow.ncpl), dtype=float))
         seep = np.asarray(seep, dtype=float).reshape(-1)
-        conc_time_idx = min(i, conc_last_idx)
         mass_surf = None
 
         if concentration_seepage:
-            conc_surf = np.asarray(concobj_1c[conc_time_idx][0], dtype=float).reshape(-1).copy()
+            conc_surf = np.asarray(concobj_1c[i][0], dtype=float).reshape(-1).copy()
             conc_surf[seep <= 0] = float(NODATA)
             conc_surf[dem_mask] = float(NODATA)
             dict_concentration_seepage[i] = _reshape_for_export(conc_surf)
@@ -317,7 +352,10 @@ def run_transport_post_processing(
                 )
 
         if mass_seepage or mass_accumulated:
-            mass_surf = np.asarray(concobj_1c[conc_time_idx][0], dtype=float).reshape(-1).copy()
+            # mass_seepage is a mass-flux RATE in kg/s (concentration kg/m3 times
+            # drain seepage m3/s), despite the "mass" name; mass_accumulated below
+            # is the integrated kg quantity routed downstream.
+            mass_surf = np.asarray(concobj_1c[i][0], dtype=float).reshape(-1).copy()
             mass_surf[seep <= 0] = np.nan
             mass_surf = mass_surf * seep
             mass_surf[dem_mask] = float(NODATA)
@@ -375,6 +413,7 @@ def run_transport_post_processing(
         np.save(os.path.join(transport_model.save_file, "mass_seepage"), dict_mass_seepage)
     if mass_accumulated:
         np.save(os.path.join(transport_model.save_file, "mass_accumulated"), dict_mass_accumulated)
+    _close_quietly(conc_reader)
     transport_model.model_modflow.save_file = transport_model.save_file
     export_native_mesh_outputs(
         transport_model.model_modflow,

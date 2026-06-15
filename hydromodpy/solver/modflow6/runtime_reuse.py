@@ -99,19 +99,8 @@ def refresh_reused_runtime_property_packages(
     updated_packages: list[str] = []
     if getattr(model, "npf", None) is not None:
         model.npf.k.set_data(model.hk)
-        model.npf.k33.set_data(
-            model.hk
-            / max(
-                float(
-                    getattr(
-                        getattr(model.modflow_config, "process_specific", object()),
-                        "vka",
-                        1.0,
-                    )
-                ),
-                1e-12,
-            )
-        )
+        # k33 = k / vka (vka = kh/kv vertical anisotropy ratio, > 0).
+        model.npf.k33.set_data(model.hk / float(model.modflow_config.process_specific.vka))
         updated_packages.append("npf")
     if getattr(model, "sto", None) is not None:
         model.sto.sy.set_data(model.sy)

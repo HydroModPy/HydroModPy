@@ -32,6 +32,11 @@ def test_dupuit_irregular_mesh_mf6_boussinesq_intercomparison_regression(
         run_name="intercomparison_dupuit_irregular_mf6_bouss_outputs",
         update_goldens=update_goldens,
         require_modflow6=True,
+        # Cross-engine: the Boussinesq candidate legitimately lacks the
+        # mesh_topology/n_layers metadata the MF6 reference reports, so the
+        # audit emits a benign metadata_mismatch warn. Accept it like the
+        # extensive MF6-vs-Boussinesq test; the head limits below still gate.
+        allowed_audit_status=("pass", "warn"),
         limits={
             metric_key(
                 simulation_id="bouss_candidate",

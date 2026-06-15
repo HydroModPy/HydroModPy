@@ -182,7 +182,11 @@ them inside one ``pip install`` command, for example
        Contributor-only.
    * - ``[docs]``
      - Sphinx, the PyData theme, ``myst-parser``, ``nbsphinx``, plus
-       the extensions used to build this documentation.
+       the extensions used to build this documentation. Pure wheels,
+       no system Graphviz needed. Contributor-only.
+   * - ``[docs-uml]``
+     - ``erdantic`` to regenerate the config ER diagrams. Needs a
+       system Graphviz install; ``pygraphviz`` has no wheels.
        Contributor-only.
 
 The ``[dev]`` and ``[docs]`` extras belong to the contributor flow.

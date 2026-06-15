@@ -36,31 +36,44 @@ class _DummyGeographic:
         self.watershed_buff_dem = "dummy_buff.tif"
 
 
-class _DummyHeadFile:
+class _ClosableReader:
+    """Test double for a flopy binary reader; supports close() like the real one."""
+
+    def close(self) -> None:
+        return None
+
+
+class _DummyHeadFile(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
     def get_times(self) -> list[float]:
         return [1.0]
+
+    def get_kstpkper(self) -> list[tuple[int, int]]:
+        return [(0, 0)]
 
     def get_data(self, *, totim: float) -> np.ndarray:
         del totim
         return np.array([[[9.0, 8.5], [8.0, 7.5]]], dtype=float)
 
 
-class _DummyHeadFileUnstructured:
+class _DummyHeadFileUnstructured(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
     def get_times(self) -> list[float]:
         return [1.0]
 
+    def get_kstpkper(self) -> list[tuple[int, int]]:
+        return [(0, 0)]
+
     def get_data(self, *, totim: float) -> np.ndarray:
         del totim
         return np.array([[9.0, 8.5]], dtype=float)
 
 
-class _DummyUcnFileUnstructured:
+class _DummyUcnFileUnstructured(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
@@ -72,31 +85,31 @@ class _DummyUcnFileUnstructured:
         return np.array([[[0.2, 0.4]]], dtype=float)
 
 
-class _DummyBudgetFile:
+class _DummyBudgetFile(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper, text
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, text, totim
         raise ValueError("The specified text string is not in the budget file")
 
 
-class _DummyBudgetFileWithDrn:
+class _DummyBudgetFileWithDrn(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, totim
         assert text == "DRN"
         return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
 
 
-class _DummyBudgetFileWithDrnAndChd:
+class _DummyBudgetFileWithDrnAndChd(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, totim
         if text == "DRN":
             return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
         if text == "CHD":
@@ -115,12 +128,12 @@ class _DummyBudgetFileWithDrnAndChd:
         raise ValueError("The specified text string is not in the budget file")
 
 
-class _DummyBudgetFileUnexpectedValueError:
+class _DummyBudgetFileUnexpectedValueError(_ClosableReader):
     def __init__(self, path: str):
         self.path = path
 
-    def get_data(self, *, kstpkper, text: str):
-        del kstpkper, text
+    def get_data(self, *, kstpkper, text: str, totim=None):
+        del kstpkper, text, totim
         raise ValueError("Corrupted DRN record payload")
 
 
@@ -156,10 +169,6 @@ def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> No
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         budget_file_cls,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
-        lambda head, nodata: np.asarray(head[0], dtype=float),
     )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",

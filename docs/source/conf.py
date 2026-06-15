@@ -146,10 +146,18 @@ _ensure_required_doc_extensions()
 # sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
 # building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
 # and Read the Docs builds skip this block and run as a single-version build.
+# _current_version drives the pydata version-switcher highlight. The incremental
+# Pages workflow builds one version at a time and passes its name via
+# HMP_DOC_VERSION; a local polyversion run overrides it from POLYVERSION_DATA;
+# a plain local build falls back to the stable trunk.
+_current_version = os.environ.get("HMP_DOC_VERSION") or "main"
 if os.environ.get("POLYVERSION_DATA"):
     from sphinx_polyversion import load as _polyversion_load
 
     _polyversion_load(globals())
+    _polyversion_current = globals().get("html_context", {}).get("current")
+    if getattr(_polyversion_current, "name", None):
+        _current_version = _polyversion_current.name
 
 _DOC_OPTIONAL_IMPORTS = [
     "pint",
@@ -400,7 +408,9 @@ favicons = [
 ]
 
 # sphinx-sitemap and sphinxext-opengraph: shared base URL for the public docs.
-html_baseurl = "https://hydromodpy-docs.readthedocs.io/en/main/"
+# The site is published at the org root via GitHub Pages (multi-version under
+# /<version>/). Per-version canonical URLs land in the version-switcher pass.
+html_baseurl = "https://hydromodpy.github.io/"
 sitemap_url_scheme = "{link}"
 ogp_site_url = html_baseurl
 ogp_site_name = "HydroModPy"
@@ -520,7 +530,12 @@ html_theme_options = {
     "announcement": "🚧 Development documentation",
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
-    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "switcher": {
+        "json_url": "https://hydromodpy.github.io/switcher.json",
+        "version_match": _current_version,
+    },
+    "check_switcher": False,
     "show_nav_level": 2,
     "navigation_with_keys": True,
     "primary_sidebar_end": ["indices.html"],

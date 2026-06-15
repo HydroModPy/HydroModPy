@@ -97,10 +97,32 @@ def maybe_shards(
     return None
 
 
+def _fill_value_for_dtype(dtype: np.dtype) -> object | None:
+    """Return the CF _FillValue used for a float/int array dtype."""
+    if np.issubdtype(dtype, np.floating):
+        return float(np.nan)
+    if np.issubdtype(dtype, np.integer):
+        return int(np.iinfo(dtype).min)
+    return None
+
+
 def attach_field_attrs(target: zarr.Group, variable: str) -> None:
     """Stamp the registry-derived CF attrs onto an existing field array."""
     name = field_name_from_target(target, variable)
     if not name:
+        # Spatial budget components (drn, rcha, wel, sto-ss, ...) are not in the
+        # field registry because their names are dynamic, but they are all
+        # volumetric fluxes in m3/s (the extractor scales them to SI seconds).
+        if (target.path or "").rsplit("/", 1)[-1] == "budget":
+            arr = target[variable]
+            attrs: dict[str, object] = {
+                "units": "m3 s-1",
+                "long_name": f"{variable} volumetric flux",
+            }
+            fill = _fill_value_for_dtype(np.dtype(arr.dtype))
+            if fill is not None:
+                attrs["_FillValue"] = fill
+            update_attrs(arr, attrs)
         return
     arr = target[variable]
     update_attrs(arr, attrs_for_field(name, np.dtype(arr.dtype)))
