@@ -215,6 +215,10 @@ class ProjectRunner:
 
         workspace_path = self._resolve_workspace_path()
 
+        # A model-phase-ready run reuses the model built in this process; its
+        # resume_from > 0 is an in-process skip, not a journal resume of a prior
+        # same-name run (which would otherwise abort on an edited config).
+        model_phase_ready = False
         if from_step is not None:
             resume_from: int | None = _resolve_step_index(from_step, all_steps)
             run_id = resume or name
@@ -228,6 +232,7 @@ class ProjectRunner:
         elif self._is_model_phase_ready():
             resume_from = _resolve_step_index("setup_process", all_steps)
             run_id = name
+            model_phase_ready = True
         else:
             resume_from = None
             run_id = name
@@ -287,7 +292,12 @@ class ProjectRunner:
             set_frozen_mode(True)
 
         try:
-            final = pipeline.run(initial, resume_from=resume_from, parallel=parallel)
+            final = pipeline.run(
+                initial,
+                resume_from=resume_from,
+                parallel=parallel,
+                model_phase_ready=model_phase_ready,
+            )
         except Exception:
             from hydromodpy.project import phases as project_phases
 

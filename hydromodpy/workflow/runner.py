@@ -86,12 +86,20 @@ class Pipeline:
         *,
         resume_from: int | None = None,
         parallel: bool = True,
+        model_phase_ready: bool = False,
     ) -> PipelineState:
         """Execute steps sequentially.
 
         ``resume_from`` is the index of the first step to execute fully.
         Steps before that index are reconstructed via ``rebuild_state`` (or
         re-executed in memory when they declare no artefacts).
+
+        ``model_phase_ready`` marks a fresh run whose ``resume_from > 0`` only
+        skips the model phase already built in this process - not a journal
+        resume. Such a run is a new (possibly versioned) run, so it ignores any
+        stale same-name manifest and rebuilds its prefix from the live ctx
+        rather than a prior run's journalled artefacts. A genuine resume
+        (``resume_from > 0`` with this False) keeps verifying the checkpoint.
 
         ``parallel`` (default True) consumes the Kahn cohort layout: a
         multi-step cohort is dispatched through a thread pool. The
@@ -136,14 +144,23 @@ class Pipeline:
 
         manifest: ResolvedRunManifest | None = None
         if self.workspace is not None:
-            manifest = ResolvedRunManifest.read(self.workspace, state.run_id)
-            if restart_index > 0 and manifest is not None:
-                manifest.verify_state(state, self.steps, self.workspace)
-            elif restart_index == 0:
+            existing = ResolvedRunManifest.read(self.workspace, state.run_id)
+            if restart_index > 0 and not model_phase_ready and existing is not None:
+                # Genuine resume: the prefix is reconstructed from the prior
+                # run's artefacts, so its config/pipeline must still match.
+                existing.verify_state(state, self.steps, self.workspace)
+                manifest = existing
+            else:
+                # Fresh run (restart_index 0) or a model-phase-ready re-run
+                # whose config may differ from a stale same-name manifest:
+                # write a clean manifest and ignore any prior one.
                 manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
                 manifest.write_atomic(self.workspace)
 
-        if restart_index == 0 and journal is not None:
+        # A from-scratch run and a model-phase-ready re-run rebuild their prefix
+        # from the live ctx (is_prebuilt), never from a previous same-name run's
+        # journalled artefacts, so drop any stale journal for this run_id.
+        if (restart_index == 0 or model_phase_ready) and journal is not None:
             try:
                 journal.invalidate_from(state.run_id, start_order=0, reason="from_scratch")
             except Exception as exc:
