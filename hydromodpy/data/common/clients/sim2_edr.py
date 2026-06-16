@@ -153,54 +153,6 @@ class Sim2EDRClient:
         return pd.Series(values, index=times, dtype=float, name=parameter)
 
     @staticmethod
-    def coverage_json_to_dataset(cov_json: dict) -> Any:
-        """Convert a CoverageJSON cube response to an xarray Dataset."""
-        import numpy as np
-        import pandas as pd
-        import xarray as xr
-
-        axes = cov_json["domain"]["axes"]
-
-        # Build coordinate arrays
-        if "values" in axes.get("x", {}):
-            x_coords = np.array(axes["x"]["values"], dtype=float)
-        else:
-            x_coords = np.linspace(axes["x"]["start"], axes["x"]["stop"], axes["x"]["num"])
-
-        if "values" in axes.get("y", {}):
-            y_coords = np.array(axes["y"]["values"], dtype=float)
-        else:
-            y_coords = np.linspace(axes["y"]["start"], axes["y"]["stop"], axes["y"]["num"])
-
-        if "values" in axes.get("t", {}):
-            t_coords = pd.to_datetime(
-                [
-                    t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
-                    for t in axes["t"]["values"]
-                ],
-                format="mixed",
-            )
-        else:
-            t_coords = pd.date_range(
-                start=axes["t"]["start"],
-                periods=axes["t"]["num"],
-                freq="D",
-            )
-
-        data_vars = {}
-        for param_name, range_info in cov_json["ranges"].items():
-            shape = tuple(range_info["shape"])  # (ny, nx, nt)
-            raw = np.array(range_info["values"], dtype=float).reshape(shape)
-            # CoverageJSON axes order: y, x, t → transpose to (t, y, x) for xarray
-            data_vars[param_name] = (["time", "y", "x"], np.moveaxis(raw, 2, 0))
-
-        ds = xr.Dataset(
-            data_vars,
-            coords={"time": t_coords, "y": y_coords, "x": x_coords},
-        )
-        return ds
-
-    @staticmethod
     def metadata() -> dict | None:
         """Fetch collection metadata from the API."""
         from hydromodpy.data.common.api_client import get_json
