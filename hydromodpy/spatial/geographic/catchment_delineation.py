@@ -176,8 +176,19 @@ class CatchmentDelineation:
         This helper keeps the extraction of topography-driven domain objects
         close to the `CatchmentDelineation` object that produces the underlying data,
         while still passing only explicit objects to `Domain`.
+
+        The active extent follows ``geographic.domain_extent``: 'box' keeps the
+        full buffered rectangle active (historical default); 'watershed' masks the
+        domain to the catchment so recharge and drainage outside it no longer feed
+        the model; 'watershed_buff' keeps a buffer ring around the catchment.
         """
-        return build_surface_topo_from_dem(self.watershed_box_buff_dem)
+        dem_by_extent = {
+            "box": self.watershed_box_buff_dem,
+            "watershed_buff": self.watershed_buff_dem,
+            "watershed": self.watershed_dem,
+        }
+        extent = getattr(self._config, "domain_extent", "box")
+        return build_surface_topo_from_dem(dem_by_extent.get(extent, self.watershed_box_buff_dem))
 
     def get_geographic_derived_features(self) -> GeographicDerivedFeatures:
         """Return the canonical bundle of derived geographic artifacts."""

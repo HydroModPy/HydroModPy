@@ -296,6 +296,16 @@ class GeographicConfig(HydroModelBase):
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
+    domain_extent: Annotated[Literal["box", "watershed_buff", "watershed"], Profile.USER] = Field(
+        default="box",
+        description=(
+            "Active groundwater domain extent. 'box' (default) keeps the full "
+            "buffered rectangular support active. 'watershed' masks the domain to "
+            "the delineated catchment (recommended for catchment water-balance "
+            "models: recharge and drainage outside the watershed no longer feed "
+            "the model). 'watershed_buff' keeps a buffer ring around the catchment."
+        ),
+    )
     bottom_path: Annotated[
         Path | None,
         Profile.USER,
