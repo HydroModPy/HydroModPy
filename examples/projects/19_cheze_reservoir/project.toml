@@ -43,6 +43,10 @@ solvers = ["modflow6"]   # LAK is a MODFLOW 6 advanced package; modflow6 is requ
 source_mode = "standard"
 crs_project = "EPSG:2154"
 dem_correc_type = "breach"
+# Mask the active groundwater domain to the delineated catchment: only the
+# watershed's recharge and hillslope drainage feed the reservoir (the full
+# rectangular box would over-collect ~2.5x and peg the lake at the spillway).
+domain_extent = "watershed"
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"

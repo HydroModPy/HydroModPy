@@ -323,12 +323,21 @@ def _resolve_trace_network(
             if connected:
                 layer = _first_active_layer(idomain, cell2d, nlay)
                 if layer is None:
-                    raise ValueError(
-                        f"{location} reach {parent.ifno} crosses cell {cell2d} whose "
-                        "column is fully inactive; the reach has no aquifer cell to "
-                        "exchange with."
+                    # The reach crosses a cell outside the active aquifer (e.g. a
+                    # boundary reach when the domain is masked to the watershed).
+                    # Keep it as a routing-only, aquifer-disconnected sub-reach
+                    # (cellid stays None) instead of failing: it still conveys and
+                    # routes flow, it just exchanges no baseflow where there is no
+                    # aquifer cell.
+                    logger.warning(
+                        "%s reach %s crosses inactive cell %s; routing it as an "
+                        "aquifer-disconnected reach (no baseflow there).",
+                        location,
+                        parent.ifno,
+                        cell2d,
                     )
-                cellid = (int(layer), int(cell2d))
+                else:
+                    cellid = (int(layer), int(cell2d))
             nodes.append(
                 {
                     "cellid": cellid,
@@ -1123,6 +1132,9 @@ _SFR_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("downstream-flow", "downstream_flow"),
     ("ext-inflow", "ext_inflow"),
     ("ext-outflow", "ext_outflow"),
+    # Diffuse overland inflow added to the reach (the routed catchment runoff
+    # forcing). Requested everywhere, reads 0 where no runoff is applied.
+    ("runoff", "runoff"),
 )
 
 
