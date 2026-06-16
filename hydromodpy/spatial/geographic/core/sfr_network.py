@@ -225,8 +225,14 @@ def delineate_sfr_reaches(
             downstream_link[link] = int(link_id[nxt])
             terminal_to_lake[link] = False
         else:
+            # Bare network outlet: its D8 path leaves the domain (or the
+            # watershed-mask clip) without entering the lake or another link.
+            # The catchment is delineated to drain to the reservoir, so when a
+            # lake is present this outlet feeds it (MVR) instead of leaking out
+            # of the model by EXT-OUTFLOW. The MVR is only emitted for networks
+            # that set outflow_to_lake, so a lake-free trace is unaffected.
             downstream_link[link] = None
-            terminal_to_lake[link] = False
+            terminal_to_lake[link] = lake is not None
 
         info[link] = {
             "line": line,

@@ -16,7 +16,8 @@ Sign conventions stored (stream point of view):
   negated so ``gw_exchange`` is positive when the reach gains baseflow, matching
   the lake ``gwf_exchange`` convention (positive = water arriving from the
   aquifer).
-* ``ext_inflow`` and ``from_mvr`` are incoming terms and stay as reported.
+* ``ext_inflow``, ``from_mvr`` and ``runoff`` are incoming terms and stay as
+  reported.
 """
 
 from __future__ import annotations
@@ -57,6 +58,7 @@ _RATE_QUANTITIES = frozenset(
         "gw_exchange",
         "to_mvr",
         "from_mvr",
+        "runoff",
     }
 )
 
