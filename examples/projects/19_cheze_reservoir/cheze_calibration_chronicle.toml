@@ -1,0 +1,123 @@
+# ======================================================================
+# Cheze reservoir - REAL lake-level calibration, full daily chronicle,
+# parallel on 10 cores.
+#
+# Inherits the full 2007-2025 daily setup from project_chronicle.toml (LAK +
+# SFR + SIM2 forcings). On the full chronicle the base stageinit = 86.97 m is
+# the observed level at 2007-01-01, so the lake initial condition is already
+# consistent: NO cold-start to fix here (unlike a sub-window run).
+#
+# Calibrates the lake stage against the observed level (data/lake_levels).
+# Outputs (catalog + promoted runs) land in project_root; input data is read
+# from the shared examples/data tree (nothing is written there).
+#
+# RUN IT:
+#   cd /home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres
+#   hmp calibrate cheze_calibration_chronicle.toml
+#   # then the HTML report (figures + obs-vs-sim lake fit):
+#   hmp report render <SESSION_ID> -w cheze_calib_chronicle_out --open
+#
+# PARALLELISM: parallel = batch_size = 10 -> 10 concurrent single-threaded mf6
+# subprocesses (one per core). Each trial is isolated (its own model folder),
+# cleaned up afterwards. Keep mf6_runner = subprocess (the default); the 'api'
+# in-process runner is rejected under parallel.
+#
+# COST: each trial rebuilds the model and writes one recharge .bin per period;
+# that build is Python/GIL-bound and serial, so it gates the mf6 solves. This
+# file uses a 2015-2020 window (~2190 periods) to keep the build small enough
+# that the 10 cores fill with concurrent solves. To run the FULL 2007-2025
+# chronicle, see the block at the bottom of this file (heavy: ~6940 periods).
+# ======================================================================
+
+base_config = "project_chronicle.toml"
+
+[workflow]
+mode = "calibration"
+
+# Outputs here, data read from the shared tree. Both absolute so the run is
+# independent of the current working directory.
+[workspace]
+project_root = "."
+
+[simulation]
+name = "cheze_calib_chronicle"
+description = "Cheze lake-level calibration, daily 2015-2020, 10-core parallel."
+
+# Tractable window: ~2190 daily periods instead of ~6940. The build writes one
+# recharge .bin per period, so a shorter window keeps the (GIL-bound, serial)
+# build small enough that the 10 cores actually fill with mf6 solves.
+[simulation.time]
+start_datetime = "2015-01-01"
+end_datetime = "2020-12-31"
+step_value = "1 day"
+coverage_policy = "warn"
+
+# Lake initial stage MUST match the observed level at the window start, else the
+# steady warm-up cold-starts the lake and NSE goes negative. 2015-01-01 = 85.06 m.
+[flow.sinks_sources.lakes.reservoir_cheze]
+stageinit = "86 m"
+
+# Add the observed lake-level family (absent from the base project).
+[data]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_inflow", "lake_withdrawal", "lake_levels"]
+inference_mode = "warn"
+
+[data.lake_levels]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.lake_levels.sources]]
+source = "custom"
+path = "lake_levels"
+
+# ---------------------------------------------------------------------- calibration
+[calibration]
+method = "optuna"          # TPE; installed by default. Batches per generation.
+max_iter = 60              # 5 generations of batch_size
+batch_size = 12            # 12 suggestions drawn per generation
+parallel = 12              # 12 concurrent mf6 subprocesses (machine has 22 cores)
+seed = 42
+# KGE (Kling-Gupta): fairer than NSE for a managed lake level. It splits the fit
+# into r (timing), alpha (amplitude of the dynamics) and beta (mean bias), so the
+# dynamics are rewarded instead of being dominated by the bias term as in NSE.
+objective = "kge"          # nse | kge | rmse | mae
+variable = "lake_level"    # time-aligns simulated LAK stage to observed level
+save_runs = "best_n"       # promote the best runs to full simulations
+save_best_n = 3
+use_cache = true
+
+# Lakebed leakance: dominant lake-aquifer exchange handle. Lower bound widened to
+# 1e-8 so the optimum stays interior (a first KGE run landed near 2e-7).
+[calibration.parameters.bedleak]
+bounds = [1e-8, 1e-5]
+transform = "log"
+prior = "log_uniform"
+path = "flow.sinks_sources.lakes.reservoir_cheze.bedleak"
+units = "1/s"
+
+# Aquifer hydraulic conductivity.
+[calibration.parameters.K]
+bounds = [1e-5, 1e-3]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# Specific yield (drainable porosity) - matters over the multi-year record.
+[calibration.parameters.Sy]
+bounds = [1e-4, 1e-1]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+# ======================================================================
+# OPTIONAL - FULL 2007-2025 chronicle (heavy: ~6940 periods, very long build).
+# To use it, replace the [simulation.time] / stageinit / [data.lake_levels]
+# windows above with:
+#   [simulation.time] start=2007-01-01 end=2025-12-31 step="1 day"
+#   stageinit = "86.97 m"            # observed level at 2007-01-01
+#   [data.lake_levels] 2007-01-01 .. 2025-12-31
+# CRITICAL: stageinit must match the observed level on the start day, else the
+# steady warm-up cold-starts the lake (NSE goes negative). Observed levels:
+# 2007-01-01 = 86.97 m, 2015-01-01 = 85.06 m (check the CSV for any other start).
+# ======================================================================
