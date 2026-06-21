@@ -1,0 +1,46 @@
+# Build the sdist + wheel and publish HydroModPy to PyPI.
+#
+# Triggered manually (workflow_dispatch) or when a GitHub release is published.
+# Requires a PYPI_API_TOKEN secret on this repository (a PyPI project API token).
+# The published version is the one in pyproject.toml; bump it before releasing.
+
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Check the built artifacts
+        run: |
+          python -m pip install twine
+          python -m twine check dist/*
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: python -m twine upload --non-interactive dist/*
