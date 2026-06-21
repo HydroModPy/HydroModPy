@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from sphinx.builders.html import StandaloneHTMLBuilder
 
-package_path = Path(__file__).resolve().parents[3]
+package_path = Path(__file__).resolve().parents[2]
 os.environ['PYTHONPATH'] = ':'.join((str(package_path), os.environ.get('PYTHONPATH', '')))
 
 # Make the editable install (or cloned repo) importable without relying on src/
@@ -62,6 +62,10 @@ version = '1.0'
 # The full version, including alpha/beta/rc tags
 release = '1.0.0'
 
+# Version label for the pydata version-switcher. The GitHub Pages deploy passes
+# the built ref name via HMP_DOC_VERSION; a plain local build falls back to v1.
+_current_version = os.environ.get("HMP_DOC_VERSION") or "v1"
+
 
 # -- General configuration ---------------------------------------------------
 StandaloneHTMLBuilder.supported_image_types = [
@@ -88,8 +92,6 @@ extensions = [
     "sphinx_design",
     "sphinx_copybutton",
     "sphinx_togglebutton",
-    "sphinx_tabs.tabs",
-    "sphinx_multiversion",
 ]
 autoclass_content = 'both'
 autosummary_generate = True
@@ -132,7 +134,7 @@ pygments_style = 'sphinx'
 html_theme = 'pydata_sphinx_theme'
 html_favicon = 'images/logoHydroModPy.png'
 html_logo = 'images/logoHydroModPy_long.png'
-html_baseurl = "https://hydromodpy-docs.readthedocs.io/en/v1.0/"
+html_baseurl = "https://hydromodpy.github.io/v1/"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -144,12 +146,20 @@ html_theme_options = {
         "image_dark": "images/logoHydroModPy_long.png",
     },
     "announcement": (
-        "HydroModPy v1.0.0 documentation. New development lives on "
-        "<a href='https://hydromodpy-docs.readthedocs.io/en/main/'>main</a>."
+        "HydroModPy v1 documentation, the version described in the HESS "
+        "technical note "
+        "(<a href='https://doi.org/10.5194/egusphere-2026-868'>preprint</a>). "
+        "Latest development lives on "
+        "<a href='https://hydromodpy.github.io/main/'>v2 (main)</a>."
     ),
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
-    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "switcher": {
+        "json_url": "https://hydromodpy.github.io/switcher.json",
+        "version_match": _current_version,
+    },
+    "check_switcher": False,
     "show_nav_level": 2,
     "navigation_with_keys": True,
     "primary_sidebar_end": ["indices.html"],
@@ -159,14 +169,14 @@ html_theme_options = {
     "icon_links_label": "HydroModPy Resources",
     "icon_links": [
         {
-            "name": "GitLab",
-            "url": "https://gitlab.com/Alex-Gauvain/HydroModPy",
-            "icon": "fa-brands fa-gitlab",
+            "name": "GitHub",
+            "url": "https://github.com/HydroModPy/HydroModPy",
+            "icon": "fa-brands fa-github",
             "type": "fontawesome",
         },
         {
             "name": "Issues",
-            "url": "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues",
+            "url": "https://github.com/HydroModPy/HydroModPy/issues",
             "icon": "fa-solid fa-circle-info",
             "type": "fontawesome",
         },

@@ -2,12 +2,12 @@ Examples
 =================
 
 Each example ships as both a notebook and a Python script so you can replay the
-workflow in your IDE or on Read the Docs. Browse the gallery below to open the
-scenario you need.
+workflow in your IDE or in the online documentation. Browse the gallery below to
+open the scenario you need.
 
 - **Pip installations** – the PyPI wheel does not include the `examples/`
-  directory. Browse the examples from the v1.0.0 tag:
-  https://gitlab.com/Alex-Gauvain/HydroModPy/-/tree/v1.0.0/examples
+  directory. Browse the examples from the ``v1`` branch:
+  https://github.com/HydroModPy/HydroModPy/tree/v1/examples
   and copy the files you need where you run the project.
 - **Conda / source installations** – the cloned repository already provides
   `examples/`, keep it in place so the relative paths used in the scripts
