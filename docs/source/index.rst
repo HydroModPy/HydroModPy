@@ -1,6 +1,6 @@
 |br|
 
-Welcome to HydroModPy's !
+Welcome to HydroModPy
 ======================================
 
 .. warning::
@@ -125,7 +125,7 @@ If HydroModPy supports your work, please cite:
 
 .. code-block:: text
 
-   Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A., Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E., Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I., Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J., Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2026). Technical note: HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models. EGUsphere [preprint]. https://doi.org/10.5194/egusphere-2026-868
+   Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A., Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E., Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I., Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J., Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2026). Technical note: HydroModPy - a Python toolbox for deploying catchment-scale shallow groundwater models. EGUsphere [preprint]. https://doi.org/10.5194/egusphere-2026-868
 
 Linked publications
 -------------------
@@ -142,8 +142,8 @@ Corresponding authors
 
 For any question or collaboration request, contact:
 
-- Alexandre Gauvain – ``alexandre.gauvain.ag@gmail.com``
-- Ronan Abhervé – ``ronan.abherve@gmail.com``
+- Alexandre Gauvain: ``alexandre.gauvain.ag@gmail.com``
+- Ronan Abhervé: ``ronan.abherve@gmail.com``
 
 .. toctree::
    :hidden:
