@@ -66,31 +66,16 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,4], Bastien Boivin [1], Tristan Bab
 
 ## Installation
 
-HydroModPy can be installed with `pip` or by setting up a `conda` environment.
+The recommended way to install HydroModPy is with `pip` from PyPI. A `conda`
+environment is also provided for the full scientific stack.
 
 ### Prerequisites
 
-- **Anaconda3** or **Miniconda3** installed on your computer.
+- Python 3.11 to 3.13.
 - **Important**: your local path should not contain white spaces, to stay
   compatible with the MODFLOW-MODPATH suite.
 
-### Download
-
-To obtain the source code:
-
-- **Option 1**: download the `.zip` archive directly from the
-  [GitHub project](https://github.com/HydroModPy/HydroModPy/tree/v1).
-- **Option 2**: clone the repository with a Git client such as
-  [GitHub Desktop](https://desktop.github.com/download/).
-- **Option 3**: use the command line:
-
-```bash
-git clone https://github.com/HydroModPy/HydroModPy.git
-cd HydroModPy
-git checkout v1
-```
-
-### Option 1: pip install (recommended)
+### Install with pip (recommended)
 
 Install HydroModPy from PyPI:
 
@@ -104,16 +89,10 @@ pip install "hydromodpy[ide]==1.0.0"
 MODFLOW, MODPATH and MT3DMS binaries ship with the package. The PyHELP binary
 downloads itself on the first call to the corresponding module.
 
-For development (editable) mode from a clone:
+### Install with conda
 
-```bash
-cd HydroModPy
-pip install -e .
-```
-
-### Option 2: conda environment
-
-Ready-to-use environment files live in the `install/` directory:
+Ready-to-use environment files live in the `install/` directory (clone the
+repository first, see "Get the source code" below):
 
 - `env_hydromodpy.yml`: full runtime stack, including Spyder.
 - `env_hydromodpy_pkg.yml`: same stack, then runs `pip install -e ..` to expose
@@ -126,6 +105,28 @@ Ready-to-use environment files live in the `install/` directory:
 # from the repository root
 conda env create -f install/env_hydromodpy.yml
 conda activate hydromodpy
+```
+
+### Get the source code
+
+Needed for the conda environments above and for development (editable) installs.
+
+- **Option 1**: download the `.zip` archive directly from the
+  [GitHub project](https://github.com/HydroModPy/HydroModPy/tree/v1).
+- **Option 2**: clone the repository with a Git client such as
+  [GitHub Desktop](https://desktop.github.com/download/).
+- **Option 3**: use the command line:
+
+```bash
+git clone https://github.com/HydroModPy/HydroModPy.git
+cd HydroModPy
+git checkout v1
+```
+
+For development (editable) mode from the clone:
+
+```bash
+pip install -e .
 ```
 
 ## Launch HydroModPy
