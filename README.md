@@ -9,7 +9,7 @@ A Python toolbox for deploying catchment-scale shallow groundwater models.
 [![License: EPL-2.0](https://img.shields.io/badge/License-EPL%202.0-red.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue)](pyproject.toml)
 
-> ### HydroModPy v1 — the version cited in the paper
+> ### HydroModPy v1: the version cited in the paper
 >
 > This `v1` branch is the version described in the technical note submitted to
 > *Hydrology and Earth System Sciences* (EGUsphere preprint, 2026). It is the
@@ -115,11 +115,11 @@ pip install -e .
 
 Ready-to-use environment files live in the `install/` directory:
 
-- `env_hydromodpy.yml` — full runtime stack, including Spyder.
-- `env_hydromodpy_pkg.yml` — same stack, then runs `pip install -e ..` to expose
+- `env_hydromodpy.yml`: full runtime stack, including Spyder.
+- `env_hydromodpy_pkg.yml`: same stack, then runs `pip install -e ..` to expose
   the cloned repository as an editable package.
-- `env_hydromodpy_light.yml` — minimal headless stack (no IDE, no 3D viewer).
-- `requirements-docker-light.txt` — pip requirements for a light Docker/server
+- `env_hydromodpy_light.yml`: minimal headless stack (no IDE, no 3D viewer).
+- `requirements-docker-light.txt`: pip requirements for a light Docker/server
   image.
 
 ```bash
@@ -220,5 +220,5 @@ For any question regarding HydroModPy, please contact:
 
 - <alexandre.gauvain.ag@gmail.com>
 - <ronan.abherve@inrae.fr>
-- <bastien.boivin@inrae.fr>
+- <bastien.boivin@proton.me>
 - <jean-raynald.de-dreuzy@univ-rennes.fr>
