@@ -7,25 +7,25 @@ the dedicated API section where classes, functions, and modules are documented.
 Module overview
 ---------------
 
-- :doc:`hydromodpy.watershed <api/hydromodpy-watershed>` – watershed extraction,
+- :doc:`hydromodpy.watershed <api/hydromodpy-watershed>`: watershed extraction,
   basin descriptors (geography, geology, hydraulics, climate, hydrography, etc.),
   and the main :class:`hydromodpy.watershed_root.Watershed` object.
-- :doc:`hydromodpy.modeling <api/hydromodpy-modeling>` – preprocessing /
+- :doc:`hydromodpy.modeling <api/hydromodpy-modeling>`: preprocessing /
   processing / post-processing helpers for MODFLOW, MODPATH, surface
   mass-transfer routing, MT3DMS transport, and time-series utilities.
-- :doc:`hydromodpy.display <api/hydromodpy-display>` – visualisation routines
+- :doc:`hydromodpy.display <api/hydromodpy-display>`: visualisation routines
   for descriptors and simulation results plus VTU/VTK exporters.
-- :doc:`hydromodpy.pyhelp <api/hydromodpy-pyhelp>` – coupling layer with the HELP
-  land-surface model, NetCDF conversion tools, rainfall–runoff post-processing,
+- :doc:`hydromodpy.pyhelp <api/hydromodpy-pyhelp>`: coupling layer with the HELP
+  land-surface model, NetCDF conversion tools, rainfall-runoff post-processing,
   and CLI entry points.
-- :doc:`hydromodpy.tools <api/hydromodpy-tools>` – shared toolbox for filesystem
+- :doc:`hydromodpy.tools <api/hydromodpy-tools>`: shared toolbox for filesystem
   helpers, raster reprojection, geomorphology metrics, ERA5 ingestion, and plot
   presets.
 
 Key entry points
 ----------------
 
-- :class:`hydromodpy.watershed_root.Watershed` – main object orchestrating every
+- :class:`hydromodpy.watershed_root.Watershed`: main object orchestrating every
   example (accessible via :mod:`hydromodpy.watershed_root`).
 
 Detailed documentation

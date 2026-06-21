@@ -49,7 +49,7 @@ Install with pip
       Editable mode installs the package from the local repository while keeping
       the source tree editable. Use the v2 documentation for active
       contributions. Install the ``[docs]`` extras later only if you work on the
-      v1.0 documentation.
+      v1 documentation.
 
 Full pip packaging is available from v0.3.0 onward. Users pinned to older
 releases should rely on the conda environment and the ``v0.2.0`` tag.
@@ -187,7 +187,7 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    Append ``"hydromodpy[ide]==1.0.0"`` to either command if you want the IDE
    extras.
 
-Pin v1.0
+Track v1
 --------
 
 .. code-block:: bash
