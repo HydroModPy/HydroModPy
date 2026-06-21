@@ -74,18 +74,14 @@ dependencies = [
 [project.optional-dependencies]
 docs = [
     "sphinx>=7.0",
-    "sphinx-rtd-theme",
     "myst-parser",
     "nbsphinx",
     "sphinx-gallery",
     "sphinx-autobuild",
-    "readthedocs-sphinx-ext",
     "pydata-sphinx-theme",
     "sphinx-design",
     "sphinx-copybutton",
     "sphinx-togglebutton",
-    "sphinx-tabs",
-    "sphinx-multiversion",
 ]
 ide = [
     "spyder>=6.0",
@@ -93,10 +89,10 @@ ide = [
 ]
 
 [project.urls]
-Homepage = "https://hydromodpy-docs.readthedocs.io/en/v1.0/"
-Documentation = "https://hydromodpy-docs.readthedocs.io/en/v1.0/"
-Repository = "https://gitlab.com/Alex-Gauvain/HydroModPy"
-Issues = "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues"
+Homepage = "https://hydromodpy.github.io/v1/"
+Documentation = "https://hydromodpy.github.io/v1/"
+Repository = "https://github.com/HydroModPy/HydroModPy"
+Issues = "https://github.com/HydroModPy/HydroModPy/issues"
 "Google Group" = "https://groups.google.com/g/hydromodpy"
 
 [tool.setuptools]
