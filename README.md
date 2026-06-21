@@ -50,7 +50,7 @@ practical and reproducible environment.
 
 ## Authors
 
-Alexandre Gauvain [1,2], Ronan Abhervé [1,3,4], Bastien Boivin [1], Tristan Babey [1], Martin Le Mesnil [1], Alexandre Coche [1], Enzo Maugan [1], Théa Touzeau [1], Imene Issolah [1], Clément Roques [3], Camille Bouchez [1], Jean Marçais [4], Sarah Leray [5], Etienne Marti [5], Etienne Bresciani [6], Ronny Figueroa [3], Mathias Pélissier [3], Simon Carlier [3], Luca Guillaumot [8], Rock S. Bagagnan [1], Camille Vautier [1], Laurent Longuevergne [1], June Sallou [7], Johan Bourcier [8], Benoit Combemale [8], Philip Brunner [3], Luc Aquilina [1], Jean-Raynald de Dreuzy [1].
+Alexandre Gauvain [1,2], Ronan Abhervé [1,3,4], Bastien Boivin [1], Clément Roques [3], Martin Le Mesnil [1], Alexandre Coche [1], Tristan Babey [1], Jean Marçais [4], Camille Bouchez [1], Sarah Leray [5], Etienne Marti [5], Etienne Bresciani [6], Ronny Figueroa [3], Mathias Pélissier [3], Luca Guillaumot [8], Théa Touzeau [1], Imene Issolah [1], Enzo Maugan [1], Rock S. Bagagnan [1], Camille Vautier [1], June Sallou [7], Johan Bourcier [8], Benoit Combemale [8], Philip Brunner [3], Laurent Longuevergne [1], Luc Aquilina [1], Jean-Raynald de Dreuzy [1].
 
 - [1] Geosciences Rennes -- UMR 6118, CNRS, Université de Rennes, Rennes, France
 - [2] Laboratoire de Météorologie Dynamique (LMD), CNRS, Sorbonne Université, Paris, France
