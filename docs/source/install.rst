@@ -3,11 +3,12 @@ Install
 
 .. warning::
 
-   This documentation describes the HydroModPy v1.0.0 release. The ``v1.0``
-   branch is no longer maintained day to day. Existing projects
-   may stay pinned to the ``v1.0.0`` tag. New development should move to
-   HydroModPy v2 on ``main``:
-   https://hydromodpy-docs.readthedocs.io/en/main/
+   You are reading the HydroModPy **v1** documentation, the version described in
+   the HESS technical note
+   (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1`` branch
+   is the reference cited by the paper and still receives fixes. For the latest
+   development version, see HydroModPy v2 on ``main``:
+   https://hydromodpy.github.io/main/
 
 Requirements
 ------------
@@ -39,9 +40,9 @@ Install with pip
 
       .. code-block:: bash
 
-         git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+         git clone https://github.com/HydroModPy/HydroModPy.git
          cd HydroModPy
-         git checkout v1.0.0
+         git checkout v1
          python -m pip install --upgrade pip
          pip install -e .
 
@@ -113,7 +114,7 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    .. code-block:: bash
 
       # Clone + runtime stack (scripts, notebooks)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
 
    .. code-block:: bash
 
@@ -123,7 +124,7 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    .. code-block:: bash
 
       # Clone + editable stack (adds pip install -e ..)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
 
    .. code-block:: bash
 
@@ -149,12 +150,12 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    .. code-block:: bash
 
       # Clone first (optional), then install from PyPI
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
 
    .. code-block:: bash
 
       # Clone first, then install in editable mode (pip install -e .)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
 
    Add ``"hydromodpy[ide]==1.0.0"`` at the end if you want Spyder and
    JupyterLab bundled.
@@ -193,8 +194,8 @@ Pin v1.0
 
    pip install "hydromodpy==1.0.0"
 
-Editable installs should stay on the ``v1.0.0`` tag unless a future
-``maint/1.x`` branch is announced.
+Editable installs should track the ``v1`` branch, which stays current with
+fixes for the published release.
 
 Check the installation
 ----------------------
@@ -228,7 +229,7 @@ Python 3.8 users
 ----------------
 
 If you must stay on Python 3.8.10, stick to release ``v0.2.0`` by cloning
-https://gitlab.com/Alex-Gauvain/HydroModPy/-/releases/v0.2.0 and following the
+https://github.com/HydroModPy/HydroModPy/releases/tag/v0.2.0 and following the
 conda recipe above. Later versions require Python 3.11+ and will not install on
 older interpreters.
 

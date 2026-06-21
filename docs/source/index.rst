@@ -5,11 +5,12 @@ Welcome to HydroModPy's !
 
 .. warning::
 
-   This documentation describes the HydroModPy v1.0.0 release. The ``v1.0``
-   branch is no longer maintained day to day. Existing projects
-   may stay pinned to the ``v1.0.0`` tag. New development should move to
-   HydroModPy v2 on ``main``:
-   https://hydromodpy-docs.readthedocs.io/en/main/
+   You are reading the HydroModPy **v1** documentation, the version described in
+   the HESS technical note
+   (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1`` branch
+   is the reference cited by the paper and still receives fixes. For the latest
+   development version, see HydroModPy v2 on ``main``:
+   https://hydromodpy.github.io/main/
 
 HydroModPy was initiated in 2018 to streamline the deployment of hydrological
 models in catchments across the crystalline basement regions of Normandy and
@@ -124,7 +125,7 @@ If HydroModPy supports your work, please cite:
 
 .. code-block:: text
 
-   Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C., Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R. (2025). HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models. Hydrology and Earth System Sciences. In preparation.
+   Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A., Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E., Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I., Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J., Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2026). Technical note: HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models. EGUsphere [preprint]. https://doi.org/10.5194/egusphere-2026-868
 
 Linked publications
 -------------------
