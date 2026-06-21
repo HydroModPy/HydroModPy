@@ -50,7 +50,7 @@ practical and reproducible environment.
 
 ## Authors
 
-Alexandre Gauvain [1,2], Ronan Abhervé [1,3,4], Bastien Boivin [1], Clément Roques [3], Martin Le Mesnil [1], Alexandre Coche [1], Tristan Babey [1], Jean Marçais [4], Camille Bouchez [1], Sarah Leray [5], Etienne Marti [5], Etienne Bresciani [6], Ronny Figueroa [3], Mathias Pélissier [3], Luca Guillaumot [8], Théa Touzeau [1], Imene Issolah [1], Enzo Maugan [1], Rock S. Bagagnan [1], Camille Vautier [1], June Sallou [7], Johan Bourcier [8], Benoit Combemale [8], Philip Brunner [3], Laurent Longuevergne [1], Luc Aquilina [1], Jean-Raynald de Dreuzy [1].
+Alexandre Gauvain [1,2], Ronan Abhervé [1,3,4], Bastien Boivin [1], Alexandre Coche [1], Martin Le Mesnil [1], Tristan Babey [1], Enzo Maugan [1], Théa Touzeau [1], Imene Issolah [11], Clément Roques [3], Camille Bouchez [1], Jean Marçais [5], Sarah Leray [6], Etienne Marti [6], Etienne Bresciani [7], Ronny Figueroa [3], Mathias Pélissier [3], Simon Carlier [3], Luca Guillaumot [8], Rock S. Bagagnan [1], Camille Vautier [1], Laurent Longuevergne [1], June Sallou [9], Johan Bourcier [10], Benoit Combemale [11], Philip Brunner [3], Luc Aquilina [1], Jean-Raynald de Dreuzy [1].
 
 - [1] Geosciences Rennes -- UMR 6118, CNRS, Université de Rennes, Rennes, France
 - [2] Laboratoire de Météorologie Dynamique (LMD), CNRS, Sorbonne Université, Paris, France
@@ -59,7 +59,7 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,4], Bastien Boivin [1], Clément Ro
 - [5] UR RiverLy, INRAE, Centre Lyon-Grenoble Auvergne-Rhône-Alpes, Villeurbanne, France
 - [6] Pontificia Universidad Católica de Chile, Santiago, Chile
 - [7] Instituto de Ciencias de la Ingeniería, Universidad de O'Higgins, Rancagua, Chile
-- [8] BRGM - French Geological Survey, Orléans, France
+- [8] BRGM - French Geological Survey, F-45060 Orléans, France
 - [9] INF, Wageningen University & Research, Wageningen, Netherlands
 - [10] ISA/LIUPPA, Université de Pau et des Pays de l'Adour, Pau, France
 - [11] Inria, IRISA, CNRS, Université de Rennes, Rennes, France
@@ -208,7 +208,7 @@ Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina,
 
 If HydroModPy supports your work, please cite the technical note:
 
-Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A., Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E., Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I., Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J., Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2026). Technical note: HydroModPy - a Python toolbox for deploying catchment-scale shallow groundwater models. EGUsphere [preprint]. https://doi.org/10.5194/egusphere-2026-868
+Gauvain, A., Abhervé, R., Boivin, B., Coche, A., Le Mesnil, M., Babey, T., Maugan, E., Touzeau, T., Issolah, I., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Bresciani, E., Figueroa, R., Pélissier, M., Carlier, S., Guillaumot, L., Bagagnan, R. S., Vautier, C., Longuevergne, L., Sallou, J., Bourcier, J., Combemale, B., Brunner, P., Aquilina, L., and de Dreuzy, J.-R. (2026). Technical note: HydroModPy (V1.0.0) - a Python toolbox for deploying catchment-scale shallow groundwater models. EGUsphere [preprint]. https://doi.org/10.5194/egusphere-2026-868
 
 ## License
 
