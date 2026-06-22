@@ -1,55 +1,34 @@
-# Python artifacts
+# ──────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.pyd
 *.so
 
-# Distribution / packaging
+# ──────────────────────────────────────────────
+# Packaging & distribution
+# ──────────────────────────────────────────────
 .Python
 build/
 dist/
-downloads/
 eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
+*.egg-info/
+*.egg
+.installed.cfg
+MANIFEST
 wheels/
 pip-wheel-metadata/
 share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Installer logs
+sdist/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Test & coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Type checking
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-
+# ──────────────────────────────────────────────
 # Environments
+# ──────────────────────────────────────────────
 .env
 .venv
 env/
@@ -61,50 +40,223 @@ venv.bak/
 Pipfile.lock
 __pypackages__/
 
-# IDE / editor
+# ──────────────────────────────────────────────
+# IDE, editor, AI assistants
+# ──────────────────────────────────────────────
 .vscode/
 .idea/
+.claude/
+CLAUDE.md
+.codex
+AGENTS.md
+.orchestrator/
 .spyderproject
 .spyproject
 .ropeproject
+profile_default/
+ipython_config.py
 *.swp
 *.swo
 *~
 .DS_Store
 Thumbs.db
 
-# IPython
-profile_default/
-ipython_config.py
+# ──────────────────────────────────────────────
+# Testing & coverage
+# ──────────────────────────────────────────────
+.pytest_cache/
+.pytest*/
+.pytest_tmp*/
+pytest_tmp*/
+pytest*.log
+pytest-cache-*/
+pytestscratch*/
+pytest-temp-root/
+test_tmp*/
+test/results/
+test_*/
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 
+# ──────────────────────────────────────────────
+# Type checking
+# ──────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# ──────────────────────────────────────────────
 # Documentation builds
+# ──────────────────────────────────────────────
+docs/_build*/
+docs/build/
 docs/**/_build/
 docs/**/_autosummary/
 docs/**/.doctrees/
-docs/readthedocs/source/notebooks/.virtual_documents/
-docs/readthedocs/source/notebooks/.ipynb_checkpoints/
-docs/readthedocs/source/notebooks/.nbconvert/
-docs/readthedocs/source/notebooks/.jupyter_cache/
 .jupyter_cache/
-docs/readthedocs/source/api/generated/
-docs/readthedocs/source/_generated/
-!docs/readthedocs/source/_generated/CHANGELOG.md
+docs/source/api/generated/
+docs/source/_generated/
+!docs/source/_generated/CHANGELOG.md
 
-# Project data & results
+# ──────────────────────────────────────────────
+# HydroModPy workspace outputs
+# ──────────────────────────────────────────────
+_workspace/
+out/
+**/simulations/
+**/exports/
+!tests/integration/exports/
+!hydromodpy/analysis/comparison/exports/
+**/results_simulations/
+**/results_stable/
+**/projects/**/figures/
+**/project_results.zarr.db
+**/.hmp/
+**/.solver_scratch/
 examples/results/
-test/results/
-test_*/
+catalog.db
+examples/projects/**/catalog.duckdb
+examples/projects/**/catalog.duckdb.bak-*
+hydromodpy.duckdb
+hydromodpy_debug.log
+hydromodpy/data/variables/*/cases/outputs/**
+hydromodpy/data/variables/*/outputs/**
+hydromodpy/spatial/**/cases/outputs/**
+hydromodpy/spatial/**/outputs/**
+!hydromodpy/spatial/site_selection/outputs/
+!hydromodpy/spatial/site_selection/outputs/**
+hydromodpy/spatial/site_selection/outputs/__pycache__/
+hydromodpy/spatial/site_selection/outputs/**/*.pyc
+hydromodpy/solver/**/cases/outputs/**
+**/.ipynb_checkpoints/
+examples/*.duckdb
+examples/data/cache.duckdb
+hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
+
+# Large local provider data generated while preparing examples.
+examples/data/dem/dem_bdalti_*.tif
+examples/data/dem/departments_bdalti/
+examples/data/geology/departments_50k/
+examples/data/geology/geology_brgm_50k_*.gpkg
+examples/data/hydrography/bdtopage_*.gpkg
+examples/data/hydrography/euhydro_*.gpkg
+examples/data/hydrography/osm_*.gpkg
+examples/data/hydrometry/hydrometry_hubeau_*.csv
+examples/data/intermittency/intermittency_hubeau_*.csv
+examples/data/piezometry/piezometry_hubeau_*.csv
+examples/data/water_quality/waterquality_hubeau_*.csv
+examples/data/**/*.csv.json
+examples/data/**/*.gpkg.json
+examples/data/**/*.nc.json
+examples/data/**/*.tif.json
+examples/data/etp/etp_sim2_*.nc
+examples/data/precipitation/precipitation_*_sim2_*.nc
+examples/data/recharge/recharge_sim2_*.nc
+examples/projects/**/data/cache.duckdb*
+tests/regression/fixtures/**/cache.duckdb*
+
+# Generated reports and run outputs from example workflows.
+# Documentation galleries and named fixtures live outside outputs/ and remain
+# versioned intentionally.
+examples/projects/**/web/
+examples/projects/**/web_review/
+examples/projects/**/outputs/**
+!examples/projects/**/outputs/.gitignore
+
+# Lockfiles emitted by validation and regression test runs (``hmp run`` writes
+# ``hydromodpy.lock`` next to the project config; tests should opt out via
+# ``--no-lock`` but this is a safety net).
+examples/projects/**/hydromodpy.lock
+validation_cases/**/hydromodpy.lock
+tests/regression/**/hydromodpy.lock
+
+# Large generated comparison payloads kept out of Git.
+validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support/
+
+# Generated images from output directories
+**/output/*.png
+**/output/**/*.png
+**/outputs/*.png
+**/outputs/**/*.png
+
+# ──────────────────────────────────────────────
+# MODFLOW solver binaries
+# ──────────────────────────────────────────────
 *.chk
 *.hds
 *.cbc
 *.lst
 *.nam
+!tests/regression/reference/**/*.hds
+!tests/regression/reference/**/*.cbc
+!tests/regression/reference/**/*.nam
 
-# Temporary files
+# ──────────────────────────────────────────────
+# Temporary files & scratch
+# ──────────────────────────────────────────────
+tmp*/
+.tmp*/
+z/
 *.tmp
 *.bak
 *.old
+*.prof
+tools/vendor/
+.tmp_lock_repro
+.tmp_launcher*
+**/_tmp_outputs_env*
+scratch_*/
+mesh-sim-int-*/
+river_trace_smoke_*/
+hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
+validation_cases/**/.__validation_runtime_*.toml
+hydromodpy_annex/preprocess/catchment_identification_scan/._run*.toml
 
-# Instruction files
-AGENTS.md
-CLAUDE.md
+# Codex CI artifacts
+.codex_*/
+codex_pytest_tmp*/
+codex_validation_*/
+.codex_test_durations.xml
+.codex_test_durations_sorted.csv
+
+# HydroModPy temp prefixes
+hmp_geo_*/
+hmp_wbw_*/
+
+# ──────────────────────────────────────────────
+# Reports & profiling
+# ──────────────────────────────────────────────
+reports*/
+!hydromodpy/spatial/site_selection/reports/
+!hydromodpy/spatial/site_selection/reports/**
+hydromodpy/spatial/site_selection/reports/__pycache__/
+hydromodpy/spatial/site_selection/reports/**/*.pyc
+timing_reports/
+_profile_launcher_*/
+_profiling_out/
+meta_review_output/
+reporting/calibration_profiling_*_after_solver_reuse/
+reporting/**/_postprocess/_rasters/
+
+# ──────────────────────────────────────────────
+# OS / misc
+# ──────────────────────────────────────────────
+downloads/
+lib/
+lib64/
+parts/
+var/
+uv.lock
+
+old/*
