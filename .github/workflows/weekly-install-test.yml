@@ -1,0 +1,112 @@
+name: Weekly install & examples (v1)
+
+# Validates that HydroModPy installs (pip editable, pip, and the conda env files)
+# on Python 3.11/3.12/3.13 and that a few examples still run.
+#
+# NOTE: GitHub only auto-runs `schedule` triggers from the default branch.
+# This file lives on v1 (not the default branch), so the weekly cron will
+# not fire on its own: launch it from the Actions tab via "Run workflow"
+# (workflow_dispatch), or make v1 the default branch to enable the cron.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-install-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pip:
+    name: pip-${{ matrix.method }} py${{ matrix.python }}
+    if: github.ref_name == 'v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+        method: [editable, plain]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: System libraries for VTK/Qt (import only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 libegl1 libglib2.0-0 libxkbcommon0 libdbus-1-3 libxrender1
+
+      - name: Install (pip ${{ matrix.method }})
+        run: |
+          python -m pip install --upgrade pip
+          if [ "${{ matrix.method }}" = "editable" ]; then
+            pip install -e .
+          else
+            pip install .
+          fi
+
+      - name: Import smoke test
+        run: python -c "import hydromodpy; from hydromodpy import watershed_root; print('import OK', hydromodpy.__version__)"
+
+      - name: Run examples (headless)
+        run: bash .github/scripts/run_ci_examples.sh
+
+  conda:
+    name: conda-${{ matrix.envfile }} py${{ matrix.python }}
+    if: github.ref_name == 'v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+        envfile: [env_hydromodpy.yml, env_hydromodpy_light.yml, env_hydromodpy_pkg.yml]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          use-mamba: true
+          auto-update-conda: false
+          activate-environment: ''
+
+      - name: Create env from ${{ matrix.envfile }}
+        run: |
+          cd install
+          # Pin the requested Python. 3.13 is left on the loose constraint:
+          # hard-pinning python=3.13 can send libsolv into a backtracking hang,
+          # while ">=3.11,<3.14" resolves to 3.13 quickly.
+          if [ "${{ matrix.python }}" != "3.13" ]; then
+            sed -i "s/python>=3.11,<3.14/python=${{ matrix.python }}/" "${{ matrix.envfile }}"
+          fi
+          # -n ci overrides the env name in the file. Running from install/ makes
+          # the pkg file's `pip: -e ..` resolve to the repo root.
+          mamba env create -n ci -f "${{ matrix.envfile }}"
+
+      - name: Install package + verify Python
+        run: |
+          conda activate ci
+          python -c "import sys; v='%d.%d'%sys.version_info[:2]; print('python', v); assert v=='${{ matrix.python }}', v"
+          pip install -e .
+          python -c "import hydromodpy; print('import OK', hydromodpy.__version__)"
+
+      - name: Run examples (headless)
+        run: |
+          conda activate ci
+          bash .github/scripts/run_ci_examples.sh
