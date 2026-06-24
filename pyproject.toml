@@ -47,6 +47,7 @@ classifiers = [
 dependencies = [
     "colormap",
     "contextily",
+    "dask",
     "flopy",
     "geopandas",
     "h5py",  # Required by pyhelp module for HDF5 data files

@@ -5,6 +5,7 @@ dependencies:
   - python>=3.11,<3.14
   - colormap
   - contextily
+  - dask-core
   - flopy
   - geopandas
   - h5py
