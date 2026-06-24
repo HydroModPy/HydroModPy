@@ -27,7 +27,7 @@ import flopy
 import os, sys
 import contextily as cx
 import matplotlib as mpl
-from matplotlib import rcsetup
+from matplotlib.backends import backend_registry, BackendFilter
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
@@ -707,7 +707,8 @@ class Visualization():
         # Modules
         mpl.rcParams.update(mpl.rcParamsDefault)
         original_backend = plt.get_backend()
-        backend_supports_events = original_backend in rcsetup.interactive_bk
+        interactive_backends = [b.lower() for b in backend_registry.list_builtin(BackendFilter.INTERACTIVE)]
+        backend_supports_events = original_backend.lower() in interactive_backends
         backend_switched = False
 
         if interactive and not backend_supports_events:
