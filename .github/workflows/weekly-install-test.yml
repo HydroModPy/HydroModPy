@@ -1,12 +1,20 @@
 name: Weekly install & examples (v1.0)
 
-# Validates that HydroModPy installs (pip editable, pip, and the conda env files)
-# on Python 3.11/3.12/3.13 and that a few examples still run.
+# Cross-OS / cross-Python install check for the v1.0 branch:
+#   - pip editable (pip install -e .) and pip (pip install .)
+#   - conda from the three install/*.yml files
+# on Linux, Windows, macOS Intel (macos-13) and macOS ARM (macos-14),
+# for Python 3.11 / 3.12 / 3.13.
 #
-# NOTE: GitHub only auto-runs `schedule` triggers from the default branch.
-# This file lives on v1.0 (not the default branch), so the weekly cron will
-# not fire on its own: launch it from the Actions tab via "Run workflow"
-# (workflow_dispatch), or make v1.0 the default branch to enable the cron.
+# LAUNCHING: GitHub only enables `schedule` and the "Run workflow"
+# (workflow_dispatch) button when the workflow file is on the repository
+# DEFAULT branch (master). This file therefore has to live on master to be
+# launchable; it always checks out and tests the v1.0 branch (ref: v1.0 below).
+#
+# Hard check on every OS: the package installs and `import hydromodpy` works.
+# The example scripts are only run on Linux (headless VTK/Qt is validated there);
+# the bundled solver binaries are per-OS (bin/win, bin/mac, bin/linux), so
+# example runs can be extended to Windows/macOS later if desired.
 
 on:
   schedule:
@@ -22,13 +30,16 @@ concurrency:
 
 jobs:
   pip:
-    name: pip-${{ matrix.method }} py${{ matrix.python }}
-    if: github.ref_name == 'v1.0'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+    name: pip-${{ matrix.method }} ${{ matrix.os }} py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
         python: ['3.11', '3.12', '3.13']
         method: [editable, plain]
     steps:
@@ -40,7 +51,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      - name: System libraries for VTK/Qt (import only)
+      - name: System libraries for VTK/Qt (Linux only)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -58,20 +70,21 @@ jobs:
       - name: Import smoke test
         run: python -c "import hydromodpy; from hydromodpy import watershed_root; print('import OK', hydromodpy.__version__)"
 
-      - name: Run examples (headless)
+      - name: Run examples (headless, Linux only)
+        if: runner.os == 'Linux'
         run: bash .github/scripts/run_ci_examples.sh
 
   conda:
-    name: conda-${{ matrix.envfile }} py${{ matrix.python }}
-    if: github.ref_name == 'v1.0'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    name: conda-${{ matrix.envfile }} ${{ matrix.os }} py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash -el {0}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
         python: ['3.11', '3.12', '3.13']
         envfile: [env_hydromodpy.yml, env_hydromodpy_light.yml, env_hydromodpy_pkg.yml]
     steps:
@@ -88,15 +101,13 @@ jobs:
 
       - name: Create env from ${{ matrix.envfile }}
         run: |
+          # Pin the requested Python except 3.13: hard-pinning 3.13 can send libsolv
+          # into a backtracking hang, while ">=3.11,<3.14" resolves to 3.13. Portable
+          # rewrite (works on Linux/macOS/Windows, no sed).
+          python -c "p='install/${{ matrix.envfile }}'; py='${{ matrix.python }}'; s=open(p).read(); s=s if py=='3.13' else s.replace('python>=3.11,<3.14','python='+py); open(p,'w').write(s)"
+          # -n ci overrides the env name in the file; running from install/ makes the
+          # pkg file's `pip: -e ..` resolve to the repo root.
           cd install
-          # Pin the requested Python. 3.13 is left on the loose constraint:
-          # hard-pinning python=3.13 can send libsolv into a backtracking hang,
-          # while ">=3.11,<3.14" resolves to 3.13 quickly.
-          if [ "${{ matrix.python }}" != "3.13" ]; then
-            sed -i "s/python>=3.11,<3.14/python=${{ matrix.python }}/" "${{ matrix.envfile }}"
-          fi
-          # -n ci overrides the env name in the file. Running from install/ makes
-          # the pkg file's `pip: -e ..` resolve to the repo root.
           mamba env create -n ci -f "${{ matrix.envfile }}"
 
       - name: Install package + verify Python
@@ -106,7 +117,8 @@ jobs:
           pip install -e .
           python -c "import hydromodpy; print('import OK', hydromodpy.__version__)"
 
-      - name: Run examples (headless)
+      - name: Run examples (headless, Linux only)
+        if: runner.os == 'Linux'
         run: |
           conda activate ci
           bash .github/scripts/run_ci_examples.sh
