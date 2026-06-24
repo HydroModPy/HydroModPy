@@ -866,7 +866,9 @@ for i in range(len(concobj_1c_fil_surf)):
 
     conc_plt = concobj_1c_fil_surf[i]
 
-    xi = conc_plt.flatten()
+    # Fill masked cells with nan and drop the mask so np.nanmedian (which uses
+    # np.partition internally) does not warn about ignoring the MaskedArray mask.
+    xi = np.ma.filled(conc_plt, np.nan).flatten()
     xi = xi[~np.isnan(xi)]
 
     xpos = mdates.date2num(R_mm_day_filt.index[i])
