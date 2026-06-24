@@ -63,8 +63,8 @@ version = '1.0'
 release = '1.0.0'
 
 # Version label for the pydata version-switcher. The GitHub Pages deploy passes
-# the built ref name via HMP_DOC_VERSION; a plain local build falls back to v1.
-_current_version = os.environ.get("HMP_DOC_VERSION") or "v1"
+# the built ref name via HMP_DOC_VERSION; a plain local build falls back to v1.0.
+_current_version = os.environ.get("HMP_DOC_VERSION") or "v1.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -134,7 +134,7 @@ pygments_style = 'sphinx'
 html_theme = 'pydata_sphinx_theme'
 html_favicon = 'images/logoHydroModPy.png'
 html_logo = 'images/logoHydroModPy_long.png'
-html_baseurl = "https://hydromodpy.github.io/v1/"
+html_baseurl = "https://hydromodpy.github.io/v1.0/"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -146,7 +146,7 @@ html_theme_options = {
         "image_dark": "images/logoHydroModPy_long.png",
     },
     "announcement": (
-        "HydroModPy v1 documentation, the version described in the HESS "
+        "HydroModPy v1.0 documentation, the version described in the HESS "
         "technical note "
         "(<a href='https://doi.org/10.5194/egusphere-2026-868'>preprint</a>). "
         "Latest development lives on "

@@ -5,9 +5,9 @@ Welcome to HydroModPy
 
 .. warning::
 
-   You are reading the HydroModPy **v1** documentation, the version described in
+   You are reading the HydroModPy **v1.0** documentation, the version described in
    the HESS technical note
-   (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1`` branch
+   (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1.0`` branch
    is the reference cited by the paper and still receives fixes. For the latest
    development version, see HydroModPy v2 on ``main``:
    https://hydromodpy.github.io/main/
