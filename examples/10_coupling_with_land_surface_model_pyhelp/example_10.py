@@ -28,7 +28,9 @@ import pickle
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
+_ipython = get_ipython()
+if _ipython is not None:
+    _ipython.run_line_magic('matplotlib', 'inline')
 
 import imageio.v2 as imageio
 import whitebox
