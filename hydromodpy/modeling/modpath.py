@@ -651,20 +651,21 @@ class Modpath:
                                sflows,
                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
                                -9999)
-            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
-                                                out_text=False)
-            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp',
-                                                out_text=False)
-            
-            start = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
-            start = ensure_crs(start)
+            sflows_tif = self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif'
+
+            # WhiteboxTools corrupts PointZ shapefiles on write-back; sample the flux with rasterio.
+            def sample_flux(shp_path):
+                gdf = gpd.read_file(shp_path)
+                with rasterio.open(sflows_tif) as src:
+                    coords = [(geom.x, geom.y) for geom in gdf.geometry]
+                    gdf['VALUE1'] = [float(vals[0]) for vals in src.sample(coords)]
+                return gdf
+
+            start = ensure_crs(sample_flux(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp'))
             start_weighted = start.copy()
             start_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            
-            end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
-            end = ensure_crs(end)
+
+            end = ensure_crs(sample_flux(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp'))
             end_weighted = end.copy()
             end_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             
