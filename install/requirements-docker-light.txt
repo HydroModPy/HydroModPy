@@ -2,6 +2,7 @@
 # Python version is controlled by the Docker base image (same as pyproject.toml: 3.11-3.13).
 # Install with: python -m pip install -r requirements-docker-light.txt
 # Then: pip install -e . --no-deps
+dask
 flopy
 geopandas
 h5py

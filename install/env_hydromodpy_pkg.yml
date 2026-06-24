@@ -4,6 +4,7 @@ channels:
 dependencies:
 - colormap
 - contextily
+- dask-core
 - flopy
 - geopandas
 - h5py
