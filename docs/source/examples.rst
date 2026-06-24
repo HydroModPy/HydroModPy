@@ -6,8 +6,8 @@ workflow in your IDE or in the online documentation. Browse the gallery below to
 open the scenario you need.
 
 - **Pip installations** – the PyPI wheel does not include the `examples/`
-  directory. Browse the examples from the ``v1`` branch:
-  https://github.com/HydroModPy/HydroModPy/tree/v1/examples
+  directory. Browse the examples from the ``v1.0`` branch:
+  https://github.com/HydroModPy/HydroModPy/tree/v1.0/examples
   and copy the files you need where you run the project.
 - **Conda / source installations** – the cloned repository already provides
   `examples/`, keep it in place so the relative paths used in the scripts

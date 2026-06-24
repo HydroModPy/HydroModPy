@@ -4,17 +4,17 @@
 
 A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![Documentation](https://img.shields.io/badge/docs-v1-blue)](https://hydromodpy.github.io/v1/)
+[![Documentation](https://img.shields.io/badge/docs-v1.0-blue)](https://hydromodpy.github.io/v1.0/)
 [![DOI](https://img.shields.io/badge/DOI-10.5194%2Fegusphere--2026--868-blue)](https://doi.org/10.5194/egusphere-2026-868)
 [![License: EPL-2.0](https://img.shields.io/badge/License-EPL%202.0-red.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue)](pyproject.toml)
 
-> ### HydroModPy v1: the version cited in the paper
+> ### HydroModPy v1.0: the version cited in the paper
 >
-> This `v1` branch is the version described in the technical note submitted to
+> This `v1.0` branch is the version described in the technical note submitted to
 > *Hydrology and Earth System Sciences* (EGUsphere preprint, 2026). It is the
 > reference cited by the paper and is kept up to date with fixes, so the paper
-> link always points to a working v1.
+> link always points to a working v1.0.
 >
 > **HydroModPy v2** is the actively developed version on the `main` branch, with
 > new features and a redesigned interface.
@@ -22,7 +22,7 @@ A Python toolbox for deploying catchment-scale shallow groundwater models.
 > | | Link |
 > |---|---|
 > | Paper (preprint) | https://doi.org/10.5194/egusphere-2026-868 |
-> | v1 documentation | https://hydromodpy.github.io/v1/ |
+> | v1.0 documentation | https://hydromodpy.github.io/v1.0/ |
 > | v2 documentation (latest) | https://hydromodpy.github.io/main/ |
 > | Forum (Google Group) | https://groups.google.com/g/hydromodpy |
 
@@ -112,7 +112,7 @@ conda activate hydromodpy
 Needed for the conda environments above and for development (editable) installs.
 
 - **Option 1**: download the `.zip` archive directly from the
-  [GitHub project](https://github.com/HydroModPy/HydroModPy/tree/v1).
+  [GitHub project](https://github.com/HydroModPy/HydroModPy/tree/v1.0).
 - **Option 2**: clone the repository with a Git client such as
   [GitHub Desktop](https://desktop.github.com/download/).
 - **Option 3**: use the command line:
@@ -120,7 +120,7 @@ Needed for the conda environments above and for development (editable) installs.
 ```bash
 git clone https://github.com/HydroModPy/HydroModPy.git
 cd HydroModPy
-git checkout v1
+git checkout v1.0
 ```
 
 For development (editable) mode from the clone:
@@ -131,7 +131,7 @@ pip install -e .
 
 ## Launch HydroModPy
 
-HydroModPy v1 was primarily developed for use with Spyder, so we recommend
+HydroModPy v1.0 was primarily developed for use with Spyder, so we recommend
 launching it from this IDE:
 
 1. Activate the environment:
@@ -178,15 +178,15 @@ Run the example scripts in `examples/` in this order:
 ```
 
 The same examples are available as notebooks in the
-[documentation](https://hydromodpy.github.io/v1/).
+[documentation](https://hydromodpy.github.io/v1.0/).
 
 ## Documentation
 
-- v1 documentation: https://hydromodpy.github.io/v1/
+- v1.0 documentation: https://hydromodpy.github.io/v1.0/
 - v2 documentation (latest development): https://hydromodpy.github.io/main/
 
-The v1 documentation is built and published automatically to
-`https://hydromodpy.github.io/v1/` on every update of the `v1` branch.
+The v1.0 documentation is built and published automatically to
+`https://hydromodpy.github.io/v1.0/` on every update of the `v1.0` branch.
 
 ## Publications
 

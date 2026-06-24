@@ -1,4 +1,4 @@
-# Minimal makefile for the HydroModPy v1 documentation.
+# Minimal makefile for the HydroModPy v1.0 documentation.
 # Builds the single-version HTML site from source/ into build/html.
 # -j auto parallelises reading and writing across all cores. Mandatory: the
 # autosummary over hydromodpy generates many pages and single-threaded writing
