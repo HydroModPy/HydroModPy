@@ -177,8 +177,18 @@ class Watershed:
         if os.path.exists(os.path.join(self.watershed_folder, 'watershed_object')):
 
             # Load watershed object from pickle file
-            with open(os.path.join(self.watershed_folder, 'watershed_object'), 'rb') as config_dictionary_file:
-                BV = pickle.load(config_dictionary_file)
+            try:
+                with open(os.path.join(self.watershed_folder, 'watershed_object'), 'rb') as config_dictionary_file:
+                    BV = pickle.load(config_dictionary_file)
+            except Exception as error:
+                # A stored object pickled by another pandas/numpy version may be
+                # unreadable here. Rebuild from inputs instead of crashing.
+                logger.warning(
+                    "Stored watershed object could not be unpickled (%s: %s); rebuilding from inputs",
+                    type(error).__name__,
+                    error,
+                )
+                return False
 
             # At least geographic should have been stored
             if ('geographic' in BV.__dir__()) == True:
