@@ -1,12 +1,12 @@
 """Post-process the built HTML tree before the GitHub Pages deploy.
 
 Write a pydata-theme ``switcher.json`` listing the deployed versions so the
-version dropdown can offer v1 alongside the development versions (main, dev).
+version dropdown can offer v1.0 alongside the development versions (main, dev).
 The source assets are never touched.
 
 Usage::
 
-    python tools/docs_pages_postbuild.py site https://hydromodpy.github.io --versions main,dev,v1
+    python tools/docs_pages_postbuild.py site https://hydromodpy.github.io --versions main,dev,v1.0
 """
 
 from __future__ import annotations

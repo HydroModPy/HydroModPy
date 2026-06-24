@@ -1,22 +1,22 @@
-# Build the v1 documentation and publish it into the /v1/ subfolder on
-# HydroModPy/hydromodpy.github.io (served at https://hydromodpy.github.io/v1/).
+# Build the v1.0 documentation and publish it into the /v1.0/ subfolder on
+# HydroModPy/hydromodpy.github.io (served at https://hydromodpy.github.io/v1.0/).
 # The other versions already on gh-pages (main, dev, ...) are kept
-# (keep_files: true), so a push to v1 rebuilds only the v1 site and never
+# (keep_files: true), so a push to v1.0 rebuilds only the v1.0 site and never
 # touches the development versions.
 #
-# v1 is the living branch cited by the HESS technical note: every fix pushed to
-# v1 refreshes https://hydromodpy.github.io/v1/, so the paper link stays current.
+# v1.0 is the living branch cited by the HESS technical note: every fix pushed to
+# v1.0 refreshes https://hydromodpy.github.io/v1.0/, so the paper link stays current.
 #
 # Setup is shared with the v2 deploy (same target repo and deploy key):
 #   - ACTIONS_DEPLOY_KEY secret (this repo) = private deploy key,
 #   - matching public deploy key with write access on hydromodpy.github.io,
 #   - hydromodpy.github.io Pages source = gh-pages branch.
 
-name: Docs / Deploy Pages (v1)
+name: Docs / Deploy Pages (v1.0)
 
 on:
   push:
-    branches: [v1, v1.0.0]
+    branches: [v1.0]
     paths:
       - ".github/workflows/docs-deploy-pages.yml"
       - "tools/docs_pages_postbuild.py"
