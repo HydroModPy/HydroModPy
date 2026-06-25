@@ -3,7 +3,7 @@ name: Weekly install & examples (v1.0)
 # Cross-OS / cross-Python install check for the v1.0 branch:
 #   - pip editable (pip install -e .) and pip (pip install .)
 #   - conda from the three install/*.yml files
-# on Linux, Windows, macOS Intel (macos-13) and macOS ARM (macos-14),
+# on Linux, Windows, macOS Intel (macos-15-intel) and macOS ARM (macos-14),
 # for Python 3.11 / 3.12 / 3.13.
 #
 # LAUNCHING: GitHub only enables `schedule` and the "Run workflow"
