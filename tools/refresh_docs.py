@@ -1,4 +1,4 @@
-"""Refresh the versioned inputs that feed the Read the Docs site.
+"""Refresh the versioned inputs that feed the documentation site.
 
 This script is the "full refresh" companion to the targeted gallery helpers.
 It recomputes the generated validation reports and capability-gallery artifacts
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DOCS_ROOT = REPO_ROOT / "docs" / "readthedocs"
+DOCS_ROOT = REPO_ROOT / "docs"
 DEFAULT_BUILD_DIR = "build/html"
 DEFAULT_VALIDATION_SOLVERS = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
 DEFAULT_SOLVER_BINARIES = ("mf6", "mfnwt")
@@ -156,7 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Refresh the versioned reports and capability-gallery artifacts that feed "
-            "the Read the Docs project, then verify the Sphinx build."
+            "the documentation site, then verify the Sphinx build."
         )
     )
     parser.add_argument(

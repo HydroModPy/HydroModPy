@@ -58,12 +58,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
-          python -m pip install -r docs/readthedocs_requirements.txt
+          python -m pip install -r docs/requirements.txt
 
       - name: Refresh committed docs artifacts
         shell: bash -el {0}
         run: |
-          python -m tools.refresh_readthedocs --install-solver-binaries
+          python -m tools.refresh_docs --install-solver-binaries
 
       - name: Verify refresh touched only generated docs artifacts
         shell: bash -el {0}
