@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.refresh_readthedocs import (
+from tools.refresh_docs import (
     DOCS_ROOT,
     REPO_ROOT,
     build_refresh_steps,

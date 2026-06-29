@@ -5,7 +5,7 @@ abstract: "HydroModPy is an open-source Python toolbox that automates the deploy
 type: software
 license: EPL-2.0
 repository-code: "https://github.com/HydroModPy/HydroModPy"
-url: "https://hydromodpy.readthedocs.io/en/dev/"
+url: "https://hydromodpy.github.io/"
 keywords:
   - hydrology
   - hydrogeology

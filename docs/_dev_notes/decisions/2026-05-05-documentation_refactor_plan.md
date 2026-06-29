@@ -304,7 +304,7 @@ les étapes 23 à 37.
     - Directive `image-comparison` ajoutée dans `_ext/hmp_directives.py` : émet un `<figure><div class="hmp-image-compare"><picture class="hmp-before">…</picture><picture class="hmp-after">…</picture><figcaption>…</figcaption></div></figure>`, fallback `image` PNG empilé via `addnodes.only(expr="not html")`
     - Slider posé sur 2 pages : `theory/solvers/modflow6-vs-modflownwt-scientific-comparison.rst` (MODFLOW 6 vs MODFLOW-NWT sur le cas Boussinesq circular-island) et `theory/solvers/xt3d-on-irregular-disv-meshes.rst` (DIS structuré vs DISV irrégulier sur le même cas)
     - Build sphinx local clean (3 warnings baseline)
-40. `[docs] - integrate algolia docsearch (after acceptance)` ⏸ bloqué — Algolia API key non encore reçue. Voir section 0.5 « Action utilisateur en attente ». Reprendre dès que la candidature DocSearch est acceptée (URL d'application : https://docsearch.algolia.com/apply/, indiquer `https://hydromodpy.readthedocs.io/en/dev/`).
+40. `[docs] - integrate algolia docsearch (after acceptance)` ⏸ bloqué — Algolia API key non encore reçue. Voir section 0.5 « Action utilisateur en attente ». Reprendre dès que la candidature DocSearch est acceptée (URL d'application : https://docsearch.algolia.com/apply/, indiquer `https://hydromodpy.github.io/dev/`).
 41. `[docs] - add goatcounter analytics and was-this-helpful widget` ✓ (commit `b94eff267`)
     - Hook `_register_goatcounter` dans `_ext/hmp_directives.py setup()` : injecte `<script async data-goatcounter="…" src="https://gc.zgo.at/count.js">` si la variable d'environnement `HMP_DOCS_GOATCOUNTER_URL` pointe vers un endpoint GoatCounter (`https://<projet>.goatcounter.com/count`)
     - Sans la variable d'environnement, aucun script externe n'est chargé (RGPD-friendly par défaut)
@@ -386,7 +386,7 @@ les étapes 23 à 37.
 
 Pendant que la refonte tourne, Bastien peut soumettre la candidature Algolia DocSearch :
 - URL : https://docsearch.algolia.com/apply/
-- Documentation URL à indiquer : `https://hydromodpy.readthedocs.io/en/dev/`
+- Documentation URL à indiquer : `https://hydromodpy.github.io/dev/`
 - Préciser dans Comments : doc active sur branche `dev`, `master` obsolète, ne pas crawler `master`
 
 Réponse attendue 2 à 4 semaines. Quand acceptation reçue, intégration en Phase 3 (étape 40).
@@ -1181,7 +1181,7 @@ Image, titre, description automatiques.
 
 ```python
 extensions += ["sphinxext.opengraph"]
-ogp_site_url = "https://hydromodpy.readthedocs.io/"
+ogp_site_url = "https://hydromodpy.github.io/"
 ogp_image = "_static/og-image.png"
 ogp_use_first_image = True
 ```

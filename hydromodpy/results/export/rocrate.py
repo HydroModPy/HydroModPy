@@ -90,7 +90,7 @@ def _software_nodes(context: FairExportContext) -> list[dict[str, Any]]:
         "@type": "SoftwareApplication",
         "name": "HydroModPy",
         "softwareVersion": context.hydromodpy_version,
-        "url": "https://hydromodpy-docs.readthedocs.io/",
+        "url": "https://hydromodpy.github.io/",
         "codeRepository": "https://github.com/HydroModPy/HydroModPy",
     }
     git_commit = context.runs_env.get("git_commit")
@@ -213,7 +213,7 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
         "@context": [
             RO_CRATE_CONTEXT,
             {
-                "hydromodpy": "https://hydromodpy-docs.readthedocs.io/schema#",
+                "hydromodpy": "https://hydromodpy.github.io/schema#",
                 "prov": "http://www.w3.org/ns/prov#",
                 "sha256": "https://www.iana.org/assignments/hashes/sha-256",
             },

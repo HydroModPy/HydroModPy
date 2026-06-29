@@ -187,7 +187,7 @@ page, install page, and contributor page:
 - Existing v1 users can keep using tagged releases such as ``v1.0.0``.
 - New work should move to ``main`` and the v2 documentation.
 - The warning should link to
-  ``https://hydromodpy-docs.readthedocs.io/en/main/``.
+  ``https://hydromodpy.github.io/main/``.
 
 Tagging discipline
 ------------------

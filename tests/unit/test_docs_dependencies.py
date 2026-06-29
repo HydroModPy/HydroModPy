@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT_PATH = ROOT / "pyproject.toml"
-RTD_REQUIREMENTS_PATH = ROOT / "docs" / "readthedocs_requirements.txt"
+DOCS_REQUIREMENTS_PATH = ROOT / "docs" / "requirements.txt"
 EDITABLE_ENVIRONMENT_PATHS = [
     ROOT / "install" / "env_hydromodpy_pkg.yml",
     ROOT / "install" / "env_hydromodpy_light_pkg.yml",
@@ -43,13 +43,13 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
         "sphinxcontrib-plantuml",
         "autodoc-pydantic",
     }
-    rtd_requirements = {
+    docs_requirements = {
         _normalize_requirement(line)
-        for line in RTD_REQUIREMENTS_PATH.read_text(encoding="utf-8").splitlines()
+        for line in DOCS_REQUIREMENTS_PATH.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     }
 
-    expected = required_for_local_docs_build & rtd_requirements
+    expected = required_for_local_docs_build & docs_requirements
     missing = expected - docs_extra
 
     assert not missing, (

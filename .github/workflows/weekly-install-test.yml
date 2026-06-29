@@ -1,20 +1,30 @@
 name: Weekly install & examples (v1.0)
 
-# Cross-OS / cross-Python install check for the v1.0 branch:
-#   - pip editable (pip install -e .) and pip (pip install .)
-#   - conda from the three install/*.yml files
-# on Linux, Windows, macOS Intel (macos-15-intel) and macOS ARM (macos-14),
-# for Python 3.11 / 3.12 / 3.13.
+# Sparse, intelligent cross-OS / cross-Python install check for the v1.0 branch.
+#
+# Coverage strategy (every axis value is exercised at least once, WITHOUT the
+# full Cartesian product):
+#   - Windows is the REFERENCE platform (~90% of the user base): full Python x
+#     method/envfile coverage for install + `import hydromodpy`, AND it runs the
+#     example scripts once per Python on the full conda env.
+#   - Linux keeps ONE example run (newest Python) as a known-good headless
+#     baseline to tell "broken on Windows only" from "broken everywhere".
+#   - macOS (Intel + ARM) only smoke-tests install + import on the Python edges
+#     (3.11 oldest, 3.13 newest), rotating method/envfile so each value appears.
+#
+# The example runner is INLINE here (not the v1.0 .github/scripts/
+# run_ci_examples.sh): it is pure Python (subprocess with timeout, no GNU
+# `timeout`, no PYTHONPATH/sitecustomize tricks), so it runs identically under
+# Git Bash on Windows and bash on Linux. The example LIST is mirrored from the
+# v1.0 script; keep them in sync if either changes.
+#
+# Net effect: 19 jobs instead of 60, while still touching every OS, every
+# supported Python (3.11/3.12/3.13), both pip methods and all three conda envs.
 #
 # LAUNCHING: GitHub only enables `schedule` and the "Run workflow"
 # (workflow_dispatch) button when the workflow file is on the repository
 # DEFAULT branch (master). This file therefore has to live on master to be
 # launchable; it always checks out and tests the v1.0 branch (ref: v1.0 below).
-#
-# Hard check on every OS: the package installs and `import hydromodpy` works.
-# The example scripts are only run on Linux (headless VTK/Qt is validated there);
-# the bundled solver binaries are per-OS (bin/win, bin/mac, bin/linux), so
-# example runs can be extended to Windows/macOS later if desired.
 
 on:
   schedule:
@@ -39,9 +49,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-15-intel, macos-14]
-        python: ['3.11', '3.12', '3.13']
-        method: [editable, plain]
+        include:
+          # Windows: full reference matrix (3 Python x 2 methods).
+          - { os: windows-latest, python: '3.11', method: editable }
+          - { os: windows-latest, python: '3.11', method: plain }
+          - { os: windows-latest, python: '3.12', method: editable }
+          - { os: windows-latest, python: '3.12', method: plain }
+          - { os: windows-latest, python: '3.13', method: editable }
+          - { os: windows-latest, python: '3.13', method: plain }
+          # Linux: install/import edges (examples run in the conda job below).
+          - { os: ubuntu-latest, python: '3.11', method: plain }
+          - { os: ubuntu-latest, python: '3.13', method: editable }
+          # macOS Intel (riskier legacy runner): newest Python, plain install.
+          - { os: macos-15-intel, python: '3.13', method: plain }
+          # macOS ARM: both Python edges, both methods.
+          - { os: macos-14, python: '3.11', method: plain }
+          - { os: macos-14, python: '3.13', method: editable }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,10 +93,6 @@ jobs:
       - name: Import smoke test
         run: python -c "import hydromodpy; from hydromodpy import watershed_root; print('import OK', hydromodpy.__version__)"
 
-      - name: Run examples (headless, Linux only)
-        if: runner.os == 'Linux'
-        run: bash .github/scripts/run_ci_examples.sh
-
   conda:
     name: conda-${{ matrix.envfile }} ${{ matrix.os }} py${{ matrix.python }}
     runs-on: ${{ matrix.os }}
@@ -84,9 +103,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-15-intel, macos-14]
-        python: ['3.11', '3.12', '3.13']
-        envfile: [env_hydromodpy.yml, env_hydromodpy_light.yml, env_hydromodpy_pkg.yml]
+        include:
+          # Windows: full reference matrix; runs examples once per Python on the
+          # full env. light/pkg envs validated on the newest Python.
+          - { os: windows-latest, python: '3.13', envfile: env_hydromodpy.yml, examples: true }
+          - { os: windows-latest, python: '3.13', envfile: env_hydromodpy_light.yml }
+          - { os: windows-latest, python: '3.13', envfile: env_hydromodpy_pkg.yml }
+          - { os: windows-latest, python: '3.11', envfile: env_hydromodpy.yml, examples: true }
+          - { os: windows-latest, python: '3.12', envfile: env_hydromodpy.yml, examples: true }
+          # Linux: one example run (newest Python) as a known-good baseline.
+          - { os: ubuntu-latest, python: '3.13', envfile: env_hydromodpy.yml, examples: true }
+          # macOS Intel: full env, oldest Python.
+          - { os: macos-15-intel, python: '3.11', envfile: env_hydromodpy.yml }
+          # macOS ARM: pkg env, newest Python.
+          - { os: macos-14, python: '3.13', envfile: env_hydromodpy_pkg.yml }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -98,6 +128,13 @@ jobs:
           use-mamba: true
           auto-update-conda: false
           activate-environment: ''
+
+      - name: System libraries for VTK/Qt (Linux only)
+        if: runner.os == 'Linux' && matrix.examples
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 libegl1 libglib2.0-0 libxkbcommon0 libdbus-1-3 libxrender1
 
       - name: Create env from ${{ matrix.envfile }}
         run: |
@@ -117,8 +154,69 @@ jobs:
           pip install -e .
           python -c "import hydromodpy; print('import OK', hydromodpy.__version__)"
 
-      - name: Run examples (headless, Linux only)
-        if: runner.os == 'Linux'
+      - name: Run examples (headless, cross-OS)
+        if: matrix.examples
         run: |
           conda activate ci
-          bash .github/scripts/run_ci_examples.sh
+          # Make bundled solver binaries executable (no-op for Windows .exe).
+          chmod +x bin/*/* 2>/dev/null || true
+          # Portable headless runner: pure Python, no GNU `timeout`, no
+          # PYTHONPATH/sitecustomize tricks. Works under Git Bash and bash.
+          cat > _ci_run_examples.py <<'PY'
+          import os
+          import subprocess
+          import sys
+
+          EXAMPLES = [
+              "examples/11_for run from scratch without plots/example_11.py",
+              "examples/00_quick_test_of_wide_hydromodpy_capabilities/example_00.py",
+              "examples/07_analytical_solution_for_streamflow_recession/example_07.py",
+          ]
+
+          # Neutralize interactive display in the child process before it runs.
+          SHIM = r'''
+          import os
+          os.environ.setdefault('MPLBACKEND', 'Agg')
+          import runpy
+          import sys
+          try:
+              import matplotlib
+              matplotlib.use('Agg', force=True)
+              import matplotlib.pyplot as plt
+              plt.show = lambda *a, **k: None
+          except Exception:
+              pass
+          try:
+              import vedo
+              _v = vedo.Plotter.show
+              vedo.Plotter.show = lambda self, *a, **k: _v(self, *a, **dict(k, interactive=False))
+          except Exception:
+              pass
+          try:
+              import plotly.basedatatypes as _p
+              _p.BaseFigure.show = lambda self, *a, **k: None
+          except Exception:
+              pass
+          runpy.run_path(sys.argv[1], run_name='__main__')
+          '''
+
+          env = dict(os.environ, MPLBACKEND="Agg", QT_QPA_PLATFORM="offscreen")
+          rc_total = 0
+          for rel in EXAMPLES:
+              name = os.path.basename(rel)
+              print("::group::example " + name)
+              try:
+                  rc = subprocess.run(
+                      [sys.executable, "-c", SHIM, rel], env=env, timeout=900
+                  ).returncode
+              except subprocess.TimeoutExpired:
+                  rc = 124
+              if rc == 0:
+                  print("PASS " + name)
+              else:
+                  print("::error::example %s failed (exit %d)" % (name, rc))
+                  rc_total = 1
+              print("::endgroup::")
+          sys.exit(rc_total)
+          PY
+          python _ci_run_examples.py
