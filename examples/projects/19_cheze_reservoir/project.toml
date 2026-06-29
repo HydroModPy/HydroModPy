@@ -174,11 +174,7 @@ kind = "homogeneous"
 value = "1e-5 m-1"
 
 [flow.ic]
-# Start heads 2 m below the topography (the shallow Armorican water table) instead
-# of saturated to the surface. This removes the fictitious water column the steady
-# warm-up would otherwise have to drain, cutting warm-up iterations a lot.
-type = "top_offset"
-value = "2 m"
+type = "top"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
@@ -207,10 +203,6 @@ bedleak_unit = "1/s"
 stageinit = "81.82 m"
 steady_stage_hold = true
 occupied_layers = 1
-# Wider LAK dry/wet smoothing (default 0.1 m). With many marnage cells toggling at
-# once, 1 m stabilises the Newton drying/rewetting and makes the steady warm-up
-# converge fast (the shoreline fuzzes by ~1 m, fine at catchment scale).
-surfdep = 1.0
 
 # Carve the real lake bed from the bathymetry raster, active-littoral (marnage):
 # the lakebed cells stay active with their bathymetric bed as cell top, MF6 toggles
@@ -316,11 +308,7 @@ dam_buffer = 130.0
 # planar grid is now the GMSH unstructured mesh above.
 [modflow6.sgrid.vertical]
 genmtd_lay = "constant"
-# Single 35 m aquifer layer. The marnage LAK connection sits on layer 0 and needs
-# no layer below (dynamic_area), so one layer halves the active cells and the XT3D
-# matrix with no accuracy loss for this homogeneous aquifer. Use nlay >= 2 only if
-# you switch to a fixed-area lake or add vertical K structure.
-nlay = 1
+nlay = 2
 
 # ---------------------------------------------------------------------- display
 [display]
