@@ -46,10 +46,6 @@ package_path = Path(__file__).resolve().parents[2]
 os.environ["PYTHONPATH"] = ":".join((str(package_path), os.environ.get("PYTHONPATH", "")))
 
 
-def _is_readthedocs_build() -> bool:
-    return os.environ.get("READTHEDOCS") == "True"
-
-
 _DOC_REQUIRED_EXTENSIONS = [
     "nbsphinx",
     "myst_parser",
@@ -68,8 +64,7 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_sitemap",
     "sphinxext.opengraph",
 ]
-if not _is_readthedocs_build():
-    _DOC_REQUIRED_EXTENSIONS.append("sphinx_last_updated_by_git")
+_DOC_REQUIRED_EXTENSIONS.append("sphinx_last_updated_by_git")
 
 
 def _ensure_required_doc_extensions() -> None:
@@ -145,7 +140,7 @@ _ensure_required_doc_extensions()
 
 # sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
 # building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
-# and Read the Docs builds skip this block and run as a single-version build.
+# skips this block and runs as a single-version build.
 # _current_version drives the pydata version-switcher highlight. The incremental
 # Pages workflow builds one version at a time and passes its name via
 # HMP_DOC_VERSION; a local polyversion run overrides it from POLYVERSION_DATA;
@@ -340,8 +335,7 @@ extensions = [
     "sphinxext.opengraph",
     "hmp_directives",
 ]
-if not _is_readthedocs_build():
-    extensions.append("sphinx_last_updated_by_git")
+extensions.append("sphinx_last_updated_by_git")
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -417,7 +411,7 @@ ogp_site_name = "HydroModPy"
 ogp_image = html_baseurl + "_static/logoHydroModPy_long.png"
 ogp_use_first_image = True
 
-# sphinx-last-updated-by-git: keep local footer dates without slowing RTD builds.
+# sphinx-last-updated-by-git: footer dates resolved from git history.
 git_last_updated_timezone = "Europe/Paris"
 _PLANTUML_COMMAND = _resolve_plantuml_command()
 if _PLANTUML_COMMAND is not None:
