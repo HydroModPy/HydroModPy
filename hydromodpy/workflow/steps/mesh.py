@@ -90,6 +90,49 @@ def resolve_optional_mesh_input(
 # ---------------------------------------------------------------------------
 
 
+def _resolve_setup_lake_polygon(setup_state: object):
+    """Union of the lake footprints bound on the flow payload, or None."""
+    flow = getattr(setup_state, "flow", None)
+    if flow is None:
+        return None
+    lakes = getattr(flow, "sinks_sources", {}).get("lakes", {})
+    polygons = [
+        payload["polygon"]
+        for payload in lakes.values()
+        if isinstance(payload, dict) and payload.get("polygon") is not None
+    ]
+    if not polygons:
+        return None
+    if len(polygons) == 1:
+        return polygons[0]
+    from shapely.ops import unary_union
+
+    return unary_union(polygons)
+
+
+def _build_lake_mesh_refinement(
+    *, cfg: object, section_data: MeshCatchmentConfig, setup_state: object
+) -> tuple:
+    """Build the lake/dam GMSH regional size fields for local refinement, or ()."""
+    lr = getattr(section_data, "lake_refinement", None)
+    if lr is None or not getattr(lr, "enabled", False):
+        return ()
+    from hydromodpy.spatial.mesh.lake_refinement import build_lake_refinement_size_fields
+
+    dam_xy = None
+    geographic = getattr(cfg, "geographic", None)
+    x_outlet = getattr(geographic, "x_outlet", None)
+    y_outlet = getattr(geographic, "y_outlet", None)
+    if x_outlet is not None and y_outlet is not None:
+        dam_xy = (float(x_outlet), float(y_outlet))
+    return build_lake_refinement_size_fields(
+        lake_polygon=_resolve_setup_lake_polygon(setup_state),
+        dam_xy=dam_xy,
+        cfg=lr,
+        global_size=float(section_data.zone_meshing.global_size),
+    )
+
+
 def run_mesh_phase(
     config_path: str | Path,
     cfg: object,
@@ -106,6 +149,9 @@ def run_mesh_phase(
     )
 
     setup_state = run_state.setup
+    lake_size_fields = _build_lake_mesh_refinement(
+        cfg=cfg, section_data=mesh_section_data, setup_state=setup_state
+    )
     mesh_runtime = run_single_mesh_catchment_workflow_with_runtime_artifacts(
         config_path=config_path,
         section_data=mesh_section_data,
@@ -116,6 +162,7 @@ def run_mesh_phase(
         workspace=setup_state.workspace,
         geographic_features=setup_state.geographic_features,
         domain_geographic=setup_state.domain_geographic,
+        lake_size_fields=lake_size_fields,
     )
     setup_state.mesh_summary = mesh_runtime.summary
     setup_state.mesh_planar = mesh_runtime.mesh_planar

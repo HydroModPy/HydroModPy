@@ -65,6 +65,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
     river_trace: object | None = None,
     geographic_features: object | None = None,
     domain_geographic: object | None = None,
+    lake_size_fields: tuple = (),
     show_plot: bool = False,
     return_runtime_artifacts: bool = False,
 ) -> dict[str, Any] | ZoneConformalCaseRuntimeArtifacts:
@@ -96,6 +97,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
         river_trace=river_trace,
         geographic_features=geographic_features,
         domain_geographic=domain_geographic,
+        lake_size_fields=tuple(lake_size_fields),
     )
     trace_mesh_stage(
         "zone_conformal.inputs.built",
