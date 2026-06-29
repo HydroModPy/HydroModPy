@@ -89,7 +89,10 @@ mesh = ["gmsh>=4.15.2,<5"]
 ui = ["streamlit>=1.51.0,<2"]
 duckdb = ["duckdb"]
 metrics = ["psutil", "pynvml"]
-mf6api = ["modflowapi>=0.2", "xmipy>=1.5"]
+mf6api = [
+    "modflowapi @ git+https://github.com/HydroModPy/modflowapi.git@hydromodpy",
+    "xmipy @ git+https://github.com/HydroModPy/xmipy.git@hydromodpy",
+]
 all = ["duckdb", "psutil", "pynvml"]
 viz = [
     "datashader>=0.16,<1",
