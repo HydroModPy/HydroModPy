@@ -210,6 +210,8 @@ class Modflow6OutputAdapter:
             start_datetime=start_datetime,
         )
 
+        self._extract_lake_abacus(sim_id, store, solver_output_dir, model_name)
+
         self._extract_sfr_series(
             sim_id,
             store,
@@ -415,6 +417,38 @@ class Modflow6OutputAdapter:
                 store.write_timeseries_batch(sim_id, timeseries)
             if budgets:
                 store.write_budgets(sim_id, budgets)
+
+    def _extract_lake_abacus(
+        self,
+        sim_id: str,
+        store: Any,
+        solver_output_dir: Path,
+        model_name: str,
+    ) -> None:
+        """Land the bed-reconstruction abacus comparison sidecar into the Zarr.
+
+        Reads ``{model}.lake_abacus.json`` (reference + simulated stage-volume-area
+        per lake) and persists each lake under the per-sim Zarr ``lake_abacus``
+        group for the comparison figure. A no-op when the model has no carved lake.
+        """
+        from hydromodpy.solver.modflow6.extractors.lake import read_lake_abacus
+
+        spec = read_lake_abacus(solver_output_dir / f"{model_name}.lake_abacus.json")
+        if spec is None:
+            return
+        for entry in spec.entries:
+            store.write_lake_abacus(
+                sim_id,
+                entry.lake_id,
+                stage=entry.stage,
+                real_volume=entry.real_volume,
+                real_sarea=entry.real_sarea,
+                sim_volume=entry.sim_volume,
+                sim_sarea=entry.sim_sarea,
+                stage_unit=entry.stage_unit,
+                volume_unit=entry.volume_unit,
+                area_unit=entry.area_unit,
+            )
 
     def _extract_sfr_series(
         self,

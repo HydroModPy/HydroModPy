@@ -37,6 +37,15 @@ class WritesMixinZarr:
         finally:
             sz.close()
 
+    def write_lake_abacus(self, sim_id: str | UUID, lake_id: str, **arrays) -> None:
+        if not self._persistence.save_zarr:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            sz.write_lake_abacus(lake_id, **arrays)
+        finally:
+            sz.close()
+
     def write_field(
         self,
         sim_id: str | UUID,

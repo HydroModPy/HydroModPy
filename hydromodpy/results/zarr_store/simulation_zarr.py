@@ -344,6 +344,18 @@ class SimulationZarr:
     def read_geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
         return zarr_reader.read_geographic_raster(self, name)
 
+    # -- Lake abacus comparison ----------------------------------------------
+
+    def write_lake_abacus(self, lake_id: str, **arrays: Any) -> None:
+        """Persist a lake's reference vs simulated abacus under ``lake_abacus/<id>``."""
+        zarr_writer.write_lake_abacus(self, lake_id, **arrays)
+
+    def read_lake_abacus(self, lake_id: str) -> dict:
+        return zarr_reader.read_lake_abacus(self, lake_id)
+
+    def lake_abacus_lakes(self) -> list[str]:
+        return zarr_reader.lake_abacus_lakes(self)
+
     # -- ACDD ----------------------------------------------------------------
 
     def write_acdd_root_attrs(

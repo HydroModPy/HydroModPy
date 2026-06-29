@@ -607,6 +607,48 @@ def write_geographic_raster(
         )
 
 
+# -- Lake abacus comparison (per-run) ---------------------------------------
+
+
+def write_lake_abacus(
+    store_obj: SimulationZarr,
+    lake_id: str,
+    *,
+    stage: np.ndarray,
+    real_volume: np.ndarray,
+    real_sarea: np.ndarray,
+    sim_volume: np.ndarray,
+    sim_sarea: np.ndarray,
+    stage_unit: str = "m",
+    volume_unit: str = "m3",
+    area_unit: str = "m2",
+) -> None:
+    """Persist the reference vs simulated abacus under ``lake_abacus/<lake_id>``."""
+    with store_obj._guard_write():
+        ensure_child_dir(store_obj, store_obj._root, "lake_abacus")
+        grp = store_obj._root.require_group("lake_abacus")
+        ensure_child_dir(store_obj, grp, lake_id)
+        lake = grp.require_group(lake_id)
+        for name, values, unit in (
+            ("stage", stage, stage_unit),
+            ("real_volume", real_volume, volume_unit),
+            ("real_sarea", real_sarea, area_unit),
+            ("sim_volume", sim_volume, volume_unit),
+            ("sim_sarea", sim_sarea, area_unit),
+        ):
+            _write_array(
+                store_obj,
+                lake,
+                name,
+                np.asarray(values, dtype="float64"),
+                attrs={"units": str(unit)},
+            )
+        update_attrs(
+            lake,
+            {"stage_unit": stage_unit, "volume_unit": volume_unit, "area_unit": area_unit},
+        )
+
+
 # -- ACDD --------------------------------------------------------------------
 
 
@@ -648,6 +690,7 @@ __all__ = [
     "write_forcing_field",
     "write_forcing_timeseries",
     "write_geographic_raster",
+    "write_lake_abacus",
     "write_mesh",
     "write_time",
     "write_topography",
