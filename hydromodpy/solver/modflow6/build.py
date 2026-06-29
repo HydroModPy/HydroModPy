@@ -19,6 +19,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_drain_stress_period_data,
     build_drainage_mover_records,
     build_evt_stress_period_data,
+    build_exposed_band_runoff_specs,
     build_lak_package_args,
     build_mvr_period_records,
     build_ocean_boundary_chd_spd,
@@ -28,6 +29,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_start_heads,
     build_stream_boundary_chd_spd,
     build_well_stress_period_data,
+    carve_lake_bed,
     collapse_identical_periods,
     empty_recharge_aux,
     externalize_recharge_spd,
@@ -111,6 +113,35 @@ def _write_lake_obs_meta(model, lake_obs_meta: Mapping[str, object]) -> None:
     meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lak.meta.json")
     with open(meta_path, "w", encoding="utf-8") as fh:
         json.dump(dict(lake_obs_meta), fh, sort_keys=True)
+
+
+def _write_lake_abacus_meta(model) -> None:
+    """Persist the lake abacus comparison sidecar for the extractor.
+
+    Serializes ``model._lake_bed_reconstruction`` (reference + simulated abacus
+    arrays per lake) to ``{model_output_name}.lake_abacus.json`` so the post-run
+    extractor can land it in the per-sim Zarr for the comparison figure.
+    """
+    reconstruction = getattr(model, "_lake_bed_reconstruction", None)
+    entries = [
+        {
+            "lake_id": str(lid),
+            "stage": rec["abacus_stage"],
+            "real_volume": rec.get("abacus_volume"),
+            "real_sarea": rec["abacus_sarea"],
+            "sim_volume": rec["sim_volume"],
+            "sim_sarea": rec["sim_sarea"],
+        }
+        for lid, rec in (reconstruction or {}).items()
+        if rec.get("abacus_stage") is not None
+        and rec.get("sim_volume") is not None
+        and rec.get("abacus_volume") is not None
+    ]
+    if not entries:
+        return
+    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lake_abacus.json")
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump({"entries": entries}, fh, sort_keys=True)
 
 
 def _write_sfr_obs_meta(model, sfr_obs_meta: Mapping[str, object]) -> None:
@@ -443,14 +474,33 @@ def run_pre_processing(  # noqa: PLR0915
     # CONNECTIONDATA (built later from this same lake mask).
     lake_cell_ids_by_lake = resolve_lake_cells_for_active_lakes(model, solver_mesh)
     occupied_layers_by_lake = resolve_lake_occupied_layers(model)
-    model._lake_cell_ids = sorted(
-        {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
-    )
+    model._lake_cell_ids = []
     if lake_cell_ids_by_lake:
-        solver_mesh = apply_lake_idomain_mask(
+        # Carve the real lake bed from bathymetry (opt-in per lake) before the
+        # idomain mask, so the carved top/botm flow into DISV, start heads and the
+        # LAK connectiondata. Lakes without bed_reconstruction pass through.
+        solver_mesh = carve_lake_bed(
+            model,
             solver_mesh,
             lake_cell_ids_by_lake=lake_cell_ids_by_lake,
             occupied_layers_by_lake=occupied_layers_by_lake,
+        )
+        # Active-littoral (marnage) lakes keep their cells ACTIVE so MF6 toggles
+        # RCH/ET per cell (IWETLAKE); only fixed-area reservoirs deactivate their
+        # footprint and drop RCH/ET. Mask + RCH/ET masking exclude marnage cells.
+        marnage_ids = getattr(model, "_marnage_lake_ids", set())
+        inactive_lakes = {
+            lid: cells for lid, cells in lake_cell_ids_by_lake.items() if lid not in marnage_ids
+        }
+        model._lake_cell_ids = sorted({cid for cells in inactive_lakes.values() for cid in cells})
+        # A carved bed cuts a per-cell number of layers (deep centre vs shallow
+        # rim); the carve stashes that map so the mask follows the real basin.
+        occupied_layers_by_cell = getattr(model, "_lake_occupied_layers_by_cell", None)
+        solver_mesh = apply_lake_idomain_mask(
+            solver_mesh,
+            lake_cell_ids_by_lake=inactive_lakes,
+            occupied_layers_by_lake=occupied_layers_by_lake,
+            occupied_layers_by_cell=occupied_layers_by_cell,
         )
         model.solver_mesh = solver_mesh
         model.inactive_mask = solver_mesh.inactive_mask[0]
@@ -621,6 +671,7 @@ def run_pre_processing(  # noqa: PLR0915
             model,
             solver_mesh=solver_mesh,
             lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+            occupied_layers_by_cell=getattr(model, "_lake_occupied_layers_by_cell", None),
             external_mover_to_lake=(
                 any(record.receiver == "LAK" for record in sfr_mover_records)
                 or any(str(row[2]) == "LAK" for row in drainage_mover_rows)
@@ -659,9 +710,17 @@ def run_pre_processing(  # noqa: PLR0915
                 )
             if lake_obs_meta is not None:
                 _write_lake_obs_meta(model, lake_obs_meta)
+            # Persist the bed-reconstruction abacus comparison for the QC figure.
+            _write_lake_abacus_meta(model)
             model.lak = lak
             if mover_records:
                 all_mover_rows.extend(mover_records)
+            # Active-littoral lakes with exposed_band_runoff need the in-process BMI
+            # runner: build the per-lake coupling specs now (lake order == LAK ifno).
+            # Their presence flips the runner to 'api' and attaches the callback.
+            band_specs = build_exposed_band_runoff_specs(model)
+            if band_specs:
+                model._exposed_band_runoff_specs = band_specs
 
     # SFR (streamflow routing) package. Built after LAK so the SFR -> LAK mover
     # seam can reference an existing lake, and before OC / MVR.

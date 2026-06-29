@@ -97,15 +97,16 @@ def apply_lake_idomain_mask(
     lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
     occupied_layers: int = 1,
     occupied_layers_by_lake: Mapping[str, int] | None = None,
+    occupied_layers_by_cell: Mapping[str, Mapping[int, int]] | None = None,
 ) -> SolverMesh:
     """Return a new ``SolverMesh`` with each lake's top layers made inactive.
 
-    A lake occupies the top layers of each of its columns: ``occupied_layers``
-    applies to every lake unless ``occupied_layers_by_lake`` overrides it per lake
-    id (a surface lake fills only layer 0; a deep reservoir fills several). The
+    A lake occupies the top layers of each of its columns. The per-cell count is
+    resolved in order: ``occupied_layers_by_cell[lake_id][cell]`` (a carved bed
+    that cuts a varying number of layers, deep centre vs shallow rim), else
+    ``occupied_layers_by_lake[lake_id]``, else the scalar ``occupied_layers``. The
     layers below stay active so the LAK VERTICAL connection has a first active
-    cell to leak into; the count must leave at least one active layer per lake
-    column, otherwise the column has nothing to connect to.
+    cell to leak into; the count must leave at least one active layer per column.
 
     The frozen ``SolverMesh`` is left untouched; we ``dataclasses.replace`` a
     fresh inactive mask. Applying this *before* the DISV / idomain / dem_mask
@@ -115,19 +116,12 @@ def apply_lake_idomain_mask(
     nlay = int(solver_mesh.nlay)
     mask = np.asarray(solver_mesh.inactive_mask, dtype=bool).copy()
     for lake_id, cell_ids in lake_cell_ids_by_lake.items():
-        layers = int(
+        per_cell = (occupied_layers_by_cell or {}).get(lake_id)
+        lake_layers = int(
             occupied_layers
             if occupied_layers_by_lake is None
             else occupied_layers_by_lake.get(lake_id, occupied_layers)
         )
-        if layers < 1:
-            raise ValueError(f"flow.sinks_sources.lakes.{lake_id} occupied_layers must be >= 1.")
-        if layers >= nlay:
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id} occupied_layers ({layers}) must leave at "
-                f"least one active layer below the lake (nlay={nlay}); the VERTICAL connection "
-                "needs an aquifer cell to leak into."
-            )
         for cid in cell_ids:
             cell = int(cid)
             if cell < 0 or cell >= n_cells:
@@ -135,8 +129,196 @@ def apply_lake_idomain_mask(
                     f"flow.sinks_sources.lakes.{lake_id} cell {cell} is outside the grid "
                     f"({n_cells} cells)."
                 )
+            layers = int(per_cell.get(cell, lake_layers)) if per_cell is not None else lake_layers
+            if layers < 1:
+                raise ValueError(
+                    f"flow.sinks_sources.lakes.{lake_id} occupied_layers must be >= 1."
+                )
+            if layers >= nlay:
+                raise ValueError(
+                    f"flow.sinks_sources.lakes.{lake_id} occupied_layers ({layers}) must leave at "
+                    f"least one active layer below the lake (nlay={nlay}); the VERTICAL "
+                    "connection needs an aquifer cell to leak into."
+                )
             mask[:layers, cell] = True
     return dataclasses.replace(solver_mesh, inactive_mask=mask)
+
+
+def carve_lake_bed(
+    model,
+    solver_mesh: SolverMesh,
+    *,
+    lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
+    occupied_layers_by_lake: Mapping[str, int] | None = None,
+) -> SolverMesh:
+    """Carve the real lake bed from bathymetry into ``top``/``botm`` per lake cell.
+
+    For every active lake whose config sets ``bed_reconstruction``, the
+    ``lake_bathymetry`` raster is resampled onto the lake cells (zonal mean) and,
+    by default, reconciled to the abacus by area-weighted quantile mapping. Each
+    lake column is then re-graded so the bottom of its deepest occupied layer sits
+    at the carved bed; the first active cell below therefore exchanges with the
+    lake at the real bed elevation, and the flow lines follow the real basin.
+
+    Lakes without ``bed_reconstruction`` are left untouched. The frozen
+    ``SolverMesh`` is replaced with a fresh ``botm`` (``top`` and the inactive
+    mask are unchanged). The per-lake reconstruction is stashed on
+    ``model._lake_bed_reconstruction`` for the abacus-comparison figure.
+    """
+    definitions = _active_lake_definitions(model)
+    targets = {
+        lake_id: definition
+        for lake_id, definition in definitions.items()
+        if definition.get("bed_reconstruction") is not None and lake_id in lake_cell_ids_by_lake
+    }
+    if not targets:
+        return solver_mesh
+
+    from hydromodpy.spatial.lake_bed import (
+        load_surface_from_raster,
+        reconstruct_lake_bed,
+        regrade_column_active_top,
+        regrade_column_to_bed,
+        simulate_abacus,
+    )
+
+    top = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()
+    botm = np.asarray(solver_mesh.botm, dtype=float).copy()
+    areas = solver_mesh.cell_areas()
+    nlay = int(solver_mesh.nlay)
+    occupied = occupied_layers_by_lake or {}
+    reconstruction: dict[str, dict[str, Any]] = {}
+    marnage_cells: dict[str, list[int]] = {}
+    occupied_by_cell: dict[str, dict[int, int]] = {}
+
+    for lake_id, definition in targets.items():
+        cfg = definition["bed_reconstruction"]
+        reconcile = bool(getattr(cfg, "reconcile_to_abacus", True))
+        min_thickness = float(getattr(cfg, "min_thickness", 0.5))
+        min_pixels = int(getattr(cfg, "min_pixels", 1))
+        dynamic_area = bool(getattr(cfg, "dynamic_area", False))
+
+        raster = definition.get("bathymetry")
+        if not raster:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id} sets bed_reconstruction but no "
+                "lake_bathymetry raster was loaded; declare [data.lake_bathymetry]."
+            )
+        cell_ids = [int(c) for c in lake_cell_ids_by_lake[lake_id]]
+        occ = int(occupied.get(lake_id, 1))
+        area_by_cell = {cid: float(areas[cid]) for cid in cell_ids}
+
+        stage_col, sarea_col = _abacus_stage_sarea(definition.get("abacus"))
+        if reconcile and (stage_col is None or sarea_col is None):
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id} bed_reconstruction.reconcile_to_abacus "
+                "is on but no abacus was loaded; declare [data.lake_abacus] or set "
+                "reconcile_to_abacus = false."
+            )
+
+        surface = load_surface_from_raster(raster)
+        bed_by_cell, diag = reconstruct_lake_bed(
+            planar_mesh=solver_mesh.planar_mesh,
+            surface=surface,
+            cell_ids=cell_ids,
+            area_by_cell=area_by_cell,
+            abacus_stage=stage_col if reconcile else [0.0, 1.0],
+            abacus_sarea=sarea_col if reconcile else [0.0, 1.0],
+            reconcile=reconcile,
+            min_pixels=min_pixels,
+        )
+        if dynamic_area:
+            # Active-littoral (marnage): the cell stays active, its TOP becomes the
+            # bathymetric bed, and MF6 gates RCH/ET vs lake exchange per cell.
+            for cid in cell_ids:
+                new_top, new_botm = regrade_column_active_top(
+                    orig_top=top[cid],
+                    botm_col=botm[:, cid],
+                    bed=bed_by_cell[cid],
+                    min_thickness=min_thickness,
+                )
+                top[cid] = new_top
+                botm[:, cid] = new_botm
+            marnage_cells[lake_id] = cell_ids
+        else:
+            # Fixed-area reservoir: the inactive cap of each column follows the real
+            # basin depth. The per-cell occupied-layer count is the number of grid
+            # layers above the carved bed (deep centre cells cut more layers than
+            # shallow rim cells), clamped to keep one active aquifer cell below.
+            per_cell_occ: dict[int, int] = {}
+            for cid in cell_ids:
+                occ_c = int(np.count_nonzero(botm[:, cid] > bed_by_cell[cid]))
+                occ_c = max(1, min(occ_c, nlay - 1))
+                per_cell_occ[cid] = occ_c
+                botm[:, cid] = regrade_column_to_bed(
+                    top=top[cid],
+                    botm_col=botm[:, cid],
+                    bed=bed_by_cell[cid],
+                    occupied_layers=occ_c,
+                    min_thickness=min_thickness,
+                )
+            occupied_by_cell[lake_id] = per_cell_occ
+        record = {
+            "bed_by_cell": bed_by_cell,
+            "area_by_cell": area_by_cell,
+            "occupied_layers": occ,
+            "diagnostics": diag,
+            "abacus_stage": stage_col,
+            "abacus_sarea": sarea_col,
+            "abacus_volume": _abacus_volume(definition.get("abacus")),
+        }
+        if stage_col is not None:
+            # Pre-compute the simulated abacus in the solver layer so the display
+            # figure (which cannot import spatial) only receives plain arrays.
+            sim = simulate_abacus(
+                bed_by_cell=bed_by_cell, area_by_cell=area_by_cell, stages=stage_col
+            )
+            record["sim_volume"] = [float(v) for v in sim["volume"]]
+            record["sim_sarea"] = [float(v) for v in sim["sarea"]]
+        reconstruction[lake_id] = record
+        logger.info(
+            "[LAK] carved bed for lake '%s': %d cells, bed in [%.2f, %.2f], area scale %.3f",
+            lake_id,
+            len(cell_ids),
+            diag.get("carved_bed_min", float("nan")),
+            diag.get("carved_bed_max", float("nan")),
+            diag.get("area_scale", float("nan")),
+        )
+
+    model._lake_bed_reconstruction = reconstruction
+    if occupied_by_cell:
+        model._lake_occupied_layers_by_cell = occupied_by_cell
+    if marnage_cells:
+        model._marnage_lake_ids = set(marnage_cells)
+        model._marnage_lake_cells = marnage_cells
+    return dataclasses.replace(solver_mesh, top=top, botm=botm)
+
+
+def _abacus_volume(abacus: object) -> list[float] | None:
+    """Return the ``volume`` column from a loaded abacus payload, if present."""
+    if abacus is None:
+        return None
+    volume = (
+        abacus.get("volume") if isinstance(abacus, Mapping) else getattr(abacus, "volume", None)
+    )
+    if volume is None:
+        return None
+    return [float(v) for v in volume]
+
+
+def _abacus_stage_sarea(abacus: object) -> tuple[list[float] | None, list[float] | None]:
+    """Return the ``(stage, sarea)`` columns from a loaded abacus payload."""
+    if abacus is None:
+        return None, None
+    if isinstance(abacus, Mapping):
+        stage = abacus.get("stage")
+        sarea = abacus.get("sarea")
+    else:
+        stage = getattr(abacus, "stage", None)
+        sarea = getattr(abacus, "sarea", None)
+    if stage is None or sarea is None:
+        return None, None
+    return [float(v) for v in stage], [float(v) for v in sarea]
 
 
 def _cell_edges(nodes: Sequence[int]) -> list[tuple[int, int]]:
@@ -180,6 +362,8 @@ def build_lake_connectiondata(
     bedleak: float,
     solver_mesh: SolverMesh,
     occupied_layers: int = 1,
+    occupied_layers_by_cell: Mapping[int, int] | None = None,
+    dynamic_area: bool = False,
 ) -> list[list[Any]]:
     """Build the CONNECTIONDATA rows for one lake on a DISV grid.
 
@@ -205,6 +389,28 @@ def build_lake_connectiondata(
     if not lake_set:
         raise ValueError("build_lake_connectiondata requires at least one lake cell.")
 
+    if dynamic_area:
+        # Active-littoral (marnage): each lakebed cell stays ACTIVE with its top set
+        # to the bathymetric bed; emit one VERTICAL connection on the cell itself.
+        # MF6 sets belev = cell top, so the connection wets when stage > bed and the
+        # cell recharges as land otherwise (RCH/ET toggled per cell by IWETLAKE).
+        rows: list[list[Any]] = []
+        for iconn, cid in enumerate(sorted(lake_set)):
+            rows.append(
+                [
+                    int(lake_index),
+                    int(iconn),
+                    (0, int(cid)),
+                    _VERTICAL,
+                    float(bedleak),
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ]
+            )
+        return rows
+
     idomain = solver_mesh.idomain()  # (nlay, n_cells)
     top = np.asarray(solver_mesh.top, dtype=float)
     botm = np.asarray(solver_mesh.botm, dtype=float)  # (nlay, n_cells)
@@ -213,11 +419,13 @@ def build_lake_connectiondata(
     conn = solver_mesh.planar_mesh.flat_connectivity
     centroids = solver_mesh.cell_centroids()
 
-    # Lake vertical extent across the footprint: top of the highest occupied cell
-    # down to the bottom of the deepest occupied layer.
+    def _occ(cid: int) -> int:
+        """Per-cell occupied-layer count (carved-bed depth), else the lake scalar."""
+        if occupied_layers_by_cell is not None:
+            return int(occupied_layers_by_cell.get(int(cid), occupied_layers))
+        return int(occupied_layers)
+
     lake_cells = sorted(lake_set)
-    lake_top = float(np.max(top[lake_cells]))
-    lake_bottom = float(np.min(botm[occupied_layers - 1, lake_cells]))
 
     # Each cell's undirected edges, used to find shared edges with neighbours.
     cell_edges: dict[int, list[tuple[int, int]]] = {
@@ -227,8 +435,13 @@ def build_lake_connectiondata(
     rows: list[list[Any]] = []
     iconn = 0
     for cid in lake_cells:
+        occ_c = _occ(cid)
+        # This column's vertical extent: its own top down to the bottom of its
+        # occupied cap (per-cell, so bank seepage clips to the real local basin).
+        lake_top = float(top[cid])
+        lake_bottom = float(botm[occ_c - 1, cid])
         # VERTICAL: connect to the first active cell below the occupied layers.
-        below_layer = _first_active_layer_below(idomain, cid, occupied_layers, nlay)
+        below_layer = _first_active_layer_below(idomain, cid, occ_c, nlay)
         if below_layer is not None:
             rows.append(
                 [
@@ -247,7 +460,7 @@ def build_lake_connectiondata(
 
         # HORIZONTAL: per occupied layer, one connection per shared edge with an
         # active non-lake neighbour at that layer.
-        for lay in range(occupied_layers):
+        for lay in range(occ_c):
             for edge in cell_edges[cid]:
                 width = _edge_length(vertices, edge)
                 if width <= 0.0:
@@ -407,6 +620,7 @@ def build_lak_package_args(
     solver_mesh: SolverMesh,
     lake_cell_ids_by_lake: Mapping[str, Sequence[int]] | None = None,
     occupied_layers: int = 1,
+    occupied_layers_by_cell: Mapping[str, Mapping[int, int]] | None = None,
     external_mover_to_lake: bool = False,
 ) -> dict[str, Any] | None:
     """Assemble the ``ModflowGwflak`` arguments for every active lake.
@@ -459,6 +673,8 @@ def build_lak_package_args(
                 unit=str(bedleak_unit) if bedleak_unit is not None else None,
             )
         lake_layers = int(definition.get("occupied_layers") or occupied_layers)
+        bed_cfg = definition.get("bed_reconstruction")
+        dynamic_area = bool(getattr(bed_cfg, "dynamic_area", False))
         rows = build_lake_connectiondata(
             model,
             lake_index=lake_index,
@@ -466,6 +682,8 @@ def build_lak_package_args(
             bedleak=bedleak_value,
             solver_mesh=solver_mesh,
             occupied_layers=lake_layers,
+            occupied_layers_by_cell=(occupied_layers_by_cell or {}).get(lake_id),
+            dynamic_area=dynamic_area,
         )
         connectiondata.extend(rows)
         # VERTICAL connections sit under the lake footprint: their per-lake iconn
@@ -494,6 +712,10 @@ def build_lak_package_args(
     outlets = build_lake_outlets(model, lakes=lakes)
     perioddata, ts_specs = build_lake_period_data(model, lakes=lakes)
     mover_records = build_mvr_period_records(build_lake_mover_records(model, lakes=lakes))
+    surfdep = max(
+        (float(d["surfdep"]) for d in lakes.values() if d.get("surfdep") is not None),
+        default=_DEFAULT_SURFDEP,
+    )
     time_conversion, length_conversion = package_unit_conversions(model)
     stem = _lak_output_stem(model)
     obs_continuous, lake_obs_meta = build_lake_obs_spec(
@@ -511,7 +733,7 @@ def build_lak_package_args(
         "tables": tables,
         "laktab_specs": laktab_specs,
         "boundnames": True,
-        "surfdep": _DEFAULT_SURFDEP,
+        "surfdep": surfdep,
         "time_conversion": time_conversion,
         "length_conversion": length_conversion,
         "print_stage": True,
@@ -649,13 +871,17 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "bedleak": _lake_attr(payload, "bedleak"),
             "bedleak_unit": _lake_attr(payload, "bedleak_unit"),
             "abacus": _lake_attr(payload, "abacus"),
+            "bathymetry": _lake_attr(payload, "bathymetry"),
+            "bed_reconstruction": _lake_attr(payload, "bed_reconstruction"),
             "stageinit": _lake_attr(payload, "stageinit"),
             "steady_stage_hold": _lake_attr(payload, "steady_stage_hold"),
             "occupied_layers": _lake_attr(payload, "occupied_layers"),
+            "surfdep": _lake_attr(payload, "surfdep"),
             "outlets": _lake_attr(payload, "outlets"),
             "rainfall": _lake_attr(payload, "rainfall"),
             "evaporation": _lake_attr(payload, "evaporation"),
             "runoff": _lake_attr(payload, "runoff"),
+            "runoff_rate": _lake_attr(payload, "runoff_rate"),
             "inflow": _lake_attr(payload, "inflow"),
             "withdrawal": _lake_attr(payload, "withdrawal"),
         }
@@ -666,6 +892,54 @@ def _lake_attr(payload: object, name: str) -> object:
     if isinstance(payload, Mapping):
         return payload.get(name)
     return getattr(payload, name, None)
+
+
+def _forcing_values(forcing: object) -> tuple[float, ...]:
+    """Extract the per-period values of a ``{kind: values, values: [...]}`` forcing."""
+    if isinstance(forcing, Mapping):
+        values = forcing.get("values")
+        if values is not None:
+            return tuple(float(v) for v in values)
+    return ()
+
+
+def build_exposed_band_runoff_specs(model) -> list:
+    """Build the exposed-band (marnage) runoff coupling specs, or ``[]``.
+
+    One :class:`~hydromodpy.solver.modflow6.lake_band_runoff.LakeBandRunoffSpec`
+    per active-littoral lake whose ``bed_reconstruction.exposed_band_runoff`` is
+    on. ``lake_index`` matches the LAK packagedata order (the
+    ``_active_lake_definitions`` order). The watershed runoff RATE and the lake's
+    existing runoff VOLUME are read from the surfaced forcings; an SFR-routed lake
+    has no direct runoff volume, so the band term is the only lake runoff.
+    """
+    reconstruction = getattr(model, "_lake_bed_reconstruction", None) or {}
+    marnage = getattr(model, "_marnage_lake_ids", set())
+    if not reconstruction or not marnage:
+        return []
+
+    from hydromodpy.solver.modflow6.lake_band_runoff import LakeBandRunoffSpec
+
+    specs: list[LakeBandRunoffSpec] = []
+    for lake_index, (lake_id, definition) in enumerate(_active_lake_definitions(model).items()):
+        cfg = definition.get("bed_reconstruction")
+        if not getattr(cfg, "exposed_band_runoff", False) or lake_id not in marnage:
+            continue
+        rec = reconstruction.get(lake_id)
+        if rec is None:
+            continue
+        cells = sorted(rec["bed_by_cell"])
+        specs.append(
+            LakeBandRunoffSpec(
+                pkg="LAK",
+                lake_index=lake_index,
+                bed=np.array([rec["bed_by_cell"][c] for c in cells], dtype=float),
+                area=np.array([rec["area_by_cell"][c] for c in cells], dtype=float),
+                rate_per_period=_forcing_values(definition.get("runoff_rate")),
+                base_runoff_per_period=_forcing_values(definition.get("runoff")),
+            )
+        )
+    return specs
 
 
 # --------------------------------------------------------------------------- #

@@ -69,6 +69,7 @@ def _build_plan_with_overrides(
     from hydromodpy.physics.flow import Flow
     from hydromodpy.physics.flow.structure_binders import (
         apply_lake_abacus_to_flow,
+        apply_lake_bathymetry_to_flow,
         apply_lake_geometry_to_flow,
         apply_recharge_load_result_to_flow,
         apply_sfr_network_to_flow,
@@ -98,6 +99,10 @@ def _build_plan_with_overrides(
     apply_lake_abacus_to_flow(
         flow=flow,
         lake_abacus=getattr(ctx.loaded_data, "lake_abacus", None),
+    )
+    apply_lake_bathymetry_to_flow(
+        flow=flow,
+        lake_bathymetry=getattr(ctx.loaded_data, "lake_bathymetry", None),
     )
     apply_sfr_network_to_flow(
         flow=flow,

@@ -200,6 +200,51 @@ class Mf6ApiContext:
         array = np.ascontiguousarray(np.asarray(values, dtype=np.float64)).ravel()
         package.set_advanced_var(resolved, array)
 
+    # lake runoff / raw LAK vars -------------------------------------------
+    #
+    # These use the raw XmiWrapper address path (get_var_address + get/set_value)
+    # rather than the modflowapi AdvancedPackage wrapper: the wrapper raises while
+    # building its node list at ``timestep_start`` (where the marnage runoff must
+    # be written), whereas the raw path works at every phase.
+
+    def lak_get(self, var: str, model: Any | None = None, pkg: str = "LAK") -> np.ndarray:
+        """Read a raw LAK package variable (e.g. ``XNEWPAK``, ``RUNOFF``) as 1-D."""
+        addr = self._sim.mf6.get_var_address(
+            var.upper(), self._resolve_model(model).name, pkg.upper()
+        )
+        return np.asarray(self._sim.mf6.get_value(addr)).ravel()
+
+    def lak_set(
+        self,
+        var: str,
+        values: Sequence[float] | np.ndarray,
+        model: Any | None = None,
+        pkg: str = "LAK",
+    ) -> None:
+        """Set a raw LAK package variable (C-contiguous float64)."""
+        addr = self._sim.mf6.get_var_address(
+            var.upper(), self._resolve_model(model).name, pkg.upper()
+        )
+        array = np.ascontiguousarray(np.asarray(values, dtype=np.float64)).ravel()
+        self._sim.mf6.set_value(addr, array)
+
+    def read_lake_runoff(self, model: Any | None = None, pkg: str = "LAK") -> np.ndarray:
+        """Read the per-lake RUNOFF inflow ``[L^3/T]`` as a 1-D array."""
+        return self.lak_get("RUNOFF", model, pkg)
+
+    def write_lake_runoff(
+        self,
+        values: Sequence[float] | np.ndarray,
+        model: Any | None = None,
+        pkg: str = "LAK",
+    ) -> None:
+        """Set the per-lake RUNOFF inflow ``[L^3/T]`` (MF6 clamps it to >= 0).
+
+        Used to inject a stage-dependent exposed-lakebed (marnage) runoff each
+        timestep, sized from the solved stage ``XNEWPAK`` read with :meth:`lak_get`.
+        """
+        self.lak_set("RUNOFF", values, model, pkg)
+
     # heads ----------------------------------------------------------------
 
     def read_heads(self, model: Any | None = None) -> np.ndarray:

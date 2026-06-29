@@ -84,9 +84,19 @@ def _run_via_api(model, *, verbose: bool) -> bool:
 
     callback = getattr(model, "_mf6_api_callback", None)
     if callback is None:
+        # Auto-attach the exposed-band (marnage) runoff coupling when the build
+        # produced its specs; otherwise a no-op callback.
+        band_specs = getattr(model, "_exposed_band_runoff_specs", None)
+        if band_specs:
+            from hydromodpy.solver.modflow6.lake_band_runoff import (
+                make_exposed_band_runoff_callback,
+            )
 
-        def callback(ctx: Mf6ApiContext) -> None:
-            return None
+            callback = make_exposed_band_runoff_callback(band_specs)
+        else:
+
+            def callback(ctx: Mf6ApiContext) -> None:
+                return None
 
     return run_mf6_api(
         model.full_path,

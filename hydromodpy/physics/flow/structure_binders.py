@@ -222,6 +222,8 @@ def _lake_payloads_as_mappings(flow: Flow) -> dict[str, dict[str, object]]:
                 "stageinit",
                 "steady_stage_hold",
                 "occupied_layers",
+                "surfdep",
+                "bed_reconstruction",
                 "outlets",
             )
             forcings = ("rainfall", "evaporation", "runoff", "inflow", "withdrawal")
@@ -389,6 +391,49 @@ def apply_lake_abacus_to_flow(
         if abacus is None:
             continue
         payload["abacus"] = abacus
+        attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["lakes"] = payloads
+    return True
+
+
+def apply_lake_bathymetry_to_flow(
+    *,
+    flow: Flow,
+    lake_bathymetry: object | None,
+) -> bool:
+    """Attach the loaded lake-bathymetry raster path onto each flow lake payload.
+
+    ``lake_bathymetry`` is the ``LoadResult`` of the ``lake_bathymetry`` data
+    family: its ``fields`` carry ``FieldRecord`` objects whose ``data`` is a
+    GeoTIFF path. The raster is matched to a lake id (single record feeds the
+    single declared lake; otherwise the file stem must contain the lake id) and
+    attached as ``payload['bathymetry']`` so the LAK builder can carve the bed.
+
+    Returns True if at least one raster was attached, False otherwise.
+    """
+    if lake_bathymetry is None:
+        return False
+    records = list(getattr(lake_bathymetry, "fields", []) or [])
+    if not records:
+        return False
+
+    payloads = _lake_payloads_as_mappings(flow)
+    if not payloads:
+        return False
+
+    bathy_by_lake = _resolve_lake_bathymetry(records, lake_ids=list(payloads))
+    if not bathy_by_lake:
+        return False
+
+    attached = False
+    for lake_id, payload in payloads.items():
+        raster = bathy_by_lake.get(lake_id)
+        if raster is None:
+            continue
+        payload["bathymetry"] = raster
         attached = True
 
     if not attached:
@@ -574,12 +619,15 @@ def apply_lake_meteo_forcings_to_flow(
 
     rain = _watershed_mean_rates(precipitation, "lake_rainfall", simulation_window)
     evap = _watershed_mean_rates(etp, "lake_evaporation", simulation_window)
+    # The watershed-mean runoff RATE [m/s] is surfaced in every mode (even when SFR
+    # routes the lumped volume) so the exposed-band marnage runoff can size itself
+    # from the live stage. The lumped runoff VOLUME stays a direct lake feed only
+    # when no SFR network routes it.
+    runoff_rate = _watershed_mean_rates(runoff, "lake_runoff", simulation_window)
     runoff_vol: list[float] | None = None
-    if not sfr_routes_catchment_runoff(flow):
-        runoff_rate = _watershed_mean_rates(runoff, "lake_runoff", simulation_window)
-        if runoff_rate is not None and catchment_area_m2:
-            area = float(catchment_area_m2)
-            runoff_vol = [v * area for v in runoff_rate]
+    if not sfr_routes_catchment_runoff(flow) and runoff_rate is not None and catchment_area_m2:
+        area = float(catchment_area_m2)
+        runoff_vol = [v * area for v in runoff_rate]
 
     derived = (
         ("rainfall", rain, "m/s"),
@@ -592,6 +640,16 @@ def apply_lake_meteo_forcings_to_flow(
             if values is not None and payload.get(keyword) is None:
                 payload[keyword] = {"kind": "values", "values": values, "units": unit}
                 attached = True
+        # The watershed runoff RATE is only consumed by the exposed-band (marnage)
+        # coupling, so surface it only for lakes that opt in (leaving the binder's
+        # behaviour unchanged for every other lake).
+        if (
+            runoff_rate is not None
+            and payload.get("runoff_rate") is None
+            and getattr(payload.get("bed_reconstruction"), "exposed_band_runoff", False)
+        ):
+            payload["runoff_rate"] = {"kind": "values", "values": runoff_rate, "units": "m/s"}
+            attached = True
 
     if not attached:
         return False
@@ -652,6 +710,32 @@ def _resolve_lake_abacus(
             if target is not None:
                 abacus_by_lake[target] = _abacus_columns(frame)
     return abacus_by_lake
+
+
+def _resolve_lake_bathymetry(
+    records: list[Any],
+    *,
+    lake_ids: list[str],
+) -> dict[str, str]:
+    """Match each bathymetry raster path to a lake id.
+
+    A single record feeds the single declared lake. With several records or
+    lakes, a record is matched to a lake id when its file stem contains that id
+    (e.g. ``lake_bathymetry_custom_lac0.tif`` -> ``lac0``).
+    """
+    from pathlib import Path
+
+    paths = [str(getattr(rec, "data", "")) for rec in records if getattr(rec, "data", None)]
+    bathy_by_lake: dict[str, str] = {}
+    if len(paths) == 1 and len(lake_ids) == 1:
+        bathy_by_lake[lake_ids[0]] = paths[0]
+        return bathy_by_lake
+    for path in paths:
+        stem = Path(path).stem
+        for lake_id in lake_ids:
+            if lake_id in stem:
+                bathy_by_lake[lake_id] = path
+    return bathy_by_lake
 
 
 def _abacus_columns(frame: Any) -> dict[str, list[float]]:
