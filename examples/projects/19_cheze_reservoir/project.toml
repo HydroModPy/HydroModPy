@@ -81,7 +81,7 @@ thickness = "35.0 m"
 
 # ---------------------------------------------------------------------- data
 [data]
-types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_inflow", "lake_withdrawal"]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_bathymetry", "lake_inflow", "lake_withdrawal"]
 inference_mode = "warn"
 
 # All meteo comes from the SIM2 Meteo-France EDR API (fetched at run time, cached).
@@ -127,6 +127,12 @@ source = "custom"
 path = "reservoir_cheze.csv"
 lake_id = "reservoir_cheze"
 
+# Bathymetry raster (m NGF) -> carved lake bed (active-littoral marnage),
+# reconciled to the abacus by area-weighted quantile mapping.
+[[data.lake_bathymetry.sources]]
+source = "custom"
+path = "reservoir_cheze.tif"
+
 # Managed transfers INTO the lake (Meu + Canut), m3/day. The path names the
 # <workspace>/data/lake_inflow/ directory (location file + chronicle CSVs).
 [data.lake_inflow]
@@ -168,7 +174,11 @@ kind = "homogeneous"
 value = "1e-5 m-1"
 
 [flow.ic]
-type = "top"
+# Start heads 2 m below the topography (the shallow Armorican water table) instead
+# of saturated to the surface. This removes the fictitious water column the steady
+# warm-up would otherwise have to drain, cutting warm-up iterations a lot.
+type = "top_offset"
+value = "2 m"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
@@ -197,6 +207,21 @@ bedleak_unit = "1/s"
 stageinit = "81.82 m"
 steady_stage_hold = true
 occupied_layers = 1
+# Wider LAK dry/wet smoothing (default 0.1 m). With many marnage cells toggling at
+# once, 1 m stabilises the Newton drying/rewetting and makes the steady warm-up
+# converge fast (the shoreline fuzzes by ~1 m, fine at catchment scale).
+surfdep = 1.0
+
+# Carve the real lake bed from the bathymetry raster, active-littoral (marnage):
+# the lakebed cells stay active with their bathymetric bed as cell top, MF6 toggles
+# recharge/ET per cell as the shoreline moves, and the exposed-band runoff is shed
+# to the lake per timestep through the BMI API. The wide surfdep (above) + the
+# top_offset IC + the moderate 80 m lake refinement keep the marnage steady warm-up
+# tractable.
+[flow.sinks_sources.lakes.reservoir_cheze.bed_reconstruction]
+reconcile_to_abacus = true
+dynamic_area = true
+exposed_band_runoff = true
 
 # Spillway: the 35 m concrete crest at 87.3 m caps the stage; overflow leaves the
 # model (lakeout = 0). Replaces the legacy stagemax = 87.3 m.
@@ -252,22 +277,55 @@ mf6_ims_complexity = "COMPLEX"
 # a few lake-edge cells oscillating sub-mm in the steady warm-up while the budget
 # already closes to <0.1%. 1 cm is ample for a catchment-scale reservoir model.
 mf6_outer_dvclose = 1e-2
+# XT3D is left to the auto-advisor (mf6_enable_xt3d unset). The aquifer is
+# isotropic and the Frontal-Delaunay mesh is near-orthogonal (median ~0.4 deg),
+# so the advisor logs "XT3D auto-off" and uses the conductance flux, which is
+# accurate here and converges. Set mf6_enable_xt3d = true to force it on (you get
+# a warning that the checks disagree), e.g. once you add anisotropy or geology.
 
-[modflow6.sgrid.planar]
-# Resample the 30 km2 catchment to a coarser ~60x60 grid (~100 m): the native
-# 75 m grid is ~13k cells, too heavy and stiff for a 52-period transient. The
-# reservoir (1.58 km2) still resolves to a few dozen cells.
-mode = "resample_to_shape"
-nx = 60
-ny = 60
-resampling = "bilinear"
+# Unstructured conformal (GMSH triangular) grid: the catchment is meshed at a
+# ~150 m baseline, refined along the delineated Cheze river network, and (when
+# lake_refinement is on) locally refined on the reservoir footprint + the
+# under-dam outlet. Replaces the uniform [modflow6.sgrid.planar] grid that
+# over-counted the elongated reservoir footprint (~2.3x the abacus area).
+[mesh_catchment]
+constraints_mode = "rivers_only"
 
+[mesh_catchment.zone_meshing]
+# Frontal-Delaunay (GMSH algo 6): markedly more equilateral triangles than plain
+# Delaunay, which keeps XT3D's cross-conductance terms small and well conditioned
+# on the unstructured grid (XT3D stays ON).
+algorithm = "frontal"
+global_size = 150.0
+min_size = 50.0
+
+# Local refinement on the reservoir footprint (any shape, from the lake polygon)
+# and the under-dam outlet (the vertical-leakage zone at the catchment outlet).
+# Small cells exactly on the lake stop the coarse-grid footprint over-count.
+# 80 m keeps the marnage (active) cell budget tractable for the Newton steady
+# warm-up; the over-count still drops from ~2.29x (structured) toward ~1.6x.
+# Drop to 40 m for the best abacus when the lake is fixed-area (deactivated).
+[mesh_catchment.lake_refinement]
+enabled = true
+cell_size = 80.0
+buffer = 160.0
+dam_cell_size = 60.0
+dam_buffer = 130.0
+
+# Vertical layering still comes from the backend sgrid.vertical block; only the
+# planar grid is now the GMSH unstructured mesh above.
 [modflow6.sgrid.vertical]
 genmtd_lay = "constant"
-nlay = 2
+# Single 35 m aquifer layer. The marnage LAK connection sits on layer 0 and needs
+# no layer below (dynamic_area), so one layer halves the active cells and the XT3D
+# matrix with no accuracy loss for this homogeneous aquifer. Use nlay >= 2 only if
+# you switch to a fixed-area lake or add vertical K structure.
+nlay = 1
 
 # ---------------------------------------------------------------------- display
 [display]
 enabled = true
 show = false
 save = true
+# Auto-render the reference-vs-simulated abacus QC figure for the carved bed.
+figures = ["lake_abacus_comparison"]
