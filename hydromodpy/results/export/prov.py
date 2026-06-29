@@ -31,7 +31,7 @@ from hydromodpy.results.export.context import (
 PROV_CONTEXT = {
     "prov": "http://www.w3.org/ns/prov#",
     "schema": "http://schema.org/",
-    "hydromodpy": "https://hydromodpy-docs.readthedocs.io/schema#",
+    "hydromodpy": "https://hydromodpy.github.io/schema#",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
 }
 
