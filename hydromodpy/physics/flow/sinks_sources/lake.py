@@ -211,6 +211,79 @@ FlowLakeOutletConfig: TypeAlias = Annotated[
 """Discriminated union of lake-outlet payloads."""
 
 
+class BathymetryReconstructionConfig(HydroModelBase):
+    """Opt-in carving of the real lake bed from bathymetry into the grid.
+
+    When set, the loaded ``lake_bathymetry`` raster is resampled onto the lake
+    cells and (by default) reconciled to the abacus by area-weighted quantile
+    mapping, then carved into the mesh ``top``/``botm`` so the LAK vertical
+    exchange happens at the real bed and the groundwater flow lines follow the
+    real basin instead of a flat reservoir. The raster must be declared in the
+    data layer (``[data.lake_bathymetry]``); a lake without that data and with
+    reconstruction enabled raises at build time.
+    """
+
+    reconcile_to_abacus: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Re-map the regridded bed so the cell area-vs-elevation distribution "
+            "matches the abacus (the abacus is the storage source of truth). When "
+            "False, the raw regridded bathymetry is carved as-is."
+        ),
+    )
+    dynamic_area: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Active-littoral (marnage) representation. When True the lake-bed cells "
+            "stay ACTIVE with the carved bathymetric bed as their cell top and one "
+            "VERTICAL LAK connection each; MODFLOW 6 then toggles recharge/ET per "
+            "cell (IWETLAKE) so a cell exchanges with the lake when submerged and "
+            "recharges as land when the shoreline recedes below its bed. When False "
+            "the footprint is deactivated (fixed-area reservoir, the classic "
+            "inactive-footprint carve)."
+        ),
+    )
+    exposed_band_runoff: Annotated[bool, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Shed the overland runoff of the exposed lakebed band directly to the "
+            "lake, sized per timestep from the simulated stage via the MODFLOW 6 "
+            "BMI API (runoff_rate * exposed_area). Requires dynamic_area and forces "
+            "the in-process API runner (serial only). When False the catchment "
+            "runoff already covers the footprint area in a lumped, stage-static way."
+        ),
+    )
+    min_thickness: Annotated[float, Profile.USER] = Field(
+        default=0.5,
+        gt=0.0,
+        description=(
+            "Minimum layer thickness [L, model units] kept when re-grading a lake "
+            "column around the carved bed, so no degenerate (near-zero) cell breaks "
+            "the solver. The bed is clamped into [base + min_thickness, top - "
+            "min_thickness]."
+        ),
+    )
+    min_pixels: Annotated[int, Profile.USER] = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Minimum bathymetry pixels whose centre must fall inside a cell for the "
+            "zonal mean to be used; below it a bilinear sample at the cell centroid "
+            "is taken instead."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_exposed_band_runoff(self) -> BathymetryReconstructionConfig:
+        """The exposed-band runoff needs the active-littoral representation."""
+        if self.exposed_band_runoff and not self.dynamic_area:
+            raise ValueError(
+                "flow.sinks_sources.lakes.bed_reconstruction.exposed_band_runoff requires "
+                "dynamic_area = true (the exposed band only exists with the active-littoral carve)"
+            )
+        return self
+
+
 class FlowLakeConfig(HydroModelBase):
     """
     Typed boundary-condition payload for one MODFLOW 6 LAK lake.
@@ -262,6 +335,24 @@ class FlowLakeConfig(HydroModelBase):
             "1 is a surface lake; a deeper reservoir embedded over several layers "
             "uses a higher count. Must leave at least one active layer below the "
             "lake for the VERTICAL leakage connection."
+        ),
+    )
+    surfdep: Annotated[float | None, Profile.EXPERT] = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "LAK surface depression depth [L] that smooths the dry/wet (marnage) "
+            "transition for Newton. Default (None) uses 0.1 m. Raise it (e.g. 0.5 to "
+            "1.0 m) to stabilise and speed up the active-littoral steady solve when "
+            "many lakebed cells toggle at once; it slightly fuzzes the shoreline."
+        ),
+    )
+    bed_reconstruction: Annotated[BathymetryReconstructionConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional bathymetry-driven bed carving. When set, the real lake bed "
+            "is reconstructed from the lake_bathymetry raster (reconciled to the "
+            "abacus) and carved into the grid instead of a flat reservoir."
         ),
     )
     outlets: Annotated[list[FlowLakeOutletConfig], Profile.USER] = Field(
@@ -319,6 +410,7 @@ class FlowLakeConfig(HydroModelBase):
 
 
 __all__ = [
+    "BathymetryReconstructionConfig",
     "FlowLakeConfig",
     "FlowLakeOutletConfig",
     "FlowLakeOutletManning",

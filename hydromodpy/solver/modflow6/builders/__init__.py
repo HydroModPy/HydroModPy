@@ -35,6 +35,7 @@ from hydromodpy.solver.modflow6.builders.initial_conditions import (
 )
 from hydromodpy.solver.modflow6.builders.lake import (
     apply_lake_idomain_mask,
+    build_exposed_band_runoff_specs,
     build_lak_package_args,
     build_lake_connectiondata,
     build_lake_mover_records,
@@ -42,6 +43,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
     build_lake_outlets,
     build_lake_period_data,
     build_lake_table,
+    carve_lake_bed,
     convert_bedleak_to_per_s,
     lake_definitions_for_bedleak,
     resolve_lake_cells,
@@ -123,6 +125,8 @@ __all__ = [
     "as_recharge_flat",
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",
+    "build_exposed_band_runoff_specs",
+    "carve_lake_bed",
     "boundary_attr",
     "boundary_conditions_mapping",
     "boundary_period_series",

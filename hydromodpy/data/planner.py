@@ -111,8 +111,10 @@ class DataPlanner:
         if active_bc & {"lake", "reservoir"}:
             lake_token = "lake" if "lake" in active_bc else "reservoir"
             # Only the families the model consumes: geometry + abacus build the LAK
-            # package, inflow + withdrawal feed its forcings. bathymetry / levels /
-            # outflow have no consumer yet, so auto-inferring them would dead-load.
+            # package, inflow + withdrawal feed its forcings. bathymetry is consumed
+            # only when a lake opts into bed_reconstruction, so it stays an explicit
+            # [data.lake_bathymetry] declaration (not auto-inferred) to avoid
+            # dead-loading when the flag is off; levels / outflow have no consumer yet.
             for lake_family in (
                 "lake_geometry",
                 "lake_abacus",

@@ -24,6 +24,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainGeographicBoxBuffer,
 )
+from hydromodpy.spatial.mesh.lake_refinement import LakeRefinementConfig
 from hydromodpy.spatial.protocols import get_geology_data_source
 
 
@@ -178,6 +179,13 @@ class MeshCatchmentConfig(HydroModelBase):
             "Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, "
             "and interface refinement. Defaults are valid, but project examples typically override them "
             "to target a desired number of cells."
+        ),
+    )
+    lake_refinement: Annotated[LakeRefinementConfig, Profile.USER] = Field(
+        default_factory=LakeRefinementConfig,
+        description=(
+            "Optional local refinement on the lake footprint (any shape) and the under-dam "
+            "outlet. Disabled by default; set enabled = true to add the lake size fields."
         ),
     )
 

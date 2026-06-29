@@ -107,6 +107,26 @@ def read_forcing_timeseries(
     return timestamps, values, attrs
 
 
+def read_lake_abacus(store_obj: SimulationZarr, lake_id: str) -> dict:
+    """Read the reference vs simulated abacus arrays for one lake."""
+    grp = store_obj._root.get("lake_abacus")
+    if grp is None or lake_id not in grp:
+        raise KeyError(f"Lake abacus '{lake_id}' not found")
+    lake = grp[lake_id]
+    out: dict = {
+        name: np.asarray(lake[name][:], dtype="float64")
+        for name in ("stage", "real_volume", "real_sarea", "sim_volume", "sim_sarea")
+    }
+    out.update(dict(lake.attrs))
+    return out
+
+
+def lake_abacus_lakes(store_obj: SimulationZarr) -> list[str]:
+    """Return the lake ids with a persisted abacus comparison."""
+    grp = store_obj._root.get("lake_abacus")
+    return [] if grp is None else sorted(grp.keys())
+
+
 def read_geographic_raster(store_obj: SimulationZarr, name: str) -> tuple[np.ndarray, dict]:
     """Read a per-run geographic raster and its georeferencing metadata."""
     geo = store_obj._root.get("geographic")
@@ -202,8 +222,10 @@ __all__ = [
     "get_geographic_fingerprint",
     "is_consolidated",
     "read_field",
+    "lake_abacus_lakes",
     "read_forcing_timeseries",
     "read_geographic_raster",
+    "read_lake_abacus",
     "resolve_geographic_dir",
     "root_attrs_json",
     "set_geographic_fingerprint",

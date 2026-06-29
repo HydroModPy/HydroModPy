@@ -820,6 +820,7 @@ def _build_zone_conformal_meshing_inputs(
     river_trace: object | None,
     domain_geographic: object | None,
     geographic_features: object | None = None,
+    lake_size_fields: tuple[ZoneRegionalSizeField, ...] = (),
 ) -> ZoneConformalMeshingInputs:
     (
         source_payload,
@@ -900,7 +901,7 @@ def _build_zone_conformal_meshing_inputs(
             + tuple(geology_linear_constraints)
             + linear_constraints
         ),
-        regional_size_fields=tuple(regional_size_fields),
+        regional_size_fields=tuple(regional_size_fields) + tuple(lake_size_fields),
         diagnostics=ZoneConformalMeshingDiagnostics(
             source_plot_gdf=source_plot_gdf,
             rivers_cfg=cfg.rivers,

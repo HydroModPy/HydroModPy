@@ -430,6 +430,7 @@ def run_single_mesh_catchment_workflow_typed(
     workspace: object | None = None,
     geographic_features: object | None = None,
     domain_geographic: object | None = None,
+    lake_size_fields: tuple = (),
     section_name: str,
     deps: MeshCatchmentSingleRunDependencies,
     return_runtime_artifacts: bool = False,
@@ -472,6 +473,7 @@ def run_single_mesh_catchment_workflow_typed(
         "river_trace": river_trace,
         "geographic_features": prepared_runtime.geographic_features,
         "domain_geographic": prepared_runtime.domain_geographic,
+        "lake_size_fields": tuple(lake_size_fields),
         "show_plot": resolved_outputs.show_plot,
     }
     if return_runtime_artifacts:

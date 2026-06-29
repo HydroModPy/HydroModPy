@@ -18,8 +18,12 @@ class CustomLakeBathymetrySource(HydroModelBase):
 
     The bathymetry raster fixes the lake-bed elevation per cell - i.e. where
     and at what depth the lake exchanges with the aquifer (the LAK interface).
-    It is NOT burnt into ``top``/``botm``; the internal stage-storage relation
-    lives in the abacus.
+    It is consumed only when a lake enables
+    ``flow.sinks_sources.lakes.<id>.bed_reconstruction``: the raster is then
+    resampled onto the lake cells, reconciled to the abacus, and carved into
+    ``top``/``botm`` so the bed follows the real basin. Without that flag the
+    raster is loaded but unused (the abacus alone drives the stage-storage
+    relation).
     """
 
     source: Annotated[Literal["custom"], Profile.USER] = Field(

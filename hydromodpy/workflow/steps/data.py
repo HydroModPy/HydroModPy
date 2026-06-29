@@ -11,6 +11,7 @@ from hydromodpy.core.time import resolve_simulation_time_window
 from hydromodpy.physics.flow.structure_binders import (
     apply_etp_load_result_to_flow,
     apply_lake_abacus_to_flow,
+    apply_lake_bathymetry_to_flow,
     apply_lake_flux_forcings_to_flow,
     apply_lake_geometry_to_flow,
     apply_lake_meteo_forcings_to_flow,
@@ -138,6 +139,10 @@ def apply_structural_updates_from_data(
     apply_lake_abacus_to_flow(
         flow=setup_state.flow,
         lake_abacus=getattr(data_state, "lake_abacus", None),
+    )
+    apply_lake_bathymetry_to_flow(
+        flow=setup_state.flow,
+        lake_bathymetry=getattr(data_state, "lake_bathymetry", None),
     )
     apply_lake_flux_forcings_to_flow(
         flow=setup_state.flow,

@@ -42,11 +42,14 @@ from hydromodpy.solver.modflow6.extractors.obs_common import (
 logger = get_logger(__name__)
 
 __all__ = [
+    "LakeAbacusEntry",
+    "LakeAbacusSpec",
     "LakeObsEntry",
     "LakeObsSpec",
     "build_lake_records",
     "extract_lake_series",
     "lake_station_id",
+    "read_lake_abacus",
     "read_lake_meta",
 ]
 
@@ -149,6 +152,58 @@ def read_lake_meta(meta_path: Path) -> LakeObsSpec | None:
         logger.debug("Could not read LAK output meta %s", meta_path, exc_info=True)
         return None
     return LakeObsSpec.from_mapping(payload)
+
+
+@dataclass(frozen=True)
+class LakeAbacusEntry:
+    """One lake's reference vs simulated abacus curves (bed reconstruction QC)."""
+
+    lake_id: str
+    stage: list[float]
+    real_volume: list[float]
+    real_sarea: list[float]
+    sim_volume: list[float]
+    sim_sarea: list[float]
+    stage_unit: str = "m"
+    volume_unit: str = "m3"
+    area_unit: str = "m2"
+
+
+@dataclass(frozen=True)
+class LakeAbacusSpec:
+    """Build-time abacus comparison sidecar, persisted as JSON next to the model."""
+
+    entries: list[LakeAbacusEntry] = field(default_factory=list)
+
+    @classmethod
+    def from_mapping(cls, payload: Mapping[str, Any]) -> LakeAbacusSpec:
+        entries = [
+            LakeAbacusEntry(
+                lake_id=str(item["lake_id"]),
+                stage=[float(v) for v in item["stage"]],
+                real_volume=[float(v) for v in item["real_volume"]],
+                real_sarea=[float(v) for v in item["real_sarea"]],
+                sim_volume=[float(v) for v in item["sim_volume"]],
+                sim_sarea=[float(v) for v in item["sim_sarea"]],
+                stage_unit=str(item.get("stage_unit", "m")),
+                volume_unit=str(item.get("volume_unit", "m3")),
+                area_unit=str(item.get("area_unit", "m2")),
+            )
+            for item in payload.get("entries", [])
+        ]
+        return cls(entries=entries)
+
+
+def read_lake_abacus(meta_path: Path) -> LakeAbacusSpec | None:
+    """Load the lake-abacus comparison sidecar, or ``None`` when absent/unreadable."""
+    if not meta_path.is_file():
+        return None
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.debug("Could not read lake abacus meta %s", meta_path, exc_info=True)
+        return None
+    return LakeAbacusSpec.from_mapping(payload)
 
 
 def extract_lake_series(

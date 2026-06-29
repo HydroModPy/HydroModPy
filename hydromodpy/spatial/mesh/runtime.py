@@ -164,6 +164,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
     workspace: object | None = None,
     geographic_features: object | None = None,
     domain_geographic: object | None = None,
+    lake_size_fields: tuple = (),
     section_name: str = DEFAULT_SECTION_NAME,
 ) -> MeshCatchmentWorkflowRuntimeArtifacts:
     """Run one mono-catchment mesh workflow and keep the runtime mesh in memory."""
@@ -178,6 +179,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
         workspace=workspace,
         geographic_features=geographic_features,
         domain_geographic=domain_geographic,
+        lake_size_fields=lake_size_fields,
         section_name=section_name,
         deps=MeshCatchmentSingleRunDependencies(
             workspace_factory=Workspace,

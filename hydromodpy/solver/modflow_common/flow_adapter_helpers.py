@@ -158,8 +158,12 @@ def _resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api
 
     Only the MODFLOW 6 backend exposes a ``mf6_runner`` runtime field. NWT and
     any other backend have no such field, so they default to 'subprocess' and
-    stay byte-for-byte unchanged.
+    stay byte-for-byte unchanged. A model that built exposed-band (marnage) runoff
+    coupling specs forces the in-process 'api' runner, because that coupling sets
+    the LAK RUNOFF per timestep through the BMI API.
     """
+    if getattr(model_modflow, "_exposed_band_runoff_specs", None):
+        return "api"
     runtime = getattr(getattr(model_modflow, "modflow_config", None), "runtime", None)
     runner = getattr(runtime, "mf6_runner", "subprocess")
     return "api" if runner == "api" else "subprocess"
