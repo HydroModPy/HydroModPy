@@ -223,6 +223,19 @@ invert = "87.3 m"
 width = "35 m"
 lakeout = 0
 
+# Dam cutoff wall (voile d'injection / grout curtain) under the dam crest, modeled
+# as a MODFLOW 6 HFB: a near-impermeable vertical barrier on the dam axis at the
+# downstream edge of the reservoir (line in travers de la vallee, ~perpendicular
+# to the W->E flow, midpoint ~331131 / 6780579 just upstream of the outlet). It
+# blocks the top layer so the under-dam seepage dives below the wall (depth 10 m <
+# the 17.5 m top-layer thickness) and resurfaces in the downstream domain. hydchr =
+# K_barrier / thickness ~ 1e-9 1/s is quasi-impermeable.
+[flow.sinks_sources.lakes.reservoir_cheze.cutoff_wall]
+line = [[331142.0, 6780439.3], [331119.4, 6780718.7]]
+depths = [10.0]
+hydchr = 1e-9
+hydchr_unit = "1/s"
+
 # Note: the lake forcings are bound automatically and need no inline entry here:
 #   - inflow (Meu+Canut transfers) and withdrawal (abstraction+restitution) come
 #     from the lake_inflow / lake_withdrawal data families;
