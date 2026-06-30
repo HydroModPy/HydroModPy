@@ -68,6 +68,7 @@ def _build_plan_with_overrides(
 ) -> SimulationPlan:
     from hydromodpy.physics.flow import Flow
     from hydromodpy.physics.flow.structure_binders import (
+        apply_cutoff_wall_to_flow,
         apply_lake_abacus_to_flow,
         apply_lake_bathymetry_to_flow,
         apply_lake_geometry_to_flow,
@@ -96,6 +97,7 @@ def _build_plan_with_overrides(
         flow=flow,
         lake_geometry=getattr(ctx.loaded_data, "lake_geometry", None),
     )
+    apply_cutoff_wall_to_flow(flow=flow)
     apply_lake_abacus_to_flow(
         flow=flow,
         lake_abacus=getattr(ctx.loaded_data, "lake_abacus", None),

@@ -225,6 +225,7 @@ def _lake_payloads_as_mappings(flow: Flow) -> dict[str, dict[str, object]]:
                 "surfdep",
                 "bed_reconstruction",
                 "outlets",
+                "cutoff_wall",
             )
             forcings = ("rainfall", "evaporation", "runoff", "inflow", "withdrawal")
             payloads[str(lake_id)] = {
@@ -268,6 +269,60 @@ def apply_lake_geometry_to_flow(
         if polygon is None:
             continue
         payload["polygon"] = polygon
+        attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["lakes"] = payloads
+    return True
+
+
+def _resolve_cutoff_wall_line(cfg: object, *, lake_id: str):
+    """Build the shapely wall trace from a cutoff_wall config (inline or file)."""
+    from shapely.geometry import LineString
+
+    line = cfg.get("line") if isinstance(cfg, Mapping) else getattr(cfg, "line", None)
+    line_path = (
+        cfg.get("line_path") if isinstance(cfg, Mapping) else getattr(cfg, "line_path", None)
+    )
+    if line:
+        return LineString([(float(x), float(y)) for x, y in line])
+    if line_path:
+        import geopandas as gpd
+
+        gdf = gpd.read_file(str(line_path))
+        if gdf.empty:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall line_path "
+                f"'{line_path}' has no geometry."
+            )
+        return gdf.union_all()
+    raise ValueError(
+        f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall has neither line nor line_path."
+    )
+
+
+def apply_cutoff_wall_to_flow(*, flow: Flow) -> bool:
+    """Resolve each lake's cutoff_wall trace into a shapely line on its payload.
+
+    The wall trace is declared on ``FlowLakeConfig.cutoff_wall`` (inline ``line``
+    coordinates or a ``line_path`` vector file). This reads it into a shapely
+    LineString and attaches it as ``payload['cutoff_wall_line']`` so the HFB
+    builder can map it onto the mesh faces. Mirrors ``apply_lake_geometry_to_flow``
+    but for a line that lives on the lake config (no separate data family).
+
+    Returns True if at least one wall line was attached, False otherwise.
+    """
+    payloads = _lake_payloads_as_mappings(flow)
+    if not payloads:
+        return False
+
+    attached = False
+    for lake_id, payload in payloads.items():
+        cfg = payload.get("cutoff_wall")
+        if cfg is None:
+            continue
+        payload["cutoff_wall_line"] = _resolve_cutoff_wall_line(cfg, lake_id=lake_id)
         attached = True
 
     if not attached:
