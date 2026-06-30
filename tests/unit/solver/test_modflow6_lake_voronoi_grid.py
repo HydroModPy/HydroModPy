@@ -324,6 +324,21 @@ def test_resolve_lake_cells_on_voronoi_vertex_grid() -> None:
         assert 30.0 <= float(yc[cell]) <= 70.0
 
 
+def test_resolve_lake_cells_intersected_area_matches_polygon() -> None:
+    gridprops = _voronoi_disv_gridprops()
+    ncpl = int(gridprops["ncpl"])
+    idomain = np.ones((2, ncpl), dtype=int)
+    vertex_grid = _voronoi_vertex_grid(gridprops, idomain)
+    cells, areas = resolve_lake_cells(
+        None, lake_id="lac0", polygon=_LAKE_POLYGON, vertex_grid=vertex_grid, with_areas=True
+    )
+    assert set(areas) == set(cells)
+    # The intersected areas sum to the true polygon area (edge cells under-fill),
+    # not the over-counted full-cell footprint that drove area_scale > 1.
+    assert sum(areas.values()) == pytest.approx(_LAKE_POLYGON.area, rel=1e-3)
+    assert all(area > 0.0 for area in areas.values())
+
+
 @pytest.mark.mf6
 @pytest.mark.binary
 @pytest.mark.allow_subprocess
