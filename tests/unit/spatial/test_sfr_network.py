@@ -190,3 +190,80 @@ def test_link_crossing_the_lake_is_truncated_at_the_shoreline() -> None:
     for reach in trace.reaches:
         for _, y in reach.line.coords:
             assert y >= 250.0
+
+
+def test_boolean_mask_tags_the_single_lake_as_lake_one() -> None:
+    # A plain boolean mask (legacy single-lake path) reads as lake 1: the
+    # terminal reach is tagged terminal_lake == 1 so the builder routes it to the
+    # first lake (== the network outflow_to_lake = 1).
+    trace = _delineate(lake=True)
+    terminal = [r for r in trace.reaches if r.is_terminal_to_lake]
+    assert len(terminal) == 1
+    assert terminal[0].terminal_lake == 1
+    # Non-terminal reaches carry no lake tag.
+    assert all(r.terminal_lake is None for r in trace.reaches if not r.is_terminal_to_lake)
+
+
+def _two_stream_two_lake() -> dict[str, np.ndarray]:
+    # 3x3 grid: stream L1 drains south into lake 1 (cell 2,0), stream L2 drains
+    # south into lake 2 (cell 2,2). The labeled mask tags each terminal reach with
+    # the specific lake it feeds.
+    nrow, ncol = 3, 3
+    link = np.zeros((nrow, ncol), dtype=int)
+    d8 = np.zeros((nrow, ncol), dtype=int)
+    acc = np.zeros((nrow, ncol), dtype=float)
+    dem = np.full((nrow, ncol), 20.0, dtype=float)
+    for col in (0, 2):
+        tag = 1 if col == 0 else 2
+        link[0, col] = tag
+        link[1, col] = tag
+        d8[0, col] = _S  # (0,col) -> (1,col)
+        d8[1, col] = _S  # (1,col) -> (2,col)  the lake cell
+        acc[0, col], acc[1, col] = 1, 2
+        dem[0, col], dem[1, col] = 10.0, 9.0
+    label = np.zeros((nrow, ncol), dtype=np.int32)
+    label[2, 0] = 1  # lake 1 (e.g. the pre-retenue)
+    label[2, 2] = 2  # lake 2 (e.g. the main reservoir)
+    return {"link": link, "d8": d8, "acc": acc, "dem": dem, "label": label}
+
+
+def test_two_labeled_lakes_tag_distinct_terminals() -> None:
+    g = _two_stream_two_lake()
+    trace = delineate_sfr_reaches(
+        link_id=g["link"],
+        d8=g["d8"],
+        acc=g["acc"],
+        dem=g["dem"],
+        transform=Affine(_RES, 0.0, 0.0, 0.0, -_RES, 3 * _RES),
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        lake_mask=g["label"],
+        min_slope=1e-4,
+    )
+    terminals = [r for r in trace.reaches if r.is_terminal_to_lake]
+    assert len(terminals) == 2
+    # The stream entering cell (2,0) is tagged lake 1, the one entering (2,2) lake 2.
+    assert sorted(r.terminal_lake for r in terminals) == [1, 2]
+
+
+def test_truncation_tags_the_lake_label() -> None:
+    # A link crossing a LABELED lake (label 2) is truncated at the shoreline and
+    # tagged terminal_lake == 2 (the label at the truncation cell), not just 1.
+    g = _synthetic_network()
+    label = np.zeros((_NROW, _NCOL), dtype=np.int32)
+    label[3, :] = 2  # the lake straddling the middle of link 3 is lake 2
+    trace = delineate_sfr_reaches(
+        link_id=g["link"],
+        d8=g["d8"],
+        acc=g["acc"],
+        dem=g["dem"],
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        strahler=g["strahler"],
+        lake_mask=label,
+        min_slope=1e-4,
+    )
+    terminal = [r for r in trace.reaches if r.is_terminal_to_lake]
+    assert len(terminal) == 1
+    assert terminal[0].terminal_lake == 2

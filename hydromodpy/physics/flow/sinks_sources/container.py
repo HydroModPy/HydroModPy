@@ -10,6 +10,7 @@ from pydantic import Field, field_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.physics.flow.sinks_sources.flow_barrier import FlowBarrierConfig
 from hydromodpy.physics.flow.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
@@ -50,6 +51,13 @@ class FlowSinksSourcesConfig(HydroModelBase):
     sfr: Annotated[dict[str, FlowReachNetworkConfig], Profile.USER] = Field(
         default_factory=dict,
         description="Mapping of stream-network ids to typed SFR payloads.",
+    )
+    flow_barriers: Annotated[dict[str, FlowBarrierConfig], Profile.USER] = Field(
+        default_factory=dict,
+        description=(
+            "Mapping of flow-barrier ids to typed HFB payloads (general addon, any "
+            "model). A lake's dam cutoff wall is declared on the lake instead."
+        ),
     )
     recharge: Annotated[FlowRechargeConfig | None, Profile.USER] = Field(
         default=None,
@@ -106,4 +114,20 @@ class FlowSinksSourcesConfig(HydroModelBase):
             if network_id == "":
                 raise ValueError("flow.sinks_sources.sfr cannot contain empty network ids")
             out[network_id] = raw_payload
+        return out
+
+    @field_validator("flow_barriers", mode="before")
+    @classmethod
+    def _validate_flow_barriers(cls, value):
+        """Normalize and pre-validate the flow_barriers mapping."""
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.sinks_sources.flow_barriers must be a mapping payload")
+        out: dict[str, object] = {}
+        for raw_key, raw_payload in value.items():
+            barrier_id = str(raw_key).strip()
+            if barrier_id == "":
+                raise ValueError("flow.sinks_sources.flow_barriers cannot contain empty ids")
+            out[barrier_id] = raw_payload
         return out

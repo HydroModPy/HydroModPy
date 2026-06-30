@@ -163,6 +163,17 @@ Topic guides
       routed forcings, and the MVR coupling that feeds a reservoir
       from its catchment streamflow.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: modflow6-flow-barrier
+      :link-type: doc
+
+      **Flow barriers and cutoff walls**
+      ^^^
+      How to declare a MODFLOW 6 HFB barrier in config: a dam cutoff
+      wall on a lake or a general low-K wall on a trace line, the depth
+      and hydraulic characteristic, and how it forces the flow under it.
+
 Capability and API-oriented guides
 ----------------------------------
 
@@ -269,4 +280,5 @@ Use these pages once you have generated or opened result pages:
    modflow6-prt
    modflow6-lake
    modflow6-sfr
+   modflow6-flow-barrier
    troubleshooting

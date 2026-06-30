@@ -838,11 +838,38 @@ def resolve_lake_cells_for_active_lakes(
         )
         cells_by_lake[lake_id] = cells
         intersected_area_by_lake[lake_id] = intersected
+    _raise_on_shared_lake_cells(cells_by_lake)
     # The true per-cell lake area (edge cells under-filled), used by the carve so the
     # area_scale and the abacus reconciliation see the real lake area, not the
     # full-cell footprint over-count.
     model._lake_cell_intersected_area = intersected_area_by_lake
     return cells_by_lake
+
+
+def _raise_on_shared_lake_cells(cells_by_lake: Mapping[str, Sequence[int]]) -> None:
+    """Reject two lakes that resolve to the same grid cell.
+
+    MF6 LAK allows one vertical lake connection per GWF cell, so two lakes
+    sharing a cell would deactivate it twice and emit two VERTICAL connections
+    into the same aquifer cell below. Adjacent lakes (a pre-retenue and its
+    reservoir across a sill) must stay cell-disjoint; refine the mesh or move the
+    polygon boundary if they collide.
+    """
+    owners: dict[int, list[str]] = {}
+    for lake_id, cells in cells_by_lake.items():
+        for cell in cells:
+            owners.setdefault(int(cell), []).append(str(lake_id))
+    shared = {cell: lakes for cell, lakes in owners.items() if len(lakes) > 1}
+    if not shared:
+        return
+    sample = "; ".join(
+        f"cell {cell} -> {sorted(set(lakes))}" for cell, lakes in sorted(shared.items())[:5]
+    )
+    raise ValueError(
+        f"flow.sinks_sources.lakes: {len(shared)} grid cell(s) are claimed by more than "
+        f"one lake (e.g. {sample}). MF6 LAK allows one lake per cell; refine the mesh or "
+        "separate the lake polygons across the sill."
+    )
 
 
 def lake_definitions_for_bedleak(model) -> dict[str, dict[str, Any]]:

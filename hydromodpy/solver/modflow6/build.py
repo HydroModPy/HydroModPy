@@ -41,6 +41,7 @@ from hydromodpy.solver.modflow6.builders import (
     remove_drain_cells,
     resolve_deferred_heterogeneous_recharge,
     resolve_drainage_conductance_series,
+    resolve_flow_barrier_hfb_rows,
     resolve_ims_complexity,
     resolve_lake_cells_for_active_lakes,
     resolve_lake_occupied_layers,
@@ -732,6 +733,23 @@ def run_pre_processing(  # noqa: PLR0915
             band_specs = build_exposed_band_runoff_specs(model)
             if band_specs:
                 model._exposed_band_runoff_specs = band_specs
+
+    # HFB (horizontal flow barrier): thin vertical low-K walls on shared cell faces
+    # (lake dam cutoff walls + general flow_barriers). Static (period 0), built
+    # after LAK and after NPF (it scales the NPF horizontal conductance) so the
+    # under-dam seepage dives below the wall. No MVR coupling.
+    hfb_rows = resolve_flow_barrier_hfb_rows(model, solver_mesh)
+    if hfb_rows:
+        n_faces = len({(row[0][1], row[1][1]) for row in hfb_rows})
+        logger.info(
+            "HFB cutoff wall: %d barrier rows over %d shared faces.", len(hfb_rows), n_faces
+        )
+        model.hfb = flopy.mf6.ModflowGwfhfb(
+            model.gwf,
+            pname="HFB",
+            maxhfb=len(hfb_rows),
+            stress_period_data={0: hfb_rows},
+        )
 
     # SFR (streamflow routing) package. Built after LAK so the SFR -> LAK mover
     # seam can reference an existing lake, and before OC / MVR.

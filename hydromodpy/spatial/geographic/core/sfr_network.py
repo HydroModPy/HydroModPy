@@ -57,6 +57,10 @@ class SfrReachRow:
     ``upstream`` / ``downstream`` hold the 0-based ``ifno`` of the connected
     reaches. ``is_terminal_to_lake`` flags the reach whose flow enters the lake;
     its outflow is handed to LAK by the solver builder through an MVR record.
+    ``terminal_lake`` is the 1-based number of the lake that reach drains into
+    (from the labeled lake mask), or ``None`` for a bare outlet that drains to no
+    specific lake; the builder routes the MVR to it, falling back to the network
+    ``outflow_to_lake`` when it is ``None``.
     """
 
     ifno: int
@@ -69,6 +73,7 @@ class SfrReachRow:
     upstream: tuple[int, ...]
     downstream: tuple[int, ...]
     is_terminal_to_lake: bool
+    terminal_lake: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,12 +163,15 @@ def delineate_sfr_reaches(
     All arrays share one (rows, cols) grid and the ``transform`` affine. ``link_id``
     marks stream cells with a positive link id (0 / negative = non-stream).
     ``acc`` is the D8 flow accumulation in cell counts. ``lake_mask`` (optional)
-    is True on lake cells; the reach flowing into it is the terminal-to-lake reach.
+    labels lake cells with the 1-based lake number (0 elsewhere); a plain boolean
+    mask also works (every lake then reads as lake 1). The reach flowing into a
+    lake is flagged terminal-to-lake and tagged with that lake number.
     """
     if link_id.shape != d8.shape or link_id.shape != dem.shape:
         raise ValueError("link_id, d8 and dem must share one grid shape.")
     cell_area_km2 = float(dem_res_m) * float(dem_res_m) / 1_000_000.0
-    lake = None if lake_mask is None else np.asarray(lake_mask, dtype=bool)
+    lake_label = None if lake_mask is None else np.asarray(lake_mask)
+    lake = None if lake_label is None else (lake_label > 0)
 
     # 1. Group stream cells by link id.
     cells_by_link: dict[int, list[tuple[int, int]]] = {}
@@ -183,14 +191,17 @@ def delineate_sfr_reaches(
     info: dict[int, dict] = {}
     downstream_link: dict[int, int | None] = {}
     terminal_to_lake: dict[int, bool] = {}
+    terminal_lake_of: dict[int, int | None] = {}
     for link, cells in cells_by_link.items():
         ordered = _order_link_cells(cells, d8, link_of, link)
         truncated_at_lake = False
+        truncation_lake_cell: tuple[int, int] | None = None
         if lake is not None:
             kept: list[tuple[int, int]] = []
             for cell in ordered:
                 if lake[cell]:
                     truncated_at_lake = True
+                    truncation_lake_cell = cell
                     break
                 kept.append(cell)
             ordered = kept
@@ -221,6 +232,11 @@ def delineate_sfr_reaches(
         if truncated_at_lake or is_lake:
             downstream_link[link] = None
             terminal_to_lake[link] = True
+            # Tag the specific lake this reach drains into (1-based label) so the
+            # builder can route the MVR per terminal reach instead of per network.
+            lake_cell = truncation_lake_cell if truncated_at_lake else nxt
+            if lake_label is not None and lake_cell is not None:
+                terminal_lake_of[link] = int(lake_label[lake_cell])
         elif nxt is not None and int(link_id[nxt]) > 0 and int(link_id[nxt]) != link:
             downstream_link[link] = int(link_id[nxt])
             terminal_to_lake[link] = False
@@ -245,7 +261,9 @@ def delineate_sfr_reaches(
 
     # 2b. Prune short reaches (re-link their upstream to their downstream).
     if float(min_reach_length_m) > 0.0:
-        _prune_short_links(info, downstream_link, terminal_to_lake, float(min_reach_length_m))
+        _prune_short_links(
+            info, downstream_link, terminal_to_lake, terminal_lake_of, float(min_reach_length_m)
+        )
 
     # 3. Upstream adjacency + Kahn topological order, downstream-increasing.
     upstream_links: dict[int, list[int]] = {link: [] for link in info}
@@ -284,6 +302,7 @@ def delineate_sfr_reaches(
                 upstream=upstream_ids,
                 downstream=downstream_ids,
                 is_terminal_to_lake=bool(terminal_to_lake.get(link, False)),
+                terminal_lake=terminal_lake_of.get(link),
             )
         )
     return SfrReachTrace(reaches=tuple(reaches), crs_wkt=str(crs_wkt))
@@ -293,6 +312,7 @@ def _prune_short_links(
     info: dict[int, dict],
     downstream_link: dict[int, int | None],
     terminal_to_lake: dict[int, bool],
+    terminal_lake_of: dict[int, int | None],
     min_length_m: float,
 ) -> None:
     """Drop reaches shorter than ``min_length_m``, re-linking around them."""
@@ -304,9 +324,11 @@ def _prune_short_links(
                 downstream_link[upstream] = down
                 if down is None:
                     terminal_to_lake[upstream] = terminal_to_lake.get(link, False)
+                    terminal_lake_of[upstream] = terminal_lake_of.get(link)
         info.pop(link, None)
         downstream_link.pop(link, None)
         terminal_to_lake.pop(link, None)
+        terminal_lake_of.pop(link, None)
 
 
 def _topological_downstream_order(
@@ -388,13 +410,17 @@ def build_sfr_reach_trace_from_products(
     lake_mask = None
     polygons = [polygon for polygon in (lake_polygons or []) if polygon is not None]
     if polygons:
+        # Burn each lake with its 1-based number (its position in lake_polygons,
+        # which the caller passes in LAK packagedata order) so each reach can be
+        # tagged with the specific lake it drains into. A later lake wins on the
+        # rare overlap, which is harmless for the disjoint footprints SFR sees.
         lake_mask = features.rasterize(
-            ((polygon, 1) for polygon in polygons),
+            ((polygon, index) for index, polygon in enumerate(polygons, start=1)),
             out_shape=reference[2],
             transform=transform,
             fill=0,
-            dtype="uint8",
-        ).astype(bool)
+            dtype="int32",
+        )
 
     link_id = np.nan_to_num(arrays["stream_link_id_full"], nan=0.0).astype(int)
     catchment = [polygon for polygon in (watershed_polygons or []) if polygon is not None]

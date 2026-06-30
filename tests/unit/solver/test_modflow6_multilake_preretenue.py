@@ -10,8 +10,14 @@ the downstream lake (direct LAK -> LAK routing, no MVR). The tests check:
 * ``connectiondata`` covers both lakes (``ifno`` 0 and 1 both present);
 * the concrete-weir outlet row has ``invert`` == crest and routes to the
   downstream lake (``lakeout`` != external -1);
-* the crossed-weir option (0 -> 1 and 1 -> 0 at the same invert) emits two
-  outlets to approximate a shared surface above the crest.
+* the crossed-weir sill (0 -> 1 and 1 -> 0 at the same invert) emits two outlets
+  to approximate a shared surface above the crest. Both legs route DIRECTLY
+  (lac1 -> lac0 with ``lakeout = 1`` is a valid direct destination; verified to
+  build and run in MF6). A mover on the reverse leg is an optional CONTROLLED
+  alternative (FACTOR / UPTO / EXCESS / THRESHOLD), not a requirement.
+
+A separate guard rejects two lakes that resolve to the same grid cell (MF6 LAK
+allows one lake per cell).
 """
 
 from __future__ import annotations
@@ -26,6 +32,7 @@ from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
     build_lak_package_args,
     build_lake_outlets,
+    resolve_lake_cells_for_active_lakes,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
@@ -117,10 +124,38 @@ def test_concrete_weir_routes_preretenue_to_retenue_at_crest() -> None:
     assert width == pytest.approx(30.0)
 
 
+def test_crossed_weirs_route_directly_both_ways() -> None:
+    # Partially submerged sill, the recommended plain form: lac0 -> lac1
+    # (lakeout = 2) and lac1 -> lac0 (lakeout = 1) are BOTH direct LAK -> LAK
+    # outlets at the same invert, no MVR. lakeout = 1 is a valid destination (the
+    # first lake, 0-based index 0); only lakeout = 0 (external) and a self-route
+    # are rejected. MF6 accepts this 2-cycle of direct outlets (verified).
+    model = _two_lake_model(
+        lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
+        lac1_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 1}],
+    )
+    rows = build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
+    assert len(rows) == 2
+    assert all(row[4] == pytest.approx(_CREST) for row in rows)
+    # One spills from lac0, the other from lac1; each routes to the other lake
+    # (0-based lakeouts {1, 0}), never external (-1).
+    assert sorted(row[1] for row in rows) == [0, 1]
+    assert sorted(row[2] for row in rows) == [0, 1]
+    assert all(row[2] != -1 for row in rows)
+
+    # Direct routing carries no mover: the LAK package stays MVR-free.
+    cells = {"lac0": [0, 1], "lac1": [10, 11]}
+    masked = apply_lake_idomain_mask(_grid_4x4(), lake_cell_ids_by_lake=cells)
+    args = build_lak_package_args(model, solver_mesh=masked, lake_cell_ids_by_lake=cells)
+    assert args is not None
+    assert "mover_records" not in args
+    assert "mover" not in args
+
+
 def test_crossed_weirs_emit_two_outlets_at_same_invert() -> None:
-    # Partially submerged sill: lac0 -> lac1 (direct lakeout) and lac1 -> lac0
-    # (routed back through MVR, the mover.lake field being genuinely 1-based) at
-    # the same invert approximate a shared surface above the crest.
+    # The controlled alternative: lac0 -> lac1 direct, and lac1 -> lac0 routed
+    # through MVR (lakeout = 0 + mover.lake = 1) when a FACTOR / UPTO / EXCESS /
+    # THRESHOLD rule is wanted on the reverse leg instead of a plain spill.
     model = _two_lake_model(
         lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
         lac1_outlets=[
@@ -143,8 +178,10 @@ def test_crossed_weirs_emit_two_outlets_at_same_invert() -> None:
 
 
 def test_crossed_weir_back_route_uses_mover_to_first_lake() -> None:
-    # The reverse weir (1 -> 0) is routed via MVR back to lac0 (mover.lake=1,
-    # 1-based) because the first lake cannot be a direct lakeout destination.
+    # The reverse weir (1 -> 0) MAY be routed via MVR back to lac0 (mover.lake=1,
+    # 1-based) when a controlled transfer rule is wanted. This is optional: the
+    # direct lakeout = 1 form (test_crossed_weirs_route_directly_both_ways) is the
+    # plain spill. Here we assert the MVR record the mover produces.
     model = _two_lake_model(
         lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
         lac1_outlets=[
@@ -178,3 +215,26 @@ def test_two_lake_build_without_outlets_still_builds_both_lakes() -> None:
     assert args["noutlets"] == 0
     assert "outlets" not in args
     assert "mover" not in args
+
+
+def test_two_overlapping_lakes_raise() -> None:
+    # Two lake polygons that share grid cells must be rejected: MF6 LAK allows one
+    # lake per cell. poly_a covers the lower-left 2x2 block, poly_b is shifted by
+    # one cell so the two overlap on the 4x4 grid (a coarse-mesh collision).
+    poly_a = Polygon([(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)])
+    poly_b = Polygon([(1.0, 1.0), (3.0, 1.0), (3.0, 3.0), (1.0, 3.0)])
+    model = SimpleNamespace(
+        model_output_name="overlap_test",
+        time_units="seconds",
+        flow=SimpleNamespace(
+            active_bc=["reservoir"],
+            sinks_sources={
+                "lakes": {
+                    "lac0": {"polygon": poly_a, "bedleak": 0.2, "outlets": []},
+                    "lac1": {"polygon": poly_b, "bedleak": 0.2, "outlets": []},
+                }
+            },
+        ),
+    )
+    with pytest.raises(ValueError, match="one lake per cell"):
+        resolve_lake_cells_for_active_lakes(model, _grid_4x4())

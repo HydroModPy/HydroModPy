@@ -46,6 +46,7 @@ def _reach_row(
     upstream: tuple[int, ...] = (),
     downstream: tuple[int, ...] = (),
     terminal: bool = False,
+    terminal_lake: int | None = None,
 ) -> SfrReachRow:
     return SfrReachRow(
         ifno=ifno,
@@ -58,6 +59,7 @@ def _reach_row(
         upstream=upstream,
         downstream=downstream,
         is_terminal_to_lake=terminal,
+        terminal_lake=terminal_lake,
     )
 
 
@@ -363,6 +365,32 @@ def test_mover_records_couple_terminal_reach_to_lake() -> None:
     args = build_sfr_package_args(model, networks=networks)
     assert args["mover"] is True
     assert args["mover_records"] == records
+
+
+def _two_terminal_two_lake_trace() -> SfrReachTrace:
+    # Two independent streams: the west one drains into lake 2 (the pre-retenue),
+    # the east one into lake 1 (the main reservoir). Each terminal carries its own
+    # lake tag.
+    west = LineString([(5.0, 45.0), (20.0, 45.0)])
+    east = LineString([(30.0, 45.0), (45.0, 45.0)])
+    rows = (
+        _reach_row(0, west, rtp=95.0, terminal=True, terminal_lake=2),
+        _reach_row(1, east, rtp=95.0, terminal=True, terminal_lake=1),
+    )
+    return SfrReachTrace(reaches=rows, crs_wkt="EPSG:32630")
+
+
+def test_mover_records_route_each_terminal_to_its_tagged_lake() -> None:
+    # outflow_to_lake = 1 is only the fallback: each terminal routes to the
+    # specific lake it drains into (terminal_lake), so the two terminals reach
+    # lakes 1 and 2 (receiver_id 0 and 1), not both lake 1.
+    mesh = _mesh()
+    model = _fake_model({"net0": _trace_payload(_two_terminal_two_lake_trace(), outflow_to_lake=1)})
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    records = build_sfr_mover_records(networks)
+    assert len(records) == 2
+    assert all(r.receiver == "LAK" for r in records)
+    assert sorted(r.receiver_id for r in records) == [0, 1]
 
 
 def test_obs_spec_covers_each_reach_and_mover_terms() -> None:
