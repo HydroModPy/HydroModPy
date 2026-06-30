@@ -277,8 +277,8 @@ def apply_lake_geometry_to_flow(
     return True
 
 
-def _resolve_cutoff_wall_line(cfg: object, *, lake_id: str):
-    """Build the shapely wall trace from a cutoff_wall config (inline or file)."""
+def _resolve_barrier_line(cfg: object, *, where: str):
+    """Build the shapely barrier trace from a FlowBarrierConfig (inline or file)."""
     from shapely.geometry import LineString
 
     line = cfg.get("line") if isinstance(cfg, Mapping) else getattr(cfg, "line", None)
@@ -292,14 +292,9 @@ def _resolve_cutoff_wall_line(cfg: object, *, lake_id: str):
 
         gdf = gpd.read_file(str(line_path))
         if gdf.empty:
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall line_path "
-                f"'{line_path}' has no geometry."
-            )
+            raise ValueError(f"{where} line_path '{line_path}' has no geometry.")
         return gdf.union_all()
-    raise ValueError(
-        f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall has neither line nor line_path."
-    )
+    raise ValueError(f"{where} has neither line nor line_path.")
 
 
 def apply_cutoff_wall_to_flow(*, flow: Flow) -> bool:
@@ -322,12 +317,44 @@ def apply_cutoff_wall_to_flow(*, flow: Flow) -> bool:
         cfg = payload.get("cutoff_wall")
         if cfg is None:
             continue
-        payload["cutoff_wall_line"] = _resolve_cutoff_wall_line(cfg, lake_id=lake_id)
+        payload["cutoff_wall_line"] = _resolve_barrier_line(
+            cfg, where=f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall"
+        )
         attached = True
 
     if not attached:
         return False
     flow.sinks_sources["lakes"] = payloads
+    return True
+
+
+def apply_flow_barriers_to_flow(*, flow: Flow) -> bool:
+    """Resolve the general ``[flow.sinks_sources.flow_barriers]`` traces.
+
+    Each barrier is a :class:`FlowBarrierConfig`. This normalizes the mapping to
+    payload dicts ``{'barrier': cfg, 'line': shapely}`` so the HFB builder reads
+    the resolved trace and parameters. Idempotent: an already-resolved payload is
+    kept as-is. Returns True if at least one barrier line was attached.
+    """
+    sinks_sources = getattr(flow, "sinks_sources", {})
+    barriers = sinks_sources.get("flow_barriers") if isinstance(sinks_sources, Mapping) else None
+    if not isinstance(barriers, Mapping) or not barriers:
+        return False
+
+    out: dict[str, dict[str, object]] = {}
+    attached = False
+    for barrier_id, cfg in barriers.items():
+        bid = str(barrier_id)
+        if isinstance(cfg, Mapping) and "line" in cfg and "barrier" in cfg:
+            out[bid] = dict(cfg)
+            continue
+        line = _resolve_barrier_line(cfg, where=f"flow.sinks_sources.flow_barriers.{bid}")
+        out[bid] = {"barrier": cfg, "line": line}
+        attached = True
+
+    if not attached:
+        return False
+    flow.sinks_sources["flow_barriers"] = out
     return True
 
 

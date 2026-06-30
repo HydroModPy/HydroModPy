@@ -60,45 +60,67 @@ def build_flow_barrier_hfb(
     return rows
 
 
-def _cutoff_wall_attr(payload: object, name: str) -> object:
-    """Read one key off a lake payload (a dict after binding, else the config)."""
+def _barrier_attr(payload: object, name: str) -> object:
+    """Read one key off a payload (a dict after binding, else a config object)."""
     if isinstance(payload, Mapping):
         return payload.get(name)
     return getattr(payload, name, None)
 
 
-def resolve_cutoff_wall_hfb_rows(model, solver_mesh) -> list[list]:
-    """Return concatenated HFB rows for every lake that declares a cutoff_wall.
+def _rows_for_barrier(solver_mesh, cfg, line) -> list[list]:
+    """HFB rows for one FlowBarrierConfig and its resolved shapely trace."""
+    return build_flow_barrier_hfb(
+        solver_mesh,
+        line=line,
+        depths=[float(d) for d in cfg.depths],
+        hydchr=cfg.effective_hydchr(),
+    )
 
-    Reads the resolved wall trace (``cutoff_wall_line``, attached by the structure
-    binder) and its parameters (``cutoff_wall``) off each lake payload, then maps
-    the line onto the mesh faces with :func:`build_flow_barrier_hfb`. Returns
-    ``[]`` when no wall is configured, keeping the HFB wiring in ``build.py`` a
-    no-op for models without a cutoff wall.
+
+def resolve_flow_barrier_hfb_rows(model, solver_mesh) -> list[list]:
+    """Return concatenated HFB rows for every configured flow barrier.
+
+    Two sources, both bound by the structure binders before pre-processing:
+    each lake's dam ``cutoff_wall`` (trace on ``payload['cutoff_wall_line']``) and
+    the general ``[flow.sinks_sources.flow_barriers]`` mapping (each payload is
+    ``{'barrier': cfg, 'line': shapely}``). Returns ``[]`` when none is configured,
+    keeping the HFB wiring in ``build.py`` a no-op.
     """
     flow = getattr(model, "flow", None)
     if flow is None:
         return []
     sinks_sources = getattr(flow, "sinks_sources", {})
-    lakes = sinks_sources.get("lakes") if isinstance(sinks_sources, Mapping) else None
-    if not isinstance(lakes, Mapping) or not lakes:
+    if not isinstance(sinks_sources, Mapping):
         return []
 
     rows: list[list] = []
-    for lake_id, payload in lakes.items():
-        cfg = _cutoff_wall_attr(payload, "cutoff_wall")
-        if cfg is None:
-            continue
-        line = _cutoff_wall_attr(payload, "cutoff_wall_line")
-        if line is None:
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall is declared but its "
-                "trace was not resolved; bind it with apply_cutoff_wall_to_flow first."
-            )
-        depths = [float(d) for d in cfg.depths]
-        rows.extend(
-            build_flow_barrier_hfb(
-                solver_mesh, line=line, depths=depths, hydchr=cfg.effective_hydchr()
-            )
-        )
+
+    lakes = sinks_sources.get("lakes")
+    if isinstance(lakes, Mapping):
+        for lake_id, payload in lakes.items():
+            cfg = _barrier_attr(payload, "cutoff_wall")
+            if cfg is None:
+                continue
+            line = _barrier_attr(payload, "cutoff_wall_line")
+            if line is None:
+                raise ValueError(
+                    f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall is declared but its "
+                    "trace was not resolved; bind it with apply_cutoff_wall_to_flow first."
+                )
+            rows.extend(_rows_for_barrier(solver_mesh, cfg, line))
+
+    barriers = sinks_sources.get("flow_barriers")
+    if isinstance(barriers, Mapping):
+        for barrier_id, payload in barriers.items():
+            cfg = _barrier_attr(payload, "barrier")
+            if cfg is None:
+                continue
+            line = _barrier_attr(payload, "line")
+            if line is None:
+                raise ValueError(
+                    f"flow.sinks_sources.flow_barriers.{barrier_id} is declared but its "
+                    "trace was not resolved; bind it with apply_flow_barriers_to_flow first."
+                )
+            rows.extend(_rows_for_barrier(solver_mesh, cfg, line))
+
     return rows

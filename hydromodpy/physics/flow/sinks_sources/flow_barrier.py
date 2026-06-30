@@ -1,14 +1,17 @@
-"""Dam cutoff wall / grout curtain payload for the flow process.
+"""Horizontal flow barrier (HFB) payload for the flow process.
 
-Defines :class:`CutoffWallConfig`, a thin vertical low-permeability barrier on
-the dam axis, modeled in MODFLOW 6 as a Horizontal Flow Barrier (HFB). It is a
-sub-config of :class:`FlowLakeConfig`: the wall belongs to the dam that impounds
-the reservoir.
+Defines :class:`FlowBarrierConfig`, a thin vertical low-permeability barrier on
+a polyline, modeled in MODFLOW 6 as a Horizontal Flow Barrier (HFB). It is the
+canonical barrier payload, used in two places:
 
-The wall trace is a polyline given inline (``line`` = vertex coordinates in the
-project CRS) or as a vector file (``line_path``: gpkg / shapefile / GeoJSON).
-``depths`` set how deep the wall reaches below the model top: one value is a
-uniform depth, several are interpolated per vertex along the trace. The barrier
+* a general addon ``[flow.sinks_sources.flow_barriers.<id>]`` (any model), and
+* the dam cutoff wall / grout curtain ``[...lakes.<id>.cutoff_wall]``, where the
+  barrier sits on the dam axis and forces the under-dam seepage below the wall.
+
+The barrier trace is a polyline given inline (``line`` = vertex coordinates in
+the project CRS) or as a vector file (``line_path``: gpkg / shapefile / GeoJSON).
+``depths`` set how deep the barrier reaches below the model top: one value is a
+uniform depth, several are interpolated per vertex along the trace. The
 resistance is the HFB hydraulic characteristic ``hydchr`` (an inverse time =
 K_barrier / thickness_barrier); declare it directly with ``hydchr`` (+
 ``hydchr_unit``) or let it derive from ``k`` and ``thickness``.
@@ -31,27 +34,26 @@ from hydromodpy.core.units.leakance import convert_to_per_s, normalize_per_s_uni
 from hydromodpy.core.units.length import convert_to_m, factor_to_m
 
 
-class CutoffWallConfig(HydroModelBase):
-    """Typed payload for one dam cutoff wall (MODFLOW 6 HFB).
+class FlowBarrierConfig(HydroModelBase):
+    """Typed payload for one MODFLOW 6 horizontal flow barrier (HFB).
 
-    The wall is a quasi-impermeable vertical barrier on the dam axis. It forces
-    the groundwater to dive underneath instead of leaking through the top layers,
-    focusing the under-dam seepage at the foot of the dam (where the downstream
-    domain drains it). The HFB sits on the shared mesh faces the trace crosses
-    and spans every top layer down to ``depths`` below the model top.
+    The barrier is a quasi-impermeable vertical wall on a polyline. It sits on
+    the shared mesh faces the trace crosses and spans every top layer down to
+    ``depths`` below the model top, so the flow is blocked there and forced
+    underneath. The dam cutoff wall is the lake-derived use of this payload.
     """
 
     line: Annotated[list[tuple[float, float]] | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Inline wall-trace vertices [(x, y), ...] in the project CRS, the dam "
-            "axis across the valley. Mutually exclusive with line_path."
+            "Inline barrier-trace vertices [(x, y), ...] in the project CRS. "
+            "Mutually exclusive with line_path."
         ),
     )
     line_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Vector file (gpkg / shp / GeoJSON) holding the wall-trace polyline. "
+            "Vector file (gpkg / shp / GeoJSON) holding the barrier-trace polyline. "
             "Alternative to line."
         ),
     )
@@ -59,7 +61,7 @@ class CutoffWallConfig(HydroModelBase):
         ...,
         min_length=1,
         description=(
-            "Wall depth below the model top [m]. One value is a uniform depth; "
+            "Barrier depth below the model top [m]. One value is a uniform depth; "
             "several are interpolated per vertex along the trace. The HFB blocks "
             "every top layer down to this depth, so the flow dives underneath."
         ),
@@ -122,7 +124,7 @@ class CutoffWallConfig(HydroModelBase):
     def _validate_line(cls, value):
         """A polyline needs at least two vertices."""
         if value is not None and len(value) < 2:
-            raise ValueError("cutoff_wall line needs at least two vertices.")
+            raise ValueError("flow barrier line needs at least two vertices.")
         return value
 
     @field_validator("depths")
@@ -130,27 +132,27 @@ class CutoffWallConfig(HydroModelBase):
     def _validate_depths(cls, value: list[float]) -> list[float]:
         """Every depth is a positive distance below the model top."""
         if any(d <= 0.0 for d in value):
-            raise ValueError("cutoff_wall depths must be positive (metres below the model top).")
+            raise ValueError("flow barrier depths must be positive (metres below the model top).")
         return value
 
     @model_validator(mode="after")
-    def _validate_geometry_source(self) -> CutoffWallConfig:
+    def _validate_geometry_source(self) -> FlowBarrierConfig:
         """Exactly one geometry source: inline line XOR a vector file."""
         if (self.line is None) == (self.line_path is None):
             raise ValueError(
-                "cutoff_wall needs exactly one geometry source: set line (inline "
+                "flow barrier needs exactly one geometry source: set line (inline "
                 "coordinates) or line_path (a vector file), not both."
             )
         return self
 
     @model_validator(mode="after")
-    def _validate_resistance(self) -> CutoffWallConfig:
+    def _validate_resistance(self) -> FlowBarrierConfig:
         """Exactly one resistance source: hydchr XOR (k and thickness)."""
         has_hydchr = self.hydchr is not None
         has_k_thickness = self.k is not None and self.thickness is not None
         if has_hydchr == has_k_thickness:
             raise ValueError(
-                "cutoff_wall needs exactly one resistance source: set hydchr, or "
+                "flow barrier needs exactly one resistance source: set hydchr, or "
                 "both k and thickness, not both groups."
             )
         return self
@@ -158,12 +160,12 @@ class CutoffWallConfig(HydroModelBase):
     def effective_hydchr(self) -> float:
         """Return the HFB hydraulic characteristic in 1/s for the solver."""
         if self.hydchr is not None:
-            return convert_to_per_s(self.hydchr, unit=self.hydchr_unit, label="cutoff_wall hydchr")
-        k_si = convert_to_m_per_s(self.k, unit=self.k_unit, label="cutoff_wall k")
+            return convert_to_per_s(self.hydchr, unit=self.hydchr_unit, label="flow barrier hydchr")
+        k_si = convert_to_m_per_s(self.k, unit=self.k_unit, label="flow barrier k")
         thickness_si = convert_to_m(
-            self.thickness, unit=self.thickness_unit, label="cutoff_wall thickness"
+            self.thickness, unit=self.thickness_unit, label="flow barrier thickness"
         )
         return k_si / thickness_si
 
 
-__all__ = ["CutoffWallConfig"]
+__all__ = ["FlowBarrierConfig"]

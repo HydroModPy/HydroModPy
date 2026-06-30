@@ -28,7 +28,7 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
 )
 from hydromodpy.solver.modflow6.builders.flow_barrier import (
     build_flow_barrier_hfb,
-    resolve_cutoff_wall_hfb_rows,
+    resolve_flow_barrier_hfb_rows,
 )
 from hydromodpy.solver.modflow6.builders.initial_conditions import (
     build_start_heads,
@@ -192,7 +192,7 @@ __all__ = [
     "resolve_forcing_mode",
     "resolve_head_initial_condition",
     "resolve_ims_complexity",
-    "resolve_cutoff_wall_hfb_rows",
+    "resolve_flow_barrier_hfb_rows",
     "resolve_lake_cells",
     "resolve_lake_cells_for_active_lakes",
     "resolve_lake_occupied_layers",

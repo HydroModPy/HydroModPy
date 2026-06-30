@@ -12,8 +12,8 @@ Sub-modules:
 from __future__ import annotations
 
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
-from hydromodpy.physics.flow.sinks_sources.cutoff_wall import CutoffWallConfig
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.physics.flow.sinks_sources.flow_barrier import FlowBarrierConfig
 from hydromodpy.physics.flow.sinks_sources.lake import (
     FlowLakeConfig,
     FlowLakeOutletConfig,
@@ -47,7 +47,7 @@ from hydromodpy.physics.flow.sinks_sources.wells import (
 )
 
 __all__ = [
-    "CutoffWallConfig",
+    "FlowBarrierConfig",
     "FlowEtpConfig",
     "FlowLakeConfig",
     "FlowLakeOutletConfig",

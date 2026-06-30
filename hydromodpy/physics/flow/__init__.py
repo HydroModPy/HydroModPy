@@ -31,7 +31,7 @@ from .initial_conditions import (
 from .physical_properties import FlowPhysicalProperties
 from .regime import FlowRegime, normalize_flow_regime
 from .sinks_sources import (
-    CutoffWallConfig,
+    FlowBarrierConfig,
     FlowLakeConfig,
     FlowSinksSourcesConfig,
     FlowWellConfig,
@@ -59,7 +59,7 @@ __all__ = [
     "supported_boundary_ids_for_backend",
     "FlowWellConfig",
     "FlowLakeConfig",
-    "CutoffWallConfig",
+    "FlowBarrierConfig",
     "FlowSinksSourcesConfig",
     "FlowParam",
     "FlowConfig",

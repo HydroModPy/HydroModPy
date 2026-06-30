@@ -50,7 +50,7 @@ from hydromodpy.physics.flow.initial_conditions_config import (
 )
 from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
-    CutoffWallConfig,
+    FlowBarrierConfig,
     FlowLakeConfig,
     FlowSinksSourcesConfig,
     FlowWellConfig,
@@ -60,7 +60,7 @@ from hydromodpy.physics.flow.sinks_sources_config import (
 )
 
 __all__ = [
-    "CutoffWallConfig",
+    "FlowBarrierConfig",
     "FlowBoundaryConditionConfig",
     "FlowConfig",
     "FlowLakeConfig",
