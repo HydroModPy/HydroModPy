@@ -83,23 +83,20 @@ def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     return CalibrationConfig.model_validate(raw["calibration"]), raw
 
 
-def _api_isolation_needed(trial_ctx: Any, parallel: int) -> bool:
-    """Whether the api runner must isolate each solve in a child process.
+def _api_isolation_needed(parallel: int) -> bool:
+    """Whether api solves must be isolated in a child process this session.
 
-    Parallel trials each run their solver in its own process, so no libmf6 global
-    state is shared across the calibration threads: the ``subprocess`` runner
-    spawns the mf6 executable, and the ``api`` runner spawns a dedicated libmf6
-    child per solve (:func:`api_isolation_context` /
-    :func:`hydromodpy.solver.modflow6.api_subprocess.run_mf6_api_isolated`),
-    rebuilding the exposed-band (marnage) callback from picklable specs. A serial
-    session keeps the api runner in-process (live progress bar, no spawn). The
-    historical rejection of ``api`` + ``parallel`` is therefore lifted.
+    True for any PARALLEL session. The decision is on parallelism alone, NOT the
+    declared ``mf6_runner``: the effective runner is resolved at build time and an
+    exposed-band (marnage) coupling forces the ``api`` runner even when the config
+    leaves ``mf6_runner`` at its ``subprocess`` default. ``_run_via_api`` is
+    reached ONLY for that effective api runner, so isolating whenever trials run
+    concurrently is correct (and a no-op for subprocess solves, which never reach
+    it). A serial session keeps the in-process api path (live progress bar, no
+    spawn). Isolating gives each concurrent libmf6 its own process, so the global
+    Fortran INPUT state never collides across threads.
     """
-    if parallel <= 1:
-        return False
-    cfg = getattr(getattr(trial_ctx, "ctx", None), "cfg", None)
-    runtime = getattr(getattr(cfg, "modflow6", None), "runtime", None)
-    return getattr(runtime, "mf6_runner", "subprocess") == "api"
+    return parallel > 1
 
 
 def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
@@ -232,7 +229,7 @@ def run_calibration_core(
                 objective_blocks=cfg.objective_blocks or None,
             )
 
-    use_api_isolation = _api_isolation_needed(trial_ctx, cfg.parallel)
+    use_api_isolation = _api_isolation_needed(cfg.parallel)
     _assert_bounds_valid(trial_ctx, space)
 
     session_id = uuid.uuid4().hex

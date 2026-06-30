@@ -112,28 +112,19 @@ class TestOutputCleanup:
 # ---------------------------------------------------------------------------
 
 
-def _trial_ctx_with_runner(runner: str | None):
-    runtime = SimpleNamespace(mf6_runner=runner) if runner is not None else SimpleNamespace()
-    cfg = SimpleNamespace(modflow6=SimpleNamespace(runtime=runtime))
-    return SimpleNamespace(ctx=SimpleNamespace(cfg=cfg))
-
-
 class TestApiIsolation:
-    def test_api_runner_isolates_when_parallel(self):
-        # api + parallel: each solve runs in its own spawn child process, so the
-        # historical rejection is lifted and isolation is turned on instead.
-        assert _api_isolation_needed(_trial_ctx_with_runner("api"), 4) is True
+    def test_parallel_session_isolates_api(self):
+        # Any parallel session isolates api solves. The decision is on
+        # parallelism, not the declared mf6_runner: a marnage (exposed_band)
+        # coupling forces the effective api runner even when mf6_runner stays at
+        # its subprocess default, and _run_via_api is reached only by an api
+        # solve, so concurrent api solves always get their own libmf6 process.
+        assert _api_isolation_needed(4) is True
+        assert _api_isolation_needed(2) is True
 
-    def test_subprocess_runner_never_isolates(self):
-        # The subprocess runner already isolates via its own mf6 process.
-        assert _api_isolation_needed(_trial_ctx_with_runner("subprocess"), 4) is False
-
-    def test_missing_runner_defaults_to_subprocess(self):
-        assert _api_isolation_needed(_trial_ctx_with_runner(None), 4) is False
-
-    def test_serial_api_stays_in_process(self):
+    def test_serial_session_keeps_api_in_process(self):
         # Serial keeps the in-process api path (live progress bar, no spawn).
-        assert _api_isolation_needed(_trial_ctx_with_runner("api"), 1) is False
+        assert _api_isolation_needed(1) is False
 
 
 def test_keep_env_var_name_is_stable():
