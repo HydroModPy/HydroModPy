@@ -446,10 +446,27 @@ def run_single_mesh_catchment_workflow_typed(
         deps=deps,
     )
 
+    # A partial resume can restore geographic_features WITHOUT their in-memory
+    # river trace (rivers.river_mesh_trace), which river-constrained meshing
+    # needs. Rebuild the derived features fresh in that case so build_mesh does
+    # not fail after a resumed build_geographic. This only fires when the trace
+    # is genuinely missing; the normal (trace-present) path is untouched.
+    geographic_features_for_trace = prepared_runtime.geographic_features
+    if (
+        constraints_mode_requires_river_trace(constraints_mode)
+        and not geographic_cfg.uses_synthetic_geographic()
+        and resolve_river_mesh_trace(geographic_features=geographic_features_for_trace) is None
+        and deps.build_geographic_derived_features_fn is not None
+    ):
+        geographic_features_for_trace = deps.build_geographic_derived_features_fn(
+            config=geographic_cfg,
+            workspace=prepared_runtime.workspace,
+        )
+
     river_trace = _resolve_river_trace(
         constraints_mode=constraints_mode,
         geographic_cfg=geographic_cfg,
-        geographic_features=prepared_runtime.geographic_features,
+        geographic_features=geographic_features_for_trace,
         domain_geographic=prepared_runtime.domain_geographic,
     )
     resolved_outputs = _resolve_output_overrides(
