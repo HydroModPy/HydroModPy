@@ -9,6 +9,8 @@ is a near-impermeable wall (a dam cutoff wall / grout curtain).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import numpy as np
 
 from hydromodpy.spatial.mesh.flow_barrier import barrier_faces_from_line
@@ -55,4 +57,48 @@ def build_flow_barrier_hfb(
             if layer_top <= barrier_bottom:
                 break
             rows.append([(lay, int(face.cell_a)), (lay, int(face.cell_b)), float(hydchr)])
+    return rows
+
+
+def _cutoff_wall_attr(payload: object, name: str) -> object:
+    """Read one key off a lake payload (a dict after binding, else the config)."""
+    if isinstance(payload, Mapping):
+        return payload.get(name)
+    return getattr(payload, name, None)
+
+
+def resolve_cutoff_wall_hfb_rows(model, solver_mesh) -> list[list]:
+    """Return concatenated HFB rows for every lake that declares a cutoff_wall.
+
+    Reads the resolved wall trace (``cutoff_wall_line``, attached by the structure
+    binder) and its parameters (``cutoff_wall``) off each lake payload, then maps
+    the line onto the mesh faces with :func:`build_flow_barrier_hfb`. Returns
+    ``[]`` when no wall is configured, keeping the HFB wiring in ``build.py`` a
+    no-op for models without a cutoff wall.
+    """
+    flow = getattr(model, "flow", None)
+    if flow is None:
+        return []
+    sinks_sources = getattr(flow, "sinks_sources", {})
+    lakes = sinks_sources.get("lakes") if isinstance(sinks_sources, Mapping) else None
+    if not isinstance(lakes, Mapping) or not lakes:
+        return []
+
+    rows: list[list] = []
+    for lake_id, payload in lakes.items():
+        cfg = _cutoff_wall_attr(payload, "cutoff_wall")
+        if cfg is None:
+            continue
+        line = _cutoff_wall_attr(payload, "cutoff_wall_line")
+        if line is None:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall is declared but its "
+                "trace was not resolved; bind it with apply_cutoff_wall_to_flow first."
+            )
+        depths = [float(d) for d in cfg.depths]
+        rows.extend(
+            build_flow_barrier_hfb(
+                solver_mesh, line=line, depths=depths, hydchr=cfg.effective_hydchr()
+            )
+        )
     return rows

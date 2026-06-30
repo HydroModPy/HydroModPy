@@ -26,6 +26,10 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     side_boundary_cell_ids,
     stream_chd_support_mask,
 )
+from hydromodpy.solver.modflow6.builders.flow_barrier import (
+    build_flow_barrier_hfb,
+    resolve_cutoff_wall_hfb_rows,
+)
 from hydromodpy.solver.modflow6.builders.initial_conditions import (
     build_start_heads,
     initial_condition_field,
@@ -134,6 +138,7 @@ __all__ = [
     "boundary_support_cell_ids",
     "build_drain_stress_period_data",
     "build_evt_stress_period_data",
+    "build_flow_barrier_hfb",
     "build_lak_package_args",
     "build_lake_connectiondata",
     "build_lake_mover_records",
@@ -187,6 +192,7 @@ __all__ = [
     "resolve_forcing_mode",
     "resolve_head_initial_condition",
     "resolve_ims_complexity",
+    "resolve_cutoff_wall_hfb_rows",
     "resolve_lake_cells",
     "resolve_lake_cells_for_active_lakes",
     "resolve_lake_occupied_layers",
