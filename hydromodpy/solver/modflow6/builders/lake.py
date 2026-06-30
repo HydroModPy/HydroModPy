@@ -71,12 +71,16 @@ def resolve_lake_cells(
     lake_id: str,
     polygon: object,
     vertex_grid: object,
-) -> list[int]:
+    with_areas: bool = False,
+) -> list[int] | tuple[list[int], dict[int, float]]:
     """Intersect one lake polygon with the grid and return the flat cell2d ids.
 
     Cells are returned sorted and de-duplicated. An empty result means the
     polygon misses the grid, which is almost always a CRS or extent mistake, so
-    we fail naming the lake.
+    we fail naming the lake. With ``with_areas=True`` also return the per-cell
+    intersected area [L2] (the part of each cell actually inside the polygon),
+    which edge cells under-fill; this is the true lake area, free of the
+    full-cell footprint over-count.
     """
     from flopy.utils import GridIntersect
 
@@ -88,7 +92,16 @@ def resolve_lake_cells(
             f"flow.sinks_sources.lakes.{lake_id} polygon does not intersect any grid "
             "cell; check the lake geometry CRS and the model extent."
         )
-    return cell_ids
+    if not with_areas:
+        return cell_ids
+    intersected: dict[int, float] = {}
+    for cid, area in zip(
+        np.asarray(result["cellids"]).ravel(),
+        np.asarray(result["areas"]).ravel(),
+        strict=True,
+    ):
+        intersected[int(cid)] = intersected.get(int(cid), 0.0) + float(area)
+    return cell_ids, intersected
 
 
 def apply_lake_idomain_mask(
@@ -206,7 +219,11 @@ def carve_lake_bed(
             )
         cell_ids = [int(c) for c in lake_cell_ids_by_lake[lake_id]]
         occ = int(occupied.get(lake_id, 1))
-        area_by_cell = {cid: float(areas[cid]) for cid in cell_ids}
+        # Use the per-cell intersected area (the part of each cell actually inside the
+        # lake polygon) so edge cells do not over-count: the footprint then matches the
+        # real lake area (area_scale -> ~1) and the abacus reconciliation is exact.
+        intersected = getattr(model, "_lake_cell_intersected_area", {}).get(lake_id, {})
+        area_by_cell = {cid: float(intersected.get(cid, areas[cid])) for cid in cell_ids}
 
         stage_col, sarea_col = _abacus_stage_sarea(definition.get("abacus"))
         if reconcile and (stage_col is None or sarea_col is None):
@@ -808,6 +825,7 @@ def resolve_lake_cells_for_active_lakes(
 
     vertex_grid = build_vertex_grid_for_intersection(solver_mesh)
     cells_by_lake: dict[str, list[int]] = {}
+    intersected_area_by_lake: dict[str, dict[int, float]] = {}
     for lake_id, definition in lakes.items():
         polygon = definition.get("polygon")
         if polygon is None:
@@ -815,9 +833,15 @@ def resolve_lake_cells_for_active_lakes(
                 f"flow.sinks_sources.lakes.{lake_id} has no polygon geometry; load the "
                 "lake_geometry data family before pre-processing."
             )
-        cells_by_lake[lake_id] = resolve_lake_cells(
-            model, lake_id=lake_id, polygon=polygon, vertex_grid=vertex_grid
+        cells, intersected = resolve_lake_cells(
+            model, lake_id=lake_id, polygon=polygon, vertex_grid=vertex_grid, with_areas=True
         )
+        cells_by_lake[lake_id] = cells
+        intersected_area_by_lake[lake_id] = intersected
+    # The true per-cell lake area (edge cells under-filled), used by the carve so the
+    # area_scale and the abacus reconciliation see the real lake area, not the
+    # full-cell footprint over-count.
+    model._lake_cell_intersected_area = intersected_area_by_lake
     return cells_by_lake
 
 
