@@ -2,8 +2,8 @@
 
 Covers:
 - :class:`TrialSandbox`: per-trial ``model_name_override`` + output cleanup,
-- the parallel-safety check, now a no-op: every runner (subprocess exe or the
-  spawn-isolated ``api``) runs each solve in its own process.
+- the api-isolation decision: a PARALLEL session isolates each api solve in its
+  own spawn child process; a serial session keeps the in-process api path.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.cli_runner import _assert_parallel_safe
+from hydromodpy.calibration.cli_runner import _api_isolation_needed
 from hydromodpy.calibration.runners.sandbox import KEEP_ENV_VAR, TrialSandbox
 
 # ---------------------------------------------------------------------------
@@ -118,21 +118,22 @@ def _trial_ctx_with_runner(runner: str | None):
     return SimpleNamespace(ctx=SimpleNamespace(cfg=cfg))
 
 
-class TestParallelGuard:
-    def test_api_runner_is_allowed_when_parallel(self):
-        # The api runner now isolates each solve in its own spawn child process
-        # (run_mf6_api_isolated), so a private libmf6 per process makes api +
-        # parallel safe. The historical rejection is lifted: this must not raise.
-        _assert_parallel_safe(_trial_ctx_with_runner("api"), 4)
+class TestApiIsolation:
+    def test_api_runner_isolates_when_parallel(self):
+        # api + parallel: each solve runs in its own spawn child process, so the
+        # historical rejection is lifted and isolation is turned on instead.
+        assert _api_isolation_needed(_trial_ctx_with_runner("api"), 4) is True
 
-    def test_subprocess_runner_is_allowed(self):
-        _assert_parallel_safe(_trial_ctx_with_runner("subprocess"), 4)
+    def test_subprocess_runner_never_isolates(self):
+        # The subprocess runner already isolates via its own mf6 process.
+        assert _api_isolation_needed(_trial_ctx_with_runner("subprocess"), 4) is False
 
     def test_missing_runner_defaults_to_subprocess(self):
-        _assert_parallel_safe(_trial_ctx_with_runner(None), 4)
+        assert _api_isolation_needed(_trial_ctx_with_runner(None), 4) is False
 
-    def test_sequential_is_always_allowed(self):
-        _assert_parallel_safe(_trial_ctx_with_runner("api"), 1)
+    def test_serial_api_stays_in_process(self):
+        # Serial keeps the in-process api path (live progress bar, no spawn).
+        assert _api_isolation_needed(_trial_ctx_with_runner("api"), 1) is False
 
 
 def test_keep_env_var_name_is_stable():

@@ -83,22 +83,23 @@ def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     return CalibrationConfig.model_validate(raw["calibration"]), raw
 
 
-def _assert_parallel_safe(trial_ctx: Any, parallel: int) -> None:
-    """Parallel-safety check for the solver runner (now always isolated).
+def _api_isolation_needed(trial_ctx: Any, parallel: int) -> bool:
+    """Whether the api runner must isolate each solve in a child process.
 
-    Parallel trials each run their solver in its own child process, so no
-    libmf6 global state is shared across the calibration threads:
-
-    * the ``subprocess`` runner spawns the mf6 executable, and
-    * the ``api`` runner spawns a dedicated libmf6 child per solve
-      (:func:`hydromodpy.solver.modflow6.api_subprocess.run_mf6_api_isolated`),
-      rebuilding the exposed-band (marnage) callback from picklable specs.
-
-    The historical rejection of ``api`` + ``parallel`` is therefore lifted. A
-    custom in-process developer callback (``_mf6_api_callback``) is the only
-    non-isolated path; it is dev-only, never set by the calibration loop.
+    Parallel trials each run their solver in its own process, so no libmf6 global
+    state is shared across the calibration threads: the ``subprocess`` runner
+    spawns the mf6 executable, and the ``api`` runner spawns a dedicated libmf6
+    child per solve (:func:`api_isolation_context` /
+    :func:`hydromodpy.solver.modflow6.api_subprocess.run_mf6_api_isolated`),
+    rebuilding the exposed-band (marnage) callback from picklable specs. A serial
+    session keeps the api runner in-process (live progress bar, no spawn). The
+    historical rejection of ``api`` + ``parallel`` is therefore lifted.
     """
-    return None
+    if parallel <= 1:
+        return False
+    cfg = getattr(getattr(trial_ctx, "ctx", None), "cfg", None)
+    runtime = getattr(getattr(cfg, "modflow6", None), "runtime", None)
+    return getattr(runtime, "mf6_runner", "subprocess") == "api"
 
 
 def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
@@ -231,7 +232,7 @@ def run_calibration_core(
                 objective_blocks=cfg.objective_blocks or None,
             )
 
-    _assert_parallel_safe(trial_ctx, cfg.parallel)
+    use_api_isolation = _api_isolation_needed(trial_ctx, cfg.parallel)
     _assert_bounds_valid(trial_ctx, space)
 
     session_id = uuid.uuid4().hex
@@ -366,7 +367,12 @@ def run_calibration_core(
     best: EvaluationResult | None = None
 
     try:
-        session = engine.run()
+        from hydromodpy.solver.modflow6.run import api_isolation_context
+
+        # Isolate each api solve in its own process for the PARALLEL trial loop
+        # only; promotion below replays a single run and stays in-process.
+        with api_isolation_context(use_api_isolation):
+            session = engine.run()
         best = session.best
 
         promotion_required = cfg.save_runs != "none" or cfg.rerun_best_with_outputs
