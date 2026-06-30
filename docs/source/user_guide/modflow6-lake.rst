@@ -12,6 +12,12 @@ the run results store.
 The ``lake`` boundary is MODFLOW 6 only. Declare the flow process with
 ``solvers = ["modflow6"]``.
 
+.. seealso::
+
+   To represent a dam cutoff wall (grout curtain) that forces the under-dam
+   seepage below the dam, add a ``cutoff_wall`` to the lake. See
+   :doc:`modflow6-flow-barrier`.
+
 Execution Model
 ---------------
 
