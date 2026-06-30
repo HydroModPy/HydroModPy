@@ -614,6 +614,17 @@ def run_pre_processing(  # noqa: PLR0915
             ocean_support_mask=np.asarray(ocean_support_mask, dtype=bool),
             stream_support_mask=np.asarray(stream_support_mask, dtype=bool),
         )
+        # Marnage lakebed cells stay active (they carry the LAK connection), but they
+        # are not hillslope: a route_drainage DRN on them would drain the lake's own
+        # leakage straight back to the streams (LAK -> aquifer -> DRN-to-MVR -> SFR ->
+        # lake), an artificial recirculation that inflates the lake-aquifer exchange.
+        # Drop their DRN rows so the under-lake aquifer equilibrates with the stage.
+        marnage_cells = getattr(model, "_marnage_lake_cells", None)
+        if marnage_cells:
+            drn_spd = remove_drain_cells(
+                drn_spd,
+                cells={int(cid) for cells in marnage_cells.values() for cid in cells},
+            )
         if sfr_networks:
             drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
             # route_drainage: every remaining DRN cell hands its discharge to the
