@@ -84,25 +84,67 @@ def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
 
 
 def _assert_parallel_safe(trial_ctx: Any, parallel: int) -> None:
-    """Reject parallel trials on a non-thread-safe solver runner.
+    """Parallel-safety check for the solver runner (now always isolated).
 
-    Parallel trials each run an independent solver subprocess (thread + its own
-    sandbox), which is safe. The MODFLOW 6 ``api`` runner instead drives libmf6
-    in-process via BMI, sharing global state across threads, so concurrent
-    trials would corrupt each other. Fail fast with a clear message rather than
-    produce silently wrong results.
+    Parallel trials each run their solver in its own child process, so no
+    libmf6 global state is shared across the calibration threads:
+
+    * the ``subprocess`` runner spawns the mf6 executable, and
+    * the ``api`` runner spawns a dedicated libmf6 child per solve
+      (:func:`hydromodpy.solver.modflow6.api_subprocess.run_mf6_api_isolated`),
+      rebuilding the exposed-band (marnage) callback from picklable specs.
+
+    The historical rejection of ``api`` + ``parallel`` is therefore lifted. A
+    custom in-process developer callback (``_mf6_api_callback``) is the only
+    non-isolated path; it is dev-only, never set by the calibration loop.
     """
-    if parallel <= 1:
+    return None
+
+
+def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
+    """Reject calibration bounds that fall outside the target field's valid range.
+
+    Field validation (e.g. a specific yield must stay in its physical range)
+    only fires when the process is built, not on plain attribute assignment, so
+    a bad bound is silent until each trial that samples there crashes at fork.
+    This probe injects every parameter's lower and upper bound into a copy of the
+    config and rebuilds the flow once; a build failure means the bound is out of
+    range, so fail fast with a clear message instead of losing trials.
+
+    Only flow-targeted parameters are probed (the common case: K, Sy, Ss,
+    bedleak, ...). A base flow that already fails to build is left for the run to
+    surface, so a pre-existing config issue is never blamed on a bound.
+    """
+    from hydromodpy.calibration.parameters import apply_parameter_to_config
+    from hydromodpy.physics.flow import Flow
+
+    base_cfg = getattr(trial_ctx, "base_cfg", None) or getattr(
+        getattr(trial_ctx, "ctx", None), "cfg", None
+    )
+    if base_cfg is None or not hasattr(base_cfg, "model_copy"):
         return
-    cfg = getattr(getattr(trial_ctx, "ctx", None), "cfg", None)
-    runtime = getattr(getattr(cfg, "modflow6", None), "runtime", None)
-    if getattr(runtime, "mf6_runner", "subprocess") == "api":
-        raise ValueError(
-            "calibration.parallel > 1 is not supported with the MODFLOW 6 'api' "
-            "(libmf6 in-process) runner: concurrent trials would share the BMI "
-            "state. Use mf6_runner='subprocess' (the default) to parallelize "
-            "trials, one independent mf6 process each."
-        )
+    try:
+        Flow(config=base_cfg.flow)
+    except Exception:
+        return
+    for param in space:
+        if param.effective_path is None or not param.effective_path.startswith("flow."):
+            continue
+        for label, value in (("lower", param.lower), ("upper", param.upper)):
+            probe = base_cfg.model_copy(deep=True)
+            apply_parameter_to_config(probe, param, float(value))
+            try:
+                Flow(config=probe.flow)
+            except Exception as exc:
+                lines = [ln.strip() for ln in str(exc).splitlines() if ln.strip()]
+                detail = next(
+                    (ln for ln in lines if "outside" in ln.lower()),
+                    lines[-1] if lines else str(exc),
+                )
+                raise ValueError(
+                    f"calibration parameter {param.name!r} {label} bound {value:g} is outside "
+                    f"the valid range for {param.effective_path!r}: {detail}"
+                ) from exc
 
 
 def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) -> None:
@@ -190,6 +232,7 @@ def run_calibration_core(
             )
 
     _assert_parallel_safe(trial_ctx, cfg.parallel)
+    _assert_bounds_valid(trial_ctx, space)
 
     session_id = uuid.uuid4().hex
     persistence.start_session(
@@ -249,6 +292,7 @@ def run_calibration_core(
         meta: dict[str, object] = {}
         if result.error:
             meta["error"] = result.error
+            logger.warning("Calibration trial %d %s: %s", sugg.trial_id, db_status, result.error)
         if cfg.persist_iteration_detail == "full":
             meta["block_costs"] = dict(result.metrics) if result.metrics else {}
         if materialize_root is not None and cfg_path is not None:

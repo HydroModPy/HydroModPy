@@ -2,7 +2,8 @@
 
 Covers:
 - :class:`TrialSandbox`: per-trial ``model_name_override`` + output cleanup,
-- the parallel-safety guard that rejects the in-process ``api`` runner.
+- the parallel-safety check, now a no-op: every runner (subprocess exe or the
+  spawn-isolated ``api``) runs each solve in its own process.
 """
 
 from __future__ import annotations
@@ -118,9 +119,11 @@ def _trial_ctx_with_runner(runner: str | None):
 
 
 class TestParallelGuard:
-    def test_api_runner_is_rejected_when_parallel(self):
-        with pytest.raises(ValueError, match="api"):
-            _assert_parallel_safe(_trial_ctx_with_runner("api"), 4)
+    def test_api_runner_is_allowed_when_parallel(self):
+        # The api runner now isolates each solve in its own spawn child process
+        # (run_mf6_api_isolated), so a private libmf6 per process makes api +
+        # parallel safe. The historical rejection is lifted: this must not raise.
+        _assert_parallel_safe(_trial_ctx_with_runner("api"), 4)
 
     def test_subprocess_runner_is_allowed(self):
         _assert_parallel_safe(_trial_ctx_with_runner("subprocess"), 4)
