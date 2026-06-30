@@ -87,6 +87,7 @@ class SfrReachRecord:
     area_km2: float = 0.0
     is_headwater: bool = False
     is_terminal_to_lake: bool = False
+    terminal_lake: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -351,6 +352,7 @@ def _resolve_trace_network(
                     "area_km2": float(parent.area_km2),
                     "is_headwater": False,
                     "is_terminal_to_lake": False,
+                    "terminal_lake": None,
                 }
             )
         first_sub[int(parent.ifno)] = base
@@ -363,6 +365,7 @@ def _resolve_trace_network(
             nodes[first_sub[int(parent.ifno)]]["is_headwater"] = True
         if bool(parent.is_terminal_to_lake):
             nodes[last_sub[int(parent.ifno)]]["is_terminal_to_lake"] = True
+            nodes[last_sub[int(parent.ifno)]]["terminal_lake"] = parent.terminal_lake
         for downstream in parent.downstream:
             edges.append((last_sub[int(parent.ifno)], first_sub[int(downstream)]))
 
@@ -437,6 +440,7 @@ def _number_and_freeze(
                 area_km2=float(data.get("area_km2", 0.0)),
                 is_headwater=bool(data.get("is_headwater", False)),
                 is_terminal_to_lake=bool(data.get("is_terminal_to_lake", False)),
+                terminal_lake=data.get("terminal_lake"),
             )
         )
     records.sort(key=lambda record: record.ifno)
@@ -716,8 +720,12 @@ def build_sfr_mover_records(
     EVERY terminal-to-lake reach of a coupled network provides its
     DOWNSTREAM-FLOW to the receiving lake (0-based lake number): a real
     reservoir is usually fed by several tributaries, each truncated at the
-    shoreline, so one MVR record is emitted per terminal reach. An empty result
-    means every network discharges out of the model (EXT-OUTFLOW).
+    shoreline, so one MVR record is emitted per terminal reach. Each terminal
+    routes to the SPECIFIC lake it drains into (``terminal_lake``, e.g. a
+    pre-retenue fed by the principal stream while lateral tributaries feed the
+    main reservoir); ``outflow_to_lake`` is the fallback when a terminal carries
+    no lake tag. An empty result means every network discharges out of the model
+    (EXT-OUTFLOW).
     """
     records: list[MoverRecord] = []
     for network_id, network in networks.items():
@@ -730,12 +738,15 @@ def build_sfr_mover_records(
         raw_value = definition.get("outflow_value")
         value = float(raw_value) if raw_value is not None else 1.0
         for terminal in terminals:
+            receiver_lake = (
+                terminal.terminal_lake if terminal.terminal_lake is not None else (int(lake_number))
+            )
             records.append(
                 MoverRecord(
                     provider=_SFR_PACKAGE_NAME,
                     provider_id=int(terminal.ifno),
                     receiver=_LAK_PACKAGE_NAME,
-                    receiver_id=int(lake_number) - 1,
+                    receiver_id=int(receiver_lake) - 1,
                     mvrtype=mvrtype,
                     value=value,
                 )

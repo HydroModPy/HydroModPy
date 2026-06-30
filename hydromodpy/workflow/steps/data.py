@@ -302,6 +302,9 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
                 "DEM + D8 pointer); run the geographic preprocessing first."
             )
         dem_res_m = float(geographic.dem_res)
+        # Lake polygons in LAK packagedata order (the lakes dict order, which the
+        # solver also enumerates): the delineation burns each with its 1-based
+        # position so a terminal reach is tagged with the specific lake it feeds.
         lakes = getattr(flow, "sinks_sources", {}).get("lakes") or {}
         lake_polygons = [
             _payload_attr(payload, "polygon")
