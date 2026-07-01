@@ -119,3 +119,19 @@ def test_short_recharge_stays_internal() -> None:
     small = {k: np.full(_NCPL, 1e-4) for k in range(10)}
     assert externalize_recharge_spd(small, basename="m") is small
     assert externalize_recharge_spd(small, basename="m", shared_dir="/tmp/x") is small
+
+
+def test_shared_recharge_dir_detects_a_trial_anywhere_in_the_path() -> None:
+    from types import SimpleNamespace
+
+    from hydromodpy.solver.modflow6.build import _shared_recharge_dir
+
+    # The trial folder can be the leaf, or a parent of a truncated mf6 model name;
+    # either way the shared dir sits beside the trial folder.
+    nested = SimpleNamespace(full_path="/p/.solver_scratch/run_trial000016/cheze_cal_377f4b")
+    leaf = SimpleNamespace(full_path="/p/.solver_scratch/run_trial000001")
+    single = SimpleNamespace(full_path="/p/.solver_scratch/plain_run")
+    assert _shared_recharge_dir(nested) == "/p/.solver_scratch/_shared_recharge"
+    assert _shared_recharge_dir(leaf) == "/p/.solver_scratch/_shared_recharge"
+    assert _shared_recharge_dir(single) is None
+    assert _shared_recharge_dir(SimpleNamespace(full_path=None)) is None

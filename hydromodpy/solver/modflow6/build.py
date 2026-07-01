@@ -162,17 +162,24 @@ def _shared_recharge_dir(model) -> str | None:
     dir and every trial references it (see ``externalize_recharge_spd``). A
     non-trial single run returns None and keeps the per-model binary layout.
 
-    The trial marker is read from the workspace FOLDER name, not ``model_name_mf6``
-    (which ``mf6_safe_name`` truncates to 16 chars, dropping the ``_trialNNNNNN``
-    suffix).
+    The trial marker is the ``_trialNNNNNN`` PATH COMPONENT (the sandbox folder),
+    found by walking ``full_path`` up: ``model_name_mf6`` (the ``full_path`` leaf)
+    is truncated to 16 chars by ``mf6_safe_name`` and drops the suffix, and the
+    trial folder can sit at either the leaf or its parent depending on the
+    workspace layout. The shared dir is a sibling of the trial folder.
     """
     full_path = getattr(model, "full_path", None)
     if not full_path:
         return None
-    folder = os.path.basename(str(full_path).rstrip("/\\"))
-    if not re.search(r"_trial\d{6}$", folder):
-        return None
-    return os.path.join(os.path.dirname(str(full_path)), "_shared_recharge")
+    path = os.path.normpath(str(full_path))
+    while path and path not in (os.sep, "."):
+        head, tail = os.path.split(path)
+        if re.search(r"_trial\d{6}$", tail):
+            return os.path.join(head, "_shared_recharge")
+        if head == path:
+            break
+        path = head
+    return None
 
 
 def xt3d_requested(model) -> bool | None:
