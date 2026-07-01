@@ -626,14 +626,37 @@ def sfr_routes_drainage(networks: Mapping[str, ResolvedSfrNetwork]) -> bool:
     return any(bool(network.definition.get("route_drainage")) for network in networks.values())
 
 
+def watershed_drainage_cell_mask(
+    watershed_geometry: object,
+    cell_centroids: np.ndarray,
+) -> np.ndarray:
+    """Boolean (n_cells,) mask, True where a cell centroid lies in the watershed.
+
+    Used to keep hillslope DRN routing inside the topographic catchment: DRN
+    cells in the surrounding buffer model neighbouring basins and must not feed
+    this catchment's streams and lake (see ``build_drainage_mover_records``).
+    """
+    from shapely.geometry import Point
+    from shapely.prepared import prep
+
+    prepared = prep(watershed_geometry)
+    centroids = np.asarray(cell_centroids, dtype=float)
+    return np.fromiter(
+        (prepared.covers(Point(float(x), float(y))) for x, y in centroids),
+        dtype=bool,
+        count=len(centroids),
+    )
+
+
 def build_drainage_mover_records(
     networks: Mapping[str, ResolvedSfrNetwork],
     *,
     drn_spd: Mapping[int, Sequence[Sequence[float]]],
     cell_centroids: np.ndarray,
     lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
+    watershed_cell_mask: np.ndarray | None = None,
 ) -> list[MoverRecord]:
-    """Route every remaining DRN cell's discharge to its nearest water via MVR.
+    """Route every in-watershed DRN cell's discharge to its nearest water via MVR.
 
     The hillslope drainage exfiltrates at the land surface and converges towards
     the nearest surface water: each DRN boundary becomes an MVR provider handing
@@ -646,10 +669,19 @@ def build_drainage_mover_records(
     same-iteration feedback (lake stage -> lakeside heads -> drains -> lake)
     that otherwise oscillates when the spillway engages.
 
+    ``watershed_cell_mask`` (a boolean array indexed by cell2d) restricts routing
+    to the topographic watershed. A DRN cell in the buffer (mask False) belongs
+    to a neighbouring basin: its exfiltration must leave the model as a plain
+    DRN, not feed this catchment's streams and lake. Skipping its MVR record
+    leaves the DRN row untouched, so the aquifer heads (and the inter-basin
+    exchange the buffer models) are unchanged; only the water's destination
+    differs. ``None`` keeps every remaining DRN cell routed.
+
     The MVR provider id of a list-based package is the boundary's position in
     the period list, so the DRN stress-period data must be single-period (a
     static drain); a per-period list would renumber the providers and silently
-    mis-route.
+    mis-route. Skipping buffer cells preserves that alignment because it keeps
+    the full row order and only drops the record for the skipped index.
     """
     if not sfr_routes_drainage(networks):
         return []
@@ -692,6 +724,11 @@ def build_drainage_mover_records(
     rows = next(iter(drn_spd.values()))
     for boundary_index, row in enumerate(rows):
         cell2d = int(row[1])
+        if watershed_cell_mask is not None and not bool(watershed_cell_mask[cell2d]):
+            # Buffer cell: its hillslope drainage belongs to a neighbouring basin
+            # and leaves the model as a plain DRN, so no MVR record. The boundary
+            # index still tracks the row position, keeping the other providers aligned.
+            continue
         delta = target_xy - cell_centroids[cell2d]
         nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
         records.append(
@@ -1212,4 +1249,5 @@ __all__ = [
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
     "sfr_routes_drainage",
+    "watershed_drainage_cell_mask",
 ]
