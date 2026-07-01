@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections.abc import Mapping
 
 import flopy
@@ -150,6 +151,24 @@ def _write_sfr_obs_meta(model, sfr_obs_meta: Mapping[str, object]) -> None:
     meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.sfr.meta.json")
     with open(meta_path, "w", encoding="utf-8") as fh:
         json.dump(dict(sfr_obs_meta), fh, sort_keys=True)
+
+
+def _shared_recharge_dir(model) -> str | None:
+    """Return the shared recharge directory for a calibration trial, else None.
+
+    The calibration ``TrialSandbox`` names each trial model ``<base>_trialNNNNNN``
+    and writes it under a scratch folder shared by all trials. The recharge is
+    invariant across trials, so it lives once in a sibling ``_shared_recharge``
+    dir and every trial references it (see ``externalize_recharge_spd``). A
+    non-trial single run returns None and keeps the per-model binary layout.
+    """
+    name = str(getattr(model, "model_name_mf6", "") or "")
+    if not re.search(r"_trial\d{6}$", name):
+        return None
+    full_path = getattr(model, "full_path", None)
+    if not full_path:
+        return None
+    return os.path.join(os.path.dirname(str(full_path)), "_shared_recharge")
 
 
 def xt3d_requested(model) -> bool | None:
@@ -575,7 +594,11 @@ def run_pre_processing(  # noqa: PLR0915
     model.rch_spd = collapse_identical_periods(model.rch_spd)
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
-        recharge=externalize_recharge_spd(model.rch_spd, basename=model.model_name_mf6),
+        recharge=externalize_recharge_spd(
+            model.rch_spd,
+            basename=model.model_name_mf6,
+            shared_dir=_shared_recharge_dir(model),
+        ),
         auxiliary=["CONCENTRATION"],
         aux=empty_recharge_aux(model),
         pname="RCHA",

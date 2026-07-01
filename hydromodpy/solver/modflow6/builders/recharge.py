@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
+import threading
 import warnings
 from collections.abc import Iterable, Mapping
 from numbers import Real
+from pathlib import Path
 
 import numpy as np
 
@@ -517,6 +521,7 @@ def externalize_recharge_spd(
     spd: dict[int, np.ndarray],
     *,
     basename: str,
+    shared_dir: str | os.PathLike[str] | None = None,
 ) -> dict[int, np.ndarray] | dict[int, dict]:
     """Route long transient recharge stacks to external binary array files.
 
@@ -525,9 +530,19 @@ def externalize_recharge_spd(
     files are written through numpy and read natively by MF6 via
     ``OPEN/CLOSE <file> (BINARY)``. Short records stay internal so small
     models keep human-readable input files.
+
+    ``shared_dir`` enables the CALIBRATION fast path: the recharge is invariant
+    across trials (K / Sy / bedleak do not change it), so the per-period ``.bin``
+    are written ONCE to ``shared_dir`` (content-hashed) and every trial merely
+    references them (``filename`` without ``data``), instead of re-writing
+    thousands of files per trial under the GIL. The write is atomic
+    (temp + rename), so concurrent first-generation trials never read a partial
+    file.
     """
     if len(spd) < RECHARGE_BINARY_MIN_PERIODS:
         return spd
+    if shared_dir is not None:
+        return _shared_recharge_spd(spd, Path(shared_dir))
     return {
         kper: {
             "factor": 1.0,
@@ -537,6 +552,61 @@ def externalize_recharge_spd(
         }
         for kper, arr in spd.items()
     }
+
+
+def _recharge_digest(spd: dict[int, np.ndarray]) -> str:
+    """Content hash of the recharge stack, so a changed forcing gets new files."""
+    hasher = hashlib.blake2b(digest_size=16)
+    for kper in sorted(spd):
+        arr = np.ascontiguousarray(np.asarray(spd[kper], dtype=np.float64))
+        hasher.update(np.int64(kper).tobytes())
+        hasher.update(np.int64(arr.size).tobytes())
+        hasher.update(arr.tobytes())
+    return hasher.hexdigest()
+
+
+def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None:
+    """Write one recharge period to ``target`` in the exact MF6 binary format.
+
+    Idempotent and race-safe: skips an existing target, and otherwise writes a
+    per-writer temp then atomically renames it, so a concurrent reader only ever
+    sees a complete file (all writers emit identical bytes).
+    """
+    if target.exists():
+        return
+    from flopy.utils import Util2d
+    from flopy.utils.binaryfile import BinaryHeader
+
+    ncpl = int(arr.size)
+    header = BinaryHeader.create(
+        bintype="head",
+        precision="double",
+        text="RECHARGE",
+        ncol=ncpl,
+        nrow=1,
+        ilay=1,
+        pertim=1.0,
+        totim=1.0,
+        kstp=1,
+        kper=int(kper) + 1,
+    )
+    tmp = target.with_name(f"{target.name}.tmp.{os.getpid()}.{threading.get_ident()}")
+    Util2d.write_bin(
+        (1, ncpl), str(tmp), np.ascontiguousarray(arr).reshape(1, ncpl), header_data=header
+    )
+    os.replace(str(tmp), str(target))
+
+
+def _shared_recharge_spd(spd: dict[int, np.ndarray], shared_dir: Path) -> dict[int, dict]:
+    """Write the trial-invariant recharge once and return reference-only specs."""
+    shared_dir.mkdir(parents=True, exist_ok=True)
+    digest = _recharge_digest(spd)
+    out: dict[int, dict] = {}
+    for kper, arr in spd.items():
+        target = shared_dir / f"rcha_{digest}.{kper}.bin"
+        _write_shared_recharge_bin(target, np.asarray(arr, dtype=np.float64), kper)
+        out[kper] = {"factor": 1.0, "filename": str(target), "binary": True}
+    return out
 
 
 def empty_recharge_aux(model) -> dict[int, list[np.ndarray]]:
