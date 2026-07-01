@@ -51,6 +51,7 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_xt3d_npf_options,
     sfr_drain_cells_to_drop,
     sto_period_settings,
+    watershed_drainage_cell_mask,
     xt3d_activation_mode,
     xt3d_requested_value,
 )
@@ -180,6 +181,40 @@ def _shared_recharge_dir(model) -> str | None:
             break
         path = head
     return None
+
+
+def _watershed_drainage_mask(model, cell_centroids: np.ndarray) -> np.ndarray | None:
+    """Cells inside the topographic watershed, to keep DRN routing off the buffer.
+
+    The active domain is the buffered box, so DRN cells in the buffer model the
+    neighbouring basins. Their hillslope drainage must leave the model (plain
+    DRN), not feed this catchment's streams and lake, so they are excluded from
+    the DRN -> MVR routing. Returns ``None`` when the watershed polygon is
+    unavailable (keeps every remaining DRN cell routed).
+    """
+    geographic = getattr(model, "geographic", None)
+    shp = getattr(geographic, "watershed_shp", None)
+    if not shp or not os.path.exists(str(shp)):
+        logger.warning(
+            "watershed polygon not found (%s); hillslope DRN routes over the full "
+            "buffered domain, over-feeding this catchment's surface water.",
+            shp,
+        )
+        return None
+    import geopandas as gpd
+
+    gdf = gpd.read_file(str(shp))
+    if gdf.empty:
+        return None
+    mask = watershed_drainage_cell_mask(gdf.geometry.union_all(), cell_centroids)
+    n_in = int(mask.sum())
+    logger.info(
+        "watershed DRN mask: %d/%d active cells inside the catchment; "
+        "buffer DRN drains out instead of feeding the streams.",
+        n_in,
+        int(mask.size),
+    )
+    return mask
 
 
 def xt3d_requested(model) -> bool | None:
@@ -662,18 +697,21 @@ def run_pre_processing(  # noqa: PLR0915
             )
         if sfr_networks:
             drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
-            # route_drainage: every remaining DRN cell hands its discharge to the
+            # route_drainage: every in-watershed DRN cell hands its discharge to the
             # nearest reach, or to the coupled lake when its shoreline is closer
             # (MVR), so the hillslope drainage converges to the surface water
-            # instead of leaving the model. The provider ids index the period-0
-            # rows, hence the static-DRN requirement in the builder.
+            # instead of leaving the model. Buffer cells model neighbouring basins
+            # and stay plain DRN (they must not feed this catchment). The provider
+            # ids index the period-0 rows, hence the static-DRN requirement.
+            drn_cell_centroids = solver_mesh.cell_centroids()
             drainage_movers = build_drainage_mover_records(
                 sfr_networks,
                 drn_spd=drn_spd,
-                cell_centroids=solver_mesh.cell_centroids(),
+                cell_centroids=drn_cell_centroids,
                 lake_cells_by_number={
                     index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
                 },
+                watershed_cell_mask=_watershed_drainage_mask(model, drn_cell_centroids),
             )
             if drainage_movers:
                 drainage_mover_rows = build_mvr_period_records(drainage_movers)

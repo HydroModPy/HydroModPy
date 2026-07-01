@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from shapely.geometry import LineString
+from shapely.geometry import LineString, box
 
 from hydromodpy.physics.flow.sinks_sources.sfr import (
     FlowReachConfig,
@@ -22,6 +22,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     remove_drain_cells,
     resolve_sfr_networks,
     sfr_drain_cells_to_drop,
+    watershed_drainage_cell_mask,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
@@ -516,3 +517,57 @@ def test_drainage_near_the_lake_routes_to_the_lake_tributary() -> None:
     # The lakeside drain lands on the terminal-to-lake reach, not a far one.
     terminal = max(reach.ifno for reach in networks["net0"].reaches)
     assert records[0].receiver_id == terminal
+
+
+def test_drainage_mover_records_skip_buffer_cells_outside_the_watershed() -> None:
+    # Buffer DRN cells (outside the watershed) model neighbouring basins: their
+    # discharge must leave the model as a plain DRN, so they get NO mover record,
+    # while the surviving providers keep their period-0 row index (no renumber).
+    mesh = _mesh()
+    model = _fake_model(
+        {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
+    )
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    reach_cells = {reach.cellid[1] for reach in networks["net0"].reaches}
+    drn_spd = remove_drain_cells(
+        {0: [[0, cid, 100.0, 0.05] for cid in range(25)]}, cells=reach_cells
+    )
+    # Mark the last two grid rows (cell2d >= 15) as buffer, outside the watershed.
+    watershed_mask = np.array([cid < 15 for cid in range(mesh.n_cells)], dtype=bool)
+
+    records = build_drainage_mover_records(
+        networks,
+        drn_spd=drn_spd,
+        cell_centroids=mesh.cell_centroids(),
+        watershed_cell_mask=watershed_mask,
+    )
+
+    rows = drn_spd[0]
+    inside_indices = [i for i, row in enumerate(rows) if watershed_mask[int(row[1])]]
+    outside_indices = [i for i, row in enumerate(rows) if not watershed_mask[int(row[1])]]
+    assert outside_indices, "the fixture must include buffer DRN cells to exercise the skip"
+    # One record per in-watershed DRN cell; provider ids are exactly the in-watershed
+    # row positions (buffer rows dropped in place, not renumbered).
+    assert [r.provider_id for r in records] == inside_indices
+    assert all(watershed_mask[int(rows[r.provider_id][1])] for r in records)
+    # No buffer cell is routed to any surface water.
+    assert not (set(r.provider_id for r in records) & set(outside_indices))
+
+
+def test_watershed_drainage_cell_mask_classifies_cells_by_centroid() -> None:
+    mesh = _mesh()
+    centroids = mesh.cell_centroids()
+    xs = np.unique(centroids[:, 0])
+    threshold = float((xs[2] + xs[3]) / 2.0)  # strictly between two cell columns
+    poly = box(
+        float(centroids[:, 0].min() - 1.0),
+        float(centroids[:, 1].min() - 1.0),
+        threshold,
+        float(centroids[:, 1].max() + 1.0),
+    )
+
+    mask = watershed_drainage_cell_mask(poly, centroids)
+
+    assert mask.dtype == bool and mask.shape == (mesh.n_cells,)
+    assert np.array_equal(mask, centroids[:, 0] < threshold)
+    assert mask.any() and not mask.all()  # genuinely partitions the grid
