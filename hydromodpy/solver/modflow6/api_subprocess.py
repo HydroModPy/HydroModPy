@@ -69,8 +69,11 @@ def _api_subprocess_entry(
             def callback(ctx: Mf6ApiContext) -> None:
                 return None
 
-        with progress.suppressed(), _silence_stdout_fd(verbose):
-            success = run_mf6_api(sim_ws, callback, lib_path=lib_path, verbose=verbose)
+        # The isolated path is only ever a parallel-calibration solve, where the
+        # per-timestep libmf6 / modflowapi chatter (12 trials interleaved) is pure
+        # noise: run the solve quiet and redirect the child's stdout fd.
+        with progress.suppressed(), _silence_stdout_fd():
+            success = run_mf6_api(sim_ws, callback, lib_path=lib_path, verbose=False)
         result_queue.put((True, bool(success)))
     except BaseException as exc:  # noqa: BLE001 - relayed to the parent verbatim
         import traceback
@@ -79,17 +82,15 @@ def _api_subprocess_entry(
 
 
 @contextmanager
-def _silence_stdout_fd(verbose: bool):
-    """Redirect the child's OS stdout (fd 1) to devnull unless ``verbose``.
+def _silence_stdout_fd():
+    """Redirect the child's OS stdout (fd 1) to devnull.
 
-    libmf6 writes its banner through the Fortran/C stdout file descriptor, which
-    ``contextlib.redirect_stdout`` cannot reach; redirecting fd 1 keeps the
-    parallel calibration console clean. The verdict is read from the listing, so
-    nothing is lost. stderr (fd 2) is left intact for crash output.
+    libmf6 / modflowapi write per-timestep progress through the Fortran/C stdout
+    file descriptor, which ``contextlib.redirect_stdout`` cannot reach; on a
+    daily multi-thousand-period solve that floods the log. Redirecting fd 1 keeps
+    the parallel calibration console clean. The verdict is read from the listing,
+    so nothing is lost. stderr (fd 2) stays intact for crash output.
     """
-    if verbose:
-        yield
-        return
     saved = os.dup(1)
     devnull = os.open(os.devnull, os.O_WRONLY)
     try:
