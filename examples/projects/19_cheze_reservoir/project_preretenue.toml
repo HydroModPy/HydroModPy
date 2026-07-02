@@ -360,16 +360,10 @@ buffer = 160.0
 dam_cell_size = 60.0
 dam_buffer = 130.0
 
-# Coarsen the mesh outside the study watershed. The buffer models the neighbouring
-# hillslopes for inter-basin GW exchange; it does not need the ~150 m river-grid
-# resolution. Keeps 150 m + river refinement inside, ~300 m outside, cutting the
-# outside-watershed cell count. watershed_boundary.enabled stays off on purpose:
-# we want the coarsening size field, not an extra boundary-line refinement.
-[mesh_catchment.watershed_boundary.outside_coarsening]
-enabled = true
-size_factor = 2.0
-transition_distance = 680.0
-grid_resolution = 680.0
+# NB: outside-watershed coarsening was tested here and reverted. It builds a valid,
+# well-shaped coarser mesh, but the Newton solve (marnage + hillslope DRN on the
+# larger buffer cells) then crawls and diverges: coarser cells swing the head more
+# per iteration, so the drying/wetting oscillates. Uniform ~150 m stays reliable.
 
 # Vertical layering still comes from the backend sgrid.vertical block; only the
 # planar grid is now the GMSH unstructured mesh above.

@@ -80,6 +80,21 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
 # avoiding a per-solve process spawn.
 _API_ISOLATION_ENABLED = False
 
+# A non-converging libmf6 solve can spin at full CPU indefinitely (the solve() call
+# never returns), which would wedge a whole parallel calibration on one bad trial.
+# The isolated child is killed after this wall-clock budget so the trial is recorded
+# as failed and the session continues. Generous vs a normal daily solve (~15 min);
+# override per model with ``runtime.mf6_api_timeout_s`` (<=0 disables).
+_API_ISOLATION_DEFAULT_TIMEOUT_S = 2400.0
+
+
+def _api_isolation_timeout_s(model) -> float | None:
+    runtime = getattr(model, "runtime", None)
+    override = getattr(runtime, "mf6_api_timeout_s", None)
+    if override is not None:
+        return float(override) if float(override) > 0 else None
+    return _API_ISOLATION_DEFAULT_TIMEOUT_S
+
 
 def api_isolation_enabled() -> bool:
     """Whether api solves should run in an isolated child process."""
@@ -131,6 +146,7 @@ def _run_via_api(model, *, verbose: bool) -> bool:
             band_specs=getattr(model, "_exposed_band_runoff_specs", None),
             lib_path=lib_path,
             verbose=verbose,
+            timeout=_api_isolation_timeout_s(model),
         )
 
     from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext, run_mf6_api
