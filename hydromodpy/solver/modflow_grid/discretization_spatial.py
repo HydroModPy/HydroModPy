@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from contextlib import contextmanager
 
 import numpy as np
 
@@ -22,35 +21,6 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
-
-# Voronoi/PEBI dual grid switch. When enabled, the runtime triangular planar mesh
-# is dualized into a Voronoi mesh (exact perpendicular-bisector CVFD orthogonality,
-# ~half the cells, XT3D-free) before the SolverMesh is built. The gmsh triangulation
-# stays the refinement/constraint seed engine; only the solver grid changes.
-_VORONOI_DUAL_ENABLED = True
-
-
-def voronoi_dual_enabled() -> bool:
-    """Whether the runtime planar mesh is dualized to Voronoi before the SolverMesh."""
-    return _VORONOI_DUAL_ENABLED
-
-
-def set_voronoi_dual_enabled(enabled: bool) -> None:
-    """Set the process-wide Voronoi-dual grid switch."""
-    global _VORONOI_DUAL_ENABLED
-    _VORONOI_DUAL_ENABLED = bool(enabled)
-
-
-@contextmanager
-def voronoi_dual_context(enabled: bool):
-    """Temporarily toggle the Voronoi-dual grid switch within a block."""
-    global _VORONOI_DUAL_ENABLED
-    previous = _VORONOI_DUAL_ENABLED
-    _VORONOI_DUAL_ENABLED = bool(enabled)
-    try:
-        yield
-    finally:
-        _VORONOI_DUAL_ENABLED = previous
 
 
 def resolve_domain_surfaces(
@@ -170,56 +140,34 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     bottom_surface: Surface,
     vertical_config: VerticalGridConfig | None,
     nodata: float,
-    runtime_mesh_support: object | None = None,
 ) -> SolverMesh:
-    if voronoi_dual_enabled():
-        from hydromodpy.spatial.mesh.voronoi import (
-            domain_polygon_from_mesh,
-            voronoi_dual_of_mesh,
-        )
+    # The solver grid is the Voronoi/PEBI dual of the gmsh triangulation: exact
+    # perpendicular-bisector CVFD orthogonality, an interior node, an M-matrix, and
+    # ~half the cells. The triangulation stays the refinement/constraint seed engine.
+    from hydromodpy.spatial.mesh.voronoi import (
+        domain_polygon_from_mesh,
+        voronoi_dual_of_mesh,
+    )
 
-        triangulation = (
-            planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
-        )
-        planar_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
-        # The triangle-cell support fields no longer index the dual cells; re-sample
-        # top/botm at the Voronoi generators from the surfaces instead.
-        runtime_mesh_support = None
+    triangulation = (
+        planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
+    )
+    planar_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
 
     mesh_2d = planar_mesh
     hydro_mesh = (
         planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
     )
 
+    # Sample top/botm at the Voronoi generators from the domain surfaces. The former
+    # triangle-cell vertical support (mesh bundle z_top/z_bottom) is not carried: it
+    # indexes the triangulation, not the dual cells, so the surfaces are the source.
     x_centers, y_centers = mesh_2d.cell_centroids()
     cfg = _coerce_vertical_config(vertical_config)
     top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
     bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
     top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
     bottom_flat = np.asarray(bottom_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
-
-    support_top = np.asarray(
-        getattr(runtime_mesh_support, "cell_z_top_m", ()),
-        dtype=float,
-    ).reshape(-1)
-    support_bottom = np.asarray(
-        getattr(runtime_mesh_support, "cell_z_bottom_m", ()),
-        dtype=float,
-    ).reshape(-1)
-    support_has_vertical = (
-        support_top.size == x_centers.size
-        and support_bottom.size == x_centers.size
-        and bool(np.any(np.isfinite(support_top) & np.isfinite(support_bottom)))
-    )
-    if support_has_vertical:
-        sampled_missing = (
-            ~np.isfinite(top_flat)
-            | ~np.isfinite(bottom_flat)
-            | (top_flat <= float(nodata))
-            | (bottom_flat <= float(nodata))
-        )
-        top_flat = np.where(sampled_missing, support_top, top_flat)
-        bottom_flat = np.where(sampled_missing, support_bottom, bottom_flat)
 
     invalid = (
         ~np.isfinite(top_flat)
@@ -253,7 +201,6 @@ def build_spatial_discretization(
     domain: DomainLike,
     sgrid_config: SolverSGridConfig | None,
     runtime_planar_mesh: object | None = None,
-    runtime_mesh_support: object | None = None,
 ) -> SolverGridContext:
     """Build normalized spatial discretization from domain surfaces or runtime mesh."""
     vertical_config: VerticalGridConfig | None = None
@@ -297,7 +244,6 @@ def build_spatial_discretization(
             bottom_surface=bottom_surface,
             vertical_config=vertical_config,
             nodata=nodata,
-            runtime_mesh_support=runtime_mesh_support,
         )
 
     return SolverGridContext(

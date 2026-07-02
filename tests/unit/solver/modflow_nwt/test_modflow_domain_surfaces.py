@@ -174,7 +174,7 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
     assert ctx.grid.cell_area == pytest.approx((0.5) * (2.0 / 3.0))
 
 
-def test_runtime_planar_mesh_uses_domain_surfaces_before_bundle_vertical_fallback():
+def test_runtime_planar_mesh_samples_domain_surfaces_at_voronoi_generators():
     top = np.full((2, 2), 20.0, dtype=float)
     bottom = np.zeros((2, 2), dtype=float)
     domain = _build_domain_from_dem(top)
@@ -203,31 +203,26 @@ def test_runtime_planar_mesh_uses_domain_surfaces_before_bundle_vertical_fallbac
         ),
     )
     planar_mesh = _RuntimePlanarMesh(hydro_mesh)
-    runtime_mesh_support = SimpleNamespace(
-        cell_z_top_m=np.array([25.0, 30.0], dtype=float),
-        cell_z_bottom_m=np.array([5.0, 10.0], dtype=float),
+
+    ctx = build_spatial_discretization(
+        domain=domain,
+        sgrid_config=SolverSGridConfig(
+            vertical=VerticalGridConfig(
+                genmtd_lay="constant",
+                nlay=1,
+                nodata=-9999.0,
+            ),
+        ),
+        runtime_planar_mesh=planar_mesh,
     )
 
-    # This asserts the surface-vs-bundle priority on a controlled 2-triangle mesh;
-    # pin the triangle grid so the Voronoi dual does not change the cell count.
-    from hydromodpy.solver.modflow_grid.discretization_spatial import voronoi_dual_context
-
-    with voronoi_dual_context(False):
-        ctx = build_spatial_discretization(
-            domain=domain,
-            sgrid_config=SolverSGridConfig(
-                vertical=VerticalGridConfig(
-                    genmtd_lay="constant",
-                    nlay=1,
-                    nodata=-9999.0,
-                ),
-            ),
-            runtime_planar_mesh=planar_mesh,
-            runtime_mesh_support=runtime_mesh_support,
-        )
-
-    assert ctx.solver_mesh.top.tolist() == pytest.approx([20.0, 20.0])
-    assert ctx.solver_mesh.botm.reshape(-1).tolist() == pytest.approx([0.0, 0.0])
+    # The runtime triangulation is dualized to a Voronoi solver grid whose top/botm
+    # are sampled from the domain surfaces at the generators: every dual cell takes
+    # the DEM top (20) and substratum (0), whatever the dual cell count.
+    top = ctx.solver_mesh.top.reshape(-1)
+    botm = ctx.solver_mesh.botm.reshape(-1)
+    assert top.tolist() == pytest.approx([20.0] * top.size)
+    assert botm.tolist() == pytest.approx([0.0] * botm.size)
 
 
 def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
