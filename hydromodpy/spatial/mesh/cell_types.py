@@ -16,13 +16,23 @@ class CellType(Enum):
     # -- 2D -------------------------------------------------------------------
     TRIANGLE = "triangle"
     QUADRILATERAL = "quadrilateral"
+    POLYGON = "polygon"  # arbitrary n-gon, ragged (Voronoi/PEBI cells)
 
     # -- 3D (layered extrusion) -----------------------------------------------
     WEDGE = "wedge"  # triangular prism (3 + 3 nodes)
     HEXAHEDRON = "hexahedron"  # quadrilateral prism (4 + 4 nodes)
 
     @property
+    def is_ragged(self) -> bool:
+        """Whether cells of this type have a variable number of nodes."""
+        return self is CellType.POLYGON
+
+    @property
     def nodes_per_cell(self) -> int:
+        if self.is_ragged:
+            raise ValueError(
+                f"{self.value} cells have a variable node count; use ragged connectivity"
+            )
         return _NODES_PER_CELL[self]
 
     @property
@@ -56,6 +66,7 @@ _3D_TYPES = {CellType.WEDGE, CellType.HEXAHEDRON}
 _MESHIO_NAMES = {
     CellType.TRIANGLE: "triangle",
     CellType.QUADRILATERAL: "quad",
+    CellType.POLYGON: "polygon",
     CellType.WEDGE: "wedge",
     CellType.HEXAHEDRON: "hexahedron",
 }
@@ -64,6 +75,10 @@ _ALIASES: dict[str, CellType] = {
     "triangle": CellType.TRIANGLE,
     "triangles": CellType.TRIANGLE,
     "tri": CellType.TRIANGLE,
+    "polygon": CellType.POLYGON,
+    "polygons": CellType.POLYGON,
+    "ngon": CellType.POLYGON,
+    "voronoi": CellType.POLYGON,
     "quadrilateral": CellType.QUADRILATERAL,
     "quadrilaterals": CellType.QUADRILATERAL,
     "quad": CellType.QUADRILATERAL,

@@ -30,14 +30,23 @@ class CellBlock:
     """
 
     cell_type: CellType
-    connectivity: np.ndarray  # (n_cells, nodes_per_cell), int
+    # Rectangular ``(n_cells, nodes_per_cell)`` int array for fixed-size cells, or a
+    # tuple of 1D int arrays (one per cell) for a ragged ``POLYGON`` block.
+    connectivity: np.ndarray | tuple[np.ndarray, ...]
 
     def __post_init__(self) -> None:
-        """Normalize and validate the homogeneous connectivity block."""
+        """Normalize and validate the connectivity block (rectangular or ragged)."""
         ct = self.cell_type
         if not isinstance(ct, CellType):
             object.__setattr__(self, "cell_type", CellType.from_string(str(ct)))
             ct = self.cell_type
+        if ct.is_ragged:
+            cells = tuple(np.asarray(c, dtype=int).ravel() for c in self.connectivity)
+            for c in cells:
+                if c.size < 3:
+                    raise ValueError(f"{ct.value} cell needs >= 3 node indices, got {c.size}")
+            object.__setattr__(self, "connectivity", cells)
+            return
         conn = np.asarray(self.connectivity, dtype=int)
         if conn.ndim != 2 or conn.shape[1] != ct.nodes_per_cell:
             raise ValueError(
@@ -48,6 +57,8 @@ class CellBlock:
 
     @property
     def n_cells(self) -> int:
+        if self.cell_type.is_ragged:
+            return len(self.connectivity)
         return int(self.connectivity.shape[0])
 
 
@@ -89,7 +100,16 @@ class HydroMesh:
 
         n_nodes = verts.shape[0]
         for block in self.cell_blocks:
-            if np.any(block.connectivity < 0) or np.any(block.connectivity >= n_nodes):
+            if block.cell_type.is_ragged:
+                out_of_range = any(
+                    c.size and (int(c.min()) < 0 or int(c.max()) >= n_nodes)
+                    for c in block.connectivity
+                )
+            else:
+                out_of_range = bool(
+                    np.any(block.connectivity < 0) or np.any(block.connectivity >= n_nodes)
+                )
+            if out_of_range:
                 raise ValueError(
                     f"connectivity in {block.cell_type.value} block references "
                     "node indices outside vertices"
@@ -127,15 +147,20 @@ class HydroMesh:
         return next(iter(types))
 
     @property
-    def flat_connectivity(self) -> np.ndarray:
-        """Concatenate connectivity across all blocks.
+    def flat_connectivity(self) -> np.ndarray | tuple[np.ndarray, ...]:
+        """Connectivity across all blocks as a per-cell sequence.
 
-        This helper is convenient when a downstream consumer only cares about
-        the flattened cell stream and has already ensured that mixed cell types
-        are acceptable.
+        Returns a rectangular ``(n_cells, k)`` array for a single fixed-size
+        block (the common case), or a tuple of 1D arrays for a ragged
+        ``POLYGON`` block. Either way it is indexable per cell (``conn[ic]``)
+        and has ``len(conn) == n_cells``, which is all the DISV adapter needs.
+        Mixing ragged and rectangular blocks is not supported here.
         """
         if len(self.cell_blocks) == 1:
-            return np.asarray(self.cell_blocks[0].connectivity, dtype=int)
+            block = self.cell_blocks[0]
+            if block.cell_type.is_ragged:
+                return block.connectivity
+            return np.asarray(block.connectivity, dtype=int)
         return np.vstack([b.connectivity for b in self.cell_blocks]).astype(int, copy=False)
 
     def bounds(self) -> tuple[float, ...]:
