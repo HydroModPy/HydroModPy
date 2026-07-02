@@ -11,6 +11,7 @@ This layer deliberately keeps the public meshing contract small before Gmsh:
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import replace
 from math import hypot
 from pathlib import Path
 from types import SimpleNamespace
@@ -873,6 +874,7 @@ def _build_zone_conformal_meshing_inputs(
         )
     regional_size_fields: tuple[ZoneRegionalSizeField, ...] = ()
     outside_coarsening_summary: dict[str, object] | None = None
+    effective_lake_size_fields = lake_size_fields
     outside_field = _build_watershed_outside_size_field(
         region_geometry=outside_region_geometry,
         watershed_boundary_cfg=cfg.watershed_boundary,
@@ -880,6 +882,19 @@ def _build_zone_conformal_meshing_inputs(
     )
     if outside_field is not None:
         regional_size_fields = (outside_field,)
+        # Lake refinement fields default their far-field (outside_size) to global_size.
+        # GMSH combines all size fields with Min, so that far-field would clamp the whole
+        # domain to global_size and silently defeat the outside coarsening. Lift each lake
+        # field's far-field to the coarsened outside size, so it only refines NEAR the lake
+        # and defers to the coarsened background elsewhere. The coarsening field still holds
+        # global_size inside the watershed, so nothing coarsens there.
+        effective_lake_size_fields = tuple(
+            replace(
+                field,
+                outside_size=max(float(field.outside_size), float(outside_field.outside_size)),
+            )
+            for field in lake_size_fields
+        )
         outside_coarsening_summary = {
             "enabled": True,
             "inside_size": float(outside_field.inside_size),
@@ -901,7 +916,7 @@ def _build_zone_conformal_meshing_inputs(
             + tuple(geology_linear_constraints)
             + linear_constraints
         ),
-        regional_size_fields=tuple(regional_size_fields) + tuple(lake_size_fields),
+        regional_size_fields=tuple(regional_size_fields) + tuple(effective_lake_size_fields),
         diagnostics=ZoneConformalMeshingDiagnostics(
             source_plot_gdf=source_plot_gdf,
             rivers_cfg=cfg.rivers,

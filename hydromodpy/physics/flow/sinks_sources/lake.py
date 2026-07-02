@@ -338,6 +338,16 @@ class FlowLakeConfig(HydroModelBase):
             "lake for the VERTICAL leakage connection."
         ),
     )
+    fill_enclosed_cells: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Fill cells enclosed by the lake footprint (the polygon's interior "
+            "rings / islands) so the lake is contiguous. Off by default: interior "
+            "rings stay active aquifer (real islands). Enable to drop sub-grid "
+            "islands and classification pockets that would otherwise be isolated "
+            "non-lake cells inside the lake."
+        ),
+    )
     surfdep: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
         ge=0.0,

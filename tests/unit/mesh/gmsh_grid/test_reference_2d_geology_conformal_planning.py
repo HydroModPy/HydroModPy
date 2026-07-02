@@ -42,6 +42,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plan
     _resolve_river_trace_for_meshing,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.contracts import ZoneRegionalSizeField
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainConfig,
     ZoneMeshingDomainPayload,
@@ -658,6 +659,80 @@ def test_watershed_boundary_builds_linear_constraint_and_preserves_full_geology(
     assert inputs.diagnostics.outside_coarsening_summary["size_factor"] == pytest.approx(2.0)
     assert inputs.diagnostics.watershed_boundary_plot_gdf is not None
     assert not inputs.diagnostics.watershed_boundary_plot_gdf.empty
+
+
+def test_outside_coarsening_lifts_lake_field_far_size(tmp_path: Path) -> None:
+    # A lake refinement field defaults its far-field (outside_size) to global_size.
+    # GMSH combines size fields with Min, so that far-field would clamp the whole domain
+    # to global_size and silently defeat the outside coarsening. The planner must lift the
+    # lake field's far-field to the coarsened size while keeping its near-lake inside_size.
+    config_path = tmp_path / "mesh_launcher.toml"
+    config_path.write_text(
+        '[mesh_catchment]\nconstraints_mode = "geology_only"\n', encoding="utf-8"
+    )
+    watershed_path = tmp_path / "watershed.geojson"
+    gpd.GeoDataFrame(
+        {"catch_id": ["ws_1"]},
+        geometry=[box(355400.0, 6712900.0, 358400.0, 6716100.0)],
+        crs="EPSG:2154",
+    ).to_file(watershed_path, driver="GeoJSON")
+    section_data = {
+        "constraints_mode": "geology_only",
+        "watershed_boundary": {
+            "enabled": True,
+            "outside_coarsening": {
+                "enabled": True,
+                "size_factor": 2.0,
+                "transition_distance": 300.0,
+                "grid_resolution": 250.0,
+            },
+        },
+        "domain": {
+            "kind": "vector",
+            "path": str((CASE_TOML.parent / "domain_window.geojson").resolve()),
+            "id_field": "domain_id",
+            "selected_id": "main",
+        },
+        "geology": {
+            "source": {
+                "path": str((CASE_TOML.parent / _CASE_RELATIVE_GEOLOGY_PATH).resolve()),
+                "kind": "vector",
+                "code_field": "CODE_LEG",
+                "reference_raster_path": str(
+                    (CASE_TOML.parent / _CASE_RELATIVE_REFERENCE_RASTER_PATH).resolve()
+                ),
+            }
+        },
+        "zone_meshing": {
+            "algorithm": "delaunay",
+            "global_size": 250.0,
+            "min_size": 125.0,
+            "max_size": 400.0,
+        },
+    }
+    cfg = _resolve_case_config(
+        config_path, section="mesh_catchment", section_data_override=section_data
+    )
+    lake_field = ZoneRegionalSizeField(
+        name="lake::footprint",
+        region_geometry=box(356000.0, 6713500.0, 356500.0, 6714000.0),
+        inside_size=80.0,
+        outside_size=250.0,  # == global_size, the far-field that would defeat coarsening
+        transition_distance=160.0,
+        grid_resolution=80.0,
+    )
+    inputs = _build_zone_conformal_meshing_inputs(
+        cfg=cfg,
+        config_path=config_path,
+        river_trace=None,
+        domain_geographic=SimpleNamespace(watershed_shp=str(watershed_path)),
+        lake_size_fields=(lake_field,),
+    )
+    by_name = {field.name: field for field in inputs.regional_size_fields}
+    assert "watershed::outside_coarsening" in by_name
+    lake = by_name["lake::footprint"]
+    assert lake.inside_size == pytest.approx(80.0)  # near-lake refinement preserved
+    assert lake.outside_size == pytest.approx(500.0)  # far-field lifted to the coarsened size
 
 
 def test_watershed_boundary_buffered_geology_conformity_uses_linear_geology_constraints(
