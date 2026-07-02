@@ -27,7 +27,7 @@ from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 # is dualized into a Voronoi mesh (exact perpendicular-bisector CVFD orthogonality,
 # ~half the cells, XT3D-free) before the SolverMesh is built. The gmsh triangulation
 # stays the refinement/constraint seed engine; only the solver grid changes.
-_VORONOI_DUAL_ENABLED = False
+_VORONOI_DUAL_ENABLED = True
 
 
 def voronoi_dual_enabled() -> bool:

@@ -208,18 +208,23 @@ def test_runtime_planar_mesh_uses_domain_surfaces_before_bundle_vertical_fallbac
         cell_z_bottom_m=np.array([5.0, 10.0], dtype=float),
     )
 
-    ctx = build_spatial_discretization(
-        domain=domain,
-        sgrid_config=SolverSGridConfig(
-            vertical=VerticalGridConfig(
-                genmtd_lay="constant",
-                nlay=1,
-                nodata=-9999.0,
+    # This asserts the surface-vs-bundle priority on a controlled 2-triangle mesh;
+    # pin the triangle grid so the Voronoi dual does not change the cell count.
+    from hydromodpy.solver.modflow_grid.discretization_spatial import voronoi_dual_context
+
+    with voronoi_dual_context(False):
+        ctx = build_spatial_discretization(
+            domain=domain,
+            sgrid_config=SolverSGridConfig(
+                vertical=VerticalGridConfig(
+                    genmtd_lay="constant",
+                    nlay=1,
+                    nodata=-9999.0,
+                ),
             ),
-        ),
-        runtime_planar_mesh=planar_mesh,
-        runtime_mesh_support=runtime_mesh_support,
-    )
+            runtime_planar_mesh=planar_mesh,
+            runtime_mesh_support=runtime_mesh_support,
+        )
 
     assert ctx.solver_mesh.top.tolist() == pytest.approx([20.0, 20.0])
     assert ctx.solver_mesh.botm.reshape(-1).tolist() == pytest.approx([0.0, 0.0])
