@@ -21,7 +21,12 @@ from shapely.geometry import MultiPolygon, Polygon
 from hydromodpy.spatial.mesh.cell_types import CellType
 from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
 
-__all__ = ["voronoi_cells", "voronoi_planar_mesh", "voronoi_dual_of_mesh"]
+__all__ = [
+    "voronoi_cells",
+    "voronoi_planar_mesh",
+    "voronoi_dual_of_mesh",
+    "domain_polygon_from_mesh",
+]
 
 
 def _finite_regions(vor: Voronoi, radius: float) -> list[np.ndarray]:
@@ -140,3 +145,34 @@ def voronoi_dual_of_mesh(
     """
     seeds = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
     return voronoi_planar_mesh(seeds, domain_polygon)
+
+
+def domain_polygon_from_mesh(planar_mesh: HydroMesh) -> Polygon | MultiPolygon:
+    """Reconstruct the meshed-domain outline from a planar mesh's boundary edges.
+
+    A boundary edge belongs to exactly one cell; polygonizing those edges yields
+    the outer polygon (with interior holes), which clips the Voronoi boundary
+    cells. Works for any cell arity (triangles, quads, or n-gons).
+    """
+    from collections import defaultdict
+
+    from shapely.geometry import LineString
+    from shapely.ops import polygonize, unary_union
+
+    verts = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
+    edge_count: dict[tuple[int, int], int] = defaultdict(int)
+    for cell in planar_mesh.flat_connectivity:
+        cell = np.asarray(cell, dtype=int)
+        k = len(cell)
+        for i in range(k):
+            a, b = int(cell[i]), int(cell[(i + 1) % k])
+            edge_count[(min(a, b), max(a, b))] += 1
+    lines = [LineString([verts[a], verts[b]]) for (a, b), n in edge_count.items() if n == 1]
+    polys = list(polygonize(unary_union(lines)))
+    if not polys:
+        raise ValueError("could not reconstruct a domain polygon from mesh boundary edges")
+    outer = max(polys, key=lambda p: p.area)
+    holes = [p for p in polys if p is not outer and outer.contains(p.representative_point())]
+    if holes:
+        outer = Polygon(outer.exterior.coords, [h.exterior.coords for h in holes])
+    return outer

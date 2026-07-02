@@ -38,13 +38,13 @@ def cell_bed_from_surface(
     """
     sampler = PreparedSurfaceSampler.from_surface(surface)
     verts = np.asarray(planar_mesh.vertices, dtype=float)
-    conn = np.asarray(planar_mesh.flat_connectivity)
+    conn = planar_mesh.flat_connectivity  # rectangular array or ragged POLYGON tuple
 
     out: dict[int, float] = {}
     if not sampler.has_complete_support:
         # No georeferencing: nothing zonal is possible, fall back to centroids.
         for cid in cell_ids:
-            poly = verts[conn[int(cid)]]
+            poly = verts[np.asarray(conn[int(cid)], dtype=int)]
             cx, cy = float(poly[:, 0].mean()), float(poly[:, 1].mean())
             out[int(cid)] = float(sampler.sample(cx, cy))
         return out
@@ -58,7 +58,7 @@ def cell_bed_from_surface(
     ncols = int(sampler.ncols)
 
     for cid in cell_ids:
-        poly = verts[conn[int(cid)]]
+        poly = verts[np.asarray(conn[int(cid)], dtype=int)]
         bed = _zonal_mean(
             poly=poly,
             values=values,

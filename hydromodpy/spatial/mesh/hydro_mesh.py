@@ -169,6 +169,27 @@ class HydroMesh:
         maxs = tuple(float(np.nanmax(self.vertices[:, i])) for i in range(self.ndim))
         return mins + maxs
 
+    def cell_centroids(self) -> tuple[np.ndarray, np.ndarray]:
+        """Per-cell ``(x, y)`` centers, matching the field-mesh signature.
+
+        Returns the explicit ``cell_data["disv_cell_center"]`` (the generator
+        seeds, exact for a Voronoi/PEBI DISV) when present, otherwise the
+        per-cell vertex mean. Ragged-safe (handles ``POLYGON`` blocks).
+        """
+        centers = self.cell_data.get("disv_cell_center")
+        if centers is not None:
+            centers = np.asarray(centers, dtype=float)
+            return centers[:, 0].copy(), centers[:, 1].copy()
+        conn = self.flat_connectivity
+        verts = self.vertices
+        xs = np.empty(self.n_cells, dtype=float)
+        ys = np.empty(self.n_cells, dtype=float)
+        for ic in range(self.n_cells):
+            nodes = np.asarray(conn[ic], dtype=int)
+            xs[ic] = float(verts[nodes, 0].mean())
+            ys[ic] = float(verts[nodes, 1].mean())
+        return xs, ys
+
     def with_cell_data(self, **fields: np.ndarray) -> HydroMesh:
         """Return a new mesh with validated per-cell arrays added.
 

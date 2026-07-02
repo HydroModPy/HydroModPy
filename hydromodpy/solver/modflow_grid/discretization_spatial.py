@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import contextmanager
 
 import numpy as np
 
@@ -21,6 +22,35 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
+
+# Voronoi/PEBI dual grid switch. When enabled, the runtime triangular planar mesh
+# is dualized into a Voronoi mesh (exact perpendicular-bisector CVFD orthogonality,
+# ~half the cells, XT3D-free) before the SolverMesh is built. The gmsh triangulation
+# stays the refinement/constraint seed engine; only the solver grid changes.
+_VORONOI_DUAL_ENABLED = False
+
+
+def voronoi_dual_enabled() -> bool:
+    """Whether the runtime planar mesh is dualized to Voronoi before the SolverMesh."""
+    return _VORONOI_DUAL_ENABLED
+
+
+def set_voronoi_dual_enabled(enabled: bool) -> None:
+    """Set the process-wide Voronoi-dual grid switch."""
+    global _VORONOI_DUAL_ENABLED
+    _VORONOI_DUAL_ENABLED = bool(enabled)
+
+
+@contextmanager
+def voronoi_dual_context(enabled: bool):
+    """Temporarily toggle the Voronoi-dual grid switch within a block."""
+    global _VORONOI_DUAL_ENABLED
+    previous = _VORONOI_DUAL_ENABLED
+    _VORONOI_DUAL_ENABLED = bool(enabled)
+    try:
+        yield
+    finally:
+        _VORONOI_DUAL_ENABLED = previous
 
 
 def resolve_domain_surfaces(
@@ -142,6 +172,20 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     nodata: float,
     runtime_mesh_support: object | None = None,
 ) -> SolverMesh:
+    if voronoi_dual_enabled():
+        from hydromodpy.spatial.mesh.voronoi import (
+            domain_polygon_from_mesh,
+            voronoi_dual_of_mesh,
+        )
+
+        triangulation = (
+            planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
+        )
+        planar_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
+        # The triangle-cell support fields no longer index the dual cells; re-sample
+        # top/botm at the Voronoi generators from the surfaces instead.
+        runtime_mesh_support = None
+
     mesh_2d = planar_mesh
     hydro_mesh = (
         planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh

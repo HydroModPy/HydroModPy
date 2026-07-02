@@ -145,6 +145,28 @@ def _normalize_optional_int(value: int | None) -> str | int:
     return _NODATA_SENTINEL if value is None else int(value)
 
 
+def _cells_node_column_count(cells: Any) -> int:
+    """Return the number of ``n<k>`` columns the cells table needs (min 3)."""
+    return max(3, max((len(cell.node_indices) for cell in cells), default=3))
+
+
+def _cell_node_index_columns(
+    node_indices: tuple[int, ...], n_node_columns: int
+) -> dict[str, object]:
+    """Return the ``ncvert`` and padded ``n<k>`` columns for one cell row.
+
+    ``ncvert`` records the real node count and every ``n<k>`` past it is padded
+    with the missing-value sentinel so a mesh of mixed-arity cells stays a
+    rectangular CSV table.
+    """
+    columns: dict[str, object] = {"ncvert": len(node_indices)}
+    for position in range(n_node_columns):
+        columns[f"n{position}"] = (
+            int(node_indices[position]) if position < len(node_indices) else _NODATA_SENTINEL
+        )
+    return columns
+
+
 def _surface_values_and_support(surface) -> tuple[np.ndarray, object | None]:
     """Extract the raw values array and raster support from one prepared surface."""
     sampler = PreparedSurfaceSampler.from_surface(surface)
@@ -484,6 +506,9 @@ def export_catchment_mesh_bundle(
     storage_values = tuple(hydraulic_properties_payload.storage_coefficient.cell_values)
 
     # Assemble one row per cell with geometry, elevations and optional properties.
+    # Voronoi/PEBI cells carry an arbitrary node count, so the ``n<k>`` columns
+    # widen to the largest cell and each row declares its real count in ``ncvert``.
+    n_node_columns = _cells_node_column_count(cells)
     cell_rows: list[dict[str, object]] = []
     for cell in cells:
         vertices = np.asarray(cell.vertices, dtype=float)
@@ -506,17 +531,11 @@ def export_catchment_mesh_bundle(
             float(centroid_z_bottom_all[cell_index]),
             cell_node_z_bottom,
         )
-        n3_value: str | int = _NODATA_SENTINEL
-        if len(cell_node_indices) > 3:
-            n3_value = int(cell_node_indices[3])
         cell_rows.append(
             {
                 "cell_id": int(cell.index),
                 "geom_type": str(cell.kind),
-                "n0": int(cell_node_indices[0]),
-                "n1": int(cell_node_indices[1]),
-                "n2": int(cell_node_indices[2]),
-                "n3": n3_value,
+                **_cell_node_index_columns(cell_node_indices, n_node_columns),
                 "centroid_x": float(centroid[0]),
                 "centroid_y": float(centroid[1]),
                 "area_m2": _polygon_area(vertices),
@@ -562,15 +581,14 @@ def export_catchment_mesh_bundle(
         ["node_id", "x", "y", "z_top", "z_bottom"],
         node_rows,
     )
+    node_column_names = [f"n{position}" for position in range(n_node_columns)]
     _write_csv(
         bundle_path / "cells.csv",
         [
             "cell_id",
             "geom_type",
-            "n0",
-            "n1",
-            "n2",
-            "n3",
+            "ncvert",
+            *node_column_names,
             "centroid_x",
             "centroid_y",
             "area_m2",

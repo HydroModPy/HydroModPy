@@ -58,9 +58,20 @@ def _resolve_field_discretization(
 
 
 def _resolve_planar_mesh(planar_mesh: object | None, solver_mesh) -> object:
+    from hydromodpy.spatial.mesh.cell_types import CellType
+
+    hydro = solver_mesh.planar_mesh
+    # On a Voronoi (ragged POLYGON) solver grid the property MUST be mapped onto the
+    # Voronoi cells, so ignore any triangular seed planar_mesh passed in: use the
+    # polygon field mesh (arbitrary-arity area sampling; the fixed-arity
+    # GmshPlanarMesh2D bridge cannot wrap a ragged mesh).
+    if CellType.POLYGON in getattr(hydro, "cell_types", ()):
+        from hydromodpy.spatial.field.meshes.polygon_field_mesh import PolygonFieldMesh
+
+        return PolygonFieldMesh(hydro)
     if planar_mesh is not None:
         return planar_mesh
-    return GmshPlanarMesh2D.from_hydro_mesh(solver_mesh.planar_mesh)
+    return GmshPlanarMesh2D.from_hydro_mesh(hydro)
 
 
 def _build_cellular_property_from_flow_domain(

@@ -427,16 +427,33 @@ def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:
     )
 
 
+def _read_cell_node_indices(row: dict[str, str]) -> tuple[int, ...]:
+    """Read one cell's node list, honoring ``ncvert`` or scanning ``n<k>``.
+
+    New bundles declare the real node count in ``ncvert`` (variable arity). Old
+    bundles only carry the fixed ``n0..n3`` columns, so the fallback scans every
+    present ``n<k>`` column in order and skips the empty padding slots.
+    """
+    ncvert_raw = str(row.get("ncvert", "")).strip()
+    if ncvert_raw != "":
+        count = int(ncvert_raw)
+        return tuple(int(row[f"n{position}"]) for position in range(count))
+    indices: list[int] = []
+    position = 0
+    while f"n{position}" in row:
+        value = str(row.get(f"n{position}", "")).strip()
+        if value != "":
+            indices.append(int(value))
+        position += 1
+    return tuple(indices)
+
+
 def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
     """Load the `cells.csv` table."""
     rows = _load_csv_rows(path)
     out: list[CatchmentMeshBundleCell] = []
     for row in rows:
-        node_indices = tuple(
-            int(row[column_name])
-            for column_name in ("n0", "n1", "n2", "n3")
-            if str(row.get(column_name, "")).strip() != ""
-        )
+        node_indices = _read_cell_node_indices(row)
         out.append(
             CatchmentMeshBundleCell(
                 cell_id=int(row["cell_id"]),
