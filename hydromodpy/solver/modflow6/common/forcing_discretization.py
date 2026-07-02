@@ -61,11 +61,10 @@ def discretize_spatially_distributed_source(
 
     resolved_planar_mesh = planar_mesh
     if resolved_planar_mesh is None:
-        from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import (
-            GmshPlanarMesh2D,
-        )
-
-        resolved_planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(solver_mesh.planar_mesh)
+        # The consumer needs only cell_centroids() + n_cells, both ragged-safe on the
+        # HydroMesh; feed it directly so Voronoi (POLYGON) grids work (the fixed-arity
+        # GmshPlanarMesh2D bridge cannot wrap them).
+        resolved_planar_mesh = solver_mesh.planar_mesh
 
     if getattr(load_result, "has_fields", False):
         return discretize_fields_on_planar_mesh(

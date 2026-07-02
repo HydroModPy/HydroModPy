@@ -48,15 +48,15 @@ def barrier_faces_from_line(planar_mesh, line) -> list[BarrierFace]:
     from shapely.geometry import LineString
 
     verts = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
-    conn = np.asarray(planar_mesh.flat_connectivity, dtype=int)
-    n_cells, nodes_per_cell = conn.shape
+    conn = planar_mesh.flat_connectivity  # rectangular array or ragged POLYGON tuple
 
     edge_to_cells: dict[tuple[int, int], list[int]] = defaultdict(list)
-    for ci in range(n_cells):
-        cell = conn[ci]
-        for k in range(nodes_per_cell):
+    for ci in range(len(conn)):
+        cell = np.asarray(conn[ci], dtype=int)
+        arity = len(cell)
+        for k in range(arity):
             a = int(cell[k])
-            b = int(cell[(k + 1) % nodes_per_cell])
+            b = int(cell[(k + 1) % arity])
             edge_to_cells[(a, b) if a < b else (b, a)].append(ci)
 
     coords = _line_coords(line)

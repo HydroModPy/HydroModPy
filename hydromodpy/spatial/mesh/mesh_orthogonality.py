@@ -32,18 +32,24 @@ def connection_nonorthogonality_deg(planar_mesh) -> np.ndarray:
     face (conductance two-point flux is exact).
     """
     verts = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
-    conn = np.asarray(planar_mesh.flat_connectivity, dtype=int)
-    if conn.ndim != 2 or conn.shape[0] == 0:
+    conn = planar_mesh.flat_connectivity  # rectangular array or ragged POLYGON tuple
+    n_cells = len(conn)
+    if n_cells == 0:
         return np.empty(0, dtype=float)
-    centroids = verts[conn].mean(axis=1)
-    n_cells, nodes_per_cell = conn.shape
+    # The connection node is the cell CENTER: the generator seed for a Voronoi/PEBI
+    # mesh (perpendicular-bisector, ~0 deg), the vertex mean for a triangle mesh.
+    x_centers, y_centers = planar_mesh.cell_centroids()
+    centroids = np.column_stack(
+        [np.asarray(x_centers, dtype=float), np.asarray(y_centers, dtype=float)]
+    )
 
     edge_to_cells: dict[tuple[int, int], list[int]] = defaultdict(list)
     for ci in range(n_cells):
-        cell = conn[ci]
-        for k in range(nodes_per_cell):
+        cell = np.asarray(conn[ci], dtype=int)
+        arity = len(cell)
+        for k in range(arity):
             a = int(cell[k])
-            b = int(cell[(k + 1) % nodes_per_cell])
+            b = int(cell[(k + 1) % arity])
             edge_to_cells[(a, b) if a < b else (b, a)].append(ci)
 
     angles: list[float] = []

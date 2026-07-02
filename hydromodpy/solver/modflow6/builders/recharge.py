@@ -299,16 +299,19 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
             discretize_points_on_sgrid,
         )
     else:
+        from hydromodpy.spatial.mesh.cell_types import CellType
         from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
             discretize_fields_on_planar_mesh,
             discretize_points_on_planar_mesh,
         )
 
+        solver_planar = model.solver_mesh.planar_mesh
         planar_mesh = getattr(model, "runtime_mesh_planar", None)
-        if planar_mesh is None:
-            from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
-
-            planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(model.solver_mesh.planar_mesh)
+        # The runtime_mesh_planar is the triangular seed mesh; on a Voronoi solver grid
+        # recharge must discretize onto the actual (POLYGON) solver cells, which the
+        # HydroMesh exposes ragged-safe (cell_centroids + n_cells).
+        if planar_mesh is None or CellType.POLYGON in getattr(solver_planar, "cell_types", ()):
+            planar_mesh = solver_planar
 
     # Prefer fields; fall back to located points.
     if getattr(het_source, "has_fields", False):

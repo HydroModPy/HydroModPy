@@ -226,8 +226,13 @@ def _resolve_run_grid_metadata(model: Any) -> dict | None:
         pass
     try:
         vertices = np.asarray(planar.vertices, dtype=float)
-        connectivity = np.asarray(planar.flat_connectivity)
-        meta["mesh_hash"] = hashlib.sha256(vertices.tobytes() + connectivity.tobytes()).hexdigest()
+        conn = planar.flat_connectivity  # rectangular array or ragged POLYGON tuple
+        conn_bytes = (
+            b"".join(np.asarray(c, dtype=np.int64).tobytes() for c in conn)
+            if isinstance(conn, tuple)
+            else np.asarray(conn, dtype=np.int64).tobytes()
+        )
+        meta["mesh_hash"] = hashlib.sha256(vertices.tobytes() + conn_bytes).hexdigest()
     except Exception:
         pass
     return meta
