@@ -140,28 +140,33 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     bottom_surface: Surface,
     vertical_config: VerticalGridConfig | None,
     nodata: float,
+    grid_dual: str = "voronoi",
 ) -> SolverMesh:
-    # The solver grid is the Voronoi/PEBI dual of the gmsh triangulation: exact
-    # perpendicular-bisector CVFD orthogonality, an interior node, an M-matrix, and
-    # ~half the cells. The triangulation stays the refinement/constraint seed engine.
-    from hydromodpy.spatial.mesh.voronoi import (
-        domain_polygon_from_mesh,
-        voronoi_dual_of_mesh,
-    )
+    # grid_dual="voronoi" (MF6 default): the solver grid is the Voronoi/PEBI dual of
+    # the gmsh triangulation (exact perpendicular-bisector CVFD orthogonality, an
+    # interior node, an M-matrix, ~half the cells). grid_dual="triangle": keep the
+    # triangulation cells as the DISV grid (for solvers that need simplices). Either
+    # way the triangulation stays the refinement/constraint seed engine.
+    if grid_dual == "voronoi":
+        from hydromodpy.spatial.mesh.voronoi import (
+            domain_polygon_from_mesh,
+            voronoi_dual_of_mesh,
+        )
 
-    triangulation = (
-        planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
-    )
-    planar_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
+        triangulation = (
+            planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
+        )
+        planar_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
+    elif grid_dual != "triangle":
+        raise ValueError(f"Unsupported grid_dual '{grid_dual}'. Allowed: voronoi, triangle.")
 
     mesh_2d = planar_mesh
     hydro_mesh = (
         planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
     )
 
-    # Sample top/botm at the Voronoi generators from the domain surfaces. The former
-    # triangle-cell vertical support (mesh bundle z_top/z_bottom) is not carried: it
-    # indexes the triangulation, not the dual cells, so the surfaces are the source.
+    # Sample top/botm at the cell centers (Voronoi generators or triangle centroids)
+    # from the domain surfaces.
     x_centers, y_centers = mesh_2d.cell_centroids()
     cfg = _coerce_vertical_config(vertical_config)
     top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
@@ -205,9 +210,11 @@ def build_spatial_discretization(
     """Build normalized spatial discretization from domain surfaces or runtime mesh."""
     vertical_config: VerticalGridConfig | None = None
     planar_config: PlanarGridConfig | None = None
+    grid_dual = "voronoi"
     if sgrid_config is not None:
         vertical_config = sgrid_config.vertical
         planar_config = sgrid_config.planar
+        grid_dual = sgrid_config.grid_dual
 
     nodata = float(vertical_config.nodata if vertical_config is not None else -9999.0)
 
@@ -244,6 +251,7 @@ def build_spatial_discretization(
             bottom_surface=bottom_surface,
             vertical_config=vertical_config,
             nodata=nodata,
+            grid_dual=grid_dual,
         )
 
     return SolverGridContext(
