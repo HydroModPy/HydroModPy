@@ -809,6 +809,23 @@ def _safe_lake_tag(lake_id: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in str(lake_id))
 
 
+def _drop_interior_rings(geometry: object) -> object:
+    """Return the geometry with its interior rings (islands) removed.
+
+    Used when a lake sets ``fill_enclosed_cells``: cells enclosed by the lake
+    footprint (inside an island ring, or a sub-cell classification pocket) are
+    then claimed by the lake and the footprint stays contiguous. A geometry
+    without interior rings is returned unchanged.
+    """
+    from shapely.geometry import MultiPolygon, Polygon
+
+    if isinstance(geometry, Polygon):
+        return Polygon(geometry.exterior) if geometry.interiors else geometry
+    if isinstance(geometry, MultiPolygon):
+        return MultiPolygon([Polygon(part.exterior) for part in geometry.geoms])
+    return geometry
+
+
 def resolve_lake_cells_for_active_lakes(
     model,
     solver_mesh: SolverMesh,
@@ -833,6 +850,8 @@ def resolve_lake_cells_for_active_lakes(
                 f"flow.sinks_sources.lakes.{lake_id} has no polygon geometry; load the "
                 "lake_geometry data family before pre-processing."
             )
+        if definition.get("fill_enclosed_cells"):
+            polygon = _drop_interior_rings(polygon)
         cells, intersected = resolve_lake_cells(
             model, lake_id=lake_id, polygon=polygon, vertex_grid=vertex_grid, with_areas=True
         )
@@ -927,6 +946,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "stageinit": _lake_attr(payload, "stageinit"),
             "steady_stage_hold": _lake_attr(payload, "steady_stage_hold"),
             "occupied_layers": _lake_attr(payload, "occupied_layers"),
+            "fill_enclosed_cells": _lake_attr(payload, "fill_enclosed_cells"),
             "surfdep": _lake_attr(payload, "surfdep"),
             "outlets": _lake_attr(payload, "outlets"),
             "rainfall": _lake_attr(payload, "rainfall"),

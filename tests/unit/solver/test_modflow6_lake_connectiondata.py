@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import flopy
 import numpy as np
-from shapely.geometry import Polygon
+from shapely.geometry import Point, Polygon
 
 from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
@@ -29,6 +29,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_vertex_grid_for_intersection,
     resolve_lake_cells,
 )
+from hydromodpy.solver.modflow6.builders.lake import _drop_interior_rings
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 # A 4x4, 2-layer unit grid with the central 2x2 block as the lake footprint.
@@ -134,6 +135,38 @@ def test_resolve_lake_cells_intersects_polygon() -> None:
     polygon = Polygon([(1.0, 1.0), (3.0, 1.0), (3.0, 3.0), (1.0, 3.0)])
     cells = resolve_lake_cells(None, lake_id="lac0", polygon=polygon, vertex_grid=vertex_grid)
     assert cells == sorted(_LAKE_CELLS)
+
+
+def test_drop_interior_rings_removes_holes() -> None:
+    solid = Polygon([(0.0, 0.0), (3.0, 0.0), (3.0, 3.0), (0.0, 3.0)])
+    holed = Polygon(
+        [(0.0, 0.0), (3.0, 0.0), (3.0, 3.0), (0.0, 3.0)],
+        holes=[[(1.0, 1.0), (2.0, 1.0), (2.0, 2.0), (1.0, 2.0)]],
+    )
+    assert len(holed.interiors) == 1
+    filled = _drop_interior_rings(holed)
+    assert len(filled.interiors) == 0
+    assert filled.covers(Point(1.5, 1.5))  # the former hole is now inside
+    # A geometry without interior rings is returned unchanged.
+    assert _drop_interior_rings(solid) is solid
+
+
+def test_fill_enclosed_cells_reclaims_the_island_cell() -> None:
+    mesh = _grid_4x4(nlay=2)
+    vertex_grid = build_vertex_grid_for_intersection(mesh)
+    # A 3x3 block (0,0)-(3,3) with the centre cell (9) punched out as an island.
+    holed = Polygon(
+        [(0.0, 0.0), (3.0, 0.0), (3.0, 3.0), (0.0, 3.0)],
+        holes=[[(1.0, 1.0), (2.0, 1.0), (2.0, 2.0), (1.0, 2.0)]],
+    )
+    kept = resolve_lake_cells(None, lake_id="lac0", polygon=holed, vertex_grid=vertex_grid)
+    filled = resolve_lake_cells(
+        None, lake_id="lac0", polygon=_drop_interior_rings(holed), vertex_grid=vertex_grid
+    )
+    # The (1,1)-(2,2) hole punches out the centre cell 5 of the 3x3 block.
+    assert 5 not in kept  # island cell stays aquifer by default
+    assert 5 in filled  # fill_enclosed_cells reclaims it
+    assert set(filled) - set(kept) == {5}
 
 
 def _model_with_lake() -> SimpleNamespace:
