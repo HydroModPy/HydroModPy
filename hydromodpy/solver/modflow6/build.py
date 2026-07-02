@@ -454,7 +454,6 @@ def run_pre_processing(  # noqa: PLR0915
         domain=model.domain,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
         runtime_planar_mesh=model.runtime_mesh_planar,
-        runtime_mesh_support=model.runtime_mesh_support,
     )
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh
