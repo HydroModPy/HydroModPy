@@ -311,6 +311,13 @@ def run_sfr_lak_mvr_scenario(*, workspace: Path) -> SfrLakMvrScenario:
         sfr_last = {k.upper(): float(v) for k, v in list(csv.DictReader(fh))[-1].items()}
 
     discrepancy = _last_percent_discrepancy(workspace)
+    if discrepancy is None:
+        # A missing/unparseable budget listing must fail loudly, not report a
+        # perfect 0.0 closure that passes the discrepancy assertion vacuously.
+        raise RuntimeError(
+            f"could not read the MF6 budget percent discrepancy from {workspace}; "
+            "the p02 scenario cannot assert water-balance closure."
+        )
     return SfrLakMvrScenario(
         mvr_rows=mvr_rows,
         maxpackages=maxpackages,
@@ -322,7 +329,7 @@ def run_sfr_lak_mvr_scenario(*, workspace: Path) -> SfrLakMvrScenario:
             "sfr13_to_lak2": abs(sfr_last["R13_TO_MVR"]),
             "lak2_to_sfr14": abs(sfr_last["R14_FROM_MVR"]),
         },
-        budget_percent_discrepancy=0.0 if discrepancy is None else float(discrepancy),
+        budget_percent_discrepancy=float(discrepancy),
     )
 
 
