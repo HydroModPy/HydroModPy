@@ -371,3 +371,15 @@ examples/projects/00_getting_started/catalog.duckdb.bak-20260522T115059Z
 
 # Local-only test-suite overhaul working notes (plan/report/continuation).
 docs/_dev_notes/test_suite_overhaul_*.md
+
+# Lakeres refact review (2026-07-03) local-only artifacts and junk to keep out of history.
+/modflow/
+/data_tempo/
+/MESH_DISCRETIZATION_RESEARCH.md
+/abaque_cheze_mobilisable_extended.csv
+/LAKERES_REFACT_CHANGES.md
+catalog.duckdb.bak.*
+catalog.duckdb.pre_*
+catalog.duckdb.preexisting_corrupt
+examples/projects/**/catalog.duckdb.bak.*
+examples/projects/**/catalog.duckdb.pre_*
