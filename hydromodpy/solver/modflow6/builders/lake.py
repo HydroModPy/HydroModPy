@@ -988,13 +988,42 @@ def _lake_attr(payload: object, name: str) -> object:
     return getattr(payload, name, None)
 
 
-def _forcing_values(forcing: object) -> tuple[float, ...]:
-    """Extract the per-period values of a ``{kind: values, values: [...]}`` forcing."""
-    if isinstance(forcing, Mapping):
-        values = forcing.get("values")
-        if values is not None:
-            return tuple(float(v) for v in values)
-    return ()
+def _forcing_si_per_period(
+    model, forcing: object, *, volumetric: bool, label: str, nper: int
+) -> tuple[float, ...]:
+    """Per-period SI values for a lake forcing, mirroring ``_emit_forcing_rows``.
+
+    Resolves a typed ``FlowWellForcingConfig`` (or a mapping) through the same
+    unit-conversion path the LAK PERIOD rows use, so the exposed-band callback
+    reads the same SI values MF6 gets instead of ``0`` (and never mis-scaled).
+    """
+    if forcing is None:
+        return ()
+    raw = forcing.get("values") if isinstance(forcing, Mapping) else getattr(forcing, "values", None)
+    if isinstance(raw, (list, tuple, np.ndarray)) and len(raw) > 0:
+        # Explicit per-period values: take them directly and convert units.
+        unit = forcing_unit(forcing)
+        return tuple(
+            float(forcing_to_si(v, forcing, f"{label}[{idx}]", volumetric, explicit_unit=unit))
+            for idx, v in enumerate(raw)
+        )
+    value = constant_forcing_value(forcing)
+    if value is not None:
+        si_value = float(forcing_to_si(value, forcing, label, volumetric))
+        return (si_value,) * max(1, int(nper)) if int(nper) > 0 else (si_value,)
+    if int(nper) <= 0:
+        return ()
+    per_period = resolve_period_values_from_forcing(
+        forcing=forcing,
+        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        nper=nper,
+        label=label,
+    )
+    unit = forcing_unit(forcing)
+    return tuple(
+        float(forcing_to_si(v, forcing, f"{label}[{idx}]", volumetric, explicit_unit=unit))
+        for idx, v in enumerate(per_period)
+    )
 
 
 def build_exposed_band_runoff_specs(model) -> list:
@@ -1014,6 +1043,7 @@ def build_exposed_band_runoff_specs(model) -> list:
 
     from hydromodpy.solver.modflow6.lake_band_runoff import LakeBandRunoffSpec
 
+    nper = int(getattr(model, "nper", 0) or 0)
     specs: list[LakeBandRunoffSpec] = []
     for lake_index, (lake_id, definition) in enumerate(_active_lake_definitions(model).items()):
         cfg = definition.get("bed_reconstruction")
@@ -1029,8 +1059,20 @@ def build_exposed_band_runoff_specs(model) -> list:
                 lake_index=lake_index,
                 bed=np.array([rec["bed_by_cell"][c] for c in cells], dtype=float),
                 area=np.array([rec["area_by_cell"][c] for c in cells], dtype=float),
-                rate_per_period=_forcing_values(definition.get("runoff_rate")),
-                base_runoff_per_period=_forcing_values(definition.get("runoff")),
+                rate_per_period=_forcing_si_per_period(
+                    model,
+                    definition.get("runoff_rate"),
+                    volumetric=False,
+                    label=f"flow.sinks_sources.lakes.{lake_id}.runoff_rate",
+                    nper=nper,
+                ),
+                base_runoff_per_period=_forcing_si_per_period(
+                    model,
+                    definition.get("runoff"),
+                    volumetric=True,
+                    label=f"flow.sinks_sources.lakes.{lake_id}.runoff",
+                    nper=nper,
+                ),
             )
         )
     return specs
