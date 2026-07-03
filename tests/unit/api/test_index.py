@@ -42,7 +42,8 @@ def test_index_default_path_when_none(monkeypatch) -> None:
     idx = hmp.index()
     assert isinstance(idx, fake)
     assert captured["db_path"] is None
-    assert captured["read_only"] is False
+    # index() is read-only by default, mirroring open() (clean break).
+    assert captured["read_only"] is True
 
 
 def test_index_resolves_path(monkeypatch, tmp_path: Path) -> None:
