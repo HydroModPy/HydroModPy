@@ -117,18 +117,32 @@ def to_meshio(hydro_mesh: HydroMesh) -> Any:
     if verts.shape[1] == 2:
         verts = np.column_stack((verts, np.zeros(verts.shape[0], dtype=float)))
 
-    cells = [
-        (block.cell_type.meshio_name, np.asarray(block.connectivity, dtype=int))
-        for block in hydro_mesh.cell_blocks
-    ]
+    cells: list[tuple[str, Any]] = []
+    for block in hydro_mesh.cell_blocks:
+        if block.cell_type.is_ragged:
+            # meshio represents variable-arity polygons as one block holding a
+            # list of per-cell node arrays.
+            cells.append(
+                (
+                    block.cell_type.meshio_name,
+                    [np.asarray(c, dtype=int) for c in block.connectivity],
+                )
+            )
+        else:
+            cells.append((block.cell_type.meshio_name, np.asarray(block.connectivity, dtype=int)))
 
-    # Rebuild per-block cell_data lists
+    # Rebuild per-block cell_data lists. Skip non-scalar per-cell channels such
+    # as the (n_cells, 2) ``disv_cell_center`` geometry, which is not a meshio
+    # cell field and would be mangled by the flat split.
     cell_data: dict[str, list[np.ndarray]] = {}
     if hydro_mesh.cell_data:
+        total_cells = int(hydro_mesh.n_cells)
         block_sizes = [b.n_cells for b in hydro_mesh.cell_blocks]
+        splits = np.cumsum(block_sizes[:-1])
         for key, flat_arr in hydro_mesh.cell_data.items():
             flat = np.asarray(flat_arr).reshape(-1)
-            splits = np.cumsum(block_sizes[:-1])
+            if flat.size != total_cells:
+                continue
             cell_data[key] = list(np.split(flat, splits))
 
     point_data: dict[str, np.ndarray] = {}

@@ -108,6 +108,57 @@ def test_voronoi_dual_of_a_triangular_mesh() -> None:
     assert dual.n_cells <= len(seeds)  # one Voronoi cell per (kept) seed
 
 
+def test_concave_domain_keeps_every_cell_center_inside_its_cell() -> None:
+    # L-shaped (concave) domain: the previous max-area clip could leave a seed in
+    # the dropped piece, so the written DISV cell center fell outside its cell.
+    from shapely.geometry import Point
+
+    domain = Polygon(
+        [
+            (0.0, 0.0),
+            (1000.0, 0.0),
+            (1000.0, 1000.0),
+            (500.0, 1000.0),
+            (500.0, 500.0),
+            (0.0, 500.0),
+        ]
+    )
+    grid = np.linspace(60.0, 940.0, 16)
+    xx, yy = np.meshgrid(grid, grid)
+    candidates = np.c_[xx.ravel(), yy.ravel()]
+    seeds = candidates[[domain.contains(Point(p)) for p in candidates]]
+    cells, centers = voronoi_cells(seeds, domain)
+    assert len(cells) == len(centers)
+    for cell, center in zip(cells, centers, strict=True):
+        assert cell.covers(Point(center))  # DISV center never falls outside its cell
+    total = sum(c.area for c in cells)
+    assert total <= domain.area * (1.0 + 1e-9)
+    assert total >= domain.area * 0.98  # dropped concave slivers stay negligible
+
+
+def test_heterogeneous_field_samples_on_voronoi_polygon_cells() -> None:
+    # A support field discretized through PolygonFieldMesh must not crash on the
+    # ragged POLYGON cells and must produce valid area fractions.
+    from hydromodpy.spatial.domain.spatial_support import GeneratedBandsSupportField
+    from hydromodpy.spatial.field.meshes.polygon_field_mesh import PolygonFieldMesh
+
+    mesh = voronoi_planar_mesh(_jittered_seeds(), _DOMAIN)
+    field_mesh = PolygonFieldMesh(mesh)
+    support = GeneratedBandsSupportField(
+        identifier="k", axis="x", breaks_abs=[500.0], labels=["west", "east"]
+    )
+    disc = support.on_mesh(field_mesh, cell_samples_per_axis=8)
+    west = np.asarray(disc.fractions_by_zone["west"], dtype=float)
+    east = np.asarray(disc.fractions_by_zone["east"], dtype=float)
+    assert west.shape == (mesh.n_cells,)
+    assert np.all(west >= -1e-9) and np.all(west <= 1.0 + 1e-9)
+    assert np.allclose(west + east, 1.0, atol=1e-9)
+    xs, _ = mesh.cell_centroids()
+    deep_west = np.flatnonzero(xs < 300.0)
+    assert deep_west.size > 0
+    assert np.all(west[deep_west] > 0.99)
+
+
 @pytest.mark.mf6
 @pytest.mark.binary
 @pytest.mark.allow_subprocess

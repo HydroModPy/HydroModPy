@@ -113,22 +113,17 @@ class SolverMesh:
     # -- Geometry helpers -----------------------------------------------------
 
     def cell_centroids(self) -> np.ndarray:
-        """Return cell centroids as ndarray (n_cells, 2).
+        """Return cell centers as ndarray (n_cells, 2).
 
-        This is the vertex mean, a centroid approximation that is exact for
-        parallelogram cells (all current rectangular grids) but off by a small
-        amount on skewed or Voronoi polygons. Used for cell lookup, PRT release
-        points and LAK connection lengths; add an area-weighted variant if a
-        future irregular mesh needs sub-cell accuracy there.
+        Delegates to the planar mesh, which returns the explicit DISV cell
+        centers (the Voronoi/PEBI generator seeds written to the DISV file) when
+        present, so LAK connection lengths, the watershed DRN mask and PRT release
+        points use the same centers MODFLOW 6 sees, and nearest-centroid lookup is
+        exact point-location on a Voronoi grid. Falls back to the per-cell vertex
+        mean (exact for parallelogram cells) otherwise.
         """
-        conn = self.planar_mesh.flat_connectivity
-        verts = np.asarray(self.planar_mesh.vertices, dtype=float)
-        centroids = np.zeros((self.n_cells, 2), dtype=float)
-        for ic in range(self.n_cells):
-            nodes = conn[ic]
-            centroids[ic, 0] = float(verts[nodes, 0].mean())
-            centroids[ic, 1] = float(verts[nodes, 1].mean())
-        return centroids
+        xs, ys = self.planar_mesh.cell_centroids()
+        return np.column_stack([np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)])
 
     def cell_areas(self) -> np.ndarray:
         """Return area of each planar cell."""
