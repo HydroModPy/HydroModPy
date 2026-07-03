@@ -32,6 +32,7 @@ which forces a re-download and rewrites the manifest.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import re
@@ -293,6 +294,42 @@ def libmf6_version(lib_path: str | os.PathLike[str]) -> str | None:
         return None
 
 
+def _package_version_and_editable(name: str) -> tuple[str | None, bool]:
+    """Return one Python package's version and whether it is a dev/editable install."""
+    try:
+        module = importlib.import_module(name)
+    except Exception:  # noqa: BLE001 - a version probe must never break a solve
+        return None, False
+    version = getattr(module, "__version__", None)
+    if version is None:
+        try:
+            from importlib.metadata import version as _metadata_version
+
+            version = _metadata_version(name)
+        except Exception:  # noqa: BLE001
+            version = None
+    origin = getattr(module, "__file__", "") or ""
+    is_dev = bool(version) and ".dev" in str(version)
+    is_editable = "site-packages" not in origin and "dist-packages" not in origin
+    return version, bool(is_dev or is_editable)
+
+
+def solver_python_stack() -> str:
+    """Return the ``modflowapi``/``xmipy`` versions, flagged when dev/editable.
+
+    The api runner loads libmf6 through these wrappers, so an unpinned dev/editable
+    install is part of the reproducibility surface and worth recording once.
+    """
+    parts: list[str] = []
+    for name in ("modflowapi", "xmipy"):
+        version, editable = _package_version_and_editable(name)
+        if version is None:
+            parts.append(f"{name} (absent)")
+        else:
+            parts.append(f"{name} {version}{' (editable)' if editable else ''}")
+    return ", ".join(parts)
+
+
 def warn_on_mf6_version_mismatch(
     exe_path: str | os.PathLike[str], lib_path: str | os.PathLike[str]
 ) -> None:
@@ -311,7 +348,12 @@ def warn_on_mf6_version_mismatch(
 
     exe_v = mf6_executable_version(exe_path)
     lib_v = libmf6_version(lib_path)
-    logger.info("MODFLOW 6 engines: exe %s, libmf6 %s", exe_v or "?", lib_v or "?")
+    logger.info(
+        "MODFLOW 6 engines: exe %s, libmf6 %s | %s",
+        exe_v or "?",
+        lib_v or "?",
+        solver_python_stack(),
+    )
     if not exe_v or not lib_v or exe_v.split(".")[:2] == lib_v.split(".")[:2]:
         return
 
@@ -342,5 +384,6 @@ __all__ = [
     "locate_solver_binary",
     "mf6_executable_version",
     "read_manifest",
+    "solver_python_stack",
     "warn_on_mf6_version_mismatch",
 ]

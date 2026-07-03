@@ -51,3 +51,24 @@ def test_unknown_version_does_not_warn(monkeypatch, warnings) -> None:
     _patch_versions(monkeypatch, None, "6.7.0")
     binaries.warn_on_mf6_version_mismatch("mf6", "libmf6.so")
     assert warnings == []
+
+
+def test_solver_python_stack_reports_both_wrappers() -> None:
+    stack = binaries.solver_python_stack()
+    assert "modflowapi" in stack and "xmipy" in stack
+
+
+def test_solver_python_stack_flags_dev_editable(monkeypatch) -> None:
+    monkeypatch.setattr(
+        binaries,
+        "_package_version_and_editable",
+        lambda name: ("0.3.0.dev0", True) if name == "modflowapi" else ("1.5.0", False),
+    )
+    stack = binaries.solver_python_stack()
+    assert "modflowapi 0.3.0.dev0 (editable)" in stack
+    assert "xmipy 1.5.0" in stack and "xmipy 1.5.0 (editable)" not in stack
+
+
+def test_solver_python_stack_marks_absent(monkeypatch) -> None:
+    monkeypatch.setattr(binaries, "_package_version_and_editable", lambda _name: (None, False))
+    assert binaries.solver_python_stack() == "modflowapi (absent), xmipy (absent)"
