@@ -58,8 +58,9 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(tmp_path: Path) -> None:
             "LAC0_STAGE": 90.0,
             "LAC0_VOLUME": 450.0,
             "LAC0_SURFACE_AREA": 90.0,
-            # ext-outflow is keyed by the outlet number (here outlet 0).
-            "LAC0_EXT_OUTFLOW_0": _SECONDS_PER_STEP,  # 86400 length^3/unit -> 1.0 m3/s
+            # ext-outflow is keyed by the outlet number (here outlet 0). MF6
+            # reports outflow negative; the extractor stores it positive.
+            "LAC0_EXT_OUTFLOW_0": -_SECONDS_PER_STEP,  # -86400 length^3/unit -> +1.0 m3/s
             "LAC0_LAK_0": 0.001,
             "LAC0_LAK_1": 0.002,
             "LAC0_LAK_2": 0.0005,
@@ -84,10 +85,11 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(tmp_path: Path) -> None:
     assert rec[(station, "surface_area")]["value"] == pytest.approx(90.0)
     assert rec[(station, "surface_area")]["unit"] == "m2"
 
-    # The spillway is a RATE: 86400 length^3/unit divides to 1.0 m3/s. The
-    # undivided value (86400) must NOT be produced.
+    # The spillway is a RATE: -86400 length^3/unit divides to -1.0 m3/s and is
+    # negated to the positive-outflow convention (+1.0). The undivided magnitude
+    # (86400) must NOT be produced.
     assert rec[(station, "ext_outflow")]["value"] == pytest.approx(1.0)
-    assert rec[(station, "ext_outflow")]["value"] != pytest.approx(_SECONDS_PER_STEP)
+    assert abs(rec[(station, "ext_outflow")]["value"]) != pytest.approx(_SECONDS_PER_STEP)
     assert rec[(station, "ext_outflow")]["unit"] == "m3/s"
 
     # Lake-aquifer exchange = -(sum of per-connection lak) / seconds. Lake loses
