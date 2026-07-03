@@ -35,6 +35,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import derived as _pure
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
 
@@ -132,8 +133,17 @@ def _write_derived_stack(
     sim_zarr: SimulationZarr,
     variable: str,
     values: np.ndarray,
+    *,
+    n_timesteps: int | None = None,
+    timestep_offset: int = 0,
 ) -> None:
-    sim_zarr.write_field_stack(variable, values, subgroup="derived")
+    sim_zarr.write_field_stack(
+        variable,
+        values,
+        subgroup="derived",
+        n_timesteps=n_timesteps,
+        timestep_offset=timestep_offset,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -164,15 +174,21 @@ def _run_watertable_elevation(sim_zarr: SimulationZarr) -> DerivedResult:
             status="skipped",
             reason="mesh surface elevation unavailable",
         )
-    head_stack = np.asarray(sim_zarr.root["head"][:], dtype="float64")[:n_timesteps]
-    wt_stack = np.empty((n_timesteps, n_cells), dtype="float64")
-    for t in range(n_timesteps):
-        head_t = head_stack[t]
-        if head_t.ndim == 2:
-            head_t = head_t.reshape(n_layers, n_cells)
-        wt = _pure.watertable_elevation(head_t, top)
-        wt_stack[t] = np.asarray(wt, dtype="float64").ravel()[:n_cells]
-    _write_derived_stack(sim_zarr, "watertable_elevation", wt_stack)
+    head_arr = sim_zarr.root["head"]
+    slab = slab_steps(n_layers, n_cells)
+    for t0 in range(0, n_timesteps, slab):
+        t1 = min(t0 + slab, n_timesteps)
+        head_chunk = np.asarray(head_arr[t0:t1], dtype="float64")
+        wt_chunk = np.empty((t1 - t0, n_cells), dtype="float64")
+        for i in range(t1 - t0):
+            head_t = head_chunk[i]
+            if head_t.ndim == 2:
+                head_t = head_t.reshape(n_layers, n_cells)
+            wt = _pure.watertable_elevation(head_t, top)
+            wt_chunk[i] = np.asarray(wt, dtype="float64").ravel()[:n_cells]
+        _write_derived_stack(
+            sim_zarr, "watertable_elevation", wt_chunk, n_timesteps=n_timesteps, timestep_offset=t0
+        )
     return DerivedResult(name="watertable_elevation", status="computed")
 
 
