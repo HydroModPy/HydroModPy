@@ -13,8 +13,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from shapely.geometry import LineString
+
+    from hydromodpy.spatial.mesh.hydro_mesh import HydroMesh
 
 __all__ = ["BarrierFace", "barrier_faces_from_line"]
 
@@ -33,17 +39,21 @@ class BarrierFace:
     s: float
 
 
-def _line_coords(line) -> np.ndarray:
+def _line_coords(line: LineString) -> np.ndarray:
     """Return the (n, 2) vertex coordinates of a shapely LineString."""
     return np.asarray(line.coords, dtype=float)[:, :2]
 
 
-def barrier_faces_from_line(planar_mesh, line) -> list[BarrierFace]:
+def barrier_faces_from_line(planar_mesh: HydroMesh, line: LineString) -> list[BarrierFace]:
     """Return the interior mesh faces a barrier line crosses.
 
     For every interior edge (shared by exactly two cells) the segment is tested
-    against the line; a crossing yields one ``BarrierFace`` carrying the two cell
-    ids and the line position. Faces are returned ordered along the line.
+    against the line. A transversal crossing yields one ``BarrierFace`` carrying
+    the two cell ids and the line position (the nearest crossing point when the
+    line re-crosses the same face). A line that only touches a face at an endpoint
+    is not a barrier there and is skipped. A trace collinear with a mesh edge is
+    geometrically ambiguous and raises, asking the user to offset the trace off
+    the mesh edges. Faces are returned ordered along the line.
     """
     from shapely.geometry import LineString
 
@@ -59,20 +69,34 @@ def barrier_faces_from_line(planar_mesh, line) -> list[BarrierFace]:
             b = int(cell[(k + 1) % arity])
             edge_to_cells[(a, b) if a < b else (b, a)].append(ci)
 
-    coords = _line_coords(line)
-    total_len = float(LineString(coords).length) or 1.0
+    total_len = float(LineString(_line_coords(line)).length) or 1.0
 
     faces: list[BarrierFace] = []
     for (a, b), cells in edge_to_cells.items():
         if len(cells) != 2:
             continue
         edge = LineString([verts[a], verts[b]])
-        if not line.crosses(edge) and not line.intersects(edge):
+        inter = line.intersection(edge)
+        if inter.is_empty:
             continue
-        point = line.intersection(edge)
-        if point.is_empty or point.geom_type != "Point":
+        gtype = inter.geom_type
+        if gtype in ("LineString", "MultiLineString"):
+            raise ValueError(
+                "Flow-barrier trace is collinear with the mesh edge between cells "
+                f"{sorted(cells)}; offset the trace off the mesh edges so each crossing "
+                "is a clean transversal intersection."
+            )
+        if not line.crosses(edge):
+            # Endpoint-only touch (the line stops on the face without entering the
+            # neighbour cell): no barrier belongs on this face.
             continue
-        s = float(line.project(point)) / total_len
+        if gtype == "Point":
+            points = [inter]
+        elif gtype == "MultiPoint":
+            points = list(inter.geoms)
+        else:
+            continue
+        s = min(float(line.project(point)) for point in points) / total_len
         ci, cj = sorted(cells)
         faces.append(BarrierFace(cell_a=int(ci), cell_b=int(cj), s=s))
 
