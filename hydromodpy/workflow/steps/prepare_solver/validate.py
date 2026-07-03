@@ -67,6 +67,9 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
             value = getattr(sim_cfg, field_name, None)
             if value is not None and value != "":
                 kwargs[field_name] = value
+        tags = getattr(sim_cfg, "tags", None)
+        if tags:
+            kwargs["tags"] = list(tags)
 
     mesh = ctx.setup.mesh_planar
     if mesh is not None:

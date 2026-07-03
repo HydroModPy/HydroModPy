@@ -13466,6 +13466,22 @@
             "type": "string",
             "x-hmp-profile": "expert"
           },
+          "mf6_api_timeout_s": {
+            "anyOf": [
+              {
+                "description": "Positive floating-point value.",
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve in parallel calibration; the child is killed past it so one stuck trial cannot wedge the session. None keeps the built-in default (2400 s).",
+            "title": "Mf6 Api Timeout S",
+            "x-hmp-profile": "expert"
+          },
           "mf6_ims_complexity": {
             "default": "COMPLEX",
             "description": "IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX.",

@@ -84,15 +84,15 @@ _API_ISOLATION_ENABLED = False
 # never returns), which would wedge a whole parallel calibration on one bad trial.
 # The isolated child is killed after this wall-clock budget so the trial is recorded
 # as failed and the session continues. Generous vs a normal daily solve (~15 min);
-# override per model with ``runtime.mf6_api_timeout_s`` (<=0 disables).
+# override per model with ``[<backend>].mf6_api_timeout_s`` (a positive float).
 _API_ISOLATION_DEFAULT_TIMEOUT_S = 2400.0
 
 
 def _api_isolation_timeout_s(model) -> float | None:
-    runtime = getattr(model, "runtime", None)
+    runtime = getattr(getattr(model, "modflow_config", None), "runtime", None)
     override = getattr(runtime, "mf6_api_timeout_s", None)
     if override is not None:
-        return float(override) if float(override) > 0 else None
+        return float(override)
     return _API_ISOLATION_DEFAULT_TIMEOUT_S
 
 

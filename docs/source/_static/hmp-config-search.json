@@ -13738,7 +13738,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L164",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L172",
     "description": "MODFLOW 6 runtime options."
   },
   {
@@ -13766,6 +13766,18 @@
     "description": "MODFLOW 6 solve dispatch: 'subprocess' runs the mf6 executable, 'api' drives libmf6 via the optional modflowapi package. Both write the same simulation, so output extraction is identical."
   },
   {
+    "path": "modflow6.runtime.mf6_api_timeout_s",
+    "name": "mf6_api_timeout_s",
+    "type": "Optional[float]",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-runtime-mf6-api-timeout-s",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L32",
+    "description": "Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve in parallel calibration; the child is killed past it so one stuck trial cannot wedge the session. None keeps the built-in default (2400 s)."
+  },
+  {
     "path": "modflow6.runtime.mf6_ims_complexity",
     "name": "mf6_ims_complexity",
     "type": "Literal['SIMPLE', 'MODERATE', 'COMPLEX']",
@@ -13774,7 +13786,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-ims-complexity",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L40",
     "description": "IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX."
   },
   {
@@ -13786,7 +13798,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf-verbose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L36",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L44",
     "description": "Enable verbose FloPy logging for MODFLOW 6 setup and execution."
   },
   {
@@ -13798,7 +13810,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-outer-dvclose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L48",
     "description": "IMS outer-iteration head-change convergence criterion."
   },
   {
@@ -13810,7 +13822,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-inner-dvclose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L44",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L52",
     "description": "IMS inner-iteration head-change convergence criterion."
   },
   {
@@ -13822,7 +13834,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-outer-maximum",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L48",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L56",
     "description": "Maximum number of IMS outer iterations."
   },
   {
@@ -13834,7 +13846,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-inner-maximum",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L60",
     "description": "Maximum number of IMS inner iterations."
   },
   {
@@ -13846,7 +13858,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-inner-rclose",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L64",
     "description": "IMS inner-iteration flow-residual closure (L^3/T in run units). None keeps the complexity-preset default."
   },
   {
@@ -13858,7 +13870,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-linear-acceleration",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L63",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L71",
     "description": "IMS linear acceleration: CG for symmetric matrices, BICGSTAB for the non-symmetric Newton formulation. None keeps the preset default."
   },
   {
@@ -13870,7 +13882,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-under-relaxation",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L78",
     "description": "IMS non-linear under-relaxation scheme. DBD is recommended with Newton. None keeps the preset default."
   },
   {
@@ -13882,7 +13894,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-enable-rewet",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L87",
     "description": "Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless explicitly enabled."
   },
   {
@@ -13894,7 +13906,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-newton",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L94",
     "description": "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default and matches the MODFLOW-NWT backend."
   },
   {
@@ -13906,7 +13918,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-newton-under-relaxation",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L94",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L102",
     "description": "Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true."
   },
   {
@@ -13918,7 +13930,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-enable-xt3d",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L106",
     "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled only when the mesh is significantly non-orthogonal or anisotropic K is configured; the default Voronoi/PEBI dual grid is near-orthogonal, so XT3D stays off there. It adds co"
   },
   {
@@ -13930,7 +13942,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetfct",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L116",
     "description": "MF6 NPF rewet WETFCT factor."
   },
   {
@@ -13942,7 +13954,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-iwetit",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L112",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L120",
     "description": "MF6 NPF rewet IWETIT interval."
   },
   {
@@ -13954,7 +13966,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-ihdwet",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L124",
     "description": "MF6 NPF rewet IHDWET flag."
   },
   {
@@ -13966,7 +13978,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetdry",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L120",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L128",
     "description": "MF6 NPF WETDRY threshold used when rewetting is active."
   },
   {
@@ -13978,7 +13990,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L168",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L176",
     "description": "Process-specific controls for MODFLOW 6 flow packages."
   },
   {
@@ -13990,7 +14002,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-vka",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L129",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L137",
     "description": "Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka."
   },
   {
@@ -14002,7 +14014,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-evt-extinction-depth",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L133",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L141",
     "description": "Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value."
   },
   {
@@ -14014,7 +14026,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-lak-forcing-mode",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L142",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L150",
     "description": "How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps c"
   },
   {
@@ -14026,7 +14038,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-ts6-min-periods",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L152",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L160",
     "description": "Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file."
   },
   {
@@ -14038,7 +14050,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L172",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L180",
     "description": "Solver-grid payload split into planar and vertical sections."
   },
   {
