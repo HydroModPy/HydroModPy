@@ -250,35 +250,9 @@ def accumulate_on_downhill_graph(graph: DownhillGraph, local_values: Any) -> np.
     return accumulated[0] if single else accumulated
 
 
-def accumulate_downhill_on_mesh(
-    local_values: Any,
-    reference_values: Any,
-    face_node_connectivity: Any,
-    *,
-    vertices: Any | None = None,
-    inactive_mask: Any | None = None,
-) -> np.ndarray:
-    """Accumulate per-cell source values along the steepest downhill mesh path."""
-    local = np.asarray(local_values, dtype=float).reshape(-1)
-    reference = np.asarray(reference_values, dtype=float).reshape(-1)
-    if local.size != reference.size:
-        raise ValueError(
-            "local_values and reference_values must have the same number of cells "
-            f"({local.size} != {reference.size})."
-        )
-    graph = build_downhill_graph(
-        reference,
-        face_node_connectivity,
-        vertices=vertices,
-        inactive_mask=inactive_mask,
-    )
-    return accumulate_on_downhill_graph(graph, local)
-
-
 __all__ = [
     "DRAIN_BUDGET_KEYS",
     "DownhillGraph",
-    "accumulate_downhill_on_mesh",
     "accumulate_on_downhill_graph",
     "active_surface_mask",
     "build_downhill_graph",

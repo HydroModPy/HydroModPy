@@ -118,9 +118,6 @@ class TaskHandle:
         if kwargs:
             self._progress.update(self._task_id, **kwargs)
 
-    def log(self, message: str) -> None:
-        logger.debug("%s", message)
-
 
 _NULL_HANDLE = TaskHandle(None, None)
 

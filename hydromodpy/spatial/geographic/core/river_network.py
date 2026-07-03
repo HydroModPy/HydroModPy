@@ -62,7 +62,6 @@ class RiverNetworkProducts:
     # Full DEM-grid rasters (uncut, same affine/shape as the corrected DEM and
     # the D8 pointer). The SFR delineation needs these, NOT the clipped rasters
     # above whose extent differs.
-    streams_full_tif: str | None = None
     stream_order_strahler_full_tif: str | None = None
     stream_link_id_full_tif: str | None = None
 
@@ -487,7 +486,6 @@ def build_river_network_products(
         network_crs=network_crs_value,
         river_mesh_trace=river_mesh_trace,
         hydrographic_network_generated_summary_json=str(summary_json),
-        streams_full_tif=str(active_streams_full_tif),
         stream_order_strahler_full_tif=(
             str(stream_order_full_tif) if bool(river_network.compute_strahler_order) else None
         ),

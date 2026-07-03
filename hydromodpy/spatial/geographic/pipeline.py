@@ -251,14 +251,6 @@ def _river_products_from_cache(
         hydrographic_network_generated_summary_json=(
             paths.hydrographic_network_generated_summary_json
         ),
-        streams_full_tif=str(
-            Path(paths.correcflow_path)
-            / (
-                "dem_streams_pruned_full.tif"
-                if bool(config.river_network.prune_short_streams)
-                else "dem_streams_full.tif"
-            )
-        ),
         stream_order_strahler_full_tif=(
             str(Path(paths.correcflow_path) / "dem_stream_order_strahler_full.tif")
             if bool(config.river_network.compute_strahler_order)

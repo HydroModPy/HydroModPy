@@ -836,17 +836,20 @@ def build_sfr_package_args(
     *,
     networks: Mapping[str, ResolvedSfrNetwork],
     external_mover: bool = False,
+    has_mover_records: bool = False,
 ) -> dict[str, Any] | None:
     """Assemble the ``ModflowGwfsfr`` arguments for the active SFR network.
 
     Returns ``None`` when no network is active. The returned dict feeds
     ``flopy.mf6.ModflowGwfsfr`` plus side-channel keys popped in ``build.py``
-    (``mover_records``, ``obs_continuous``, ``sfr_obs_meta``, ``ts_specs``).
+    (``obs_continuous``, ``sfr_obs_meta``, ``ts_specs``).
 
     ``external_mover`` flags MVR records from OTHER packages targeting this SFR
     (a LAK spillway release or the routed hillslope drainage): the package then
     advertises MOVER and the obs spec requests the per-reach to/from-mvr series
-    even with no SFR-owned mover record.
+    even with no SFR-owned mover record. ``has_mover_records`` flags SFR-owned
+    mover records (already computed once in ``build.py``); the records
+    themselves are routed there, so only the boolean is needed here.
     """
     if not networks:
         return None
@@ -913,11 +916,10 @@ def build_sfr_package_args(
     for kper, rows in diversion_period_rows.items():
         perioddata.setdefault(kper, []).extend(rows)
 
-    mover_records = build_sfr_mover_records({network_id: network})
     time_conversion, length_conversion = package_unit_conversions(model)
     stem = _sfr_output_stem(model)
     obs_continuous, sfr_obs_meta = build_sfr_obs_spec(
-        stem=stem, network=network, has_mover=bool(mover_records) or bool(external_mover)
+        stem=stem, network=network, has_mover=has_mover_records or external_mover
     )
 
     args: dict[str, Any] = {
@@ -929,7 +931,6 @@ def build_sfr_package_args(
         "save_flows": True,
         "print_flows": False,
         "budget_filerecord": f"{stem}.sfr.cbc",
-        "budgetcsv_filerecord": f"{stem}.sfr.budget.csv",
     }
     if network.downstream_increasing:
         # Downstream-increasing numbering guarantees a single sweep resolves the
@@ -941,9 +942,7 @@ def build_sfr_package_args(
         args["perioddata"] = perioddata
     if definition.get("storage"):
         args["storage"] = True
-    if mover_records:
-        args["mover_records"] = mover_records
-    if mover_records or external_mover:
+    if has_mover_records or external_mover:
         args["mover"] = True
     if ts_series:
         args["ts_specs"] = ts_series
@@ -1244,7 +1243,6 @@ def build_sfr_obs_spec(
     obs_continuous = {obs_csv: obslist}
     sfr_obs_meta = {
         "obs_csv": obs_csv,
-        "budgetcsv": f"{stem}.sfr.budget.csv",
         "network_id": network.network_id,
         "reach_count": len(network.reaches),
         "entries": entries,

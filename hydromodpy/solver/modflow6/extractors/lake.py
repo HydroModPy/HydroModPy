@@ -117,13 +117,12 @@ class LakeObsEntry:
 class LakeObsSpec:
     """Build-time description of the LAK outputs, persisted as a JSON sidecar.
 
-    ``obs_csv`` / ``budgetcsv`` are filenames relative to the solver output
-    directory. ``entries`` maps every obs column to its lake / quantity.
+    ``obs_csv`` is a filename relative to the solver output directory.
+    ``entries`` maps every obs column to its lake / quantity.
     """
 
     obs_csv: str
     entries: list[LakeObsEntry] = field(default_factory=list)
-    budgetcsv: str | None = None
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> LakeObsSpec:
@@ -138,11 +137,9 @@ class LakeObsSpec:
             )
             for item in payload.get("entries", [])
         ]
-        budgetcsv = payload.get("budgetcsv")
         return cls(
             obs_csv=str(payload["obs_csv"]),
             entries=entries,
-            budgetcsv=None if budgetcsv is None else str(budgetcsv),
         )
 
 

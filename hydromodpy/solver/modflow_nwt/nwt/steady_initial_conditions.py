@@ -38,7 +38,7 @@ def _read_final_head(head_path: Path, *, nlay: int, nrow: int, ncol: int) -> np.
     return np.asarray(head, dtype=float)
 
 
-def run_nwt_steady_state_initialization(model: object, *, verbose: bool) -> np.ndarray:
+def run_nwt_steady_state_initialization(model: object) -> np.ndarray:
     """Run one auxiliary steady NWT model and return heads for transient BAS."""
     init_root = Path(str(model.full_path)) / "_steady_state_initialization"
     init_name = f"{model.model_name}_steady_ic"
@@ -62,9 +62,7 @@ def run_nwt_steady_state_initialization(model: object, *, verbose: bool) -> np.n
     )
     # Auxiliary single-period solve: keep it out of the live display.
     with progress.suppressed():
-        success = steady_model.processing(
-            ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
-        )
+        success = steady_model.processing(ModflowRunOptions(write_model=True, run_model=True))
     if not success:
         raise RuntimeError("MODFLOW-NWT steady-state initial-condition solve failed.")
 

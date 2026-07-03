@@ -432,10 +432,7 @@ class ModflowNwt:
             and self.flow_regime == "transient"
             and flow_uses_steady_state_initial_condition(self.flow)
         ):
-            steady_heads = run_nwt_steady_state_initialization(
-                self,
-                verbose=bool(options.verbose),
-            )
+            steady_heads = run_nwt_steady_state_initialization(self)
             apply_nwt_steady_state_initial_heads(self, steady_heads)
             steady_initial_heads_applied = True
 

@@ -87,20 +87,21 @@ class DataManagersRuntimeLoader:
         """Load active data-manager families into ``result``.
 
         Sequential types (dem, geology, hydrography) are loaded first in
-        order. Remaining independent types (observation + climatic) are
-        loaded in parallel via a thread pool.
+        order, then the remaining independent types (observation + climatic).
+        Everything runs sequentially: the shared DuckDB catalog connection is
+        not thread-safe, so a thread pool would corrupt result sets.
         """
         workspace_paths = self._workspace_paths(result)
         self._init_catalog(workspace_paths)
 
         sequential = []
-        parallel = []
+        independent = []
         for type_name in self.data_plan.types:
             spec = VARIABLE_SPECS.get(type_name)
             if spec is not None and spec.loader_method is not None:
                 sequential.append(type_name)
             else:
-                parallel.append(type_name)
+                independent.append(type_name)
 
         # Phase 1: sequential types (dependency order preserved).
         for type_name in sequential:
@@ -113,7 +114,7 @@ class DataManagersRuntimeLoader:
         # Loading the rest sequentially is the simplest correct fix and
         # the speed cost is negligible (only a handful of data managers
         # per project, each < 1 s).
-        for type_name in parallel:
+        for type_name in independent:
             try:
                 self._load_single(result, type_name)
             except Exception as exc:

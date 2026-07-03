@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from numbers import Real
 
 import numpy as np
 
@@ -440,9 +439,7 @@ def collapse_identical_periods(spd: dict[int, object]) -> dict[int, object]:
     return collapsed
 
 
-# Re-exported for the recharge/EVT builder which needs Real-aware coercion.
 __all__ = [
-    "Real",
     "apply_side_boundary_start_heads",
     "boundary_attr",
     "boundary_conditions_mapping",

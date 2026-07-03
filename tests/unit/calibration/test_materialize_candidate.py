@@ -232,7 +232,7 @@ class TestReimportableByTomllib:
             space=space_replace,
             out_dir=tmp_path / "candidates",
             candidate_label="case_a",
-            run_id="case_a_run",
+            name="case_a_run",
         )
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)

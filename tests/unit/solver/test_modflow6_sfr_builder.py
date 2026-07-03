@@ -362,10 +362,10 @@ def test_mover_records_couple_terminal_reach_to_lake() -> None:
     assert record.receiver_id == 0
     terminal = max(reach.ifno for reach in networks["net0"].reaches)
     assert record.provider_id == terminal
-    # The coupled build advertises MOVER.
-    args = build_sfr_package_args(model, networks=networks)
+    # The coupled build advertises MOVER (the records themselves are routed in
+    # build.py; the package only needs the has_mover_records flag).
+    args = build_sfr_package_args(model, networks=networks, has_mover_records=bool(records))
     assert args["mover"] is True
-    assert args["mover_records"] == records
 
 
 def _two_terminal_two_lake_trace() -> SfrReachTrace:

@@ -19,8 +19,9 @@ from hydromodpy.core.exceptions import SolverInputError
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-# MF6 holds a name in a 16-character identifier field; longer names are truncated
-# at write time, which silently aliases two series. We reject those up front.
+# MF6 accepts TS6 names up to LENTIMESERIESNAME = LENOBSNAME = 40 chars
+# (Constants.f90). HMP keeps a stricter 16-char convention for readable,
+# collision-free series names and rejects longer ones up front.
 _MAX_TS6_NAME_LEN = 16
 
 Ts6Interpolation = Literal["stepwise", "linear", "linearend"]
@@ -65,7 +66,8 @@ def build_ts6_table(
             raise SolverInputError("TS6 series name must be non-empty.")
         if len(name) > _MAX_TS6_NAME_LEN:
             raise SolverInputError(
-                f"TS6 series name '{name}' exceeds the MF6 {_MAX_TS6_NAME_LEN}-char limit."
+                f"TS6 series name '{name}' exceeds the {_MAX_TS6_NAME_LEN}-char HMP "
+                "TS6 name convention."
             )
 
     reference = series[0].times

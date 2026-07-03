@@ -6,8 +6,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.field_routing import (
-    accumulate_downhill_on_mesh,
+    accumulate_on_downhill_graph,
     active_surface_mask,
+    build_downhill_graph,
     drain_budget_to_positive_outflow,
 )
 from hydromodpy.results.catalog import Catalog
@@ -97,12 +98,12 @@ def test_accumulate_downhill_on_mesh_routes_to_lower_neighbor() -> None:
         dtype="int32",
     )
 
-    accumulated = accumulate_downhill_on_mesh(
-        np.array([2.5, 0.0]),
+    graph = build_downhill_graph(
         np.array([10.0, 5.0]),
         face_node_connectivity,
         vertices=vertices,
     )
+    accumulated = accumulate_on_downhill_graph(graph, np.array([2.5, 0.0]))
 
     np.testing.assert_allclose(accumulated, np.array([2.5, 2.5]))
 
