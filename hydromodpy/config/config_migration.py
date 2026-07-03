@@ -30,6 +30,19 @@ def fix_config_file(path: str | Path) -> list[str]:
         raise FileNotFoundError(f"No TOML file at {path}")
 
     doc = tomlkit.parse(path.read_text(encoding="utf-8"))
+    changes = migrate_config_doc(doc)
+    if changes:
+        path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    return changes
+
+
+def migrate_config_doc(doc: Any) -> list[str]:
+    """Apply the legacy ``[simulation]`` key migrations to a parsed doc in place.
+
+    Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document, so the
+    same migration drives both ``fix_config_file`` (on disk) and in-memory
+    loading. Returns the list of human-readable changes applied.
+    """
     simulation = doc.get("simulation")
     if simulation is None:
         return []
@@ -40,8 +53,10 @@ def fix_config_file(path: str | Path) -> list[str]:
         value = simulation["on_collision"]
         if "if_exists" not in simulation:
             simulation["if_exists"] = value
+            changes.append(f"simulation.on_collision -> if_exists ({value!r})")
+        else:
+            changes.append("simulation.on_collision dropped (if_exists already set)")
         del simulation["on_collision"]
-        changes.append(f"simulation.on_collision -> if_exists ({value!r})")
 
     if "run_id" in simulation:
         value = simulation["run_id"]
@@ -53,9 +68,6 @@ def fix_config_file(path: str | Path) -> list[str]:
         del simulation["run_id"]
 
     changes.extend(_promote_export(doc, simulation))
-
-    if changes:
-        path.write_text(tomlkit.dumps(doc), encoding="utf-8")
     return changes
 
 
@@ -68,11 +80,13 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
         # A top-level [export] already exists: drop the buried duplicate.
         del results["export"]
         return ["simulation.results.export dropped (top-level [export] already set)"]
-    payload = results["export"].unwrap()
-    table = tomlkit.item(payload)
-    doc["export"] = table
+    export_value = results["export"]
+    if hasattr(export_value, "unwrap"):
+        doc["export"] = tomlkit.item(export_value.unwrap())
+    else:
+        doc["export"] = export_value
     del results["export"]
     return ["simulation.results.export -> [export]"]
 
 
-__all__ = ["fix_config_file"]
+__all__ = ["fix_config_file", "migrate_config_doc"]
