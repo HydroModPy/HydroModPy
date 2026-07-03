@@ -96,11 +96,6 @@ def _api_isolation_timeout_s(model) -> float | None:
     return _API_ISOLATION_DEFAULT_TIMEOUT_S
 
 
-def api_isolation_enabled() -> bool:
-    """Whether api solves should run in an isolated child process."""
-    return _API_ISOLATION_ENABLED
-
-
 @contextmanager
 def api_isolation_context(enabled: bool):
     """Isolate api solves in a spawn child process within this block when enabled.
@@ -145,7 +140,6 @@ def _run_via_api(model, *, verbose: bool) -> bool:
             model.full_path,
             band_specs=getattr(model, "_exposed_band_runoff_specs", None),
             lib_path=lib_path,
-            verbose=verbose,
             timeout=_api_isolation_timeout_s(model),
         )
 

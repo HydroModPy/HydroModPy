@@ -8,9 +8,9 @@ package, invoking a developer callback once per timestep.
 The callback receives a typed :class:`Mf6ApiContext`, never raw
 ``modflowapi`` objects, so the public surface does not leak the optional
 dependency's types. The context hides the AdvancedPackage / pointer
-mechanics behind read/write accessors for lake stage and GWF heads, plus a
-raw escape hatch (``get_value`` / ``set_value`` / ``get_value_ptr``) for any
-other forcing or release value.
+mechanics behind read/write accessors for lake stage, plus a raw escape
+hatch (``get_value`` / ``set_value`` / ``get_value_ptr``) for any other
+forcing or release value.
 
 ``modflowapi`` and ``xmipy`` are OPTIONAL: they are imported lazily inside
 :func:`run_mf6_api` so importing this module stays cheap and dependency-free.
@@ -30,8 +30,7 @@ variable ``"stage"`` and the *solved* post-solve stage as ``"xnewpak"``.
 :meth:`Mf6ApiContext.write_lake_stage` overrides the input ``"stage"`` value
 so the change forces the solution. Both validate the variable name against
 the package's ``advanced_vars`` at runtime and raise a clear error rather
-than failing deep in xmipy. Run with ``_develop=True`` to dump a
-``var_list.txt`` of every accessible address as a discovery aid.
+than failing deep in xmipy.
 """
 
 from __future__ import annotations
@@ -244,32 +243,6 @@ class Mf6ApiContext:
         timestep, sized from the solved stage ``XNEWPAK`` read with :meth:`lak_get`.
         """
         self.lak_set("RUNOFF", values, model, pkg)
-
-    # heads ----------------------------------------------------------------
-
-    def read_heads(self, model: Any | None = None) -> np.ndarray:
-        """Return a read-only copy of the GWF heads reshaped to the grid."""
-        api_model = self._resolve_model(model)
-        return np.asarray(api_model.X)
-
-    def write_heads(self, values: Sequence[float] | np.ndarray, model: Any | None = None) -> None:
-        """Overwrite the live GWF head vector via the solver pointer.
-
-        ``ApiModel.X`` is read-only, so heads are written through the raw
-        ``X`` pointer (reduced-node ordering). ``values`` must match the
-        pointer length; it is coerced to a C-contiguous ``float64`` array.
-        """
-        api_model = self._resolve_model(model)
-        mf6 = self._sim.mf6
-        addr = mf6.get_var_address("X", api_model.name)
-        ptr = mf6.get_value_ptr(addr)
-        array = np.ascontiguousarray(np.asarray(values, dtype=np.float64)).ravel()
-        if array.size != ptr.size:
-            raise SolverError(
-                f"write_heads expected {ptr.size} values for the live head "
-                f"pointer but got {array.size}."
-            )
-        ptr[:] = array
 
     # raw escape hatch -----------------------------------------------------
 

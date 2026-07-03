@@ -190,23 +190,6 @@ class Modflow6:
             self._mf6_api_lib_path = api_lib_path
         return run_processing(self, options)
 
-    def run_api(
-        self,
-        callback: Callable[[Mf6ApiContext], None],
-        *,
-        lib_path: str | os.PathLike[str] | None = None,
-        verbose: bool = False,
-    ) -> bool:
-        """Run this written model through libmf6 with a per-step callback.
-
-        Opt-in developer entry point parallel to ``processing``. The
-        simulation must already be written. See
-        :func:`hydromodpy.solver.modflow6.api_runner.run_mf6_api`.
-        """
-        from hydromodpy.solver.modflow6.api_runner import run_mf6_api
-
-        return run_mf6_api(self.full_path, callback, lib_path=lib_path, verbose=verbose)
-
     # post_processing --------------------------------------------------
 
     def post_processing(self, options: ModflowPostprocessOptions | None = None):

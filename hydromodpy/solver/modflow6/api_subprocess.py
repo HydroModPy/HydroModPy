@@ -47,7 +47,6 @@ def _api_subprocess_entry(
     sim_ws: str,
     band_specs: list,
     lib_path: str | None,
-    verbose: bool,
 ) -> None:
     """Child entry point: rebuild the callback and run the API solve.
 
@@ -107,7 +106,6 @@ def run_mf6_api_isolated(
     *,
     band_specs: Sequence[LakeBandRunoffSpec] | None = None,
     lib_path: str | PathLike[str] | None = None,
-    verbose: bool = False,
     timeout: float | None = None,
 ) -> bool:
     """Run :func:`run_mf6_api` in a dedicated ``spawn`` child process.
@@ -126,7 +124,6 @@ def run_mf6_api_isolated(
             str(sim_ws),
             list(band_specs or []),
             None if lib_path is None else str(lib_path),
-            bool(verbose),
         ),
         daemon=False,
     )
