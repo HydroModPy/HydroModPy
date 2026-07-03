@@ -4,7 +4,8 @@ Defines :class:`FlowBarrierConfig`, a thin vertical low-permeability barrier on
 a polyline, modeled in MODFLOW 6 as a Horizontal Flow Barrier (HFB). It is the
 canonical barrier payload, used in two places:
 
-* a general addon ``[flow.sinks_sources.flow_barriers.<id>]`` (any model), and
+* a general addon ``[flow.sinks_sources.flow_barriers.<id>]`` (modflow6 backend
+  only; declaring one activates it, there is no active_bc gate), and
 * the dam cutoff wall / grout curtain ``[...lakes.<id>.cutoff_wall]``, where the
   barrier sits on the dam axis and forces the under-dam seepage below the wall.
 
@@ -147,13 +148,20 @@ class FlowBarrierConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_resistance(self) -> FlowBarrierConfig:
-        """Exactly one resistance source: hydchr XOR (k and thickness)."""
+        """Exactly one resistance source: hydchr alone XOR (k and thickness)."""
         has_hydchr = self.hydchr is not None
-        has_k_thickness = self.k is not None and self.thickness is not None
-        if has_hydchr == has_k_thickness:
+        has_k = self.k is not None
+        has_thickness = self.thickness is not None
+        if has_hydchr:
+            if has_k or has_thickness:
+                raise ValueError(
+                    "flow barrier resistance is over-specified: set hydchr alone, or k and "
+                    "thickness (without hydchr), not a mix."
+                )
+            return self
+        if not (has_k and has_thickness):
             raise ValueError(
-                "flow barrier needs exactly one resistance source: set hydchr, or "
-                "both k and thickness, not both groups."
+                "flow barrier needs a resistance source: set hydchr, or both k and thickness."
             )
         return self
 
