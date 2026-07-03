@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import subprocess
 import sys
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -255,6 +257,78 @@ def ensure_solver_library(
     )
 
 
+_VERSION_RE = re.compile(r"(\d+\.\d+\.\d+)")
+_MF6_VERSION_PARITY_CHECKED = False
+_MISMATCH_ENV_VAR = "HMP_SILENCE_MF6_VERSION_MISMATCH"
+
+
+def mf6_executable_version(exe_path: str | os.PathLike[str]) -> str | None:
+    """Return the MODFLOW 6 executable version (e.g. ``'6.6.3'``), or ``None``."""
+    try:
+        out = subprocess.run(  # noqa: S603 - trusted managed binary
+            [str(exe_path), "-v"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = _VERSION_RE.search(f"{out.stdout}\n{out.stderr}")
+    return match.group(1) if match else None
+
+
+def libmf6_version(lib_path: str | os.PathLike[str]) -> str | None:
+    """Return the libmf6 shared-library version via xmipy, or ``None``.
+
+    Loads the library only to read its BMI ``get_version``; no simulation is
+    initialized, so it is safe to call once before the isolated solves spawn.
+    """
+    try:
+        from xmipy import XmiWrapper
+
+        match = _VERSION_RE.search(str(XmiWrapper(str(lib_path)).get_version()))
+        return match.group(1) if match else None
+    except Exception:  # noqa: BLE001 - version probe must never break a solve
+        return None
+
+
+def warn_on_mf6_version_mismatch(
+    exe_path: str | os.PathLike[str], lib_path: str | os.PathLike[str]
+) -> None:
+    """Log the mf6 exe and libmf6 versions once and warn on a major.minor mismatch.
+
+    The api runner solves with libmf6 while the subprocess runner and the
+    per-trial steady-state init use the exe, so a version skew means calibrated
+    optima may not reproduce a subprocess ``hmp run``. A mismatch warns once (loud,
+    with the fix); silence it with ``HMP_SILENCE_MF6_VERSION_MISMATCH``. It never
+    raises, so an existing mixed install keeps working.
+    """
+    global _MF6_VERSION_PARITY_CHECKED
+    if _MF6_VERSION_PARITY_CHECKED:
+        return
+    _MF6_VERSION_PARITY_CHECKED = True
+
+    exe_v = mf6_executable_version(exe_path)
+    lib_v = libmf6_version(lib_path)
+    logger.info("MODFLOW 6 engines: exe %s, libmf6 %s", exe_v or "?", lib_v or "?")
+    if not exe_v or not lib_v or exe_v.split(".")[:2] == lib_v.split(".")[:2]:
+        return
+
+    silence = os.environ.get(_MISMATCH_ENV_VAR, "")
+    if silence.strip().lower() not in ("", "0", "false", "no"):
+        return
+    logger.warning(
+        "MODFLOW 6 version mismatch: executable %s vs libmf6 %s. The api solves and the "
+        "per-trial steady-state init use different engine builds, so calibrated optima may not "
+        "reproduce a subprocess 'hmp run'. Re-align them with 'hmp install-binaries' (or set "
+        "%s to silence).",
+        exe_v,
+        lib_v,
+        _MISMATCH_ENV_VAR,
+    )
+
+
 __all__ = [
     "DEFAULT_RELEASE",
     "MANIFEST_FILENAME",
@@ -264,6 +338,9 @@ __all__ = [
     "ensure_solver_library",
     "exe_filename",
     "is_managed_cache",
+    "libmf6_version",
     "locate_solver_binary",
+    "mf6_executable_version",
     "read_manifest",
+    "warn_on_mf6_version_mismatch",
 ]
