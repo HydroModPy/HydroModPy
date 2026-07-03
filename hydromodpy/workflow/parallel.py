@@ -98,12 +98,15 @@ def run_sweep(
             bar.advance()
             return run.sim_id
 
-        if parallel == 1 or len(points) == 1:
-            return [_one(point) for point in points]
-
-        workers = min(parallel, len(points))
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(_one, points))
+        if parallel > 1 and len(points) > 1:
+            raise ConfigError(
+                "run_sweep parallel>1 is disabled: the sweep drives a single Project "
+                "(one WorkflowContext, catalog and Zarr store) mutated per point with "
+                "no lock, so concurrent points race on shared state. Run sequentially "
+                "(parallel=1), or use 'hmp calibrate --parallel N', which forks an "
+                "isolated per-trial context."
+            )
+        return [_one(point) for point in points]
 
 
 # ---------------------------------------------------------------------------

@@ -410,7 +410,12 @@ def run_trial_light(
     provider = get_trial_pipeline_provider()
     base_setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
     base_model_name = str(getattr(base_setup, "run_id", "") or "trial") or "trial"
-    sandbox = TrialSandbox(base_model_name, trial_id) if trial_id is not None else None
+    _scratch = getattr(getattr(base_setup, "workspace", None), "solver_scratch_folder", None)
+    sandbox = (
+        TrialSandbox(base_model_name, trial_id, solver_scratch_folder=_scratch)
+        if trial_id is not None
+        else None
+    )
     flow_overrides = sandbox.flow_overrides if sandbox is not None else None
 
     t0 = time.monotonic()
