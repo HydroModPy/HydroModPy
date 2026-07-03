@@ -157,6 +157,13 @@ class Modflow6FlowAdapter:
         """
 
         state = ctx.state
+        if self._reuse_solver_model_enabled(state):
+            raise NotImplementedError(
+                "flow_runtime_overrides['reuse_solver_model'] is disabled: solver-model reuse "
+                "was validated as NOT output-equivalent (identical parameters produced different "
+                "objectives). Re-enable it only behind an integration test that asserts objective "
+                "equality versus a full rebuild."
+            )
         preprocess_options = build_preprocess_options(state)
         model_name = resolve_run_model_name(ctx)
         model_modflow = None
