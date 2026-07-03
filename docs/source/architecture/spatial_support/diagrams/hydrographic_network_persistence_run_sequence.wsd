@@ -7,7 +7,7 @@ skinparam maxMessageSize 180
 participant "WorkflowContext\nloaded_data + geographic_features" as Ctx
 participant "prepare_solver.py" as ReferencePersistence
 participant "store_ingestion.py" as StoreIngestion
-database "SimulationCatalog" as Catalog
+database "Catalog" as Catalog
 participant "Run" as Run
 participant "Display / comparison caller" as Caller
 

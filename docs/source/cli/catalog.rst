@@ -143,14 +143,9 @@ Synopsis: ``hmp catalog gc [--apply]``
 
 Plan, by default, the garbage collection of orphan caches, tmp parquet and
 stale ``running`` rows. It only reports unless ``--apply`` is given (the safe
-inverse of the old destructive default).
-
-vacuum
-~~~~~~
-
-Synopsis: ``hmp catalog vacuum``
-
-Compact the DuckDB file and consolidate Zarr metadata.
+inverse of the old destructive default). ``gc --apply`` also compacts the
+DuckDB file and consolidates Zarr metadata, the maintenance formerly exposed
+as the separate ``vacuum`` verb.
 
 Sharing and re-running
 ----------------------

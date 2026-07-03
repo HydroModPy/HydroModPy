@@ -22,7 +22,7 @@ Le runner enregistre les versions appliquees dans une table
 `filelock` sur `<db_path>.lock` pour serialiser les callers concurrents.
 
 **Facade haut-niveau** : `hmp.open(ws)` (`hydromodpy/catalog/`) ouvre le
-scope projet (un `SimulationCatalog`). Les inputs workspace passent par
+scope projet (un `Catalog`). Les inputs workspace passent par
 `hydromodpy.catalog.InputsNamespace(ws)` et la federation cross-projets par
 `hmp.index()`. Trois portes qui cachent la fragmentation a l'utilisateur final.
 

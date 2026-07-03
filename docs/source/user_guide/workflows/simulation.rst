@@ -147,16 +147,19 @@ Important Parameters
      - Selects the forward-run launcher.
      - Must be ``"simulation"``.
    * - ``[simulation].name``
-     - Human-readable run name in the catalog.
-     - Use a short name that encodes basin, solver, and scenario.
-   * - ``[simulation].run_id``
-     - Optional stable output identifier.
-     - Leave empty for filename-derived IDs unless you need strict output
-       naming.
-   * - ``[simulation].on_collision``
-     - Controls what happens when a run name already exists.
-     - ``replace`` is convenient for iteration; ``fail`` is safer for
-       reproducible campaigns.
+     - Human-readable run name and the run's identity in the catalog.
+     - Use a short name that encodes basin, solver, and scenario. When empty,
+       it is derived from the TOML filename at load time.
+   * - ``[simulation].if_exists``
+     - Behaviour when a run with the same ``name`` already exists in the
+       project.
+     - ``version`` (default) mints the next ``stem.vN`` and keeps every run
+       addressable; ``replace`` trashes the predecessor (restorable) and
+       reuses the name; ``fail`` raises an error.
+   * - ``[simulation].tags``
+     - Free-text tags attached at registration.
+     - Use them to group runs (``paper-fig4``, ``draft``); edit later with
+       ``hmp catalog tag``.
    * - ``[simulation.time]``
      - Defines stress-period and forcing alignment.
      - Check start/end dates and ``step_value`` before interpreting transient

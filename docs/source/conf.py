@@ -463,7 +463,7 @@ nitpick_ignore_regex = [
         r"LoadedDataContext|MeshCatchmentConfig|Modflow6Config|ModflowConfig|"
         r"ModflowPreprocessOptions|MplFigure|Objective|OverviewConfig|PersistenceConfig|"
         r"ResolvedSimulationTimeGrid|ResolvedSteadySimulationTimeGrid|RiverMeshTrace|Run|RunResult|"
-        r"ScalarObjective|SetupContext|SimulationCatalog|SimulationZarr|SolverConfig|Stack|"
+        r"ScalarObjective|SetupContext|Catalog|SimulationZarr|SolverConfig|Stack|"
         r"StoragePathResolver|Surface|SyntheticGeographicConfig|TransportConfig|"
         r"WhiteboxWorkflowsBackend|WorkspaceConfig)",
     ),
