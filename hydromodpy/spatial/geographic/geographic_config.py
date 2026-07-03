@@ -299,11 +299,13 @@ class GeographicConfig(HydroModelBase):
     domain_extent: Annotated[Literal["box", "watershed_buff", "watershed"], Profile.USER] = Field(
         default="box",
         description=(
-            "Active groundwater domain extent. 'box' (default) keeps the full "
-            "buffered rectangular support active. 'watershed' masks the domain to "
-            "the delineated catchment (recommended for catchment water-balance "
-            "models: recharge and drainage outside the watershed no longer feed "
-            "the model). 'watershed_buff' keeps a buffer ring around the catchment."
+            "Selects the DEM surface used for the domain. 'box' (default) keeps "
+            "the full buffered rectangular support. 'watershed' / 'watershed_buff' "
+            "select the catchment (optionally with a buffer ring) surface. Note: "
+            "the MODFLOW 6 mesh still covers the buffered box (the buffer stays "
+            "active for inter-basin exchange); out-of-watershed drainage is kept "
+            "out of the catchment discharge by the DRN watershed-routing, not by "
+            "an idomain mask. Experimental."
         ),
     )
     bottom_path: Annotated[

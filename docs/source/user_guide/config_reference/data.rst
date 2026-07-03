@@ -1602,7 +1602,7 @@ Fields
               <code class="hmp-field-toml">[[data.lake_bathymetry.sources]]</code>
             </div>
 
-         :bdg-primary:`list[CustomLakeBathymetrySource]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L49>`__
+         :bdg-primary:`list[CustomLakeBathymetrySource]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L53>`__
 
             At least one lake-bathymetry data source.
 
@@ -1621,7 +1621,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom']` :bdg-secondary:`default = "custom"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L25>`__
+               :bdg-primary:`Literal['custom']` :bdg-secondary:`default = "custom"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L29>`__
 
                   Discriminator tag selecting the 'custom' lake-bathymetry provider.
 
@@ -1635,7 +1635,7 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L29>`__
+               :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L33>`__
 
                   Path to a custom lake-bathymetry raster file (GeoTIFF, ASC).
 
@@ -1651,7 +1651,7 @@ Fields
               <code class="hmp-field-name">id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "lake_bathymetry"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L54>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "lake_bathymetry"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L58>`__
 
             Identifier of the lake-bathymetry spatial field.
 

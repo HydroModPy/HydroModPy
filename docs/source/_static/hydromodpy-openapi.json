@@ -431,6 +431,66 @@
         "title": "BasConfig",
         "type": "object"
       },
+      "BathymetryReconstructionConfig": {
+        "additionalProperties": false,
+        "description": "Opt-in carving of the real lake bed from bathymetry into the grid.\n\nWhen set, the loaded ``lake_bathymetry`` raster is resampled onto the lake\ncells and (by default) reconciled to the abacus by area-weighted quantile\nmapping, then carved into the mesh ``top``/``botm`` so the LAK vertical\nexchange happens at the real bed and the groundwater flow lines follow the\nreal basin instead of a flat reservoir. The raster must be declared in the\ndata layer (``[data.lake_bathymetry]``); a lake without that data and with\nreconstruction enabled raises at build time.",
+        "properties": {
+          "reconcile_to_abacus": {
+            "default": true,
+            "description": "Re-map the regridded bed so the cell area-vs-elevation distribution matches the abacus (the abacus is the storage source of truth). When False, the raw regridded bathymetry is carved as-is.",
+            "examples": [
+              true
+            ],
+            "title": "Reconcile To Abacus",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "dynamic_area": {
+            "default": false,
+            "description": "Active-littoral (marnage) representation. When True the lake-bed cells stay ACTIVE with the carved bathymetric bed as their cell top and one VERTICAL LAK connection each; MODFLOW 6 then toggles recharge/ET per cell (IWETLAKE) so a cell exchanges with the lake when submerged and recharges as land when the shoreline recedes below its bed. When False the footprint is deactivated (fixed-area reservoir, the classic inactive-footprint carve).",
+            "examples": [
+              false
+            ],
+            "title": "Dynamic Area",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "exposed_band_runoff": {
+            "default": false,
+            "description": "Shed the overland runoff of the exposed lakebed band directly to the lake, sized per timestep from the simulated stage via the MODFLOW 6 BMI API (runoff_rate * exposed_area). Requires dynamic_area and forces the in-process API runner (serial only). When False the catchment runoff already covers the footprint area in a lumped, stage-static way.",
+            "examples": [
+              false
+            ],
+            "title": "Exposed Band Runoff",
+            "type": "boolean",
+            "x-hmp-profile": "expert"
+          },
+          "min_thickness": {
+            "default": 0.5,
+            "description": "Minimum layer thickness [L, model units] kept when re-grading a lake column around the carved bed, so no degenerate (near-zero) cell breaks the solver. The bed is clamped into [base + min_thickness, top - min_thickness].",
+            "examples": [
+              0.5
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Min Thickness",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "min_pixels": {
+            "default": 1,
+            "description": "Minimum bathymetry pixels whose centre must fall inside a cell for the zonal mean to be used; below it a bilinear sample at the cell centroid is taken instead.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Min Pixels",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "BathymetryReconstructionConfig",
+        "type": "object"
+      },
       "BoussinesqBackend": {
         "additionalProperties": false,
         "description": "Select the Boussinesq flow backend.",
@@ -922,6 +982,106 @@
         "title": "CalibOutputCell",
         "type": "object"
       },
+      "CalibOutputLake": {
+        "additionalProperties": false,
+        "description": "Observable extracted from a MODFLOW 6 LAK lake stage.\n\nUse this variant to score a lake water level (stage) inside a composite\nobjective. ``lake_id`` matches the lake declared under\n``flow.sinks_sources.lakes.<lake_id>``.\n\nFor calibration against a real observed chronicle, prefer the top-level\n``variable = \"lake_level\"`` path: it loads the ``lake_levels`` data family\nand time-aligns the simulated stage to the observations. This output\nvariant scores positionally against ``observed_values``, like the other\ncomposite outputs.",
+        "properties": {
+          "variable": {
+            "const": "stage",
+            "default": "stage",
+            "description": "Simulated lake quantity. Only 'stage' (water level, m) is supported.",
+            "examples": [
+              "stage"
+            ],
+            "title": "Variable",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "support": {
+            "const": "lake",
+            "default": "lake",
+            "description": "Discriminator tag. 'lake' reads a LAK lake stage by lake_id.",
+            "examples": [
+              "lake"
+            ],
+            "title": "Support",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "lake_id": {
+            "description": "Lake identifier, matching flow.sinks_sources.lakes.<lake_id>.",
+            "examples": [
+              "example"
+            ],
+            "title": "Lake Id",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "enum": [
+                  "all",
+                  "last",
+                  "first"
+                ],
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "default": "all",
+            "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+            "examples": [
+              "all"
+            ],
+            "title": "Time",
+            "x-hmp-profile": "user"
+          },
+          "reducer": {
+            "default": "none",
+            "description": "Aggregation over the retained time slice.",
+            "enum": [
+              "mean",
+              "sum",
+              "last",
+              "none"
+            ],
+            "examples": [
+              "mean"
+            ],
+            "title": "Reducer",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "observed_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Hard-coded observed values (used by twin-synthetic cases).",
+            "title": "Observed Values",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "lake_id"
+        ],
+        "title": "CalibOutputLake",
+        "type": "object"
+      },
       "CalibOutputPoint": {
         "additionalProperties": false,
         "description": "Observable extracted at a planar ``(x, y)`` point.\n\nUse this variant for piezometric heads sampled at a single coordinate.\nProvide either ``x`` and ``y`` or a GeoJSON ``geometry`` block.",
@@ -1349,6 +1509,7 @@
                 "mapping": {
                   "boundary": "#/$defs/CalibOutputBoundary",
                   "cell": "#/$defs/CalibOutputCell",
+                  "lake": "#/$defs/CalibOutputLake",
                   "point": "#/$defs/CalibOutputPoint"
                 },
                 "propertyName": "support"
@@ -1362,6 +1523,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/CalibOutputCell"
+                },
+                {
+                  "$ref": "#/components/schemas/CalibOutputLake"
                 }
               ]
             },
@@ -2913,7 +3077,7 @@
       },
       "CustomLakeBathymetrySource": {
         "additionalProperties": false,
-        "description": "User-provided lake bathymetry raster (GeoTIFF/ASC).\n\nThe bathymetry raster fixes the lake-bed elevation per cell - i.e. where\nand at what depth the lake exchanges with the aquifer (the LAK interface).\nIt is NOT burnt into ``top``/``botm``; the internal stage-storage relation\nlives in the abacus.",
+        "description": "User-provided lake bathymetry raster (GeoTIFF/ASC).\n\nThe bathymetry raster fixes the lake-bed elevation per cell - i.e. where\nand at what depth the lake exchanges with the aquifer (the LAK interface).\nIt is consumed only when a lake enables\n``flow.sinks_sources.lakes.<id>.bed_reconstruction``: the raster is then\nresampled onto the lake cells, reconciled to the abacus, and carved into\n``top``/``botm`` so the bed follows the real basin. Without that flag the\nraster is loaded but unused (the abacus alone drives the stage-storage\nrelation).",
         "properties": {
           "source": {
             "const": "custom",
@@ -5156,6 +5320,144 @@
         "title": "FlatTopography",
         "type": "object"
       },
+      "FlowBarrierConfig": {
+        "additionalProperties": false,
+        "description": "Typed payload for one MODFLOW 6 horizontal flow barrier (HFB).\n\nThe barrier is a quasi-impermeable vertical wall on a polyline. It sits on\nthe shared mesh faces the trace crosses and spans every top layer down to\n``depths`` below the model top, so the flow is blocked there and forced\nunderneath. The dam cutoff wall is the lake-derived use of this payload.",
+        "properties": {
+          "line": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path.",
+            "title": "Line",
+            "x-hmp-profile": "user"
+          },
+          "line_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Vector file (gpkg / shp / GeoJSON) holding the barrier-trace polyline. Alternative to line.",
+            "title": "Line Path",
+            "x-hmp-profile": "user"
+          },
+          "depths": {
+            "description": "Barrier depth below the model top [m]. One value is a uniform depth; several are interpolated per vertex along the trace. The HFB blocks every top layer down to this depth, so the flow dives underneath.",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 1,
+            "title": "Depths",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "hydchr": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Mutually exclusive with k + thickness.",
+            "title": "Hydchr",
+            "x-hmp-profile": "user"
+          },
+          "hydchr_unit": {
+            "default": "1/s",
+            "description": "Unit of hydchr (1/T): 1/s, 1/day, 1/h, 1/min. Converted to 1/s for MF6.",
+            "examples": [
+              "1/s"
+            ],
+            "title": "Hydchr Unit",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "k": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.",
+            "title": "K",
+            "x-hmp-profile": "user"
+          },
+          "k_unit": {
+            "default": "m/s",
+            "description": "Unit of k (L/T): m/s, m/day, m/h, m/min. Converted to m/s.",
+            "examples": [
+              "m/s"
+            ],
+            "title": "K Unit",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "thickness": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Barrier thickness [L]; used with k when hydchr is unset.",
+            "title": "Thickness",
+            "x-hmp-profile": "user"
+          },
+          "thickness_unit": {
+            "default": "m",
+            "description": "Unit of thickness (L): m, cm, mm, km. Converted to m.",
+            "examples": [
+              "m"
+            ],
+            "title": "Thickness Unit",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "depths"
+        ],
+        "title": "FlowBarrierConfig",
+        "type": "object"
+      },
       "FlowBoundaryForcingConstantConfig": {
         "additionalProperties": false,
         "description": "Constant head forcing applied to every stress period.",
@@ -6293,6 +6595,44 @@
             "type": "integer",
             "x-hmp-profile": "user"
           },
+          "fill_enclosed_cells": {
+            "default": false,
+            "description": "Fill cells enclosed by the lake footprint (the polygon's interior rings / islands) so the lake is contiguous. Off by default: interior rings stay active aquifer (real islands). Enable to drop sub-grid islands and classification pockets that would otherwise be isolated non-lake cells inside the lake.",
+            "examples": [
+              false
+            ],
+            "title": "Fill Enclosed Cells",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "surfdep": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "LAK surface depression depth [L] that smooths the dry/wet (marnage) transition for Newton. Default (None) uses 0.1 m. Raise it (e.g. 0.5 to 1.0 m) to stabilise and speed up the active-littoral steady solve when many lakebed cells toggle at once; it slightly fuzzes the shoreline.",
+            "title": "Surfdep",
+            "x-hmp-profile": "expert"
+          },
+          "bed_reconstruction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BathymetryReconstructionConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional bathymetry-driven bed carving. When set, the real lake bed is reconstructed from the lake_bathymetry raster (reconciled to the abacus) and carved into the grid instead of a flat reservoir.",
+            "x-hmp-profile": "user"
+          },
           "outlets": {
             "description": "Surverse / spillway / controlled-release outlets for this lake.",
             "items": {
@@ -6319,6 +6659,19 @@
             },
             "title": "Outlets",
             "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "cutoff_wall": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlowBarrierConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional dam cutoff wall / grout curtain on the dam axis, modeled as a MODFLOW 6 HFB (the lake-derived use of FlowBarrierConfig). The barrier forces the under-dam seepage to dive below the wall instead of leaking through the top layers.",
             "x-hmp-profile": "user"
           },
           "rainfall": {
@@ -7918,6 +8271,15 @@
             "type": "object",
             "x-hmp-profile": "user"
           },
+          "flow_barriers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FlowBarrierConfig"
+            },
+            "description": "Mapping of flow-barrier ids to typed HFB payloads (general addon, modflow6 backend only; declaring one activates it). A lake's dam cutoff wall is declared on the lake instead.",
+            "title": "Flow Barriers",
+            "type": "object",
+            "x-hmp-profile": "user"
+          },
           "recharge": {
             "anyOf": [
               {
@@ -8871,6 +9233,21 @@
               "breach"
             ],
             "title": "Dem Correc Type",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "domain_extent": {
+            "default": "box",
+            "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.",
+            "enum": [
+              "box",
+              "watershed_buff",
+              "watershed"
+            ],
+            "examples": [
+              "box"
+            ],
+            "title": "Domain Extent",
             "type": "string",
             "x-hmp-profile": "user"
           },
@@ -11249,6 +11626,68 @@
         "title": "LakeOutflowSourceConfig",
         "type": "object"
       },
+      "LakeRefinementConfig": {
+        "additionalProperties": false,
+        "description": "Local mesh-refinement targets for the lake footprint and the dam outlet.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Refine the GMSH mesh on the lake footprint (+ the dam outlet).",
+            "examples": [
+              false
+            ],
+            "title": "Enabled",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "cell_size": {
+            "default": 40.0,
+            "description": "Target cell size [L] inside the lake footprint.",
+            "examples": [
+              40.0
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Cell Size",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "buffer": {
+            "default": 200.0,
+            "description": "Transition distance [L] over which the lake size ramps back to global.",
+            "examples": [
+              200.0
+            ],
+            "minimum": 0.0,
+            "title": "Buffer",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "dam_cell_size": {
+            "default": 30.0,
+            "description": "Target cell size [L] in the under-dam outlet zone.",
+            "examples": [
+              30.0
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Dam Cell Size",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "dam_buffer": {
+            "default": 150.0,
+            "description": "Radius [L] of the refined disk around the dam / catchment outlet.",
+            "examples": [
+              150.0
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Dam Buffer",
+            "type": "number",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "LakeRefinementConfig",
+        "type": "object"
+      },
       "LakeWithdrawalConfig": {
         "additionalProperties": false,
         "description": "Top-level lake-withdrawal configuration.\n\nThe section groups observed lake-withdrawal sources and the optional\nsimulation date window inherited from ``BaseVariableConfig``.",
@@ -11873,6 +12312,11 @@
             "$ref": "#/components/schemas/ZoneMeshingSettings",
             "description": "Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells.",
             "x-hmp-profile": "dev"
+          },
+          "lake_refinement": {
+            "$ref": "#/components/schemas/LakeRefinementConfig",
+            "description": "Optional local refinement on the lake footprint (any shape) and the under-dam outlet. Disabled by default; set enabled = true to add the lake size fields.",
+            "x-hmp-profile": "user"
           }
         },
         "title": "MeshCatchmentConfig",
@@ -13189,7 +13633,7 @@
               }
             ],
             "default": null,
-            "description": "Enable MF6 NPF XT3D terms. When left to None, HydroModPy auto-enables XT3D on unstructured solver meshes. This increases computational cost but can improve accuracy on unstructured or non-orthogonal grids.",
+            "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled only when the mesh is significantly non-orthogonal or anisotropic K is configured; the default Voronoi/PEBI dual grid is near-orthogonal, so XT3D stays off there. It adds cost but improves accuracy on non-orthogonal or anisotropic grids.",
             "title": "Mf6 Enable Xt3D",
             "x-hmp-profile": "expert"
           },
@@ -18235,6 +18679,20 @@
           "vertical": {
             "$ref": "#/components/schemas/VerticalGridConfig",
             "description": "Vertical layering of the solver grid.",
+            "x-hmp-profile": "user"
+          },
+          "grid_dual": {
+            "default": "voronoi",
+            "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.",
+            "enum": [
+              "voronoi",
+              "triangle"
+            ],
+            "examples": [
+              "voronoi"
+            ],
+            "title": "Grid Dual",
+            "type": "string",
             "x-hmp-profile": "user"
           }
         },

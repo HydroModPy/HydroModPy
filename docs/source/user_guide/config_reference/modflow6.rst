@@ -9,7 +9,7 @@ TOML section: ``[modflow6]``
 
 Pydantic model: ``Modflow6Config`` defined in ``hydromodpy.solver.modflow6.modflow6_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L160>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L161>`__
 
 Expert-level MODFLOW 6 configuration organized by concern.
 
@@ -38,7 +38,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.runtime]</code>
       </div>
 
-   :bdg-primary:`Modflow6RuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L163>`__
+   :bdg-primary:`Modflow6RuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L164>`__
 
       MODFLOW 6 runtime options.
 
@@ -255,7 +255,7 @@ Fields
 
          :bdg-primary:`bool | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L98>`__
 
-            Enable MF6 NPF XT3D terms. When left to None, HydroModPy auto-enables XT3D on unstructured solver meshes. This increases computational cost but can improve accuracy on unstructured or non-orthogonal grids.
+            Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled only when the mesh is significantly non-orthogonal or anisotropic K is configured; the default Voronoi/PEBI dual grid is near-orthogonal, so XT3D stays off there. It adds cost but improves accuracy on non-orthogonal or anisotropic grids.
 
 
       .. container:: hmp-field hmp-field-level-expert
@@ -267,7 +267,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_wetfct</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L107>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L108>`__
 
             MF6 NPF rewet WETFCT factor.
 
@@ -281,7 +281,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_iwetit</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L111>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L112>`__
 
             MF6 NPF rewet IWETIT interval.
 
@@ -295,7 +295,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_ihdwet</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L115>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L116>`__
 
             MF6 NPF rewet IHDWET flag.
 
@@ -309,7 +309,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_wetdry</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L119>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L120>`__
 
             MF6 NPF WETDRY threshold used when rewetting is active.
 
@@ -327,7 +327,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.process_specific]</code>
       </div>
 
-   :bdg-primary:`Modflow6ProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L167>`__
+   :bdg-primary:`Modflow6ProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L168>`__
 
       Process-specific controls for MODFLOW 6 flow packages.
 
@@ -346,7 +346,7 @@ Fields
               <code class="hmp-field-name">vka</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L128>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L129>`__
 
             Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka.
 
@@ -360,7 +360,7 @@ Fields
               <code class="hmp-field-name">evt_extinction_depth</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L132>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L133>`__
 
             Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value.
 
@@ -374,7 +374,7 @@ Fields
               <code class="hmp-field-name">lak_forcing_mode</code>
             </div>
 
-         :bdg-primary:`Literal['auto', 'inline', 'ts6']` :bdg-secondary:`default = "auto"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L141>`__
+         :bdg-primary:`Literal['auto', 'inline', 'ts6']` :bdg-secondary:`default = "auto"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L142>`__
 
             How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.
 
@@ -388,7 +388,7 @@ Fields
               <code class="hmp-field-name">ts6_min_periods</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L151>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L152>`__
 
             Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file.
 
@@ -406,7 +406,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.sgrid]</code>
       </div>
 
-   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L171>`__
+   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L172>`__
 
       Solver-grid payload split into planar and vertical sections.
 
@@ -588,6 +588,20 @@ Fields
 
 
 
+      .. container:: hmp-field hmp-field-level-user
+         :name: modflow6-sgrid-grid-dual
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="modflow6.sgrid.grid_dual">
+              <code class="hmp-field-name">grid_dual</code>
+            </div>
+
+         :bdg-primary:`Literal['voronoi', 'triangle']` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L200>`__
+
+            Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.
+
+
 
 
 Starter TOML snippet
@@ -608,6 +622,7 @@ Starter TOML snippet
       [modflow6.sgrid]
       # planar = ...  # factory default
       # vertical = ...  # factory default
+      # grid_dual = "voronoi"
 
 Cases using this section
 ------------------------

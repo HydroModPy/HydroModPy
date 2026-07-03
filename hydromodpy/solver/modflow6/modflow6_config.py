@@ -98,10 +98,11 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Enable MF6 NPF XT3D terms. When left to None, HydroModPy "
-            "auto-enables XT3D on unstructured solver meshes. This increases "
-            "computational cost but can improve accuracy on unstructured or "
-            "non-orthogonal grids."
+            "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled "
+            "only when the mesh is significantly non-orthogonal or anisotropic K "
+            "is configured; the default Voronoi/PEBI dual grid is near-orthogonal, "
+            "so XT3D stays off there. It adds cost but improves accuracy on "
+            "non-orthogonal or anisotropic grids."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(

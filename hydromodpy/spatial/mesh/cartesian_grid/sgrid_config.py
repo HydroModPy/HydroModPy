@@ -200,11 +200,11 @@ class SolverSGridConfig(HydroModelBase):
     grid_dual: Annotated[Literal["voronoi", "triangle"], Profile.USER] = Field(
         default="voronoi",
         description=(
-            "Solver planar grid built from the gmsh triangulation on an "
-            "unstructured (runtime mesh) run: 'voronoi' uses the PEBI dual "
-            "(exact CVFD orthogonality, ~half the cells) and is the MODFLOW 6 "
-            "default; 'triangle' keeps the triangulation cells as the DISV grid "
-            "(required by solvers that need simplices, e.g. Boussinesq)."
+            "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for "
+            "structured grids, MODFLOW-NWT and Boussinesq (which keeps its own "
+            "triangulation). 'voronoi' uses the PEBI dual (exact CVFD "
+            "orthogonality, ~half the cells) and is the default; 'triangle' keeps "
+            "the triangulation cells as the DISV grid for simplex comparison runs."
         ),
     )
 

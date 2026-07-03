@@ -333,6 +333,18 @@
     "description": "DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point."
   },
   {
+    "path": "geographic.domain_extent",
+    "name": "domain_extent",
+    "type": "Literal['box', 'watershed_buff', 'watershed']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-domain-extent",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L299",
+    "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the"
+  },
+  {
     "path": "geographic.bottom_path",
     "name": "bottom_path",
     "type": "Path | None",
@@ -341,7 +353,7 @@
     "section": "geographic",
     "anchor": "geographic-bottom-path",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L299",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L311",
     "description": "Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain."
   },
   {
@@ -353,7 +365,7 @@
     "section": "geographic",
     "anchor": "geographic-reg-fold",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L307",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L319",
     "description": "Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed."
   },
   {
@@ -365,7 +377,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L311",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L323",
     "description": "Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files."
   },
   {
@@ -641,7 +653,7 @@
     "section": "geographic",
     "anchor": "geographic-river-network",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L318",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L330",
     "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing."
   },
   {
@@ -761,7 +773,7 @@
     "section": "geographic",
     "anchor": "geographic-reuse-existing-outputs",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L325",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L337",
     "description": "If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace."
   },
   {
@@ -773,7 +785,7 @@
     "section": "geographic",
     "anchor": "geographic-write-intermediates",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L335",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L347",
     "description": "Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), results_stable/ is removed after ingestion into the simulation Zarr store."
   },
   {
@@ -2345,7 +2357,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L53",
     "description": "At least one lake-bathymetry data source."
   },
   {
@@ -2357,7 +2369,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry-sources-source",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L25",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L29",
     "description": "Discriminator tag selecting the 'custom' lake-bathymetry provider."
   },
   {
@@ -2369,7 +2381,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L33",
     "description": "Path to a custom lake-bathymetry raster file (GeoTIFF, ASC)."
   },
   {
@@ -2381,7 +2393,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry-id",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/lake_bathymetry/config.py#L58",
     "description": "Identifier of the lake-bathymetry spatial field."
   },
   {
@@ -6293,7 +6305,7 @@
     "section": "flow",
     "anchor": "flow-runtime-backend",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
     "examples": [
       "\"local\"",
@@ -6309,7 +6321,7 @@
     "section": "flow",
     "anchor": "flow-surface-interaction-model",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experi",
     "examples": [
       "\"auto\"",
@@ -6325,7 +6337,7 @@
     "section": "flow",
     "anchor": "flow-runtime-max-iterations",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend."
   },
   {
@@ -6337,7 +6349,7 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-residual-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend."
   },
   {
@@ -6349,7 +6361,7 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-state-update-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it."
   },
   {
@@ -6361,7 +6373,7 @@
     "section": "flow",
     "anchor": "flow-vi-substeps-per-period",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep."
   },
   {
@@ -6373,7 +6385,7 @@
     "section": "flow",
     "anchor": "flow-vi-substep-on-failure",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts."
   },
   {
@@ -6385,7 +6397,7 @@
     "section": "flow",
     "anchor": "flow-vi-max-adaptive-substeps",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
   },
   {
@@ -6397,7 +6409,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-steps-per-period",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime."
   },
   {
@@ -6409,7 +6421,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-adapt",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime."
   },
   {
@@ -6421,7 +6433,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-dt-min-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Minimum TS VI time-step as a fraction of the stress-period length."
   },
   {
@@ -6433,7 +6445,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-dt-max-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "Maximum TS VI time-step as a fraction of the stress-period length."
   },
   {
@@ -6445,7 +6457,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "PETSc TS type for the experimental TS VI obstacle runtime."
   },
   {
@@ -6457,7 +6469,7 @@
     "section": "flow",
     "anchor": "flow-ts-vi-snes-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L74",
     "description": "PETSc SNES type for the experimental TS VI obstacle runtime."
   },
   {
@@ -6469,7 +6481,7 @@
     "section": "flow",
     "anchor": "flow-param-list",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L117",
     "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
     "examples": [
       "[\"K\", \"Sy\", \"Ss\"]"
@@ -6484,7 +6496,7 @@
     "section": "flow",
     "anchor": "flow-param",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L123",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L125",
     "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads."
   },
   {
@@ -6748,7 +6760,7 @@
     "section": "flow",
     "anchor": "flow-ic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L161",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L163",
     "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
   },
   {
@@ -7108,7 +7120,7 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L127",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L129",
     "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``"
   },
   {
@@ -7564,7 +7576,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L168",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L170",
     "description": "Typed sinks/sources payload (for example pumping wells)."
   },
   {
@@ -7576,7 +7588,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L30",
     "description": "Mapping of well ids to typed well payloads."
   },
   {
@@ -7996,7 +8008,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L31",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L32",
     "description": "Mapping of lake ids to typed lake / reservoir payloads."
   },
   {
@@ -8008,7 +8020,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-bedleak",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L229",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L303",
     "description": ""
   },
   {
@@ -8020,7 +8032,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-bedleak-unit",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L238",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L312",
     "description": ""
   },
   {
@@ -8032,7 +8044,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-stageinit",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L246",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L320",
     "description": ""
   },
   {
@@ -8044,7 +8056,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-steady-stage-hold",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L247",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L321",
     "description": ""
   },
   {
@@ -8056,7 +8068,103 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-occupied-layers",
     "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L331",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.fill_enclosed_cells",
+    "name": "fill_enclosed_cells",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-fill-enclosed-cells",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L341",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.surfdep",
+    "name": "surfdep",
+    "type": "float | None",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-surfdep",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L351",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.bed_reconstruction",
+    "name": "bed_reconstruction",
+    "type": "BathymetryReconstructionConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-bed-reconstruction",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L361",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.bed_reconstruction.reconcile_to_abacus",
+    "name": "reconcile_to_abacus",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-bed-reconstruction-reconcile-to-abacus",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L227",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.bed_reconstruction.dynamic_area",
+    "name": "dynamic_area",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-bed-reconstruction-dynamic-area",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L235",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.bed_reconstruction.exposed_band_runoff",
+    "name": "exposed_band_runoff",
+    "type": "bool",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-bed-reconstruction-exposed-band-runoff",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L247",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.bed_reconstruction.min_thickness",
+    "name": "min_thickness",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-bed-reconstruction-min-thickness",
+    "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L257",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.bed_reconstruction.min_pixels",
+    "name": "min_pixels",
+    "type": "int",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-bed-reconstruction-min-pixels",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L267",
     "description": ""
   },
   {
@@ -8068,7 +8176,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L267",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L369",
     "description": ""
   },
   {
@@ -8080,7 +8188,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-weir-couttype",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L95",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L96",
     "description": ""
   },
   {
@@ -8092,7 +8200,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-weir-invert",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L100",
     "description": ""
   },
   {
@@ -8104,7 +8212,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-weir-width",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L101",
     "description": ""
   },
   {
@@ -8116,7 +8224,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-weir-lakeout",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L103",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L104",
     "description": ""
   },
   {
@@ -8128,7 +8236,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-weir-mover",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L111",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L112",
     "description": ""
   },
   {
@@ -8140,7 +8248,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-manning-couttype",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L123",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L124",
     "description": ""
   },
   {
@@ -8152,7 +8260,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-manning-invert",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L127",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L128",
     "description": ""
   },
   {
@@ -8164,7 +8272,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-manning-width",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L130",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L131",
     "description": ""
   },
   {
@@ -8176,7 +8284,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-manning-rough",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L131",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L132",
     "description": ""
   },
   {
@@ -8188,7 +8296,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-manning-slope",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L134",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L135",
     "description": ""
   },
   {
@@ -8200,7 +8308,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-manning-lakeout",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L137",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L138",
     "description": ""
   },
   {
@@ -8212,7 +8320,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-manning-mover",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L145",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L146",
     "description": ""
   },
   {
@@ -8224,7 +8332,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-specified-couttype",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L162",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L163",
     "description": ""
   },
   {
@@ -8236,7 +8344,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-specified-rate",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L166",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L167",
     "description": ""
   },
   {
@@ -8248,7 +8356,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-specified-forcing",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L170",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L171",
     "description": ""
   },
   {
@@ -8260,7 +8368,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-specified-lakeout",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L174",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L175",
     "description": ""
   },
   {
@@ -8272,7 +8380,127 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-outlets-specified-mover",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L182",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L183",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall",
+    "name": "cutoff_wall",
+    "type": "FlowBarrierConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L373",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.line",
+    "name": "line",
+    "type": "list[tuple[float, float]] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-line",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L47",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.line_path",
+    "name": "line_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-line-path",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L54",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.depths",
+    "name": "depths",
+    "type": "list[float]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-depths",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L61",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.hydchr",
+    "name": "hydchr",
+    "type": "float | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-hydchr",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L70",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.hydchr_unit",
+    "name": "hydchr_unit",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-hydchr-unit",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L79",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.k",
+    "name": "k",
+    "type": "float | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-k",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L83",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.k_unit",
+    "name": "k_unit",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-k-unit",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L88",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.thickness",
+    "name": "thickness",
+    "type": "float | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-thickness",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L92",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.lakes.<id>.cutoff_wall.thickness_unit",
+    "name": "thickness_unit",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-lakes-id-cutoff-wall-thickness-unit",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L97",
     "description": ""
   },
   {
@@ -8284,7 +8512,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-rainfall",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L382",
     "description": ""
   },
   {
@@ -8524,7 +8752,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-evaporation",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L275",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L386",
     "description": ""
   },
   {
@@ -8764,7 +8992,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-runoff",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L279",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L390",
     "description": ""
   },
   {
@@ -9004,7 +9232,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-inflow",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L283",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L394",
     "description": ""
   },
   {
@@ -9244,7 +9472,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-lakes-id-withdrawal",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L287",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L398",
     "description": ""
   },
   {
@@ -9484,7 +9712,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L34",
     "description": "Mapping of stream-network ids to typed SFR payloads."
   },
   {
@@ -10880,6 +11108,126 @@
     "description": ""
   },
   {
+    "path": "flow.sinks_sources.flow_barriers",
+    "name": "flow_barriers",
+    "type": "dict[str, FlowBarrierConfig]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L55",
+    "description": "Mapping of flow-barrier ids to typed HFB payloads (general addon, modflow6 backend only; declaring one activates it). A lake's dam cutoff wall is declared on the lake instead."
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.line",
+    "name": "line",
+    "type": "list[tuple[float, float]] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-line",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L47",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.line_path",
+    "name": "line_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-line-path",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L54",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.depths",
+    "name": "depths",
+    "type": "list[float]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-depths",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L61",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.hydchr",
+    "name": "hydchr",
+    "type": "float | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-hydchr",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L70",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.hydchr_unit",
+    "name": "hydchr_unit",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-hydchr-unit",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L79",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.k",
+    "name": "k",
+    "type": "float | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-k",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L83",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.k_unit",
+    "name": "k_unit",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-k-unit",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L88",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.thickness",
+    "name": "thickness",
+    "type": "float | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-thickness",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L92",
+    "description": ""
+  },
+  {
+    "path": "flow.sinks_sources.flow_barriers.<id>.thickness_unit",
+    "name": "thickness_unit",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-flow-barriers-id-thickness-unit",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L97",
+    "description": ""
+  },
+  {
     "path": "flow.sinks_sources.recharge",
     "name": "recharge",
     "type": "FlowRechargeConfig | None",
@@ -10888,7 +11236,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L35",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L36",
     "description": "Diffuse recharge configuration. None = zero recharge for all periods."
   },
   {
@@ -10984,7 +11332,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L37",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L38",
     "description": "Diffuse evapotranspiration configuration. None = no EVT package built."
   },
   {
@@ -11092,7 +11440,7 @@
     "section": "flow",
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L172",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L174",
     "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
@@ -11109,7 +11457,7 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L182",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L184",
     "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake",
     "examples": [
       "[\"ocean\"]",
@@ -11125,7 +11473,7 @@
     "section": "flow",
     "anchor": "flow-flow-regime",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L82",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L84",
     "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
     "examples": [
       "\"steady\"",
@@ -11141,7 +11489,7 @@
     "section": "flow",
     "anchor": "flow-first-period-steady",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L100",
     "description": "For transient flow, mark the first solver stress period as steady-state. Ignored for steady flow, where all solver periods are steady.",
     "examples": [
       "true",
@@ -13202,6 +13550,18 @@
     "description": "No-data sentinel value."
   },
   {
+    "path": "modflownwt.sgrid.grid_dual",
+    "name": "grid_dual",
+    "type": "Literal['voronoi', 'triangle']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "modflownwt",
+    "anchor": "modflownwt-sgrid-grid-dual",
+    "page": "modflownwt.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L200",
+    "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
+  },
+  {
     "path": "modflownwt.tgrid",
     "name": "tgrid",
     "type": "TMeshConfig | None",
@@ -13378,7 +13738,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L163",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L164",
     "description": "MODFLOW 6 runtime options."
   },
   {
@@ -13559,7 +13919,7 @@
     "anchor": "modflow6-runtime-mf6-enable-xt3d",
     "page": "modflow6.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L98",
-    "description": "Enable MF6 NPF XT3D terms. When left to None, HydroModPy auto-enables XT3D on unstructured solver meshes. This increases computational cost but can improve accuracy on unstructured or non-orthogonal grids."
+    "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled only when the mesh is significantly non-orthogonal or anisotropic K is configured; the default Voronoi/PEBI dual grid is near-orthogonal, so XT3D stays off there. It adds co"
   },
   {
     "path": "modflow6.runtime.mf6_rewet_wetfct",
@@ -13570,7 +13930,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetfct",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L108",
     "description": "MF6 NPF rewet WETFCT factor."
   },
   {
@@ -13582,7 +13942,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-iwetit",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L111",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L112",
     "description": "MF6 NPF rewet IWETIT interval."
   },
   {
@@ -13594,7 +13954,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-ihdwet",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L116",
     "description": "MF6 NPF rewet IHDWET flag."
   },
   {
@@ -13606,7 +13966,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetdry",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L119",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L120",
     "description": "MF6 NPF WETDRY threshold used when rewetting is active."
   },
   {
@@ -13618,7 +13978,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L167",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L168",
     "description": "Process-specific controls for MODFLOW 6 flow packages."
   },
   {
@@ -13630,7 +13990,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-vka",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L128",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L129",
     "description": "Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka."
   },
   {
@@ -13642,7 +14002,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-evt-extinction-depth",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L133",
     "description": "Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value."
   },
   {
@@ -13654,7 +14014,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-lak-forcing-mode",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L141",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L142",
     "description": "How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps c"
   },
   {
@@ -13666,7 +14026,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-ts6-min-periods",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L151",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L152",
     "description": "Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file."
   },
   {
@@ -13678,7 +14038,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L171",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L172",
     "description": "Solver-grid payload split into planar and vertical sections."
   },
   {
@@ -13812,6 +14172,18 @@
     "page": "modflow6.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79",
     "description": "No-data sentinel value."
+  },
+  {
+    "path": "modflow6.sgrid.grid_dual",
+    "name": "grid_dual",
+    "type": "Literal['voronoi', 'triangle']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-sgrid-grid-dual",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L200",
+    "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
   },
   {
     "path": "display.enabled",
@@ -16462,7 +16834,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-constraints-mode",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L34",
     "description": "Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh."
   },
   {
@@ -16474,7 +16846,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-output-mesh",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L46",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L47",
     "description": "Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_ro"
   },
   {
@@ -16486,7 +16858,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-output-summary-json",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L55",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L56",
     "description": "Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output."
   },
   {
@@ -16498,7 +16870,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-output-figure",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L63",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L64",
     "description": "Optional overview figure path. Use it when you want a quick visual QA artifact showing the support domain, geology zones, river constraints, and final mesh footprint."
   },
   {
@@ -16510,7 +16882,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-output-figure-regional",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L72",
     "description": "Optional regional overview figure path. When omitted but output_figure is set, the launcher writes a second figure next to the main one with suffix `_regional` to show where the catchment sits on the full DEM."
   },
   {
@@ -16522,7 +16894,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-figures-enabled",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L80",
     "description": "If true, generate the overview figure artifacts when figure output paths are configured. Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present."
   },
   {
@@ -16534,7 +16906,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-export-exchange-bundle",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L87",
     "description": "If true, export the solver-exchange mesh bundle next to the generated mesh. Set it to false for profiling or mesh-only runs that do not need bundle metadata. Downstream solvers that require runtime mesh support may fail without this bundle."
   },
   {
@@ -16546,7 +16918,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-figure-dpi",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L94",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L95",
     "description": "Pixel density used when rendering the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG."
   },
   {
@@ -16558,7 +16930,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-figure-regional-dpi",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L101",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L102",
     "description": "Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy."
   },
   {
@@ -16570,7 +16942,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-output-layout",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L109",
     "description": "Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of th"
   },
   {
@@ -16582,7 +16954,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-show-plot",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L117",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L118",
     "description": "If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution."
   },
   {
@@ -16594,7 +16966,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-geographic-outputs-mode",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L125",
     "description": "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end "
   },
   {
@@ -16606,7 +16978,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-rivers",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L133",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L134",
     "description": "River-constraint section used when constraints_mode includes rivers. The default behavior is to reuse the in-memory river trace already built by the geographic pipeline."
   },
   {
@@ -16678,7 +17050,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-geology",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L141",
     "description": "Optional geology support used when constraints_mode includes geology. This section defines which polygon source represents lithological zones and how those polygons should be interpreted before conformal meshing. Validated through the geolo"
   },
   {
@@ -16690,7 +17062,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-watershed-boundary",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L149",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L150",
     "description": "Optional watershed-boundary mesh constraint. Enable it to force a conformal mesh line along the catchment boundary while keeping the geology zonation represented on the whole support domain."
   },
   {
@@ -16882,7 +17254,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-hydraulic-properties",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L157",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L158",
     "description": "Optional hydraulic-property tables keyed by geology zones. The launcher projects geology on the mesh and exports per-cell conductivity/storage values as weighted averages of geology fractions."
   },
   {
@@ -17074,7 +17446,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-domain",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L167",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L168",
     "description": "Effective support domain to mesh. The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing."
   },
   {
@@ -17218,7 +17590,7 @@
     "section": "mesh_catchment",
     "anchor": "mesh-catchment-zone-meshing",
     "page": "mesh_catchment.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L175",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L176",
     "description": "Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells."
   },
   {
@@ -17630,6 +18002,78 @@
     "description": ""
   },
   {
+    "path": "mesh_catchment.lake_refinement",
+    "name": "lake_refinement",
+    "type": "LakeRefinementConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_catchment",
+    "anchor": "mesh-catchment-lake-refinement",
+    "page": "mesh_catchment.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L184",
+    "description": "Optional local refinement on the lake footprint (any shape) and the under-dam outlet. Disabled by default; set enabled = true to add the lake size fields."
+  },
+  {
+    "path": "mesh_catchment.lake_refinement.enabled",
+    "name": "enabled",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_catchment",
+    "anchor": "mesh-catchment-lake-refinement-enabled",
+    "page": "mesh_catchment.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L29",
+    "description": "Refine the GMSH mesh on the lake footprint (+ the dam outlet)."
+  },
+  {
+    "path": "mesh_catchment.lake_refinement.cell_size",
+    "name": "cell_size",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_catchment",
+    "anchor": "mesh-catchment-lake-refinement-cell-size",
+    "page": "mesh_catchment.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L33",
+    "description": "Target cell size [L] inside the lake footprint."
+  },
+  {
+    "path": "mesh_catchment.lake_refinement.buffer",
+    "name": "buffer",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_catchment",
+    "anchor": "mesh-catchment-lake-refinement-buffer",
+    "page": "mesh_catchment.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L38",
+    "description": "Transition distance [L] over which the lake size ramps back to global."
+  },
+  {
+    "path": "mesh_catchment.lake_refinement.dam_cell_size",
+    "name": "dam_cell_size",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_catchment",
+    "anchor": "mesh-catchment-lake-refinement-dam-cell-size",
+    "page": "mesh_catchment.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L43",
+    "description": "Target cell size [L] in the under-dam outlet zone."
+  },
+  {
+    "path": "mesh_catchment.lake_refinement.dam_buffer",
+    "name": "dam_buffer",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_catchment",
+    "anchor": "mesh-catchment-lake-refinement-dam-buffer",
+    "page": "mesh_catchment.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L48",
+    "description": "Radius [L] of the refined disk around the dam / catchment outlet."
+  },
+  {
     "path": "mesh_input.mesh_path",
     "name": "mesh_path",
     "type": "Path | None",
@@ -17662,7 +18106,7 @@
     "section": "calibration",
     "anchor": "calibration-method",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L312",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L354",
     "description": "Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler."
   },
   {
@@ -17674,7 +18118,7 @@
     "section": "calibration",
     "anchor": "calibration-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L319",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L361",
     "description": "Maximum number of calibration iterations."
   },
   {
@@ -17686,7 +18130,7 @@
     "section": "calibration",
     "anchor": "calibration-batch-size",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L324",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L366",
     "description": "Number of suggestions drawn per ask (for parallel optimizers)."
   },
   {
@@ -17698,7 +18142,7 @@
     "section": "calibration",
     "anchor": "calibration-parallel",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L329",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L371",
     "description": "Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop."
   },
   {
@@ -17710,7 +18154,7 @@
     "section": "calibration",
     "anchor": "calibration-seed",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L337",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L379",
     "description": "Random seed for reproducibility."
   },
   {
@@ -17722,7 +18166,7 @@
     "section": "calibration",
     "anchor": "calibration-save-runs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L341",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L383",
     "description": "How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included)."
   },
   {
@@ -17734,7 +18178,7 @@
     "section": "calibration",
     "anchor": "calibration-save-best-n",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L350",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L392",
     "description": "Number of top iterations to promote when save_runs='best_n'."
   },
   {
@@ -17746,7 +18190,7 @@
     "section": "calibration",
     "anchor": "calibration-use-cache",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L355",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L397",
     "description": "Enable params_hash content-addressable cache."
   },
   {
@@ -17758,7 +18202,7 @@
     "section": "calibration",
     "anchor": "calibration-lightweight-extraction",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L359",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L401",
     "description": "Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path."
   },
   {
@@ -17770,7 +18214,7 @@
     "section": "calibration",
     "anchor": "calibration-objective",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L365",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L407",
     "description": "Metric key used by the default ScalarObjective."
   },
   {
@@ -17782,7 +18226,7 @@
     "section": "calibration",
     "anchor": "calibration-variable",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L369",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L411",
     "description": "Observed variable (for ObservationSet)."
   },
   {
@@ -17794,7 +18238,7 @@
     "section": "calibration",
     "anchor": "calibration-optimizer-kwargs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L373",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L415",
     "description": "Extra keyword arguments forwarded to the optimizer adapter."
   },
   {
@@ -17806,7 +18250,7 @@
     "section": "calibration",
     "anchor": "calibration-parameters",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L377",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L419",
     "description": "Per-parameter declarations (bounds, transform, prior, path)."
   },
   {
@@ -17896,13 +18340,13 @@
   {
     "path": "calibration.outputs",
     "name": "outputs",
-    "type": "dict[str, CalibOutputPoint | CalibOutputBoundary | CalibOutputCell]",
+    "type": "dict[str, CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake]",
     "profile": "user",
     "stability": "stable",
     "section": "calibration",
     "anchor": "calibration-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L381",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L423",
     "description": "Named observables extracted from each candidate run."
   },
   {
@@ -18182,6 +18626,78 @@
     "description": ""
   },
   {
+    "path": "calibration.outputs.lake.<id>.variable",
+    "name": "variable",
+    "type": "Literal['stage']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-outputs-lake-id-variable",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L261",
+    "description": ""
+  },
+  {
+    "path": "calibration.outputs.lake.<id>.support",
+    "name": "support",
+    "type": "Literal['lake']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-outputs-lake-id-support",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L265",
+    "description": ""
+  },
+  {
+    "path": "calibration.outputs.lake.<id>.lake_id",
+    "name": "lake_id",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-outputs-lake-id-lake-id",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L269",
+    "description": ""
+  },
+  {
+    "path": "calibration.outputs.lake.<id>.time",
+    "name": "time",
+    "type": "Union[Literal['all', 'last', 'first'], list[str]]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-outputs-lake-id-time",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L272",
+    "description": ""
+  },
+  {
+    "path": "calibration.outputs.lake.<id>.reducer",
+    "name": "reducer",
+    "type": "Literal['mean', 'sum', 'last', 'none']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-outputs-lake-id-reducer",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L277",
+    "description": ""
+  },
+  {
+    "path": "calibration.outputs.lake.<id>.observed_values",
+    "name": "observed_values",
+    "type": "list[float] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-outputs-lake-id-observed-values",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L281",
+    "description": ""
+  },
+  {
     "path": "calibration.objective_blocks",
     "name": "objective_blocks",
     "type": "list[CalibObjectiveBlockDecl]",
@@ -18190,7 +18706,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L385",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L427",
     "description": "Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'."
   },
   {
@@ -18202,7 +18718,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-name",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L316",
     "description": "Unique block identifier used in logs and persistence."
   },
   {
@@ -18214,7 +18730,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-metric",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L277",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L319",
     "description": "Metric key. One of rmse, nse, kge, mae."
   },
   {
@@ -18226,7 +18742,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-weight",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L281",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L323",
     "description": "Relative weight of this block in the composite sum."
   },
   {
@@ -18238,7 +18754,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-uses-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L285",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L327",
     "description": "Outputs (by name) consumed by this block."
   },
   {
@@ -18250,7 +18766,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-normalize-cost",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L289",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L331",
     "description": "When True, divide the block cost by a reference scale (observed std fallback mean absolute value)."
   },
   {
@@ -18262,7 +18778,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-transform",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L294",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L336",
     "description": "Per-block cost transform applied before weighting."
   },
   {
@@ -18274,7 +18790,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-iteration-detail",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L390",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L432",
     "description": "'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs."
   },
   {
@@ -18286,7 +18802,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-model-distribution",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L395",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L437",
     "description": "Persist the candidate distribution alongside the session."
   },
   {
@@ -18298,7 +18814,7 @@
     "section": "calibration",
     "anchor": "calibration-rerun-best-with-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L399",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L441",
     "description": "Replay the best candidate with full outputs after the loop."
   },
   {
@@ -18310,7 +18826,7 @@
     "section": "calibration",
     "anchor": "calibration-materialize-candidates",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L403",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L445",
     "description": "Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later."
   },
   {
@@ -18322,7 +18838,7 @@
     "section": "calibration",
     "anchor": "calibration-candidates-root",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L408",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L450",
     "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True."
   },
   {
@@ -18334,7 +18850,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L413",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L455",
     "description": "Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs."
   },
   {
