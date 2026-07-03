@@ -121,3 +121,42 @@ def test_isolated_api_is_thread_parallel_safe(tmp_path: Path) -> None:
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(run_mf6_api_isolated, workspaces))
     assert results == [True, True, True, True]
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.fast
+def test_isolated_api_relays_child_error(tmp_path: Path) -> None:
+    # A workspace without mfsim.nam makes the child raise FileNotFoundError; the
+    # parent must surface it as SolverError with the relayed traceback, not hang.
+    from hydromodpy.core.exceptions import SolverError
+
+    with pytest.raises(SolverError, match="failed"):
+        run_mf6_api_isolated(tmp_path)
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.fast
+def test_isolated_api_times_out_and_reaps_child() -> None:
+    # A child that never returns must be killed after the timeout and reported,
+    # not wedge the calibration; the parent returns well before the 120s sleep.
+    import time
+
+    from hydromodpy.core.exceptions import SolverError
+    from tests._helpers.mf6_spawn_stubs import sleep_entry
+
+    started = time.monotonic()
+    with pytest.raises(SolverError, match="timed out"):
+        run_mf6_api_isolated("/nonexistent-ws", timeout=2, _entry=sleep_entry)
+    assert time.monotonic() - started < 30  # killed at ~2s, not after the 120s sleep
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.fast
+def test_isolated_api_child_dies_without_result() -> None:
+    # A child that exits (libmf6 crash) without posting a result must be detected
+    # and reported, not block the parent forever.
+    from hydromodpy.core.exceptions import SolverError
+    from tests._helpers.mf6_spawn_stubs import crash_entry
+
+    with pytest.raises(SolverError, match="without a result"):
+        run_mf6_api_isolated("/nonexistent-ws", _entry=crash_entry)

@@ -24,7 +24,7 @@ import queue as queue_mod
 from collections.abc import Sequence
 from contextlib import contextmanager
 from os import PathLike
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.logging import get_logger
@@ -107,18 +107,21 @@ def run_mf6_api_isolated(
     band_specs: Sequence[LakeBandRunoffSpec] | None = None,
     lib_path: str | PathLike[str] | None = None,
     timeout: float | None = None,
+    _entry: Any = _api_subprocess_entry,
 ) -> bool:
     """Run :func:`run_mf6_api` in a dedicated ``spawn`` child process.
 
     Parameters mirror :func:`run_mf6_api`, plus ``band_specs`` (the exposed-band
     runoff coupling, rebuilt into the callback in the child) and an optional
     ``timeout`` in seconds. Returns the convergence flag. Raises
-    :class:`SolverError` when the child fails or dies without a result.
+    :class:`SolverError` when the child fails or dies without a result. ``_entry``
+    is the child target; it exists only so tests can inject a spawn-importable
+    stub without a real solve.
     """
     ctx = mp.get_context("spawn")
     result_queue: mp.Queue = ctx.Queue()
     proc = ctx.Process(
-        target=_api_subprocess_entry,
+        target=_entry,
         args=(
             result_queue,
             str(sim_ws),

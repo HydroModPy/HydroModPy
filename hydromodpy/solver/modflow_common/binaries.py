@@ -32,8 +32,11 @@ which forces a re-download and rewrites the manifest.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
+import re
+import subprocess
 import sys
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -255,6 +258,119 @@ def ensure_solver_library(
     )
 
 
+_VERSION_RE = re.compile(r"(\d+\.\d+\.\d+)")
+_MF6_VERSION_PARITY_CHECKED = False
+_MISMATCH_ENV_VAR = "HMP_SILENCE_MF6_VERSION_MISMATCH"
+
+
+def mf6_executable_version(exe_path: str | os.PathLike[str]) -> str | None:
+    """Return the MODFLOW 6 executable version (e.g. ``'6.6.3'``), or ``None``."""
+    try:
+        out = subprocess.run(  # noqa: S603 - trusted managed binary
+            [str(exe_path), "-v"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = _VERSION_RE.search(f"{out.stdout}\n{out.stderr}")
+    return match.group(1) if match else None
+
+
+def libmf6_version(lib_path: str | os.PathLike[str]) -> str | None:
+    """Return the libmf6 shared-library version via xmipy, or ``None``.
+
+    Loads the library only to read its BMI ``get_version``; no simulation is
+    initialized, so it is safe to call once before the isolated solves spawn.
+    """
+    try:
+        from xmipy import XmiWrapper
+
+        match = _VERSION_RE.search(str(XmiWrapper(str(lib_path)).get_version()))
+        return match.group(1) if match else None
+    except Exception:  # noqa: BLE001 - version probe must never break a solve
+        return None
+
+
+def _package_version_and_editable(name: str) -> tuple[str | None, bool]:
+    """Return one Python package's version and whether it is a dev/editable install."""
+    try:
+        module = importlib.import_module(name)
+    except Exception:  # noqa: BLE001 - a version probe must never break a solve
+        return None, False
+    version = getattr(module, "__version__", None)
+    if version is None:
+        try:
+            from importlib.metadata import version as _metadata_version
+
+            version = _metadata_version(name)
+        except Exception:  # noqa: BLE001
+            version = None
+    origin = getattr(module, "__file__", "") or ""
+    is_dev = bool(version) and ".dev" in str(version)
+    is_editable = "site-packages" not in origin and "dist-packages" not in origin
+    return version, bool(is_dev or is_editable)
+
+
+def solver_python_stack() -> str:
+    """Return the ``modflowapi``/``xmipy`` versions, flagged when dev/editable.
+
+    The api runner loads libmf6 through these wrappers, so an unpinned dev/editable
+    install is part of the reproducibility surface and worth recording once.
+    """
+    parts: list[str] = []
+    for name in ("modflowapi", "xmipy"):
+        version, editable = _package_version_and_editable(name)
+        if version is None:
+            parts.append(f"{name} (absent)")
+        else:
+            parts.append(f"{name} {version}{' (editable)' if editable else ''}")
+    return ", ".join(parts)
+
+
+def warn_on_mf6_version_mismatch(
+    exe_path: str | os.PathLike[str], lib_path: str | os.PathLike[str]
+) -> None:
+    """Log the mf6 exe and libmf6 versions once and warn on a major.minor mismatch.
+
+    The api runner solves with libmf6 while the subprocess runner and the
+    per-trial steady-state init use the exe, so a version skew means calibrated
+    optima may not reproduce a subprocess ``hmp run``. A mismatch warns once (loud,
+    with the fix); silence it with ``HMP_SILENCE_MF6_VERSION_MISMATCH``. It never
+    raises, so an existing mixed install keeps working.
+    """
+    global _MF6_VERSION_PARITY_CHECKED
+    if _MF6_VERSION_PARITY_CHECKED:
+        return
+    _MF6_VERSION_PARITY_CHECKED = True
+
+    exe_v = mf6_executable_version(exe_path)
+    lib_v = libmf6_version(lib_path)
+    logger.info(
+        "MODFLOW 6 engines: exe %s, libmf6 %s | %s",
+        exe_v or "?",
+        lib_v or "?",
+        solver_python_stack(),
+    )
+    if not exe_v or not lib_v or exe_v.split(".")[:2] == lib_v.split(".")[:2]:
+        return
+
+    silence = os.environ.get(_MISMATCH_ENV_VAR, "")
+    if silence.strip().lower() not in ("", "0", "false", "no"):
+        return
+    logger.warning(
+        "MODFLOW 6 version mismatch: executable %s vs libmf6 %s. The api solves and the "
+        "per-trial steady-state init use different engine builds, so calibrated optima may not "
+        "reproduce a subprocess 'hmp run'. Re-align them with 'hmp install-binaries' (or set "
+        "%s to silence).",
+        exe_v,
+        lib_v,
+        _MISMATCH_ENV_VAR,
+    )
+
+
 __all__ = [
     "DEFAULT_RELEASE",
     "MANIFEST_FILENAME",
@@ -264,6 +380,10 @@ __all__ = [
     "ensure_solver_library",
     "exe_filename",
     "is_managed_cache",
+    "libmf6_version",
     "locate_solver_binary",
+    "mf6_executable_version",
     "read_manifest",
+    "solver_python_stack",
+    "warn_on_mf6_version_mismatch",
 ]

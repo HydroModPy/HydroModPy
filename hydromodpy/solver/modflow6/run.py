@@ -96,6 +96,25 @@ def _api_isolation_timeout_s(model) -> float | None:
     return _API_ISOLATION_DEFAULT_TIMEOUT_S
 
 
+def _warn_mf6_version_parity(lib_path: str, bin_path: object) -> None:
+    """Warn once when the resolved libmf6 and the mf6 executable versions differ."""
+    from pathlib import Path
+
+    from hydromodpy.solver.modflow_common.binaries import (
+        exe_filename,
+        locate_solver_binary,
+        managed_bin_dir,
+        warn_on_mf6_version_mismatch,
+    )
+
+    try:
+        bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
+        exe = locate_solver_binary(bindir, "mf6") or (bindir / exe_filename("mf6"))
+        warn_on_mf6_version_mismatch(exe, lib_path)
+    except Exception:  # pragma: no cover - a version probe must never break a solve
+        pass
+
+
 @contextmanager
 def api_isolation_context(enabled: bool):
     """Isolate api solves in a spawn child process within this block when enabled.
@@ -130,7 +149,15 @@ def _run_via_api(model, *, verbose: bool) -> bool:
     ``_mf6_api_callback`` always stays IN-PROCESS (it cannot cross the process
     boundary); ``_mf6_api_lib_path`` overrides the library path on either path.
     """
+    from hydromodpy.solver.modflow_common.binaries import ensure_solver_library
+
+    bin_path = getattr(model, "bin_path", None)
     lib_path = getattr(model, "_mf6_api_lib_path", None)
+    if lib_path is None:
+        # Resolve libmf6 with the model's bin_path (like the exe), so the api and
+        # subprocess paths pull from the same directory.
+        lib_path = str(ensure_solver_library("libmf6", bin_path=bin_path))
+    _warn_mf6_version_parity(lib_path, bin_path)
     callback = getattr(model, "_mf6_api_callback", None)
 
     if callback is None and _API_ISOLATION_ENABLED:
