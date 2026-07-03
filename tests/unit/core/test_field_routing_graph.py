@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.field_routing import (
-    accumulate_downhill_on_mesh,
     accumulate_on_downhill_graph,
     build_downhill_graph,
     drain_budget_stack_to_positive_outflow,
@@ -46,16 +45,7 @@ def test_graph_accumulation_matches_per_timestep_routing() -> None:
     routed_stack = accumulate_on_downhill_graph(graph, stack)
 
     per_timestep = np.stack(
-        [
-            accumulate_downhill_on_mesh(
-                stack[t],
-                reference,
-                connectivity,
-                vertices=vertices,
-                inactive_mask=inactive,
-            )
-            for t in range(stack.shape[0])
-        ]
+        [accumulate_on_downhill_graph(graph, stack[t]) for t in range(stack.shape[0])]
     )
     assert np.allclose(routed_stack, per_timestep, equal_nan=True)
 
