@@ -22,8 +22,12 @@ class RerunProvider(Protocol):
         *,
         overrides: Mapping[str, Any],
         name: str | None,
+        source_sim_id: str | None = None,
     ) -> str:
-        """Run a fresh simulation and return its new ``sim_id``."""
+        """Run a fresh simulation and return its new ``sim_id``.
+
+        ``source_sim_id`` is pinned as the child's ``parent_sim_id`` for lineage.
+        """
 
 
 _provider: RerunProvider | None = None

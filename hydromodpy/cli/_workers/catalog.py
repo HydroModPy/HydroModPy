@@ -395,7 +395,9 @@ def rerun_simulation(
         raise ValueError(f"Run {sid[:8]} has no config snapshot; cannot rerun.")
     requested_name = name or (f"{base_name}_rerun" if base_name else None)
     new_sid = str(
-        get_rerun_provider().rerun(snapshot, overrides=overrides or {}, name=requested_name)
+        get_rerun_provider().rerun(
+            snapshot, overrides=overrides or {}, name=requested_name, source_sim_id=sid
+        )
     )
     # Registration may auto-version the requested name ('x_rerun' -> 'x_rerun.v2');
     # re-read the row so the CLI reports the name that actually exists.
