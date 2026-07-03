@@ -48,13 +48,14 @@ def aggregate_catchment_timeseries(
 ) -> None:
     """Read spatial fields from the store and write catchment-aggregated timeseries.
 
-    The ``discharge`` series is the total surface water leaving the model.
-    When the run carries SFR / LAK extracted series, the routed outflow
-    (``ext_outflow`` at terminal reaches and lake outlets) is summed with the
-    direct (non-MVR) drain outflow; the routed signal already contains the
-    runoff forcing and the MVR drainage, so nothing else is added. Without a
-    stream network the series falls back to the lumped accounting: sum of
-    |DRN| plus the watershed runoff forcing read from Zarr ``forcing/``.
+    The ``discharge`` series is the surface water leaving the catchment. When
+    the run carries SFR / LAK extracted series, the discharge IS the routed
+    outflow (``ext_outflow`` at terminal reaches and lake outlets), which already
+    carries the in-watershed drainage (routed through DRN-TO-MVR) and the runoff
+    injected into the network; the residual plain-DRN record is buffer drainage
+    from neighbouring basins and is excluded. Without a stream network the series
+    falls back to the lumped accounting: sum of |DRN| plus the watershed runoff
+    forcing read from Zarr ``forcing/``.
 
     Parameters
     ----------
@@ -102,11 +103,15 @@ def aggregate_catchment_timeseries(
             for output_var, values in pending
         }
         if routed is not None:
-            ts = pd.Series(routed, index=ts_index, name="discharge", dtype="float64")
-            base = series_by_var.get("discharge")
-            if base is not None:
-                ts = ts.add(base, fill_value=0.0)
-            series_by_var["discharge"] = ts
+            # The routed SFR/LAK ext_outflow already carries the in-watershed
+            # drainage (moved into the DRN-TO-MVR record by route_drainage, whose
+            # plain-DRN residual is ~0). The remaining plain-DRN outflow is the
+            # buffer (neighbouring-basin) drainage, which must NOT feed this
+            # catchment, so it is dropped instead of added.
+            series_by_var["discharge"] = pd.Series(
+                routed, index=ts_index, name="discharge", dtype="float64"
+            )
+            _warn_routed_without_runoff(store, sim_id, grp)
             logger.debug("Catchment discharge for sim %s uses routed SFR/LAK outflow", sim_id)
         elif "discharge" in series_by_var:
             series_by_var["discharge"] = _add_runoff_to_discharge_series(
@@ -125,23 +130,53 @@ def aggregate_catchment_timeseries(
         logger.debug("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
 
 
+_ROUTED_RUNOFF_WARNING_EMITTED: set[str] = set()
+
+
+def _warn_routed_without_runoff(store: Any, sim_id: str, grp: Any) -> None:
+    """Warn once if runoff forcing exists but was not routed into SFR/LAK.
+
+    The routed discharge assumes the runoff was injected into the network; if a
+    run carries runoff forcing in Zarr but no runoff was wired to any SFR/lake
+    station, the routed discharge silently omits it.
+    """
+    if sim_id in _ROUTED_RUNOFF_WARNING_EMITTED:
+        return
+    forcing = grp.get("forcing")
+    if forcing is None or "runoff" not in forcing:
+        return
+    try:
+        row = store.connection.execute(
+            "SELECT 1 FROM timeseries WHERE sim_id = ? AND variable = 'runoff' "
+            "AND (station_id LIKE 'sfr:%' OR station_id LIKE 'lake:%') LIMIT 1",
+            [str(sim_id)],
+        ).fetchone()
+    except Exception:
+        return
+    if row is None:
+        logger.warning(
+            "catchment discharge: runoff forcing is present for sim %s but no runoff was "
+            "routed into SFR/LAK; the routed discharge excludes the runoff component.",
+            sim_id,
+        )
+        _ROUTED_RUNOFF_WARNING_EMITTED.add(sim_id)
+
+
 def _routed_outflow_by_timestep(
     store: Any,
     sim_id: str,
     n_timesteps: int,
 ) -> np.ndarray | None:
-    """Sum of |ext_outflow| over SFR reaches and lake outlets, per timestep.
+    """Sum of ext_outflow over SFR reaches and lake outlets, per timestep.
 
-    ``ext_outflow`` is the surface water leaving the model at a terminal
-    reach or a lake outlet (stations ``sfr:*`` / ``lake:*``, extracted from
-    the MF6 obs CSVs in m3/s). Magnitudes are summed because the SFR
-    extractor stores it positive while LAK keeps MF6's negative outflow
+    ``ext_outflow`` is the surface water leaving the model at a terminal reach or
+    a lake outlet (stations ``sfr:*`` / ``lake:*``, extracted from the MF6 obs
+    CSVs in m3/s). Both extractors store it with the same positive-outflow
     convention. Returns None when no such series exists (no SFR / LAK run).
     """
-    conn = getattr(store, "connection", None) or store._db
     try:
-        rows = conn.execute(
-            "SELECT timestep, SUM(ABS(value)) FROM timeseries "
+        rows = store.connection.execute(
+            "SELECT timestep, SUM(value) FROM timeseries "
             "WHERE sim_id = ? AND variable = 'ext_outflow' "
             "  AND (station_id LIKE 'sfr:%' OR station_id LIKE 'lake:%') "
             "GROUP BY timestep",
@@ -234,7 +269,7 @@ _RUNOFF_WARNING_EMITTED: set[str] = set()
 
 def _read_catchment_area_m2(store: Any, sim_id: str) -> float:
     """Return the catchment area in m² from ``geographic_metadata``."""
-    conn = getattr(store, "connection", None) or store._db
+    conn = store.connection
     row = conn.execute(
         "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
         [str(sim_id)],
@@ -309,7 +344,7 @@ def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.Datetim
     if times is not None and len(times) == n_timesteps:
         return pd.DatetimeIndex(times)
 
-    conn = getattr(store, "connection", None) or store._db
+    conn = store.connection
     row = conn.execute(
         "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
         [str(sim_id)],

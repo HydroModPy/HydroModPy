@@ -1,9 +1,8 @@
 """The LAK stage-volume-area abacus feeding ``ModflowUtllaktab``.
 
 MF6 interpolates the abacus and extrapolates poorly outside it, so the builder
-sorts by stage and rejects any table that is not physically monotone: stage must
-strictly increase, volume must not decrease (``dV/dz >= 0``) and surface area
-must be non-negative.
+sorts by stage and rejects any table MF6 would abort on: stage and volume must
+strictly increase and surface area must be non-decreasing and non-negative.
 """
 
 from __future__ import annotations
@@ -38,7 +37,20 @@ def test_build_lake_table_accepts_column_mapping() -> None:
 
 def test_build_lake_table_rejects_decreasing_volume() -> None:
     abacus = [(10.0, 30.0, 5.0), (11.0, 20.0, 12.0)]
-    with pytest.raises(ValueError, match="volume must not decrease"):
+    with pytest.raises(ValueError, match="volume must strictly increase"):
+        build_lake_table(None, lake_id="lac0", abacus=abacus)
+
+
+def test_build_lake_table_rejects_equal_volume() -> None:
+    # MF6 lak_read_table requires strictly increasing volume (v <= v0 aborts).
+    abacus = [(10.0, 20.0, 5.0), (11.0, 20.0, 12.0)]
+    with pytest.raises(ValueError, match="volume must strictly increase"):
+        build_lake_table(None, lake_id="lac0", abacus=abacus)
+
+
+def test_build_lake_table_rejects_decreasing_sarea() -> None:
+    abacus = [(10.0, 10.0, 12.0), (11.0, 20.0, 5.0)]
+    with pytest.raises(ValueError, match="surface area must not decrease"):
         build_lake_table(None, lake_id="lac0", abacus=abacus)
 
 

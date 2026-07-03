@@ -1,8 +1,10 @@
 """Re-grade one mesh column around a carved lake-bed elevation.
 
 Carving the bed must keep the column a valid prism: strictly decreasing layer
-bottoms, every layer thinner-bounded by ``min_thickness``, and the aquifer base
-fixed. The bottom of the deepest OCCUPIED (inactive) layer is set to the bed, so
+bottoms and the aquifer base fixed. The bed is clamped so each segment holds its
+layers at an AGGREGATE ``min_thickness`` floor (a very uneven original column can
+still leave one re-proportioned layer thinner). The bottom of the deepest
+OCCUPIED (inactive) layer is set to the bed, so
 the first ACTIVE cell below has its top at the real bed and the LAK vertical
 connection exchanges there. The inactive cap ``[bed, top]`` and the active aquifer
 ``[base, bed]`` are each re-proportioned from the original layer thicknesses, so
@@ -27,8 +29,12 @@ def regrade_column_to_bed(
     """Return new layer bottoms for one column with the bed at ``botm[occupied_layers-1]``.
 
     ``top`` is left unchanged (the lake-cell top stays the impounded surface). The
-    aquifer base ``botm_col[-1]`` is kept fixed. The bed is clamped into
-    ``[base + min_thickness, top - min_thickness]`` so the column stays valid.
+    aquifer base ``botm_col[-1]`` is kept fixed. The bed is clamped so each segment
+    can hold its layers at ``>= min_thickness``: the occupied cap ``[bed, top]`` has
+    ``occ`` layers and the active segment ``[base, bed]`` has ``nlay - occ``. The
+    two segments re-proportion the original thicknesses, so the AGGREGATE per-layer
+    floor is guaranteed but a very uneven original column can still leave one layer
+    thinner than ``min_thickness``.
     """
     botm_col = np.asarray(botm_col, dtype=float)
     nlay = botm_col.size
@@ -39,12 +45,12 @@ def regrade_column_to_bed(
         )
 
     base = float(botm_col[-1])
-    bed_hi = float(top) - float(min_thickness)
-    bed_lo = base + float(min_thickness)
+    bed_hi = float(top) - occ * float(min_thickness)
+    bed_lo = base + (nlay - occ) * float(min_thickness)
     if bed_lo > bed_hi:
         raise ValueError(
-            f"regrade_column_to_bed: column too thin (top={top}, base={base}) for "
-            f"min_thickness={min_thickness}"
+            f"regrade_column_to_bed: column too thin (top={top}, base={base}) to hold "
+            f"{occ} cap and {nlay - occ} active layers at min_thickness={min_thickness}"
         )
     bed_clamped = float(np.clip(bed, bed_lo, bed_hi))
 

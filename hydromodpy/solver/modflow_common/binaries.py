@@ -234,20 +234,25 @@ def ensure_solver_library(
 ) -> Path:
     """Resolve a MODFLOW shared library (e.g. ``libmf6``) under ``bin_path``.
 
-    Unlike :func:`ensure_solver_binary`, this never downloads:
-    ``flopy.utils.get_modflow`` does not fetch shared libraries, so a
-    managed-cache miss would simply fail. The library must already exist
-    in ``bin_path`` (defaults to the managed cache).
+    Mirrors :func:`ensure_solver_binary`: ``flopy.utils.get_modflow`` DOES fetch
+    shared objects named in the subset, so on a managed-cache miss the library is
+    downloaded before failing, keeping the api runner as zero-setup as the
+    subprocess runner. ``bin_path`` defaults to the managed cache.
     """
     bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
     found = locate_solver_binary(bindir, solver)
-    if found is None:
-        raise FileNotFoundError(
-            f"{exe_filename(solver)} not found in {bindir}. "
-            f"Install the MODFLOW 6 shared library (e.g. via the conda "
-            f"'modflow6-dll'/'libmf6' package or copy it into the cache)."
-        )
-    return ensure_platform_executable(found)
+    if found is not None:
+        return ensure_platform_executable(found)
+    if bin_path is None or is_managed_cache(bindir):
+        with progress.status(f"Fetching {solver} library"):
+            download_solver_binaries(bindir, subset=[solver], quiet=True)
+        found = locate_solver_binary(bindir, solver)
+        if found is not None:
+            return ensure_platform_executable(found)
+    raise FileNotFoundError(
+        f"{exe_filename(solver)} not found in {bindir} after a download attempt. "
+        "Run `hmp install-binaries` or copy the MODFLOW 6 shared library into the cache."
+    )
 
 
 __all__ = [

@@ -755,10 +755,9 @@ def run_pre_processing(  # noqa: PLR0915
             solver_mesh=solver_mesh,
             lake_cell_ids_by_lake=lake_cell_ids_by_lake,
             occupied_layers_by_cell=getattr(model, "_lake_occupied_layers_by_cell", None),
-            external_mover_to_lake=(
-                any(record.receiver == "LAK" for record in sfr_mover_records)
-                or any(str(row[2]) == "LAK" for row in drainage_mover_rows)
-            ),
+            # DRN movers always target SFR by design (never a direct DRN -> LAK
+            # record), so only the SFR movers can feed a lake externally.
+            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records),
         )
         if lak_args is not None:
             laktab_specs = lak_args.pop("laktab_specs")

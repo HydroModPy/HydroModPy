@@ -436,7 +436,7 @@ class TestAggregateEndToEnd:
 
 
 class TestRoutedDischarge:
-    """discharge = SFR/LAK ext_outflow + direct DRN when a network is extracted."""
+    """discharge = SFR/LAK ext_outflow only (buffer DRN excluded) when routed."""
 
     def _setup_sim(self, catalog, n_ts=3, n_cells=4, with_drains=True):
         sid = str(uuid4())
@@ -474,18 +474,19 @@ class TestRoutedDischarge:
             sid, station, "ext_outflow", pd.Series(values, index=idx), unit="m3/s"
         )
 
-    def test_discharge_adds_routed_outflow_to_direct_drains(self, catalog):
+    def test_discharge_is_routed_outflow_excluding_buffer_drains(self, catalog):
         sid = self._setup_sim(catalog)
-        # SFR stores ext_outflow positive; LAK keeps MF6's negative convention.
+        # Both extractors store ext_outflow positive. The buffer plain-DRN field
+        # (neighbouring-basin drainage) must NOT be added to the routed discharge.
         self._write_ext_outflow(catalog, sid, "sfr:net:7", [1.0, 2.0, 3.0])
         self._write_ext_outflow(catalog, sid, "sfr:net:2", [0.0, 0.0, 0.0])
-        self._write_ext_outflow(catalog, sid, "lake:res", [-0.5, -0.5, -1.0])
+        self._write_ext_outflow(catalog, sid, "lake:res", [0.5, 0.5, 1.0])
 
         aggregate_catchment_timeseries(sid, catalog)
 
         ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
-        # |drn| + sfr + |lake| per timestep.
-        np.testing.assert_allclose(ts.values, [11.5, 10.5, 8.0])
+        # routed = sfr + lake per timestep; the |DRN| buffer field is excluded.
+        np.testing.assert_allclose(ts.values, [1.5, 2.5, 4.0])
 
     def test_routed_branch_skips_lumped_runoff(self, catalog, monkeypatch):
         import hydromodpy.simulation.extraction.derivation.catchment_aggregation as mod
@@ -500,7 +501,8 @@ class TestRoutedDischarge:
         aggregate_catchment_timeseries(sid, catalog)
 
         ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
-        np.testing.assert_allclose(ts.values, [11.0, 9.0, 5.0])
+        # routed only; the buffer DRN field and lumped runoff are both excluded.
+        np.testing.assert_allclose(ts.values, [1.0, 1.0, 1.0])
 
     def test_routed_only_discharge_written_without_drain_field(self, catalog):
         # Pure SFR drainage: no DRN array at all, discharge = routed outflow.

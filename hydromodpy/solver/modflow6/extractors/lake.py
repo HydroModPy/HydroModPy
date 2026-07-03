@@ -78,6 +78,10 @@ _RATE_QUANTITIES = frozenset(
     }
 )
 
+# Outflow quantities negated to the positive-outflow convention shared with the
+# SFR extractor (MF6 reports lake outflow negative).
+_NEGATED_LAKE_QUANTITIES = frozenset({"ext_outflow", "to_mvr"})
+
 # Output unit per stored quantity (SI; rates land in m3/s after scaling).
 _UNIT_BY_QUANTITY: dict[str, str] = {
     "stage": "m",
@@ -319,6 +323,11 @@ def build_lake_records(
             row = rows[t]
             calendar = calendar_times[t] if calendar_times is not None else None
 
+            # Aggregate scalar entries by quantity. A multi-outlet lake reports
+            # outlet / ext_outflow / to_mvr once per outlet under the same
+            # quantity, so the per-outlet columns are summed into one series
+            # instead of colliding on the same primary key (last-write-wins).
+            by_quantity: dict[str, float] = {}
             for entry in scalar_entries:
                 pos = col_index.get(entry.obsname.upper())
                 if pos is None or pos >= len(row):
@@ -326,14 +335,20 @@ def build_lake_records(
                 value = float(row[pos])
                 if entry.quantity in _RATE_QUANTITIES:
                     value /= spt
+                if entry.quantity in _NEGATED_LAKE_QUANTITIES:
+                    # MF6 reports outflow negative; store it positive so LAK
+                    # matches the SFR ext_outflow convention.
+                    value = -value
+                by_quantity[entry.quantity] = by_quantity.get(entry.quantity, 0.0) + value
+            for quantity, value in by_quantity.items():
                 timeseries.append(
                     timeseries_record(
                         station=station,
-                        quantity=entry.quantity,
+                        quantity=quantity,
                         timestep=t,
                         time=calendar,
                         value=value,
-                        unit=_UNIT_BY_QUANTITY.get(entry.quantity, "m3/s"),
+                        unit=_UNIT_BY_QUANTITY.get(quantity, "m3/s"),
                     )
                 )
 

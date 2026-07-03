@@ -88,6 +88,32 @@ def test_specified_outlet_has_no_geometry() -> None:
     assert (invert, width, rough, slope) == (0.0, 0.0, 0.0, 0.0)
 
 
+def test_specified_outlet_emits_a_period_rate_row() -> None:
+    # A SPECIFIED outlet must emit a PERIOD 'rate' row keyed by the global outlet
+    # number, else MF6 initialises the rate to zero and the outlet releases nothing.
+    from hydromodpy.solver.modflow6.builders.lake import _emit_outlet_rate_rows
+
+    lakes = {
+        "lac0": {
+            "outlets": [
+                {"couttype": "WEIR", "lakeout": 0},  # global outlet 0
+                {"couttype": "SPECIFIED", "lakeout": 0, "rate": -2.5},  # global outlet 1
+            ]
+        }
+    }
+    period_rows: dict[int, list[list[object]]] = {}
+    _emit_outlet_rate_rows(
+        None,
+        lakes=lakes,
+        mode="inline",
+        min_periods=64,
+        nper=1,
+        period_rows=period_rows,
+        ts_series=[],
+    )
+    assert [1, "rate", -2.5] in period_rows[0]
+
+
 def test_outlet_routes_directly_to_downstream_lake() -> None:
     # Preretenue (lac0) -> retenue (lac1) via a WEIR with lakeout=2 (the second
     # lake, 1-based).

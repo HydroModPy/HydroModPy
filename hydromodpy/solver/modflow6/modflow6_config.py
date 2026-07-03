@@ -29,6 +29,14 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "simulation, so output extraction is identical."
         ),
     )
+    mf6_api_timeout_s: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve "
+            "in parallel calibration; the child is killed past it so one stuck trial "
+            "cannot wedge the session. None keeps the built-in default (2400 s)."
+        ),
+    )
     mf6_ims_complexity: Annotated[Literal["SIMPLE", "MODERATE", "COMPLEX"], Profile.EXPERT] = Field(
         default="COMPLEX",
         description="IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX.",
@@ -98,10 +106,11 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Enable MF6 NPF XT3D terms. When left to None, HydroModPy "
-            "auto-enables XT3D on unstructured solver meshes. This increases "
-            "computational cost but can improve accuracy on unstructured or "
-            "non-orthogonal grids."
+            "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled "
+            "only when the mesh is significantly non-orthogonal or anisotropic K "
+            "is configured; the default Voronoi/PEBI dual grid is near-orthogonal, "
+            "so XT3D stays off there. It adds cost but improves accuracy on "
+            "non-orthogonal or anisotropic grids."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(

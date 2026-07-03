@@ -767,17 +767,33 @@ def build_sfr_mover_records(
     records: list[MoverRecord] = []
     for network_id, network in networks.items():
         definition = network.definition
+        location = f"flow.sinks_sources.sfr.{network_id}"
         lake_number = definition.get("outflow_to_lake")
-        if lake_number is None:
+        flagged = any(record.is_terminal_to_lake for record in network.reaches)
+        if not flagged and lake_number is None:
+            # Standalone network: it discharges out of the model (EXT-OUTFLOW).
             continue
-        terminals = _terminal_reaches(network, location=f"flow.sinks_sources.sfr.{network_id}")
+        terminals = _terminal_reaches(network, location=location)
         mvrtype = str(definition.get("outflow_mvrtype") or "FACTOR").strip().upper()
         raw_value = definition.get("outflow_value")
         value = float(raw_value) if raw_value is not None else 1.0
         for terminal in terminals:
-            receiver_lake = (
-                terminal.terminal_lake if terminal.terminal_lake is not None else (int(lake_number))
-            )
+            if terminal.terminal_lake is not None:
+                receiver_lake = int(terminal.terminal_lake)
+            elif lake_number is not None:
+                receiver_lake = int(lake_number)
+            else:
+                # A terminal flagged as feeding a lake but with neither a lake tag
+                # nor outflow_to_lake would leave the model by EXT-OUTFLOW (the
+                # RC-1 failure mode). Warn and skip so it is surfaced, not silent.
+                logger.warning(
+                    "%s: terminal reach %d feeds a lake but no receiver is set (no lake tag, "
+                    "no outflow_to_lake); its flow leaves the model by EXT-OUTFLOW. Set "
+                    "outflow_to_lake to route it to the reservoir.",
+                    location,
+                    int(terminal.ifno),
+                )
+                continue
             records.append(
                 MoverRecord(
                     provider=_SFR_PACKAGE_NAME,

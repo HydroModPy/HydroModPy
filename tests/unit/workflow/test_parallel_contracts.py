@@ -28,48 +28,21 @@ def test_expand_parameters_rejects_mismatched_strategy_specs() -> None:
         parallel_module.expand_parameters({"k": {"min": 1.0, "max": 2.0}}, "grid")
 
 
-def test_run_sweep_parallel_path_bounds_workers_and_dispatches_overrides(monkeypatch) -> None:
-    created_pools: list[object] = []
-
-    class FakePool:
-        def __init__(self, max_workers: int) -> None:
-            self.max_workers = max_workers
-            created_pools.append(self)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_exc) -> None:
-            return None
-
-        def map(self, fn, items):
-            return [fn(item) for item in items]
-
+def test_run_sweep_parallel_path_is_rejected_until_a_per_point_fork_exists() -> None:
+    # parallel>1 shares one Project (context/catalog/store) mutated per point with
+    # no lock, so it races: the sweep now refuses it instead of racing silently.
     class FakeProject:
-        def __init__(self) -> None:
-            self.calls: list[dict[str, object]] = []
+        def simulate(self, *, name=None, **overrides):  # pragma: no cover - must not run
+            raise AssertionError("run_sweep must not dispatch a racing parallel sweep")
 
-        def simulate(self, *, name: str | None = None, **overrides: float):
-            self.calls.append({"name": name, **overrides})
-            return SimpleNamespace(sim_id=f"sim-{len(self.calls)}")
-
-    monkeypatch.setattr(parallel_module, "ThreadPoolExecutor", FakePool)
-    project = FakeProject()
-
-    sim_ids = parallel_module.run_sweep(
-        project,
-        parameters={"k": [1.0, 2.0]},
-        strategy="enumerate",
-        name_template="{param}_{value:g}",
-        parallel=10,
-    )
-
-    assert sim_ids == ["sim-1", "sim-2"]
-    assert [pool.max_workers for pool in created_pools] == [2]
-    assert project.calls == [
-        {"name": "k_1", "k": 1.0},
-        {"name": "k_2", "k": 2.0},
-    ]
+    with pytest.raises(ConfigError, match="parallel>1 is disabled"):
+        parallel_module.run_sweep(
+            FakeProject(),
+            parameters={"k": [1.0, 2.0]},
+            strategy="enumerate",
+            name_template="{param}_{value:g}",
+            parallel=10,
+        )
 
 
 def test_run_sweep_rejects_invalid_parallel_before_expanding_parameters() -> None:

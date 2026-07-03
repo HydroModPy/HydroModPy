@@ -133,7 +133,16 @@ def preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
             status=str(status),
             components=components,
         )
-    return len(cache) - n_before
+    added = len(cache) - n_before
+    if added:
+        # The hash embeds the code version, so entries from a different HydroModPy
+        # build simply miss; still surface preloading so a cached run is not silent.
+        logger.info(
+            "Preloaded %d params_hash cache entries from prior calibration iterations; "
+            "matching trials will be reused without re-solving.",
+            added,
+        )
+    return added
 
 
 def build_cache_context(
@@ -167,8 +176,13 @@ def build_cache_context(
     ):
         calibration_payload.pop(runtime_key, None)
 
+    from hydromodpy.core.version import __version__ as _hmp_version
+
     context: dict[str, object] = {
         "schema": "hydromodpy.calibration.params_hash.v2",
+        # Code identity: a model-build or solver fix must invalidate the cache so a
+        # re-run does not return pre-fix objectives with zero re-solves.
+        "code_version": str(_hmp_version),
         "model": model_payload,
         "calibration": calibration_payload,
         "override_paths": dict(sorted(override_paths.items())),

@@ -357,25 +357,52 @@ class HydroModPyConfig(HydroModelBase):
                 )
 
         if flow_cfg is not None and solver_cfg is not None:
+            from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+
             engine = getattr(solver_cfg, "backend_name", None)
             engine_value = getattr(engine, "value", engine)
             active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
             sinks_sources = getattr(flow_cfg, "sinks_sources", None)
+
+            # Every active boundary must be supported by the chosen backend, or it
+            # would be silently ignored at build time (lake/reservoir/sfr on NWT or
+            # Boussinesq were accepted then dropped).
+            for bc_id in sorted(active_bc):
+                definition = boundary_definition(bc_id)
+                if definition is not None and not definition.supports_backend(str(engine_value)):
+                    supported = ", ".join(definition.supported_backends)
+                    raise IncompatibleCapabilitiesError(
+                        f"solver.backend={engine_value!r} does not support the '{bc_id}' "
+                        f"boundary (supported by: {supported}); it would be silently ignored. "
+                        f"Use a supported backend or remove '{bc_id}' from flow.active_bc."
+                    )
+
             lakes = getattr(sinks_sources, "lakes", None) or {}
-            bc_has_lake = bool({"lake", "reservoir"} & active_bc)
-            wants_lake = bc_has_lake or bool(lakes)
-            if wants_lake and engine_value != "modflow6":
-                raise IncompatibleCapabilitiesError(
-                    f"solver.backend={engine_value!r} does not support lake/reservoir "
-                    "boundaries; LAK lakes require the 'modflow6' backend."
-                )
-            if lakes and not bc_has_lake:
+            if lakes and not ({"lake", "reservoir"} & active_bc):
                 raise ValueError(
                     "flow.sinks_sources.lakes declares lakes but flow.active_bc lists "
                     "neither 'lake' nor 'reservoir'; add 'lake' (or 'reservoir') to "
                     "flow.active_bc to activate the LAK package, or remove the lakes. "
                     "The LAK builder only activates on active_bc, so as-is the lakes "
                     "would be silently ignored."
+                )
+            sfr_payload = getattr(sinks_sources, "sfr", None) or {}
+            if sfr_payload and "sfr" not in active_bc:
+                raise ValueError(
+                    "flow.sinks_sources.sfr declares stream networks but flow.active_bc does "
+                    "not list 'sfr'; add 'sfr' to activate the SFR package, or remove the "
+                    "networks. As-is the streams would be silently ignored."
+                )
+
+            # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
+            barriers = getattr(sinks_sources, "flow_barriers", None) or {}
+            has_cutoff = any(
+                getattr(lake_cfg, "cutoff_wall", None) is not None for lake_cfg in lakes.values()
+            )
+            if (barriers or has_cutoff) and engine_value != "modflow6":
+                raise IncompatibleCapabilitiesError(
+                    f"solver.backend={engine_value!r} does not support flow barriers / dam "
+                    "cutoff walls (HFB); they require the 'modflow6' backend."
                 )
 
         return self
@@ -432,6 +459,10 @@ class HydroModPyConfig(HydroModelBase):
         except ValidationError as exc:
             message = format_validation_error(exc, source_path=toml_path)
             raise ValueError(message) from exc
+        except IncompatibleCapabilitiesError as exc:
+            # A typed capability error from the after-validator does not carry the
+            # TOML location; prepend it while keeping the type and error code.
+            raise type(exc)(f"{toml_path}: {exc.message or exc}") from exc
 
         # Derive the simulation name from the TOML filename if not set explicitly.
         if not cfg.simulation.name:

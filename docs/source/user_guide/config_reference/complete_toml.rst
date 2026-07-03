@@ -67,6 +67,8 @@ Sub-models are linked back to their per-section page.
       # crs_project = ...  # default = None
       # DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.
       dem_correc_type = "breach"
+      # Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.
+      domain_extent = "box"
       # Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.
       # bottom_path = ...  # default = None
       # Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.
@@ -494,6 +496,8 @@ Sub-models are linked back to their per-section page.
       # domain = ...  # uses factory default
       # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells.
       # zone_meshing = ...  # uses factory default
+      # Optional local refinement on the lake footprint (any shape) and the under-dam outlet. Disabled by default; set enabled = true to add the lake size fields.
+      # lake_refinement = ...  # uses factory default
 
 .. dropdown:: ``[mesh_input]`` (MeshInputConfig)
    :icon: gear

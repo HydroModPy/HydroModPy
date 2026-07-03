@@ -223,3 +223,15 @@ def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
     assert "rmse = 0.02" in mf6_toml, "dupuit MF6 case-TOML rmse changed; revisit row 12"
     # Enforced NWT head_profile.rmse agrees with the documented 0.05 m.
     assert "rmse = 0.05" in nwt_toml, "dupuit NWT case-TOML rmse changed; revisit row 11"
+
+
+def test_documented_tolerance_count_matches_the_table() -> None:
+    """The header count must equal the number of numbered rows, so it never drifts."""
+    import re
+
+    text = (_TESTS_ROOT / "TOLERANCES.md").read_text(encoding="utf-8")
+    header = re.search(r"records the (\d+) tolerances", text)
+    assert header is not None, "TOLERANCES.md header count line is missing"
+    documented = int(header.group(1))
+    rows = len(re.findall(r"^\| [0-9]", text, flags=re.MULTILINE))
+    assert documented == rows, f"header says {documented} tolerances but the table has {rows} rows"

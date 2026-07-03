@@ -135,12 +135,20 @@ class PrepareSolverStep:
                 persistence=results_cfg.persistence,
             )
             if sim_id is None:
+                # Resolve the resumed run by its NAME (the identity column), not by
+                # "latest sim in project", so a resume after a later run was
+                # registered attaches to the right simulation, not the newest one.
                 row = ctx.store.connection.execute(
-                    "SELECT sim_id FROM simulations WHERE project = ? ORDER BY created_at DESC LIMIT 1",
-                    [ws.project_root.name],
+                    "SELECT sim_id FROM simulations WHERE project = ? AND name = ? "
+                    "ORDER BY created_at DESC LIMIT 1",
+                    [ws.project_root.name, str(run_id)],
                 ).fetchone()
-                if row is not None:
-                    ctx.sim_id = str(row[0])
+                if row is None:
+                    raise ConfigError(
+                        f"resume: no simulation named {run_id!r} in project "
+                        f"{ws.project_root.name!r}; cannot rebuild the run state."
+                    )
+                ctx.sim_id = str(row[0])
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,

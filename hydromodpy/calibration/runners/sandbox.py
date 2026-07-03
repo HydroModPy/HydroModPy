@@ -56,10 +56,23 @@ class TrialSandbox:
         ``HMP_KEEP_TRIAL_SCRATCH`` environment variable.
     """
 
-    def __init__(self, base_model_name: str, trial_id: int, *, keep: bool | None = None) -> None:
+    def __init__(
+        self,
+        base_model_name: str,
+        trial_id: int,
+        *,
+        keep: bool | None = None,
+        solver_scratch_folder: Path | str | None = None,
+    ) -> None:
         self.model_name = f"{_sanitize(base_model_name)}_trial{int(trial_id):06d}"
         self._keep = _keep_requested() if keep is None else bool(keep)
         self._execution: Any | None = None
+        # Eager output dir: the trial writes into <scratch>/<model_name>/, so a
+        # diverged / timed-out / crashed trial (which never records a success in
+        # the run registry) is still cleaned up on exit.
+        self._eager_dir: Path | None = (
+            Path(solver_scratch_folder) / self.model_name if solver_scratch_folder else None
+        )
 
     @property
     def flow_overrides(self) -> dict[str, str]:
@@ -72,7 +85,17 @@ class TrialSandbox:
 
     def _output_dirs(self) -> list[Path]:
         registry = getattr(self._execution, "output_dirs_by_run_id", None) or {}
-        return [Path(p) for p in registry.values() if p]
+        candidates = [Path(p) for p in registry.values() if p]
+        if self._eager_dir is not None:
+            candidates.append(self._eager_dir)
+        seen: set[str] = set()
+        unique: list[Path] = []
+        for path in candidates:
+            key = str(path)
+            if key not in seen:
+                seen.add(key)
+                unique.append(path)
+        return unique
 
     def __enter__(self) -> TrialSandbox:
         return self

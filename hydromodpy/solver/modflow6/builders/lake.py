@@ -24,6 +24,7 @@ plain ``ValueError`` naming the offending TOML path, exactly as ``wells.py`` doe
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -566,6 +567,7 @@ def build_lake_table(
     table: list[tuple[float, float, float]] = []
     prev_stage: float | None = None
     prev_volume: float | None = None
+    prev_sarea: float | None = None
     for stage, volume, sarea in rows:
         if prev_stage is not None and stage <= prev_stage:
             raise ValueError(
@@ -577,14 +579,23 @@ def build_lake_table(
                 f"flow.sinks_sources.lakes.{lake_id}.abacus volume and sarea must be "
                 f">= 0; got volume={volume}, sarea={sarea}."
             )
-        if prev_volume is not None and volume < prev_volume:
+        # MF6 lak_read_table requires strictly increasing volume and non-decreasing
+        # sarea; matching it here turns an MF6-abort into a clear config error.
+        if prev_volume is not None and volume <= prev_volume:
             raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id}.abacus volume must not decrease "
-                f"with stage (dV/dz >= 0); got {volume} after {prev_volume}."
+                f"flow.sinks_sources.lakes.{lake_id}.abacus volume must strictly increase "
+                f"with stage (MF6 rejects equal volumes); got {volume} after {prev_volume}. "
+                "Drop dead-storage rows of equal volume below the bed."
+            )
+        if prev_sarea is not None and sarea < prev_sarea:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id}.abacus surface area must not decrease "
+                f"with stage; got {sarea} after {prev_sarea}."
             )
         table.append((float(stage), float(volume), float(sarea)))
         prev_stage = stage
         prev_volume = volume
+        prev_sarea = sarea
     return table
 
 
@@ -804,9 +815,21 @@ def _lak_output_stem(model) -> str:
     return str(getattr(model, "model_name", "") or "model")
 
 
+_MAX_LAKE_TAG_LEN = 24  # keeps the longest obs name within MF6's 40-char LENOBSNAME
+
+
 def _safe_lake_tag(lake_id: str) -> str:
-    """Return a filename-safe tag for one lake id."""
-    return "".join(ch if ch.isalnum() else "_" for ch in str(lake_id))
+    """Return a filename-safe, length-bounded tag for one lake id.
+
+    Bounded so the longest composed obs name (``{tag}_ext_outflow_{n}``) stays
+    within MF6's 40-char observation-name limit; a long id is shortened
+    deterministically with a hash suffix so the extractor still keys it exactly.
+    """
+    safe = "".join(ch if ch.isalnum() else "_" for ch in str(lake_id))
+    if len(safe) <= _MAX_LAKE_TAG_LEN:
+        return safe
+    digest = hashlib.blake2b(str(lake_id).encode("utf-8"), digest_size=3).hexdigest()
+    return f"{safe[: _MAX_LAKE_TAG_LEN - 7]}_{digest}"
 
 
 def _drop_interior_rings(geometry: object) -> object:
@@ -965,13 +988,42 @@ def _lake_attr(payload: object, name: str) -> object:
     return getattr(payload, name, None)
 
 
-def _forcing_values(forcing: object) -> tuple[float, ...]:
-    """Extract the per-period values of a ``{kind: values, values: [...]}`` forcing."""
-    if isinstance(forcing, Mapping):
-        values = forcing.get("values")
-        if values is not None:
-            return tuple(float(v) for v in values)
-    return ()
+def _forcing_si_per_period(
+    model, forcing: object, *, volumetric: bool, label: str, nper: int
+) -> tuple[float, ...]:
+    """Per-period SI values for a lake forcing, mirroring ``_emit_forcing_rows``.
+
+    Resolves a typed ``FlowWellForcingConfig`` (or a mapping) through the same
+    unit-conversion path the LAK PERIOD rows use, so the exposed-band callback
+    reads the same SI values MF6 gets instead of ``0`` (and never mis-scaled).
+    """
+    if forcing is None:
+        return ()
+    raw = forcing.get("values") if isinstance(forcing, Mapping) else getattr(forcing, "values", None)
+    if isinstance(raw, (list, tuple, np.ndarray)) and len(raw) > 0:
+        # Explicit per-period values: take them directly and convert units.
+        unit = forcing_unit(forcing)
+        return tuple(
+            float(forcing_to_si(v, forcing, f"{label}[{idx}]", volumetric, explicit_unit=unit))
+            for idx, v in enumerate(raw)
+        )
+    value = constant_forcing_value(forcing)
+    if value is not None:
+        si_value = float(forcing_to_si(value, forcing, label, volumetric))
+        return (si_value,) * max(1, int(nper)) if int(nper) > 0 else (si_value,)
+    if int(nper) <= 0:
+        return ()
+    per_period = resolve_period_values_from_forcing(
+        forcing=forcing,
+        simulation_window=None if model.time_grid is None else model.time_grid.window,
+        nper=nper,
+        label=label,
+    )
+    unit = forcing_unit(forcing)
+    return tuple(
+        float(forcing_to_si(v, forcing, f"{label}[{idx}]", volumetric, explicit_unit=unit))
+        for idx, v in enumerate(per_period)
+    )
 
 
 def build_exposed_band_runoff_specs(model) -> list:
@@ -991,6 +1043,7 @@ def build_exposed_band_runoff_specs(model) -> list:
 
     from hydromodpy.solver.modflow6.lake_band_runoff import LakeBandRunoffSpec
 
+    nper = int(getattr(model, "nper", 0) or 0)
     specs: list[LakeBandRunoffSpec] = []
     for lake_index, (lake_id, definition) in enumerate(_active_lake_definitions(model).items()):
         cfg = definition.get("bed_reconstruction")
@@ -1006,8 +1059,20 @@ def build_exposed_band_runoff_specs(model) -> list:
                 lake_index=lake_index,
                 bed=np.array([rec["bed_by_cell"][c] for c in cells], dtype=float),
                 area=np.array([rec["area_by_cell"][c] for c in cells], dtype=float),
-                rate_per_period=_forcing_values(definition.get("runoff_rate")),
-                base_runoff_per_period=_forcing_values(definition.get("runoff")),
+                rate_per_period=_forcing_si_per_period(
+                    model,
+                    definition.get("runoff_rate"),
+                    volumetric=False,
+                    label=f"flow.sinks_sources.lakes.{lake_id}.runoff_rate",
+                    nper=nper,
+                ),
+                base_runoff_per_period=_forcing_si_per_period(
+                    model,
+                    definition.get("runoff"),
+                    volumetric=True,
+                    label=f"flow.sinks_sources.lakes.{lake_id}.runoff",
+                    nper=nper,
+                ),
             )
         )
     return specs
@@ -1330,7 +1395,62 @@ def build_lake_period_data(
                 period_rows=period_rows,
                 ts_series=ts_series,
             )
+    _emit_outlet_rate_rows(
+        model,
+        lakes=lakes,
+        mode=mode,
+        min_periods=min_periods,
+        nper=nper,
+        period_rows=period_rows,
+        ts_series=ts_series,
+    )
     return period_rows, ts_series
+
+
+def _emit_outlet_rate_rows(
+    model,
+    *,
+    lakes: Mapping[str, dict[str, Any]],
+    mode: str,
+    min_periods: int,
+    nper: int,
+    period_rows: dict[int, list[list[Any]]],
+    ts_series: list[Ts6Series],
+) -> None:
+    """Emit the PERIOD ``rate`` rows for SPECIFIED outlets.
+
+    A SPECIFIED outlet releases a controlled flow supplied through perioddata; the
+    PERIOD ``number`` is the (global 0-based) outlet number for outlet settings.
+    Without this, MF6 initializes the outlet rate to zero and the outlet releases
+    nothing. Both a constant ``rate`` and a transient ``forcing`` are handled.
+    """
+    outletno = 0
+    for lake_id, definition in lakes.items():
+        for outlet in definition.get("outlets") or []:
+            couttype = str(_lake_attr(outlet, "couttype") or "").strip().upper()
+            if couttype == "SPECIFIED":
+                forcing = _lake_attr(outlet, "forcing")
+                rate = _lake_attr(outlet, "rate")
+                if forcing is not None:
+                    _emit_forcing_rows(
+                        model,
+                        lake_index=outletno,
+                        lake_id=f"{lake_id}.outlet[{outletno}]",
+                        keyword="rate",
+                        forcing=forcing,
+                        volumetric=True,
+                        mode=mode,
+                        min_periods=min_periods,
+                        nper=nper,
+                        period_rows=period_rows,
+                        ts_series=ts_series,
+                    )
+                elif rate is not None:
+                    rate_si = (
+                        float(rate.to("m**3/s").magnitude) if hasattr(rate, "to") else float(rate)
+                    )
+                    period_rows.setdefault(0, []).append([int(outletno), "rate", rate_si])
+            outletno += 1
 
 
 def _emit_steady_stage_hold_rows(

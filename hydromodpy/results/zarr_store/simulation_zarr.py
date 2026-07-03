@@ -277,6 +277,13 @@ class SimulationZarr:
         if values.size == 0:
             return None
         units = str(dict(arr.attrs).get("units", "seconds since 1970-01-01"))
+        if "since 1970-01-01" not in units:
+            # The decode below assumes the 1970 epoch; a different epoch would
+            # silently shift the whole clock (~30 years for a 2000 anchor).
+            raise ValueError(
+                f"SimulationZarr.read_time: time units {units!r} are not anchored to "
+                "'since 1970-01-01'; the clock cannot be decoded without an epoch offset."
+            )
         unit_code = "s"
         if units.startswith("days"):
             unit_code = "D"

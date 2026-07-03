@@ -856,6 +856,20 @@ Fields
 
 
 
+      .. container:: hmp-field hmp-field-level-user
+         :name: modflownwt-sgrid-grid-dual
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.grid_dual">
+              <code class="hmp-field-name">grid_dual</code>
+            </div>
+
+         :bdg-primary:`Literal['voronoi', 'triangle']` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L200>`__
+
+            Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.
+
+
 
 
 .. container:: hmp-field hmp-field-level-user
@@ -1081,6 +1095,7 @@ Starter TOML snippet
       [modflownwt.sgrid]
       # planar = ...  # factory default
       # vertical = ...  # factory default
+      # grid_dual = "voronoi"
 
       [modflownwt.tgrid]
       # genmtd = "synthetic_regular"
