@@ -17,6 +17,9 @@ OUTLET_STATION = "__outlet__"
 TRASH_RETENTION_DAYS = 30
 """Days a trashed run stays restorable before ``gc --apply`` may hard-purge it."""
 
+STALE_HEARTBEAT_MINUTES = 10
+"""Minutes without a heartbeat before a ``running`` sim is treated as stale."""
+
 # v2 catalog table names (DuckDB). Kept in sync with
 # ``catalog/migrations/0001_initial.sql``.
 TABLE_NAMES: tuple[str, ...] = (
@@ -99,6 +102,18 @@ VALID_SOLVER_CODES: frozenset[str] = frozenset(
     }
 )
 
+# Short aliases users may type on the CLI mapped to canonical solver codes.
+SOLVER_ALIASES: dict[str, str] = {
+    "mf6": "modflow6",
+    "nwt": "modflow_nwt",
+}
+
+
+def canonical_solver_code(name: str) -> str:
+    """Return the canonical solver code for a user-typed name or alias."""
+    key = str(name).strip().lower()
+    return SOLVER_ALIASES.get(key, key)
+
 
 def solver_category(solver_name: str) -> str | None:
     """Return the category for in-tree solvers without importing solver layers."""
@@ -141,9 +156,12 @@ __all__ = [
     "OUTLET_STATION",
     "PARQUET_VIEW_NAMES",
     "PER_SIM_TABLE_NAMES",
+    "SOLVER_ALIASES",
+    "STALE_HEARTBEAT_MINUTES",
     "TABLE_NAMES",
     "TRASH_RETENTION_DAYS",
     "VALID_SOLVER_CODES",
+    "canonical_solver_code",
     "solver_category",
     "validate_solver_code",
 ]

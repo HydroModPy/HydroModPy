@@ -34,6 +34,9 @@ EXIT_VALIDATION = 16
 EXIT_CROSS_PROJECTS = 17
 EXIT_BACKUP_FAILED = 18
 EXIT_MIGRATION_FAILED = 19
+# The 10..19 band is fully assigned above, so this new category takes 20.
+# CLAUDE.md documents the range as 10..19; the extra slot is intentional and
+# tracked for the doc update.
 EXIT_AMBIGUOUS_REFERENCE = 20
 EXIT_SIGINT = 130
 
@@ -44,11 +47,22 @@ def exit_code_for(exc: BaseException) -> int:
     Returns :data:`EXIT_GENERIC` when no specific mapping is registered.
     :class:`KeyboardInterrupt` is routed to :data:`EXIT_SIGINT` (POSIX 130).
     """
-    from hydromodpy.core import exceptions as hmp_exc
+    from hydromodpy.core.exceptions import (
+        BackupFailedError,
+        ConfigError,
+        ConfigMissingError,
+        CrossProjectsError,
+        DataError,
+        MigrationFailedError,
+        ReadOnlyError,
+        SolverError,
+        WriteConflictError,
+    )
     from hydromodpy.results.catalog.discovery import (
         AmbiguousReferenceError,
         SimulationNotFoundError,
     )
+    from hydromodpy.results.errors import SchemaVersionMismatchError
 
     if isinstance(exc, KeyboardInterrupt):
         return EXIT_SIGINT
@@ -59,16 +73,16 @@ def exit_code_for(exc: BaseException) -> int:
     if isinstance(exc, FileNotFoundError):
         return EXIT_NOT_FOUND
     mapping: tuple[tuple[type[BaseException], int], ...] = (
-        (getattr(hmp_exc, "SchemaVersionMismatchError", type("_n", (), {})), EXIT_SCHEMA_MISMATCH),
-        (getattr(hmp_exc, "WriteConflictError", type("_n", (), {})), EXIT_WRITE_CONFLICT),
-        (getattr(hmp_exc, "ReadOnlyError", type("_n", (), {})), EXIT_READ_ONLY),
-        (getattr(hmp_exc, "ConfigError", type("_n", (), {})), EXIT_CONFIG),
-        (getattr(hmp_exc, "ConfigMissingError", type("_n", (), {})), EXIT_CONFIG),
-        (getattr(hmp_exc, "SolverError", type("_n", (), {})), EXIT_SOLVER_ERROR),
-        (getattr(hmp_exc, "DataError", type("_n", (), {})), EXIT_VALIDATION),
-        (getattr(hmp_exc, "CrossProjectsError", type("_n", (), {})), EXIT_CROSS_PROJECTS),
-        (getattr(hmp_exc, "BackupFailedError", type("_n", (), {})), EXIT_BACKUP_FAILED),
-        (getattr(hmp_exc, "MigrationFailedError", type("_n", (), {})), EXIT_MIGRATION_FAILED),
+        (SchemaVersionMismatchError, EXIT_SCHEMA_MISMATCH),
+        (WriteConflictError, EXIT_WRITE_CONFLICT),
+        (ReadOnlyError, EXIT_READ_ONLY),
+        (ConfigError, EXIT_CONFIG),
+        (ConfigMissingError, EXIT_CONFIG),
+        (SolverError, EXIT_SOLVER_ERROR),
+        (DataError, EXIT_VALIDATION),
+        (CrossProjectsError, EXIT_CROSS_PROJECTS),
+        (BackupFailedError, EXIT_BACKUP_FAILED),
+        (MigrationFailedError, EXIT_MIGRATION_FAILED),
     )
     for exc_type, code in mapping:
         if isinstance(exc, exc_type):

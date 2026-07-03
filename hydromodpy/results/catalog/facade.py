@@ -136,7 +136,9 @@ class Catalog(
                     f"Run a workflow there first, or open writable with create."
                 )
             self._db = connect_with_retry(str(self._db_path), read_only=True)
-            self._backend = DuckDBBackend.from_connection(self._db, path=self._db_path)
+            self._backend = DuckDBBackend.from_connection(
+                self._db, path=self._db_path, read_only=True
+            )
             self._require_schema_current()
         else:
             self._workspace.mkdir(parents=True, exist_ok=True)

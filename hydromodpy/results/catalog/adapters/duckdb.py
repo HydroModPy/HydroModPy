@@ -65,6 +65,7 @@ class DuckDBBackend:
         self._path = Path(path)
         self._connection: duckdb.DuckDBPyConnection = connect_with_retry(str(self._path))
         self._owns_connection = True
+        self._read_only = False
 
     @classmethod
     def from_connection(
@@ -72,13 +73,22 @@ class DuckDBBackend:
         connection: duckdb.DuckDBPyConnection,
         *,
         path: str | Path | None = None,
+        read_only: bool = False,
     ) -> DuckDBBackend:
         """Wrap an existing DuckDB connection without taking ownership."""
         instance = cls.__new__(cls)
         instance._connection = connection
         instance._path = Path(path) if path is not None else Path("")
         instance._owns_connection = False
+        instance._read_only = read_only
         return instance
+
+    def _guard_writable(self) -> None:
+        """Raise :class:`ReadOnlyError` when this backend is read-only."""
+        if self._read_only:
+            from hydromodpy.core.exceptions import ReadOnlyError
+
+            raise ReadOnlyError(f"Catalog at {self._path} is open read-only; writes are refused.")
 
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
@@ -114,6 +124,7 @@ class DuckDBBackend:
         params: Sequence[Any] | dict[str, Any] | None = None,
     ) -> None:
         """Execute a DDL or DML statement and discard the result set."""
+        self._guard_writable()
         bound = _split_params(params)
         if bound is None:
             self._connection.execute(sql)
@@ -156,6 +167,7 @@ class DuckDBBackend:
         positional placeholders and identifier quoting. Portable across
         DuckDB and Postgres because no dialect feature is required.
         """
+        self._guard_writable()
         if not row:
             raise ValueError("insert() requires a non-empty row mapping")
         tbl = _identifier(table)
@@ -178,6 +190,7 @@ class DuckDBBackend:
         DuckDB and Postgres. Updated columns are the non-key columns of
         ``row``.
         """
+        self._guard_writable()
         if not row:
             raise ValueError("upsert() requires a non-empty row mapping")
         keys = list(key_cols)
@@ -210,11 +223,17 @@ class DuckDBBackend:
 
     @contextmanager
     def transaction(self) -> Iterator[None]:
-        """Open a transactional context with BEGIN/COMMIT/ROLLBACK."""
+        """Open a transactional context with BEGIN/COMMIT/ROLLBACK.
+
+        Rolls back and re-raises on any :class:`BaseException` (including
+        :class:`KeyboardInterrupt`) so a Ctrl-C inside the block never leaves
+        the connection wedged in an open transaction.
+        """
+        self._guard_writable()
         self._connection.execute("BEGIN TRANSACTION")
         try:
             yield
-        except Exception:
+        except BaseException:
             try:
                 self._connection.execute("ROLLBACK")
             except Exception:

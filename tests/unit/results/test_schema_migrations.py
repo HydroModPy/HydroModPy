@@ -64,13 +64,14 @@ def test_ensure_schema_on_empty_db_creates_system_tables_and_applies_initial(
         (5, "drop_simulation_heartbeat"),
         (6, "drop_simulation_heartbeat_column"),
         (7, "simulation_lifecycle"),
+        (8, "trash_original_status"),
     ]
 
     version_rows = conn.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert version_rows == [(CATALOG_COMPONENT, 7)]
+    assert version_rows == [(CATALOG_COMPONENT, 8)]
 
-    assert current_version(conn) == 7
-    assert target_version() == 7
+    assert current_version(conn) == 8
+    assert target_version() == 8
 
 
 def test_ensure_schema_is_idempotent(conn: duckdb.DuckDBPyConnection) -> None:
@@ -86,7 +87,7 @@ def test_ensure_schema_is_idempotent(conn: duckdb.DuckDBPyConnection) -> None:
     rows = conn.execute(
         "SELECT version, applied_at FROM schema_migrations ORDER BY version"
     ).fetchall()
-    assert len(rows) == 7
+    assert len(rows) == 8
     assert rows == first_applied_at
 
 
@@ -221,10 +222,10 @@ def test_lifecycle_migration_applies_on_populated_catalog(tmp_path: Path) -> Non
             "VALUES (gen_random_uuid(), 'tester', 'cli', 'sim.register', '{}')"
         )
 
-        # The full bundled dir applies the pending 0007 on the populated DB.
+        # The full bundled dir applies the pending 0007/0008 on the populated DB.
         ensure_schema(conn)
 
-        assert current_version(conn) == 7
+        assert current_version(conn) == 8
         stem, version_int = conn.execute(
             "SELECT name_stem, version_int FROM simulations"
         ).fetchone()

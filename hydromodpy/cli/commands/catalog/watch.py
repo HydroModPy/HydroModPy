@@ -14,6 +14,8 @@ HELP: str = "Show running simulations with heartbeat age and staleness"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
+    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
+
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
@@ -24,7 +26,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--stale-minutes",
         type=int,
-        default=10,
+        default=STALE_HEARTBEAT_MINUTES,
         help="Heartbeat age (minutes) beyond which a run is flagged stale",
     )
     parser.set_defaults(_handler=run)

@@ -30,6 +30,15 @@ def _make_minimal_workspace(tmp_path: Path) -> Path:
     return workspace
 
 
+def _age_path(path: Path, hours: float = 2.0) -> None:
+    """Backdate ``path`` past the gc staging grace window so it is swept."""
+    import os
+    import time
+
+    old = time.time() - hours * 3600
+    os.utime(path, (old, old))
+
+
 def _make_project_with_catalog(workspace: Path, project_name: str = "demo") -> Path:
     from hydromodpy.results.catalog import Catalog
 
@@ -77,6 +86,7 @@ def test_gc_removes_tmp_parquet(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_minimal_workspace(tmp_path)
     tmp_file = workspace / "data" / "spurious.tmp-abc.parquet"
     tmp_file.write_bytes(b"x")
+    _age_path(tmp_file)
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
     assert code == 0
     assert not tmp_file.exists()
@@ -216,10 +226,49 @@ def test_gc_removes_orphan_store(monkeypatch, tmp_path) -> None:
     orphan = project / "simulations" / "demo__deadbeef.zarr"
     orphan.mkdir(parents=True)
     (orphan / ".zgroup").write_text("{}")
+    _age_path(orphan)
 
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
     assert code == 0
     assert not orphan.exists()
+
+
+def test_gc_keeps_recent_orphan_store(monkeypatch, tmp_path) -> None:
+    """A fresh (in-flight) store is never swept: the mtime grace guard protects it."""
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    fresh = project / "simulations" / "demo__cafebabe.zarr"
+    fresh.mkdir(parents=True)
+    (fresh / ".zgroup").write_text("{}")  # freshly written -> young mtime
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    assert fresh.exists()
+
+
+def test_gc_keeps_adoptable_store(monkeypatch, tmp_path) -> None:
+    """A store carrying a simulation.parquet adoption snapshot is preserved."""
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    store = project / "simulations" / "demo__adopt123.parquet"
+    store.mkdir(parents=True)
+    (store / "simulation.parquet").write_bytes(b"snapshot")
+    _age_path(store / "simulation.parquet")
+    _age_path(store)
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    assert store.exists()
+
+
+def test_gc_keeps_recent_tmp_parquet(monkeypatch, tmp_path) -> None:
+    """A fresh tmp-* staging file (a live atomic write) is never swept."""
+    workspace = _make_minimal_workspace(tmp_path)
+    tmp_file = workspace / "data" / "live.tmp-write.parquet"
+    tmp_file.write_bytes(b"x")  # freshly written -> young mtime
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    assert tmp_file.exists()
 
 
 def test_gc_replays_pending_purge(monkeypatch, tmp_path) -> None:

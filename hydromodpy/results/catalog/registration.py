@@ -184,7 +184,8 @@ def _resolve_registration_name(
             target = max(rows, key=lambda r: r[2] or 1)
         backend.execute(
             "UPDATE simulations SET name = NULL, original_name = ?, "
-            "trashed_at = current_timestamp, "
+            "original_status_id = COALESCE(original_status_id, status_id), "
+            "trashed_at = current_timestamp, updated_at = current_timestamp, "
             "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
             "WHERE sim_id = ?",
             [target[1], target[0]],
@@ -192,8 +193,11 @@ def _resolve_registration_name(
         return requested, stem, (requested_version or 1), str(target[0])
 
     # version (default): demote a bare original, then mint the next version.
+    # Skip the demote when ``stem.v1`` already exists (a rename may have poisoned
+    # the accounting) so the UNIQUE (project, name) constraint never trips.
+    existing_names = {name_x for _, name_x, _ in rows}
     for sid_x, name_x, _ in rows:
-        if name_x == stem:
+        if name_x == stem and f"{stem}.v1" not in existing_names:
             backend.execute(
                 "UPDATE simulations SET name = ?, version_int = 1 WHERE sim_id = ?",
                 [f"{stem}.v1", sid_x],
@@ -451,6 +455,18 @@ class RegistrationMixin:
                         outlet_y,
                     ],
                 )
+                if replaced_sid is not None:
+                    try:
+                        emit_audit_event(
+                            self._db,
+                            event_type="sim.trash",
+                            sim_id=replaced_sid,
+                            project=project,
+                            payload={"replaced_by": sid},
+                        )
+                    except Exception as exc:  # noqa: BLE001 - audit must not raise
+                        logger.warning("audit emission failed for sim.trash: %s", exc)
+
                 if tags:
                     for tag in tags:
                         self._backend.execute(
@@ -467,7 +483,10 @@ class RegistrationMixin:
                             )
                         except Exception as exc:  # noqa: BLE001 - audit must not raise
                             logger.warning("audit emission failed for sim.tag_add: %s", exc)
-        except Exception:
+        except BaseException:
+            # Widened to BaseException so a KeyboardInterrupt mid-registration
+            # still removes the promoted-but-uncommitted Zarr store instead of
+            # leaving it for the gc orphan sweep to delete.
             self._paths.forget(sid)
             if zarr_tmp is not None and zarr_tmp.exists():
                 shutil.rmtree(zarr_tmp)

@@ -9,7 +9,6 @@ from hydromodpy.data.registry.constants import (
 
 __all__ = [
     "DataCatalogDuckDB",
-    "DuckDBCacheBackend",
     "SENTINEL_CUSTOM",
     "SENTINEL_EMPTY",
 ]
@@ -20,10 +19,4 @@ def __getattr__(name: str):
         from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
         return DataCatalogDuckDB
-    if name == "DuckDBCacheBackend":
-        # Public re-export so other packages (e.g. the CLI gc/vacuum worker) do
-        # not reach into the private ``_backend`` module across package lines.
-        from hydromodpy.data.registry._backend import DuckDBCacheBackend
-
-        return DuckDBCacheBackend
     raise AttributeError(f"module 'hydromodpy.data.registry' has no attribute {name!r}")

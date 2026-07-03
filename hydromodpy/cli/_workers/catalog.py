@@ -62,7 +62,7 @@ def list_simulations(
         catalog or no row matches the filters.
     """
     from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog import Catalog, iter_project_catalog_roots
 
     workspace_root = Path(workspace).expanduser().resolve()
     projects_dir = workspace_root / "projects"
@@ -74,9 +74,9 @@ def list_simulations(
     if project:
         project_roots = [projects_dir / project]
     else:
-        project_roots = sorted(
-            p for p in projects_dir.iterdir() if p.is_dir() and (p / CATALOG_FILENAME).exists()
-        )
+        project_roots = [
+            root for root in iter_project_catalog_roots(workspace_root) if root != workspace_root
+        ]
 
     import pandas as pd
 
@@ -91,10 +91,7 @@ def list_simulations(
             with Catalog(project_dir, read_only=True) as catalog:
                 sims = catalog.list_simulations(order_by="created_at DESC")
                 if tag:
-                    rows = catalog.backend.fetch_all(
-                        "SELECT CAST(sim_id AS VARCHAR) FROM tags WHERE tag = ?", [tag]
-                    )
-                    tagged_ids = {r[0] for r in rows}
+                    tagged_ids = catalog.sims_with_tag(tag)
         except SchemaVersionMismatchError:
             import sys
 
@@ -106,8 +103,9 @@ def list_simulations(
         if sims.empty:
             continue
         if solver:
-            alias = {"mf6": "modflow6", "nwt": "modflow_nwt"}
-            target = alias.get(solver.strip().lower(), solver.strip().lower())
+            from hydromodpy.results.catalog.constants import canonical_solver_code
+
+            target = canonical_solver_code(solver)
             sims = sims[sims["solver"].fillna("").str.lower() == target]
         if catchment:
             col = "study_area_name" if "study_area_name" in sims.columns else None
@@ -395,9 +393,19 @@ def rerun_simulation(
         base_name = run.name
     if snapshot is None:
         raise ValueError(f"Run {sid[:8]} has no config snapshot; cannot rerun.")
-    new_name = name or (f"{base_name}_rerun" if base_name else None)
-    new_sid = get_rerun_provider().rerun(snapshot, overrides=overrides or {}, name=new_name)
-    return {"sim_id": str(new_sid), "name": new_name}
+    requested_name = name or (f"{base_name}_rerun" if base_name else None)
+    new_sid = str(
+        get_rerun_provider().rerun(snapshot, overrides=overrides or {}, name=requested_name)
+    )
+    # Registration may auto-version the requested name ('x_rerun' -> 'x_rerun.v2');
+    # re-read the row so the CLI reports the name that actually exists.
+    final_name = requested_name
+    try:
+        with _open_project_catalog(workspace, read_only=True) as catalog:
+            final_name = catalog[new_sid].name or requested_name
+    except Exception:
+        pass
+    return {"sim_id": new_sid, "name": final_name}
 
 
 def tag_simulation(
@@ -449,7 +457,7 @@ def restore_simulation(sim_ref: str, *, workspace: Any) -> dict:
 
 def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
     """Compare two runs' parameters and outlet metrics."""
-    with _open_project_catalog(workspace) as catalog:
+    with _open_project_catalog(workspace, read_only=True) as catalog:
         return catalog.diff(ref_a, ref_b)
 
 
@@ -533,7 +541,7 @@ def _read_running_sidecars(project_root: Path, cutoff_s: float) -> dict[str, dic
     return out
 
 
-def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
+def watch_running(workspace: Any, *, stale_minutes: int | None = None) -> list[dict]:
     """Return running runs with heartbeat age and a staleness flag.
 
     A run is ``stale`` when neither its sidecar nor its newest DB heartbeat is
@@ -541,22 +549,21 @@ def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
     without finalizing. Sidecars are read first so ``watch`` stays usable even
     while a solve holds the catalog locked.
     """
+    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
+
+    minutes = STALE_HEARTBEAT_MINUTES if stale_minutes is None else stale_minutes
     root = Path(workspace).expanduser().resolve()
-    cutoff = stale_minutes * 60
+    cutoff = minutes * 60
     sidecars = _read_running_sidecars(root, cutoff)
     by_id8: dict[str, dict] = {}
 
     try:
         with _open_project_catalog(workspace, read_only=True) as catalog:
-            rows = catalog._backend.fetch_all(
-                "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
-                "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
-                "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
-                "FROM simulations s JOIN statuses st ON s.status_id = st.id "
-                "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
-                "WHERE st.code = 'running' ORDER BY s.created_at DESC",
-            )
-        for sid, name, created_at, last_heartbeat, age_s in rows:
+            rows = catalog.list_running()
+        for entry in rows:
+            sid = str(entry["sim_id"])
+            name, created_at = entry["name"], entry["created_at"]
+            last_heartbeat, age_s = entry["last_heartbeat"], entry["age_s"]
             id8 = sid.replace("-", "")[:8]
             sc = sidecars.get(id8)
             if sc is not None and not sc["stale"]:
@@ -593,7 +600,7 @@ def watch_running(workspace: Any, *, stale_minutes: int = 10) -> list[dict]:
 
 def list_trashed(workspace: Any) -> list[dict]:
     """Return the trashed runs in the workspace catalog."""
-    with _open_project_catalog(workspace) as catalog:
+    with _open_project_catalog(workspace, read_only=True) as catalog:
         return catalog.list_trash()
 
 
@@ -655,17 +662,9 @@ def _gc_resolve_workspace(workspace: Any) -> Path:
 
 
 def _gc_iter_project_roots(workspace: Path) -> list[Path]:
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import iter_project_catalog_roots
 
-    roots: list[Path] = []
-    if (workspace / CATALOG_FILENAME).is_file():
-        roots.append(workspace)
-    projects_dir = workspace / "projects"
-    if projects_dir.is_dir():
-        for entry in sorted(projects_dir.iterdir()):
-            if entry.is_dir() and (entry / CATALOG_FILENAME).is_file():
-                roots.append(entry)
-    return roots
+    return iter_project_catalog_roots(workspace)
 
 
 def _gc_collect_plan(workspace: Path) -> dict[str, list[str]]:
@@ -690,94 +689,115 @@ def _gc_collect_plan(workspace: Path) -> dict[str, list[str]]:
     return plan
 
 
+def _read_only_catalog(project_root: Path) -> Any | None:
+    """Open a read-only catalog at ``project_root`` or return None on failure.
+
+    A read-only open never migrates or locks the file, so it is safe to run
+    against a workspace with live solves. Errors (locked, missing, schema
+    behind) degrade to None so gc planning stays best-effort.
+    """
+    from hydromodpy.results.catalog import Catalog
+
+    try:
+        return Catalog(project_root, read_only=True)
+    except Exception:
+        return None
+
+
 def _gc_expired_trash(project_root: Path) -> list[str]:
     """Trashed, non-pinned runs older than the retention window."""
-    from datetime import UTC, datetime, timedelta
-
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog.constants import TRASH_RETENTION_DAYS
-
-    catalog_path = project_root / CATALOG_FILENAME
-    cutoff = datetime.now(UTC) - timedelta(days=TRASH_RETENTION_DAYS)
-    try:
-        conn = duckdb.connect(str(catalog_path), read_only=True)
-    except duckdb.Error:
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
         return []
     try:
-        rows = conn.execute(
-            """
-            SELECT CAST(s.sim_id AS VARCHAR)
-              FROM simulations s
-              JOIN statuses st ON s.status_id = st.id
-         LEFT JOIN tags t ON t.sim_id = s.sim_id AND t.tag = 'pinned'
-             WHERE st.code = 'trashed'
-               AND s.trashed_at IS NOT NULL AND s.trashed_at < ?
-               AND t.sim_id IS NULL
-            """,
-            [cutoff],
-        ).fetchall()
-    except duckdb.Error:
-        rows = []
+        sids = catalog.list_expired_trash()
+    except Exception:
+        sids = []
     finally:
-        conn.close()
-    return [f"{project_root.name}:{r[0]}" for r in rows]
+        catalog.close()
+    return [f"{project_root.name}:{sid}" for sid in sids]
 
 
 def _gc_pending_purges(project_root: Path) -> list[str]:
     """Hard purges interrupted by a crash (a ``purge_journal`` row remains)."""
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-
-    catalog_path = project_root / CATALOG_FILENAME
-    try:
-        conn = duckdb.connect(str(catalog_path), read_only=True)
-    except duckdb.Error:
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
         return []
     try:
-        rows = conn.execute("SELECT CAST(sim_id AS VARCHAR) FROM purge_journal").fetchall()
-    except duckdb.Error:
-        rows = []
+        sids = catalog.list_pending_purges()
+    except Exception:
+        sids = []
     finally:
-        conn.close()
-    return [f"{project_root.name}:{r[0]}" for r in rows]
+        catalog.close()
+    return [f"{project_root.name}:{sid}" for sid in sids]
+
+
+# Staging artefacts younger than this are assumed to belong to a live write and
+# are never swept (atomic parquet .tmp-* and promoted .staging.zarr stores).
+_GC_STAGING_MIN_AGE_S = 3600
+
+
+def _gc_recent(path: Path, min_age_s: float) -> bool:
+    """Return True when ``path`` was modified more recently than ``min_age_s``."""
+    import time
+
+    try:
+        return (time.time() - path.stat().st_mtime) < min_age_s
+    except OSError:
+        return True
 
 
 def _gc_orphan_stores(project_root: Path) -> list[str]:
-    """Zarr/Parquet stores on disk with no matching ``storage_basename`` row."""
-    import duckdb
+    """Zarr/Parquet stores on disk with no matching ``storage_basename`` row.
 
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-
+    Skips adoptable stores (a ``.parquet`` dir with a ``simulation.parquet``
+    adoption snapshot left by ``delete --keep-storage``), dotfile-prefixed
+    staging entries, and any store younger than the staging grace window so an
+    in-flight registration is never swept.
+    """
     simulations_dir = project_root / "simulations"
     if not simulations_dir.is_dir():
         return []
-    catalog_path = project_root / CATALOG_FILENAME
-    try:
-        conn = duckdb.connect(str(catalog_path), read_only=True)
-    except duckdb.Error:
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
         return []
     try:
-        known = {
-            r[0]
-            for r in conn.execute(
-                "SELECT storage_basename FROM simulations WHERE storage_basename IS NOT NULL"
-            ).fetchall()
-        }
-    except duckdb.Error:
+        known = catalog.list_storage_basenames()
+    except Exception:
         known = set()
     finally:
-        conn.close()
+        catalog.close()
 
     orphans: list[str] = []
     for entry in sorted(simulations_dir.iterdir()):
+        # A registering run promotes ``.{id8}.staging.zarr`` before the INSERT
+        # commits; a read-only probe cannot see the pending row, so skip these
+        # dotfile-prefixed staging stores outright.
+        if entry.name.startswith("."):
+            continue
         basename = _gc_store_basename(entry.name)
         if basename is None or basename in known:
             continue
+        if _gc_store_is_adoptable(entry):
+            continue
+        if _gc_recent(entry, _GC_STAGING_MIN_AGE_S):
+            continue
         orphans.append(str(entry))
     return orphans
+
+
+def _gc_store_is_adoptable(entry: Path) -> bool:
+    """Return True when a store carries a ``simulation.parquet`` adoption snapshot.
+
+    Such stores are the deliberate product of ``delete --keep-storage`` and can
+    be re-registered with ``hmp catalog adopt``; gc must not destroy them.
+    """
+    if entry.name.endswith(".parquet"):
+        return (entry / "simulation.parquet").is_file()
+    basename = _gc_store_basename(entry.name)
+    if basename is None:
+        return False
+    return (entry.parent / f"{basename}.parquet" / "simulation.parquet").is_file()
 
 
 def _gc_store_basename(entry_name: str) -> str | None:
@@ -789,68 +809,64 @@ def _gc_store_basename(entry_name: str) -> str | None:
 
 
 def _gc_orphan_calibration_sessions(project_root: Path) -> list[str]:
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-
-    catalog_path = project_root / CATALOG_FILENAME
-    try:
-        conn = duckdb.connect(str(catalog_path), read_only=True)
-    except duckdb.Error:
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
         return []
     try:
-        rows = conn.execute(
-            """
-            SELECT cs.session_id
-              FROM calibration_sessions cs
-         LEFT JOIN simulations s ON s.sim_id = cs.best_sim_id
-             WHERE cs.best_sim_id IS NOT NULL AND s.sim_id IS NULL
-            """,
-        ).fetchall()
-    except duckdb.Error:
-        rows = []
+        sessions = catalog.list_orphan_calibration_sessions()
+    except Exception:
+        sessions = []
     finally:
-        conn.close()
-    return [f"{project_root.name}:{r[0]!s}" for r in rows]
+        catalog.close()
+    return [f"{project_root.name}:{session}" for session in sessions]
+
+
+def stale_running_sim_ids(project_root: Path, minutes: int | None = None) -> list[str]:
+    """Return sim_ids of runs stale past ``minutes``, reconciled with sidecars.
+
+    Shared by the gc reaper and ``doctor``: reads the catalog (read-only, no
+    lock) then drops any run whose heartbeat sidecar is still fresh (a live run
+    holds the catalog lock, so its DB heartbeat is invisible to a read probe).
+    """
+    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
+
+    window = STALE_HEARTBEAT_MINUTES if minutes is None else minutes
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
+        return []
+    try:
+        stale = catalog.list_stale_running(window)
+    except Exception:
+        stale = []
+    finally:
+        catalog.close()
+    fresh = {
+        id8
+        for id8, sc in _read_running_sidecars(project_root, window * 60).items()
+        if not sc["stale"]
+    }
+    return [
+        str(entry["sim_id"])
+        for entry in stale
+        if str(entry["sim_id"]).replace("-", "")[:8] not in fresh
+    ]
+
+
+def orphan_calibration_session_count(project_root: Path) -> int:
+    """Count calibration sessions whose ``best_sim_id`` no longer exists."""
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
+        return 0
+    try:
+        return len(catalog.list_orphan_calibration_sessions())
+    except Exception:
+        return 0
+    finally:
+        catalog.close()
 
 
 def _gc_stale_running_simulations(project_root: Path) -> list[str]:
-    from datetime import UTC, datetime, timedelta
-
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-
-    catalog_path = project_root / CATALOG_FILENAME
-    cutoff = datetime.now(UTC) - timedelta(minutes=10)
-    try:
-        conn = duckdb.connect(str(catalog_path), read_only=True)
-    except duckdb.Error:
-        return []
-    try:
-        rows = conn.execute(
-            """
-            SELECT s.sim_id
-              FROM simulations s
-              JOIN statuses st ON s.status_id = st.id
-         LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = s.sim_id
-             WHERE st.code = 'running'
-               AND (wh.last_heartbeat IS NULL OR wh.last_heartbeat < ?)
-            """,
-            [cutoff],
-        ).fetchall()
-    except duckdb.Error:
-        rows = []
-    finally:
-        conn.close()
-    # A fresh heartbeat sidecar means the run is still alive (it just holds the
-    # catalog lock, so its DB heartbeat is invisible to this read-only probe).
-    fresh = {
-        id8 for id8, sc in _read_running_sidecars(project_root, 10 * 60).items() if not sc["stale"]
-    }
-    return [
-        f"{project_root.name}:{r[0]!s}" for r in rows if str(r[0]).replace("-", "")[:8] not in fresh
-    ]
+    return [f"{project_root.name}:{sid}" for sid in stale_running_sim_ids(project_root)]
 
 
 def _gc_orphan_geographic_cache(workspace: Path, project_roots: list[Path]) -> list[str]:
@@ -869,39 +885,37 @@ def _gc_orphan_geographic_cache(workspace: Path, project_roots: list[Path]) -> l
 
 
 def _gc_referenced_geographic_fingerprints(project_roots: list[Path]) -> set[str]:
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-
     referenced: set[str] = set()
     for project_root in project_roots:
-        catalog_path = project_root / CATALOG_FILENAME
-        try:
-            conn = duckdb.connect(str(catalog_path), read_only=True)
-        except duckdb.Error:
+        catalog = _read_only_catalog(project_root)
+        if catalog is None:
             continue
         try:
-            rows = conn.execute(
-                "SELECT DISTINCT geographic_fingerprint FROM simulations "
-                "WHERE geographic_fingerprint IS NOT NULL"
-            ).fetchall()
-        except duckdb.Error:
-            rows = []
+            referenced |= catalog.list_referenced_geographic_fingerprints()
+        except Exception:
+            pass
         finally:
-            conn.close()
-        for (fp,) in rows:
-            referenced.add(str(fp))
+            catalog.close()
     return referenced
 
 
 def _gc_tmp_parquet_files(workspace: Path) -> list[str]:
+    """Stale ``*.tmp-*`` atomic-write staging files past the grace window.
+
+    ``*.tmp-<uuid>`` is exactly the atomic-write staging name of a parquet write
+    in progress; deleting one mid-write breaks a concurrent run. Only sweep
+    entries older than the staging grace window.
+    """
     found: list[str] = []
     if not workspace.is_dir():
         return found
     for tmp in workspace.rglob("*.tmp-*"):
         try:
-            if tmp.is_file() or tmp.is_dir():
-                found.append(str(tmp))
+            if not (tmp.is_file() or tmp.is_dir()):
+                continue
+            if _gc_recent(tmp, _GC_STAGING_MIN_AGE_S):
+                continue
+            found.append(str(tmp))
         except OSError:
             continue
     return found
@@ -1007,12 +1021,7 @@ def _gc_delete_calibration_session(workspace: Path, project_name: str, session_i
     if project_root is None:
         return False
     with Catalog(project_root) as catalog:
-        catalog.connection.execute(
-            "DELETE FROM calibration_iterations WHERE session_id = ?", [session_id]
-        )
-        catalog.connection.execute(
-            "DELETE FROM calibration_sessions WHERE session_id = ?", [session_id]
-        )
+        catalog.delete_calibration_session(session_id)
     return True
 
 
@@ -1023,16 +1032,7 @@ def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) 
     if project_root is None:
         return False
     with Catalog(project_root) as catalog:
-        catalog.connection.execute(
-            """
-            UPDATE simulations
-               SET status_id = (SELECT id FROM statuses WHERE code = 'failed'),
-                   ended_at = current_timestamp,
-                   updated_at = current_timestamp
-             WHERE sim_id = ?
-            """,
-            [sim_id],
-        )
+        catalog.mark_stale_running_failed(sim_id)
     # The crashed run left a stale sidecar behind; drop it.
     from hydromodpy.core.state.paths import running_sidecar_path
 
@@ -1042,20 +1042,9 @@ def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) 
 
 def _vacuum_iter_catalog_files(workspace: Path) -> list[Path]:
     from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import iter_project_catalog_roots
 
-    catalogs: list[Path] = []
-    candidate = workspace / CATALOG_FILENAME
-    if candidate.is_file():
-        catalogs.append(candidate)
-    projects_dir = workspace / "projects"
-    if projects_dir.is_dir():
-        for entry in sorted(projects_dir.iterdir()):
-            if not entry.is_dir():
-                continue
-            cat = entry / CATALOG_FILENAME
-            if cat.is_file():
-                catalogs.append(cat)
-    return catalogs
+    return [root / CATALOG_FILENAME for root in iter_project_catalog_roots(workspace)]
 
 
 def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
@@ -1088,7 +1077,7 @@ def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
 def _vacuum_checkpoint_data_cache(workspace: Path) -> int:
     import duckdb
 
-    from hydromodpy.data.registry import DuckDBCacheBackend
+    from hydromodpy.data.registry.backend import DuckDBCacheBackend
 
     cache_path = workspace / "data" / "cache.duckdb"
     if not cache_path.is_file():

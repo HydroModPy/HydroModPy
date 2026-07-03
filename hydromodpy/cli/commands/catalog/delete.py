@@ -10,6 +10,7 @@ from hydromodpy.cli._conventions import add_sim_ref, confirm_parser, workspace_p
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
+    EXIT_USAGE,
     find_catalog_root,
 )
 
@@ -54,7 +55,7 @@ def run(args: argparse.Namespace) -> None:
             print(
                 f"Refusing to {verb.lower()} without -y in non-interactive mode.", file=sys.stderr
             )
-            sys.exit(EXIT_SIGINT)
+            sys.exit(EXIT_USAGE)
         try:
             resp = input(f"{verb} simulation {args.sim_ref!r}? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):

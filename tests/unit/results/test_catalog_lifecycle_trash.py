@@ -6,6 +6,10 @@ import uuid
 
 import pytest
 
+from hydromodpy.results.catalog import (
+    AmbiguousReferenceError,
+    DuplicateSimulationNameError,
+)
 from hydromodpy.results.catalog.lifecycle import PinnedRunError
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -64,6 +68,115 @@ def test_trash_frees_name_keeps_storage_and_restore_versions(catalog):
     _register(catalog, "baseline")
     assert catalog.restore(sid) == "baseline.v2"
     assert catalog.list_trash() == []
+
+
+def _register_failed(catalog, name):
+    sid = str(uuid.uuid4())
+    catalog.register_simulation(sid, project="p", solver="modflow6", name=name)
+    catalog.finalize(sid, status="failed")
+    return sid
+
+
+def test_restore_preserves_failed_status(catalog):
+    sid = _register_failed(catalog, "boom")
+    status = catalog._backend.fetch_one(
+        "SELECT st.code FROM simulations s JOIN statuses st ON s.status_id = st.id "
+        "WHERE sim_id = ?",
+        [sid],
+    )
+    assert status[0] == "failed"
+    catalog.trash(sid)
+    catalog.restore(sid)
+    restored = catalog._backend.fetch_one(
+        "SELECT st.code FROM simulations s JOIN statuses st ON s.status_id = st.id "
+        "WHERE sim_id = ?",
+        [sid],
+    )
+    assert restored[0] == "failed"
+
+
+def test_rename_into_versioned_stem_keeps_registration_working(catalog):
+    # foo.v1 and foo.v2 live; renaming a third run to bare 'foo' must not create
+    # a duplicate (stem='foo', version=1) that later poisons version registration.
+    _register(catalog, "foo.v1")
+    _register(catalog, "foo.v2")
+    third = _register(catalog, "other")
+
+    with pytest.raises(DuplicateSimulationNameError):
+        catalog.rename_simulation(third, "foo")
+
+    # version-mode registration of the stem still works afterwards.
+    fresh = str(uuid.uuid4())
+    result = catalog.register_simulation(
+        fresh, project="p", solver="modflow6", name="foo", if_exists="version"
+    )
+    assert result.name == "foo.v3"
+
+
+def test_replace_collision_emits_sim_trash_audit(catalog):
+    first = _register(catalog, "dup")
+    second = str(uuid.uuid4())
+    catalog.register_simulation(
+        second, project="p", solver="modflow6", name="dup", if_exists="replace"
+    )
+    rows = catalog._backend.fetch_all(
+        "SELECT CAST(sim_id AS VARCHAR), payload FROM audit_log "
+        "WHERE event_type = 'sim.trash' AND CAST(sim_id AS VARCHAR) = ?",
+        [first],
+    )
+    assert len(rows) == 1
+    import json
+
+    payload = rows[0][1]
+    payload = json.loads(payload) if isinstance(payload, str) else payload
+    assert payload["replaced_by"] == second
+
+
+def test_cascade_delete_removes_workflow_ledger(catalog):
+    sid = _register(catalog, "wf")
+    if catalog._table_exists("workflow_steps"):
+        catalog._backend.execute(
+            "INSERT INTO workflow_steps (step_id, run_id, step_order, step_name, status_id) "
+            "VALUES (gen_random_uuid(), ?, 0, 'solve', "
+            "(SELECT id FROM statuses WHERE code = 'completed'))",
+            [sid],
+        )
+    catalog.delete(sid, remove_storage=False)
+    if catalog._table_exists("workflow_steps"):
+        left = catalog._backend.fetch_one("SELECT 1 FROM workflow_steps WHERE run_id = ?", [sid])
+        assert left is None
+
+
+def test_resolve_exact_name_beats_prefix_or_raises(catalog):
+    # A run NAMED like a hex prefix and a different run whose UUID starts the same
+    # must not silently resolve to the prefix hit.
+    prefix = "beef1234"
+    hex_id = f"{prefix}-0000-0000-0000-000000000000"
+    catalog.register_simulation(hex_id, project="p", solver="modflow6", name="by_id")
+    catalog._backend.execute(
+        "UPDATE simulations SET status_id = (SELECT id FROM statuses WHERE code = 'completed'), "
+        "ended_at = current_timestamp WHERE sim_id = ?",
+        [hex_id],
+    )
+    named = _register(catalog, prefix)
+    with pytest.raises(AmbiguousReferenceError):
+        catalog.resolve(prefix)
+    # The exact-name-only case (no prefix collision) resolves to the name.
+    assert catalog.resolve("by_id") == hex_id
+    assert named != hex_id
+
+
+def test_read_only_catalog_write_raises_read_only_error(catalog):
+    from hydromodpy.core.exceptions import ReadOnlyError
+    from hydromodpy.results.catalog import Catalog
+
+    sid = _register(catalog, "ro")
+    catalog.close()
+    with Catalog(catalog.catalog_path, read_only=True) as ro:
+        with pytest.raises(ReadOnlyError):
+            ro.add_tag(sid, "paper")
+        with pytest.raises(ReadOnlyError):
+            ro.trash(sid)
 
 
 def test_pinned_run_is_protected_from_trash(catalog):
@@ -131,6 +244,39 @@ def test_run_python_api_tag_note_lineage_delete(catalog):
 
     run.delete()  # not pinned -> trash
     assert [e["original_name"] for e in catalog.list_trash()] == ["child"]
+
+
+def _write_metric(catalog, sid, station, metric, value):
+    catalog._backend.execute(
+        "INSERT INTO metrics (sim_id, station_id, variable, metric_name, value) "
+        "VALUES (?, ?, 'discharge', ?, ?)",
+        [sid, station, metric, value],
+    )
+
+
+def test_best_selector_falls_back_to_any_station(catalog):
+    # No outlet metric exists, only a lake-scoped one -> @best must still resolve.
+    sid = _register(catalog, "lakebest")
+    _write_metric(catalog, sid, "lake:forebay", "kge", 0.9)
+    assert catalog.resolve("@best:kge") == sid
+
+
+def test_best_selector_scoped_to_station(catalog):
+    a = _register(catalog, "sa")
+    b = _register(catalog, "sb")
+    _write_metric(catalog, a, "lake:forebay", "kge", 0.4)
+    _write_metric(catalog, b, "lake:forebay", "kge", 0.8)
+    assert catalog.resolve("@best:kge@lake:forebay") == b
+    assert catalog.resolve("@worst:kge@lake:forebay") == a
+
+
+def test_find_lte_filter(catalog):
+    a = _register(catalog, "la")
+    b = _register(catalog, "lb")
+    _write_metric(catalog, a, "__outlet__", "nse", 0.3)
+    _write_metric(catalog, b, "__outlet__", "nse", 0.9)
+    names = {run.name for run in catalog.find(nse_lte=0.5)}
+    assert names == {"la"}
 
 
 def test_find_excludes_trashed_by_default(catalog):

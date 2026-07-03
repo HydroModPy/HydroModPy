@@ -60,15 +60,19 @@ class WritesMixinDuckDB:
     ) -> None:
         """Rename a simulation row in-place.
 
-        The (project, name) pair must remain unique: a collision raises
-        :class:`~hydromodpy.results.catalog.registration.DuplicateSimulationNameError`.
-        The audit row carries the new name only; the previous value can be
-        recovered from earlier ``sim.register`` events if needed.
+        The rename routes through the same stem-versioning accounting as
+        registration: the resulting ``(name_stem, version_int)`` slot must be
+        free among live rows, otherwise a
+        :class:`~hydromodpy.results.catalog.registration.DuplicateSimulationNameError`
+        is raised. A bare stem takes version 1, so renaming into a stem that
+        already owns ``.v1`` is rejected rather than creating a duplicate
+        ``(stem, 1)`` that would later break ``if_exists='version'``.
         """
         if not self._persistence.save_catalog:
             return
         from hydromodpy.results.catalog.registration import (
             DuplicateSimulationNameError,
+            _split_stem_version,
         )
 
         sid = str(sim_id)
@@ -78,19 +82,20 @@ class WritesMixinDuckDB:
         if row is None:
             raise KeyError(f"No simulation with sim_id={sid[:8]}")
         project = row[0]
+        stem, requested_version = _split_stem_version(str(new_name))
+        target_version = requested_version or 1
         clash = self._backend.fetch_one(
-            "SELECT sim_id FROM simulations WHERE project = ? AND name = ? AND sim_id <> ?",
-            [project, str(new_name), sid],
+            "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
+            "WHERE project = ? AND name_stem = ? AND version_int = ? AND sim_id <> ? "
+            "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed')",
+            [project, stem, target_version, sid],
         )
         if clash is not None:
             raise DuplicateSimulationNameError(str(project), str(new_name), str(clash[0]))
-        from hydromodpy.results.catalog.registration import _split_stem_version
-
-        stem, version = _split_stem_version(str(new_name))
         self._backend.execute(
             "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
             "updated_at = current_timestamp WHERE sim_id = ?",
-            [str(new_name), stem, version or 1, sid],
+            [str(new_name), stem, target_version, sid],
         )
 
     @audited("sim.tag_add", payload_keys=("tag",))

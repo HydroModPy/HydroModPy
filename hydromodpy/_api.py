@@ -3,6 +3,14 @@
 Mirrors the CLI verbs so ``hmp run config.toml`` and ``hmp.run("config.toml")``
 execute the same workflow. Kept as a private module so the package facade
 stays minimal.
+
+The run-management CLI verbs (``hmp catalog trash/restore/tag/note/rename/
+rerun/diff/adopt/gc/watch``) are intentionally not mirrored as top-level
+``hmp.*`` symbols. Their Python surface is the :class:`Catalog` handle returned
+by :func:`open`: ``cat.trash(ref)``, ``cat.restore(ref)``, ``cat.add_tag(...)``,
+``cat.rename_simulation(...)``, ``cat.diff(...)``, ``cat.adopt(...)``. The
+``hmp.cli._workers`` package is a CLI-private implementation detail, not a
+public API.
 """
 
 from __future__ import annotations
@@ -94,8 +102,13 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any
     return Catalog(ws, read_only=read_only)
 
 
-def index(db_path: Any = None, *, read_only: bool = False) -> Any:
+def index(db_path: Any = None, *, read_only: bool = True) -> Any:
     """Open the machine-wide global index that federates registered workspaces.
+
+    Read-only by default, mirroring :func:`open`: browsing the federation index
+    never migrates it or touches its mtime, and a reader never contends with a
+    concurrent solve. Pass ``read_only=False`` for the writable handle used to
+    ``register_workspace`` / ``forget`` / ``prune``.
 
     Parameters
     ----------
@@ -103,10 +116,10 @@ def index(db_path: Any = None, *, read_only: bool = False) -> Any:
         Optional path to the index DuckDB file. ``None`` uses the default
         machine-state location.
     read_only
-        Open the index in read-only mode. Writes (``register_workspace``,
-        ``forget``, ``prune``) will raise. Pure reads (``search``, ``find``,
-        ``list_workspaces``) keep working while another process holds the
-        write-lock.
+        Open the index in read-only mode (default ``True``). Writes
+        (``register_workspace``, ``forget``, ``prune``) will raise. Pure reads
+        (``search``, ``find``, ``list_workspaces``) keep working while another
+        process holds the write-lock.
 
     Returns
     -------

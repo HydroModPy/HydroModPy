@@ -11,12 +11,12 @@ Two layers coexist:
   high-level "Store" Protocol exposing ``register``, ``find_cached`` etc.
   ``DataCatalogDuckDB`` implements this surface and stays the entry
   point for consumers.
-- ``CacheBackend`` (this module): the SQL-level Protocol used internally
-  by ``cache_store`` / ``cache_queries`` / ``cache_lifecycle`` so the
-  three modules never reach for ``catalog._conn`` directly.
+- ``CacheBackend`` (this module): the SQL-level Protocol used by
+  ``cache_store`` / ``cache_queries`` / ``cache_lifecycle`` and by the CLI
+  gc/vacuum worker so no consumer reaches for ``catalog._conn`` directly.
 
-The split keeps T5's high-level Protocol stable while T3 finishes the
-port-driven refactor on the SQL plumbing.
+This module is the single canonical location for ``CacheBackend`` and
+``DuckDBCacheBackend``; import them from here everywhere.
 """
 
 from __future__ import annotations

@@ -23,6 +23,7 @@ Public API
 from hydromodpy.results.catalog.discovery import (
     AmbiguousReferenceError,
     SimulationNotFoundError,
+    iter_project_catalog_roots,
     short_id,
 )
 from hydromodpy.results.catalog.facade import Catalog
@@ -37,5 +38,6 @@ __all__ = [
     "RegistrationResult",
     "Catalog",
     "SimulationNotFoundError",
+    "iter_project_catalog_roots",
     "short_id",
 ]
