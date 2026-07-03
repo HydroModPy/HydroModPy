@@ -16,11 +16,9 @@ from hydromodpy.core.units.time import (
     factor_to_seconds,
 )
 from hydromodpy.solver.modflow_common.budget_components import is_scalar_budget_component
+from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
-
-# Upper bound on the in-memory slab used for batched head-stack writes.
-_STACK_SLAB_BYTES = 256 * 1024 * 1024
 
 
 def _seconds_per_time_unit(time_units: str) -> float:
@@ -138,93 +136,94 @@ class Modflow6OutputAdapter:
         seconds_per_time_unit = _seconds_per_time_unit(time_units)
         _write_time_coordinate(store, sim_id, times, time_units, tdis_path, start_datetime)
 
-        head0 = head_file.get_data(totim=times[0])
-        grid_shape: tuple[int, int] | None = None
-        if head0.ndim == 3:
-            nlay, nrow, ncol = head0.shape
-            n_cells = nrow * ncol
-            grid_shape = (int(nrow), int(ncol))
-        elif head0.ndim == 2:
-            nlay = 1
-            n_cells = int(head0.size)
-            grid_shape = tuple(int(v) for v in head0.shape)
-        else:
-            nlay = 1
-            n_cells = head0.size
+        try:
+            head0 = head_file.get_data(totim=times[0])
+            grid_shape: tuple[int, int] | None = None
+            if head0.ndim == 3:
+                nlay, nrow, ncol = head0.shape
+                n_cells = nrow * ncol
+                grid_shape = (int(nrow), int(ncol))
+            elif head0.ndim == 2:
+                nlay = 1
+                n_cells = int(head0.size)
+                grid_shape = tuple(int(v) for v in head0.shape)
+            else:
+                nlay = 1
+                n_cells = head0.size
 
-        logger.debug(
-            "Extracting MODFLOW 6 results: %d timesteps, %d layers, %d cells",
-            n_timesteps,
-            nlay,
-            n_cells,
-        )
+            logger.debug(
+                "Extracting MODFLOW 6 results: %d timesteps, %d layers, %d cells",
+                n_timesteps,
+                nlay,
+                n_cells,
+            )
 
-        # Batched stack writes: per-timestep writes into a sharded Zarr array
-        # cost one whole-shard read-modify-write per timestep.
-        slab_steps = max(1, _STACK_SLAB_BYTES // (nlay * n_cells * 8))
-        with progress.task("Extracting heads", total=n_timesteps) as handle:
-            for t0 in range(0, n_timesteps, slab_steps):
-                t1 = min(t0 + slab_steps, n_timesteps)
-                slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
-                for t in range(t0, t1):
-                    head = head_file.get_data(totim=times[t])
-                    slab[t - t0] = head.reshape(nlay, n_cells)
-                slab[np.abs(slab) > 1e20] = np.nan
-                store.write_field_stack(
+            # Batched stack writes: per-timestep writes into a sharded Zarr array
+            # cost one whole-shard read-modify-write per timestep.
+            head_slab_steps = slab_steps(nlay, n_cells)
+            with progress.task("Extracting heads", total=n_timesteps) as handle:
+                for t0 in range(0, n_timesteps, head_slab_steps):
+                    t1 = min(t0 + head_slab_steps, n_timesteps)
+                    slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
+                    for t in range(t0, t1):
+                        head = head_file.get_data(totim=times[t])
+                        slab[t - t0] = head.reshape(nlay, n_cells)
+                    slab[np.abs(slab) > 1e20] = np.nan
+                    store.write_field_stack(
+                        sim_id,
+                        "head",
+                        slab,
+                        n_timesteps=n_timesteps,
+                        timestep_offset=t0,
+                    )
+                    handle.update(completed=t1)
+
+            if cbc_path.exists():
+                self._extract_budget(
                     sim_id,
-                    "head",
-                    slab,
-                    n_timesteps=n_timesteps,
-                    timestep_offset=t0,
+                    store,
+                    cbc_path,
+                    times,
+                    kstpkpers,
+                    spatial_fields=budget_spatial_fields,
+                    nlay=nlay,
+                    n_cells=n_cells,
+                    seconds_per_time_unit=seconds_per_time_unit,
                 )
-                handle.update(completed=t1)
 
-        if cbc_path.exists():
-            self._extract_budget(
+            lst_path = solver_output_dir / f"{model_name}.lst"
+            if lst_path.exists():
+                self._extract_mass_balance(
+                    sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
+                )
+
+            self._extract_lake_series(
                 sim_id,
                 store,
-                cbc_path,
-                times,
-                kstpkpers,
-                spatial_fields=budget_spatial_fields,
-                nlay=nlay,
-                n_cells=n_cells,
+                solver_output_dir,
+                model_name,
+                times=times,
+                tdis_path=tdis_path,
+                time_units=time_units,
                 seconds_per_time_unit=seconds_per_time_unit,
+                start_datetime=start_datetime,
             )
 
-        lst_path = solver_output_dir / f"{model_name}.lst"
-        if lst_path.exists():
-            self._extract_mass_balance(
-                sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
+            self._extract_lake_abacus(sim_id, store, solver_output_dir, model_name)
+
+            self._extract_sfr_series(
+                sim_id,
+                store,
+                solver_output_dir,
+                model_name,
+                times=times,
+                tdis_path=tdis_path,
+                time_units=time_units,
+                seconds_per_time_unit=seconds_per_time_unit,
+                start_datetime=start_datetime,
             )
-
-        self._extract_lake_series(
-            sim_id,
-            store,
-            solver_output_dir,
-            model_name,
-            times=times,
-            tdis_path=tdis_path,
-            time_units=time_units,
-            seconds_per_time_unit=seconds_per_time_unit,
-            start_datetime=start_datetime,
-        )
-
-        self._extract_lake_abacus(sim_id, store, solver_output_dir, model_name)
-
-        self._extract_sfr_series(
-            sim_id,
-            store,
-            solver_output_dir,
-            model_name,
-            times=times,
-            tdis_path=tdis_path,
-            time_units=time_units,
-            seconds_per_time_unit=seconds_per_time_unit,
-            start_datetime=start_datetime,
-        )
-
-        head_file.close()
+        finally:
+            head_file.close()
 
         self._write_surface_elevation(
             sim_id,
@@ -257,109 +256,145 @@ class Modflow6OutputAdapter:
         from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 
         cbb = Mf6CellBudgetReader(cbc_path)
-        # Intercell face flows and the specific-discharge velocity are not
-        # scalar budget terms; skip them before reading or summing.
-        components = [
-            name for name in cbb.unique_record_names() if is_scalar_budget_component(name)
-        ]
-        component_rank = {name: rank for rank, name in enumerate(components)}
+        try:
+            # Intercell face flows and the specific-discharge velocity are not
+            # scalar budget terms; skip them before reading or summing.
+            components = [
+                name for name in cbb.unique_record_names() if is_scalar_budget_component(name)
+            ]
+            component_rank = {name: rank for rank, name in enumerate(components)}
 
-        n_timesteps = len(times)
-        # One sequential pass over the file-order record index. Per-record
-        # get_data(text, kstpkper, totim) calls rebuild a full boolean mask of
-        # the index each time, which is quadratic over a long chronicle.
-        timestep_by_kstpkper = {
-            (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
-        }
-        seen: set[tuple[str, int]] = set()
-        ranked_records: list[tuple[int, int, dict]] = []
-        spatial_stacks: dict[str, np.ndarray] = {}
-        with progress.task("Extracting budget terms", total=len(cbb.records)) as handle:
-            for idx, record in enumerate(cbb.records):
-                handle.advance()
-                component = record.text
-                rank = component_rank.get(component)
-                if rank is None:
-                    continue
-                t = timestep_by_kstpkper.get((record.kstp, record.kper))
-                if t is None:
-                    continue
-                key = (component, t)
-                if key in seen:
-                    # Several packages of one type share the record name; keep
-                    # the first record like the historical data[0] read did.
-                    continue
-                try:
-                    arr = cbb.read_record(idx)
-                except Exception as exc:
-                    logger.debug(
-                        "Could not read MF6 budget '%s' at t=%d: %s",
-                        component,
-                        t,
-                        exc,
-                    )
-                    continue
-                seen.add(key)
-                if hasattr(arr, "dtype") and arr.dtype.names is not None:
-                    arr = self._recarray_to_grid(arr, nlay, n_cells)
-                if hasattr(arr, "shape") and arr.ndim >= 1:
-                    flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
-                    flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
-                else:
-                    flux_in = 0.0
-                    flux_out = 0.0
-                ranked_records.append(
-                    (
-                        t,
-                        rank,
-                        {
-                            "timestep": t,
-                            "zone_id": "0",
-                            "component": component.lower().strip(),
-                            "flux_in": flux_in,
-                            "flux_out": abs(flux_out),
-                            "unit": "m3/s",
-                        },
-                    )
-                )
-                if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
-                    if arr.size == nlay * n_cells:
-                        field = np.asarray(arr).reshape(nlay, n_cells)
-                    elif arr.ndim == 1 and arr.size == n_cells:
-                        field = np.asarray(arr).reshape(1, n_cells)
-                    else:
-                        field = None
-                    if field is not None:
-                        spatial_stack = spatial_stacks.get(component)
-                        if spatial_stack is None:
-                            spatial_stack = np.full(
-                                (n_timesteps, *field.shape), np.nan, dtype="float64"
+            n_timesteps = len(times)
+            # One sequential pass over the file-order record index. Per-record
+            # get_data(text, kstpkper, totim) calls rebuild a full boolean mask of
+            # the index each time, which is quadratic over a long chronicle.
+            timestep_by_kstpkper = {
+                (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
+            }
+            # The cbc file is time-major, so budget spatial fields are streamed in
+            # time slabs shared across the components: the slab is sized so all
+            # components together stay under one field-slab budget rather than
+            # holding every component's full (nper, nlay, ncpl) stack in RAM.
+            budget_slab = max(1, slab_steps(nlay, n_cells) // max(1, len(components)))
+            seen: set[tuple[str, int]] = set()
+            warned_duplicate: set[str] = set()
+            created_fields: set[str] = set()
+            ranked_records: list[tuple[int, int, dict]] = []
+            slab_stacks: dict[str, np.ndarray] = {}
+            window_t0 = 0
+
+            def _flush_window(t0: int) -> None:
+                for comp, stack in slab_stacks.items():
+                    comp_key = comp.lower().strip()
+                    try:
+                        if comp not in created_fields and t0 != 0:
+                            # First write of a variable must start at offset 0;
+                            # prime the full array for a component that only
+                            # appears past the first slab (rare for per-step terms).
+                            primer = np.full((1, *stack.shape[1:]), np.nan, dtype="float64")
+                            store.write_field_stack(
+                                sim_id,
+                                comp_key,
+                                primer,
+                                n_timesteps=n_timesteps,
+                                timestep_offset=0,
+                                subgroup="budget",
                             )
-                            spatial_stacks[component] = spatial_stack
-                        if spatial_stack.shape[1:] == field.shape:
-                            spatial_stack[t] = field / seconds_per_time_unit
+                        store.write_field_stack(
+                            sim_id,
+                            comp_key,
+                            stack,
+                            n_timesteps=n_timesteps,
+                            timestep_offset=t0,
+                            subgroup="budget",
+                        )
+                        created_fields.add(comp)
+                    except Exception:
+                        logger.debug(
+                            "Skipped write_field_stack for MF6 budget '%s'", comp, exc_info=True
+                        )
+                slab_stacks.clear()
 
-        for component, spatial_stack in spatial_stacks.items():
-            try:
-                store.write_field_stack(
-                    sim_id,
-                    component.lower().strip(),
-                    spatial_stack,
-                    subgroup="budget",
-                )
-            except Exception:
-                logger.debug(
-                    "Skipped write_field_stack for MF6 budget '%s'",
-                    component,
-                    exc_info=True,
-                )
+            with progress.task("Extracting budget terms", total=len(cbb.records)) as handle:
+                for idx, record in enumerate(cbb.records):
+                    handle.advance()
+                    component = record.text
+                    rank = component_rank.get(component)
+                    if rank is None:
+                        continue
+                    t = timestep_by_kstpkper.get((record.kstp, record.kper))
+                    if t is None:
+                        continue
+                    key = (component, t)
+                    if key in seen:
+                        # Several packages of one type share the record name; keep
+                        # the first record like the historical data[0] read did.
+                        if component not in warned_duplicate:
+                            logger.warning(
+                                "MF6 budget has multiple '%s' package records per timestep; "
+                                "keeping the first (aggregate views may undercount).",
+                                component,
+                            )
+                            warned_duplicate.add(component)
+                        continue
+                    if spatial_fields and t >= window_t0 + budget_slab:
+                        _flush_window(window_t0)
+                        window_t0 = (t // budget_slab) * budget_slab
+                    try:
+                        arr = cbb.read_record(idx)
+                    except Exception as exc:
+                        logger.debug(
+                            "Could not read MF6 budget '%s' at t=%d: %s", component, t, exc
+                        )
+                        continue
+                    seen.add(key)
+                    if hasattr(arr, "dtype") and arr.dtype.names is not None:
+                        arr = self._recarray_to_grid(arr, nlay, n_cells)
+                    if hasattr(arr, "shape") and arr.ndim >= 1:
+                        flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
+                        flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
+                    else:
+                        flux_in = 0.0
+                        flux_out = 0.0
+                    ranked_records.append(
+                        (
+                            t,
+                            rank,
+                            {
+                                "timestep": t,
+                                "zone_id": "0",
+                                "component": component.lower().strip(),
+                                "flux_in": flux_in,
+                                "flux_out": abs(flux_out),
+                                "unit": "m3/s",
+                            },
+                        )
+                    )
+                    if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
+                        if arr.size == nlay * n_cells:
+                            field = np.asarray(arr).reshape(nlay, n_cells)
+                        elif arr.ndim == 1 and arr.size == n_cells:
+                            field = np.asarray(arr).reshape(1, n_cells)
+                        else:
+                            field = None
+                        if field is not None:
+                            stack = slab_stacks.get(component)
+                            if stack is None:
+                                slab_len = min(budget_slab, n_timesteps - window_t0)
+                                stack = np.full((slab_len, *field.shape), np.nan, dtype="float64")
+                                slab_stacks[component] = stack
+                            if stack.shape[1:] == field.shape:
+                                stack[t - window_t0] = field / seconds_per_time_unit
 
-        # Keep the historical order: time-major, then component declaration order.
-        ranked_records.sort(key=lambda item: (item[0], item[1]))
-        budget_records = [record for _, _, record in ranked_records]
-        if budget_records:
-            store.write_budgets(sim_id, budget_records)
-        cbb.close()
+            _flush_window(window_t0)
+
+            # Keep the historical order: time-major, then component declaration order.
+            ranked_records.sort(key=lambda item: (item[0], item[1]))
+            budget_records = [record for _, _, record in ranked_records]
+            if budget_records:
+                store.write_budgets(sim_id, budget_records)
+        finally:
+            cbb.close()
 
     def _extract_lake_series(
         self,
@@ -625,8 +660,6 @@ class Modflow6OutputAdapter:
                     botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
                 )
                 if botm_per_layer is not None:
-                    z_intf = np.vstack([top.reshape(1, -1), botm_per_layer])
-                    z_flat = np.array([z_intf[:, 0].mean()])
                     z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])
                 else:
                     z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])

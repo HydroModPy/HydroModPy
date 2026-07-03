@@ -503,9 +503,11 @@ def mask_recharge_on_lake_cells(
     """Zero aquifer recharge on lake cells to avoid double counting with LAK.
 
     The lake's own rainfall enters through the LAK package, so applying RCHA on
-    the same cells would count it twice. MF6 already drops recharge on inactive
-    (``idomain == 0``) lake cells; this is the explicit, testable belt-and-braces
-    version. The arrays are modified per stress period (flat ``ncpl`` layout).
+    the same cells would count it twice. Without the FIXED_CELL option, RCHA does
+    NOT drop recharge on an inactive (``idomain == 0``) lake cell: it REASSIGNS it
+    to the first active cell below (right under the lake), which is exactly the
+    double count this mask prevents. This mask is therefore REQUIRED, not
+    belt-and-braces. The arrays are modified per stress period (flat ``ncpl``).
     """
     cells = np.asarray(list(lake_cell_ids), dtype=int)
     if cells.size == 0:
@@ -571,16 +573,19 @@ def _recharge_digest(spd: dict[int, np.ndarray]) -> str:
 def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None:
     """Write one recharge period to ``target`` in the exact MF6 binary format.
 
-    Idempotent and race-safe: skips an existing target, and otherwise writes a
-    per-writer temp then atomically renames it, so a concurrent reader only ever
-    sees a complete file (all writers emit identical bytes).
+    Idempotent and race-safe: skips a complete existing target, and otherwise
+    writes a per-writer temp, fsyncs it, then atomically renames it, so a
+    concurrent reader (or a re-run after a crash) only ever sees a complete file
+    (all writers emit identical bytes). A pre-existing file of the wrong size
+    (a zero-length remnant from a crash between write and rename) is rewritten.
     """
-    if target.exists():
+    ncpl = int(arr.size)
+    expected_size = 52 + 8 * ncpl  # double-precision head header (52 B) + ncpl doubles
+    if target.exists() and target.stat().st_size == expected_size:
         return
     from flopy.utils import Util2d
     from flopy.utils.binaryfile import BinaryHeader
 
-    ncpl = int(arr.size)
     header = BinaryHeader.create(
         bintype="head",
         precision="double",
@@ -597,6 +602,11 @@ def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None
     Util2d.write_bin(
         (1, ncpl), str(tmp), np.ascontiguousarray(arr).reshape(1, ncpl), header_data=header
     )
+    fd = os.open(str(tmp), os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
     os.replace(str(tmp), str(target))
 
 
@@ -655,25 +665,31 @@ def build_evt_stress_period_data(
     # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
     # Place the EVT sink on the uppermost active layer of each cell, not layer 0.
-    idomain = solver_mesh.idomain()
-    lake_cells = {int(cid) for cid in lake_cell_ids}
+    # idomain and the skip mask are loop-invariant, so precompute them once.
+    ncpl = int(model.ncpl)
+    active_by_layer = solver_mesh.idomain() == 1
+    has_active = active_by_layer.any(axis=0)
+    top_layer_by_cell = np.argmax(active_by_layer, axis=0)  # first active layer per cell
+    skip = ocean_mask_flat | stream_mask_flat
+    for cid in lake_cell_ids:
+        if 0 <= int(cid) < ncpl:
+            skip[int(cid)] = True
+    keep = ~skip & has_active
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
         raw_value = evt_payload.get(kper, 0.0) if isinstance(evt_payload, Mapping) else evt_payload
         rate_flat = as_recharge_flat(model, raw_value, kper=kper)
         period_cells: list[list[float]] = []
-        for cid in range(int(model.ncpl)):
-            if ocean_mask_flat[cid] or stream_mask_flat[cid] or cid in lake_cells:
+        for cid in range(ncpl):
+            if not keep[cid]:
                 continue
-            active_layers = np.flatnonzero(idomain[:, cid] == 1)
-            if active_layers.size == 0:
-                continue  # fully inactive cell: no EVT record
             rate_value = float(rate_flat[cid])
             if rate_value <= 0.0:
                 continue
-            top_layer = int(active_layers[0])
-            period_cells.append([top_layer, cid, float(top_flat[cid]), rate_value, evt_depth])
+            period_cells.append(
+                [int(top_layer_by_cell[cid]), cid, float(top_flat[cid]), rate_value, evt_depth]
+            )
         evt_spd[kper] = period_cells
 
     if any(len(v) > 0 for v in evt_spd.values()):

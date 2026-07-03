@@ -262,6 +262,33 @@ def _compute_groundwater_flux(
     logger.debug("Derived groundwater_flux for sim %s", sim_id)
 
 
+_DRN_TO_MVR_KEYS = ("drn-to-mvr", "DRN-TO-MVR", "drn_to_mvr")
+
+
+def _drn_raw_stack_with_mvr(budget_grp: Any, drn_key: str | None, n_timesteps: int) -> Any:
+    """DRN budget stack summed with the DRN-TO-MVR record (same sign convention).
+
+    With ``route_drainage``, the in-watershed drain flux lives in the DRN-TO-MVR
+    record, not the plain DRN one, so the derived spatial fields must include
+    both to show catchment drainage rather than only the buffer. Returns None
+    when neither record is present.
+    """
+    stacks: list[np.ndarray] = []
+    if drn_key is not None:
+        stacks.append(np.asarray(budget_grp[drn_key][:], dtype="float64")[:n_timesteps])
+    for mvr_key in _DRN_TO_MVR_KEYS:
+        if mvr_key in budget_grp:
+            stacks.append(np.asarray(budget_grp[mvr_key][:], dtype="float64")[:n_timesteps])
+            break
+    if not stacks:
+        return None
+    base = stacks[0]
+    for extra in stacks[1:]:
+        if extra.shape == base.shape:
+            base = base + extra
+    return base
+
+
 def _drain_outflow_stack(
     sim_id: str,
     store: Any,
@@ -274,13 +301,12 @@ def _drain_outflow_stack(
         if budget_grp is None:
             raise KeyError("No budget fields")
 
-        drn_key = find_drain_budget_key(budget_grp)
-        if drn_key is None:
-            raise KeyError("No DRN budget field")
-
         if int(n_timesteps) <= 0:
             return np.empty((0, int(n_cells)), dtype="float64")
-        drn_stack = np.asarray(budget_grp[drn_key][:], dtype="float64")[:n_timesteps]
+        drn_key = find_drain_budget_key(budget_grp)
+        drn_stack = _drn_raw_stack_with_mvr(budget_grp, drn_key, n_timesteps)
+        if drn_stack is None:
+            raise KeyError("No DRN or DRN-TO-MVR budget field")
     return drain_budget_stack_to_positive_outflow(drn_stack, n_cells=n_cells)
 
 
@@ -349,8 +375,8 @@ def _release_flux_stack(
         if int(n_timesteps) <= 0:
             return np.empty((0, int(n_cells)), dtype="float64")
         release = np.zeros((int(n_timesteps), int(n_cells)), dtype="float64")
-        if drn_key is not None:
-            drn_stack = np.asarray(budget_grp[drn_key][:], dtype="float64")[:n_timesteps]
+        drn_stack = _drn_raw_stack_with_mvr(budget_grp, drn_key, n_timesteps)
+        if drn_stack is not None:
             release += drain_budget_stack_to_positive_outflow(drn_stack, n_cells=n_cells)
         if has_surface_excess:
             excess_stack = np.asarray(budget_grp["surface_excess"][:], dtype="float64")

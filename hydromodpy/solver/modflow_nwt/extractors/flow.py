@@ -14,11 +14,9 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
+from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
-
-# Upper bound on the in-memory slab used for batched head-stack writes.
-_STACK_SLAB_BYTES = 256 * 1024 * 1024
 
 
 def _seconds_per_itmuni(itmuni: int) -> float:
@@ -158,9 +156,9 @@ class ModflowNwtOutputAdapter:
         # (watertable, seepage, cross-section, etc.) receive clean data.
         # Batched stack writes: per-timestep writes into a sharded Zarr array
         # cost one whole-shard read-modify-write per timestep.
-        slab_steps = max(1, _STACK_SLAB_BYTES // (nlay * n_cells * 8))
-        for t0 in range(0, n_timesteps, slab_steps):
-            t1 = min(t0 + slab_steps, n_timesteps)
+        head_slab = slab_steps(nlay, n_cells)
+        for t0 in range(0, n_timesteps, head_slab):
+            t1 = min(t0 + head_slab, n_timesteps)
             slab = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
             for t in range(t0, t1):
                 head = head_file.get_data(totim=times[t])
@@ -222,8 +220,12 @@ class ModflowNwtOutputAdapter:
         n_cells = nrow * ncol
         n_timesteps = len(times)
         budget_records: list[dict] = []
+        budget_slab = slab_steps(nlay, n_cells)
         for component in record_names:
-            spatial_stack: np.ndarray | None = None
+            comp_key = component.lower().strip()
+            slab_stack: np.ndarray | None = None
+            window_t0 = 0
+            spatial_written = False
             for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
                 try:
                     data = cbb.get_data(
@@ -261,17 +263,40 @@ class ModflowNwtOutputAdapter:
                 )
                 if spatial_fields and arr.ndim >= 2:
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
-                    if spatial_stack is None:
-                        spatial_stack = np.full(
-                            (n_timesteps, *field.shape), np.nan, dtype="float64"
+                    if slab_stack is not None and t >= window_t0 + budget_slab:
+                        store.write_field_stack(
+                            sim_id,
+                            comp_key,
+                            slab_stack,
+                            n_timesteps=n_timesteps,
+                            timestep_offset=window_t0,
+                            subgroup="budget",
                         )
-                    if spatial_stack.shape[1:] == field.shape:
-                        spatial_stack[t] = field
-            if spatial_stack is not None:
+                        spatial_written = True
+                        slab_stack = None
+                    if slab_stack is None:
+                        window_t0 = (t // budget_slab) * budget_slab
+                        slab_len = min(budget_slab, n_timesteps - window_t0)
+                        slab_stack = np.full((slab_len, *field.shape), np.nan, dtype="float64")
+                    if slab_stack.shape[1:] == field.shape:
+                        slab_stack[t - window_t0] = field
+            if slab_stack is not None:
+                if not spatial_written and window_t0 != 0:
+                    primer = np.full((1, *slab_stack.shape[1:]), np.nan, dtype="float64")
+                    store.write_field_stack(
+                        sim_id,
+                        comp_key,
+                        primer,
+                        n_timesteps=n_timesteps,
+                        timestep_offset=0,
+                        subgroup="budget",
+                    )
                 store.write_field_stack(
                     sim_id,
-                    component.lower().strip(),
-                    spatial_stack,
+                    comp_key,
+                    slab_stack,
+                    n_timesteps=n_timesteps,
+                    timestep_offset=window_t0,
                     subgroup="budget",
                 )
 
