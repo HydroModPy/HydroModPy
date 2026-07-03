@@ -67,16 +67,8 @@ def _build_plan_with_overrides(
     solver: str | None,
 ) -> SimulationPlan:
     from hydromodpy.physics.flow import Flow
-    from hydromodpy.physics.flow.structure_binders import (
-        apply_cutoff_wall_to_flow,
-        apply_flow_barriers_to_flow,
-        apply_lake_abacus_to_flow,
-        apply_lake_bathymetry_to_flow,
-        apply_lake_geometry_to_flow,
-        apply_recharge_load_result_to_flow,
-        apply_sfr_network_to_flow,
-    )
     from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
+    from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
 
     flow = Flow(config=ctx.cfg.flow)
     step_apply_flow_overrides(flow, overrides)
@@ -86,34 +78,6 @@ def _build_plan_with_overrides(
         if "recharge" in recharge_ss:
             recharge_ss["recharge"].first_clim = first_clim
 
-    time_grid = ctx.setup.time_grid
-    window = time_grid.window if time_grid is not None else None
-    if window is not None and ctx.loaded_data.recharge is not None:
-        apply_recharge_load_result_to_flow(
-            flow=flow,
-            recharge_result=ctx.loaded_data.recharge,
-            simulation_window=window,
-        )
-    apply_lake_geometry_to_flow(
-        flow=flow,
-        lake_geometry=getattr(ctx.loaded_data, "lake_geometry", None),
-    )
-    _project_crs = getattr(getattr(ctx.setup, "geographic", None), "crs_proj", None)
-    apply_cutoff_wall_to_flow(flow=flow, project_crs=_project_crs)
-    apply_flow_barriers_to_flow(flow=flow, project_crs=_project_crs)
-    apply_lake_abacus_to_flow(
-        flow=flow,
-        lake_abacus=getattr(ctx.loaded_data, "lake_abacus", None),
-    )
-    apply_lake_bathymetry_to_flow(
-        flow=flow,
-        lake_bathymetry=getattr(ctx.loaded_data, "lake_bathymetry", None),
-    )
-    apply_sfr_network_to_flow(
-        flow=flow,
-        reach_traces=getattr(ctx.setup, "sfr_reach_traces", None),
-    )
-
     domain = ctx.setup.domain
     if thickness is not None:
         domain = step_rebuild_domain(ctx, thickness=thickness)
@@ -121,6 +85,11 @@ def _build_plan_with_overrides(
     ctx.setup.flow = flow
     ctx.setup.run_id = name
     ctx.setup.domain = domain
+
+    # Run the SAME full binder cascade the canonical data step and the trial fork
+    # use, so an override / sweep run keeps every forcing (lake meteo and flux,
+    # runoff -> SFR, ETP, oceanic) instead of a partial hand-maintained list.
+    apply_structural_updates_from_data(ctx)
 
     solver_name = solver or _default_flow_solver(ctx)
     run_entry = ProcessRun(

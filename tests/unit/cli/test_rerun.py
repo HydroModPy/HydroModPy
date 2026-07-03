@@ -36,7 +36,7 @@ def test_rerun_reads_snapshot_and_forwards_overrides(tmp_path: Path, restore_pro
     calls: dict = {}
 
     class MockProvider:
-        def rerun(self, snapshot, *, overrides, name):
+        def rerun(self, snapshot, *, overrides, name, source_sim_id=None):
             calls.update(overrides=dict(overrides), name=name, keys=sorted(snapshot))
             return "11111111-2222-3333-4444-555555555555"
 
