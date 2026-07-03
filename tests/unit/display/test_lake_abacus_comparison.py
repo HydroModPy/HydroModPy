@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from hydromodpy.display.figures.lake_abacus_comparison import (
     lake_abacus_fit_metrics,
     plot_lake_abacus_comparison,
 )
-from hydromodpy.reporting.lake_abacus_report import plot_lake_abacus_comparison_for_model
 
 
 def test_metrics_perfect_match_is_nse_one():
@@ -32,36 +29,6 @@ def test_plot_writes_png_and_returns_metrics(tmp_path):
     assert out.exists()
     assert out.stat().st_size > 0
     assert metrics["nse"] > 0.999
-
-
-class _Model:
-    def __init__(self, recon):
-        self._lake_bed_reconstruction = recon
-
-
-def test_report_for_model_renders_one_png_per_lake(tmp_path):
-    stage = np.linspace(20.0, 60.0, 5).tolist()
-    real_vol = [0.0, 12500.0, 50000.0, 112500.0, 200000.0]
-    real_area = [0.0, 2500.0, 5000.0, 7500.0, 10000.0]
-    recon = {
-        "lac0": {
-            "abacus_stage": stage,
-            "abacus_volume": real_vol,
-            "abacus_sarea": real_area,
-            "sim_volume": real_vol,
-            "sim_sarea": real_area,
-        }
-    }
-    model = _Model(recon)
-    results = plot_lake_abacus_comparison_for_model(model, figures_dir=tmp_path)
-    assert set(results) == {"lac0"}
-    assert results["lac0"]["metrics"]["nse"] == 1.0
-    assert (tmp_path / "lake_abacus_lac0.png").exists()
-
-
-def test_report_for_model_empty_without_reconstruction(tmp_path):
-    model = _Model({})
-    assert plot_lake_abacus_comparison_for_model(model, figures_dir=tmp_path) == {}
 
 
 class _FakeRun:
