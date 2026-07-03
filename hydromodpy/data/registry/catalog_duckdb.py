@@ -24,7 +24,7 @@ from upath import UPath
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry import cache_lifecycle, cache_queries, cache_store
-from hydromodpy.data.registry._backend import CacheBackend, DuckDBCacheBackend
+from hydromodpy.data.registry.backend import CacheBackend, DuckDBCacheBackend
 from hydromodpy.data.registry.cache_queries import CatalogEntry as _CatalogEntry
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 from hydromodpy.data.registry.migrations import ensure_schema as _ensure_cache_schema

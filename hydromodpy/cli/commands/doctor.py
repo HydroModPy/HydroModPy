@@ -7,7 +7,6 @@ import importlib
 import platform
 import shutil
 import sys
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 NAME: str = "doctor"
@@ -33,8 +32,6 @@ _CORE_DEPS = (
 _OPTIONAL_DEPS = ("gmsh", "whitebox_workflows", "geopandas", "pyvista")
 
 _SOLVER_BINARIES = ("mfnwt", "mf6", "mp6", "mp7", "mt3dusgs")
-
-_STALE_HEARTBEAT_MINUTES = 10
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -709,56 +706,29 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
             }
         ]
 
+    from hydromodpy.cli._workers.catalog import (
+        orphan_calibration_session_count,
+        stale_running_sim_ids,
+    )
+    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
+
     project_catalogs = _iter_project_catalogs(workspace)
-    cutoff = datetime.now(UTC) - timedelta(minutes=_STALE_HEARTBEAT_MINUTES)
     stale_running = 0
     orphan_sessions = 0
     wf_running = 0
     wf_failed = 0
     wf_recent: list[tuple[str, str, str, str]] = []
     for catalog_path in project_catalogs:
+        project_root = catalog_path.parent
+        # Stale-running + orphan-session reads go through the shared catalog
+        # facade helpers (same path as gc/watch); no raw SQL, no private import.
+        stale_running += len(stale_running_sim_ids(project_root))
+        orphan_sessions += orphan_calibration_session_count(project_root)
         try:
             conn = duckdb.connect(str(catalog_path), read_only=True)
         except duckdb.Error:
             continue
         try:
-            stale_rows = conn.execute(
-                """
-                SELECT CAST(s.sim_id AS VARCHAR)
-                  FROM simulations s
-                  JOIN statuses st ON s.status_id = st.id
-             LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = s.sim_id
-                 WHERE st.code = 'running'
-                   AND (wh.last_heartbeat IS NULL OR wh.last_heartbeat < ?)
-                """,
-                [cutoff],
-            ).fetchall()
-            # A fresh heartbeat sidecar means the run is still alive (it holds the
-            # catalog lock, so its DB heartbeat is invisible to this read-only
-            # probe); do not flag those as stale.
-            from hydromodpy.cli._workers.catalog import _read_running_sidecars
-
-            fresh = {
-                id8
-                for id8, sc in _read_running_sidecars(
-                    catalog_path.parent, _STALE_HEARTBEAT_MINUTES * 60
-                ).items()
-                if not sc["stale"]
-            }
-            stale_running += sum(
-                1 for (sid,) in stale_rows if str(sid).replace("-", "")[:8] not in fresh
-            )
-
-            orphans = conn.execute(
-                """
-                SELECT COUNT(*)
-                  FROM calibration_sessions cs
-             LEFT JOIN simulations s ON s.sim_id = cs.best_sim_id
-                 WHERE cs.best_sim_id IS NOT NULL AND s.sim_id IS NULL
-                """,
-            ).fetchone()
-            orphan_sessions += int(orphans[0]) if orphans else 0
-
             try:
                 wf_status_rows = conn.execute(
                     """
@@ -808,7 +778,7 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
         {
             "name": "lifecycle:stale_running_sims",
             "status": "OK" if stale_running == 0 else "WARN",
-            "detail": f"{stale_running} sim(s) running >{_STALE_HEARTBEAT_MINUTES} min without heartbeat",
+            "detail": f"{stale_running} sim(s) running >{STALE_HEARTBEAT_MINUTES} min without heartbeat",
             "hint": "Run 'hmp gc --workspace <ws>' to mark them failed",
         },
         {

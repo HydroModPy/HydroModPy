@@ -326,11 +326,27 @@ class LifecycleMixin:
                 payload=payload,
             )
 
+    def _table_exists(self, table: str) -> bool:
+        """Return True when ``table`` is present in the catalog schema."""
+        row = self._backend.fetch_one(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = ?",
+            [table],
+        )
+        return row is not None
+
     def _cascade_delete_rows(self, sid: str) -> None:
-        """Delete every per-sim row (12 tables + calibration). Caller owns the tx."""
+        """Delete every per-sim row (12 tables + calibration + workflow ledger).
+
+        Caller owns the tx. ``workflow_steps`` and ``workflow_events`` key on
+        ``run_id`` (the sim_id string) and are guarded by table existence since
+        they may be absent on older schemas.
+        """
         for table in PER_SIM_TABLE_NAMES:
             self._backend.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
         self._backend.execute("DELETE FROM calibration_iterations WHERE sim_id = ?", [sid])
+        for table in ("workflow_steps", "workflow_events"):
+            if self._table_exists(table):
+                self._backend.execute(f"DELETE FROM {table} WHERE run_id = ?", [sid])
         self._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
     def _remove_sim_storage(self, parquet_dir, zarr_abs) -> None:
@@ -480,6 +496,7 @@ class LifecycleMixin:
         with self._backend.transaction():
             self._backend.execute(
                 "UPDATE simulations SET "
+                "original_status_id = COALESCE(original_status_id, status_id), "
                 "status_id = (SELECT id FROM statuses WHERE code = 'trashed'), "
                 "trashed_at = current_timestamp, "
                 "original_name = COALESCE(original_name, name), "
@@ -500,14 +517,18 @@ class LifecycleMixin:
         """Restore a trashed simulation, returning its (possibly versioned) name.
 
         If the original name was taken since, the stem is version-bumped so the
-        restore never collides. The status returns to ``completed`` when the run
-        had finished, otherwise ``failed``.
+        restore never collides. The pre-trash status is restored from
+        ``original_status_id`` (a ``failed`` or ``partial`` run comes back as
+        such), falling back to inferring from ``ended_at`` for rows trashed
+        before that column existed.
         """
         from hydromodpy.results.catalog.registration import _resolve_registration_name
 
         sid = str(sim_id)
         row = self._backend.fetch_one(
-            "SELECT original_name, project, ended_at FROM simulations s "
+            "SELECT original_name, project, ended_at, original_status_id, "
+            "(SELECT code FROM statuses WHERE id = s.original_status_id) "
+            "FROM simulations s "
             "JOIN statuses st ON s.status_id = st.id "
             "WHERE sim_id = ? AND st.code = 'trashed'",
             [sid],
@@ -515,14 +536,18 @@ class LifecycleMixin:
         if row is None:
             raise KeyError(f"No trashed simulation with sim_id={sid[:8]}")
         original_name, project, ended_at = row[0], row[1], row[2]
-        restored_status = "completed" if ended_at is not None else "failed"
+        original_status_id, original_status_code = row[3], row[4]
+        if original_status_id is not None and original_status_code != "trashed":
+            restored_status = str(original_status_code)
+        else:
+            restored_status = "completed" if ended_at is not None else "failed"
         with self._backend.transaction():
             final_name, name_stem, version_int, _ = _resolve_registration_name(
                 self._backend, project, original_name or sid[:8], "version"
             )
             self._backend.execute(
                 "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
-                "original_name = NULL, trashed_at = NULL, "
+                "original_name = NULL, trashed_at = NULL, original_status_id = NULL, "
                 "status_id = (SELECT id FROM statuses WHERE code = ?), "
                 "updated_at = current_timestamp WHERE sim_id = ?",
                 [final_name, name_stem, version_int, restored_status, sid],
@@ -564,6 +589,132 @@ class LifecycleMixin:
             self.delete(sid, audit_event_type="sim.purge")
             purged.append(sid)
         return purged
+
+    # -- gc / doctor read+write helpers ------------------------------------
+    # These keep the domain reads and writes inside the catalog layer so the
+    # CLI gc/watch/doctor paths never issue raw DuckDB SQL or reach for
+    # ``catalog.connection``.
+
+    def list_expired_trash(self) -> list[str]:
+        """Return sim_ids of trashed, non-pinned runs past the retention window."""
+        from datetime import UTC, datetime, timedelta
+
+        from hydromodpy.results.catalog.constants import TRASH_RETENTION_DAYS
+
+        cutoff = datetime.now(UTC) - timedelta(days=TRASH_RETENTION_DAYS)
+        rows = self._backend.fetch_all(
+            "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN tags t ON t.sim_id = s.sim_id AND t.tag = 'pinned' "
+            "WHERE st.code = 'trashed' AND s.trashed_at IS NOT NULL "
+            "AND s.trashed_at < ? AND t.sim_id IS NULL",
+            [cutoff],
+        )
+        return [str(r[0]) for r in rows]
+
+    def list_pending_purges(self) -> list[str]:
+        """Return sim_ids with an interrupted hard-purge journal row."""
+        rows = self._backend.fetch_all("SELECT CAST(sim_id AS VARCHAR) FROM purge_journal")
+        return [str(r[0]) for r in rows]
+
+    def list_orphan_calibration_sessions(self) -> list[str]:
+        """Return session_ids whose ``best_sim_id`` no longer exists."""
+        rows = self._backend.fetch_all(
+            "SELECT CAST(cs.session_id AS VARCHAR) FROM calibration_sessions cs "
+            "LEFT JOIN simulations s ON s.sim_id = cs.best_sim_id "
+            "WHERE cs.best_sim_id IS NOT NULL AND s.sim_id IS NULL"
+        )
+        return [str(r[0]) for r in rows]
+
+    def list_referenced_geographic_fingerprints(self) -> set[str]:
+        """Return every geographic fingerprint still referenced by a simulation."""
+        rows = self._backend.fetch_all(
+            "SELECT DISTINCT geographic_fingerprint FROM simulations "
+            "WHERE geographic_fingerprint IS NOT NULL"
+        )
+        return {str(r[0]) for r in rows}
+
+    def list_storage_basenames(self) -> set[str]:
+        """Return every known on-disk store basename."""
+        rows = self._backend.fetch_all(
+            "SELECT storage_basename FROM simulations WHERE storage_basename IS NOT NULL"
+        )
+        return {str(r[0]) for r in rows}
+
+    def list_stale_running(self, minutes: int) -> list[dict]:
+        """Return running runs whose newest heartbeat is older than ``minutes``.
+
+        Each entry has ``sim_id``, ``name``, ``created_at``, ``last_heartbeat``
+        and ``age_s`` (seconds since the last heartbeat, or ``None``). The
+        sidecar reconciliation (fresh sidecar means still alive) is left to the
+        caller so this stays a pure catalog read.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        cutoff = datetime.now(UTC) - timedelta(minutes=minutes)
+        rows = self._backend.fetch_all(
+            "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
+            "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
+            "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
+            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
+            "WHERE st.code = 'running' "
+            "AND (wh.last_heartbeat IS NULL OR wh.last_heartbeat < ?) "
+            "ORDER BY s.created_at DESC",
+            [cutoff],
+        )
+        return [
+            {
+                "sim_id": r[0],
+                "name": r[1],
+                "created_at": r[2],
+                "last_heartbeat": r[3],
+                "age_s": None if r[4] is None else float(r[4]),
+            }
+            for r in rows
+        ]
+
+    def list_running(self) -> list[dict]:
+        """Return every ``running`` run with its newest heartbeat age."""
+        rows = self._backend.fetch_all(
+            "SELECT CAST(s.sim_id AS VARCHAR), s.name, s.created_at, wh.last_heartbeat, "
+            "CASE WHEN wh.last_heartbeat IS NULL THEN NULL "
+            "ELSE EXTRACT(EPOCH FROM (current_timestamp - wh.last_heartbeat)) END "
+            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = CAST(s.sim_id AS VARCHAR) "
+            "WHERE st.code = 'running' ORDER BY s.created_at DESC",
+        )
+        return [
+            {
+                "sim_id": r[0],
+                "name": r[1],
+                "created_at": r[2],
+                "last_heartbeat": r[3],
+                "age_s": None if r[4] is None else float(r[4]),
+            }
+            for r in rows
+        ]
+
+    @with_lock_retry()
+    def mark_stale_running_failed(self, sim_id: str | UUID) -> None:
+        """Flip a stale ``running`` run to ``failed`` (gc reaper path)."""
+        sid = str(sim_id)
+        with self._backend.transaction():
+            self._backend.execute(
+                "UPDATE simulations "
+                "SET status_id = (SELECT id FROM statuses WHERE code = 'failed'), "
+                "ended_at = current_timestamp, updated_at = current_timestamp "
+                "WHERE sim_id = ?",
+                [sid],
+            )
+
+    @with_lock_retry()
+    def delete_calibration_session(self, session_id: str | UUID) -> None:
+        """Delete a calibration session and its iterations in one transaction."""
+        sess = str(session_id)
+        with self._backend.transaction():
+            self._backend.execute("DELETE FROM calibration_iterations WHERE session_id = ?", [sess])
+            self._backend.execute("DELETE FROM calibration_sessions WHERE session_id = ?", [sess])
 
     def close(self) -> None:
         self._close_open_zarr_handles()

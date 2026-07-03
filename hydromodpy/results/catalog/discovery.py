@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import difflib
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -18,6 +19,28 @@ from hydromodpy.results.catalog.constants import OUTLET_STATION
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
     from hydromodpy.results.simulation_group import RunSet
+
+
+def iter_project_catalog_roots(workspace_root: Path | str) -> list[Path]:
+    """Return every project catalog root under ``workspace_root``.
+
+    The canonical workspace federation layout: a catalog may sit directly at
+    the workspace root and under each ``projects/<name>/`` directory. A root is
+    included only when it carries a ``catalog.duckdb`` file. Sorted, root first.
+    """
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    root = Path(workspace_root).expanduser().resolve()
+    roots: list[Path] = []
+    if (root / CATALOG_FILENAME).is_file():
+        roots.append(root)
+    projects_dir = root / "projects"
+    if projects_dir.is_dir():
+        for entry in sorted(projects_dir.iterdir()):
+            if entry.is_dir() and (entry / CATALOG_FILENAME).is_file():
+                roots.append(entry)
+    return roots
+
 
 _MIN_PREFIX_LEN = 4
 _UUID_FULL_RE = re.compile(
@@ -78,8 +101,8 @@ class DiscoveryMixin:
         Accepted forms, tried in order:
 
         1. ``@``-selectors: ``@last``, ``@last~N`` (N-th newest completed),
-           ``@best:METRIC`` / ``@worst:METRIC`` (canonical outlet scope),
-           ``@running``.
+           ``@best:METRIC`` / ``@worst:METRIC`` (outlet first, any station as
+           fallback; add ``@STATION`` to scope explicitly), ``@running``.
         2. Full UUID (36 chars with dashes).
         3. UUID prefix of >= 4 hex characters. Must match a single simulation;
            raises :class:`AmbiguousReferenceError` otherwise.
@@ -112,13 +135,25 @@ class DiscoveryMixin:
                 "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%'",
                 [ref_nodash],
             )
+            # A hex-looking name (e.g. 'beef1234') can be both a UUID prefix and
+            # an exact run name. Detect the cross-kind collision: if an exact
+            # name matches a different sim, raise rather than silently return
+            # the prefix hit.
+            name_rows = self._backend.fetch_all(
+                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?"
+                + (" AND project = ?" if project is not None else ""),
+                ([ref_s, project] if project is not None else [ref_s]),
+            )
+            candidate_ids = {str(r[0]) for r in rows} | {str(r[0]) for r in name_rows}
+            if len(candidate_ids) > 1:
+                combined = {str(r[0]): r[1] for r in rows}
+                for r in name_rows:
+                    combined.setdefault(str(r[0]), ref_s)
+                raise AmbiguousReferenceError(ref_s, list(combined.items()))
             if len(rows) == 1:
                 return str(rows[0][0])
-            if len(rows) > 1:
-                raise AmbiguousReferenceError(
-                    ref_s,
-                    [(str(r[0]), r[1]) for r in rows],
-                )
+            if len(name_rows) == 1:
+                return str(name_rows[0][0])
 
         # Exact name match.
         if project is not None:
@@ -184,23 +219,20 @@ class DiscoveryMixin:
 
         rank_match = _RANK_SELECTOR_RE.match(body)
         if rank_match:
-            kind, metric = rank_match.group(1), rank_match.group(2).strip()
+            kind, remainder = rank_match.group(1), rank_match.group(2).strip()
+            # Optional station scope: '@best:kge@lake:forebay'. Without one, the
+            # outlet station is preferred and any-station best is the fallback.
+            metric, _, station = remainder.partition("@")
+            metric = metric.strip()
+            station = station.strip() or None
             order = "DESC" if kind == "best" else "ASC"
-            row = self._backend.fetch_one(
-                "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
-                "JOIN statuses st ON s.status_id = st.id "
-                "JOIN metrics m ON s.sim_id = m.sim_id "
-                "WHERE st.code = 'completed' AND m.metric_name = ? "
-                "AND m.station_id = ? "
-                + ("AND s.project = ? " if project else "")
-                + f"ORDER BY m.value {order} LIMIT 1",
-                ([metric, OUTLET_STATION, project] if project else [metric, OUTLET_STATION]),
-            )
-            if row:
-                return str(row[0])
+            row = self._rank_best_run(metric, order, station=station, project=project)
+            if row is not None:
+                return str(row)
             scope = f" in project '{project}'" if project else ""
+            where = f"at station '{station}'" if station else "at outlet or any station"
             raise SimulationNotFoundError(
-                f"No completed run with metric '{metric}' at outlet for '@{body}'{scope}"
+                f"No completed run with metric '{metric}' {where} for '@{body}'{scope}"
             )
 
         if body == "running":
@@ -220,6 +252,41 @@ class DiscoveryMixin:
             f"Unknown selector '@{body}'. "
             "Known: @last, @last~N, @best:METRIC, @worst:METRIC, @running"
         )
+
+    def _rank_best_run(
+        self,
+        metric: str,
+        order: str,
+        *,
+        station: str | None,
+        project: str | None,
+    ) -> str | None:
+        """Return the best/worst run for ``metric``, honouring a station scope.
+
+        With an explicit ``station`` the rank is scoped to it. Without one, the
+        outlet station is tried first, then any station (lake-level metrics live
+        at lake/station scopes, not at the outlet).
+        """
+        stations = [station] if station is not None else [OUTLET_STATION, None]
+        for scope in stations:
+            sql = (
+                "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
+                "JOIN statuses st ON s.status_id = st.id "
+                "JOIN metrics m ON s.sim_id = m.sim_id "
+                "WHERE st.code = 'completed' AND m.metric_name = ? "
+            )
+            params: list = [metric]
+            if scope is not None:
+                sql += "AND m.station_id = ? "
+                params.append(scope)
+            if project:
+                sql += "AND s.project = ? "
+                params.append(project)
+            sql += f"ORDER BY m.value {order} LIMIT 1"
+            row = self._backend.fetch_one(sql, params)
+            if row is not None:
+                return str(row[0])
+        return None
 
     def _not_found_message(self, ref: str, project: str | None) -> str:
         """Build a not-found message suggesting the closest names and tags."""
@@ -304,6 +371,16 @@ class DiscoveryMixin:
                 join_params.extend([metric, OUTLET_STATION])
                 clauses.append(f"{alias}.value >= ?")
                 clause_params.append(val)
+            elif key.endswith("_lte"):
+                metric = key[:-4]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
+                )
+                join_params.extend([metric, OUTLET_STATION])
+                clauses.append(f"{alias}.value <= ?")
+                clause_params.append(val)
             elif key == "crs":
                 clauses.append("s.crs_wkt = ?")
                 clause_params.append(val)
@@ -336,7 +413,7 @@ class DiscoveryMixin:
                 raise ValueError(
                     f"Unknown filter {key!r}. Valid: solver, solver_category, status, "
                     "flow_regime, mesh_topology, project, name, name_stem, config_hash, "
-                    "crs, tags, <metric>_gt, <metric>_lt, <metric>_gte"
+                    "crs, tags, <metric>_gt, <metric>_lt, <metric>_gte, <metric>_lte"
                 )
 
         # Trashed runs are hidden from find() unless explicitly asked for.

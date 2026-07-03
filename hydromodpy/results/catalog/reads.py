@@ -289,6 +289,13 @@ class ReadsMixin:
                 raise ValueError(f"Unsupported geometry encoding for feature '{feature_name}'")
         return gdf
 
+    def sims_with_tag(self, tag: str) -> set[str]:
+        """Return the sim_ids carrying ``tag`` as a set of strings."""
+        rows = self._backend.fetch_all(
+            "SELECT CAST(sim_id AS VARCHAR) FROM tags WHERE tag = ?", [str(tag)]
+        )
+        return {str(r[0]) for r in rows}
+
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
         rows = self._backend.fetch_all(
             "SELECT feature_name FROM geographic_features WHERE sim_id = ? ORDER BY feature_name",

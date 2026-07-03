@@ -279,22 +279,10 @@ def resolve_calibration_session_id(
 
 
 def _iter_catalog_roots(workspace_root: Path) -> list[Path]:
-    """Return the workspace-level catalog root plus every project catalog root.
+    """Return the workspace catalog roots (single canonical federation helper)."""
+    from hydromodpy.results.catalog import iter_project_catalog_roots
 
-    Mirrors how ``hmp catalog ls`` federates: the workspace root itself (when it
-    carries a ``catalog.duckdb``) followed by each ``projects/<name>`` that does.
-    """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-
-    roots: list[Path] = []
-    if (workspace_root / CATALOG_FILENAME).is_file():
-        roots.append(workspace_root)
-    projects_dir = workspace_root / "projects"
-    if projects_dir.is_dir():
-        for entry in sorted(projects_dir.iterdir()):
-            if entry.is_dir() and (entry / CATALOG_FILENAME).is_file():
-                roots.append(entry)
-    return roots
+    return iter_project_catalog_roots(workspace_root)
 
 
 def resolve_session_in_workspace(
