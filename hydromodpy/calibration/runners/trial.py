@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import copy as _copy
 import math
+import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import nullcontext
@@ -55,6 +56,13 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+# Structural binding (geology -> domain, lake-geometry parquet reads, flow
+# rebuild) runs per trial but operates on the prep state shared by reference
+# across concurrent trials (domain, loaded_data) and uses GDAL/geopandas reads
+# that are not thread-safe. Serializing only this phase keeps it correct while
+# the expensive mf6 solves still run in parallel.
+_STRUCTURAL_BIND_LOCK = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -408,9 +416,10 @@ def run_trial_light(
     t0 = time.monotonic()
     with progress.suppressed(), sandbox or nullcontext():
         try:
-            forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
-            if sandbox is not None:
-                sandbox.track(forked.ctx.execution)
+            with _STRUCTURAL_BIND_LOCK:
+                forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
+                if sandbox is not None:
+                    sandbox.track(forked.ctx.execution)
         except Exception as exc:  # pragma: no cover - value injection bug
             return TrialResult(
                 values=dict(values),
@@ -439,6 +448,7 @@ def run_trial_light(
             if downstream_slice:
                 state = provider.make_pipeline(downstream_slice).run(state)
         except Exception as exc:
+            logger.debug("Trial %s pipeline crashed", trial_id, exc_info=True)
             return TrialResult(
                 values=dict(values),
                 metrics={},
