@@ -138,8 +138,9 @@ def apply_structural_updates_from_data(
         flow=setup_state.flow,
         lake_geometry=getattr(data_state, "lake_geometry", None),
     )
-    apply_cutoff_wall_to_flow(flow=setup_state.flow)
-    apply_flow_barriers_to_flow(flow=setup_state.flow)
+    _project_crs = getattr(getattr(setup_state, "geographic", None), "crs_proj", None)
+    apply_cutoff_wall_to_flow(flow=setup_state.flow, project_crs=_project_crs)
+    apply_flow_barriers_to_flow(flow=setup_state.flow, project_crs=_project_crs)
     apply_lake_abacus_to_flow(
         flow=setup_state.flow,
         lake_abacus=getattr(data_state, "lake_abacus", None),

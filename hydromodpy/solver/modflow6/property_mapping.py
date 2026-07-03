@@ -201,6 +201,16 @@ def fill_missing_flow_properties_from_mesh_support(
         return flow_params
 
     n_cells = int(solver_mesh.n_cells)
+    raw_k = getattr(mesh_support, "cell_hydraulic_conductivity_m_s", None)
+    if raw_k is not None and np.asarray(raw_k, dtype=float).reshape(-1).size != n_cells:
+        logger.warning(
+            "Mesh-bundle conductivity carries %d values but the solver grid has %d cells "
+            "(a Voronoi/PEBI dual halves the triangulation cell count); the bundle K is "
+            "ignored. Configure K in [flow] or set grid_dual='triangle' to reuse the bundle.",
+            int(np.asarray(raw_k, dtype=float).reshape(-1).size),
+            n_cells,
+        )
+        return flow_params
     support_k = _support_cell_vector(
         mesh_support,
         "cell_hydraulic_conductivity_m_s",

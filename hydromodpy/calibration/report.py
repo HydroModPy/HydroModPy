@@ -193,50 +193,181 @@ class SessionReportData:
 # ---------------------------------------------------------------------------
 
 
+def _session_candidates(conn: Any) -> list[tuple[str, Any]]:
+    """Return ``[(session_hex, started_at)]`` ordered most-recent first."""
+    rows = conn.execute(
+        "SELECT session_id, started_at FROM calibration_sessions "
+        "ORDER BY started_at DESC NULLS LAST",
+    ).fetchall()
+    return [(_hex(r[0]), r[1]) for r in rows]
+
+
+def _sessions_for_sim_prefix(conn: Any, normalized: str) -> set[str]:
+    """Return session hexes whose calibration run matches ``normalized``.
+
+    Matches both iteration runs (``calibration_iterations.sim_id``) and the
+    promoted best run (``calibration_sessions.best_sim_id``), so a reference
+    copied from ``hmp catalog ls`` resolves to its parent session.
+    """
+    out: set[str] = set()
+    for session_id, sim_id in conn.execute(
+        "SELECT session_id, sim_id FROM calibration_iterations WHERE sim_id IS NOT NULL"
+    ).fetchall():
+        if _hex(sim_id).startswith(normalized):
+            out.add(_hex(session_id))
+    for session_id, best in conn.execute(
+        "SELECT session_id, best_sim_id FROM calibration_sessions WHERE best_sim_id IS NOT NULL"
+    ).fetchall():
+        if _hex(best).startswith(normalized):
+            out.add(_hex(session_id))
+    return out
+
+
+def _match_session_ids(conn: Any, raw: str) -> list[str]:
+    """Return session hexes matching ``raw`` as a session id or a run id.
+
+    ``raw`` is a full UUID or a unique hex prefix. A reference that matches a
+    calibration run (an iteration sim_id or the promoted best run) resolves to
+    that run's parent session. Never raises; returns ``[]`` on no match.
+    """
+    import uuid
+
+    normalized = raw.replace("-", "").lower()
+    candidates = {h for h, _ in _session_candidates(conn)}
+    if not candidates:
+        return []
+    hits: set[str] = set()
+    if len(normalized) == 32:
+        try:
+            full = uuid.UUID(normalized).hex
+        except ValueError:
+            full = None
+        if full is not None and full in candidates:
+            hits.add(full)
+    else:
+        hits.update(h for h in candidates if h.startswith(normalized))
+    hits.update(h for h in _sessions_for_sim_prefix(conn, normalized) if h in candidates)
+    return sorted(hits)
+
+
 def resolve_calibration_session_id(
     catalog: Any,
     raw: str | None,
 ) -> str:
-    """Return the canonical hex session id for ``raw``.
+    """Return the canonical hex session id for ``raw`` in one catalog.
 
     ``raw`` accepts a full UUID (hex or dashed, 32 hex chars) or a unique
-    prefix of >= 1 hex char. When ``raw`` is ``None``, return the most
-    recently started session.
+    prefix of >= 1 hex char, matching either a calibration session id or a
+    calibration run id (mapped to its parent session). When ``raw`` is
+    ``None``, return the most recently started session.
     """
-    import uuid
-
     from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 
-    rows = catalog.connection.execute(
-        "SELECT session_id, started_at FROM calibration_sessions "
-        "ORDER BY started_at DESC NULLS LAST",
-    ).fetchall()
-    candidates = [r[0].hex if hasattr(r[0], "hex") else str(r[0]).replace("-", "") for r in rows]
+    candidates = _session_candidates(catalog.connection)
     if not candidates:
         raise ConfigMissingError("No calibration session found in the workspace catalog.")
-
     if raw is None:
-        return candidates[0]
-
-    normalized = raw.replace("-", "").lower()
-    if len(normalized) == 32:
-        try:
-            full = uuid.UUID(normalized).hex
-        except ValueError as exc:
-            raise ConfigError(f"Invalid calibration session id {raw!r}: {exc}") from exc
-        if full in candidates:
-            return full
-        raise ConfigMissingError(f"Unknown calibration session {raw!r}.")
-
-    matches = [c for c in candidates if c.startswith(normalized)]
+        return candidates[0][0]
+    matches = _match_session_ids(catalog.connection, raw)
     if not matches:
-        raise ConfigMissingError(f"No calibration session matches {raw!r}.")
+        raise ConfigMissingError(f"No calibration session or run matches {raw!r}.")
     if len(matches) > 1:
         raise ConfigError(
-            f"Session prefix {raw!r} is ambiguous ({len(matches)} matches). "
-            "Use more hex characters."
+            f"Reference {raw!r} is ambiguous ({len(matches)} sessions). Use more hex characters."
         )
     return matches[0]
+
+
+def _iter_catalog_roots(workspace_root: Path) -> list[Path]:
+    """Return the workspace-level catalog root plus every project catalog root.
+
+    Mirrors how ``hmp catalog ls`` federates: the workspace root itself (when it
+    carries a ``catalog.duckdb``) followed by each ``projects/<name>`` that does.
+    """
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    roots: list[Path] = []
+    if (workspace_root / CATALOG_FILENAME).is_file():
+        roots.append(workspace_root)
+    projects_dir = workspace_root / "projects"
+    if projects_dir.is_dir():
+        for entry in sorted(projects_dir.iterdir()):
+            if entry.is_dir() and (entry / CATALOG_FILENAME).is_file():
+                roots.append(entry)
+    return roots
+
+
+def resolve_session_in_workspace(
+    workspace_root: Path,
+    raw: str | None,
+) -> tuple[Path, str]:
+    """Resolve a calibration session across a whole workspace.
+
+    Searches the workspace-level catalog and every ``projects/<name>`` catalog
+    under ``workspace_root``. ``raw`` may be a session id/prefix or a
+    calibration run id/prefix (mapped to its parent session). ``None`` selects
+    the most recently started session anywhere in the workspace.
+
+    Returns ``(catalog_root, session_hex)``: the project root whose catalog owns
+    the session, ready to open for rendering.
+    """
+    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+    from hydromodpy.results.catalog import Catalog
+
+    workspace_root = Path(workspace_root).expanduser().resolve()
+    roots = _iter_catalog_roots(workspace_root)
+    if not roots:
+        raise ConfigMissingError(
+            f"No catalog found under {workspace_root}. Pass -w <workspace-or-project>."
+        )
+    if len(roots) == 1:
+        with Catalog(roots[0], read_only=True) as catalog:
+            return roots[0], resolve_calibration_session_id(catalog, raw)
+
+    matches: list[tuple[Path, str, Any]] = []
+    for root in roots:
+        try:
+            with Catalog(root, read_only=True) as catalog:
+                conn = catalog.connection
+                if raw is None:
+                    cands = _session_candidates(conn)
+                    if cands:
+                        matches.append((root, cands[0][0], cands[0][1]))
+                else:
+                    started = dict(_session_candidates(conn))
+                    matches.extend(
+                        (root, sid, started.get(sid)) for sid in _match_session_ids(conn, raw)
+                    )
+        except Exception as exc:  # a locked or stale catalog must not hide the rest
+            logger.warning("report: skipping catalog %s: %s", root, exc)
+
+    if not matches:
+        if raw is None:
+            raise ConfigMissingError(
+                f"No calibration session found in any project under {workspace_root}."
+            )
+        raise ConfigMissingError(
+            f"No calibration session or run matches {raw!r} in workspace {workspace_root}. "
+            "Run 'hmp catalog ls' to list runs."
+        )
+    if raw is None:
+        matches.sort(
+            key=lambda m: (m[2] is not None, m[2].timestamp() if m[2] is not None else 0.0),
+            reverse=True,
+        )
+        return matches[0][0], matches[0][1]
+    distinct = {(root, sid) for root, sid, _ in matches}
+    if len(distinct) > 1:
+        listing = ", ".join(
+            f"{root.name}/{sid[:8]}"
+            for root, sid in sorted(distinct, key=lambda x: (x[0].name, x[1]))
+        )
+        raise ConfigError(
+            f"Reference {raw!r} is ambiguous across the workspace: {listing}. "
+            "Use more hex characters or pass -w <project_dir>."
+        )
+    root, sid = next(iter(distinct))
+    return root, sid
 
 
 def load_session_report_data(
@@ -440,4 +571,5 @@ __all__ = (
     "SessionReportData",
     "load_session_report_data",
     "resolve_calibration_session_id",
+    "resolve_session_in_workspace",
 )

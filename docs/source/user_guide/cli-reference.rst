@@ -35,7 +35,8 @@ Command inventory
    * - ``hmp catalog``
      - Catalog browsing and maintenance
      - ``ls``, ``query "<SQL>"``, ``show <sim_ref> [--detail]``,
-       ``gc``, ``vacuum``, ``delete``.
+       ``gc`` (also handles the maintenance formerly in ``vacuum``),
+       ``delete``.
    * - ``hmp run``
      - Workflow execution
      - Execute ``simulation``, ``overview``, ``calibration``,

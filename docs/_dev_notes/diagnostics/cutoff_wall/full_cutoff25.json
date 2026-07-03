@@ -1,0 +1,15 @@
+{
+  "tag": "cutoff25",
+  "with_wall": true,
+  "depth": 25.0,
+  "K_override": null,
+  "sim_id": "7e61f3c8-25fa-48e1-a453-1a100a85b2f6",
+  "n_wall_faces": 7,
+  "flux_annual_mean_m3_per_day": {
+    "layer0": -1.6669833447527016,
+    "layer1": -2.702309977027846,
+    "total": -4.369293321780548,
+    "n_periods": 52
+  },
+  "xsec": "/tmp/claude-1000/-home-bb-Documents-01-Git-Repository-03-HydroModPy-lakeres/687d9b86-bb97-42a3-9fe0-501f25c3f51a/scratchpad/cutoff_results/xsec_cutoff25.png"
+}

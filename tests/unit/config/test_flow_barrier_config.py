@@ -63,7 +63,10 @@ def test_k_unit_is_converted() -> None:
         dict(line=[[0, 0], [1, 0]], line_path="x.gpkg", depths=[1.0], hydchr=1e-9),  # both geom
         dict(depths=[1.0], hydchr=1e-9),  # no geom
         dict(line=[[0, 0], [1, 0]], depths=[1.0], hydchr=1e-9, k=1e-8, thickness=0.5),  # both R
-        dict(line=[[0, 0], [1, 0]], depths=[1.0], k=1e-8),  # partial resistance
+        dict(line=[[0, 0], [1, 0]], depths=[1.0], hydchr=1e-9, k=1e-8),  # hydchr + stray k
+        dict(line=[[0, 0], [1, 0]], depths=[1.0], hydchr=1e-9, thickness=0.5),  # hydchr + stray th
+        dict(line=[[0, 0], [1, 0]], depths=[1.0], k=1e-8),  # partial resistance (k only)
+        dict(line=[[0, 0], [1, 0]], depths=[1.0], thickness=0.5),  # partial resistance (th only)
         dict(line=[[0, 0]], depths=[1.0], hydchr=1e-9),  # single-vertex line
         dict(line=[[0, 0], [1, 0]], depths=[0.0], hydchr=1e-9),  # non-positive depth
         dict(line=[[0, 0], [1, 0]], depths=[1.0], hydchr=1e-9, hydchr_unit="bogus"),  # bad unit

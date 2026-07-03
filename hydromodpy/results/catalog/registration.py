@@ -58,12 +58,40 @@ def _split_stem_version(name: str) -> tuple[str, int | None]:
 
 
 _MEMORABLE_ADJECTIVES = (
-    "brisk", "calm", "bright", "swift", "quiet", "bold", "keen", "warm",
-    "clear", "deep", "fair", "lush", "mild", "wise", "amber", "azure",
+    "brisk",
+    "calm",
+    "bright",
+    "swift",
+    "quiet",
+    "bold",
+    "keen",
+    "warm",
+    "clear",
+    "deep",
+    "fair",
+    "lush",
+    "mild",
+    "wise",
+    "amber",
+    "azure",
 )
 _MEMORABLE_NOUNS = (
-    "heron", "otter", "marten", "willow", "alder", "brook", "fern", "moss",
-    "spring", "delta", "ridge", "meadow", "harrier", "kestrel", "ibis", "tern",
+    "heron",
+    "otter",
+    "marten",
+    "willow",
+    "alder",
+    "brook",
+    "fern",
+    "moss",
+    "spring",
+    "delta",
+    "ridge",
+    "meadow",
+    "harrier",
+    "kestrel",
+    "ibis",
+    "tern",
 )
 
 
@@ -153,7 +181,7 @@ def _resolve_registration_name(
     if if_exists == "replace":
         target = next((r for r in rows if r[1] == requested), None)
         if target is None:
-            target = max(rows, key=lambda r: (r[2] or 1))
+            target = max(rows, key=lambda r: r[2] or 1)
         backend.execute(
             "UPDATE simulations SET name = NULL, original_name = ?, "
             "trashed_at = current_timestamp, "

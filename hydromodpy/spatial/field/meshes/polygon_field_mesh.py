@@ -43,6 +43,11 @@ class PolygonFieldMesh(BaseFieldMesh):
     def cell_centroids(self):
         return self._hydro.cell_centroids()
 
+    def to_hydro_mesh(self):
+        # The generic from_field_mesh adapter cannot rebuild a ragged POLYGON
+        # block from fixed-arity node arrays; return the backing mesh directly.
+        return self._hydro
+
     def to_cell_values(self, values):
         flat = np.asarray(values).reshape(-1)
         if flat.size != self.n_cells:

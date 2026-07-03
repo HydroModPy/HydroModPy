@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_hfb
@@ -59,9 +60,11 @@ def test_per_segment_depth_is_interpolated_along_the_line() -> None:
     assert sorted(by_face[(1, 2)]) == [0, 1]
 
 
-def test_line_missing_the_mesh_yields_no_rows() -> None:
+def test_line_missing_the_mesh_raises() -> None:
+    # A declared wall whose trace misses the mesh must fail loudly (the wall is
+    # the object of the study), not silently build a model with no barrier.
     sm = _two_layer_row()
-    rows = build_flow_barrier_hfb(
-        sm, line=LineString([(10.0, 10.0), (11.0, 11.0)]), depths=[5.0], hydchr=1e-9
-    )
-    assert rows == []
+    with pytest.raises(ValueError, match="crosses no interior mesh face"):
+        build_flow_barrier_hfb(
+            sm, line=LineString([(10.0, 10.0), (11.0, 11.0)]), depths=[5.0], hydchr=1e-9
+        )

@@ -10,53 +10,101 @@ is a near-impermeable wall (a dam cutoff wall / grout curtain).
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.flow_barrier import barrier_faces_from_line
 
+if TYPE_CHECKING:
+    from shapely.geometry import LineString
 
-def _interp_depth(s: float, depths: list[float]) -> float:
-    """Interpolate a per-vertex depth list at the normalized line position s."""
+    from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+
+logger = get_logger(__name__)
+
+
+def _vertex_stations(line: LineString) -> np.ndarray:
+    """Normalized cumulative arc-length station [0, 1] of each line vertex."""
+    coords = np.asarray(line.coords, dtype=float)[:, :2]
+    seg = np.linalg.norm(np.diff(coords, axis=0), axis=1)
+    cum = np.concatenate([[0.0], np.cumsum(seg)])
+    total = float(cum[-1]) or 1.0
+    return cum / total
+
+
+def _interp_depth(s: float, depths: list[float], stations: np.ndarray) -> float:
+    """Depth at normalized line position ``s`` from per-vertex ``depths``.
+
+    Anchors each depth at the vertex' real arc-length station, so a digitized dam
+    axis with unevenly spaced vertices keeps the depths at the vertices.
+    """
     if len(depths) == 1:
         return float(depths[0])
-    pos = max(0.0, min(1.0, s)) * (len(depths) - 1)
-    lo = int(np.floor(pos))
-    hi = min(lo + 1, len(depths) - 1)
-    frac = pos - lo
-    return float(depths[lo] * (1.0 - frac) + depths[hi] * frac)
+    return float(np.interp(max(0.0, min(1.0, s)), stations, depths))
 
 
 def build_flow_barrier_hfb(
-    solver_mesh,
+    solver_mesh: SolverMesh,
     *,
-    line,
+    line: LineString,
     depths: list[float],
     hydchr: float,
+    label: str = "flow barrier",
 ) -> list[list]:
     """Return HFB rows for a barrier line carved to ``depths`` below the model top.
 
-    ``depths`` is one value (uniform) or several (interpolated along the line per
-    the crossing position). Each crossed face contributes the top layers down to
-    the local depth. Returns ``[]`` when the line crosses no interior face.
+    ``depths`` is one value (uniform) or one per line vertex (interpolated along
+    the line at the vertices' real arc-length stations). Each crossed face
+    contributes the top layers down to the local depth, skipping any layer where
+    a joined cell is inactive. Raises when the trace crosses no interior face
+    (the wall is the object of the study), and warns when every row was dropped
+    for inactivity.
     """
     faces = barrier_faces_from_line(solver_mesh.planar_mesh, line)
     if not faces:
-        return []
+        raise ValueError(
+            f"{label}: the trace crosses no interior mesh face. Check the trace CRS and "
+            "coordinates and that it lies within the model extent and off the mesh edges."
+        )
+    stations = _vertex_stations(line)
+    n_vertices = int(stations.size)
+    if len(depths) not in (1, n_vertices):
+        raise ValueError(
+            f"{label}: depths must have 1 value or one per line vertex ({n_vertices}), "
+            f"got {len(depths)}."
+        )
+
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
     botm = np.asarray(solver_mesh.botm, dtype=float)
+    inactive = np.asarray(solver_mesh.inactive_mask, dtype=bool)
     nlay = int(solver_mesh.nlay)
 
     rows: list[list] = []
+    n_dropped = 0
     for face in faces:
-        depth = _interp_depth(face.s, depths)
-        c = face.cell_a
-        barrier_bottom = float(top[c]) - float(depth)
+        depth = _interp_depth(face.s, depths, stations)
+        ca = int(face.cell_a)
+        cb = int(face.cell_b)
+        barrier_bottom = float(top[ca]) - float(depth)
         for lay in range(nlay):
-            layer_top = float(top[c]) if lay == 0 else float(botm[lay - 1, c])
+            layer_top = float(top[ca]) if lay == 0 else float(botm[lay - 1, ca])
             if layer_top <= barrier_bottom:
                 break
-            rows.append([(lay, int(face.cell_a)), (lay, int(face.cell_b)), float(hydchr)])
+            if inactive[lay, ca] or inactive[lay, cb]:
+                n_dropped += 1
+                continue
+            rows.append([(lay, ca), (lay, cb), float(hydchr)])
+    if n_dropped:
+        logger.info("%s: %d HFB row(s) dropped over inactive cells.", label, n_dropped)
+    if not rows:
+        logger.warning(
+            "%s: resolves to %d face(s) but every layer joins an inactive cell; no HFB "
+            "row was emitted.",
+            label,
+            len(faces),
+        )
     return rows
 
 
@@ -67,17 +115,20 @@ def _barrier_attr(payload: object, name: str) -> object:
     return getattr(payload, name, None)
 
 
-def _rows_for_barrier(solver_mesh, cfg, line) -> list[list]:
+def _rows_for_barrier(
+    solver_mesh: SolverMesh, cfg: object, line: LineString, label: str
+) -> list[list]:
     """HFB rows for one FlowBarrierConfig and its resolved shapely trace."""
     return build_flow_barrier_hfb(
         solver_mesh,
         line=line,
         depths=[float(d) for d in cfg.depths],
         hydchr=cfg.effective_hydchr(),
+        label=label,
     )
 
 
-def resolve_flow_barrier_hfb_rows(model, solver_mesh) -> list[list]:
+def resolve_flow_barrier_hfb_rows(model: object, solver_mesh: SolverMesh) -> list[list]:
     """Return concatenated HFB rows for every configured flow barrier.
 
     Two sources, both bound by the structure binders before pre-processing:
@@ -107,7 +158,7 @@ def resolve_flow_barrier_hfb_rows(model, solver_mesh) -> list[list]:
                     f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall is declared but its "
                     "trace was not resolved; bind it with apply_cutoff_wall_to_flow first."
                 )
-            rows.extend(_rows_for_barrier(solver_mesh, cfg, line))
+            rows.extend(_rows_for_barrier(solver_mesh, cfg, line, f"lake '{lake_id}' cutoff wall"))
 
     barriers = sinks_sources.get("flow_barriers")
     if isinstance(barriers, Mapping):
@@ -121,6 +172,6 @@ def resolve_flow_barrier_hfb_rows(model, solver_mesh) -> list[list]:
                     f"flow.sinks_sources.flow_barriers.{barrier_id} is declared but its "
                     "trace was not resolved; bind it with apply_flow_barriers_to_flow first."
                 )
-            rows.extend(_rows_for_barrier(solver_mesh, cfg, line))
+            rows.extend(_rows_for_barrier(solver_mesh, cfg, line, f"flow barrier '{barrier_id}'"))
 
     return rows

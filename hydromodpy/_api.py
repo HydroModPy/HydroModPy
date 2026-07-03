@@ -303,18 +303,23 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
 def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     """Render the HTML report for a calibration session.
 
-    ``session_id_or_prefix`` accepts a full UUID, a unique hex prefix,
-    or ``None`` to fall back to the most recently started session.
-    ``workspace`` defaults to the nearest ancestor of the current
-    working directory containing ``catalog.duckdb``.
+    ``session_id_or_prefix`` accepts a full UUID or a unique hex prefix
+    of either a calibration session or one of its runs (an iteration or the
+    promoted best run, as printed by ``hmp catalog ls``); the run reference is
+    mapped to its parent session. ``None`` falls back to the most recently
+    started session. ``workspace`` defaults to the nearest ancestor of the
+    current working directory containing ``catalog.duckdb``.
+
+    When ``workspace`` is a workspace root, the lookup federates across every
+    ``projects/<name>`` catalog, matching how ``hmp catalog ls`` lists runs.
 
     Parameters
     ----------
     session_id_or_prefix
-        Full session UUID, unique hex prefix, or ``None`` for the latest
-        session.
+        Full UUID or unique hex prefix of a session or one of its runs, or
+        ``None`` for the latest session.
     workspace
-        Optional workspace directory.
+        Optional workspace root or project directory.
 
     Returns
     -------
@@ -334,7 +339,7 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     >>> hmp.report()  # latest session in the current workspace  # doctest: +SKIP
     >>> hmp.report("ab12cd34", workspace="~/hmp_workspace")  # doctest: +SKIP
     """
-    from hydromodpy.calibration.report import resolve_calibration_session_id
+    from hydromodpy.calibration.report import resolve_session_in_workspace
     from hydromodpy.core.state.paths import CATALOG_FILENAME
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
@@ -348,12 +353,12 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     else:
         workspace_root = Path(workspace).expanduser().resolve()
 
-    with Catalog(workspace_root) as catalog:
-        full_id = resolve_calibration_session_id(catalog, session_id_or_prefix)
+    catalog_root, full_id = resolve_session_in_workspace(workspace_root, session_id_or_prefix)
+    with Catalog(catalog_root) as catalog:
         return step_render_calibration_report(
             catalog=catalog,
             session_id=full_id,
-            workspace_root=workspace_root,
+            workspace_root=catalog_root,
         )
 
 

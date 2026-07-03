@@ -1,0 +1,15 @@
+{
+  "tag": "override",
+  "with_wall": true,
+  "depth": 10.0,
+  "K_override": 0.00015,
+  "sim_id": "28410c47-073e-4239-9562-d7ec3321bed8",
+  "n_wall_faces": 7,
+  "flux_annual_mean_m3_per_day": {
+    "layer0": -0.2474728248973559,
+    "layer1": -840.5224576146206,
+    "total": -840.769930439518,
+    "n_periods": 52
+  },
+  "xsec": "/tmp/claude-1000/-home-bb-Documents-01-Git-Repository-03-HydroModPy-lakeres/687d9b86-bb97-42a3-9fe0-501f25c3f51a/scratchpad/cutoff_results/xsec_override.png"
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.cell_types import CellType
@@ -39,3 +40,23 @@ def test_line_missing_all_interior_faces() -> None:
     mesh = _row_of_quads()
     # A line entirely inside one cell crosses no shared face.
     assert barrier_faces_from_line(mesh, LineString([(0.2, 0.2), (0.8, 0.8)])) == []
+
+
+def test_trace_collinear_with_a_mesh_edge_raises() -> None:
+    mesh = _row_of_quads()
+    # A trace running along the shared face x = 1 is geometrically ambiguous.
+    with pytest.raises(ValueError, match="collinear"):
+        barrier_faces_from_line(mesh, LineString([(1.0, 0.0), (1.0, 1.0)]))
+
+
+def test_zigzag_crossing_the_same_face_twice_keeps_the_face_once() -> None:
+    mesh = _row_of_quads()
+    # Re-crosses the x = 1 face (MultiPoint intersection); the face must survive.
+    faces = barrier_faces_from_line(mesh, LineString([(0.5, 0.2), (1.5, 0.5), (0.5, 0.8)]))
+    assert [(f.cell_a, f.cell_b) for f in faces] == [(0, 1)]
+
+
+def test_line_ending_on_a_face_is_not_a_barrier() -> None:
+    mesh = _row_of_quads()
+    # Stops on the x = 1 face without entering cell 1: a touch, not a crossing.
+    assert barrier_faces_from_line(mesh, LineString([(0.5, 0.5), (1.0, 0.5)])) == []

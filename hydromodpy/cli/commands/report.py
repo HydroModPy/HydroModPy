@@ -2,8 +2,10 @@
 
 Sub-actions:
 
-- ``hmp report render <session_id>``: render the calibration HTML report for
-  a calibration session (UUID full or unambiguous prefix).
+- ``hmp report render [session_ref]``: render the calibration HTML report for
+  a calibration session. ``session_ref`` is a session id/prefix or a
+  calibration run id/prefix (mapped to its parent session); omit it to render
+  the most recent session. Federates across every project in the workspace.
 - ``hmp report compare <ref_a> <ref_b>``: side-by-side metric comparison of
   two simulations.
 - ``hmp report catchment <report_config>``: build a catchment HTML report from
@@ -16,7 +18,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
+from hydromodpy.cli._conventions import workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
@@ -41,7 +43,17 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog="Example:\n  hmp report render ab12cd34 --open",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    add_sim_ref(render_p, help="Calibration session UUID (full or unambiguous short prefix)")
+    render_p.add_argument(
+        "sim_ref",
+        nargs="?",
+        default=None,
+        metavar="SESSION_REF",
+        help=(
+            "Calibration session id/prefix, or a calibration run id/prefix "
+            "(an iteration or best run, mapped to its session). Omit to render "
+            "the most recent session in the workspace."
+        ),
+    )
     render_p.add_argument(
         "--open",
         action="store_true",

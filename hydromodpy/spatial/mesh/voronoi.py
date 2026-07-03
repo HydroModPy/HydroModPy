@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.spatial import Voronoi
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import GeometryCollection, MultiPolygon, Point, Polygon
 
 from hydromodpy.spatial.mesh.cell_types import CellType
 from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
@@ -69,13 +69,25 @@ def _finite_regions(vor: Voronoi, radius: float) -> list[np.ndarray]:
     return regions
 
 
+def _polygonal_parts(geom) -> list[Polygon]:
+    """Polygonal pieces of a clip result (Polygon, MultiPolygon, or collection)."""
+    if isinstance(geom, Polygon):
+        return [geom] if not geom.is_empty and geom.area > 0.0 else []
+    if isinstance(geom, (MultiPolygon, GeometryCollection)):
+        return [g for g in geom.geoms if isinstance(g, Polygon) and not g.is_empty and g.area > 0.0]
+    return []
+
+
 def voronoi_cells(
     seeds: np.ndarray, domain_polygon: Polygon | MultiPolygon
 ) -> tuple[list[Polygon], np.ndarray]:
     """Clipped Voronoi cells for ``seeds`` inside ``domain_polygon``.
 
-    Returns the list of convex cell polygons and the matching kept seeds (a seed
-    whose cell falls entirely outside the domain is dropped).
+    Returns the convex cell polygons and the matching cell centers. When the clip
+    splits a cell (concave domain), the piece that contains the seed is kept so
+    the DISV cell center stays inside its cell; if no piece contains the seed the
+    largest piece is kept and its representative point becomes the center. A seed
+    whose cell falls entirely outside the domain is dropped.
     """
     seeds = np.asarray(seeds, dtype=float)
     if seeds.ndim != 2 or seeds.shape[1] != 2:
@@ -83,19 +95,24 @@ def voronoi_cells(
     vor = Voronoi(seeds)
     radius = float(np.ptp(seeds, axis=0).max()) * 3.0
     cells: list[Polygon] = []
-    kept: list[int] = []
+    centers: list[np.ndarray] = []
     for i, region in enumerate(_finite_regions(vor, radius)):
         poly = Polygon(region)
         if not poly.is_valid:
             poly = poly.buffer(0)
-        clipped = poly.intersection(domain_polygon)
-        if clipped.is_empty or clipped.area <= 0.0:
+        parts = _polygonal_parts(poly.intersection(domain_polygon))
+        if not parts:
             continue
-        if isinstance(clipped, MultiPolygon):
-            clipped = max(clipped.geoms, key=lambda g: g.area)
-        cells.append(clipped)
-        kept.append(i)
-    return cells, seeds[kept]
+        seed = seeds[i]
+        chosen = next((part for part in parts if part.covers(Point(seed))), None)
+        if chosen is not None:
+            center = seed
+        else:
+            chosen = max(parts, key=lambda g: g.area)
+            center = np.asarray(chosen.representative_point().coords[0], dtype=float)
+        cells.append(chosen)
+        centers.append(center)
+    return cells, np.asarray(centers, dtype=float).reshape(-1, 2)
 
 
 def voronoi_planar_mesh(
@@ -110,7 +127,7 @@ def voronoi_planar_mesh(
     the DISV export writes exact perpendicular-bisector cell centers. Coincident
     cell-boundary vertices are merged at ``vertex_decimals`` places (default 1 mm).
     """
-    cells, kept_seeds = voronoi_cells(seeds, domain_polygon)
+    cells, centers = voronoi_cells(seeds, domain_polygon)
     vertex_index: dict[tuple[float, float], int] = {}
     vertices: list[list[float]] = []
     connectivity: list[np.ndarray] = []
@@ -130,21 +147,25 @@ def voronoi_planar_mesh(
     return HydroMesh(
         vertices=np.asarray(vertices, dtype=float),
         cell_blocks=(CellBlock(cell_type=CellType.POLYGON, connectivity=tuple(connectivity)),),
-        cell_data={"disv_cell_center": np.asarray(kept_seeds, dtype=float)},
+        cell_data={"disv_cell_center": np.asarray(centers, dtype=float)},
     )
 
 
 def voronoi_dual_of_mesh(
-    planar_mesh: HydroMesh, domain_polygon: Polygon | MultiPolygon
+    planar_mesh: HydroMesh,
+    domain_polygon: Polygon | MultiPolygon,
+    *,
+    vertex_decimals: int = 3,
 ) -> HydroMesh:
     """Voronoi dual of a triangular planar mesh, using its vertices as seeds.
 
     The triangulation's vertices become the Voronoi generators, so the existing
     refinement / constraint conformance (encoded in the vertex placement) is
-    preserved and only the dual + clip is applied.
+    preserved and only the dual + clip is applied. ``vertex_decimals`` is the
+    coordinate-merge precision (default 1 mm, valid for a projected metric CRS).
     """
     seeds = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
-    return voronoi_planar_mesh(seeds, domain_polygon)
+    return voronoi_planar_mesh(seeds, domain_polygon, vertex_decimals=vertex_decimals)
 
 
 def domain_polygon_from_mesh(planar_mesh: HydroMesh) -> Polygon | MultiPolygon:

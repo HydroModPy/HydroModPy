@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
@@ -31,6 +32,8 @@ from hydromodpy.physics.flow.time_forcing import (
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
     from hydromodpy.physics.flow import Flow
+
+logger = get_logger(__name__)
 
 
 def apply_oceanic_to_flow(
@@ -216,20 +219,10 @@ def _lake_payloads_as_mappings(flow: Flow) -> dict[str, dict[str, object]]:
         if isinstance(payload, Mapping):
             payloads[str(lake_id)] = dict(payload)
         else:
-            fields = (
-                "bedleak",
-                "bedleak_unit",
-                "stageinit",
-                "steady_stage_hold",
-                "occupied_layers",
-                "surfdep",
-                "bed_reconstruction",
-                "outlets",
-                "cutoff_wall",
-            )
-            forcings = ("rainfall", "evaporation", "runoff", "inflow", "withdrawal")
+            # Snapshot every declared config field so a new field (e.g.
+            # fill_enclosed_cells) never silently drops out of the payload.
             payloads[str(lake_id)] = {
-                name: getattr(payload, name, None) for name in (*fields, *forcings)
+                name: getattr(payload, name, None) for name in type(payload).model_fields
             }
     return payloads
 
@@ -277,9 +270,17 @@ def apply_lake_geometry_to_flow(
     return True
 
 
-def _resolve_barrier_line(cfg: object, *, where: str):
-    """Build the shapely barrier trace from a FlowBarrierConfig (inline or file)."""
+def _resolve_barrier_line(cfg: object, *, where: str, project_crs: object = None):
+    """Build the shapely barrier trace from a FlowBarrierConfig (inline or file).
+
+    Inline ``line`` coordinates are taken verbatim. A ``line_path`` vector file is
+    read, reprojected to the project CRS when both CRSs are known, and line-merged
+    into a single LineString; a genuinely multi-part or non-line geometry (e.g. a
+    QGIS MultiLineString of disjoint segments, or a polygon) raises a typed error
+    naming the file, instead of crashing later in the mesh crossing.
+    """
     from shapely.geometry import LineString
+    from shapely.ops import linemerge
 
     line = cfg.get("line") if isinstance(cfg, Mapping) else getattr(cfg, "line", None)
     line_path = (
@@ -293,11 +294,26 @@ def _resolve_barrier_line(cfg: object, *, where: str):
         gdf = gpd.read_file(str(line_path))
         if gdf.empty:
             raise ValueError(f"{where} line_path '{line_path}' has no geometry.")
-        return gdf.union_all()
+        if gdf.crs is None:
+            logger.warning(
+                "%s line_path '%s' has no CRS; assuming it is already in the project CRS.",
+                where,
+                line_path,
+            )
+        elif project_crs is not None:
+            gdf = gdf.to_crs(project_crs)
+        merged = linemerge(gdf.union_all())
+        if isinstance(merged, LineString) and not merged.is_empty:
+            return merged
+        raise ValueError(
+            f"{where} line_path '{line_path}' resolves to a {merged.geom_type}, not a single "
+            "LineString; provide one contiguous polyline (a branching or multi-part trace is "
+            "not supported)."
+        )
     raise ValueError(f"{where} has neither line nor line_path.")
 
 
-def apply_cutoff_wall_to_flow(*, flow: Flow) -> bool:
+def apply_cutoff_wall_to_flow(*, flow: Flow, project_crs: object = None) -> bool:
     """Resolve each lake's cutoff_wall trace into a shapely line on its payload.
 
     The wall trace is declared on ``FlowLakeConfig.cutoff_wall`` (inline ``line``
@@ -318,7 +334,7 @@ def apply_cutoff_wall_to_flow(*, flow: Flow) -> bool:
         if cfg is None:
             continue
         payload["cutoff_wall_line"] = _resolve_barrier_line(
-            cfg, where=f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall"
+            cfg, where=f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall", project_crs=project_crs
         )
         attached = True
 
@@ -328,7 +344,7 @@ def apply_cutoff_wall_to_flow(*, flow: Flow) -> bool:
     return True
 
 
-def apply_flow_barriers_to_flow(*, flow: Flow) -> bool:
+def apply_flow_barriers_to_flow(*, flow: Flow, project_crs: object = None) -> bool:
     """Resolve the general ``[flow.sinks_sources.flow_barriers]`` traces.
 
     Each barrier is a :class:`FlowBarrierConfig`. This normalizes the mapping to
@@ -348,7 +364,9 @@ def apply_flow_barriers_to_flow(*, flow: Flow) -> bool:
         if isinstance(cfg, Mapping) and "line" in cfg and "barrier" in cfg:
             out[bid] = dict(cfg)
             continue
-        line = _resolve_barrier_line(cfg, where=f"flow.sinks_sources.flow_barriers.{bid}")
+        line = _resolve_barrier_line(
+            cfg, where=f"flow.sinks_sources.flow_barriers.{bid}", project_crs=project_crs
+        )
         out[bid] = {"barrier": cfg, "line": line}
         attached = True
 
@@ -371,35 +389,15 @@ def _sfr_payloads_as_mappings(flow: Flow) -> dict[str, dict[str, object]]:
     if not isinstance(sfr, Mapping) or not sfr:
         return {}
 
-    fields = (
-        "stream_threshold_km2",
-        "stream_threshold_cells",
-        "min_reach_length",
-        "manning",
-        "streambed_k",
-        "streambed_k_unit",
-        "streambed_thickness",
-        "min_slope",
-        "width",
-        "connected_to_aquifer",
-        "route_drainage",
-        "storage",
-        "headwater_inflow",
-        "runoff",
-        "rainfall",
-        "evaporation",
-        "reaches",
-        "diversions",
-        "outflow_to_lake",
-        "outflow_mvrtype",
-        "outflow_value",
-    )
     payloads: dict[str, dict[str, object]] = {}
     for network_id, payload in sfr.items():
         if isinstance(payload, Mapping):
             payloads[str(network_id)] = dict(payload)
         else:
-            payloads[str(network_id)] = {name: getattr(payload, name, None) for name in fields}
+            # Snapshot every declared config field so a new field never drops out.
+            payloads[str(network_id)] = {
+                name: getattr(payload, name, None) for name in type(payload).model_fields
+            }
     return payloads
 
 

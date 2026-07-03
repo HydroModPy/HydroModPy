@@ -10,7 +10,7 @@ participant "HydrographyManager" as HydroMgr
 participant "geographic.river_network\npreprocessing" as GeoRiver
 participant "HydrographicNetwork\nfactory methods" as Factory
 participant "GeographicDerivedFeatures" as Features
-participant "SimulationCatalog" as Catalog
+participant "Catalog" as Catalog
 participant "Run" as Run
 participant "Comparison / figures" as Compare
 

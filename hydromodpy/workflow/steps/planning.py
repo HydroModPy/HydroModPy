@@ -98,8 +98,9 @@ def _build_plan_with_overrides(
         flow=flow,
         lake_geometry=getattr(ctx.loaded_data, "lake_geometry", None),
     )
-    apply_cutoff_wall_to_flow(flow=flow)
-    apply_flow_barriers_to_flow(flow=flow)
+    _project_crs = getattr(getattr(ctx.setup, "geographic", None), "crs_proj", None)
+    apply_cutoff_wall_to_flow(flow=flow, project_crs=_project_crs)
+    apply_flow_barriers_to_flow(flow=flow, project_crs=_project_crs)
     apply_lake_abacus_to_flow(
         flow=flow,
         lake_abacus=getattr(ctx.loaded_data, "lake_abacus", None),

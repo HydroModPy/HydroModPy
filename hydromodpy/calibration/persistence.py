@@ -262,6 +262,9 @@ def _build_metrics_json(
         block_costs = metadata.get("block_costs")
         if isinstance(block_costs, dict) and block_costs:
             payload["block_costs"] = {str(k): v for k, v in block_costs.items()}
+    error = metadata.get("error")
+    if error:
+        payload["error"] = str(error)
     if not payload:
         return None
     return json.dumps(payload, default=str)

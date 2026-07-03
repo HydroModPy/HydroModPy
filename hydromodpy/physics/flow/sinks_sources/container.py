@@ -55,8 +55,9 @@ class FlowSinksSourcesConfig(HydroModelBase):
     flow_barriers: Annotated[dict[str, FlowBarrierConfig], Profile.USER] = Field(
         default_factory=dict,
         description=(
-            "Mapping of flow-barrier ids to typed HFB payloads (general addon, any "
-            "model). A lake's dam cutoff wall is declared on the lake instead."
+            "Mapping of flow-barrier ids to typed HFB payloads (general addon, modflow6 "
+            "backend only; declaring one activates it). A lake's dam cutoff wall is "
+            "declared on the lake instead."
         ),
     )
     recharge: Annotated[FlowRechargeConfig | None, Profile.USER] = Field(
