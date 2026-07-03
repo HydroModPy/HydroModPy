@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
 
@@ -79,14 +80,21 @@ class Mt3dmsExtractorBase:
             n_cells,
         )
 
-        # Batched stack write: one shard encode instead of one read-modify-write
-        # per timestep.
-        stack = np.empty((n_timesteps, nlay, n_cells), dtype="float64")
-        for t, time in enumerate(times):
-            stack[t] = ucn.get_data(totim=time).reshape(nlay, n_cells)
-        store.write_field_stack(sim_id, "concentration", stack)
-
-        ucn.close()
+        # Batched stack write in time slabs: one shard encode instead of a
+        # per-timestep read-modify-write, without holding the whole
+        # (nper, nlay, ncells) stack in RAM.
+        slab = slab_steps(nlay, n_cells)
+        try:
+            for t0 in range(0, n_timesteps, slab):
+                t1 = min(t0 + slab, n_timesteps)
+                chunk = np.empty((t1 - t0, nlay, n_cells), dtype="float64")
+                for t in range(t0, t1):
+                    chunk[t - t0] = ucn.get_data(totim=times[t]).reshape(nlay, n_cells)
+                store.write_field_stack(
+                    sim_id, "concentration", chunk, n_timesteps=n_timesteps, timestep_offset=t0
+                )
+        finally:
+            ucn.close()
 
     def derive(
         self,
