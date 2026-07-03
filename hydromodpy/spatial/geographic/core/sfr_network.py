@@ -106,9 +106,7 @@ def _cell_xy(row: int, col: int, transform) -> tuple[float, float]:
     return float(x), float(y)
 
 
-def _order_link_cells(
-    cells: list[tuple[int, int]], d8: np.ndarray, link_of: dict[tuple[int, int], int], link: int
-) -> list[tuple[int, int]]:
+def _order_link_cells(cells: list[tuple[int, int]], d8: np.ndarray) -> list[tuple[int, int]]:
     """Order one link's cells from headwater to outlet by following the D8 path."""
     cell_set = set(cells)
     # The head cell has no in-link upstream (no other cell points into it).
@@ -181,8 +179,6 @@ def delineate_sfr_reaches(
     if not cells_by_link:
         raise ValueError("No stream cells (link_id > 0); cannot delineate an SFR network.")
 
-    link_of = {cell: link for link, cells in cells_by_link.items() for cell in cells}
-
     # 2. Per-link geometry + the downstream link (or lake / model outlet). A
     # link whose flow path ENTERS the lake footprint is truncated at the entry
     # cell (the raster network continues through / below a reservoir, but the
@@ -193,7 +189,7 @@ def delineate_sfr_reaches(
     terminal_to_lake: dict[int, bool] = {}
     terminal_lake_of: dict[int, int | None] = {}
     for link, cells in cells_by_link.items():
-        ordered = _order_link_cells(cells, d8, link_of, link)
+        ordered = _order_link_cells(cells, d8)
         truncated_at_lake = False
         truncation_lake_cell: tuple[int, int] | None = None
         if lake is not None:
