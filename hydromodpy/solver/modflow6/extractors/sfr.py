@@ -101,7 +101,6 @@ class SfrObsSpec:
     network_id: str
     reach_count: int
     entries: list[SfrObsEntry] = field(default_factory=list)
-    budgetcsv: str | None = None
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> SfrObsSpec:
@@ -115,13 +114,11 @@ class SfrObsSpec:
             )
             for item in payload.get("entries", [])
         ]
-        budgetcsv = payload.get("budgetcsv")
         return cls(
             obs_csv=str(payload["obs_csv"]),
             network_id=str(payload.get("network_id", "")),
             reach_count=int(payload.get("reach_count", 0)),
             entries=entries,
-            budgetcsv=None if budgetcsv is None else str(budgetcsv),
         )
 
 

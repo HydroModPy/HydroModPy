@@ -842,9 +842,9 @@ def run_pre_processing(  # noqa: PLR0915
             model,
             networks=sfr_networks,
             external_mover=any(str(row[2]) == "SFR" for row in all_mover_rows),
+            has_mover_records=bool(sfr_mover_records),
         )
         if sfr_args is not None:
-            sfr_args.pop("mover_records", None)
             sfr_obs_continuous = sfr_args.pop("obs_continuous", None)
             sfr_obs_meta = sfr_args.pop("sfr_obs_meta", None)
             sfr_ts_specs = sfr_args.pop("ts_specs", None)

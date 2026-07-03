@@ -17,7 +17,6 @@ from hydromodpy.solver.modflow6.extractors.sfr import (
 
 _SPEC_PAYLOAD = {
     "obs_csv": "m.sfr.obs.csv",
-    "budgetcsv": "m.sfr.budget.csv",
     "network_id": "net0",
     "reach_count": 2,
     "entries": [
