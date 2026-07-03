@@ -84,6 +84,16 @@ class FlowLakeOutletMover(HydroModelBase):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_factor_value(self) -> FlowLakeOutletMover:
+        """A FACTOR transfer moves a fraction, so its value must be in [0, 1]."""
+        if self.mvrtype == "FACTOR" and not (0.0 <= self.value <= 1.0):
+            raise ValueError(
+                "flow.sinks_sources.lakes outlet mover value must be in [0, 1] for a "
+                "FACTOR transfer"
+            )
+        return self
+
 
 class FlowLakeOutletWeir(HydroModelBase):
     """A sharp-crest weir outlet: ``Q = (2/3)*Cd*width*sqrt(2g)*d^(3/2)``.

@@ -185,7 +185,7 @@ def materialize_candidate(
     *,
     candidate_label: str | None = None,
     iteration_index: int | None = None,
-    run_id: str | None = None,
+    name: str | None = None,
     workspace_root: Path | str | None = None,
     extra_sections: Mapping[str, Mapping[str, Any]] | None = None,
     base_dir: Path | None = None,
@@ -215,7 +215,7 @@ def materialize_candidate(
     iteration_index
         Iteration number when no explicit label is given. Produces a
         folder like ``iter_0042``.
-    run_id
+    name
         Value to write at ``simulation.name`` in the overlay.
     workspace_root
         Value to write at ``workspace.root``. Required when the parent
@@ -256,9 +256,9 @@ def materialize_candidate(
     if base_path is not None:
         overlay["base_config"] = _format_path_for_overlay(base_path, base_dir_resolved)
 
-    if run_id is not None:
+    if name is not None:
         simulation_section = dict(overlay.get("simulation", {}))
-        simulation_section["name"] = str(run_id)
+        simulation_section["name"] = str(name)
         overlay["simulation"] = simulation_section
 
     workspace_section: dict[str, Any] = dict(base_raw.get("workspace", {}))
