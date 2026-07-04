@@ -180,6 +180,7 @@ def _run_via_api(model, *, verbose: bool) -> bool:
             band_specs=getattr(model, "_exposed_band_runoff_specs", None),
             lib_path=lib_path,
             timeout=_api_isolation_timeout_s(model),
+            label=getattr(model, "model_name", None),
         )
 
     from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext, run_mf6_api
