@@ -24,6 +24,7 @@ import queue as queue_mod
 from collections.abc import Sequence
 from contextlib import contextmanager
 from os import PathLike
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import SolverError
@@ -47,11 +48,14 @@ def _api_subprocess_entry(
     sim_ws: str,
     band_specs: list,
     lib_path: str | None,
+    progress_queue=None,
 ) -> None:
     """Child entry point: rebuild the callback and run the API solve.
 
     Posts ``(True, success_bool)`` on a completed solve or ``(False, detail)``
-    when the run raises. Runs at module scope so ``spawn`` can import it.
+    when the run raises. When a ``progress_queue`` is given, it also relays
+    ``(completed, total)`` solve progress so the parent can render a live bar the
+    child process cannot draw itself. Runs at module scope so ``spawn`` can import it.
     """
     try:
         from hydromodpy.core import progress
@@ -68,11 +72,22 @@ def _api_subprocess_entry(
             def callback(ctx: Mf6ApiContext) -> None:
                 return None
 
-        # The isolated path is only ever a parallel-calibration solve, where the
-        # per-timestep libmf6 / modflowapi chatter (12 trials interleaved) is pure
-        # noise: run the solve quiet and redirect the child's stdout fd.
+        sink = None
+        if progress_queue is not None:
+
+            def sink(completed: int, total: int | None) -> None:
+                try:
+                    progress_queue.put_nowait((completed, total))
+                except Exception:  # noqa: BLE001 - progress relay must never fail the solve
+                    pass
+
+        # The child's own progress bar cannot render (only the main process drives
+        # the terminal), so suppress it and redirect the stdout fd; the sink relays
+        # progress to the parent instead.
         with progress.suppressed(), _silence_stdout_fd():
-            success = run_mf6_api(sim_ws, callback, lib_path=lib_path, verbose=False)
+            success = run_mf6_api(
+                sim_ws, callback, lib_path=lib_path, verbose=False, progress_sink=sink
+            )
         result_queue.put((True, bool(success)))
     except BaseException as exc:  # noqa: BLE001 - relayed to the parent verbatim
         import traceback
@@ -101,25 +116,45 @@ def _silence_stdout_fd():
         os.close(saved)
 
 
+def _drain_progress(progress_queue, handle) -> None:
+    """Apply every buffered ``(completed, total)`` relay to the live bar."""
+    while True:
+        try:
+            completed, total = progress_queue.get_nowait()
+        except queue_mod.Empty:
+            return
+        except (OSError, ValueError):  # queue closed as the child exits
+            return
+        if total is not None:
+            handle.update(total=float(total))
+        handle.update(completed=float(completed))
+
+
 def run_mf6_api_isolated(
     sim_ws: str | PathLike[str],
     *,
     band_specs: Sequence[LakeBandRunoffSpec] | None = None,
     lib_path: str | PathLike[str] | None = None,
     timeout: float | None = None,
+    label: str | None = None,
     _entry: Any = _api_subprocess_entry,
 ) -> bool:
     """Run :func:`run_mf6_api` in a dedicated ``spawn`` child process.
 
     Parameters mirror :func:`run_mf6_api`, plus ``band_specs`` (the exposed-band
     runoff coupling, rebuilt into the callback in the child) and an optional
-    ``timeout`` in seconds. Returns the convergence flag. Raises
+    ``timeout`` in seconds. The child relays solve progress back through a queue,
+    so this call shows a live "Solving <label>" bar in the parent process even
+    though the child cannot draw one. Returns the convergence flag. Raises
     :class:`SolverError` when the child fails or dies without a result. ``_entry``
     is the child target; it exists only so tests can inject a spawn-importable
     stub without a real solve.
     """
+    from hydromodpy.core import progress
+
     ctx = mp.get_context("spawn")
     result_queue: mp.Queue = ctx.Queue()
+    progress_queue: mp.Queue = ctx.Queue()
     proc = ctx.Process(
         target=_entry,
         args=(
@@ -127,32 +162,37 @@ def run_mf6_api_isolated(
             str(sim_ws),
             list(band_specs or []),
             None if lib_path is None else str(lib_path),
+            progress_queue,
         ),
         daemon=False,
     )
     proc.start()
 
+    description = f"Solving {label or Path(sim_ws).name}"
     result: tuple[bool, object] | None = None
     waited = 0.0
-    while True:
-        try:
-            result = result_queue.get(timeout=_POLL_SECONDS)
-            break
-        except queue_mod.Empty:
-            if not proc.is_alive():
-                # Drain a result that landed between the get() and is_alive().
-                try:
-                    result = result_queue.get_nowait()
-                except queue_mod.Empty:
-                    result = None
+    with progress.task(description, total=None) as bar:
+        while True:
+            _drain_progress(progress_queue, bar)
+            try:
+                result = result_queue.get(timeout=_POLL_SECONDS)
                 break
-            waited += _POLL_SECONDS
-            if timeout is not None and waited >= timeout:
-                proc.terminate()
-                proc.join(5)
-                raise SolverError(
-                    f"MF6 API subprocess for {sim_ws} timed out after {timeout:.0f}s."
-                ) from None
+            except queue_mod.Empty:
+                if not proc.is_alive():
+                    # Drain a result that landed between the get() and is_alive().
+                    try:
+                        result = result_queue.get_nowait()
+                    except queue_mod.Empty:
+                        result = None
+                    break
+                waited += _POLL_SECONDS
+                if timeout is not None and waited >= timeout:
+                    proc.terminate()
+                    proc.join(5)
+                    raise SolverError(
+                        f"MF6 API subprocess for {sim_ws} timed out after {timeout:.0f}s."
+                    ) from None
+        _drain_progress(progress_queue, bar)
 
     proc.join(30)
     if proc.is_alive():

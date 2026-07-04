@@ -160,3 +160,37 @@ def test_isolated_api_child_dies_without_result() -> None:
 
     with pytest.raises(SolverError, match="without a result"):
         run_mf6_api_isolated("/nonexistent-ws", _entry=crash_entry)
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.fast
+def test_isolated_api_relays_progress_and_succeeds() -> None:
+    # A child that relays progress ticks then reports success: the parent drains
+    # the progress queue and still returns the convergence flag.
+    from tests._helpers.mf6_spawn_stubs import progress_then_succeed_entry
+
+    assert run_mf6_api_isolated("/nonexistent-ws", _entry=progress_then_succeed_entry) is True
+
+
+@pytest.mark.fast
+def test_drain_progress_applies_total_then_completed() -> None:
+    import queue as _queue
+
+    from hydromodpy.solver.modflow6.api_subprocess import _drain_progress
+
+    relay: _queue.Queue = _queue.Queue()
+    relay.put((0, 5))
+    relay.put((3, None))
+
+    updates: list[tuple[str, float]] = []
+
+    class _Bar:
+        def update(self, *, completed=None, total=None) -> None:
+            if total is not None:
+                updates.append(("total", total))
+            if completed is not None:
+                updates.append(("completed", completed))
+
+    _drain_progress(relay, _Bar())
+    assert ("total", 5.0) in updates
+    assert updates[-1] == ("completed", 3.0)

@@ -19,6 +19,7 @@ import time
 import uuid
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -144,8 +145,19 @@ class CalibrationEngine:
         if self.parallel <= 1 or len(suggestions) <= 1:
             return [self._evaluate_with_cache(sugg) for sugg in suggestions]
         workers = min(self.parallel, len(suggestions))
+        # ContextVars (e.g. the api-isolation scope the caller opened) do NOT cross
+        # the thread boundary, so give each worker its own copy of THIS thread's
+        # context. copy_context() runs here, in the caller thread, so every copy
+        # inherits the current bindings; a fresh copy per task avoids entering one
+        # Context object from several threads at once.
+        tasks = [(copy_context(), sugg) for sugg in suggestions]
+
+        def _run_in_context(item: tuple) -> EvaluationResult:
+            ctx, sugg = item
+            return ctx.run(self._evaluate_with_cache, sugg)
+
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(self._evaluate_with_cache, suggestions))
+            return list(pool.map(_run_in_context, tasks))
 
     def _evaluate_with_cache(self, sugg: ParamSuggestion) -> EvaluationResult:
         if self.cache is None:

@@ -297,6 +297,7 @@ def run_mf6_api(
     *,
     lib_path: str | os.PathLike[str] | None = None,
     verbose: bool = False,
+    progress_sink: Callable[[int, int | None], None] | None = None,
 ) -> bool:
     """Drive a written MODFLOW 6 workspace through libmf6 with a step callback.
 
@@ -314,6 +315,11 @@ def run_mf6_api(
         managed cache copy of ``libmf6`` is resolved.
     verbose:
         Forward verbose output from the modflowapi runner.
+    progress_sink:
+        Optional ``(completed, total)`` callback fired at initialize (with the
+        stress-period count as ``total``) and once per timestep. Lets the isolated
+        (spawn-child) runner relay solve progress to the parent process, which
+        cannot see the child's own progress bar.
 
     Returns
     -------
@@ -375,8 +381,12 @@ def run_mf6_api(
                 nper = _read_nper(sim)
                 if nper is not None:
                     handle.update(total=nper)
+                    if progress_sink is not None:
+                        progress_sink(0, nper)
             elif phase is Mf6ApiStep.timestep_end:
                 handle.update(completed=kper + 1)
+                if progress_sink is not None:
+                    progress_sink(kper + 1, None)
             ctx = Mf6ApiContext(
                 step=phase,
                 kper=kper,
