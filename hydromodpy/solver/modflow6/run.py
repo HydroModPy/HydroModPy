@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 
 from hydromodpy.core import progress
 from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
@@ -78,7 +79,13 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
 # so each thread's api solve runs in its own spawn child process; single runs and
 # the promotion replay leave it off, keeping the in-process live progress bar and
 # avoiding a per-solve process spawn.
-_API_ISOLATION_ENABLED = False
+#
+# Scoped through a ContextVar, not a module global: two overlapping calibration
+# sessions in one process each get an independent binding, so one exiting can no
+# longer flip the other back to in-process mid-run. Worker threads do NOT inherit
+# a ContextVar automatically; the parallel engine propagates the caller's context
+# to each worker (calibration.engine copies the context per task).
+_api_isolation_var: ContextVar[bool] = ContextVar("hmp_api_isolation", default=False)
 
 # A non-converging libmf6 solve can spin at full CPU indefinitely (the solve() call
 # never returns), which would wedge a whole parallel calibration on one bad trial.
@@ -117,18 +124,23 @@ def _warn_mf6_version_parity(lib_path: str, bin_path: object) -> None:
 
 @contextmanager
 def api_isolation_context(enabled: bool):
-    """Isolate api solves in a spawn child process within this block when enabled.
+    """Isolate api solves in a spawn child process within this dynamic scope.
 
-    Restores the previous setting on exit, so promotion (a single replay run)
-    after a parallel session is back on the in-process path.
+    The setting is context-local (a ContextVar), so overlapping sessions do not
+    clobber each other and the token reset restores exactly the caller's prior
+    value. Promotion (a single replay run) runs outside the scope and stays
+    in-process.
     """
-    global _API_ISOLATION_ENABLED
-    previous = _API_ISOLATION_ENABLED
-    _API_ISOLATION_ENABLED = bool(enabled)
+    token = _api_isolation_var.set(bool(enabled))
     try:
         yield
     finally:
-        _API_ISOLATION_ENABLED = previous
+        _api_isolation_var.reset(token)
+
+
+def api_isolation_enabled() -> bool:
+    """Return whether the current context isolates api solves in a child process."""
+    return _api_isolation_var.get()
 
 
 def _run_via_api(model, *, verbose: bool) -> bool:
@@ -160,7 +172,7 @@ def _run_via_api(model, *, verbose: bool) -> bool:
     _warn_mf6_version_parity(lib_path, bin_path)
     callback = getattr(model, "_mf6_api_callback", None)
 
-    if callback is None and _API_ISOLATION_ENABLED:
+    if callback is None and api_isolation_enabled():
         from hydromodpy.solver.modflow6.api_subprocess import run_mf6_api_isolated
 
         return run_mf6_api_isolated(
