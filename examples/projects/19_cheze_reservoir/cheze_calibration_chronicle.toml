@@ -11,11 +11,11 @@
 # Outputs (catalog + promoted runs) land in project_root; input data is read
 # from the shared examples/data tree (nothing is written there).
 #
-# RUN IT:
-#   cd /home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres
+# RUN IT (from this project directory):
+#   cd examples/projects/19_cheze_reservoir
 #   hmp calibrate cheze_calibration_chronicle.toml
-#   # then the HTML report (figures + obs-vs-sim lake fit):
-#   hmp report render <SESSION_ID> -w cheze_calib_chronicle_out --open
+#   # then the HTML report (figures + obs-vs-sim lake fit); no id = latest session:
+#   hmp report render -w . --open
 #
 # PARALLELISM: parallel = batch_size = 10 -> 10 concurrent single-threaded mf6
 # subprocesses (one per core). Each trial is isolated (its own model folder),
@@ -47,15 +47,15 @@ description = "Cheze lake-level calibration, daily 2015-2020, 10-core parallel."
 # recharge .bin per period, so a shorter window keeps the (GIL-bound, serial)
 # build small enough that the 10 cores actually fill with mf6 solves.
 [simulation.time]
-start_datetime = "2015-01-01"
+start_datetime = "2010-01-01"
 end_datetime = "2020-12-31"
 step_value = "1 day"
 coverage_policy = "warn"
 
 # Lake initial stage MUST match the observed level at the window start, else the
-# steady warm-up cold-starts the lake and NSE goes negative. 2015-01-01 = 85.06 m.
+# steady warm-up cold-starts the lake and NSE goes negative. 2010-01-01 = 86.17 m.
 [flow.sinks_sources.lakes.reservoir_cheze]
-stageinit = "86 m"
+stageinit = "86.17 m"
 
 # Add the observed lake-level family (absent from the base project).
 [data]
@@ -96,13 +96,15 @@ units = "1/s"
 
 # Aquifer hydraulic conductivity.
 [calibration.parameters.K]
-bounds = [1e-5, 1e-3]
+bounds = [1e-7, 1e-3]
 transform = "log"
 prior = "log_uniform"
 path = "flow.param.K.field.value"
 units = "m/s"
 
 # Specific yield (drainable porosity) - matters over the multi-year record.
+# Lower bound 1e-4: the field floor for specific yield (a lower value is rejected
+# at build time). The optimum sat near 0.066 in the previous run.
 [calibration.parameters.Sy]
 bounds = [1e-4, 1e-1]
 transform = "log"

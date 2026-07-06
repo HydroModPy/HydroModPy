@@ -346,6 +346,13 @@ constraints_mode = "rivers_only"
 algorithm = "frontal"
 global_size = 150.0
 min_size = 50.0
+# Refine along linear constraints (rivers + the watershed boundary below), so the
+# mesh conforms to the water divide instead of cells straddling it (cleaner DRN
+# watershed-routing frontier). Refinement only ADDS small cells => no convergence
+# risk (unlike coarsening). interface_size is the near-constraint target size.
+refine_interfaces = true
+interface_size = 80.0
+interface_distance = 250.0
 
 # Local refinement on the reservoir footprint (any shape, from the lake polygon)
 # and the under-dam outlet (the vertical-leakage zone at the catchment outlet).
@@ -364,6 +371,23 @@ dam_buffer = 130.0
 # well-shaped coarser mesh, but the Newton solve (marnage + hillslope DRN on the
 # larger buffer cells) then crawls and diverges: coarser cells swing the head more
 # per iteration, so the drying/wetting oscillates. Uniform ~150 m stays reliable.
+
+# Conform + refine the mesh along the watershed boundary (the water divide), so the
+# DRN watershed-routing frontier sits on mesh edges. Smoothing regularizes the raw
+# catchment contour first so the constraint does not spawn skewed/tiny cells.
+[mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
+enabled = true
+priority = 100
+
+[mesh_catchment.watershed_boundary]
+enabled = true
+boundary_refinement_distance = 250.0
+
+[mesh_catchment.watershed_boundary.smoothing]
+enabled = true
+distance = 150.0
+river_buffer_distance = 100.0
+outer_bias_distance = 10.0
 
 # Vertical layering still comes from the backend sgrid.vertical block; only the
 # planar grid is now the GMSH unstructured mesh above.
