@@ -1,0 +1,167 @@
+# ======================================================================
+# PRODUCTION calibration of the two-lake Cheze model (reservoir + Pont Musard
+# pre-retenue) on the in-process API runner (marnage / exposed_band), now
+# PARALLEL (api_subprocess isolation). Daily 2010-2020.
+#
+# Inherits the full two-lake structure from project_preretenue.toml:
+#   - reservoir_cheze (lake 1) + preretenue_cheze (lake 2),
+#   - reciprocal sill weirs at 86.93 m + spillway at 87.57 m,
+#   - corrected IGN69 abaque per lake, carved bed (toit sedimentaire),
+#   - 10 m dam cutoff wall (HFB), active-littoral marnage + exposed_band runoff.
+#
+# Calibrates the RESERVOIR lake stage against the observed level. The pre-retenue
+# is in the model (sill exchange + its share of the catchment via SFR) but is NOT
+# a calibration target (no observed chronicle for it).
+#
+# RUN IT (from this project directory):
+#   hmp calibrate cheze_calibration_preretenue.toml
+#   hmp report render -w . --open      # HTML report: calibration figures + fit
+# ======================================================================
+
+base_config = "project_preretenue.toml"
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "cheze_calib_preretenue"
+description = "Two-lake Cheze lake-level calibration, daily 2010-2020, API-parallel marnage."
+
+# Full daily 2010-2020 window (~4015 periods). Heavy build per trial; the api
+# solves run concurrently in isolated child processes (parallel below).
+[simulation.time]
+start_datetime = "2010-01-01"
+end_datetime = "2020-12-31"
+step_value = "1 day"
+coverage_policy = "warn"
+
+# Lake initial stages MUST match the observed level at the window start, else the
+# steady warm-up cold-starts the lake and the metric collapses. Observed reservoir
+# level at 2010-01-01 = 86.17 m. The pre-retenue has no gauge; 86.17 m is a
+# consistent placeholder (refine from a pre-retenue survey point if available).
+[flow.sinks_sources.lakes.reservoir_cheze]
+stageinit = "86.17 m"
+[flow.sinks_sources.lakes.preretenue_cheze]
+stageinit = "86.17 m"
+
+# Re-window every data family to the 2010-2020 calibration period (the base
+# project is a 2019 weekly run, so its meteo / managed-transfer dates must be
+# widened). SIM2 meteo is fetched for the window; the lake_inflow / withdrawal /
+# level CSVs already cover 2007-2026.
+[data]
+types = ["recharge", "precipitation", "etp", "runoff", "lake_geometry", "lake_abacus", "lake_bathymetry", "lake_inflow", "lake_withdrawal", "lake_levels"]
+inference_mode = "warn"
+
+[data.recharge]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.precipitation]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.etp]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.runoff]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.lake_inflow]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.lake_inflow.sources]]
+source = "custom"
+path = "lake_inflow"
+
+[data.lake_withdrawal]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.lake_withdrawal.sources]]
+source = "custom"
+path = "lake_withdrawal"
+
+[data.lake_levels]
+date_start = "2010-01-01"
+date_end = "2020-12-31"
+[[data.lake_levels.sources]]
+source = "custom"
+path = "lake_levels"
+
+# ---------------------------------------------------------------------- calibration
+[calibration]
+method = "optuna"          # TPE; batches per generation
+max_iter = 60              # 5 generations of batch_size
+batch_size = 12            # 12 suggestions per generation
+parallel = 12              # 12 concurrent isolated api solves (machine ~22 cores)
+seed = 42
+objective = "kge"          # fair for a managed lake level (timing/amplitude/bias)
+variable = "lake_level"    # time-aligns simulated reservoir LAK stage to observed
+save_runs = "best_n"       # promote the best runs to full simulations
+save_best_n = 3
+use_cache = true
+
+# Lakebed leakance: the dominant lake-aquifer exchange handle (under-dam leakage).
+[calibration.parameters.bedleak]
+bounds = [1e-8, 1e-5]
+transform = "log"
+prior = "log_uniform"
+path = "flow.sinks_sources.lakes.reservoir_cheze.bedleak"
+units = "1/s"
+
+# Aquifer hydraulic conductivity.
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+# Specific yield (drainable porosity) - constrained over the multi-year record.
+[calibration.parameters.Sy]
+bounds = [1e-4, 1e-1]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+# ---------------------------------------------------------------------- display
+# Rich spatial post-processing on the promoted best run: cell geometry, layer
+# transects, lake-aquifer leakage / SFR inflow location, heads, budget, abaque.
+# (Flow lines = particle pathlines need a PRT process; see the note below.)
+[display]
+enabled = true
+show = false
+save = true
+figures = [
+    "simulated_active_network",   # mesh active cells + lakes + SFR (cell geometry)
+    "piezometric_map",            # simulated heads on the mesh cells
+    "cross_section",              # vertical transect through the layers + lakes
+    "seepage_map",                # under-dam seepage / lake-aquifer leakage location
+    "sfr_reach_network",          # SFR reach network (catchment inflow paths)
+    "water_budget",               # GWF + lake water budget
+    "lake_abacus_comparison",     # reference vs carved-bed abaque, per lake
+]
+
+[display.flow]
+enabled = true
+cross_section = true
+piezometry = true
+budget = true
+streamflow = true
