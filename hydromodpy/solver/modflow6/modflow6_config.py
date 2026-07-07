@@ -136,7 +136,14 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
 
     vka: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
-        description="Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka.",
+        description=(
+            "Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. "
+            "Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' "
+            "flow parameter instead, which is mutually exclusive with a non-unit vka and is a "
+            "direct conductivity, never a mode-switched value. Vertical anisotropy is "
+            "grid-aligned and needs no XT3D; a horizontal K22 field or an angle (not exposed "
+            "here) would auto-activate XT3D."
+        ),
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,

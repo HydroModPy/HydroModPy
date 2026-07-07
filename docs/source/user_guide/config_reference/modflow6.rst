@@ -9,7 +9,7 @@ TOML section: ``[modflow6]``
 
 Pydantic model: ``Modflow6Config`` defined in ``hydromodpy.solver.modflow6.modflow6_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L169>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L176>`__
 
 Expert-level MODFLOW 6 configuration organized by concern.
 
@@ -38,7 +38,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.runtime]</code>
       </div>
 
-   :bdg-primary:`Modflow6RuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L172>`__
+   :bdg-primary:`Modflow6RuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L179>`__
 
       MODFLOW 6 runtime options.
 
@@ -341,7 +341,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.process_specific]</code>
       </div>
 
-   :bdg-primary:`Modflow6ProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L176>`__
+   :bdg-primary:`Modflow6ProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L183>`__
 
       Process-specific controls for MODFLOW 6 flow packages.
 
@@ -362,7 +362,7 @@ Fields
 
          :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L137>`__
 
-            Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka.
+            Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' flow parameter instead, which is mutually exclusive with a non-unit vka and is a direct conductivity, never a mode-switched value. Vertical anisotropy is grid-aligned and needs no XT3D; a horizontal K22 field or an angle (not exposed here) would auto-activate XT3D.
 
 
       .. container:: hmp-field hmp-field-level-expert
@@ -374,7 +374,7 @@ Fields
               <code class="hmp-field-name">evt_extinction_depth</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L141>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L148>`__
 
             Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value.
 
@@ -388,7 +388,7 @@ Fields
               <code class="hmp-field-name">lak_forcing_mode</code>
             </div>
 
-         :bdg-primary:`Literal['auto', 'inline', 'ts6']` :bdg-secondary:`default = "auto"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L150>`__
+         :bdg-primary:`Literal['auto', 'inline', 'ts6']` :bdg-secondary:`default = "auto"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L157>`__
 
             How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.
 
@@ -402,7 +402,7 @@ Fields
               <code class="hmp-field-name">ts6_min_periods</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L160>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 120` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L167>`__
 
             Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file.
 
@@ -420,7 +420,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.sgrid]</code>
       </div>
 
-   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L180>`__
+   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L187>`__
 
       Solver-grid payload split into planar and vertical sections.
 

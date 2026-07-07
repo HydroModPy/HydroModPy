@@ -60,6 +60,7 @@ from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_c
 from hydromodpy.solver.modflow6.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
+    resolve_k33_field,
     resolve_required_flow_properties,
 )
 from hydromodpy.solver.modflow6.runtime_reuse import (
@@ -489,6 +490,13 @@ def run_pre_processing(  # noqa: PLR0915
     model.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
     model.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
     model.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
+    kv_field = solver_mesh.flatten_from_grid(flow_params["kv"]) if "kv" in flow_params else None
+    model.k33 = resolve_k33_field(
+        model.hk,
+        kv_field,
+        model.modflow_config.process_specific.vka,
+        label="flow vertical anisotropy",
+    )
     log_xt3d_resolution(model, solver_mesh)
 
     runtime = model.modflow_config.runtime
@@ -611,8 +619,9 @@ def run_pre_processing(  # noqa: PLR0915
         model.gwf,
         icelltype=np.ones((model.nlay,), dtype=int),
         k=model.hk,
-        # k33 = k / vka (vka = kh/kv vertical anisotropy ratio, > 0).
-        k33=model.hk / float(model.modflow_config.process_specific.vka),
+        # Vertical conductivity: a per-cell Kv field or the uniform kh/vka ratio.
+        # Vertical anisotropy is grid-aligned, so it needs no XT3D.
+        k33=model.k33,
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,
         wetdry=wetdry,

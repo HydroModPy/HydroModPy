@@ -6811,7 +6811,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L172>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L179>`__
    * - ``modflow6.runtime.mf6_executable_name``
      - ``str``
      - expert
@@ -6937,7 +6937,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L176>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L183>`__
    * - ``modflow6.process_specific.vka``
      - ``float``
      - expert
@@ -6949,25 +6949,25 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-evt-extinction-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L141>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L148>`__
    * - ``modflow6.process_specific.lak_forcing_mode``
      - ``Literal['auto', 'inline', 'ts6']``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-lak-forcing-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L150>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L157>`__
    * - ``modflow6.process_specific.ts6_min_periods``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-ts6-min-periods>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L160>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L167>`__
    * - ``modflow6.sgrid``
      - ``SolverSGridConfig``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L180>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/modflow6/modflow6_config.py#L187>`__
    * - ``modflow6.sgrid.planar``
      - ``PlanarGridConfig``
      - user
