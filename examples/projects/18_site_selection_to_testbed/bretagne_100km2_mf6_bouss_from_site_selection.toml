@@ -1,0 +1,45 @@
+[workflow]
+mode = "testbed"
+
+[testbed]
+id = "bretagne_site_selection_100km2_mf6_bouss"
+subject = "flow"
+purpose = "site_selection_regenerated_100km2_mf6_bouss_comparison"
+base_config = "../10_testbed_workflow/boussinesq/natural_geology_k/compare_natural_100km2_mf6_bouss_base.toml"
+output_root = "outputs/bretagne_site_selection_100km2_mf6_bouss"
+execute = false
+continue_on_error = true
+
+[testbed.runner]
+type = "comparison"
+no_display = true
+
+[testbed.catalog]
+from_site_selection_manifest = "../17_site_selection_workflow/outputs/bretagne_non_jauge_dem_100km2_v1/site_selection_manifest.json"
+output = "regional_lab_sites_csv"
+format = "csv"
+id_field = "site_id"
+label_field = "site_label"
+axis_field = "region_id"
+tags_field = "tags"
+enabled_field = "enabled"
+required_fields = ["site_id", "site_label", "x_outlet", "y_outlet", "area_km2"]
+field_equals = { site_status = "selected" }
+
+[[testbed.case_from_catalog]]
+id_template = "{site_id}"
+label_template = "{site_label}"
+axis_template = "{region_id}"
+required_fields = ["x_outlet", "y_outlet"]
+
+[testbed.case_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_bretagne_100km2_mf6_bouss"
+output_root = "outputs/bretagne_site_selection_100km2_mf6_bouss/comparisons/{site_id}_mf6_bouss"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_bretagne_100km2_shared_case"
+description = "Regenerated Bretagne 100 km2 site from site_selection manifest."
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"

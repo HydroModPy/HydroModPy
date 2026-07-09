@@ -45,7 +45,7 @@ def test_delineate_candidate_outlet_delegates_to_existing_point_extractor(tmp_pa
         outlet=outlet,
         flow_products=flow_products,
         output_root=tmp_path,
-        snap_dist_m=250,
+        dem_snap_max_distance_m=250,
         builder=fake_builder,
         area_reader=lambda _path: 123.4,
     )
@@ -91,12 +91,12 @@ def test_delineate_candidate_outlet_can_snap_to_reference_network_before_dem(tmp
         outlet=outlet,
         flow_products=flow_products,
         output_root=tmp_path,
-        snap_dist_m=150,
+        dem_snap_max_distance_m=150,
         builder=fake_builder,
         area_reader=lambda _path: 123.4,
         reference_network=reference_network,
         reference_network_source="bdtopage",
-        reference_network_max_distance_m=100.0,
+        reference_network_snap_tolerance_m=100.0,
     )
 
     assert calls["x_outlet"] == pytest.approx(350010.0)
@@ -124,7 +124,7 @@ def test_try_delineate_candidate_outlet_returns_rejected_record_on_failure(tmp_p
         outlet=outlet,
         flow_products=flow_products,
         output_root=tmp_path,
-        snap_dist_m=250,
+        dem_snap_max_distance_m=250,
         builder=failing_builder,
     )
 
@@ -157,7 +157,7 @@ def test_delineate_site_selection_candidates_batches_candidates(tmp_path):
         candidates,
         flow_products=flow_products,
         output_root=tmp_path,
-        snap_dist_m=250,
+        dem_snap_max_distance_m=250,
         crs_project="EPSG:2154",
         delineation_builder=fake_builder,
         area_reader=lambda _path: 42.0,

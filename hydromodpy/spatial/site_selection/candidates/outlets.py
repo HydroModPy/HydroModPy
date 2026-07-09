@@ -10,6 +10,8 @@ from typing import Any
 
 from hydromodpy.spatial.site_selection.evidence.station_influence import STATION_INFLUENCE_FIELDS
 
+_LAMBERT93_METADATA_MAX_REPROJECTION_ERROR_M = 1000.0
+
 
 @dataclass(frozen=True)
 class CandidateOutlet:
@@ -54,8 +56,8 @@ def candidate_outlets_from_point_records(
     Records without a location are skipped. When ``target_crs`` is provided,
     coordinates are converted before the candidate is emitted. Hub'Eau station
     metadata often contains Lambert-93 coordinates alongside WGS84 longitude and
-    latitude; those provider coordinates are used directly when Lambert-93 is the
-    requested target CRS.
+    latitude; those provider coordinates are used directly when they are
+    consistent with the WGS84 location and Lambert-93 is the requested target CRS.
     """
 
     candidates: list[CandidateOutlet] = []
@@ -134,8 +136,32 @@ def _location_coordinates_for_target(
         x_l93 = _float_or_none(metadata.get("x_l93"))
         y_l93 = _float_or_none(metadata.get("y_l93"))
         if x_l93 is not None and y_l93 is not None:
-            return x_l93, y_l93, "EPSG:2154"
+            target_x, target_y = _transform_coordinates(
+                x=x,
+                y=y,
+                source_crs=source_crs,
+                target_crs=target_crs,
+            )
+            if _projected_coordinates_are_close(x_l93, y_l93, target_x, target_y):
+                return x_l93, y_l93, "EPSG:2154"
+            return target_x, target_y, "EPSG:2154"
 
+    target_x, target_y = _transform_coordinates(
+        x=x,
+        y=y,
+        source_crs=source_crs,
+        target_crs=target_crs,
+    )
+    return target_x, target_y, target_crs
+
+
+def _transform_coordinates(
+    *,
+    x: float,
+    y: float,
+    source_crs: str,
+    target_crs: str,
+) -> tuple[float, float]:
     try:
         from pyproj import Transformer
     except ImportError as exc:  # pragma: no cover - pyproj is part of spatial deps.
@@ -145,7 +171,19 @@ def _location_coordinates_for_target(
 
     transformer = Transformer.from_crs(source_crs, target_crs, always_xy=True)
     target_x, target_y = transformer.transform(x, y)
-    return float(target_x), float(target_y), target_crs
+    return float(target_x), float(target_y)
+
+
+def _projected_coordinates_are_close(
+    left_x: float,
+    left_y: float,
+    right_x: float,
+    right_y: float,
+) -> bool:
+    return (
+        math.hypot(left_x - right_x, left_y - right_y)
+        <= _LAMBERT93_METADATA_MAX_REPROJECTION_ERROR_M
+    )
 
 
 def thin_candidate_outlets(

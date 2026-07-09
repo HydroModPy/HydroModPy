@@ -16,6 +16,10 @@ from hydromodpy.schema.site_selection_manifest import (
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 from hydromodpy.spatial.site_selection.evaluation.selection import SelectionResult
 from hydromodpy.spatial.site_selection.outputs.manifest import build_selection_manifest
+from hydromodpy.spatial.site_selection.outputs.report_artifacts import (
+    REPORT_ARTIFACT_MANIFEST_OUTPUT_KEY,
+    write_site_selection_report_artifact_manifest,
+)
 
 
 def write_manifest_and_optional_report(
@@ -38,7 +42,7 @@ def write_manifest_and_optional_report(
     manifest_path = root / SITE_SELECTION_MANIFEST_NAME
     report_path = root / REVIEW_DIR_NAME / REVIEW_HTML_NAME
     map_path = root / REVIEW_DIR_NAME / REVIEW_MAP_PNG_NAME
-    render = report_renderer if config.output.write_report_html else None
+    render = report_renderer if config.report_html_build_at_end else None
     manifest_output_paths = {
         **output_paths,
         "site_selection_manifest_json": manifest_path,
@@ -61,6 +65,9 @@ def write_manifest_and_optional_report(
     if render is not None:
         paths["site_selection_report_html"] = render(manifest_path)
         paths["site_selection_map_png"] = map_path
+    paths[REPORT_ARTIFACT_MANIFEST_OUTPUT_KEY] = write_site_selection_report_artifact_manifest(
+        manifest_path
+    )
     return paths
 
 

@@ -194,18 +194,18 @@ class CatchmentDelineation:
 
         river_products = getattr(self, "_river_network_products", None)
         if not isinstance(river_products, RiverNetworkProducts):
-            generated_network_shp = _optional_str_path(
+            dem_network_shp = _optional_str_path(
                 getattr(self, "hydrographic_network_generated_shp", None)
             )
             generated_summary_json = _optional_str_path(
                 getattr(self, "hydrographic_network_generated_summary_json", None)
             )
             river_products = RiverNetworkProducts(
-                enabled=bool(generated_network_shp is not None),
-                hydrographic_network_generated_shp=generated_network_shp,
+                enabled=bool(dem_network_shp is not None),
+                hydrographic_network_generated_shp=dem_network_shp,
                 hydrographic_network_generated_summary_json=generated_summary_json,
             )
-        generated_network = HydrographicNetwork.from_river_network_products(
+        dem_network = HydrographicNetwork.from_river_network_products(
             river_products,
             watershed_shp=str(self.watershed_shp),
         )
@@ -225,7 +225,7 @@ class CatchmentDelineation:
             zone_kind=("uniform" if str(self.catch_def).strip().lower() == "dem" else "catchment"),
             watershed_box_buff_dem=str(self.watershed_box_buff_dem),
             regional_dem_path=str(getattr(self, "dem_init_path", "")) or None,
-            hydrographic_networks=HydrographicNetworks(generated=generated_network),
+            hydrographic_networks=HydrographicNetworks(generated=dem_network),
         )
 
     def get_domain_geographic_context(self) -> DomainGeographicContext:

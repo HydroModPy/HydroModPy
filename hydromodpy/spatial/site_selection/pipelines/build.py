@@ -8,18 +8,18 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
-from hydromodpy.spatial.site_selection.candidates.generation import (
-    CandidateGenerationEvidence,
-    write_candidate_generation_jsonl,
+from hydromodpy.spatial.site_selection.candidates.candidate_builders import (
+    CandidateAuditEvidence,
+    write_candidate_audit_jsonl,
     write_candidate_outlets_geojson,
-    write_generated_network_geojson,
+    write_dem_network_geojson,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
 )
 from hydromodpy.spatial.site_selection.candidates.pipeline import (
-    build_dem_area_light_candidates,
-    build_generated_network_candidates,
+    build_dem_area_target_candidates,
+    build_dem_network_candidates,
     build_station_candidate_outlets,
     first_candidate_crs,
     load_reference_network_for_station_candidates,
@@ -67,7 +67,7 @@ class SiteSelectionBuildResult:
     selection: SelectionResult
     output_paths: dict[str, Path]
     flow_products: SiteSelectionFlowProducts
-    candidate_generation_evidence: list[CandidateGenerationEvidence] | None = None
+    candidate_audit_evidence: list[CandidateAuditEvidence] | None = None
 
 
 def build_site_selection_from_point_records(
@@ -75,6 +75,7 @@ def build_site_selection_from_point_records(
     config: SiteSelectionConfig,
     point_records: Iterable[Any],
     dem_init_path: str | Path | None = None,
+    map_dem_path: str | Path | None = None,
     output_root: str | Path | None = None,
     crs_project: str | None = None,
     backend: object | None = None,
@@ -83,6 +84,7 @@ def build_site_selection_from_point_records(
     area_reader=None,
     write_outputs: bool = True,
     report_renderer: Callable[[str | Path], Path] | None = None,
+    preserve_station_candidates: bool = False,
 ) -> SiteSelectionBuildResult:
     """Run station-led site selection from loaded ``PointRecord`` objects.
 
@@ -108,6 +110,7 @@ def build_site_selection_from_point_records(
         records,
         config=config,
         target_crs=target_crs,
+        preserve_all=preserve_station_candidates,
     )
 
     flow_products = build_site_selection_flow_products(
@@ -129,14 +132,14 @@ def build_site_selection_from_point_records(
         candidates,
         flow_products=flow_products,
         output_root=root / "catchments",
-        snap_dist_m=config.outlets.snap_dist_m,
+        dem_snap_max_distance_m=config.outlets.dem_snap_max_distance_m,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
         delineation_builder=delineation_builder,
         area_reader=area_reader,
         reference_network=reference_network,
         reference_network_source="" if reference_bundle is None else reference_bundle.source,
-        reference_network_max_distance_m=config.outlets.reference_network_max_distance_m,
+        reference_network_snap_tolerance_m=config.outlets.reference_network_snap_max_distance_m,
     )
     annotations = annotate_site_selection_catchments(
         delineated,
@@ -170,6 +173,8 @@ def build_site_selection_from_point_records(
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
         flow_manifest["intermediate_rasters_kept"] = config.output.keep_intermediate_rasters
+        if map_dem_path is not None:
+            flow_manifest["map_dem_path"] = str(Path(map_dem_path).expanduser().resolve())
         if reference_bundle is not None:
             flow_manifest["reference_network"] = reference_bundle.to_manifest_record()
         output_paths.update(
@@ -199,7 +204,7 @@ def build_site_selection_from_point_records(
     )
 
 
-def build_site_selection_from_generated_network(
+def build_site_selection_from_dem_network_sampling(
     *,
     config: SiteSelectionConfig,
     dem_init_path: str | Path | None = None,
@@ -212,7 +217,7 @@ def build_site_selection_from_generated_network(
     write_outputs: bool = True,
     report_renderer: Callable[[str | Path], Path] | None = None,
 ) -> SiteSelectionBuildResult:
-    """Run DEM/network-generated site selection without station or CSV candidates."""
+    """Run DEM network sampling site selection without station or CSV candidates."""
 
     root = Path(output_root) if output_root is not None else config.output_root
     root = root.expanduser().resolve()
@@ -222,9 +227,7 @@ def build_site_selection_from_generated_network(
         else None
     )
     if dem_path is None:
-        raise ValueError(
-            "build_site_selection_from_generated_network requires dem_init_path or dem.path."
-        )
+        raise ValueError("build_site_selection_from_dem_network_sampling requires dem_init_path or dem.path.")
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
     search_geometry = site_selection_search_geometry(config, target_crs=target_crs)
 
@@ -236,7 +239,7 @@ def build_site_selection_from_generated_network(
         backend=backend,
         builder=flow_products_builder or build_regional_flow_products,
     )
-    candidate_result = build_generated_network_candidates(
+    candidate_result = build_dem_network_candidates(
         config=config,
         flow_products=flow_products,
         target_crs=target_crs,
@@ -244,13 +247,13 @@ def build_site_selection_from_generated_network(
         search_geometry=search_geometry,
     )
     candidates = candidate_result.candidates
-    candidate_generation_evidence = candidate_result.evidence
+    candidate_audit_evidence = candidate_result.evidence
     reference_bundle = candidate_result.reference_bundle
     delineated = delineate_site_selection_candidates(
         candidates,
         flow_products=flow_products,
         output_root=root / "catchments",
-        snap_dist_m=config.outlets.snap_dist_m,
+        dem_snap_max_distance_m=config.outlets.dem_snap_max_distance_m,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
         delineation_builder=delineation_builder,
@@ -261,7 +264,7 @@ def build_site_selection_from_generated_network(
             else None
         ),
         reference_network_source="" if reference_bundle is None else reference_bundle.source,
-        reference_network_max_distance_m=config.outlets.reference_network_max_distance_m,
+        reference_network_snap_tolerance_m=config.outlets.reference_network_snap_max_distance_m,
     )
     annotations = annotate_site_selection_catchments(
         delineated,
@@ -287,20 +290,20 @@ def build_site_selection_from_generated_network(
             influence_evidence=annotations.influence_evidence,
             geology_evidence=annotations.geology_evidence,
         )
-        output_paths["candidate_generation_jsonl"] = write_candidate_generation_jsonl(
-            root / "candidate_generation.jsonl",
-            candidate_generation_evidence,
+        output_paths["candidate_audit_jsonl"] = write_candidate_audit_jsonl(
+            root / "candidate_audit.jsonl",
+            candidate_audit_evidence,
         )
         if config.output.write_geojson:
             output_paths["candidate_outlets_geojson"] = write_candidate_outlets_geojson(
                 root / "candidate_outlets.geojson",
                 candidates,
             )
-            output_paths["generated_network_geojson"] = write_generated_network_geojson(
-                root / "generated_dem_network.geojson",
+            output_paths["dem_network_geojson"] = write_dem_network_geojson(
+                root / "dem_network.geojson",
                 flow_products=flow_products,
                 hydrology=config.hydrology,
-                max_cells=config.outlets.max_generated_network_cells,
+                max_cells=config.outlets.max_dem_network_cells,
                 search_geometry=search_geometry,
             )
         flow_manifest = flow_products.to_manifest_record()
@@ -314,7 +317,7 @@ def build_site_selection_from_generated_network(
                 config=config.model_copy(update={"output_root": root}),
                 selection=selection,
                 output_paths=output_paths,
-                action="generated_candidates",
+                action="dem_network_sampling",
                 flow_products=flow_manifest,
                 report_renderer=report_renderer,
             )
@@ -333,11 +336,11 @@ def build_site_selection_from_generated_network(
         selection=selection,
         output_paths=output_paths,
         flow_products=flow_products,
-        candidate_generation_evidence=candidate_generation_evidence,
+        candidate_audit_evidence=candidate_audit_evidence,
     )
 
 
-def build_site_selection_from_dem_area_light(
+def build_site_selection_from_dem_area_target(
     *,
     config: SiteSelectionConfig,
     dem_init_path: str | Path | None = None,
@@ -351,10 +354,10 @@ def build_site_selection_from_dem_area_light(
     write_outputs: bool = True,
     report_renderer: Callable[[str | Path], Path] | None = None,
 ) -> SiteSelectionBuildResult:
-    """Run the lightweight DEM-only basin-area selection workflow."""
+    """Run the DEM target-area basin selection workflow."""
 
-    if config.dem_area_light is None:
-        raise ValueError("build_site_selection_from_dem_area_light requires dem_area_light config.")
+    if config.dem_area_target is None:
+        raise ValueError("build_site_selection_from_dem_area_target requires dem_area_target config.")
 
     root = Path(output_root) if output_root is not None else config.output_root
     root = root.expanduser().resolve()
@@ -364,9 +367,7 @@ def build_site_selection_from_dem_area_light(
         else None
     )
     if dem_path is None:
-        raise ValueError(
-            "build_site_selection_from_dem_area_light requires dem_init_path or dem.path."
-        )
+        raise ValueError("build_site_selection_from_dem_area_target requires dem_init_path or dem.path.")
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
     search_geometry = site_selection_search_geometry(config, target_crs=target_crs)
 
@@ -378,7 +379,7 @@ def build_site_selection_from_dem_area_light(
         backend=backend,
         builder=flow_products_builder or build_regional_flow_products,
     )
-    candidate_result = build_dem_area_light_candidates(
+    candidate_result = build_dem_area_target_candidates(
         config=config,
         flow_products=flow_products,
         target_crs=target_crs,
@@ -388,13 +389,13 @@ def build_site_selection_from_dem_area_light(
         raw_accumulation_builder=raw_accumulation_builder,
     )
     candidates = candidate_result.candidates
-    candidate_generation_evidence = candidate_result.evidence
+    candidate_audit_evidence = candidate_result.evidence
     raw_accumulation_path = candidate_result.raw_accumulation_path
     delineated = delineate_site_selection_candidates(
         candidates,
         flow_products=flow_products,
         output_root=root / "catchments",
-        snap_dist_m=1,
+        dem_snap_max_distance_m=1,
         crs_project=target_crs or first_candidate_crs(candidates),
         backend=backend,
         delineation_builder=delineation_builder,
@@ -405,11 +406,11 @@ def build_site_selection_from_dem_area_light(
         criteria=config.criteria,
     )
     delineated = annotations.catchments
-    criteria = _dem_area_light_criteria(config)
+    criteria = _dem_area_target_criteria(config)
     selection = select_delineated_catchments(
         delineated,
         criteria=criteria,
-        spatial_selection=_dem_area_light_spatial_selection(config),
+        spatial_selection=_dem_area_target_spatial_selection(config),
         selection_principle=config.strategy.principle,
         basin_geometries=_load_basin_geometries(delineated),
     )
@@ -428,15 +429,15 @@ def build_site_selection_from_dem_area_light(
             write_observation_vectors=False,
             write_context_vectors=False,
         )
-        output_paths["candidate_generation_jsonl"] = write_candidate_generation_jsonl(
-            root / "candidate_generation.jsonl",
-            candidate_generation_evidence,
+        output_paths["candidate_audit_jsonl"] = write_candidate_audit_jsonl(
+            root / "candidate_audit.jsonl",
+            candidate_audit_evidence,
         )
         output_paths["diagnostics_csv"] = write_csv(
             root / "diagnostics.csv",
-            _dem_area_light_diagnostic_rows(
+            _dem_area_target_diagnostic_rows(
                 candidates=candidates,
-                evidence=candidate_generation_evidence,
+                evidence=candidate_audit_evidence,
                 delineated=delineated,
                 selection=selection,
             ),
@@ -447,11 +448,11 @@ def build_site_selection_from_dem_area_light(
                 root / "candidate_outlets.geojson",
                 candidates,
             )
-            output_paths["generated_network_geojson"] = write_generated_network_geojson(
-                root / "generated_dem_network.geojson",
+            output_paths["dem_network_geojson"] = write_dem_network_geojson(
+                root / "dem_network.geojson",
                 flow_products=flow_products,
                 hydrology=config.hydrology,
-                max_cells=config.outlets.max_generated_network_cells,
+                max_cells=config.outlets.max_dem_network_cells,
                 search_geometry=search_geometry,
             )
         flow_manifest = flow_products.to_manifest_record()
@@ -459,13 +460,13 @@ def build_site_selection_from_dem_area_light(
         flow_manifest["dem_source"] = config.dem.source
         flow_manifest["intermediate_rasters_kept"] = config.output.keep_intermediate_rasters
         flow_manifest["raw_flow_accumulation_cells_path"] = str(raw_accumulation_path)
-        flow_manifest["dem_area_light"] = config.dem_area_light.model_dump(mode="json")
+        flow_manifest["dem_area_target"] = config.dem_area_target.model_dump(mode="json")
         output_paths.update(
             write_manifest_and_optional_report(
                 config=config.model_copy(update={"output_root": root}),
                 selection=selection,
                 output_paths=output_paths,
-                action="dem_area_light",
+                action="dem_area_target",
                 flow_products=flow_manifest,
                 report_renderer=report_renderer,
             )
@@ -484,7 +485,7 @@ def build_site_selection_from_dem_area_light(
         selection=selection,
         output_paths=output_paths,
         flow_products=flow_products,
-        candidate_generation_evidence=candidate_generation_evidence,
+        candidate_audit_evidence=candidate_audit_evidence,
     )
 
 
@@ -526,15 +527,11 @@ def _cleanup_intermediate_rasters(
 
 
 def _first_region_id(config: SiteSelectionConfig) -> str:
-    if config.territory.regions:
-        return config.territory.regions[0]
-    if config.territory.departments:
-        return config.territory.departments[0]
-    return ""
+    return config.resolved_region_id
 
 
-def _dem_area_light_criteria(config: SiteSelectionConfig):
-    dem_area = config.dem_area_light
+def _dem_area_target_criteria(config: SiteSelectionConfig):
+    dem_area = config.dem_area_target
     if dem_area is None:
         return config.criteria
     area = AreaCriteriaConfig(
@@ -547,7 +544,7 @@ def _dem_area_light_criteria(config: SiteSelectionConfig):
     return config.criteria.model_copy(update={"area": area})
 
 
-def _dem_area_light_spatial_selection(config: SiteSelectionConfig):
+def _dem_area_target_spatial_selection(config: SiteSelectionConfig):
     current = config.spatial_selection
     return current.model_copy(
         update={
@@ -559,8 +556,8 @@ def _dem_area_light_spatial_selection(config: SiteSelectionConfig):
             ),
             "overlap_reference": "smaller_basin",
             "overlap_mode": "hard_reject",
-            "max_selected_sites": config.dem_area_light.n_basins
-            if config.dem_area_light is not None
+            "max_selected_sites": config.dem_area_target.n_basins
+            if config.dem_area_target is not None
             else current.max_selected_sites,
         }
     )
@@ -592,10 +589,10 @@ def _load_basin_geometries(catchments: list[DelineatedCatchment]) -> dict[str, o
     return geometries
 
 
-def _dem_area_light_diagnostic_rows(
+def _dem_area_target_diagnostic_rows(
     *,
     candidates: list[CandidateOutlet],
-    evidence: list[CandidateGenerationEvidence],
+    evidence: list[CandidateAuditEvidence],
     delineated: list[DelineatedCatchment],
     selection: SelectionResult,
 ) -> list[dict[str, int | str]]:
@@ -642,7 +639,7 @@ def _default_project_crs(config: SiteSelectionConfig) -> str | None:
 
 __all__ = [
     "SiteSelectionBuildResult",
-    "build_site_selection_from_dem_area_light",
-    "build_site_selection_from_generated_network",
+    "build_site_selection_from_dem_area_target",
+    "build_site_selection_from_dem_network_sampling",
     "build_site_selection_from_point_records",
 ]

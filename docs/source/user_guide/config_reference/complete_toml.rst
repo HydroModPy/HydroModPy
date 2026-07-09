@@ -22,7 +22,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [workflow]
-      # Workflow mode dispatched by `hmp run`.
+      # Workflow entry point used by `hmp run`: selects which workflow implementation parses the rest of the TOML, for example 'simulation', 'comparison', 'testbed', or 'site_selection'.
       # mode = ""  # REQUIRED
 
 .. dropdown:: ``[workspace]`` (WorkspaceConfig)
@@ -348,6 +348,17 @@ Sub-models are linked back to their per-section page.
       # Transport figure switches.
       # transport = ...  # uses factory default
 
+.. dropdown:: ``[report]`` (ReportConfig)
+   :icon: gear
+
+   See :doc:`report` for the full description.
+
+   .. code-block:: toml
+
+      [report]
+      # Optional HTML report intent and artifact contract.
+      # html = ...  # uses factory default
+
 .. dropdown:: ``[persistence]`` (PersistenceConfig)
    :icon: gear
 
@@ -559,9 +570,9 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [site_selection]
-      # Stable identifier for this selection campaign.
+      # Stable campaign identifier copied to manifests, decision exports, and downstream regional-lab/testbed hand-offs.
       # selection_id = ""  # REQUIRED
-      # Output directory for all site-selection artifacts.
+      # Directory where site-selection artifacts are written, resolved relative to the TOML file when a relative path is provided. Contains manifests, decision tables, spatial layers, reports, and optional intermediate files.
       # output_root = ""  # REQUIRED
       # Optional seed used by stochastic candidate thinning.
       # random_seed = ...  # default = None
@@ -569,23 +580,23 @@ Sub-models are linked back to their per-section page.
       # strategy = ...  # uses factory default
       # Territory where candidate basins are searched.
       # territory = ""  # REQUIRED
-      # no description
+      # DEM source requested by site selection.
       # dem = ...  # uses factory default
-      # no description
+      # DEM-derived hydrologic products requested by the selection workflow.
       # hydrology = ...  # uses factory default
       # Compact settings for DEM-only automatic small-basin selection.
-      # dem_area_light = ...  # default = None
-      # no description
+      # dem_area_target = ...  # default = None
+      # Execution input selector used by the site-selection workflow.
       # input = ...  # uses factory default
-      # no description
+      # Candidate outlet construction settings.
       # outlets = ...  # uses factory default
-      # no description
+      # Spatial thinning and overlap policy.
       # spatial_selection = ...  # uses factory default
-      # no description
+      # Selection criteria and criterion-mode lists.
       # criteria = ...  # uses factory default
-      # no description
+      # Output artifact switches.
       # output = ...  # uses factory default
-      # no description
+      # Optional static context layers for review figures.
       # map_context = ...  # uses factory default
 
 .. dropdown:: ``[hydrometry]`` (HydrometryConfig)
@@ -596,10 +607,10 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [hydrometry]
-      # Project start date (ISO format, e.g. '2019-01-01').
+      # Start date of the data extraction window (ISO format, e.g. '2019-01-01').
       # example: date_start = "2019-01-01"
       # date_start = ...  # default = None
-      # Project end date (ISO format, e.g. '2025-12-31').
+      # End date of the data extraction window (ISO format, e.g. '2025-12-31').
       # example: date_end = "2025-12-31"
       # date_end = ...  # default = None
       # At least one data source.

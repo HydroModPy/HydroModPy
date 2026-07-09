@@ -124,6 +124,36 @@ def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
     assert 6 in selected
 
 
+def test_modflow6_prt_writes_absolute_release_z_from_local_fraction() -> None:
+    transport = Transport(
+        {
+            "modflow6prt": {
+                "parameters": {
+                    "release_zone": "domain",
+                    "local_z": 0.25,
+                }
+            }
+        }
+    )
+    flow_model = SimpleNamespace(
+        solver_mesh=SimpleNamespace(
+            top=np.array([10.0, 20.0]),
+            botm=np.array([[0.0, 12.0]]),
+            inactive_mask=np.array([[False, False]]),
+            cell_centroids=lambda: np.array([[1.0, 2.0], [3.0, 4.0]]),
+        ),
+        nlay=1,
+        ncpl=2,
+        _stream_support_mask=np.array([False, False]),
+    )
+
+    prt = Modflow6Prt(SimpleNamespace(), transport, flow_model)
+    packagedata = prt._build_packagedata()
+
+    assert packagedata[0][4] == 2.5
+    assert packagedata[1][4] == 14.0
+
+
 def test_modflow6_prt_extractor_writes_vectorized_particles(tmp_path: Path) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
@@ -260,6 +290,8 @@ def test_modflow6_prt_can_write_minimal_disv_package(tmp_path: Path) -> None:
     prp_text = (tmp_path / "flow_prt.prp").read_text(encoding="utf-8").lower()
     oc_text = (tmp_path / "flow_prt.oc").read_text(encoding="utf-8").lower()
     assert "track  fileout" not in prp_text
+    assert "local_z" not in prp_text
+    assert "coordinate_check_method" not in prp_text
     assert "track  fileout" in oc_text
     namefile = (tmp_path / "mfsim.nam").read_text(encoding="utf-8").lower()
     assert namefile.index("ims6") < namefile.index("ems6")

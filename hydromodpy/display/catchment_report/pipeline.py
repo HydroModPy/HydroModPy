@@ -3,22 +3,31 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
-from dataclasses import dataclass
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
+from hydromodpy.display.catchment_report.build_options import CatchmentReportBuildOptions
 from hydromodpy.display.catchment_report.builder import (
     CatchmentReportConfig,
     build_catchment_report,
 )
-from hydromodpy.display.catchment_report.context import build_context
+from hydromodpy.display.catchment_report.context import (
+    build_context,
+    context_artifact_manifest_path,
+)
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.postflight import write_figure_postflight_report
 from hydromodpy.display.catchment_report.preflight import validate_catchment_report_preflight
 from hydromodpy.display.catchment_report.presets import (
     CatchmentReportPreset,
 )
+from hydromodpy.display.overview.report import overview_artifact_manifest_path
+from hydromodpy.display.report_profiles import REPORT_ARTIFACT_MANIFEST_NAME
 
 
 @dataclass(frozen=True)
@@ -28,28 +37,8 @@ class CatchmentReportPipelineResult:
     context_summary: Path | None
     html_report: Path | None
     postflight_report: Path | None = None
-
-
-@dataclass(frozen=True)
-class _PipelineOverrides:
-    run_overview: bool | None
-    run_simulation: bool | None
-    build_context_artifacts: bool | None
-    build_report_html: bool | None
-    no_lock: bool | None
-    stream_run_logs: bool | None
-    strict_figure_postflight: bool | None
-
-
-@dataclass(frozen=True)
-class _PipelineOptions:
-    run_overview: bool
-    run_simulation: bool
-    build_context_artifacts: bool
-    build_report_html: bool
-    no_lock: bool
-    stream_run_logs: bool
-    strict_figure_postflight: bool
+    context_artifact_manifest: Path | None = None
+    overview_artifact_manifest: Path | None = None
 
 
 def run_catchment_report_pipeline(
@@ -63,20 +52,34 @@ def run_catchment_report_pipeline(
     no_lock: bool | None = None,
     stream_run_logs: bool | None = None,
     strict_figure_postflight: bool | None = None,
+    source_artifact_manifest: Path | None = None,
+    source_artifact_manifests: Iterable[Path] = (),
+    simulation_config_path: Path | None = None,
 ) -> CatchmentReportPipelineResult:
     """Run the selected report-production steps from one report config."""
     inputs = CatchmentReportInputs.from_toml(report_config)
-    options = _resolve_pipeline_options(
-        inputs,
-        _PipelineOverrides(
-            run_overview=run_overview,
-            run_simulation=run_simulation,
-            build_context_artifacts=build_context_artifacts,
-            build_report_html=build_report_html,
-            no_lock=no_lock,
-            stream_run_logs=stream_run_logs,
-            strict_figure_postflight=strict_figure_postflight,
-        ),
+    source_manifests = _source_manifest_paths(
+        source_artifact_manifest,
+        source_artifact_manifests,
+    )
+    existing_simulation_manifest = _existing_simulation_artifact_manifest(inputs)
+    if existing_simulation_manifest is not None:
+        source_manifests = _append_manifest_path(source_manifests, existing_simulation_manifest)
+    simulation_source_manifest = _simulation_source_manifest(source_manifests)
+    if simulation_source_manifest is not None:
+        inputs = _inputs_from_source_artifact_manifest(
+            inputs,
+            simulation_source_manifest,
+            simulation_config_path=simulation_config_path,
+        )
+    options = CatchmentReportBuildOptions.from_toml(report_config).with_overrides(
+        run_overview=run_overview,
+        run_simulation=run_simulation,
+        build_context_artifacts=build_context_artifacts,
+        build_report_html=build_report_html,
+        no_lock=no_lock,
+        stream_run_logs=stream_run_logs,
+        strict_figure_postflight=strict_figure_postflight,
     )
     validate_catchment_report_preflight(
         inputs,
@@ -85,66 +88,143 @@ def run_catchment_report_pipeline(
         build_context_artifacts=options.build_context_artifacts,
         build_report_html=options.build_report_html,
     )
-    return _run_pipeline_steps(inputs, options, preset=preset)
-
-
-def _resolve_pipeline_options(
-    inputs: CatchmentReportInputs,
-    overrides: _PipelineOverrides,
-) -> _PipelineOptions:
-    return _PipelineOptions(
-        run_overview=_override_or_default(
-            overrides.run_overview,
-            inputs.pipeline_run_overview,
-        ),
-        run_simulation=_override_or_default(
-            overrides.run_simulation,
-            inputs.pipeline_run_simulation,
-        ),
-        build_context_artifacts=_override_or_default(
-            overrides.build_context_artifacts,
-            inputs.pipeline_build_context_artifacts,
-        ),
-        build_report_html=_override_or_default(
-            overrides.build_report_html,
-            inputs.pipeline_build_report_html,
-        ),
-        no_lock=_override_or_default(overrides.no_lock, inputs.pipeline_no_lock),
-        stream_run_logs=_override_or_default(
-            overrides.stream_run_logs,
-            inputs.pipeline_stream_run_logs,
-        ),
-        strict_figure_postflight=_override_or_default(
-            overrides.strict_figure_postflight,
-            inputs.pipeline_strict_figure_postflight,
-        ),
+    return _run_pipeline_steps(
+        inputs,
+        options,
+        preset=preset,
+        upstream_artifact_manifests=source_manifests,
     )
 
 
-def _override_or_default(value: bool | None, default: bool) -> bool:
-    return default if value is None else value
+def _source_manifest_paths(
+    source_artifact_manifest: Path | None,
+    source_artifact_manifests: Iterable[Path],
+) -> tuple[Path, ...]:
+    paths: list[Path] = []
+    if source_artifact_manifest is not None:
+        paths.append(Path(source_artifact_manifest))
+    paths.extend(Path(path) for path in source_artifact_manifests)
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for path in paths:
+        resolved = path.expanduser().resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append(resolved)
+    return tuple(deduped)
+
+
+def _append_manifest_path(paths: tuple[Path, ...], path: Path) -> tuple[Path, ...]:
+    resolved = Path(path).expanduser().resolve()
+    if resolved in {item.expanduser().resolve() for item in paths}:
+        return paths
+    return (*paths, resolved)
+
+
+def _simulation_source_manifest(source_manifests: tuple[Path, ...]) -> Path | None:
+    inferred_manifest: Path | None = None
+    for path in source_manifests:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        metadata = _mapping(payload.get("metadata"))
+        if metadata.get("artifact_scope") == "simulation.display":
+            return path
+        if metadata.get("artifact_scope"):
+            continue
+        if metadata.get("simulation_name") or path.parent.parent.name == "figures":
+            inferred_manifest = inferred_manifest or path
+    return inferred_manifest
+
+
+def _inputs_from_source_artifact_manifest(
+    inputs: CatchmentReportInputs,
+    source_artifact_manifest: Path,
+    *,
+    simulation_config_path: Path | None,
+) -> CatchmentReportInputs:
+    manifest_path = Path(source_artifact_manifest).expanduser().resolve()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    metadata = _mapping(payload.get("metadata"))
+    simulation_figures = manifest_path.parent
+    simulation_name = str(metadata.get("simulation_name") or simulation_figures.name)
+    inferred_workspace = _infer_workspace_from_figure_dir(simulation_figures)
+    updates: dict[str, Any] = {
+        "simulation_name": simulation_name,
+        "simulation_figures": simulation_figures,
+    }
+    if inferred_workspace is not None:
+        updates.update(
+            simulation_workspace_dir=inferred_workspace,
+            simulation_export=(
+                inferred_workspace / "exports" / simulation_name / "timeseries.csv"
+            ),
+            dem_network_root=inferred_workspace / "simulations",
+        )
+    if simulation_config_path is not None:
+        updates["transient_config"] = Path(simulation_config_path).expanduser().resolve()
+    return replace(inputs, **updates)
+
+
+def _infer_workspace_from_figure_dir(simulation_figures: Path) -> Path | None:
+    figures_root = simulation_figures.parent
+    if figures_root.name == "figures":
+        return figures_root.parent
+    return None
+
+
+def _mapping(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
 
 
 def _run_pipeline_steps(
     inputs: CatchmentReportInputs,
-    options: _PipelineOptions,
+    options: CatchmentReportBuildOptions,
     *,
     preset: CatchmentReportPreset | None,
+    upstream_artifact_manifests: tuple[Path, ...],
 ) -> CatchmentReportPipelineResult:
     overview_config = inputs.overview_config if options.run_overview else None
     simulation_config = inputs.transient_config if options.run_simulation else None
     context_summary = None
     html_report = None
     postflight_report = None
+    context_artifact_manifest = _existing_context_artifact_manifest(inputs)
+    overview_artifact_manifest = None
 
     if options.run_overview:
         _run_overview(inputs, options)
+    overview_artifact_manifest = _existing_overview_artifact_manifest(inputs)
     if options.run_simulation:
         _run_simulation(inputs, options)
+        simulation_artifact_manifest = _existing_simulation_artifact_manifest(inputs)
+        if simulation_artifact_manifest is not None:
+            upstream_artifact_manifests = _append_manifest_path(
+                upstream_artifact_manifests,
+                simulation_artifact_manifest,
+            )
     if options.build_context_artifacts:
         context_summary = _build_context_artifacts(inputs)
+        context_artifact_manifest = context_artifact_manifest_path(inputs)
+        if not context_artifact_manifest.exists():
+            context_artifact_manifest = None
     if options.build_report_html:
-        html_report, postflight_report = _build_report_html(inputs, options, preset=preset)
+        html_source_manifests = upstream_artifact_manifests
+        if overview_artifact_manifest is not None:
+            html_source_manifests = (
+                *html_source_manifests,
+                overview_artifact_manifest,
+            )
+        if context_artifact_manifest is not None:
+            html_source_manifests = (
+                *html_source_manifests,
+                context_artifact_manifest,
+            )
+        html_report, postflight_report = _build_report_html(
+            inputs,
+            options,
+            preset=preset,
+            upstream_artifact_manifests=html_source_manifests,
+        )
 
     return CatchmentReportPipelineResult(
         overview_config=overview_config,
@@ -152,10 +232,12 @@ def _run_pipeline_steps(
         context_summary=context_summary,
         html_report=html_report,
         postflight_report=postflight_report,
+        context_artifact_manifest=context_artifact_manifest,
+        overview_artifact_manifest=overview_artifact_manifest,
     )
 
 
-def _run_overview(inputs: CatchmentReportInputs, options: _PipelineOptions) -> None:
+def _run_overview(inputs: CatchmentReportInputs, options: CatchmentReportBuildOptions) -> None:
     _run_hydromodpy(
         inputs.overview_config,
         no_lock=options.no_lock,
@@ -163,7 +245,10 @@ def _run_overview(inputs: CatchmentReportInputs, options: _PipelineOptions) -> N
     )
 
 
-def _run_simulation(inputs: CatchmentReportInputs, options: _PipelineOptions) -> None:
+def _run_simulation(
+    inputs: CatchmentReportInputs,
+    options: CatchmentReportBuildOptions,
+) -> None:
     _run_hydromodpy(
         inputs.transient_config,
         no_lock=options.no_lock,
@@ -176,13 +261,36 @@ def _build_context_artifacts(inputs: CatchmentReportInputs) -> Path:
     return build_context(inputs)
 
 
+def _existing_overview_artifact_manifest(inputs: CatchmentReportInputs) -> Path | None:
+    path = overview_artifact_manifest_path(inputs.overview_figures)
+    return path if path.exists() else None
+
+
+def _existing_context_artifact_manifest(inputs: CatchmentReportInputs) -> Path | None:
+    path = context_artifact_manifest_path(inputs)
+    return path if path.exists() else None
+
+
+def _existing_simulation_artifact_manifest(inputs: CatchmentReportInputs) -> Path | None:
+    path = inputs.simulation_figures / REPORT_ARTIFACT_MANIFEST_NAME
+    return path if path.exists() else None
+
+
 def _build_report_html(
     inputs: CatchmentReportInputs,
-    options: _PipelineOptions,
+    options: CatchmentReportBuildOptions,
     *,
     preset: CatchmentReportPreset | None,
+    upstream_artifact_manifests: tuple[Path, ...],
 ) -> tuple[Path, Path]:
-    config = CatchmentReportConfig.from_inputs(inputs, preset=preset)
+    config = CatchmentReportConfig.from_inputs(
+        inputs,
+        preset=preset,
+        upstream_artifact_manifest=upstream_artifact_manifests[0]
+        if upstream_artifact_manifests
+        else None,
+        upstream_artifact_manifests=upstream_artifact_manifests,
+    )
     html_report = build_catchment_report(config)
     postflight_report = write_figure_postflight_report(
         config,

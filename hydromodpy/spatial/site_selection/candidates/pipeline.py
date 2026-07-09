@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.site_selection.candidates.generation import (
-    CandidateGenerationEvidence,
-    candidate_generation_evidence_with_candidate_attributes,
+from hydromodpy.spatial.site_selection.candidates.candidate_builders import (
+    CandidateAuditEvidence,
+    build_dem_area_target_candidate_outlets,
+    build_network_candidate_outlets,
+    candidate_audit_evidence_with_candidate_attributes,
     ensure_raw_accumulation_cells,
-    generate_dem_area_light_candidate_outlets,
-    generate_network_candidate_outlets,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
@@ -31,11 +31,11 @@ RawAccumulationBuilder = Callable[..., str | Path]
 
 
 @dataclass(frozen=True)
-class GeneratedCandidateResult:
-    """Generated candidates and the optional context used to build them."""
+class CandidateBuildResult:
+    """Candidate outlets and the optional context used to build them."""
 
     candidates: list[CandidateOutlet]
-    evidence: list[CandidateGenerationEvidence]
+    evidence: list[CandidateAuditEvidence]
     search_geometry: object | None = None
     reference_network: object | None = None
     reference_bundle: ReferenceNetworkBundle | None = None
@@ -47,6 +47,7 @@ def build_station_candidate_outlets(
     *,
     config: SiteSelectionConfig,
     target_crs: str | None,
+    preserve_all: bool = False,
 ) -> list[CandidateOutlet]:
     """Build candidate outlets from already-loaded station records."""
 
@@ -56,7 +57,7 @@ def build_station_candidate_outlets(
         source="station_outlets",
         target_crs=target_crs,
     )
-    if config.outlets.min_distance_between_outlets_km is None:
+    if preserve_all or config.outlets.min_distance_between_outlets_km is None:
         return candidates
     return thin_candidate_outlets(
         candidates,
@@ -64,23 +65,23 @@ def build_station_candidate_outlets(
     )
 
 
-def build_generated_network_candidates(
+def build_dem_network_candidates(
     *,
     config: SiteSelectionConfig,
     flow_products: SiteSelectionFlowProducts,
     target_crs: str | None,
     root: Path,
     search_geometry: object | None,
-) -> GeneratedCandidateResult:
+) -> CandidateBuildResult:
     """Build DEM-network candidates and optionally score them against a reference network."""
 
-    candidates, evidence = generate_network_candidate_outlets(
+    candidates, evidence = build_network_candidate_outlets(
         flow_products=flow_products,
         outlets=config.outlets,
         hydrology=config.hydrology,
         search_geometry=search_geometry,
     )
-    reference_network, reference_bundle = load_reference_network_for_generated_candidates(
+    reference_network, reference_bundle = load_reference_network_for_dem_network_candidates(
         config=config,
         candidates=candidates,
         target_crs=target_crs or first_candidate_crs(candidates),
@@ -90,14 +91,14 @@ def build_generated_network_candidates(
         candidates = score_outlets_against_reference_network(
             candidates,
             reference_network,
-            max_distance_m=config.outlets.reference_network_max_distance_m,
+            max_distance_m=config.outlets.reference_network_snap_max_distance_m,
             source=reference_bundle.source,
         )
-        evidence = candidate_generation_evidence_with_candidate_attributes(
+        evidence = candidate_audit_evidence_with_candidate_attributes(
             evidence,
             candidates,
         )
-    return GeneratedCandidateResult(
+    return CandidateBuildResult(
         candidates=candidates,
         evidence=evidence,
         search_geometry=search_geometry,
@@ -106,7 +107,7 @@ def build_generated_network_candidates(
     )
 
 
-def build_dem_area_light_candidates(
+def build_dem_area_target_candidates(
     *,
     config: SiteSelectionConfig,
     flow_products: SiteSelectionFlowProducts,
@@ -115,11 +116,11 @@ def build_dem_area_light_candidates(
     search_geometry: object | None,
     backend: object | None = None,
     raw_accumulation_builder: RawAccumulationBuilder | None = None,
-) -> GeneratedCandidateResult:
-    """Build lightweight DEM-area candidates around the configured target area."""
+) -> CandidateBuildResult:
+    """Build DEM outlet candidates around the configured target area."""
 
-    if config.dem_area_light is None:
-        raise ValueError("build_dem_area_light_candidates requires dem_area_light config.")
+    if config.dem_area_target is None:
+        raise ValueError("build_dem_area_target_candidates requires dem_area_target config.")
 
     raw_accumulation_path = (
         Path(
@@ -138,15 +139,15 @@ def build_dem_area_light_candidates(
             crs_project=target_crs,
         )
     )
-    candidates, evidence = generate_dem_area_light_candidate_outlets(
+    candidates, evidence = build_dem_area_target_candidate_outlets(
         flow_products=flow_products,
-        dem_area_light=config.dem_area_light,
+        dem_area_target=config.dem_area_target,
         hydrology=config.hydrology,
         accumulation_cells_path=raw_accumulation_path,
         search_geometry=search_geometry,
-        max_candidates_before_delineation=config.dem_area_light.max_candidates_before_delineation,
+        max_candidates_before_delineation=config.dem_area_target.max_candidates_before_delineation,
     )
-    return GeneratedCandidateResult(
+    return CandidateBuildResult(
         candidates=candidates,
         evidence=evidence,
         search_geometry=search_geometry,
@@ -174,14 +175,14 @@ def load_reference_network_for_station_candidates(
     )
 
 
-def load_reference_network_for_generated_candidates(
+def load_reference_network_for_dem_network_candidates(
     *,
     config: SiteSelectionConfig,
     candidates: list[CandidateOutlet],
     target_crs: str | None,
     root: Path,
 ) -> tuple[object | None, ReferenceNetworkBundle | None]:
-    """Load a reference network for generated candidates when snapping or scoring needs it."""
+    """Load a reference network for DEM-network candidates when snapping/scoring needs it."""
 
     should_load_for_snap = config.outlets.snap_strategy == "bdtopage_then_dem"
     should_load_for_score_only = (
@@ -294,12 +295,12 @@ def _make_search_geometry_valid(geometry: object | None) -> object | None:
 
 
 __all__ = [
-    "GeneratedCandidateResult",
-    "build_dem_area_light_candidates",
-    "build_generated_network_candidates",
+    "CandidateBuildResult",
+    "build_dem_area_target_candidates",
+    "build_dem_network_candidates",
     "build_station_candidate_outlets",
     "first_candidate_crs",
-    "load_reference_network_for_generated_candidates",
+    "load_reference_network_for_dem_network_candidates",
     "load_reference_network_for_station_candidates",
     "site_selection_search_geometry",
 ]

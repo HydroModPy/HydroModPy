@@ -178,6 +178,14 @@ Subsystem deep dives
       Support selection, hydrography UML, and the simulated active
       network inventory for stream and seepage diagnostics.
 
+   .. grid-item-card:: Site selection internals
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: site_selection/index
+      :link-type: doc
+
+      Candidate building, DEM delineation, criteria, manifests, report
+      rendering, and extension points for the upstream site catalog workflow.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
@@ -217,6 +225,7 @@ Subsystem deep dives
    calibration/index
    data_loading/index
    spatial_support/index
+   site_selection/index
    field/index
    process/process-architecture
    process/flow-boundary-conditions

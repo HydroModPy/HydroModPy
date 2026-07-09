@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
+from hydromodpy.display.catchment_report.settings import (
+    CATCHMENT_REPORT_PROFILE,
+    CatchmentReportSettings,
+)
 
 
 @dataclass(frozen=True)
@@ -25,7 +28,7 @@ class CatchmentReportInputs:
     simulation_figures: Path
     simulation_export: Path
     geographic_scratch: Path
-    generated_network_root: Path
+    dem_network_root: Path
     context_html: Path
     overview_standard_html: Path
     transient_config: Path
@@ -34,13 +37,10 @@ class CatchmentReportInputs:
     observed_discharge_path: Path | None = None
     observed_discharge_station_id: str | None = None
     preset_name: str | None = None
-    pipeline_run_overview: bool = False
-    pipeline_run_simulation: bool = False
-    pipeline_build_context_artifacts: bool = True
-    pipeline_build_report_html: bool = True
-    pipeline_no_lock: bool = True
-    pipeline_stream_run_logs: bool = False
-    pipeline_strict_figure_postflight: bool = False
+    html_report_enabled: bool = False
+    html_report_build_at_end: bool = False
+    html_report_profile: str | None = CATCHMENT_REPORT_PROFILE
+    html_report_strict: bool = False
 
     @classmethod
     def from_toml(cls, path: Path) -> CatchmentReportInputs:
@@ -68,13 +68,10 @@ class CatchmentReportInputs:
             overview_config_name=settings.layout.overview_config_name,
             observed_discharge_path=observed.path if observed else None,
             observed_discharge_station_id=observed.station_id if observed else None,
-            pipeline_run_overview=settings.pipeline.run_overview,
-            pipeline_run_simulation=settings.pipeline.run_simulation,
-            pipeline_build_context_artifacts=settings.pipeline.build_context_artifacts,
-            pipeline_build_report_html=settings.pipeline.build_report_html,
-            pipeline_no_lock=settings.pipeline.no_lock,
-            pipeline_stream_run_logs=settings.pipeline.stream_run_logs,
-            pipeline_strict_figure_postflight=settings.pipeline.strict_figure_postflight,
+            html_report_enabled=settings.html_report.enabled,
+            html_report_build_at_end=settings.html_report.build_at_end,
+            html_report_profile=settings.html_report.profile,
+            html_report_strict=settings.html_report.strict,
         )
 
     @classmethod
@@ -96,13 +93,10 @@ class CatchmentReportInputs:
         observed_discharge_path: Path | None = None,
         observed_discharge_station_id: str | None = None,
         preset_name: str | None = None,
-        pipeline_run_overview: bool = False,
-        pipeline_run_simulation: bool = False,
-        pipeline_build_context_artifacts: bool = True,
-        pipeline_build_report_html: bool = True,
-        pipeline_no_lock: bool = True,
-        pipeline_stream_run_logs: bool = False,
-        pipeline_strict_figure_postflight: bool = False,
+        html_report_enabled: bool = False,
+        html_report_build_at_end: bool = False,
+        html_report_profile: str | None = CATCHMENT_REPORT_PROFILE,
+        html_report_strict: bool = False,
     ) -> CatchmentReportInputs:
         data_overview_project_dir = data_overview_project_dir or watershed_project_dir
         simulation_workspace_dir = simulation_workspace_dir or watershed_project_dir
@@ -132,7 +126,7 @@ class CatchmentReportInputs:
             geographic_scratch=(
                 simulation_workspace_dir / ".solver_scratch" / "_preprocessing" / "geographic"
             ),
-            generated_network_root=simulation_workspace_dir / "simulations",
+            dem_network_root=simulation_workspace_dir / "simulations",
             context_html=context_outputs_dir / "web" / "index.html",
             overview_standard_html=(
                 data_overview_project_dir / "web_review" / "standard" / "index.html"
@@ -143,13 +137,10 @@ class CatchmentReportInputs:
             observed_discharge_path=observed_discharge_path,
             observed_discharge_station_id=observed_discharge_station_id,
             preset_name=preset_name,
-            pipeline_run_overview=pipeline_run_overview,
-            pipeline_run_simulation=pipeline_run_simulation,
-            pipeline_build_context_artifacts=pipeline_build_context_artifacts,
-            pipeline_build_report_html=pipeline_build_report_html,
-            pipeline_no_lock=pipeline_no_lock,
-            pipeline_stream_run_logs=pipeline_stream_run_logs,
-            pipeline_strict_figure_postflight=pipeline_strict_figure_postflight,
+            html_report_enabled=html_report_enabled,
+            html_report_build_at_end=html_report_build_at_end,
+            html_report_profile=html_report_profile,
+            html_report_strict=html_report_strict,
         )
 
 

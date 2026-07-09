@@ -51,7 +51,7 @@ def build_site_selection_plan_blocks(
             lead="Synthese du plan avant execution spatiale.",
             metrics=(
                 ReportMetric("Selection", selection_id),
-                ReportMetric("Mode", input_cfg.get("mode") or "plan_only"),
+                ReportMetric("Mode", input_cfg.get("mode") or "dry_run"),
                 ReportMetric("Sorties prevues", len(planned_outputs)),
                 ReportMetric("Racine de sortie", output_root),
             ),
@@ -175,7 +175,7 @@ def build_site_selection_result_blocks(
     decisions: list[dict[str, Any]],
     components: list[dict[str, Any]],
     evidence: list[dict[str, Any]],
-    candidate_generation: list[dict[str, Any]] | None = None,
+    candidate_audit: list[dict[str, Any]] | None = None,
 ) -> list[ReportBlock]:
     """Build blocks for an executed site-selection report."""
 
@@ -185,6 +185,7 @@ def build_site_selection_result_blocks(
     territory = _mapping(manifest.get("territory"))
     criteria = _mapping(manifest.get("criteria"))
     dem = _mapping(manifest.get("dem"))
+    review_map = _mapping(manifest.get("review_map"))
     flow_products = _mapping(manifest.get("flow_products"))
     outputs = _mapping(manifest.get("outputs"))
     map_context = _mapping(manifest.get("map_context"))
@@ -194,10 +195,15 @@ def build_site_selection_result_blocks(
         output_root=output_root,
         outputs=outputs,
     )
+    dem_boundary_warnings = _dem_boundary_warnings(
+        manifest,
+        output_root=output_root,
+        outputs=outputs,
+    )
 
     decision_by_site = _final_decision_by_site(decisions)
     component_counts, family_counts = _component_counts(components)
-    candidate_generation_rows = candidate_generation or []
+    candidate_audit_rows = candidate_audit or []
 
     return [
         ReportBlock(
@@ -238,7 +244,7 @@ def build_site_selection_result_blocks(
                 item
                 for item in (
                     _principle_explanation(strategy, criteria),
-                    _dem_explanation(dem, flow_products),
+                    _dem_explanation(dem, flow_products, review_map),
                 )
                 if item
             ),
@@ -247,6 +253,7 @@ def build_site_selection_result_blocks(
             block_id="selection_map",
             title="Carte de controle",
             level="compact",
+            warnings=dem_boundary_warnings,
             figures=(
                 ReportFigure(
                     "site_selection_map",
@@ -260,7 +267,7 @@ def build_site_selection_result_blocks(
                 ),
             ),
         ),
-        _candidate_generation_block(candidate_generation_rows),
+        _candidate_audit_block(candidate_audit_rows),
         ReportBlock(
             block_id="selected_sites",
             title="Sites retenus",
@@ -352,7 +359,7 @@ def build_site_selection_result_block_variants(
     decisions: list[dict[str, Any]],
     components: list[dict[str, Any]],
     evidence: list[dict[str, Any]],
-    candidate_generation: list[dict[str, Any]] | None = None,
+    candidate_audit: list[dict[str, Any]] | None = None,
 ) -> tuple[tuple[str, dict[str, ReportBlock]], ...]:
     """Build per-block level variants for an executed selection report."""
 
@@ -367,7 +374,7 @@ def build_site_selection_result_block_variants(
             decisions=decisions,
             components=components,
             evidence=evidence,
-            candidate_generation=candidate_generation,
+            candidate_audit=candidate_audit,
         )
     )
 
@@ -458,11 +465,11 @@ def _decision_message(decision: Mapping[str, Any]) -> Any:
     return _decision_value(decision, "decision_reason") or decision.get("message")
 
 
-def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
+def _candidate_audit_block(rows: list[dict[str, Any]]) -> ReportBlock:
     if not rows:
         return ReportBlock(
-            block_id="candidate_generation",
-            title="Generation de candidats",
+            block_id="candidate_audit",
+            title="Audit des candidats",
             level="audit",
             status="not_applicable",
         )
@@ -491,8 +498,8 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
             )
         )
     return ReportBlock(
-        block_id="candidate_generation",
-        title="Generation de candidats",
+        block_id="candidate_audit",
+        title="Audit des candidats",
         level="audit",
         lead=(
             "Audit des cellules du reseau DEM transformees en exutoires candidats. "
@@ -501,8 +508,8 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
         metrics=tuple(metrics),
         tables=(
             ReportTable(
-                "candidate_generation_table",
-                "Candidats generes et rejets audites",
+                "candidate_audit_table",
+                "Candidats construits et rejets audites",
                 columns=(
                     ("candidate_id", "Candidat"),
                     ("status", "Statut"),
@@ -512,14 +519,14 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
                     ("reference_network_distance_m", "Distance ref m"),
                     ("reference_network_status", "Statut ref"),
                 ),
-                rows=tuple(_candidate_generation_row(row) for row in rows[:80]),
-                empty_message="Aucun candidat genere.",
+                rows=tuple(_candidate_audit_row(row) for row in rows[:80]),
+                empty_message="Aucun candidat audite.",
             ),
         ),
     )
 
 
-def _candidate_generation_row(row: Mapping[str, Any]) -> dict[str, Any]:
+def _candidate_audit_row(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "candidate_id": row.get("candidate_id"),
         "status": row.get("status"),
@@ -632,6 +639,147 @@ def _provenance_warnings(
     )
 
 
+def _dem_boundary_warnings(
+    manifest: Mapping[str, Any],
+    *,
+    output_root: Path,
+    outputs: Mapping[str, Any],
+) -> tuple[str, ...]:
+    flow_products = _mapping(manifest.get("flow_products"))
+    dem_path = _resolve_output_path(
+        flow_products.get("dem_path") or flow_products.get("dem_corrected_path"),
+        output_root=output_root,
+    )
+    if dem_path is None or not dem_path.is_file():
+        return ()
+    try:
+        import rasterio
+
+        with rasterio.open(dem_path) as dataset:
+            dem_bounds = (
+                float(dataset.bounds.left),
+                float(dataset.bounds.bottom),
+                float(dataset.bounds.right),
+                float(dataset.bounds.top),
+            )
+            pixel_size = max(
+                abs(float(dataset.transform.a)),
+                abs(float(dataset.transform.e)),
+                1.0,
+            )
+    except Exception:  # noqa: BLE001 - report diagnostics must not block rendering.
+        return ()
+
+    tolerance_m = max(pixel_size * 2.0, 1.0)
+    touched_sites: list[str] = []
+    for key in ("selected_basins_geojson", "rejected_basins_geojson"):
+        path = _resolve_output_path(outputs.get(key), output_root=output_root)
+        if path is not None:
+            touched_sites.extend(
+                _basins_touching_dem_boundary(
+                    path,
+                    dem_bounds=dem_bounds,
+                    tolerance_m=tolerance_m,
+                )
+            )
+
+    if not touched_sites:
+        return ()
+    sites = ", ".join(sorted(set(touched_sites)))
+    return (
+        "Controle emprise DEM: le ou les bassins suivants touchent la limite "
+        f"du DEM de calcul ({sites}). Cela peut indiquer un bassin tronque et "
+        "une surface sous-estimee. Augmenter site_selection.dem.delineation_buffer_km "
+        "ou utiliser delineation_dem_extent_source = \"selection_territory\" pour "
+        "un recalcul plus sur.",
+    )
+
+
+def _basins_touching_dem_boundary(
+    path: Path,
+    *,
+    dem_bounds: tuple[float, float, float, float],
+    tolerance_m: float,
+) -> list[str]:
+    if not path.is_file():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    features = _sequence(payload.get("features")) if isinstance(payload, Mapping) else []
+    touched: list[str] = []
+    for index, feature in enumerate(features, start=1):
+        if not isinstance(feature, Mapping):
+            continue
+        bounds = _geojson_geometry_bounds(feature.get("geometry"))
+        if bounds is None:
+            continue
+        if _touches_dem_boundary(bounds, dem_bounds=dem_bounds, tolerance_m=tolerance_m):
+            properties = _mapping(feature.get("properties"))
+            touched.append(str(properties.get("site_id") or f"feature_{index}"))
+    return touched
+
+
+def _geojson_geometry_bounds(
+    geometry: object,
+) -> tuple[float, float, float, float] | None:
+    geom = _mapping(geometry)
+    if not geom:
+        return None
+    coordinates: list[tuple[float, float]] = []
+    if geom.get("type") == "GeometryCollection":
+        for child in _sequence(geom.get("geometries")):
+            child_bounds = _geojson_geometry_bounds(child)
+            if child_bounds is not None:
+                coordinates.extend(
+                    (
+                        (child_bounds[0], child_bounds[1]),
+                        (child_bounds[2], child_bounds[3]),
+                    )
+                )
+    else:
+        _collect_geojson_coordinates(geom.get("coordinates"), coordinates)
+    if not coordinates:
+        return None
+    xs = [point[0] for point in coordinates]
+    ys = [point[1] for point in coordinates]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _collect_geojson_coordinates(
+    value: object,
+    coordinates: list[tuple[float, float]],
+) -> None:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return
+    if (
+        len(value) >= 2
+        and isinstance(value[0], (int, float))
+        and isinstance(value[1], (int, float))
+    ):
+        coordinates.append((float(value[0]), float(value[1])))
+        return
+    for item in value:
+        _collect_geojson_coordinates(item, coordinates)
+
+
+def _touches_dem_boundary(
+    bounds: tuple[float, float, float, float],
+    *,
+    dem_bounds: tuple[float, float, float, float],
+    tolerance_m: float,
+) -> bool:
+    left, bottom, right, top = bounds
+    dem_left, dem_bottom, dem_right, dem_top = dem_bounds
+    return (
+        left <= dem_left + tolerance_m
+        or bottom <= dem_bottom + tolerance_m
+        or right >= dem_right - tolerance_m
+        or top >= dem_top - tolerance_m
+    )
+
+
 def _synthetic_provenance_labels(
     manifest: Mapping[str, Any],
     *,
@@ -720,7 +868,7 @@ def _criteria_items(criteria: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
         ("Ruleset", criteria.get("ruleset")),
         ("Hard reject", _format_value(criteria.get("hard_reject"))),
         ("Warning", _format_value(criteria.get("warning"))),
-        ("Soft score", _format_value(criteria.get("soft_score"))),
+        ("Ranking preference", _format_value(criteria.get("ranking_preference"))),
         ("Report only", _format_value(criteria.get("report_only"))),
         ("Surface", criteria.get("area_mode")),
         ("Plages surface", _format_value(criteria.get("area_ranges"))),
@@ -860,14 +1008,21 @@ def _area_ranges_label(value: object) -> str:
 def _dem_explanation(
     dem: Mapping[str, Any],
     flow_products: Mapping[str, Any],
+    review_map: Mapping[str, Any] | None = None,
 ) -> str:
-    request_extent = str(dem.get("request_extent") or "")
-    map_extent = str(dem.get("map_background_extent") or "")
+    delineation_dem_extent_source = str(dem.get("delineation_dem_extent_source") or "")
+    dem_background = str(_mapping(review_map).get("dem_background") or "")
     has_map_dem = bool(flow_products.get("map_dem_path"))
-    if has_map_dem and request_extent == "outlets" and map_extent == "territory":
+    if (
+        has_map_dem
+        and delineation_dem_extent_source
+        == "candidate_outlets_bbox"
+        and dem_background == "territory_dem"
+    ):
         return (
-            "Le calcul hydrologique utilise un DEM limite aux exutoires, tandis que "
-            "la carte recharge un DEM regional pour le contexte visuel complet."
+            "Le calcul hydrologique utilise un DEM limite a la boite englobante "
+            "des exutoires, tandis que la carte recharge un DEM regional pour "
+            "le contexte visuel complet."
         )
     if has_map_dem:
         return "La carte utilise un DEM de fond dedie au controle visuel des bassins."

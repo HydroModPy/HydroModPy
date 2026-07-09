@@ -62,8 +62,8 @@ def render_site_selection_map(
     observation_points = _read_geojson(
         manifest_output_path(manifest, "observation_points_geojson", manifest_path=manifest_file)
     )
-    generated_network = _read_geojson(
-        manifest_output_path(manifest, "generated_network_geojson", manifest_path=manifest_file)
+    dem_network = _read_geojson(
+        manifest_output_path(manifest, "dem_network_geojson", manifest_path=manifest_file)
     )
     context_layers = _read_context_layers(manifest, manifest_file=manifest_file)
     dem_path = _dem_path_from_manifest(manifest)
@@ -80,7 +80,7 @@ def render_site_selection_map(
         selected_outlets=_features(selected_outlets),
         rejected_outlets=_features(rejected_outlets),
         observation_points=_features(observation_points),
-        generated_network=_features(generated_network),
+        dem_network=_features(dem_network),
     )
     return destination
 
@@ -116,7 +116,7 @@ def _write_map_png(
     selected_outlets: list[dict[str, Any]],
     rejected_outlets: list[dict[str, Any]],
     observation_points: list[dict[str, Any]],
-    generated_network: list[dict[str, Any]],
+    dem_network: list[dict[str, Any]],
 ) -> None:
     import matplotlib
 
@@ -132,7 +132,7 @@ def _write_map_png(
 
     dem_extent = _plot_dem_background(ax, dem_path)
     _plot_context_layers(ax, context_layers)
-    _plot_generated_network(ax, generated_network)
+    _plot_dem_network(ax, dem_network)
     selected_outlet_symbols = _outlets_without_flow_station_marker(
         selected_outlets,
         observation_points,
@@ -178,7 +178,7 @@ def _write_map_png(
 
     artifact_bounds = _combined_bounds(
         [
-            *generated_network,
+            *dem_network,
             *selected_basins,
             *rejected_basins,
             *selected_outlets,
@@ -228,7 +228,7 @@ def _write_map_png(
         rejected_outlets=rejected_outlets,
         selected_outlet_symbols=selected_outlet_symbols,
         observation_points=observation_points,
-        generated_network=generated_network,
+        dem_network=dem_network,
     )
     if legend_handles:
         ax.legend(
@@ -377,7 +377,7 @@ def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
             )
 
 
-def _plot_generated_network(ax: Any, features: list[dict[str, Any]]) -> None:
+def _plot_dem_network(ax: Any, features: list[dict[str, Any]]) -> None:
     if not features:
         return
     _plot_lines(
@@ -658,11 +658,11 @@ def _legend_handles(
     rejected_outlets: list[dict[str, Any]],
     selected_outlet_symbols: list[dict[str, Any]],
     observation_points: list[dict[str, Any]],
-    generated_network: list[dict[str, Any]],
+    dem_network: list[dict[str, Any]],
 ) -> list[Any]:
     handles: list[Any] = []
     observation_types = _observation_types(observation_points)
-    if generated_network:
+    if dem_network:
         handles.append(
             Line2D(
                 [0],
@@ -670,7 +670,7 @@ def _legend_handles(
                 color="#0284c7",
                 linewidth=0.8,
                 alpha=0.7,
-                label="Reseau DEM genere",
+                label="Reseau DEM",
             )
         )
     handles.extend(_area_legend_handles(Patch=Patch, selected_basins=selected_basins))
@@ -930,14 +930,15 @@ def _dem_path_from_manifest(manifest: Mapping[str, Any]) -> Path | None:
 
 
 def _prefer_dem_extent_from_manifest(manifest: Mapping[str, Any]) -> bool:
-    dem = _mapping(manifest.get("dem"))
+    review_map = _mapping(manifest.get("review_map"))
     flow_products = _mapping(manifest.get("flow_products"))
     has_dem_background = bool(
         flow_products.get("map_dem_path")
         or flow_products.get("dem_path")
         or flow_products.get("dem_corrected_path")
     )
-    return has_dem_background and str(dem.get("map_background_extent") or "") == "territory"
+    dem_background = str(review_map.get("dem_background") or "")
+    return has_dem_background and dem_background == "territory_dem"
 
 
 def _features(collection: Mapping[str, Any]) -> list[dict[str, Any]]:

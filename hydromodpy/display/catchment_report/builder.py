@@ -11,8 +11,7 @@ from typing import Any
 from hydromodpy.display.catchment_report.artifacts import (
     ReportArtifactSpec,
     artifact_paths,
-    copy_real_figures,
-    generate_generated_network_context_figure,
+    copy_real_figures_with_provenance,
     geology_legend_rows,
     write_manifest,
 )
@@ -23,8 +22,8 @@ from hydromodpy.display.catchment_report.blocks import (
     assert_monotonic_blocks,
     block_variants_by_id,
     build_blocks,
-    mapping,
 )
+from hydromodpy.display.catchment_report.contract import write_catchment_artifact_manifest
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.presets import (
     GENERIC_REPORT_PRESET,
@@ -49,7 +48,7 @@ class CatchmentReportConfig:
     data_overview_figures: Path
     simulation_figures: Path
     geographic_scratch: Path
-    generated_network_root: Path
+    dem_network_root: Path
     context_html: Path
     overview_standard_html: Path
     transient_config: Path
@@ -57,6 +56,8 @@ class CatchmentReportConfig:
     preset: CatchmentReportPreset = field(default=GENERIC_REPORT_PRESET)
     artifact_specs: tuple[ReportArtifactSpec, ...] | None = None
     block_specs: tuple[ReportBlockSpec, ...] | None = None
+    upstream_artifact_manifest: Path | None = None
+    upstream_artifact_manifests: tuple[Path, ...] = ()
 
     @classmethod
     def from_inputs(
@@ -66,6 +67,8 @@ class CatchmentReportConfig:
         preset: CatchmentReportPreset | None = None,
         artifact_specs: tuple[ReportArtifactSpec, ...] | None = None,
         block_specs: tuple[ReportBlockSpec, ...] | None = None,
+        upstream_artifact_manifest: Path | None = None,
+        upstream_artifact_manifests: tuple[Path, ...] = (),
     ) -> CatchmentReportConfig:
         effective_preset = (
             preset
@@ -85,7 +88,7 @@ class CatchmentReportConfig:
             data_overview_figures=inputs.data_overview_figures,
             simulation_figures=inputs.simulation_figures,
             geographic_scratch=inputs.geographic_scratch,
-            generated_network_root=inputs.generated_network_root,
+            dem_network_root=inputs.dem_network_root,
             context_html=inputs.context_html,
             overview_standard_html=inputs.overview_standard_html,
             transient_config=inputs.transient_config,
@@ -93,6 +96,8 @@ class CatchmentReportConfig:
             preset=effective_preset,
             artifact_specs=artifact_specs,
             block_specs=block_specs,
+            upstream_artifact_manifest=upstream_artifact_manifest,
+            upstream_artifact_manifests=upstream_artifact_manifests,
         )
 
 
@@ -106,23 +111,17 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     summary = _load_json(config.context_summary)
-    resolved_config = mapping(summary.get("configuration"))
     artifact_specs = _artifact_specs(config)
     block_specs = _block_specs(config)
-    copied = copy_real_figures(
+    copied, figure_provenance = copy_real_figures_with_provenance(
         figures_dir,
         context_assets=config.context_assets,
         overview_figures=config.overview_figures,
         data_overview_figures=config.data_overview_figures,
         simulation_figures=config.simulation_figures,
         artifact_specs=artifact_specs,
-    )
-    generate_generated_network_context_figure(
-        copied,
-        figures_dir=figures_dir,
-        config=resolved_config,
-        generated_network_root=config.generated_network_root,
-        geographic_scratch=config.geographic_scratch,
+        source_artifact_manifest=config.upstream_artifact_manifest,
+        source_artifact_manifests=config.upstream_artifact_manifests,
     )
     manifest = write_manifest(
         output_dir,
@@ -135,7 +134,20 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         data_overview_figures=config.data_overview_figures,
         simulation_figures=config.simulation_figures,
         geographic_scratch=config.geographic_scratch,
-        generated_network_root=config.generated_network_root,
+        dem_network_root=config.dem_network_root,
+        figure_provenance=figure_provenance,
+    )
+    write_catchment_artifact_manifest(
+        output_dir,
+        copied_figures=copied,
+        figure_provenance=figure_provenance,
+        artifact_specs=artifact_specs,
+        block_specs=block_specs,
+        context_summary=config.context_summary,
+        source_manifest=manifest,
+        upstream_artifact_manifest=config.upstream_artifact_manifest,
+        upstream_artifact_manifests=config.upstream_artifact_manifests,
+        site_label=config.site_label,
     )
     report_artifact_paths = artifact_paths(
         context_html=config.context_html,

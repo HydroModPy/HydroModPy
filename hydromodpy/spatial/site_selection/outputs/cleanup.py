@@ -1,4 +1,4 @@
-"""Cleanup helpers for generated site-selection intermediates."""
+"""Cleanup helpers for site-selection intermediate outputs."""
 
 from __future__ import annotations
 

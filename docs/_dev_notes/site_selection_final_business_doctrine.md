@@ -69,7 +69,7 @@ ce profil sauf evolution explicite et separee.
 
 Modes d'entree stabilises:
 
-- `site_selection.input.mode = "dem_area_light"` pour generer un nombre borne
+- `site_selection.input.mode = "dem_area_target"` pour generer un nombre borne
   de candidats depuis le DEM autour d'une surface cible;
 - `site_selection.input.mode = "delineated_catchments"` pour rejouer un
   catalogue ou une fixture de bassins deja delimites.

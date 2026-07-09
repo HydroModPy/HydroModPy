@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import json
-import os
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -21,19 +20,12 @@ from hydromodpy.analysis.testbed.regional_lab_types import (
     RegionalLabSiteRecord,
     RegionalLabSkippedCase,
 )
-
-
-def _atomic_write_text(path: Path, payload: str, *, encoding: str = "utf-8") -> None:
-    """Write text content atomically via tmp + os.replace."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(payload, encoding=encoding)
-    os.replace(tmp_path, path)
+from hydromodpy.core.io.atomic import atomic_write_text
 
 
 def write_json_payload(path: Path, payload: Mapping[str, Any]) -> None:
     """Write one JSON payload to disk atomically."""
-    _atomic_write_text(
+    atomic_write_text(
         path,
         json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
     )
@@ -67,7 +59,7 @@ def _write_csv_rows(
     writer.writeheader()
     for row in rows:
         writer.writerow({field: _csv_cell(row.get(field)) for field in fieldnames})
-    _atomic_write_text(path, buffer.getvalue())
+    atomic_write_text(path, buffer.getvalue())
 
 
 def _collect_fieldnames(rows: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -684,7 +676,7 @@ def write_summary_artifacts(
             continue
         _write_csv_rows(Path(paths[key]), fieldnames=fieldnames, rows=rows)
 
-    _atomic_write_text(
+    atomic_write_text(
         Path(paths["summary_markdown"]),
         _render_summary_markdown(
             cfg=cfg,

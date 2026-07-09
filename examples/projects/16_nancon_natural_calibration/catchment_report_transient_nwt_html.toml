@@ -1,0 +1,12 @@
+# Report layout used by the optional end-of-run HTML report example.
+# It inherits the Nancon catchment report contract and only adapts the
+# output directory plus the simulation run name consumed by the report.
+
+base_config = "catchment_report.toml"
+
+[report]
+output_dir = "outputs/nancon_transient_nwt_html_report"
+
+[layout]
+simulation_name = "transient_nwt_html_report"
+transient_config_name = "run_transient_nwt_html_report.toml"

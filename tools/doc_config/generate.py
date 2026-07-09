@@ -36,6 +36,7 @@ from pydantic.fields import FieldInfo
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.io.atomic import write_text_if_changed
 from tools.doc_config.coverage import find_uncovered_opaque_fields
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -64,12 +65,7 @@ def _write_if_changed(path: Path, content: str) -> None:
     Prevents sphinx-autobuild rebuild loops triggered by the
     ``builder-inited`` hook regenerating identical RST on every build.
     """
-    try:
-        if path.read_text() == content:
-            return
-    except FileNotFoundError:
-        pass
-    path.write_text(content)
+    write_text_if_changed(path, content, encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -1330,15 +1326,18 @@ def _field_info_for_path(model: type[BaseModel], dotted: str) -> FieldInfo | Non
 # ---------------------------------------------------------------------------
 
 
-def generate_all(output_dir: Path | None = None) -> list[Path]:
+def generate_all(output_dir: Path | None = None, static_dir: Path | None = None) -> list[Path]:
     """Render every generated RST file. Returns the paths that were written."""
     with contextlib.chdir(REPO_ROOT):
-        return _generate_all_impl(output_dir)
+        return _generate_all_impl(output_dir, static_dir)
 
 
-def _generate_all_impl(output_dir: Path | None) -> list[Path]:
+def _generate_all_impl(output_dir: Path | None, static_dir: Path | None) -> list[Path]:
     out = (output_dir or REFERENCE_DIR).resolve()
     out.mkdir(parents=True, exist_ok=True)
+    static_out = static_dir.resolve() if static_dir is not None else None
+    if static_out is not None:
+        static_out.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 
     _report_uncovered_opaque_fields()
@@ -1349,9 +1348,11 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
     _write_if_changed(index_path, _render_couche1(top_fields))
     written.append(index_path)
 
-    schema_path = export_schema()
+    schema_path = export_schema(None if static_out is None else static_out / SCHEMA_OUTPUT.name)
     written.append(schema_path)
-    openapi_path = export_openapi_wrapper()
+    openapi_path = export_openapi_wrapper(
+        None if static_out is None else static_out / OPENAPI_OUTPUT.name
+    )
     written.append(openapi_path)
     explorer_path = out / "schema_explorer.rst"
     _write_if_changed(explorer_path, _render_couche3())
@@ -1365,7 +1366,10 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
     _write_if_changed(config_index_path, _render_couche5(top_fields))
     written.append(config_index_path)
 
-    search_index_path = export_search_index(top_fields)
+    search_index_path = export_search_index(
+        top_fields,
+        None if static_out is None else static_out / SEARCH_INDEX_OUTPUT.name,
+    )
     written.append(search_index_path)
 
     diagram_root = out / "_diagrams"

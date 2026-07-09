@@ -89,34 +89,36 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     build_observed.set_defaults(_handler=run_build_observed)
 
-    build_generated = sub.add_parser(
-        "build-generated",
-        help="Build site selection from DEM/network-generated candidates",
+    build_dem_network = sub.add_parser(
+        "build-dem-network",
+        help="Build site selection from DEM network sampling",
     )
-    build_generated.add_argument(
+    build_dem_network.add_argument(
         "config",
         type=Path,
         help="Path to a TOML config with [site_selection].",
     )
-    build_generated.add_argument(
+    build_dem_network.add_argument(
         "--output-root",
         type=Path,
         default=None,
         help="Override [site_selection].output_root for this build.",
     )
-    build_generated.add_argument(
+    build_dem_network.add_argument(
+        "--workspace-root",
         "--workspace",
+        dest="workspace_root",
         type=Path,
         default=None,
         help="Optional HydroModPy workspace root used for data caching.",
     )
-    build_generated.add_argument(
+    build_dem_network.add_argument(
         "--data-root",
         type=Path,
         default=None,
         help="Optional data root used for data caching.",
     )
-    build_generated.set_defaults(_handler=run_build_generated)
+    build_dem_network.set_defaults(_handler=run_build_dem_network)
 
     report = sub.add_parser(
         "report",
@@ -152,6 +154,7 @@ def run_plan(args: argparse.Namespace) -> None:
         sys.exit(EXIT_CONFIG)
 
     manifest_path = None
+    report_path = None
     if args.write_manifest or args.write_report:
         manifest_path = plan.write_manifest()
         print(f"[written] {manifest_path}")
@@ -164,6 +167,16 @@ def run_plan(args: argparse.Namespace) -> None:
         assert manifest_path is not None
         report_path = render_site_selection_plan_html_report(manifest_path)
         print(f"[written] site_selection_report_html: {report_path}")
+    if manifest_path is not None:
+        from hydromodpy.spatial.site_selection.outputs.report_artifacts import (
+            write_site_selection_plan_report_artifact_manifest,
+        )
+
+        artifact_manifest_path = write_site_selection_plan_report_artifact_manifest(
+            manifest_path,
+            report_path=report_path if args.write_report else None,
+        )
+        print(f"[written] report_artifact_manifest_json: {artifact_manifest_path}")
 
     print(json.dumps(plan.manifest, indent=2, sort_keys=True))
     sys.exit(EXIT_OK)
@@ -225,8 +238,10 @@ def run_build_observed(args: argparse.Namespace) -> None:
     sys.exit(EXIT_OK)
 
 
-def run_build_generated(args: argparse.Namespace) -> None:
-    from hydromodpy.workflow.site_selection import build_generated_site_selection_from_toml
+def run_build_dem_network(args: argparse.Namespace) -> None:
+    from hydromodpy.workflow.site_selection import (
+        build_dem_network_sampling_site_selection_from_toml,
+    )
 
     config_path = Path(args.config).expanduser()
     if not config_path.is_file():
@@ -234,10 +249,10 @@ def run_build_generated(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        result = build_generated_site_selection_from_toml(
+        result = build_dem_network_sampling_site_selection_from_toml(
             config_path=config_path,
             output_root=args.output_root,
-            workspace_root=args.workspace,
+            workspace_root=args.workspace_root,
             data_root=args.data_root,
             progress_callback=_progress,
         )
@@ -277,7 +292,7 @@ def run_report(args: argparse.Namespace) -> None:
 
 __all__ = [
     "register",
-    "run_build_generated",
+    "run_build_dem_network",
     "run_build_observed",
     "run_plan",
     "run_report",

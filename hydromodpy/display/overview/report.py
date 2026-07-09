@@ -1,6 +1,6 @@
 """Orchestrate artifact generation for the data-overview report.
 
-The report produces canonical block figures, legacy panel PNGs and a static
+The report produces canonical block figures, panel PNGs and a static
 HTML page under the workspace output root.
 """
 
@@ -30,8 +30,28 @@ from hydromodpy.display.overview.web import (
     write_overview_review_web_reports,
     write_overview_web_report,
 )
+from hydromodpy.display.report_artifacts import (
+    ReportArtifact,
+    ReportArtifactManifest,
+    ReportArtifactRequirement,
+)
+from hydromodpy.display.report_semantics import semantic_artifact_id
 
 logger = get_logger(__name__)
+REPORT_ARTIFACT_MANIFEST_NAME = "report_artifact_manifest.json"
+
+OVERVIEW_FIGURE_ID_BY_STEM = {
+    "stats_card": "identity_stats",
+    "station_inventory": "station_inventory",
+    "map_regional_context": "regional_context",
+    "map_dem_context": "dem_context",
+    "map_dem": "dem_map",
+    "map_geology": "geology_map",
+    "map_hydrography_data": "hydrography_map",
+    "map_hydrography": "hydrography_map",
+    "climatic_summary": "climate_summary",
+    "timeseries_discharge": "observed_discharge_overview",
+}
 
 if TYPE_CHECKING:
     from hydromodpy.core.contracts.overview import DataOverviewState
@@ -284,12 +304,87 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
             )
         )
 
-    write_overview_web_report(state, figure_paths=paths)
+    web_report = write_overview_web_report(state, figure_paths=paths)
     if _write_review_pages_enabled():
         write_overview_review_web_reports(state, figure_paths=paths)
+    write_overview_artifact_manifest(
+        state,
+        figure_paths=paths,
+        web_report=web_report,
+        output_dir=output_dir,
+    )
 
     logger.info("[overview] Generated %d panel artifact(s) in %s", len(paths), output_dir)
     return paths
+
+
+def overview_artifact_manifest_path(output_dir: Path) -> Path:
+    return output_dir / REPORT_ARTIFACT_MANIFEST_NAME
+
+
+def write_overview_artifact_manifest(
+    state: DataOverviewState,
+    *,
+    figure_paths: list[Path],
+    web_report: Path,
+    output_dir: Path | None = None,
+) -> Path:
+    output_dir = output_dir or _resolve_output_dir(state)
+    figure_requirements = tuple(
+        ReportArtifactRequirement(
+            semantic_artifact_id(figure_id),
+            kind="figure",
+            required=False,
+            title=figure_id,
+            producer="data_overview.display",
+            metadata={
+                "display_figure": figure_id,
+            },
+        )
+        for path in figure_paths
+        if (figure_id := overview_figure_id(path)) is not None
+    )
+    requirements = (
+        ReportArtifactRequirement(
+            "overview.html",
+            kind="html",
+            required=False,
+            title="Page HTML overview",
+            producer="data_overview.display",
+        ),
+        *figure_requirements,
+    )
+    path_by_id = {
+        "overview.html": web_report,
+        **{
+            semantic_artifact_id(figure_id): path
+            for path in figure_paths
+            if (figure_id := overview_figure_id(path)) is not None
+        },
+    }
+    manifest = ReportArtifactManifest(
+        profile="catchment_gauged",
+        requirements=requirements,
+        artifacts=tuple(
+            ReportArtifact.from_requirement(
+                requirement,
+                path=path_by_id.get(requirement.artifact_id),
+            )
+            for requirement in requirements
+        ),
+        metadata={
+            "artifact_scope": "data_overview.display",
+            "overview_figures": _format_metadata_path(output_dir, state),
+        },
+    )
+    return manifest.write_json(
+        overview_artifact_manifest_path(output_dir),
+        base_dir=_manifest_base_dir(state),
+    )
+
+
+def overview_figure_id(path: Path) -> str | None:
+    return OVERVIEW_FIGURE_ID_BY_STEM.get(path.stem)
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +399,32 @@ def _resolve_output_dir(state: DataOverviewState) -> Path:
     if state.workspace is not None:
         return Path(getattr(state.workspace, "figure_folder", "figures")) / "overview"
     return Path("overview_report")
+
+
+def _manifest_base_dir(state: DataOverviewState) -> Path | None:
+    workspace = getattr(state, "workspace", None)
+    if workspace is None:
+        return None
+    project_root = getattr(workspace, "project_root", None)
+    if project_root is not None:
+        return Path(project_root)
+    paths = getattr(workspace, "paths", None)
+    figures_folder = getattr(paths, "figures_folder", None)
+    if figures_folder is not None:
+        figures_path = Path(figures_folder)
+        if figures_path.name == "figures":
+            return figures_path.parent
+    return None
+
+
+def _format_metadata_path(path: Path, state: DataOverviewState) -> str:
+    base_dir = _manifest_base_dir(state)
+    if base_dir is not None:
+        try:
+            return path.resolve().relative_to(base_dir.resolve()).as_posix()
+        except ValueError:
+            pass
+    return str(path.resolve())
 
 
 def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, **kwargs) -> Path:

@@ -1,0 +1,144 @@
+﻿# Purpose:
+# Area-only selection over an existing CSV inventory of pre-delineated AURA
+# catchments. The workflow reads the catchment table, evaluates area and spatial
+# overlap criteria, and keeps hydrometry, piezometry, and geology as report-only
+# evidence instead of requiring a downstream gauge.
+# Expected result: selected/rejected 50-150 km2 basin tables and review layers
+# without downloading or discovering Hub'Eau stations.
+
+[workflow]
+# Workflow entry point for `hmp run`.
+# `site_selection` dispatches to the site-selection workflow.
+mode = "site_selection"
+
+[site_selection]
+# Stable campaign id copied into manifests, decision tables, and downstream
+# hand-off files.
+selection_id = "aura_non_jauge_csv_50_150km2_v1"
+# Output directory for manifests, tables, spatial layers, reports, and optional
+# intermediates.
+output_root = "../outputs/aura_non_jauge_csv_50_150km2_v1"
+
+[site_selection.input]
+# Execution path for this run.
+# delineated_catchments reads catchments_csv, then applies the configured
+# criteria and writes selected/rejected outputs.
+mode = "delineated_catchments"
+# Pre-delineated catchments CSV used when mode='delineated_catchments'.
+catchments_csv = "../fixtures/aura_area_50_150_catchments.csv"
+
+[site_selection.strategy]
+# Workflow preset.
+# area_only infers criteria_crossing and the area axis.
+profile = "area_only"
+# How observations influence a criteria_crossing campaign.
+observation_role = "report_only"
+# How geology influences a criteria_crossing campaign.
+geology_role = "report_only"
+
+[site_selection.territory]
+# Territory resolver mode.
+mode = "admin_regions"
+# Country code used by administrative territory modes.
+country = "FR"
+# Administrative regions used when mode='admin_regions'.
+regions = ["Auvergne-Rhone-Alpes"]
+
+[site_selection.dem]
+# Data cache policy.
+cache_policy = "use_cache_else_download"
+# Margin around the DEM used for flow directions and basin contours, in kilometres.
+delineation_buffer_km = 20.0
+# Source used to build the DEM extent for flow direction, accumulation,
+# outlet snapping, and basin delineation.
+# 'selection_territory' loads the full configured territory and is safer when
+# upstream basins may extend far from outlets.
+# 'candidate_outlets_bbox' loads only the candidate/station outlet bounding box,
+# expanded by delineation_buffer_km; faster for previews, but the buffer must
+# cover the upstream area needed for delineation.
+delineation_dem_extent_source = "selection_territory"
+# DEM used as the HTML review-map background.
+review_map_dem_background = "delineation_dem"
+
+[site_selection.spatial_selection]
+# Allow selected basins to contain one another, e.g. upstream/downstream nested catchments.
+allow_nested_basins = false
+# Maximum allowed pairwise basin overlap. 0.20 means 20% of the overlap_reference area.
+max_pairwise_basin_overlap_fraction = 0.10
+# How overlap violations are handled: warning keeps the site; hard_reject blocks it.
+overlap_mode = "warning"
+
+[site_selection.criteria]
+# Audit-facing summary of the selection doctrine.
+# These lists are copied to reports/manifests to explain which criteria reject,
+# warn, rank, or only document candidate sites.
+#
+# Blocking criteria: when one fails, the candidate is not retained.
+# Keep delineation_failure here to document that a basin that cannot be
+# delineated is unusable.
+hard_reject = ["area_range", "delineation_failure"]
+# Review warnings: the candidate can still be selected; the issue is highlighted
+# in the site-selection report for expert review before final acceptance.
+warning = ["basin_overlap"]
+# Context-only evidence: exported for human review/audit without automatic
+# decision impact.
+report_only = ["hydrometry", "piezometry", "geology", "land_cover"]
+
+[site_selection.criteria.area]
+# How basin area contributes to selection.
+mode = "hard_reject"
+
+[[site_selection.criteria.area.ranges]]
+# Stable identifier for the area range.
+range_id = "aura_50_150"
+# Human-readable area range label.
+label = "Bassins moyens AURA"
+# Minimum basin area for this range.
+min_area_km2 = 50.0
+# Maximum basin area for this range.
+max_area_km2 = 150.0
+
+[site_selection.criteria.geology]
+# How geology evidence affects the final decision.
+mode = "report_only"
+
+[site_selection.map_context]
+
+[[site_selection.map_context.layers]]
+# Human-readable layer name used in the map/report manifest.
+name = "AURA fixture outline"
+# GeoJSON file used as static map context.
+path = "../fixtures/context/aura_region_outline.geojson"
+# Visual role controlling the default map style.
+role = "territory"
+
+[[site_selection.map_context.layers]]
+# Human-readable layer name used in the map/report manifest.
+name = "AURA fixture hydrography"
+# GeoJSON file used as static map context.
+path = "../fixtures/context/aura_reference_hydrography.geojson"
+# Visual role controlling the default map style.
+role = "hydrography"
+
+[report.html]
+# Build the static site-selection HTML review report at the end of the run.
+profile = "site_selection"
+build_at_end = true
+
+[data]
+# Ordered list of data-manager types explicitly requested in [data]. The launcher may append
+# inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
+# Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry',
+# 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge',
+# 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+types = ["dem"]
+
+[[data.dem.sources]]
+# Discriminator tag selecting the IGN Geoplateforme DEM provider.
+source = "ign_geoplateforme_dem"
+# IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an
+# assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives.
+dataset = "bd-alti"
+# Requested DEM resolution in metres. Defaults are resolved by the manager from the selected
+# dataset.
+resolution_m = 25.0

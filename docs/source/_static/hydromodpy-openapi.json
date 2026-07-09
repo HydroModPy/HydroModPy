@@ -82,6 +82,11 @@
             "description": "Optional display and export toggles loaded from the [display] section.",
             "x-hmp-profile": "user"
           },
+          "report": {
+            "$ref": "#/components/schemas/ReportConfig",
+            "description": "Optional report intent loaded from [report]. The [report.html] subsection can request report artifacts and end-of-run HTML.",
+            "x-hmp-profile": "user"
+          },
           "persistence": {
             "$ref": "#/components/schemas/PersistenceConfig",
             "description": "Storage backend toggles loaded from [persistence]. Drives the DuckDB catalog, Zarr field arrays, Parquet tables, and the `hydromodpy.lock` reproducibility manifest.",
@@ -2547,18 +2552,20 @@
       },
       "CriteriaConfig": {
         "additionalProperties": false,
-        "description": "Versioned criteria set and criterion-mode lists.",
+        "description": "Selection criteria and audit-facing criterion-mode lists.",
         "properties": {
           "ruleset": {
-            "default": "site_selection_v1",
+            "default": "",
+            "description": "Optional stable name of the criterion set used for audit outputs. When omitted, site_selection derives it from selection_id.",
             "examples": [
-              "site_selection_v1"
+              ""
             ],
             "title": "Ruleset",
             "type": "string",
             "x-hmp-profile": "user"
           },
           "hard_reject": {
+            "description": "Blocking criteria: when one fails, the candidate is not retained. Keep 'delineation_failure' here to document that a basin that cannot be delineated is unusable.",
             "items": {
               "type": "string"
             },
@@ -2567,6 +2574,7 @@
             "x-hmp-profile": "user"
           },
           "warning": {
+            "description": "Review warnings: the candidate can still be selected, but the issue is highlighted in the site-selection report for expert review before final acceptance.",
             "items": {
               "type": "string"
             },
@@ -2574,15 +2582,17 @@
             "type": "array",
             "x-hmp-profile": "user"
           },
-          "soft_score": {
+          "ranking_preference": {
+            "description": "Preference criteria used to rank otherwise acceptable candidates without rejecting them directly.",
             "items": {
               "type": "string"
             },
-            "title": "Soft Score",
+            "title": "Ranking Preference",
             "type": "array",
             "x-hmp-profile": "user"
           },
           "report_only": {
+            "description": "Context-only evidence exported for human review or audit, without automatic decision impact.",
             "items": {
               "type": "string"
             },
@@ -2592,18 +2602,22 @@
           },
           "area": {
             "$ref": "#/components/schemas/AreaCriteriaConfig",
+            "description": "Area criterion settings.",
             "x-hmp-profile": "user"
           },
           "observations": {
             "$ref": "#/components/schemas/ObservationsCriteriaConfig",
+            "description": "Observation criterion settings.",
             "x-hmp-profile": "user"
           },
           "influence": {
             "$ref": "#/components/schemas/InfluenceCriteriaConfig",
+            "description": "Anthropic influence criterion settings.",
             "x-hmp-profile": "user"
           },
           "geology": {
             "$ref": "#/components/schemas/GeologyCriteriaConfig",
+            "description": "Geology criterion settings.",
             "x-hmp-profile": "user"
           }
         },
@@ -2700,7 +2714,7 @@
             "x-hmp-profile": "user"
           },
           "path": {
-            "description": "Path to custom DEM file or directory (TIF, ASC, NC).",
+            "description": "Path to custom DEM file or directory (TIF, ASC, NC). A directory with several TIF/TIFF/ASC tiles is mosaicked into a cached GeoTIFF.",
             "examples": [
               "data/input.csv"
             ],
@@ -3126,7 +3140,7 @@
         "title": "DataManagersConfig",
         "type": "object"
       },
-      "DemAreaLightConfig": {
+      "DemAreaTargetConfig": {
         "additionalProperties": false,
         "description": "Minimal DEM-only basin selection settings.",
         "properties": {
@@ -3165,7 +3179,7 @@
           },
           "n_basins": {
             "default": 50,
-            "description": "Target number of basins selected by the greedy light workflow.",
+            "description": "Target number of basins selected by the DEM target-area workflow.",
             "examples": [
               50
             ],
@@ -3190,7 +3204,7 @@
             "x-hmp-profile": "user"
           }
         },
-        "title": "DemAreaLightConfig",
+        "title": "DemAreaTargetConfig",
         "type": "object"
       },
       "DemCatchDef": {
@@ -3939,7 +3953,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -3956,7 +3970,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -3997,7 +4011,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -6200,10 +6214,11 @@
       },
       "FlowStationCriteriaConfig": {
         "additionalProperties": false,
-        "description": "Criteria applied to flow stations in observation-led selections.",
+        "description": "Criteria applied to gauging-station record and location evidence.",
         "properties": {
           "mode": {
             "default": "report_only",
+            "description": "How gauging-station suitability affects the final decision. This criterion checks the available discharge record, the distance between the station and the final outlet, and optionally whether the station is inside the basin or at the outlet.",
             "enum": [
               "hard_reject",
               "warning",
@@ -6229,6 +6244,7 @@
               }
             ],
             "default": null,
+            "description": "Minimum required discharge-record length in years.",
             "title": "Min Record Years",
             "x-hmp-profile": "user"
           },
@@ -6243,11 +6259,13 @@
               }
             ],
             "default": null,
+            "description": "Maximum allowed distance between the gauging station and the final basin outlet.",
             "title": "Max Station To Outlet Distance Km",
             "x-hmp-profile": "user"
           },
           "require_station_inside_or_at_outlet": {
             "default": false,
+            "description": "Require the gauging station to be inside the delineated basin or at the final outlet.",
             "examples": [
               false
             ],
@@ -7077,6 +7095,7 @@
         "properties": {
           "mode": {
             "default": "report_only",
+            "description": "How geology evidence affects the final decision.",
             "enum": [
               "hard_reject",
               "warning",
@@ -7093,6 +7112,7 @@
           },
           "prefer_diversity": {
             "default": false,
+            "description": "Prefer or highlight basins with more diverse geology classes.",
             "examples": [
               false
             ],
@@ -7204,6 +7224,74 @@
         "title": "GeologySupportConfig",
         "type": "object"
       },
+      "HtmlReportConfig": {
+        "additionalProperties": false,
+        "description": "Intent for optional HTML report artifacts.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Prepare artifacts required by the selected HTML report profile. When omitted, build_at_end=true also enables artifact preparation.",
+            "examples": [
+              false
+            ],
+            "title": "Enabled",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "build_at_end": {
+            "default": false,
+            "description": "Request end-of-run report handling. This implies enabled=true; workflow-specific builders can use it to write the final HTML.",
+            "examples": [
+              false
+            ],
+            "title": "Build At End",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "profile": {
+            "default": "catchment_gauged",
+            "description": "Report profile declaring the required and optional artifacts.",
+            "enum": [
+              "catchment_gauged",
+              "generic_simulation",
+              "site_selection"
+            ],
+            "examples": [
+              "catchment_gauged"
+            ],
+            "title": "Profile",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "config_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional workflow-specific report TOML. For profile='catchment_gauged', this points to the catchment report layout/config used after the simulation has produced its artifacts.",
+            "title": "Config Path",
+            "x-hmp-profile": "user"
+          },
+          "strict": {
+            "default": false,
+            "description": "Fail report postflight when required artifacts are missing. Defaults to false so ordinary runs can produce partial reports.",
+            "examples": [
+              false
+            ],
+            "title": "Strict",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "HtmlReportConfig",
+        "type": "object"
+      },
       "HumidityConfig": {
         "additionalProperties": false,
         "description": "Top-level relative-humidity configuration.\n\nThe section groups humidity sources and an optional date window. Loaded data\ncan support atmospheric forcing, evapotranspiration context, and HELP\ncoupling.",
@@ -7218,7 +7306,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -7235,7 +7323,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -7276,7 +7364,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -7577,17 +7665,6 @@
         "additionalProperties": false,
         "description": "DEM-derived hydrologic products requested by the selection workflow.",
         "properties": {
-          "method": {
-            "const": "dem_only",
-            "default": "dem_only",
-            "description": "Hydrologic product generation method.",
-            "examples": [
-              "dem_only"
-            ],
-            "title": "Method",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
           "flow_algorithm": {
             "const": "d8",
             "default": "d8",
@@ -7633,7 +7710,7 @@
             ],
             "title": "Compute Strahler",
             "type": "boolean",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           }
         },
         "title": "HydrologyConfig",
@@ -7653,7 +7730,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -7670,7 +7747,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -7726,7 +7803,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -7901,13 +7978,13 @@
           },
           "require_observations": {
             "default": true,
-            "description": "Only keep stations that have observations in the period.",
+            "description": "Only keep stations that have observations in the configured period.",
             "examples": [
               true
             ],
             "title": "Require Observations",
             "type": "boolean",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           },
           "max_stations": {
             "anyOf": [
@@ -8050,7 +8127,7 @@
             ],
             "title": "File Format",
             "type": "string",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "crs": {
             "anyOf": [
@@ -8064,7 +8141,7 @@
             "default": null,
             "description": "Optional CRS filter forwarded to Geoplateforme discovery.",
             "title": "Crs",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           }
         },
         "title": "IgnGeoplateformeDemSource",
@@ -8076,6 +8153,7 @@
         "properties": {
           "mode": {
             "default": "report_only",
+            "description": "How anthropic influence evidence affects the final decision.",
             "enum": [
               "hard_reject",
               "warning",
@@ -8092,6 +8170,7 @@
           },
           "reject_major_dam_upstream": {
             "default": false,
+            "description": "Reject sites when evidence reports a major upstream dam.",
             "examples": [
               false
             ],
@@ -8101,6 +8180,7 @@
           },
           "reject_major_withdrawal_upstream": {
             "default": false,
+            "description": "Reject sites when evidence reports a major upstream withdrawal.",
             "examples": [
               false
             ],
@@ -8110,6 +8190,7 @@
           },
           "reject_major_regulated_reach": {
             "default": false,
+            "description": "Reject sites when evidence reports a major regulated reach.",
             "examples": [
               false
             ],
@@ -8128,6 +8209,7 @@
               }
             ],
             "default": null,
+            "description": "Optional search radius in kilometres for influence layers.",
             "title": "Influence Search Radius Km",
             "x-hmp-profile": "user"
           },
@@ -8256,7 +8338,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -8273,7 +8355,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -8329,7 +8411,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -10618,6 +10700,7 @@
         "properties": {
           "flow_station_mode": {
             "default": "report_only",
+            "description": "Default mode for gauging-station suitability checks when the detailed flow_station block does not override it.",
             "enum": [
               "hard_reject",
               "warning",
@@ -10643,11 +10726,13 @@
               }
             ],
             "default": null,
+            "description": "Default maximum distance between gauging stations and final basin outlets.",
             "title": "Flow Station Max Distance Km",
             "x-hmp-profile": "user"
           },
           "piezometer_mode": {
             "default": "report_only",
+            "description": "Default mode for piezometer observation checks.",
             "enum": [
               "hard_reject",
               "warning",
@@ -10673,15 +10758,18 @@
               }
             ],
             "default": null,
+            "description": "Maximum distance used when matching piezometers to basins or outlets.",
             "title": "Piezometer Max Distance Km",
             "x-hmp-profile": "user"
           },
           "flow_station": {
             "$ref": "#/components/schemas/FlowStationCriteriaConfig",
+            "description": "Detailed gauging-station suitability settings. The TOML key stays 'flow_station' because it is also the internal observation-family identifier.",
             "x-hmp-profile": "user"
           },
           "station_influence": {
             "$ref": "#/components/schemas/StationInfluenceCriteriaConfig",
+            "description": "Station metadata influence criterion settings.",
             "x-hmp-profile": "user"
           },
           "piezometer_layers": {
@@ -10729,7 +10817,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -10746,7 +10834,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -10802,7 +10890,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -11086,11 +11174,11 @@
       },
       "OutletsConfig": {
         "additionalProperties": false,
-        "description": "Candidate outlet generation settings.",
+        "description": "Candidate outlet construction settings.",
         "properties": {
           "candidate_mode": {
             "default": "network_sampling",
-            "description": "How candidate outlets are generated.",
+            "description": "Concrete outlet construction mode. 'station_outlets' uses already loaded observation/outlet point records; 'network_sampling' samples DEM-derived stream-network cells.",
             "enum": [
               "network_sampling",
               "station_outlets"
@@ -11113,7 +11201,7 @@
               }
             ],
             "default": null,
-            "description": "Minimum distance between generated outlets.",
+            "description": "Minimum spacing used to thin candidate outlets before basin delineation. In station-led workflows, stations closer than this compete and only one outlet is kept.",
             "title": "Min Distance Between Outlets Km",
             "x-hmp-profile": "user"
           },
@@ -11127,7 +11215,7 @@
             "type": "boolean",
             "x-hmp-profile": "user"
           },
-          "max_generated_candidates": {
+          "max_network_candidates": {
             "anyOf": [
               {
                 "exclusiveMinimum": 0,
@@ -11138,14 +11226,14 @@
               }
             ],
             "default": 200,
-            "description": "Maximum number of DEM/network-generated candidates to delineate.",
+            "description": "Maximum number of DEM network candidates to delineate.",
             "examples": [
               200
             ],
-            "title": "Max Generated Candidates",
+            "title": "Max Network Candidates",
             "x-hmp-profile": "user"
           },
-          "max_rejected_candidate_audit_records": {
+          "max_rejected_network_candidate_audit_records": {
             "anyOf": [
               {
                 "exclusiveMinimum": 0,
@@ -11156,14 +11244,14 @@
               }
             ],
             "default": 5000,
-            "description": "Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL.",
+            "description": "Maximum number of rejected DEM/network candidate cells written to the candidate audit JSONL.",
             "examples": [
               5000
             ],
-            "title": "Max Rejected Candidate Audit Records",
+            "title": "Max Rejected Network Candidate Audit Records",
             "x-hmp-profile": "user"
           },
-          "max_generated_network_cells": {
+          "max_dem_network_cells": {
             "anyOf": [
               {
                 "exclusiveMinimum": 0,
@@ -11174,26 +11262,26 @@
               }
             ],
             "default": 50000,
-            "description": "Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first.",
+            "description": "Maximum number of DEM-derived stream cells exported to the DEM network vector layer. Highest-accumulation cells are kept first.",
             "examples": [
               50000
             ],
-            "title": "Max Generated Network Cells",
+            "title": "Max Dem Network Cells",
             "x-hmp-profile": "user"
           },
-          "snap_to_generated_stream": {
+          "snap_to_dem_network": {
             "default": true,
             "description": "Snap outlets to the DEM-derived stream network when applicable.",
             "examples": [
               true
             ],
-            "title": "Snap To Generated Stream",
+            "title": "Snap To Dem Network",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
           "snap_strategy": {
             "default": "dem_accumulation",
-            "description": "Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived accumulation raster. 'bdtopage_then_dem' first projects the station to BD Topage, then snaps locally on the DEM raster.",
+            "description": "Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived accumulation raster. 'bdtopage_then_dem' first snaps the original station/candidate outlet to the reference network, then runs the local DEM snap.",
             "enum": [
               "dem_accumulation",
               "bdtopage_then_dem"
@@ -11205,20 +11293,20 @@
             "type": "string",
             "x-hmp-profile": "user"
           },
-          "snap_dist_m": {
+          "dem_snap_max_distance_m": {
             "default": 150,
-            "description": "Maximum snapping distance in metres for outlet-based delineation.",
+            "description": "Maximum distance, in metres, allowed for the final local snap on the DEM-derived accumulation raster. This snap is the point used for basin delineation and is separate from any preliminary reference-network snap.",
             "examples": [
               150
             ],
             "exclusiveMinimum": 0,
-            "title": "Snap Dist M",
+            "title": "Dem Snap Max Distance M",
             "type": "integer",
             "x-hmp-profile": "user"
           },
           "reference_network_source": {
             "default": "bdtopage",
-            "description": "Reference hydrographic network used by bdtopage_then_dem.",
+            "description": "Reference hydrographic network used before the DEM snap when snap_strategy='bdtopage_then_dem'.",
             "enum": [
               "bdtopage",
               "custom"
@@ -11245,27 +11333,27 @@
             "title": "Reference Network Path",
             "x-hmp-profile": "user"
           },
-          "reference_network_max_distance_m": {
+          "reference_network_snap_max_distance_m": {
             "default": 100.0,
-            "description": "Maximum accepted distance from candidate outlet to the reference network.",
+            "description": "Maximum distance, in metres, allowed between the original station or candidate outlet and the nearest reference-network line before snapping to that line. With snap_strategy='bdtopage_then_dem', candidates farther than this from BD Topage fail before the final DEM snap.",
             "examples": [
               100.0
             ],
             "exclusiveMinimum": 0,
-            "title": "Reference Network Max Distance M",
+            "title": "Reference Network Snap Max Distance M",
             "type": "number",
             "x-hmp-profile": "user"
           },
           "reference_network_fetch_margin_m": {
             "default": 500.0,
-            "description": "Extra margin around outlets when downloading a BD Topage reference network.",
+            "description": "Extra margin, in metres, around candidate outlets when downloading the reference network. It only affects the download/search window, not the accepted snap distance.",
             "examples": [
               500.0
             ],
             "minimum": 0,
             "title": "Reference Network Fetch Margin M",
             "type": "number",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "reference_network_page_size": {
             "default": 2000,
@@ -11298,6 +11386,7 @@
         "properties": {
           "write_rejected": {
             "default": true,
+            "description": "Write rejected site tables and spatial layers.",
             "examples": [
               true
             ],
@@ -11307,6 +11396,7 @@
           },
           "write_selected": {
             "default": true,
+            "description": "Write selected site tables and spatial layers.",
             "examples": [
               true
             ],
@@ -11316,6 +11406,7 @@
           },
           "write_geojson": {
             "default": true,
+            "description": "Write GeoJSON spatial outputs for outlets, basins and observations.",
             "examples": [
               true
             ],
@@ -11325,6 +11416,7 @@
           },
           "write_geoparquet": {
             "default": false,
+            "description": "Write GeoParquet spatial outputs when supported.",
             "examples": [
               false
             ],
@@ -11334,6 +11426,7 @@
           },
           "write_geopackage": {
             "default": false,
+            "description": "Write a GeoPackage with site-selection spatial layers.",
             "examples": [
               false
             ],
@@ -11343,6 +11436,7 @@
           },
           "write_csv": {
             "default": true,
+            "description": "Write selected, rejected and decision CSV tables.",
             "examples": [
               true
             ],
@@ -11352,19 +11446,11 @@
           },
           "write_regional_lab_csv": {
             "default": true,
+            "description": "Write regional_lab_sites.csv for downstream regional-lab workflows.",
             "examples": [
               true
             ],
             "title": "Write Regional Lab Csv",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "write_report_html": {
-            "default": false,
-            "examples": [
-              false
-            ],
-            "title": "Write Report Html",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
@@ -11734,7 +11820,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -11751,7 +11837,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -11807,7 +11893,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -12155,7 +12241,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -12172,7 +12258,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -12213,7 +12299,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -12497,7 +12583,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -12514,7 +12600,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -12555,7 +12641,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -12759,7 +12845,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -12776,7 +12862,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -12817,7 +12903,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -13931,6 +14017,19 @@
         "title": "RegionalLabSelectionConfig",
         "type": "object"
       },
+      "ReportConfig": {
+        "additionalProperties": false,
+        "description": "Top-level [report] TOML section.",
+        "properties": {
+          "html": {
+            "$ref": "#/components/schemas/HtmlReportConfig",
+            "description": "Optional HTML report intent and artifact contract.",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "ReportConfig",
+        "type": "object"
+      },
       "ResultsConfig": {
         "additionalProperties": false,
         "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the SimulationCatalog,\nwhich derived variables are computed, and which export formats are\nproduced automatically after each run.",
@@ -14218,7 +14317,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -14235,7 +14334,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -14276,7 +14375,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -14756,7 +14855,7 @@
         "description": "Top-level site-selection workflow configuration.",
         "properties": {
           "selection_id": {
-            "description": "Stable identifier for this selection campaign.",
+            "description": "Stable campaign identifier copied to manifests, decision exports, and downstream regional-lab/testbed hand-offs.",
             "examples": [
               "example"
             ],
@@ -14766,7 +14865,7 @@
             "x-hmp-profile": "user"
           },
           "output_root": {
-            "description": "Output directory for all site-selection artifacts.",
+            "description": "Directory where site-selection artifacts are written, resolved relative to the TOML file when a relative path is provided. Contains manifests, decision tables, spatial layers, reports, and optional intermediate files.",
             "examples": [
               "data/input.csv"
             ],
@@ -14806,10 +14905,10 @@
             "$ref": "#/components/schemas/HydrologyConfig",
             "x-hmp-profile": "user"
           },
-          "dem_area_light": {
+          "dem_area_target": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DemAreaLightConfig"
+                "$ref": "#/components/schemas/DemAreaTargetConfig"
               },
               {
                 "type": "null"
@@ -14821,6 +14920,7 @@
           },
           "input": {
             "$ref": "#/components/schemas/SiteSelectionInputConfig",
+            "description": "Execution input selector used by the site-selection workflow.",
             "x-hmp-profile": "user"
           },
           "outlets": {
@@ -14833,6 +14933,7 @@
           },
           "criteria": {
             "$ref": "#/components/schemas/CriteriaConfig",
+            "description": "Selection criteria and criterion-mode lists.",
             "x-hmp-profile": "user"
           },
           "output": {
@@ -14857,17 +14958,17 @@
         "description": "Execution input selector used by the ``site_selection`` workflow.",
         "properties": {
           "mode": {
-            "default": "plan_only",
-            "description": "Explicit workflow input mode.",
+            "default": "dry_run",
+            "description": "Execution path used by site_selection. 'dry_run' validates and documents the selection campaign without loading candidates, delineating basins or selecting/rejecting sites. 'hydrometry' loads observation stations from [hydrometry] and uses their outlets as candidates. 'delineated_catchments' reads an existing catchments_csv. 'dem_area_target' runs the simplified DEM target-area search. 'dem_network_sampling' runs lower-level DEM stream-network sampling. Legacy 'plan_only' input is accepted as an alias for 'dry_run'.",
             "enum": [
-              "plan_only",
+              "dry_run",
               "hydrometry",
               "delineated_catchments",
-              "generated_candidates",
-              "dem_area_light"
+              "dem_network_sampling",
+              "dem_area_target"
             ],
             "examples": [
-              "plan_only"
+              "dry_run"
             ],
             "title": "Mode",
             "type": "string",
@@ -14890,7 +14991,7 @@
           },
           "region_id": {
             "default": "",
-            "description": "Optional region identifier written to regional-lab CSV outputs.",
+            "description": "Optional output grouping label copied to regional-lab CSV and manifest outputs. When omitted, it is derived from a single administrative region or department in [site_selection.territory]. Set it only to override the exported label for multi-territory, bbox, polygon or custom campaigns. It does not constrain the search extent.",
             "examples": [
               ""
             ],
@@ -14930,7 +15031,7 @@
           },
           "write_plan_manifest": {
             "default": true,
-            "description": "Write site_selection_plan.json when the workflow is run in plan mode.",
+            "description": "Write site_selection_plan.json when the workflow is run in dry_run mode.",
             "examples": [
               true
             ],
@@ -14966,7 +15067,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -14983,7 +15084,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -15024,7 +15125,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -15265,7 +15366,7 @@
           },
           "allow_nested_basins": {
             "default": false,
-            "description": "Allow selected basins to be nested.",
+            "description": "Allow the final selection to keep catchments that contain one another. When false, nested upstream/downstream basins compete during spatial thinning; when true, they can both be selected.",
             "examples": [
               false
             ],
@@ -15300,13 +15401,13 @@
               }
             ],
             "default": null,
-            "description": "Maximum allowed overlap fraction between selected basins.",
+            "description": "Maximum allowed area overlap between two selected basins, expressed as a fraction of overlap_reference. Use 0.20 to allow up to 20% overlap; null disables this pairwise overlap check.",
             "title": "Max Pairwise Basin Overlap Fraction",
             "x-hmp-profile": "user"
           },
           "overlap_reference": {
             "default": "smaller_basin",
-            "description": "Denominator used for overlap fraction.",
+            "description": "Area used as denominator for pairwise overlap fraction. 'smaller_basin' measures the shared area relative to the smaller basin; 'candidate' or 'selected' use one side of the selection comparison.",
             "enum": [
               "smaller_basin",
               "candidate",
@@ -15321,7 +15422,7 @@
           },
           "overlap_mode": {
             "default": "hard_reject",
-            "description": "How overlap violations affect selection.",
+            "description": "How pairwise basin-overlap violations affect selection. 'hard_reject' blocks the lower-ranked overlapping basin; 'warning' keeps it selected and records the overlap as a warning.",
             "enum": [
               "hard_reject",
               "warning",
@@ -15381,10 +15482,11 @@
       },
       "StationInfluenceCriteriaConfig": {
         "additionalProperties": false,
-        "description": "Criteria applied to station influence metadata.",
+        "description": "Criteria applied to flow-station hydrologic influence metadata.",
         "properties": {
           "mode": {
             "default": "report_only",
+            "description": "How flow-station hydrologic influence metadata affects the final decision.",
             "enum": [
               "hard_reject",
               "warning",
@@ -15401,6 +15503,7 @@
           },
           "source": {
             "default": "hubeau_station_metadata",
+            "description": "Metadata source used to evaluate station influence, for example Hub'Eau station metadata fields.",
             "examples": [
               "hubeau_station_metadata"
             ],
@@ -15410,6 +15513,7 @@
           },
           "warn_if_general_influence": {
             "default": true,
+            "description": "Flag Hub'Eau general site influence metadata, such as site-scale hydrologic alteration, when it is present.",
             "examples": [
               true
             ],
@@ -15419,6 +15523,7 @@
           },
           "warn_if_local_influence": {
             "default": true,
+            "description": "Flag Hub'Eau local station influence metadata, such as local hydraulic alteration near the station, when it is present.",
             "examples": [
               true
             ],
@@ -15438,6 +15543,7 @@
           },
           "unknown_policy": {
             "default": "neutral",
+            "description": "How missing or unknown station influence metadata is handled. 'neutral' keeps it from blocking by itself; 'warning' records a review warning.",
             "enum": [
               "neutral",
               "warning"
@@ -15450,7 +15556,7 @@
             "x-hmp-profile": "user"
           },
           "comment_keywords": {
-            "description": "Keywords searched in station influence comments.",
+            "description": "Keywords searched in station comments to flag possible hydraulic influence for review.",
             "items": {
               "type": "string"
             },
@@ -15464,20 +15570,24 @@
       },
       "StrategyConfig": {
         "additionalProperties": false,
-        "description": "High-level strategy controlling candidate generation and criterion order.",
+        "description": "High-level strategy controlling candidate construction and criterion order.",
         "properties": {
           "principle": {
-            "default": "criteria_crossing",
-            "description": "Selection principle: observation-led or direct criteria crossing.",
-            "enum": [
-              "observation_led",
-              "criteria_crossing"
+            "anyOf": [
+              {
+                "enum": [
+                  "observation_led",
+                  "criteria_crossing"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "examples": [
-              "observation_led"
-            ],
+            "default": null,
+            "description": "Effective selection principle, usually inferred from profile. 'observation_led' loads the declared primary observation family first, creates candidate outlets from those records, delineates their basins, then applies criteria. 'criteria_crossing' starts from imported or DEM-derived candidate basins first; observations are evaluated only as criteria/evidence on that inventory.",
             "title": "Principle",
-            "type": "string",
             "x-hmp-profile": "user"
           },
           "profile": {
@@ -15494,12 +15604,12 @@
               }
             ],
             "default": null,
-            "description": "Optional selection profile. Short-term supported profiles are 'area_only' and 'gauged_downstream_station'.",
+            "description": "Optional workflow preset. 'area_only' selects basins primarily by area; 'gauged_downstream_station' selects catchments attached to flow stations. Hydrometry input infers 'gauged_downstream_station' when the profile is omitted. Presets infer principle, primary observation type, primary axes and candidate mode when those fields are omitted.",
             "title": "Profile",
             "x-hmp-profile": "user"
           },
           "primary_axes": {
-            "description": "Physical or spatial axes that drive a criteria_crossing selection.",
+            "description": "Physical or spatial axes that drive a criteria_crossing selection. Inferred as ['area'] when profile='area_only'.",
             "items": {
               "type": "string"
             },
@@ -15553,22 +15663,8 @@
               }
             ],
             "default": null,
-            "description": "Observation family required by an observation_led strategy.",
+            "description": "Effective observation family that defines candidate records for an observation_led strategy. Inferred as 'flow_station' when profile='gauged_downstream_station'.",
             "title": "Primary Observation Type",
-            "x-hmp-profile": "user"
-          },
-          "observation_source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Provider or normalized source used for primary observations.",
-            "title": "Observation Source",
             "x-hmp-profile": "user"
           },
           "candidate_mode": {
@@ -15585,7 +15681,7 @@
               }
             ],
             "default": null,
-            "description": "Optional strategy-level candidate generation mode.",
+            "description": "Effective strategy-level outlet construction mode. Inferred as 'station_outlets' for observation-led workflows that use already loaded observation/outlet point records; otherwise leave unset to use [site_selection.outlets].candidate_mode.",
             "title": "Candidate Mode",
             "x-hmp-profile": "user"
           }
@@ -15948,7 +16044,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -15965,7 +16061,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -16006,7 +16102,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -17307,7 +17403,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -17324,7 +17420,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -17380,7 +17476,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -17619,7 +17715,7 @@
               }
             ],
             "default": null,
-            "description": "Project start date (ISO format, e.g. '2019-01-01').",
+            "description": "Start date of the data extraction window (ISO format, e.g. '2019-01-01').",
             "examples": [
               "2019-01-01"
             ],
@@ -17636,7 +17732,7 @@
               }
             ],
             "default": null,
-            "description": "Project end date (ISO format, e.g. '2025-12-31').",
+            "description": "End date of the data extraction window (ISO format, e.g. '2025-12-31').",
             "examples": [
               "2025-12-31"
             ],
@@ -17677,7 +17773,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit station identifiers to load (custom source).",
+            "description": "Explicit station identifiers to load from the selected provider.",
             "title": "Station Ids",
             "x-hmp-profile": "user"
           },
@@ -17848,7 +17944,7 @@
         "description": "Workflow selector configuration.",
         "properties": {
           "mode": {
-            "description": "Workflow mode dispatched by `hmp run`.",
+            "description": "Workflow entry point used by `hmp run`: selects which workflow implementation parses the rest of the TOML, for example 'simulation', 'comparison', 'testbed', or 'site_selection'.",
             "enum": [
               "simulation",
               "calibration",
@@ -18699,18 +18795,22 @@
         "description": "DEM source requested by site selection.",
         "properties": {
           "source": {
-            "default": "custom",
-            "description": "DEM source identifier: custom path, data section, or ign_geoplateforme_dem.",
-            "enum": [
-              "custom",
-              "data",
-              "ign_geoplateforme_dem"
+            "anyOf": [
+              {
+                "enum": [
+                  "custom",
+                  "data_manager",
+                  "ign_geoplateforme_dem"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "examples": [
-              "custom"
-            ],
+            "default": null,
+            "description": "Optional DEM resolver override. When omitted, site_selection uses site_selection.dem.path if provided, otherwise the HydroModPy data manager configured in [data.dem]. Explicit values are: 'custom' for site_selection.dem.path only, 'data_manager' for [data.dem], and 'ign_geoplateforme_dem' for the IGN Geoplateforme provider shortcut.",
             "title": "Source",
-            "type": "string",
             "x-hmp-profile": "user"
           },
           "path": {
@@ -18724,7 +18824,7 @@
               }
             ],
             "default": null,
-            "description": "Local DEM path when source='custom'.",
+            "description": "Local DEM file or directory when source='custom'. A directory with several TIF/TIFF/ASC tiles is mosaicked into a cached GeoTIFF.",
             "title": "Path",
             "x-hmp-profile": "user"
           },
@@ -18739,7 +18839,7 @@
               }
             ],
             "default": null,
-            "description": "DEM resolution in metres.",
+            "description": "Effective DEM resolution in metres. For data-manager DEM sources, prefer data.dem.sources[].resolution_m; site-selection derives this value for manifests and reports. Keep this field only for custom DEM paths or provider shortcuts without [data.dem].",
             "title": "Resolution M",
             "x-hmp-profile": "user"
           },
@@ -18753,43 +18853,43 @@
             "type": "string",
             "x-hmp-profile": "user"
           },
-          "margin_km": {
+          "delineation_buffer_km": {
             "default": 0.0,
-            "description": "DEM request margin around the territory in kilometres.",
+            "description": "Buffer added to the DEM used for flow directions and basin delineation, in kilometres. With delineation_dem_extent_source='candidate_outlets_bbox', this expands the bounding box of candidate outlets; with delineation_dem_extent_source='selection_territory', it expands the configured selection territory.",
             "examples": [
               0.0
             ],
             "minimum": 0,
-            "title": "Margin Km",
+            "title": "Delineation Buffer Km",
             "type": "number",
             "x-hmp-profile": "user"
           },
-          "request_extent": {
-            "default": "territory",
-            "description": "Spatial extent used when a DEM is loaded through [data.dem]. 'territory' requests the configured selection territory; 'outlets' requests the bounding box of imported outlets expanded by margin_km.",
+          "delineation_dem_extent_source": {
+            "default": "selection_territory",
+            "description": "Source used to build the extent of the DEM loaded for hydrologic calculations: flow direction, accumulation, outlet snapping, and catchment delineation. 'selection_territory' loads the DEM over the configured territory and is the safer option when upstream basins may extend far from outlets. 'candidate_outlets_bbox' loads only the bounding box of candidate or station outlets, expanded by delineation_buffer_km; this is faster for previews, but the buffer must be large enough to contain the upstream area needed for delineation.",
             "enum": [
-              "territory",
-              "outlets"
+              "selection_territory",
+              "candidate_outlets_bbox"
             ],
             "examples": [
-              "territory"
+              "selection_territory"
             ],
-            "title": "Request Extent",
+            "title": "Delineation Dem Extent Source",
             "type": "string",
             "x-hmp-profile": "user"
           },
-          "map_background_extent": {
-            "default": "delineation",
-            "description": "DEM extent used only for review-map background. 'delineation' reuses the DEM used to calculate basin contours; 'territory' loads a regional DEM through [data.dem] without using it for delineation.",
+          "review_map_dem_background": {
+            "default": "delineation_dem",
+            "description": "DEM used as the HTML review-map background. 'delineation_dem' reuses the DEM used to calculate basin contours; 'territory_dem' loads a territory-scale DEM through [data.dem] without using it for delineation; 'none' disables the DEM map background.",
             "enum": [
               "none",
-              "delineation",
-              "territory"
+              "delineation_dem",
+              "territory_dem"
             ],
             "examples": [
               "none"
             ],
-            "title": "Map Background Extent",
+            "title": "Review Map Dem Background",
             "type": "string",
             "x-hmp-profile": "user"
           },
@@ -18801,7 +18901,7 @@
             ],
             "title": "Force Refresh",
             "type": "boolean",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           }
         },
         "title": "DemConfig",

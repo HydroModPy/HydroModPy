@@ -139,7 +139,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     )
     dem_dir = workspace / "data" / "dem"
     assert dem_dir.is_dir(), "hmp data get must write into data/<variable>/"
-    raw_files = list(dem_dir.glob("dem_*.tif"))
+    raw_files = list(dem_dir.glob("dem_upstream_*.tif"))
     assert raw_files, "no fetched DEM placeholder under data/dem/"
     sidecar = raw_files[0].with_suffix(raw_files[0].suffix + ".json")
     assert sidecar.is_file(), "sidecar JSON missing next to fetched file"

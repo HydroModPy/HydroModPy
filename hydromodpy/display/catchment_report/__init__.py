@@ -1,5 +1,6 @@
 """Catchment-scale report assembly helpers."""
 
+from hydromodpy.display.catchment_report.build_options import CatchmentReportBuildOptions
 from hydromodpy.display.catchment_report.builder import (
     CatchmentReportConfig,
     build_catchment_report,
@@ -16,6 +17,7 @@ from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
 
 __all__ = [
     "CatchmentReportConfig",
+    "CatchmentReportBuildOptions",
     "CatchmentReportInputs",
     "CatchmentReportSettings",
     "CatchmentReportPreset",

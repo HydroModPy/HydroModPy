@@ -140,6 +140,15 @@ Sections
       Optional display and export toggles loaded from the [display] section.
 
    .. grid-item-card::
+      :link: report
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[report]**
+      ^^^
+      Optional report intent loaded from [report]. The [report.html] subsection can request report artifacts and end-of-run HTML.
+
+   .. grid-item-card::
       :link: persistence
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -239,6 +248,7 @@ Sections
    modflownwt
    modflow6
    display
+   report
    persistence
    analysis
    overview

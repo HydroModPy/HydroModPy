@@ -230,7 +230,12 @@ def resolve_tiered_results_dir(
     if base_out_path:
         results_root = Path(base_out_path).expanduser().resolve()
     else:
-        results_root = Path(tempfile.gettempdir()) / "hydromodpy_regression_outputs"
+        session_root = os.environ.get("HMP_TEST_SESSION_SCRATCH_ROOT")
+        if session_root:
+            # Keep Windows GIS paths below MAX_PATH for GDAL/Fiona shapefile writers.
+            results_root = Path(session_root).expanduser().resolve() / "r"
+        else:
+            results_root = Path(tempfile.gettempdir()) / "hmp_reg"
     file_path = Path(test_file).resolve()
     file_parts = set(file_path.parts)
     tier = "extensive" if "extensive" in file_parts else "fast"

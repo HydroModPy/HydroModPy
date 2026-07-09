@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.display.report_artifacts import HtmlReportIntent
+
+CATCHMENT_REPORT_PROFILE = "catchment_gauged"
 
 
 @dataclass(frozen=True)
@@ -14,12 +18,12 @@ class CatchmentReportSettings:
     report: ReportSettings
     layout: LayoutSettings
     observed_discharge: ObservedDischargeSettings | None
-    pipeline: PipelineSettings
+    html_report: HtmlReportIntent
 
     @classmethod
     def from_toml(cls, path: Path) -> CatchmentReportSettings:
         config_path = Path(path).expanduser().resolve()
-        payload = tomllib.loads(config_path.read_text(encoding="utf-8-sig"))
+        payload = load_toml_with_base_config(config_path)
         return cls.from_mapping(payload, base_dir=config_path.parent)
 
     @classmethod
@@ -32,7 +36,10 @@ class CatchmentReportSettings:
         report = _section(payload, "report")
         layout = _section(payload, "layout")
         context = payload.get("context", {})
-        pipeline = payload.get("pipeline", {})
+        html_report = HtmlReportIntent.from_mapping(
+            report.get("html"),
+            default_profile=CATCHMENT_REPORT_PROFILE,
+        )
 
         return cls(
             report=ReportSettings.from_mapping(report, base_dir=base_dir),
@@ -41,7 +48,7 @@ class CatchmentReportSettings:
                 context,
                 base_dir=base_dir,
             ),
-            pipeline=PipelineSettings.from_mapping(pipeline),
+            html_report=html_report,
         )
 
 
@@ -136,41 +143,6 @@ class ObservedDischargeSettings:
         )
 
 
-@dataclass(frozen=True)
-class PipelineSettings:
-    run_overview: bool = False
-    run_simulation: bool = False
-    build_context_artifacts: bool = True
-    build_report_html: bool = True
-    no_lock: bool = True
-    stream_run_logs: bool = False
-    strict_figure_postflight: bool = False
-
-    @classmethod
-    def from_mapping(cls, payload: Any) -> PipelineSettings:
-        return cls(
-            run_overview=_optional_bool_with_default(payload, "run_overview", False),
-            run_simulation=_optional_bool_with_default(payload, "run_simulation", False),
-            build_context_artifacts=_optional_bool_with_default(
-                payload,
-                "build_context_artifacts",
-                True,
-            ),
-            build_report_html=_optional_bool_with_default(
-                payload,
-                "build_report_html",
-                True,
-            ),
-            no_lock=_optional_bool_with_default(payload, "no_lock", True),
-            stream_run_logs=_optional_bool_with_default(payload, "stream_run_logs", False),
-            strict_figure_postflight=_optional_bool_with_default(
-                payload,
-                "strict_figure_postflight",
-                False,
-            ),
-        )
-
-
 def _section(payload: Mapping[str, Any], name: str) -> Mapping[str, Any]:
     value = payload.get(name)
     if not isinstance(value, Mapping):
@@ -190,17 +162,6 @@ def _optional_string(payload: Mapping[str, Any], key: str) -> str | None:
     if value is None:
         return None
     return str(value)
-
-
-def _optional_bool_with_default(payload: Any, key: str, default: bool) -> bool:
-    if not isinstance(payload, Mapping):
-        return default
-    value = payload.get(key)
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    raise ValueError(f"Catchment report config key {key!r} must be a boolean.")
 
 
 def _optional_path(
@@ -238,8 +199,8 @@ def _path(base_dir: Path, value: Any) -> Path:
 
 __all__ = [
     "CatchmentReportSettings",
+    "CATCHMENT_REPORT_PROFILE",
     "LayoutSettings",
     "ObservedDischargeSettings",
-    "PipelineSettings",
     "ReportSettings",
 ]

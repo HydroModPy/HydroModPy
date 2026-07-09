@@ -20,6 +20,7 @@ from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
     log_xt3d_resolution,
     mf6_safe_name,
+    mf6_workspace_name,
     resolve_flow_regime,
     resolve_ims_complexity_for,
     resolve_xt3d_options,
@@ -65,6 +66,7 @@ class Modflow6:
 
         self.model_name = model_name
         self.model_name_mf6 = mf6_safe_name(model_name)
+        self.model_workspace_name = mf6_workspace_name(model_folder, model_name)
         self.model_output_name = model_name
         self.geographic = geographic
         self.flow = None
@@ -73,7 +75,7 @@ class Modflow6:
         self.last_flow_solve_time_seconds: float | None = None
         self.prob_cells = 0
 
-        self.full_path = os.path.join(model_folder, model_name)
+        self.full_path = os.path.join(model_folder, self.model_workspace_name)
         self.dem_watershed_path = None
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None

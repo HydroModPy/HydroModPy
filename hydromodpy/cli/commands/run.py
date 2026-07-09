@@ -32,7 +32,7 @@ HELP: str = "Run a workflow from a TOML config"
 
 
 def _step_choices() -> list[str]:
-    """Return the canonical 12-step pipeline names for shell completion."""
+    """Return the canonical pipeline step names for shell completion."""
     try:
         from hydromodpy.workflow.orchestrator import standard_steps
 

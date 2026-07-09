@@ -42,8 +42,9 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
                 "hard_min_area_km2 = 75.0",
                 "hard_max_area_km2 = 125.0",
                 "",
-                "[site_selection.output]",
-                "write_report_html = true",
+                "[report.html]",
+                'profile = "site_selection"',
+                "build_at_end = true",
             ]
         ),
         encoding="utf-8",
@@ -71,6 +72,7 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
     assert paths["site_selection_manifest_json"].is_file()
     assert paths["site_selection_report_html"].is_file()
     assert paths["site_selection_map_png"].is_file()
+    assert paths["report_artifact_manifest_json"].is_file()
 
     manifest = json.loads(paths["site_selection_manifest_json"].read_text(encoding="utf-8"))
     assert manifest["selection_id"] == "report_demo"
@@ -94,6 +96,21 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
     assert (paths["site_selection_report_html"].parent / "compact" / "index.html").is_file()
     assert (paths["site_selection_report_html"].parent / "standard" / "index.html").is_file()
     assert (paths["site_selection_report_html"].parent / "audit" / "index.html").is_file()
+
+    artifact_manifest = json.loads(
+        paths["report_artifact_manifest_json"].read_text(encoding="utf-8")
+    )
+    artifacts = {
+        artifact["artifact_id"]: artifact
+        for artifact in artifact_manifest["artifacts"]
+    }
+    assert artifact_manifest["profile"] == "site_selection"
+    assert artifact_manifest["source_manifest"] == "site_selection_manifest.json"
+    assert artifacts["site_selection_manifest_json"]["status"] == "present"
+    assert artifacts["site_selection_report_html"]["status"] == "present"
+    assert artifacts["site_selection_map_png"]["metadata"]["display_figure"] == (
+        "site_selection_map"
+    )
 
 
 @pytest.mark.fast
@@ -123,8 +140,9 @@ def test_render_site_selection_html_report_supports_custom_output(tmp_path):
                 "hard_min_area_km2 = 75.0",
                 "hard_max_area_km2 = 125.0",
                 "",
-                "[site_selection.output]",
-                "write_report_html = true",
+                "[report.html]",
+                'profile = "site_selection"',
+                "build_at_end = true",
             ]
         ),
         encoding="utf-8",
@@ -192,6 +210,83 @@ def test_site_selection_report_blocks_show_station_influence(tmp_path):
     assert block.tables[0].rows[0]["station_id"] == "J123456701"
     assert block.tables[0].rows[0]["decision"] == "general_influence"
     assert "absence d'obstacle amont" in block.warnings[0]
+
+
+@pytest.mark.fast
+def test_site_selection_report_warns_when_basin_touches_calculation_dem_boundary(tmp_path):
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    root = tmp_path / "out"
+    root.mkdir()
+    dem_path = root / "dem.tif"
+    with rasterio.open(
+        dem_path,
+        "w",
+        driver="GTiff",
+        width=10,
+        height=10,
+        count=1,
+        dtype="uint8",
+        crs="EPSG:2154",
+        transform=from_origin(0, 10, 1, 1),
+    ) as dataset:
+        dataset.write(np.zeros((1, 10, 10), dtype="uint8"))
+
+    basins_path = root / "selected_basins.geojson"
+    basins_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"site_id": "site_edge"},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [2, 2],
+                                    [10, 2],
+                                    [10, 8],
+                                    [2, 8],
+                                    [2, 2],
+                                ]
+                            ],
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    blocks = build_site_selection_result_blocks(
+        {
+            "selection_id": "edge_warning_report",
+            "counts": {},
+            "strategy": {},
+            "territory": {},
+            "criteria": {},
+            "dem": {},
+            "flow_products": {"dem_path": "dem.tif"},
+            "outputs": {"selected_basins_geojson": "selected_basins.geojson"},
+        },
+        manifest_path=root / "site_selection_manifest.json",
+        output_root=root,
+        map_path=root / "site_selection_map.png",
+        selected=[],
+        rejected=[],
+        decisions=[],
+        evidence=[],
+        components=[],
+    )
+
+    block = next(item for item in blocks if item.block_id == "selection_map")
+
+    assert "site_edge" in block.warnings[0]
+    assert "delineation_buffer_km" in block.warnings[0]
 
 
 @pytest.mark.fast

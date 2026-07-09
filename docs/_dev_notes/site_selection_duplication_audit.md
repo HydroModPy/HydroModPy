@@ -39,7 +39,7 @@ vectoriel et de rendu HTML, pas les algorithmes hydrologiques.
 - `outputs/geospatial.py`, `evidence/influence.py` et `evidence/context.py`
   dupliquent des helpers comme `_single_crs`, `_clean_value` et l'ecriture
   `GeoDataFrame.to_file(..., driver="GPKG")`.
-- `candidates/generation.py` et `outputs/geospatial.py` dupliquent le nettoyage
+- `candidates/candidate_builders.py` et `outputs/geospatial.py` dupliquent le nettoyage
   de proprietes JSON/GeoJSON via `_clean_properties` et `_clean_value`.
 - Les rapports `site_selection/reports/*` ont leurs propres helpers HTML alors
   que `hydromodpy.results.html_helpers` et
@@ -68,7 +68,7 @@ doit rester dans `site_selection/reports`.
 
 ## Hors refactor immediat
 
-- La generation automatique `generated_candidates` reste experimentale mais
+- La generation automatique `dem_network_sampling` reste experimentale mais
   elle est testee et couvre un chemin fonctionnel distinct; elle ne doit pas
   etre supprimee comme legacy sans decision produit separee.
 - Les adaptateurs hydrologiques doivent rester proches du workflow: les

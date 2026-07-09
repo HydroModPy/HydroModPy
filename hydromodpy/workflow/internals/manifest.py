@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from hydromodpy.core.exceptions import ResumeError
+from hydromodpy.core.io.atomic import atomic_write_json
 from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
 from hydromodpy.workflow.internals.state import PipelineState
 
@@ -83,14 +84,7 @@ class ResolvedRunManifest:
 
     def write_atomic(self, workspace: Path) -> Path:
         path = self.path_for(workspace, self.run_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(
-            json.dumps(asdict(self), indent=2, sort_keys=True, ensure_ascii=True) + "\n",
-            encoding="utf-8",
-        )
-        tmp.replace(path)
-        return path
+        return atomic_write_json(path, asdict(self), sort_keys=True)
 
     def verify_state(
         self,

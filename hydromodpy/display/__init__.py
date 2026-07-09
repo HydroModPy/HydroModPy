@@ -13,6 +13,9 @@ Public API:
 
 from __future__ import annotations
 
+from importlib import import_module
+from types import ModuleType
+
 from hydromodpy.display.catalog import get, list_figures, names, register
 from hydromodpy.display.figure import BaseFigure, Figure, FigureSpec
 
@@ -20,8 +23,17 @@ __all__ = [
     "BaseFigure",
     "Figure",
     "FigureSpec",
+    "catchment_report",
     "get",
     "list_figures",
     "names",
     "register",
 ]
+
+
+def __getattr__(name: str) -> ModuleType:
+    if name == "catchment_report":
+        module = import_module("hydromodpy.display.catchment_report")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

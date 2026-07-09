@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import mmap
 import os
 from pathlib import Path
 
@@ -27,20 +28,32 @@ _SKIP_DIRS = {
 }
 _BINARY_SUFFIXES = {
     ".7z",
+    ".dbf",
     ".db",
+    ".duckdb",
+    ".gpkg",
     ".gif",
     ".gz",
+    ".h5",
+    ".hdf",
+    ".hdf5",
     ".ico",
     ".jpg",
     ".jpeg",
+    ".log",
+    ".nc",
+    ".nc4",
     ".npy",
     ".npz",
     ".parquet",
     ".pdf",
     ".png",
     ".pyc",
+    ".shp",
+    ".shx",
     ".tif",
     ".tiff",
+    ".wal",
     ".webp",
     ".zip",
 }
@@ -71,17 +84,27 @@ def _iter_candidate_files(repo_root: Path):
                 yield path
 
 
+def _file_contains_bytes(path: Path, needle: bytes) -> bool:
+    with path.open("rb") as handle:
+        try:
+            with mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as payload:
+                return payload.find(needle) != -1
+        except ValueError:
+            return False
+
+
 def test_legacy_regression_vocabulary_stays_out_of_active_surface() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     legacy_name = "_".join(("launcher", "simulation"))
+    legacy_bytes = legacy_name.encode("utf-8")
     offenders: list[str] = []
 
     for path in _iter_candidate_files(repo_root):
         try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            has_legacy_name = _file_contains_bytes(path, legacy_bytes)
+        except OSError:
             continue
-        if legacy_name in text:
+        if has_legacy_name:
             offenders.append(path.relative_to(repo_root).as_posix())
 
     assert offenders == []

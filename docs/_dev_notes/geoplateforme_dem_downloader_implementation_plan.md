@@ -239,7 +239,7 @@ Verification CLI locale le 2026-05-24:
 
 ```powershell
 python -m hydromodpy.cli.main run `
-  examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+  examples/projects/17_site_selection_workflow/configs/bretagne_jauge_7stations.toml
 ```
 
 Resultat observe:
@@ -250,7 +250,7 @@ selected: 7
 rejected: 0
 site_selection_report_html:
   examples/projects/17_site_selection_workflow/outputs/
-  bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html
+  bretagne_jauge_7stations_v1/review/index.html
 ```
 
 ### Couverture par fichier
@@ -1075,10 +1075,10 @@ Fait:
   `source = "ign_geoplateforme_dem"` pour passer par le client dynamique;
 - le rapport HTML signale explicitement les entrees `fixture` ou `synthetic`;
 - un exemple AURA hydrometrique reel borne a cinq stations Hub'Eau est ajoute
-  dans `configs/auvergne_rhone_alpes_hydrometry_preview.toml`;
+  dans `configs/aura_jauge_5stations.toml`;
 - AURA `area_only` produit un rapport avec fond DEM regional reel issu du cache
   Geoplateforme, mais ses bassins restent volontairement synthetiques;
-- AURA `hydrometry_preview` produit un rapport a partir de stations Hub'Eau
+- AURA `jauge_5stations` produit un rapport a partir de stations Hub'Eau
   reelles et du DEM regional Geoplateforme.
 
 Reste:

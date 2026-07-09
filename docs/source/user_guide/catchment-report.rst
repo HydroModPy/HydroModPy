@@ -5,21 +5,20 @@ Catchment HTML Reports
 from a single report TOML. The command is intentionally separate from the
 simulation TOML: the simulation TOML produces model outputs, while the report
 TOML declares where to find the overview, context, simulation, and report
-artifacts. The optional ``[pipeline]`` section can also command which steps are
-executed, including simulation relaunch and final HTML creation.
+artifacts.
 
 Standard command
 ----------------
 
-Build according to the report TOML pipeline defaults:
+Build context artifacts and the final HTML report from the artifacts declared
+in the report TOML:
 
 .. code-block:: bash
 
    hmp report catchment path/to/catchment_report.toml
 
-If ``[pipeline].run_simulation = true`` and
-``[pipeline].build_report_html = true``, this single command relaunches the
-configured simulation and then produces the HTML report from its outputs.
+This command does not relaunch the overview or the simulation unless the
+corresponding CLI flags are passed.
 
 Only rebuild the final HTML from existing context artifacts:
 
@@ -28,7 +27,7 @@ Only rebuild the final HTML from existing context artifacts:
    hmp report catchment path/to/catchment_report.toml --report-only
 
 This mode also skips optional overview/simulation run steps by default, even
-when they are enabled in ``[pipeline]``.
+when pipeline defaults exist in the TOML.
 
 Only rebuild the context artifacts:
 
@@ -62,6 +61,11 @@ After the final HTML is rendered, the pipeline writes
 lists expected, present, missing and dangling figure artifacts. Use
 ``--strict-figure-postflight`` to fail the command when any expected figure is
 missing.
+
+The same build also writes ``report_artifact_manifest.json``. This second
+manifest is the generic report-artifact contract: it records semantic artifact
+identifiers, their producers, whether they are required by the report profile,
+and whether the concrete files were present for this run.
 
 Run the configured overview first:
 
@@ -98,6 +102,40 @@ When regression confidence is needed, prefer a small contract test around the
 TOML, manifest, or regenerated file fingerprints rather than committing the full
 HTML and figure tree. The full report can still be inspected locally after a
 run through the printed ``html_report`` path.
+
+What the report shows
+---------------------
+
+The Nancon example illustrates the kind of evidence a catchment report brings
+together: spatial context, reference hydrography, observed or simulated series,
+and simulation diagnostics. These figures are generated report artifacts, copied
+here only as documentation illustrations.
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: /_static/user_guide/catchment_report/nancon_map_dem_context.png
+          :alt: Nancon DEM context map.
+          :width: 100%
+
+          Catchment and DEM context.
+
+     - .. figure:: /_static/user_guide/catchment_report/nancon_hydrographic_network_comparison.png
+          :alt: Nancon hydrographic network comparison.
+          :width: 100%
+
+          Reference and generated hydrographic networks.
+   * - .. figure:: /_static/user_guide/catchment_report/nancon_timeseries_discharge.png
+          :alt: Nancon discharge time series.
+          :width: 100%
+
+          Discharge time series used for report interpretation.
+
+     - .. figure:: /_static/user_guide/catchment_report/nancon_simulated_active_network_reference_overlay.png
+          :alt: Nancon simulated active network overlay.
+          :width: 100%
+
+          Simulated active network compared with the reference network.
 
 TOML contract
 -------------
@@ -177,11 +215,13 @@ Optional ``[layout]`` fields:
      - Overview TOML file name under ``data_overview_project_dir``. Defaults to
        ``config_overview.toml``.
 
-Pipeline fields
----------------
+Optional pipeline fields
+------------------------
 
-The optional ``[pipeline]`` section controls which steps are executed when no
-CLI override is supplied.
+The optional ``[pipeline]`` section is still read for older report TOMLs, but it
+is no longer the preferred contract. New report TOMLs should describe the report
+only. Run orchestration should live in CLI flags, in the simulation workflow, or
+in ``[report.html]`` on the simulation TOML.
 
 .. list-table::
    :header-rows: 1
@@ -212,10 +252,69 @@ CLI override is supplied.
      - ``false``
      - Fail after HTML rendering if expected figures are missing from the
        generated figure manifest.
-
 CLI flags override these TOML defaults. For example,
 ``--no-run-simulation`` rebuilds the context and HTML without relaunching a
-simulation even when ``run_simulation = true`` in the TOML.
+simulation even when a config still declares ``run_simulation = true``.
+
+Optional HTML intent
+--------------------
+
+Simulation TOMLs can use ``[report.html]`` to express report intent without
+duplicating the lower-level pipeline switches. ``build_at_end = true`` implies
+``enabled = true`` and ``strict`` defaults to ``false``:
+
+.. code-block:: toml
+
+   [report.html]
+   build_at_end = true
+   profile = "catchment_gauged"
+   config_path = "../16_nancon_natural_calibration/catchment_report_transient_nwt_html.toml"
+
+Current profile support is intentionally narrow:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 24 52
+
+   * - Profile
+     - Status
+     - Builder
+   * - ``catchment_gauged``
+     - Supported for simulation runs
+     - The simulation pipeline renders display artifacts, then
+       ``HtmlReportStep`` builds the catchment report from ``config_path``.
+   * - ``site_selection``
+     - Supported by the site-selection workflow
+     - The site-selection workflow reads the same ``[report.html]`` intent but
+       uses its own manifest-driven renderer.
+   * - ``generic_simulation``
+     - Reserved
+     - The profile is accepted by the configuration schema for future use, but
+       no end-of-run HTML builder is shipped for it yet.
+
+Using ``enabled = true`` without ``build_at_end`` means that the run should
+prepare the report artifacts but the final HTML can be built later from the
+manifest.
+
+For ``profile = "catchment_gauged"``, ``config_path`` points to the catchment
+report TOML that declares the report layout and context inputs. The end-of-run
+step consumes this TOML in report-only mode: it forces ``run_overview = false``
+and ``run_simulation = false``. The report TOML adapts to the artifacts
+produced by the simulation; it does not decide which simulation steps run.
+
+When the simulation display step produced
+``figures/<run_name>/report_artifact_manifest.json``, the HTML step uses that
+manifest first. It validates that required display artifacts are present, uses
+the manifest location as the source figure directory, and records that upstream
+manifest in the final report ``report_artifact_manifest.json``. The report TOML
+then remains a layout/context descriptor rather than the source of truth for
+which run was executed.
+
+The bundled Nancon example is:
+
+.. code-block:: bash
+
+   hmp run examples/projects/02_nancon_watershed/run_transient_nwt_html_report.toml
 
 Observed discharge
 ------------------
@@ -252,14 +351,6 @@ Minimal generic example
    transient_config_name = "run_selune_nwt_report.toml"
    overview_config_name = "../../overview_selune.toml"
 
-   [pipeline]
-   run_overview = true
-   run_simulation = true
-   build_context_artifacts = true
-   build_report_html = true
-   stream_run_logs = false
-   strict_figure_postflight = true
-
    [context.observed_discharge]
    path = "../../data/hydrometry/hydrometry_hubeau_I922102001_20200101_20201231_D.csv"
    station_id = "I922102001"
@@ -286,16 +377,36 @@ The Nancon example uses the same generic report contract as any other basin:
    transient_config_name = "run_transient_nwt.toml"
    overview_config_name = "run_overview_all_apis.toml"
 
-   [pipeline]
-   run_overview = true
-   run_simulation = true
-   build_context_artifacts = true
-   build_report_html = true
-   strict_figure_postflight = true
-
    [context.observed_discharge]
    path = "../../data/hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv"
    station_id = "NANCON"
+
+This lower-level example is useful when rebuilding the report manually from
+the historical ``transient_nwt`` artifacts. It is not the recommended
+validation target for the end-of-run ``[report.html]`` path.
+
+For the optional HTML report built at the end of a simulation, use the Nancon
+overlay that points to the display-artifact run:
+
+.. code-block:: toml
+
+   base_config = "catchment_report.toml"
+
+   [report]
+   output_dir = "outputs/nancon_transient_nwt_html_report"
+
+   [layout]
+   simulation_name = "transient_nwt_html_report"
+   transient_config_name = "run_transient_nwt_html_report.toml"
+
+The corresponding report-only rebuild is:
+
+.. code-block:: bash
+
+   hmp report catchment examples/projects/16_nancon_natural_calibration/catchment_report_transient_nwt_html.toml --report-only
+
+Its expected final check is ``missing_count = 0`` in
+``outputs/nancon_transient_nwt_html_report/block_report_postflight.json``.
 
 Adding a New Basin
 ------------------
@@ -309,13 +420,17 @@ The expected pattern is:
 1. create or reuse an overview TOML for the basin outlet;
 2. create or reuse a simulation TOML whose ``[display].figures`` list includes
    the report figures consumed by the generic preset;
-3. create a ``catchment_report_*.toml`` that points to those TOMLs, declares the
-   report output directory, and enables ``strict_figure_postflight``;
-4. run one command:
+3. create a ``catchment_report_*.toml`` that points to those TOMLs and declares
+   the report output directory;
+4. generate or reuse the simulation artifacts, then run one report command:
 
 .. code-block:: bash
 
    hmp report catchment path/to/catchment_report_<basin>.toml
+
+If the artifacts do not exist yet and the report CLI should produce them for a
+one-off rebuild, pass explicit orchestration flags such as
+``--run-overview --run-simulation``.
 
 The command must print the generated ``context_summary``, ``html_report`` and
 ``postflight_report`` paths. A valid new-basin run has

@@ -1,0 +1,21 @@
+# ======================================================================
+# Nancon - transient run with optional end-of-run HTML report
+# ----------------------------------------------------------------------
+# Overlay of run_transient_nwt.toml. The simulation remains a normal
+# simulation workflow; the HTML report is only an optional final consumer
+# of the artifacts produced by the run.
+#
+# Launch:
+#   hmp run examples/projects/02_nancon_watershed/run_transient_nwt_html_report.toml
+# ======================================================================
+
+base_config = "run_transient_nwt.toml"
+
+[simulation]
+name = "transient_nwt_html_report"
+description = "Nancon - monthly transient MODFLOW-NWT run with end-of-run HTML report."
+
+[report.html]
+build_at_end = true
+profile = "catchment_gauged"
+config_path = "../16_nancon_natural_calibration/catchment_report_transient_nwt_html.toml"

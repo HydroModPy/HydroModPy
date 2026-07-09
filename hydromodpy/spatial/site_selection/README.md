@@ -15,8 +15,9 @@ The package is responsible for:
 - auditable criterion components and selection decisions;
 - CSV/JSONL exports for selected and rejected sites;
 - the official `site_selection_manifest.json` contract;
+- the generic `report_artifact_manifest.json` report-artifact contract;
 - downstream hand-off references for catalog consumers;
-- an optional static HTML review page generated from the manifest.
+- an optional static HTML review page built from the manifest.
 
 The package is not responsible for:
 
@@ -50,11 +51,11 @@ Outlet snapping has two explicit strategies:
 
 - `site_selection.outlets.snap_strategy = "dem_accumulation"` keeps the direct
   path: the candidate point is snapped to the DEM-derived accumulation raster
-  with the short radius `snap_dist_m`.
+  with the short radius `dem_snap_max_distance_m`.
 - `site_selection.outlets.snap_strategy = "bdtopage_then_dem"` first projects
   the candidate point onto BD Topage or a custom reference network, rejects the
-  site if that network is farther than `reference_network_max_distance_m`, then
-  runs the DEM snap locally with `snap_dist_m`.
+  site if that network is farther than `reference_network_snap_max_distance_m`,
+  then runs the DEM snap locally with `dem_snap_max_distance_m`.
 
 The reference-network strategy constrains the outlet to stay near the observed
 station and river line. It does not replace the DEM: watershed delineation still
@@ -81,7 +82,7 @@ only stable workflow entrypoints, manifest helpers and report renderers.
 
 - `config/`: Pydantic configuration and validation models.
 - `domain/`: shared domain records that are not tied to one processing phase.
-- `candidates/`: candidate outlet records, DEM/network generation,
+- `candidates/`: candidate outlet records, DEM/network candidate builders,
   station-led candidate building, thinning, and reference-network snapping.
 - `hydrology/`: thin adapters to existing DEM flow-product and
   catchment-from-point utilities, plus batch delineation.
@@ -109,6 +110,7 @@ Completed selection runs always write the audit core:
 - `site_selection_evidence.jsonl` when at least one normalized evidence row is
   available
 - `site_selection_manifest.json`
+- `report_artifact_manifest.json`
 
 With the default GeoJSON switch they also write:
 
@@ -158,7 +160,8 @@ write:
   `observation_points.parquet` and the `observation_points` GeoPackage layer
   when their corresponding output switches are active.
 
-If `site_selection.output.write_report_html = true`, they also write:
+If the generic report contract declares `[report.html] build_at_end = true`
+for the `site_selection` profile, completed runs also write:
 
 - `review/index.html`
 - `review/site_selection_map.png`
@@ -167,32 +170,41 @@ Plan-only runs use a lighter contract:
 
 - `site_selection_plan.json` when `site_selection.input.write_plan_manifest = true`
   or when an HTML report is requested;
-- `review/index.html` when `site_selection.output.write_report_html = true`.
+- `report_artifact_manifest.json` when the plan manifest is written;
+- `review/index.html` when `[report.html] build_at_end = true`.
 
 The plan-only HTML explicitly states that no site has been selected or rejected.
 It is intended for reviewing strategy, territory, required data and planned
 outputs before running hydrometry loading or DEM-based delineation.
 
-DEM/network-generated runs use `site_selection.input.mode =
-"generated_candidates"` with `site_selection.outlets.candidate_mode =
-"network_sampling"`. This mode is experimental and remains outside the
-short-term stable business contract, but it is kept as a tested capability.
-It writes the normal selection outputs plus:
+DEM target-area runs use `site_selection.input.mode = "dem_area_target"`.
+This is the simplified DEM path for "find basins around this upstream area"
+campaigns: candidate outlets are ranked by their distance to
+`site_selection.dem_area_target.target_area_km2`, then delineated and selected
+with the normal area and spatial criteria.
 
-- `candidate_generation.jsonl`
+DEM network sampling runs use `site_selection.input.mode =
+"dem_network_sampling"` with `site_selection.outlets.candidate_mode =
+"network_sampling"`. This is the lower-level stream-network sampling path: it
+exposes outlet-construction controls such as spacing, candidate caps and optional
+reference-network scoring. It remains outside the short-term stable business
+contract, but it is kept as a tested capability. It writes the normal selection
+outputs plus:
+
+- `candidate_audit.jsonl`
 - `candidate_outlets.geojson` when `write_geojson = true`
-- `generated_dem_network.geojson` when `write_geojson = true`
+- `dem_network.geojson` when `write_geojson = true`
 
 These candidates come from high-accumulation DEM cells, constrained by
-`min_distance_between_outlets_km` and `max_generated_candidates`, then pass
+`min_distance_between_outlets_km` and `max_network_candidates`, then pass
 through the same delineation and selection stages as imported or station-led
-candidates. The generation audit includes accepted and rejected candidate cells,
+candidates. The candidate audit includes accepted and rejected candidate cells,
 with rejection reasons such as spacing or candidate-count caps. When a BD
 Topage/custom reference network is loaded, candidates also carry
 `reference_network_distance_m`, `reference_network_score` and
 `reference_network_status`.
 
-Generated DEM candidates and their exported DEM network are clipped to the
+DEM-derived candidates and their exported DEM network are clipped to the
 configured territory by default (`territory.clip_to_territory = true`). For
 French administrative territories, this uses the union of department or region
 geometries rather than only the rectangular DEM extent, which avoids sampling
@@ -225,12 +237,12 @@ Observation points are derived from normalized evidence, not from provider-
 specific raw schemas. This allows the same review map to symbolize flow stations,
 piezometers or future observation types once their coordinates are available.
 
-The HTML map is a figure of control. It is generated from the manifest-declared
+The HTML map is a figure of control. It is built from the manifest-declared
 GeoJSON artifacts, colors selected basin contours by area class with light
 fills and thin edges, and uses separate symbols for selected outlets, rejected
 outlets when present, flow stations, piezometers and future observation point
-types. For generated-candidate runs, it also draws the vectorized DEM network
-from `generated_dem_network.geojson`. When outlets were snapped, the map draws
+types. For DEM-network runs, it also draws the vectorized DEM network
+from `dem_network.geojson`. When outlets were snapped, the map draws
 the snapped outlet and a dashed station-to-outlet link for visible
 displacements.
 Optional `site_selection.map_context.layers` can add static context layers such
@@ -261,7 +273,10 @@ default until their writers are implemented.
 
 - `site_id`: stable selected basin identifier.
 - `site_label`: human-readable label, defaulting to `site_id`.
-- `region_id`: optional campaign or administrative region identifier.
+- `region_id`: output grouping label for downstream catalogs. It is inferred
+  from a single administrative region or department when omitted, and can be
+  set explicitly to override the exported label for multi-territory, bbox,
+  polygon or custom campaigns.
 - `source_selection_id`: selection campaign that produced the row.
 - `site_status`: selection status, usually `selected`.
 - `maturity`: downstream maturity flag, for example `screening`.
@@ -359,18 +374,19 @@ comment keyword matches remain warnings for human review.
 Two profiles are treated as the supported short-term contract:
 
 - `area_only`: select basins from DEM/candidate geometry using basin area as
-  the active criterion. This is the profile behind `dem_area_light` examples.
+  the active criterion. This is the profile behind `dem_area_target` examples.
 - `gauged_downstream_station`: select gauged basins from downstream flow
-  stations. It requires `principle = "observation_led"`,
+  stations. It infers `principle = "observation_led"`,
   `primary_observation_type = "flow_station"` and
   `candidate_mode = "station_outlets"`. Optional influence layers can reject
   basins with major upstream dams or other configured major influences.
 
-Station-led hydrometry TOML files must declare
-`profile = "gauged_downstream_station"` explicitly. The manifest still exposes
-`strategy.effective_profile`, but it is no longer used to keep legacy
-hydrometry configurations without a profile alive. DEM-light runs must likewise
-declare `profile = "area_only"` explicitly.
+Station-led hydrometry TOML files can omit the strategy profile:
+`site_selection.input.mode = "hydrometry"` infers
+`profile = "gauged_downstream_station"` and rejects contradictory explicit
+profiles. The manifest still exposes `strategy.effective_profile` as the
+resolved profile. DEM target-area runs must still declare `profile = "area_only"`
+explicitly.
 
 The bounded short-term contract is documented in
 `docs/_dev_notes/site_selection_short_term_contract.md`.
@@ -381,16 +397,17 @@ The matching business doctrine is documented in
 
 The two small examples used to validate the stabilized package structure are:
 
-- `examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml`
+- `examples/projects/17_site_selection_workflow/configs/calvados_non_jauge_dem_10bassins_100km2.toml`
   (`area_only`): 26 candidates, 10 selected, 16 rejected, with
-  `outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`.
-- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml`
+  `outputs/calvados_non_jauge_dem_100km2_v1/review/index.html`.
+- `examples/projects/17_site_selection_workflow/configs/bretagne_jauge_7stations.toml`
   (`gauged_downstream_station`): 6 candidates, 6 selected, 0 rejected, with
-  `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`.
+  `outputs/bretagne_jauge_7stations/review/index.html`.
 
 The output paths above are relative to
 `examples/projects/17_site_selection_workflow/`. The map to inspect alongside
-each HTML report is `review/site_selection_map.png`.
+each HTML report is `review/site_selection_map.png`; the report artifact
+contract is `report_artifact_manifest.json`.
 
 ## Manifest Validation
 
@@ -399,6 +416,8 @@ each HTML report is `review/site_selection_map.png`.
 the manifest has the expected schema version and that referenced output files
 exist. The HTML report is intentionally derived from the manifest and its
 declared artifacts; it should not become a second source of truth.
+`report_artifact_manifest.json` mirrors those declared outputs in the generic
+HTML-report artifact format used by the rest of HydroModPy.
 
 Downstream workflows should receive the manifest path, not a copied catalog
 path. This keeps site-selection output naming, review artifacts and later

@@ -38,7 +38,11 @@ def render_site_selection_html_report(
     manifest_file = Path(manifest_path).expanduser().resolve()
     validation_errors = validate_selection_manifest(
         manifest_file,
-        skip_output_keys=("site_selection_report_html", "site_selection_map_png"),
+        skip_output_keys=(
+            "site_selection_report_html",
+            "site_selection_map_png",
+            "report_artifact_manifest_json",
+        ),
     )
     if validation_errors:
         raise ValueError("; ".join(validation_errors))
@@ -68,8 +72,8 @@ def render_site_selection_html_report(
     evidence = _read_jsonl(
         manifest_output_path(manifest, "observation_evidence_jsonl", manifest_path=manifest_file)
     )
-    candidate_generation = _read_jsonl(
-        manifest_output_path(manifest, "candidate_generation_jsonl", manifest_path=manifest_file)
+    candidate_audit = _read_jsonl(
+        manifest_output_path(manifest, "candidate_audit_jsonl", manifest_path=manifest_file)
     )
     map_path = render_site_selection_map(manifest_file)
     selection_id = str(manifest.get("selection_id", "site_selection"))
@@ -84,7 +88,7 @@ def render_site_selection_html_report(
         decisions=decisions,
         components=components,
         evidence=evidence,
-        candidate_generation=candidate_generation,
+        candidate_audit=candidate_audit,
     )
     variants = build_site_selection_result_block_variants(
         manifest,
@@ -96,7 +100,7 @@ def render_site_selection_html_report(
         decisions=decisions,
         components=components,
         evidence=evidence,
-        candidate_generation=candidate_generation,
+        candidate_audit=candidate_audit,
     )
     subtitle = (
         f"Rapport HTML v0 - selection de sites HydroModPy. {manifest.get('created_at_utc', '')}"

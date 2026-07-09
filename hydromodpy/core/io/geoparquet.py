@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
+from hydromodpy.core.io.atomic import replace_with_retry
 from hydromodpy.core.io.filesystem import native_io_path
 
 if TYPE_CHECKING:
@@ -48,7 +49,7 @@ def write_geoparquet_atomic(
         except FileNotFoundError:
             pass
         raise
-    os.replace(tmp_io, target_io)
+    replace_with_retry(tmp_io, target_io)
     return target
 
 

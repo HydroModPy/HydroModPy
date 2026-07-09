@@ -20,14 +20,14 @@ def delineate_site_selection_candidates(
     *,
     flow_products: SiteSelectionFlowProducts,
     output_root: str | Path,
-    snap_dist_m: int,
+    dem_snap_max_distance_m: int,
     crs_project: str | None,
     backend: object | None = None,
     delineation_builder: DelineationBuilder | None = None,
     area_reader: AreaReader | None = None,
     reference_network: object | None = None,
     reference_network_source: str = "",
-    reference_network_max_distance_m: float | None = None,
+    reference_network_snap_tolerance_m: float | None = None,
 ) -> list[DelineatedCatchment]:
     """Delineate all candidate outlets with the same DEM products and settings."""
 
@@ -40,14 +40,14 @@ def delineate_site_selection_candidates(
             outlet=candidate,
             flow_products=flow_products,
             output_root=output_root,
-            snap_dist_m=snap_dist_m,
+            dem_snap_max_distance_m=dem_snap_max_distance_m,
             crs_project=crs_project or candidate.crs,
             site_id=candidate.candidate_id,
             backend=backend,
             area_reader=area_reader,
             reference_network=reference_network,
             reference_network_source=reference_network_source,
-            reference_network_max_distance_m=reference_network_max_distance_m,
+            reference_network_snap_tolerance_m=reference_network_snap_tolerance_m,
             **builder_kwargs,
         )
         for candidate in candidates

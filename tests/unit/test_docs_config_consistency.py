@@ -28,6 +28,7 @@ from hydromodpy.config import HydroModPyConfig
 from tools.doc_config.generate import (
     _render_starter_snippet,
     _unwrap,
+    export_openapi_wrapper,
     export_schema,
     export_search_index,
 )
@@ -35,6 +36,7 @@ from tools.doc_config.generate import (
 ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_DIR = ROOT / "docs" / "source" / "user_guide" / "config_reference"
 SCHEMA_PATH = ROOT / "docs" / "source" / "_static" / "hydromodpy-schema.json"
+OPENAPI_PATH = ROOT / "docs" / "source" / "_static" / "hydromodpy-openapi.json"
 SEARCH_INDEX_PATH = ROOT / "docs" / "source" / "_static" / "hmp-config-search.json"
 
 
@@ -101,6 +103,16 @@ def test_committed_schema_matches_generated(tmp_path: Path) -> None:
     committed = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     assert committed == expected, (
         "docs/source/_static/hydromodpy-schema.json is stale. "
+        "Run `python -m tools.doc_config` to refresh."
+    )
+
+
+def test_committed_openapi_wrapper_matches_generated(tmp_path: Path) -> None:
+    fresh = export_openapi_wrapper(tmp_path / "hydromodpy-openapi.json")
+    expected = json.loads(fresh.read_text(encoding="utf-8"))
+    committed = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    assert committed == expected, (
+        "docs/source/_static/hydromodpy-openapi.json is stale. "
         "Run `python -m tools.doc_config` to refresh."
     )
 

@@ -32,6 +32,7 @@ id_field = "site_id"
 label_field = "site_label"
 axis_field = "region_id"
 tags_field = "tags"
+field_equals = { site_status = "selected" }
 ```
 
 ## Regional lab profile
@@ -57,19 +58,56 @@ region_field = "region_id"
 tags_field = "tags"
 ```
 
+The top-level regional selection uses the status exported by site selection:
+
+```toml
+[regional_lab.selection]
+statuses = ["selected"]
+```
+
 ## Real site-selection output
 
 Run a site-selection workflow first:
 
 ```bash
-hmp run examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_area_only.toml
+hmp run examples/projects/17_site_selection_workflow/configs/aura_non_jauge_csv_50_150km2.toml
 ```
 
 Then point either catalog section to the generated manifest:
 
 ```toml
-from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_area_only_v1/site_selection_manifest.json"
+from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_non_jauge_csv_50_150km2_v1/site_selection_manifest.json"
 ```
 
 The downstream config no longer needs to hard-code
 `regional_lab_sites.csv`; the manifest remains the stable hand-off contract.
+
+For an execution campaign, keep the manifest-based catalog and provide real
+child TOMLs for every rendered recipe path. Then switch:
+
+```toml
+[regional_lab]
+execute = true
+validate_config_paths = true
+```
+
+## Regenerated regional testbeds
+
+The files below show the intended migration path for the larger natural
+campaigns: regenerate a site inventory with `site_selection`, then let the
+comparison testbed consume the resulting manifest.
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/bretagne_non_jauge_dem_8bassins_10km2.toml
+hmp run examples/projects/18_site_selection_to_testbed/bretagne_10km2_mf6_bouss_from_site_selection.toml
+```
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/bretagne_non_jauge_dem_9bassins_100km2.toml
+hmp run examples/projects/18_site_selection_to_testbed/bretagne_100km2_mf6_bouss_from_site_selection.toml
+```
+
+The first pair targets the legacy N1 scale: about 8 sites near 10 km2. The
+second pair targets the legacy N2 scale: about 9 sites near 100 km2. The sites
+are regenerated from DEM area targets and are not expected to match the old
+static `natural_regional_lab_sites.csv` rows.

@@ -350,7 +350,7 @@ def _fmt_toml(val: Any) -> str:
     if isinstance(val, str):
         return f'"{val}"'
     if isinstance(val, Path):
-        return f'"{val}"'
+        return f'"{val.as_posix()}"'
     if isinstance(val, (list, tuple)):
         inner = ", ".join(_fmt_toml(i) for i in val)
         return f"[{inner}]"

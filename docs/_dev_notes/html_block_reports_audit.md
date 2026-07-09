@@ -49,10 +49,96 @@ Le chantier n'est pas totalement ferme:
 - tous les producteurs ne proposent pas encore la selection de niveau bloc par
   bloc;
 - le rapport testbed volumineux reste hors migration;
-- `network_transient/sections.py` reste present pour compatibilite de tests et
-  de helpers, meme si le rendu final passe par les blocs;
-- il faut encore faire une revue visuelle humaine et maintenir la courte
-  documentation "comment creer un rapport HTML par blocs" dans RTD.
+- la revue de livraison ciblee du rapport bassin Nancon et du rapport
+  site-selection est faite, mais les gros cas regionaux restent des revues
+  produit separees;
+- la courte documentation "comment creer un rapport HTML par blocs" dans RTD
+  doit rester maintenue avec les evolutions du socle.
+
+## Livraison ciblee 2026-06-07
+
+Cette reprise clot le lot "HTML en fin de simulation" pour le profil
+`catchment_gauged` et le nettoyage legacy associe.
+
+Etat du code actif:
+
+- le pipeline de simulation termine par `DisplayStep()` puis `HtmlReportStep()`;
+- `HtmlReportStep` construit uniquement le profil `catchment_gauged`;
+- `site_selection` reste gere par son workflow dedie, en reutilisant
+  l'intention `[report.html]`;
+- `generic_simulation` reste reserve dans le schema mais sans builder livre;
+- les anciens wrappers de compatibilite
+  `hydromodpy/display/catchment_report/semantic_artifacts.py` et
+  `hydromodpy/reporting/site_selection/intent.py` ont ete supprimes;
+- les imports actifs pointent directement vers
+  `hydromodpy.display.report_semantics` ou vers
+  `cfg.report_html_build_at_end`.
+
+Validation automatisee relancee:
+
+```powershell
+python -m pytest tests/unit/display/test_report_blocks_html.py tests/unit/display/test_catchment_report_artifact_contract.py tests/unit/display/test_catchment_report_pipeline.py tests/unit/display/test_catchment_report_postflight.py tests/unit/display/test_catchment_report_settings.py tests/unit/display/test_catchment_report_docs_contract.py tests/unit/display/test_catchment_report_examples_contract.py tests/unit/display/test_report_config.py tests/unit/display/test_report_artifacts.py tests/unit/test_pipeline_html_report_step.py tests/unit/test_pipeline_display_step.py tests/unit/cli/test_report_catchment.py -q
+```
+
+Resultat: `80 passed`.
+
+```powershell
+python -m pytest tests/unit/site_selection/test_manifest_report.py tests/unit/site_selection/test_workflow_plan_run_workflow.py tests/unit/site_selection/test_workflow_plan_planning.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_legacy_contract.py tests/unit/site_selection/test_synthetic_spatial_review.py -q
+```
+
+Resultat: `33 passed`.
+
+Revue HTML locale:
+
+```powershell
+python -m hydromodpy report catchment examples/projects/16_nancon_natural_calibration/catchment_report_transient_nwt_html.toml --report-only
+```
+
+Sorties a utiliser pour la revue finale:
+
+```text
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/by_block/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/compact/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/standard/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/web_review/audit/index.html
+examples/projects/16_nancon_natural_calibration/outputs/nancon_transient_nwt_html_report/block_report_postflight.json
+```
+
+Le postflight de cette sortie indique:
+
+```text
+expected_count = 22
+present_count = 22
+missing_count = 0
+```
+
+Point d'attention: `outputs/nancon_real_figures` appartient a l'ancien exemple
+de rapport manuel `catchment_report.toml`, cible `simulation_name =
+"transient_nwt"` et ne doit pas servir de validation finale pour le chantier
+`[report.html]` de fin de simulation. Il peut signaler des figures manquantes
+car il ne cible pas le run `transient_nwt_html_report`.
+
+Cloture legacy hors testbed:
+
+- les anciens wrappers `semantic_artifacts.py` et `site_selection/intent.py`
+  sont absents du code actif;
+- le scan des anciens noms HTML hors testbed ne remonte plus que les tests de
+  garde qui interdisent leur retour;
+- le rapport testbed reste explicitement hors lot.
+
+Validation finale relancee:
+
+```powershell
+python -m pytest tests/unit/display/test_catchment_report_docs_contract.py tests/unit/test_pipeline_html_report_step.py tests/unit/site_selection/test_legacy_contract.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_config.py -q
+python -m ruff check hydromodpy/display/catchment_report/artifacts.py hydromodpy/display/catchment_report/context.py hydromodpy/display/catchment_report/contract.py hydromodpy/workflow/site_selection.py tests/unit/display/test_catchment_report_docs_contract.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_legacy_contract.py tests/unit/test_pipeline_html_report_step.py
+git diff --check -- docs/source/architecture/site_selection/html-report-generation.rst docs/_dev_notes/html_block_reports_audit.md docs/source/user_guide/catchment-report.rst hydromodpy/display/catchment_report/artifacts.py hydromodpy/display/catchment_report/context.py hydromodpy/display/catchment_report/contract.py hydromodpy/reporting/site_selection/README.md hydromodpy/workflow/site_selection.py tests/unit/display/test_catchment_report_docs_contract.py tests/unit/site_selection/test_example_configs.py tests/unit/site_selection/test_legacy_contract.py tests/unit/test_pipeline_html_report_step.py
+```
+
+Resultats: `72 passed`, ruff OK, diff-check OK. La build Sphinx complete
+locale ne termine pas dans une fenetre de 10 minutes et n'a pas produit de HTML
+exploitable dans `.tmp/sphinx_html_report_delivery`; elle reste donc a refaire
+en CI ou dans une passe doc dediee.
 
 ## Validation plug-and-play au 2026-05-24
 
@@ -62,7 +148,7 @@ et verifier que la chaine produit les donnees, les figures et les HTML.
 Configuration testee:
 
 ```text
-examples/projects/17_site_selection_workflow/configs/corse_hydrometry_preview_block_probe.toml
+examples/projects/17_site_selection_workflow/configs/corse_jauge_5stations_block_probe.toml
 ```
 
 La configuration ne fixe plus de `data_root` explicite et ne pointe pas vers un
@@ -76,15 +162,15 @@ DEM prepare a la main. Elle demande:
 Commandes relancees:
 
 ```powershell
-python -m hydromodpy dev config check examples\projects\17_site_selection_workflow\configs\corse_hydrometry_preview_block_probe.toml
-python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_hydrometry_preview_block_probe.toml --dry-run --no-lock
-python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_hydrometry_preview_block_probe.toml --no-lock
+python -m hydromodpy dev config check examples\projects\17_site_selection_workflow\configs\corse_jauge_5stations_block_probe.toml
+python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_jauge_5stations_block_probe.toml --dry-run --no-lock
+python -m hydromodpy run examples\projects\17_site_selection_workflow\configs\corse_jauge_5stations_block_probe.toml --no-lock
 ```
 
 Resultat:
 
 ```text
-selection_id: corse_hydrometry_preview_block_probe_v2
+selection_id: corse_jauge_5stations_blocks_v1
 candidates: 5
 selected: 4
 rejected: 1
@@ -93,7 +179,7 @@ rejected: 1
 Sortie principale:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/corse_hydrometry_preview_block_probe_v2/review/index.html
+examples/projects/17_site_selection_workflow/outputs/corse_jauge_5stations_blocks_v1/review/index.html
 ```
 
 Verification HTML:
@@ -111,13 +197,13 @@ Verification HTML:
 Le manifest expose maintenant le `data_root` effectivement utilise:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/corse_hydrometry_preview_block_probe_v2/data
+examples/projects/17_site_selection_workflow/outputs/corse_jauge_5stations_blocks_v1/data
 ```
 
 Le DEM traite utilise par le run est egalement sous ce dossier de sortie:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/corse_hydrometry_preview_block_probe_v2/data/dem/processed/
+examples/projects/17_site_selection_workflow/outputs/corse_jauge_5stations_blocks_v1/data/dem/processed/
 ```
 
 Corrections de code realisees pour rendre ce test autonome:
@@ -183,11 +269,11 @@ Cas relances completement et HTML produits:
 
 | Cas | Selection | Rejet | HTML |
 | --- | ---: | ---: | --- |
-| Bretagne small DEM | 7 | 0 | `outputs/bretagne_hydrometry_50_500_small_v1/review/index.html` |
-| Bretagne small BD Topage | 7 | 0 | `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html` |
-| Corse hydrometrie | 4 | 1 | `outputs/corse_hydrometry_preview_block_probe_v2/review/index.html` |
-| Corse surface | 3 | 2 | `outputs/corse_surface_probe_v1/review/index.html` |
-| AURA surface | 20 | 0 | `outputs/aura_area_only_v1/review/index.html` |
+| Finistere DEM | 1 | 0 | `outputs/finistere_jauge_elorn_dem_v1/review/index.html` |
+| Bretagne BD Topage | 7 | 0 | `outputs/bretagne_jauge_7stations_v1/review/index.html` |
+| Corse hydrometrie | 4 | 1 | `outputs/corse_jauge_5stations_blocks_v1/review/index.html` |
+| Corse CSV | 3 | 2 | `outputs/corse_non_jauge_csv_30_500km2_v1/review/index.html` |
+| AURA surface | 20 | 0 | `outputs/aura_non_jauge_csv_50_150km2_v1/review/index.html` |
 
 Verification des cinq HTML:
 
@@ -200,17 +286,17 @@ Verification des cinq HTML:
 
 Cas non valide dans cette relance:
 
-- `aura_hydrometry_preview_v1` possede une ancienne sortie HTML globale, mais
+- `aura_jauge_5stations_v1` possede une ancienne sortie HTML globale, mais
   le run actuel n'a pas abouti dans la fenetre de temps disponible. Sa
-  configuration utilise `request_extent = "territory"` pour la preparation
+  configuration utilisait `delineation_dem_extent_source = "selection_territory"` pour la preparation
   hydrologique, ce qui rend le preview trop lourd. Pour en faire un vrai cas de
   demonstration rapide, il faut le rapprocher du pattern Corse/Bretagne:
-  `request_extent = "outlets"` pour la delimitation et
-  `map_background_extent = "territory"` pour la carte.
+  `delineation_dem_extent_source = "candidate_outlets_bbox"` pour la delimitation et
+  `site_selection.review_map.dem_background = "territory_dem"` pour la carte.
 
 Travaux site-selection restants:
 
-- rendre `auvergne_rhone_alpes_hydrometry_preview.toml` vraiment preview;
+- rendre `aura_jauge_5stations.toml` vraiment demonstratif;
 - decider si les gros inventaires regionaux doivent etre des exemples
   interactifs ou des jobs longs/nightly;
 - ajouter un smoke test optionnel qui verifie, pour les exemples courts, la
@@ -260,10 +346,10 @@ hydromodpy/spatial/site_selection/plan_report.py
 Le rapport execute Bretagne a ete regenere:
 
 ```text
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/index.html
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/compact/index.html
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/standard/index.html
-examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/audit/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/compact/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/standard/index.html
+examples/projects/17_site_selection_workflow/outputs/bretagne_jauge_7stations_v1/review/audit/index.html
 ```
 
 Verification HTML:
@@ -1520,15 +1606,13 @@ python examples/projects/16_nancon_natural_calibration/build_nancon_real_figures
 
 ### Reste a faire
 
-- Decider si `network_transient/sections.py` doit rester comme compatibilite de
-  tests/helpers ou etre progressivement deprecie.
+- `network_transient/sections.py` n'existe plus dans le code actif; il n'y a
+  plus de decision de compatibilite a prendre sur ce fichier.
 - Reporter la migration de `generate_testbed_web_report.py`: le fichier est
   trop volumineux pour etre migre dans le meme lot.
-- Eventuellement ajouter un guide court dans la documentation developpeur:
-  "comment creer un rapport HTML par blocs".
-- Faire une revue visuelle humaine des pages generees dans `%TEMP%`, notamment:
-  - lisibilite du sommaire;
-  - densite des metriques;
-  - pertinence des libelles du rapport calibration naturel/B0;
-  - taille acceptable de la carte site-selection embarquee.
+- Le guide developpeur court existe maintenant:
+  `docs/source/architecture/how-to/add-a-block-html-report.rst`.
+- Revue visuelle ciblee faite pour les pages de livraison Nancon et
+  site-selection. Les prochaines revues visuelles doivent porter sur des cas
+  produit precis, pas sur le refactoring HTML lui-meme.
 - Appliquer ensuite le meme pattern au rapport testbed, dans un lot separe.
