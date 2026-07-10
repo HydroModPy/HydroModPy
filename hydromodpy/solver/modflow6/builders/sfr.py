@@ -56,6 +56,8 @@ logger = get_logger(__name__)
 _SFR_PACKAGE_NAME = "SFR"
 # The single LAK package name (MVR receiver); a string, never an import edge.
 _LAK_PACKAGE_NAME = "LAK"
+# Slope tolerance [m] for the DRN->SFR downslope gate (streambed at/below the drain).
+_DRAIN_ROUTE_TOL_M = 0.5
 
 # FloPy cellid for a reach not connected to the aquifer: (-1, -1) is written as
 # the MF6-recommended "0 0" unconnected encoding ("none" is deprecated in 6.4.3+).
@@ -63,6 +65,10 @@ _UNCONNECTED_CELLID = (-1, -1)
 
 # Segments shorter than this [m] are GridIntersect corner grazes, not reaches.
 _MIN_SEGMENT_LENGTH = 1e-6
+
+# Minimum clearance [m] the streambed bottom (rtp - rbth) keeps above the cell bottom
+# (MF6 rejects an SFR reach whose bed sinks below its aquifer cell).
+_RTP_ABOVE_BOTTOM_M = 0.1
 
 
 @dataclasses.dataclass(frozen=True)
@@ -237,17 +243,28 @@ def resolve_sfr_networks(
     model,
     *,
     solver_mesh: SolverMesh,
+    lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
 ) -> dict[str, ResolvedSfrNetwork]:
     """Resolve every active SFR network to its ordered reach records.
 
     Returns ``{}`` when no SFR boundary is active, which keeps the SFR wiring in
     ``build.py`` a no-op for models without a stream network. Reach cells come
     either from the explicit ``reaches`` table or from the binder-attached
-    ``reach_trace`` intersected with the DISV mesh.
+    ``reach_trace`` intersected with the DISV mesh. ``lake_cells_by_number`` (0-based
+    LAK numbers) truncates trace reaches at the lake footprint so none sits on a lake
+    cell (needed once the DEM is hydro-conditioned to route streams through a lake).
     """
     definitions = _active_sfr_definitions(model)
     if not definitions:
         return {}
+
+    lake_cell2d: frozenset[int] = frozenset()
+    lake_number_of: dict[int, int] = {}
+    if lake_cells_by_number:
+        for lake_num, cells in lake_cells_by_number.items():
+            for cell2d in cells:
+                lake_number_of[int(cell2d)] = int(lake_num) + 1  # terminal_lake is 1-based
+        lake_cell2d = frozenset(lake_number_of)
 
     networks: dict[str, ResolvedSfrNetwork] = {}
     vertex_grid = None
@@ -265,6 +282,8 @@ def resolve_sfr_networks(
                 solver_mesh=solver_mesh,
                 vertex_grid=vertex_grid,
                 location=location,
+                lake_cell2d=lake_cell2d,
+                lake_number_of=lake_number_of,
             )
         else:
             raise ValueError(
@@ -285,8 +304,11 @@ def _resolve_trace_network(
     solver_mesh: SolverMesh,
     vertex_grid,
     location: str,
+    lake_cell2d: frozenset[int] = frozenset(),
+    lake_number_of: Mapping[int, int] | None = None,
 ) -> list[SfrReachRecord]:
     """Split one delineated trace onto the DISV mesh and re-number downstream."""
+    lake_number_of = lake_number_of or {}
     from flopy.utils import GridIntersect
 
     trace = definition["reach_trace"]
@@ -301,12 +323,19 @@ def _resolve_trace_network(
     min_slope = float(definition.get("min_slope") or 1e-4)
     width_cfg = definition.get("width")
 
-    # 1. Split each parent reach into ordered per-cell sub-reaches.
+    # 1. Split each parent reach into ordered per-cell sub-reaches, TRUNCATING at
+    # the lake footprint: a reach that routes into a lake (e.g. once the DEM is
+    # hydro-conditioned so streams flow through the reservoir) is cut at its first
+    # lake cell and flagged terminal-to-lake, so no reach sits on a LAK cell and its
+    # flow is handed to the lake by MVR at the shoreline instead of double-counting.
     nodes: list[dict[str, Any]] = []
     edges: list[tuple[int, int]] = []
-    first_sub: dict[int, int] = {}
-    last_sub: dict[int, int] = {}
+    first_sub: dict[int, int | None] = {}
+    last_sub: dict[int, int | None] = {}
+    cut_lake_of: dict[int, int | None] = {}  # parent -> lake it was cut at (terminal)
+    in_lake_lake_of: dict[int, int | None] = {}  # parent entirely inside a lake -> lake
     for parent in parents:
+        ifno = int(parent.ifno)
         segments = resolve_reach_line_cells(
             parent.line, grid_intersect=grid_intersect, location=location
         )
@@ -319,7 +348,13 @@ def _resolve_trace_network(
             location=location,
         )
         base = len(nodes)
+        cut_lake: int | None = None
         for cell2d, seg_length, mid_distance in segments:
+            if lake_cell2d and int(cell2d) in lake_cell2d:
+                # reached the lake footprint: stop here, drop this cell and every
+                # cell downstream of it (they belong to the lake, not the stream).
+                cut_lake = lake_number_of.get(int(cell2d))
+                break
             cellid: tuple[int, int] | None = None
             if connected:
                 layer = _first_active_layer(idomain, cell2d, nlay)
@@ -355,19 +390,49 @@ def _resolve_trace_network(
                     "terminal_lake": None,
                 }
             )
-        first_sub[int(parent.ifno)] = base
-        last_sub[int(parent.ifno)] = len(nodes) - 1
+        if len(nodes) == base:
+            # No sub-reach survived: the reach starts inside a lake. Record which lake
+            # so its upstream neighbours become the shoreline terminal.
+            first_sub[ifno] = None
+            last_sub[ifno] = None
+            if cut_lake is not None:
+                in_lake_lake_of[ifno] = cut_lake
+            elif segments:
+                in_lake_lake_of[ifno] = lake_number_of.get(int(segments[0][0]))
+            continue
+        first_sub[ifno] = base
+        last_sub[ifno] = len(nodes) - 1
         for k in range(base, len(nodes) - 1):
             edges.append((k, k + 1))
+        cut_lake_of[ifno] = cut_lake
 
     for parent in parents:
+        ifno = int(parent.ifno)
+        first = first_sub.get(ifno)
+        if first is None:
+            continue
+        last = last_sub[ifno]
         if not parent.upstream:
-            nodes[first_sub[int(parent.ifno)]]["is_headwater"] = True
+            nodes[first]["is_headwater"] = True
+        cut = cut_lake_of.get(ifno)
+        if cut is not None:
+            nodes[last]["is_terminal_to_lake"] = True
+            nodes[last]["terminal_lake"] = cut
+            continue  # cut at the lake: it terminates here, no downstream edges
         if bool(parent.is_terminal_to_lake):
-            nodes[last_sub[int(parent.ifno)]]["is_terminal_to_lake"] = True
-            nodes[last_sub[int(parent.ifno)]]["terminal_lake"] = parent.terminal_lake
+            nodes[last]["is_terminal_to_lake"] = True
+            nodes[last]["terminal_lake"] = parent.terminal_lake
         for downstream in parent.downstream:
-            edges.append((last_sub[int(parent.ifno)], first_sub[int(downstream)]))
+            d_first = first_sub.get(int(downstream))
+            if d_first is None:
+                # the downstream reach is inside a lake: this is the shoreline
+                # terminal, tag it with that lake and drop the into-lake link.
+                nodes[last]["is_terminal_to_lake"] = True
+                lake = in_lake_lake_of.get(int(downstream))
+                if lake is not None:
+                    nodes[last]["terminal_lake"] = lake
+                continue
+            edges.append((last, d_first))
 
     return _number_and_freeze(nodes, edges, min_slope=min_slope, location=location)
 
@@ -692,33 +757,45 @@ def build_drainage_mover_records(
             "order would renumber the MVR provider ids."
         )
 
-    # Targets: (cell2d, reach ifno). Reach cells first; the coupled lake's
-    # footprint cells are added as proxies for its nearest terminal reach.
-    targets: list[tuple[int, int]] = []
+    # Two target sets: connected reach cells (each tagged with its streambed top
+    # rtp for a downslope gate) and, for a lake-coupled network, that lake's own
+    # footprint cells as DIRECT receivers (a lakeside drain hands to LAK, not to a
+    # distant terminal reach). Each DRN cell then routes to its nearest DOWNSLOPE
+    # reach or its nearest lake cell, whichever is closer.
+    reach_cells: list[int] = []
+    reach_ids: list[int] = []
+    reach_rtp: list[float] = []
+    lake_target_cells: list[int] = []
+    lake_target_ids: list[int] = []
     for network in networks.values():
         definition = network.definition
         if not definition.get("route_drainage"):
             continue
-        terminal_cells: list[tuple[int, int]] = []
         for record in network.reaches:
             if record.cellid is None:
                 continue
-            targets.append((int(record.cellid[1]), int(record.ifno)))
-            if record.is_terminal_to_lake:
-                terminal_cells.append((int(record.cellid[1]), int(record.ifno)))
+            reach_cells.append(int(record.cellid[1]))
+            reach_ids.append(int(record.ifno))
+            reach_rtp.append(float(record.rtp))
         lake_number = definition.get("outflow_to_lake")
-        if lake_number is not None and lake_cells_by_number and terminal_cells:
-            terminal_xy = np.asarray(
-                [cell_centroids[cell2d] for cell2d, _ in terminal_cells], dtype=float
-            )
+        if lake_number is not None and lake_cells_by_number:
             for cell2d in lake_cells_by_number.get(int(lake_number) - 1, []):
-                delta = terminal_xy - cell_centroids[int(cell2d)]
-                nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
-                targets.append((int(cell2d), terminal_cells[nearest][1]))
-    if not targets:
+                lake_target_cells.append(int(cell2d))
+                lake_target_ids.append(int(lake_number) - 1)
+    if not reach_cells and not lake_target_cells:
         return []
 
-    target_xy = np.asarray([cell_centroids[cell2d] for cell2d, _ in targets], dtype=float)
+    reach_xy = (
+        cell_centroids[np.asarray(reach_cells, dtype=int)]
+        if reach_cells
+        else np.empty((0, 2), dtype=float)
+    )
+    reach_rtp_arr = np.asarray(reach_rtp, dtype=float)
+    lake_xy = (
+        cell_centroids[np.asarray(lake_target_cells, dtype=int)]
+        if lake_target_cells
+        else np.empty((0, 2), dtype=float)
+    )
 
     records: list[MoverRecord] = []
     rows = next(iter(drn_spd.values()))
@@ -729,14 +806,33 @@ def build_drainage_mover_records(
             # and leaves the model as a plain DRN, so no MVR record. The boundary
             # index still tracks the row position, keeping the other providers aligned.
             continue
-        delta = target_xy - cell_centroids[cell2d]
-        nearest = int(np.argmin(np.einsum("ij,ij->i", delta, delta)))
+        drn_elev = float(row[2])
+        here = cell_centroids[cell2d]
+        best_d2 = np.inf
+        best: tuple[str, int] | None = None
+        if reach_cells:
+            rd2 = ((reach_xy - here) ** 2).sum(axis=1)
+            # Only reaches the drain can flow DOWN to (streambed at/below the drain
+            # surface); fall back to the nearest reach when none is downslope.
+            pool = np.where(reach_rtp_arr <= drn_elev + _DRAIN_ROUTE_TOL_M)[0]
+            if pool.size == 0:
+                pool = np.arange(len(reach_cells))
+            k = int(pool[np.argmin(rd2[pool])])
+            best_d2 = float(rd2[k])
+            best = (_SFR_PACKAGE_NAME, reach_ids[k])
+        if lake_target_cells:
+            ld2 = ((lake_xy - here) ** 2).sum(axis=1)
+            k = int(np.argmin(ld2))
+            if float(ld2[k]) < best_d2:
+                best = (_LAK_PACKAGE_NAME, lake_target_ids[k])
+        if best is None:
+            continue
         records.append(
             MoverRecord(
                 provider="DRN",
                 provider_id=int(boundary_index),
-                receiver=_SFR_PACKAGE_NAME,
-                receiver_id=int(targets[nearest][1]),
+                receiver=best[0],
+                receiver_id=int(best[1]),
                 mvrtype="FACTOR",
                 value=1.0,
             )
@@ -749,21 +845,44 @@ def build_drainage_mover_records(
 # --------------------------------------------------------------------------- #
 
 
+# A reach is coupled to a lake only when it is within this distance of a shoreline (a
+# real feeder the DEM merely fell short on) and stays at least this far from the model
+# outlet (else it is the below-dam DISCHARGE reach, which leaves the model -- the lake
+# feeds it, not the reverse).
+_LAKE_FEEDER_SNAP_M = 300.0
+_OUTLET_KEEPOUT_M = 1000.0
+
+
 def build_sfr_mover_records(
     networks: Mapping[str, ResolvedSfrNetwork],
+    *,
+    lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
+    cell_centroids: np.ndarray | None = None,
+    outlet_xy: tuple[float, float] | None = None,
 ) -> list[MoverRecord]:
     """Compile the ``outflow_to_lake`` couplings into general MVR transfers.
 
-    EVERY terminal-to-lake reach of a coupled network provides its
-    DOWNSTREAM-FLOW to the receiving lake (0-based lake number): a real
-    reservoir is usually fed by several tributaries, each truncated at the
-    shoreline, so one MVR record is emitted per terminal reach. Each terminal
-    routes to the SPECIFIC lake it drains into (``terminal_lake``, e.g. a
-    pre-retenue fed by the principal stream while lateral tributaries feed the
-    main reservoir); ``outflow_to_lake`` is the fallback when a terminal carries
-    no lake tag. An empty result means every network discharges out of the model
-    (EXT-OUTFLOW).
+    EVERY terminal-to-lake reach of a coupled network provides its DOWNSTREAM-FLOW
+    to the receiving lake (0-based lake number): a real reservoir is usually fed by
+    several tributaries, each truncated at the shoreline, so one MVR record is
+    emitted per terminal reach, routed to the SPECIFIC lake it drains into
+    (``terminal_lake``), else ``outflow_to_lake``. A BARE outlet of a lake-coupled
+    network (no downstream, no lake flag) is the main stem dead-ending short of the
+    lake where the DEM's flat water body breaks its D8 path: it is handed to the
+    NEAREST lake cell (needs ``lake_cells_by_number`` + ``cell_centroids``), so the
+    principal river reaches its forebay instead of leaking out by EXT-OUTFLOW.
     """
+    lake_points: list[tuple[int, int]] = []
+    if lake_cells_by_number and cell_centroids is not None:
+        for lake_num, cells in lake_cells_by_number.items():
+            for cell2d in cells:
+                lake_points.append((int(cell2d), int(lake_num)))
+    lake_xy = (
+        np.asarray([cell_centroids[c] for c, _ in lake_points], dtype=float)
+        if lake_points
+        else None
+    )
+
     records: list[MoverRecord] = []
     for network_id, network in networks.items():
         definition = network.definition
@@ -777,7 +896,48 @@ def build_sfr_mover_records(
         mvrtype = str(definition.get("outflow_mvrtype") or "FACTOR").strip().upper()
         raw_value = definition.get("outflow_value")
         value = float(raw_value) if raw_value is not None else 1.0
+
+        # Bare outlets (no downstream, no lake flag) hand to the nearest lake cell.
+        # Only when the network HAS flagged shoreline reaches: with none, the single
+        # outlet is the terminal (handled below via outflow_to_lake), not a bare one.
+        # A terminal (flagged OR bare) CLOSE to the model outlet is the below-dam
+        # DISCHARGE reach (the lake feeds it and it leaves the model), not a feeder --
+        # position, not elevation, since a deep-bathymetry feeder can be lower than the
+        # discharge. Elevation is unreliable; the outlet distance separates them.
+        def _near_outlet(cellid: tuple[int, int] | None) -> bool:
+            if outlet_xy is None or cellid is None or cell_centroids is None:
+                return False
+            here = cell_centroids[int(cellid[1])]
+            return (
+                float(np.hypot(here[0] - outlet_xy[0], here[1] - outlet_xy[1])) < _OUTLET_KEEPOUT_M
+            )
+
+        if flagged and lake_xy is not None:
+            for reach in network.reaches:
+                if reach.downstream or reach.is_terminal_to_lake or reach.cellid is None:
+                    continue
+                here = cell_centroids[int(reach.cellid[1])]
+                d2 = ((lake_xy - here) ** 2).sum(axis=1)
+                nearest = int(np.argmin(d2))
+                # Skip a dead-end FAR from any shoreline (a main stem stopping at a flat
+                # forebay): teleporting it would drop an entry "in the void".
+                if float(d2[nearest]) ** 0.5 > _LAKE_FEEDER_SNAP_M:
+                    continue
+                if _near_outlet(reach.cellid):
+                    continue  # below-dam discharge reach, not a lake feeder
+                records.append(
+                    MoverRecord(
+                        provider=_SFR_PACKAGE_NAME,
+                        provider_id=int(reach.ifno),
+                        receiver=_LAK_PACKAGE_NAME,
+                        receiver_id=int(lake_points[nearest][1]),
+                        mvrtype=mvrtype,
+                        value=value,
+                    )
+                )
         for terminal in terminals:
+            if _near_outlet(terminal.cellid):
+                continue  # below-dam discharge reach, the lake feeds it
             if terminal.terminal_lake is not None:
                 receiver_lake = int(terminal.terminal_lake)
             elif lake_number is not None:
@@ -837,6 +997,7 @@ def build_sfr_package_args(
     networks: Mapping[str, ResolvedSfrNetwork],
     external_mover: bool = False,
     has_mover_records: bool = False,
+    solver_mesh: SolverMesh | None = None,
 ) -> dict[str, Any] | None:
     """Assemble the ``ModflowGwfsfr`` arguments for the active SFR network.
 
@@ -886,11 +1047,38 @@ def build_sfr_package_args(
         definition, reaches, location=location
     )
 
+    botm = None if solver_mesh is None else np.asarray(solver_mesh.botm, dtype=float)
+
+    # Floor every reach's streambed top so its bed (rtp - rbth) stays above the cell
+    # bottom, THEN restore the monotone-downhill order the network freeze set. The
+    # floor comes from each cell's own botm, so a lake-enforced routing DEM can floor
+    # a downstream reach UP past its upstream neighbour and re-break monotonicity; a
+    # per-record clamp cannot see that. Re-sweep from the outlet up and lift each
+    # upstream reach to sit above its (already floored) downstream one. Lifting never
+    # re-sinks a bed below its cell, so the floor and the monotone order both hold.
+    min_slope = float(definition.get("min_slope") or 1e-4)
+    by_ifno = {record.ifno: record for record in reaches}
+    rtp_by_ifno: dict[int, float] = {}
+    for record in reaches:
+        rtp_val = float(record.rtp)
+        if record.cellid is not None and botm is not None:
+            cell_bottom = float(botm[int(record.cellid[0]), int(record.cellid[1])])
+            rtp_val = max(rtp_val, cell_bottom + float(rbth) + _RTP_ABOVE_BOTTOM_M)
+        rtp_by_ifno[record.ifno] = rtp_val
+    for record in reversed(reaches):
+        down_rtp = rtp_by_ifno[record.ifno]
+        for up in record.upstream:
+            drop = min_slope * 0.5 * (float(by_ifno[up].rlen) + float(record.rlen))
+            floor = down_rtp + drop
+            if rtp_by_ifno[up] < floor:
+                rtp_by_ifno[up] = floor
+
     packagedata: list[list[Any]] = []
     connectiondata: list[list[Any]] = []
     for record in reaches:
         ncon = len(record.upstream) + len(record.downstream)
         cellid = record.cellid if record.cellid is not None else _UNCONNECTED_CELLID
+        rtp_val = rtp_by_ifno[record.ifno]
         packagedata.append(
             [
                 int(record.ifno),
@@ -898,7 +1086,7 @@ def build_sfr_package_args(
                 float(record.rlen),
                 float(record.rwid),
                 float(record.rgrd),
-                float(record.rtp),
+                float(rtp_val),
                 float(rbth),
                 float(rhk),
                 float(manning),

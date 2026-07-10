@@ -3,7 +3,7 @@ Build a Frontend
 
 HydroModPy stays a pure Python library: it does not ship an HTTP
 server, FastAPI bindings, or websockets. Instead it exposes two
-stable contracts that any frontend (Streamlit, Angular, React,
+stable contracts that any frontend (Angular, React,
 Jupyter widget, electron app) can consume.
 
 Two integration points
@@ -54,36 +54,6 @@ annotations declared by the Pydantic models:
 
 These annotations form the contract between the Pydantic models and
 your frontend. Honour them and you avoid a custom mapping layer.
-
-Streamlit (local, Python)
--------------------------
-
-Streamlit is the shortest path because it runs in the same process:
-
-.. code-block:: python
-
-   import json
-   from pathlib import Path
-
-   import streamlit as st
-
-   schema = json.loads(Path("schema/config.json").read_text())
-   flow = schema["$defs"]["FlowConfig"]["properties"]
-
-   k = st.slider(
-       flow["k_aquifer"]["display_name_fr"],
-       min_value=flow["k_aquifer"]["display_min"],
-       max_value=flow["k_aquifer"]["display_max"],
-       help=flow["k_aquifer"]["help_text_fr"],
-   )
-   st.caption(f"Unite : {flow['k_aquifer']['unit']}")
-
-   if st.button("Run"):
-       toml_payload = {"flow": {"k_aquifer": k}}
-       hmp.run("hydromodpy.toml", set=toml_payload)
-
-A worked example lives at
-``examples/integrations/streamlit_app.py`` (when shipped).
 
 Angular (external repository)
 -----------------------------

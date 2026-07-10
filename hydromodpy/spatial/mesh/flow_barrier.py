@@ -45,24 +45,29 @@ def _line_coords(line: LineString) -> np.ndarray:
 
 
 def barrier_faces_from_line(planar_mesh: HydroMesh, line: LineString) -> list[BarrierFace]:
-    """Return the interior mesh faces a barrier line crosses.
+    """Return the interior mesh faces that make a CONTINUOUS cut along a barrier line.
 
-    For every interior edge (shared by exactly two cells) the segment is tested
-    against the line. A transversal crossing yields one ``BarrierFace`` carrying
-    the two cell ids and the line position (the nearest crossing point when the
-    line re-crosses the same face). A line that only touches a face at an endpoint
-    is not a barrier there and is skipped. A trace collinear with a mesh edge is
-    geometrically ambiguous and raises, asking the user to offset the trace off
-    the mesh edges. Faces are returned ordered along the line.
+    A face (interior edge shared by two cells) is barred when the trace passes
+    BETWEEN the two cells, i.e. it crosses the segment joining their centroids.
+    This selects the full chain of cell-pair faces the line separates, so the
+    barrier is a single connected fence with no leak paths -- unlike barring only
+    the edges the trace clips, which leaves gaps where a cell the line passes
+    through stays connected to both sides. The criterion is mesh-adaptive (no
+    corridor width) and shape-agnostic (any polyline), and it never trips on a
+    trace collinear with a mesh edge. ``s`` is the edge midpoint's normalized
+    position along the line, for per-vertex depth interpolation. Faces are
+    returned ordered along the line.
     """
-    from shapely.geometry import LineString
+    from shapely.geometry import LineString, Point
 
     verts = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
     conn = planar_mesh.flat_connectivity  # rectangular array or ragged POLYGON tuple
 
     edge_to_cells: dict[tuple[int, int], list[int]] = defaultdict(list)
+    centroids: dict[int, np.ndarray] = {}
     for ci in range(len(conn)):
         cell = np.asarray(conn[ci], dtype=int)
+        centroids[ci] = verts[cell].mean(axis=0)
         arity = len(cell)
         for k in range(arity):
             a = int(cell[k])
@@ -75,29 +80,12 @@ def barrier_faces_from_line(planar_mesh: HydroMesh, line: LineString) -> list[Ba
     for (a, b), cells in edge_to_cells.items():
         if len(cells) != 2:
             continue
-        edge = LineString([verts[a], verts[b]])
-        inter = line.intersection(edge)
-        if inter.is_empty:
-            continue
-        gtype = inter.geom_type
-        if gtype in ("LineString", "MultiLineString"):
-            raise ValueError(
-                "Flow-barrier trace is collinear with the mesh edge between cells "
-                f"{sorted(cells)}; offset the trace off the mesh edges so each crossing "
-                "is a clean transversal intersection."
-            )
-        if not line.crosses(edge):
-            # Endpoint-only touch (the line stops on the face without entering the
-            # neighbour cell): no barrier belongs on this face.
-            continue
-        if gtype == "Point":
-            points = [inter]
-        elif gtype == "MultiPoint":
-            points = list(inter.geoms)
-        else:
-            continue
-        s = min(float(line.project(point)) for point in points) / total_len
         ci, cj = sorted(cells)
+        centroid_seg = LineString([centroids[ci], centroids[cj]])
+        if not line.crosses(centroid_seg):
+            continue
+        edge_mid = (verts[a] + verts[b]) / 2.0
+        s = float(line.project(Point(float(edge_mid[0]), float(edge_mid[1])))) / total_len
         faces.append(BarrierFace(cell_a=int(ci), cell_b=int(cj), s=s))
 
     faces.sort(key=lambda f: f.s)

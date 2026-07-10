@@ -9,7 +9,7 @@ TOML section: ``[mesh_catchment]``
 
 Pydantic model: ``MeshCatchmentConfig`` defined in ``hydromodpy.spatial.mesh.config.main``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L31>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L32>`__
 
 Top-level launcher contract for one mono-catchment meshing run.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">constraints_mode</code>
       </div>
 
-   :bdg-primary:`Literal['geology_only', 'rivers_only', 'geology_rivers']` :bdg-secondary:`default = "geology_rivers"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L34>`__
+   :bdg-primary:`Literal['geology_only', 'rivers_only', 'geology_rivers']` :bdg-secondary:`default = "geology_rivers"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L35>`__
 
       Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.
 
@@ -50,7 +50,7 @@ Fields
         <code class="hmp-field-name">output_mesh</code>
       </div>
 
-   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L47>`__
+   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L48>`__
 
       Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
 
@@ -64,7 +64,7 @@ Fields
         <code class="hmp-field-name">output_summary_json</code>
       </div>
 
-   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L56>`__
+   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L57>`__
 
       Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output.
 
@@ -78,7 +78,7 @@ Fields
         <code class="hmp-field-name">output_figure</code>
       </div>
 
-   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L64>`__
+   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L65>`__
 
       Optional overview figure path. Use it when you want a quick visual QA artifact showing the support domain, geology zones, river constraints, and final mesh footprint.
 
@@ -92,7 +92,7 @@ Fields
         <code class="hmp-field-name">output_figure_regional</code>
       </div>
 
-   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L72>`__
+   :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L73>`__
 
       Optional regional overview figure path. When omitted but output_figure is set, the launcher writes a second figure next to the main one with suffix `_regional` to show where the catchment sits on the full DEM.
 
@@ -106,7 +106,7 @@ Fields
         <code class="hmp-field-name">figures_enabled</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L80>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L81>`__
 
       If true, generate the overview figure artifacts when figure output paths are configured. Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present.
 
@@ -120,7 +120,7 @@ Fields
         <code class="hmp-field-name">export_exchange_bundle</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L87>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L88>`__
 
       If true, export the solver-exchange mesh bundle next to the generated mesh. Set it to false for profiling or mesh-only runs that do not need bundle metadata. Downstream solvers that require runtime mesh support may fail without this bundle.
 
@@ -134,7 +134,7 @@ Fields
         <code class="hmp-field-name">figure_dpi</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 300` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L95>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 300` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L96>`__
 
       Pixel density used when rendering the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
 
@@ -148,7 +148,7 @@ Fields
         <code class="hmp-field-name">figure_regional_dpi</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 220` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L102>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 220` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L103>`__
 
       Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
 
@@ -162,7 +162,7 @@ Fields
         <code class="hmp-field-name">output_layout</code>
       </div>
 
-   :bdg-primary:`Literal['standard', 'flat']` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L109>`__
+   :bdg-primary:`Literal['standard', 'flat']` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L110>`__
 
       Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
 
@@ -176,7 +176,7 @@ Fields
         <code class="hmp-field-name">show_plot</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L118>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L119>`__
 
       If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.
 
@@ -190,7 +190,7 @@ Fields
         <code class="hmp-field-name">geographic_outputs_mode</code>
       </div>
 
-   :bdg-primary:`Literal['keep', 'cleanup']` :bdg-secondary:`default = "keep"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L125>`__
+   :bdg-primary:`Literal['keep', 'cleanup']` :bdg-secondary:`default = "keep"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L126>`__
 
       Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
 
@@ -206,7 +206,7 @@ Fields
         <code class="hmp-field-toml">[mesh_catchment.rivers]</code>
       </div>
 
-   :bdg-primary:`MeshCatchmentRiversConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L134>`__
+   :bdg-primary:`MeshCatchmentRiversConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L135>`__
 
       River-constraint section used when constraints_mode includes rivers. The default behavior is to reuse the in-memory river trace already built by the geographic pipeline.
 
@@ -299,7 +299,7 @@ Fields
         <code class="hmp-field-toml">[mesh_catchment.geology.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, Any] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L141>`__
+   :bdg-primary:`dict[str, Any] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L142>`__
 
       Optional geology support used when constraints_mode includes geology. This section defines which polygon source represents lithological zones and how those polygons should be interpreted before conformal meshing. Validated through the geology data-source Protocol; stored as a normalized mapping.
 
@@ -315,7 +315,7 @@ Fields
         <code class="hmp-field-toml">[mesh_catchment.watershed_boundary]</code>
       </div>
 
-   :bdg-primary:`MeshCatchmentWatershedBoundaryConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L150>`__
+   :bdg-primary:`MeshCatchmentWatershedBoundaryConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L151>`__
 
       Optional watershed-boundary mesh constraint. Enable it to force a conformal mesh line along the catchment boundary while keeping the geology zonation represented on the whole support domain.
 
@@ -575,7 +575,7 @@ Fields
         <code class="hmp-field-toml">[mesh_catchment.hydraulic_properties]</code>
       </div>
 
-   :bdg-primary:`MeshCatchmentHydraulicPropertiesConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L158>`__
+   :bdg-primary:`MeshCatchmentHydraulicPropertiesConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L159>`__
 
       Optional hydraulic-property tables keyed by geology zones. The launcher projects geology on the mesh and exports per-cell conductivity/storage values as weighted averages of geology fractions.
 
@@ -830,7 +830,7 @@ Fields
         <code class="hmp-field-toml">[mesh_catchment.domain]</code>
       </div>
 
-   :bdg-primary:`kind = "bbox" | "polygon" | "vector" | "geographic_box_buffer" | "geographic_watershed" | "geographic_watershed_box"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L168>`__
+   :bdg-primary:`kind = "bbox" | "polygon" | "vector" | "geographic_box_buffer" | "geographic_watershed" | "geographic_watershed_box"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L169>`__
 
       Effective support domain to mesh. The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing.
 
@@ -956,7 +956,7 @@ Fields
         <code class="hmp-field-toml">[mesh_catchment.zone_meshing]</code>
       </div>
 
-   :bdg-primary:`ZoneMeshingSettings` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L176>`__
+   :bdg-primary:`ZoneMeshingSettings` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L177>`__
 
       Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells.
 
@@ -975,7 +975,7 @@ Fields
               <code class="hmp-field-name">algorithm</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "delaunay"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L242>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "delaunay"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L259>`__
 
             Planar Gmsh algorithm name. In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains.
 
@@ -989,7 +989,7 @@ Fields
               <code class="hmp-field-name">global_size</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 250.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L249>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 250.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L266>`__
 
             Baseline target cell size in projected metres over the full support domain. Think of it as the coarse background resolution before local interface refinement is added.
 
@@ -1003,7 +1003,7 @@ Fields
               <code class="hmp-field-name">min_size</code>
             </div>
 
-         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L256>`__
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L273>`__
 
             Lower bound on local cell size in projected metres. Use it to prevent extreme refinement from generating very small cells in narrow features.
 
@@ -1017,7 +1017,7 @@ Fields
               <code class="hmp-field-name">max_size</code>
             </div>
 
-         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L263>`__
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L280>`__
 
             Upper bound on local cell size in projected metres. Use it when you want to cap the coarsening far from interfaces.
 
@@ -1031,7 +1031,7 @@ Fields
               <code class="hmp-field-name">simplify_tolerance</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L270>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L287>`__
 
             Geometry simplification tolerance, in projected metres, applied before meshing. Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning.
 
@@ -1045,7 +1045,7 @@ Fields
               <code class="hmp-field-name">heal_tolerance</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L277>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L294>`__
 
             Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons. Keep it near zero unless the source dataset is known to contain topology artifacts.
 
@@ -1059,7 +1059,7 @@ Fields
               <code class="hmp-field-name">linear_constraint_snap_tolerance</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L284>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L301>`__
 
             Optional global snapping tolerance, in projected metres, applied to internal linear constraints such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding.
 
@@ -1073,7 +1073,7 @@ Fields
               <code class="hmp-field-name">min_polygon_area</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L291>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L308>`__
 
             Minimum polygon area, in square metres, kept after cleaning. Use it to drop microscopic remnants that would otherwise create meaningless tiny mesh patches.
 
@@ -1087,7 +1087,7 @@ Fields
               <code class="hmp-field-name">refine_interfaces</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L298>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L315>`__
 
             Enable a distance-based size field around geology or river interfaces. When false, the mesh uses only the global background size constraints.
 
@@ -1101,7 +1101,7 @@ Fields
               <code class="hmp-field-name">interface_size</code>
             </div>
 
-         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L305>`__
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L322>`__
 
             Target local size, in projected metres, close to constrained interfaces. When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size.
 
@@ -1115,7 +1115,7 @@ Fields
               <code class="hmp-field-name">interface_distance</code>
             </div>
 
-         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L312>`__
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L329>`__
 
             Influence distance, in projected metres, over which the local interface refinement fades back to the background size. Larger values spread refinement farther away from the interface network.
 
@@ -1129,7 +1129,7 @@ Fields
               <code class="hmp-field-name">interface_sampling</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 64` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L319>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 64` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L336>`__
 
             Sampling density used to discretize interface-based distance fields. Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost.
 
@@ -1145,7 +1145,7 @@ Fields
               <code class="hmp-field-toml">[mesh_catchment.zone_meshing.refinement_policy]</code>
             </div>
 
-         :bdg-primary:`ZoneMeshingRefinementPolicy | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L327>`__
+         :bdg-primary:`ZoneMeshingRefinementPolicy | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L344>`__
 
             Optional local hotspot policy used to selectively thin low-priority refinement families when the mixed interface network becomes too dense for one robust Gmsh Delaunay run.
 
@@ -1164,7 +1164,7 @@ Fields
                     <code class="hmp-field-name">enabled</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L160>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L171>`__
 
                   If True, the local refinement policy runs on top of the global zone meshing.
 
@@ -1178,7 +1178,7 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['family_priority_local_budget', 'grid_local_budget']` :bdg-secondary:`default = "family_priority_local_budget"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L164>`__
+               :bdg-primary:`Literal['family_priority_local_budget', 'grid_local_budget']` :bdg-secondary:`default = "family_priority_local_budget"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L175>`__
 
                   Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.
 
@@ -1194,7 +1194,7 @@ Fields
                     <code class="hmp-field-toml">[mesh_catchment.zone_meshing.refinement_policy.hotspot]</code>
                   </div>
 
-               :bdg-primary:`ZoneMeshingRefinementHotspotSettings` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L175>`__
+               :bdg-primary:`ZoneMeshingRefinementHotspotSettings` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L186>`__
 
                   Hotspot-detection thresholds used when budgeting local refinement.
 
@@ -1213,7 +1213,7 @@ Fields
                           <code class="hmp-field-name">radius</code>
                         </div>
 
-                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L93>`__
+                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L102>`__
 
                         Hotspot detection radius in projected metres. None lets the mesher derive a default.
 
@@ -1227,7 +1227,7 @@ Fields
                           <code class="hmp-field-name">max_curve_count</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 180` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L97>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 180` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L106>`__
 
                         Maximum number of constraint curves admitted in one hotspot before triggering local refinement.
 
@@ -1241,7 +1241,7 @@ Fields
                           <code class="hmp-field-name">max_family_count</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L101>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L110>`__
 
                         Maximum number of distinct constraint families coexisting in one hotspot.
 
@@ -1255,7 +1255,7 @@ Fields
                           <code class="hmp-field-name">min_gap</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 80.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L105>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 80.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L114>`__
 
                         Minimum acceptable gap between non-conformal curves in projected metres.
 
@@ -1269,7 +1269,7 @@ Fields
                           <code class="hmp-field-name">max_node_degree</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L109>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L118>`__
 
                         Maximum tolerated topological degree at a hotspot junction node.
 
@@ -1283,7 +1283,7 @@ Fields
                           <code class="hmp-field-name">short_segment_length</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 120.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L113>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 120.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L122>`__
 
                         Length threshold below which a constraint segment is counted as short, in projected metres.
 
@@ -1297,7 +1297,7 @@ Fields
                           <code class="hmp-field-name">max_short_segment_count</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 12` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L117>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 12` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L126>`__
 
                         Maximum tolerated number of short segments inside one hotspot.
 
@@ -1315,7 +1315,7 @@ Fields
                     <code class="hmp-field-toml">[mesh_catchment.zone_meshing.refinement_policy.grid]</code>
                   </div>
 
-               :bdg-primary:`ZoneMeshingRefinementGridSettings` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L179>`__
+               :bdg-primary:`ZoneMeshingRefinementGridSettings` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L190>`__
 
                   Grid settings used by the locality-first refinement policy.
 
@@ -1334,7 +1334,7 @@ Fields
                           <code class="hmp-field-name">cell_size</code>
                         </div>
 
-                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L129>`__
+                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L138>`__
 
                         Target cell size in projected metres. None lets the mesher derive a default from constraints.
 
@@ -1348,7 +1348,7 @@ Fields
                           <code class="hmp-field-name">neighborhood_rings</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L133>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L142>`__
 
                         Number of cell rings inspected around each hotspot when projecting refinement budget.
 
@@ -1362,7 +1362,7 @@ Fields
                           <code class="hmp-field-name">enable_exact_gap_check</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L137>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L146>`__
 
                         If True, run the exact pairwise gap check between candidate hotspot curves.
 
@@ -1376,7 +1376,7 @@ Fields
                           <code class="hmp-field-name">max_exact_gap_candidates</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 256` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L141>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 256` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L150>`__
 
                         Cap on the number of curves submitted to the exact gap check before falling back to a heuristic.
 
@@ -1394,7 +1394,7 @@ Fields
                     <code class="hmp-field-toml">[mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;]</code>
                   </div>
 
-               :bdg-primary:`dict[str, ZoneMeshingRefinementFamilySettings]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L183>`__
+               :bdg-primary:`dict[str, ZoneMeshingRefinementFamilySettings]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L194>`__
 
                   Per-family refinement settings keyed by family name.
 
@@ -1415,7 +1415,7 @@ Fields
 
                      :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L38>`__
 
-                        If False, this family is parsed but skipped during refinement.
+                        If False, this family is parsed but skipped during refinement. Per-family defaults: river and geology_interface are enabled, watershed_boundary is disabled (whole-divide refinement is opt-in).
 
 
                   .. container:: hmp-field hmp-field-level-user
@@ -1427,7 +1427,7 @@ Fields
                           <code class="hmp-field-name">priority</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L42>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L46>`__
 
                         Application order between families. Higher values win when budgets compete.
 
@@ -1441,7 +1441,7 @@ Fields
                           <code class="hmp-field-name">interface_size</code>
                         </div>
 
-                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L46>`__
+                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L50>`__
 
                         Override target cell size at the family interface, in projected metres.
 
@@ -1455,7 +1455,7 @@ Fields
                           <code class="hmp-field-name">interface_distance</code>
                         </div>
 
-                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L50>`__
+                     :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L54>`__
 
                         Override influence distance from the family interface, in projected metres.
 
@@ -1469,7 +1469,7 @@ Fields
                           <code class="hmp-field-name">interface_sampling</code>
                         </div>
 
-                     :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L54>`__
+                     :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L58>`__
 
                         Override the number of sampled points along the family interface (>=2).
 
@@ -1491,9 +1491,9 @@ Fields
         <code class="hmp-field-toml">[mesh_catchment.lake_refinement]</code>
       </div>
 
-   :bdg-primary:`LakeRefinementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L184>`__
+   :bdg-primary:`LakeRefinementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L185>`__
 
-      Optional local refinement on the lake footprint (any shape) and the under-dam outlet. Disabled by default; set enabled = true to add the lake size fields.
+      Optional local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). Disabled by default; set enabled = true to add the lake size fields.
 
    .. dropdown:: Fields of ``LakeRefinementConfig``
       :icon: list-unordered
@@ -1510,9 +1510,9 @@ Fields
               <code class="hmp-field-name">enabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L29>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L33>`__
 
-            Refine the GMSH mesh on the lake footprint (+ the dam outlet).
+            Refine the GMSH mesh on the lake shoreline band (+ hydraulic structures).
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1524,9 +1524,23 @@ Fields
               <code class="hmp-field-name">cell_size</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 40.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L33>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 40.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L37>`__
 
-            Target cell size [L] inside the lake footprint.
+            Target cell size [L] in the lake shoreline band.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: mesh-catchment-lake-refinement-shoreline-band
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="mesh_catchment.lake_refinement.shoreline_band">
+              <code class="hmp-field-name">shoreline_band</code>
+            </div>
+
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L42>`__
+
+            Half-width [L] of the refined band around the lake shoreline. When omitted, derives 2 * cell_size. Must be >= cell_size so the band holds at least one target cell (a thinner band would slip between the size-field sampling nodes).
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1538,9 +1552,23 @@ Fields
               <code class="hmp-field-name">buffer</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 200.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L38>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 200.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L52>`__
 
-            Transition distance [L] over which the lake size ramps back to global.
+            Transition distance [L] over which the lake sizes ramp back to global.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: mesh-catchment-lake-refinement-interior-size
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="mesh_catchment.lake_refinement.interior_size">
+              <code class="hmp-field-name">interior_size</code>
+            </div>
+
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L57>`__
+
+            Optional target cell size [L] inside the whole lake footprint (marnage / bathymetry resolution). When omitted, the interior keeps the background size.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1552,9 +1580,9 @@ Fields
               <code class="hmp-field-name">dam_cell_size</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 30.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L43>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 30.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L66>`__
 
-            Target cell size [L] in the under-dam outlet zone.
+            Target cell size [L] in the hydraulic-structure zones (cutoff wall, sill).
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1566,9 +1594,102 @@ Fields
               <code class="hmp-field-name">dam_buffer</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 150.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L48>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 150.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L71>`__
 
-            Radius [L] of the refined disk around the dam / catchment outlet.
+            Base half-width [L] of the structure refinement corridors; also the radius of the optional dam-outlet disk.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: mesh-catchment-lake-refinement-hfb-buffer
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="mesh_catchment.lake_refinement.hfb_buffer">
+              <code class="hmp-field-name">hfb_buffer</code>
+            </div>
+
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L79>`__
+
+            Half-width [L] of the refined zone around the dam cutoff wall (HFB). The zone covers the lake outlet area. When omitted, derives 2 * dam_buffer. Must be >= dam_cell_size so the zone holds at least one target cell.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: mesh-catchment-lake-refinement-dam-outlet-disk
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="mesh_catchment.lake_refinement.dam_outlet_disk">
+              <code class="hmp-field-name">dam_outlet_disk</code>
+            </div>
+
+         :bdg-primary:`bool | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/lake_refinement.py#L88>`__
+
+            Refine a disk of radius dam_buffer around the dam / catchment outlet. None (auto) emits the disk unless a cutoff-wall zone overlaps it: the widened HFB zone then already covers the outlet.
+
+
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: mesh-catchment-refinement-zone
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="mesh_catchment.refinement_zone">
+        <code class="hmp-field-name">refinement_zone</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[[mesh_catchment.refinement_zone]]</code>
+      </div>
+
+   :bdg-primary:`list[RefinementZoneConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L193>`__
+
+      User-provided zones of interest for local refinement. Each entry names one vector layer (polygons = zones, points / lines = corridors) and a target cell size; declare entries as [[mesh_catchment.refinement_zone]] tables.
+
+   .. dropdown:: Fields of ``RefinementZoneConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: mesh-catchment-refinement-zone-path
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="mesh_catchment.refinement_zone.path">
+              <code class="hmp-field-name">path</code>
+            </div>
+
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/refinement_zones.py#L30>`__
+
+            Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or points or lines (corridors). A bare filename resolves against <workspace>/data/refinement_zone/; relative paths resolve against that directory, the data directory, then the config directory.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: mesh-catchment-refinement-zone-cell-size
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="mesh_catchment.refinement_zone.cell_size">
+              <code class="hmp-field-name">cell_size</code>
+            </div>
+
+         :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/refinement_zones.py#L38>`__
+
+            Target cell size [L] inside the zone.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: mesh-catchment-refinement-zone-buffer
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="mesh_catchment.refinement_zone.buffer">
+              <code class="hmp-field-name">buffer</code>
+            </div>
+
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/refinement_zones.py#L42>`__
+
+            Corridor half-width [L] for point / line features, and transition distance back to the background size. When omitted, derives 2 * cell_size. Must be >= cell_size so the corridor holds at least one target cell.
 
 
 
@@ -1620,9 +1741,18 @@ Starter TOML snippet
       [mesh_catchment.lake_refinement]
       # enabled = false
       # cell_size = 40.0
+      # shoreline_band = ...  # default = None
       # buffer = 200.0
+      # interior_size = ...  # default = None
       # dam_cell_size = 30.0
       # dam_buffer = 150.0
+      # hfb_buffer = ...  # default = None
+      # dam_outlet_disk = ...  # default = None
+
+      [[mesh_catchment.refinement_zone]]
+      # path = ""  # REQUIRED
+      # cell_size = 0.0  # REQUIRED
+      # buffer = ...  # default = None
 
 Entity-relationship diagram
 ---------------------------

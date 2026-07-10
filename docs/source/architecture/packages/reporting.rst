@@ -3,8 +3,8 @@ reporting
 
 ``hydromodpy.reporting`` is the HTML composites layer. It assembles
 figures from ``display/`` and analysis features from ``analysis/``
-into standalone HTML deliverables: the calibration session report,
-the simulation comparison web report, and the streamlit configurator.
+into standalone HTML deliverables: the calibration session report
+and the simulation comparison web report.
 Not every HTML report lives in this package: workflow-owned reports
 such as site-selection and catchment review pages may live beside their
 workflow code, but should reuse ``hydromodpy.display.report_blocks``
@@ -20,9 +20,6 @@ Sub-modules
   report (moved from ``display/``). Reads sessions, iterations, and
   promoted runs from the catalog; renders six calibration figures
   through the ``display`` catalog; emits a standalone HTML file.
-- ``reporting/streamlit_config.py`` -- streamlit configurator UI
-  (moved from ``display/``). Exposes the JSON Schema export to a live
-  TOML editor.
 - ``reporting/comparison/`` -- simulation comparison HTML web report
   (moved from ``analysis/comparison/web/``).
 
@@ -40,7 +37,6 @@ Key public symbols
 ------------------
 
 - ``hydromodpy.reporting.calibration_report.render_report``
-- ``hydromodpy.reporting.streamlit_config`` (CLI script entry point)
 - ``hydromodpy.reporting.comparison.render`` (web report orchestrator)
 - ``hydromodpy.reporting.comparison.compact_network.builder.build_compact_network_synthesis``
 
@@ -64,8 +60,6 @@ Recommended reading path
    session report.
 3. ``hydromodpy/reporting/comparison/sections/__init__.py`` for the
    per-section composition.
-4. ``hydromodpy/reporting/streamlit_config.py`` for the configurator
-   UI.
 
 Layer-matrix neighbours
 -----------------------

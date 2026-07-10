@@ -57,6 +57,7 @@ from hydromodpy.solver.modflow6.builders import (
 )
 from hydromodpy.solver.modflow6.common import attach_time_series
 from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
+from hydromodpy.solver.modflow6.mesh_conditioning import condition_solver_mesh_top
 from hydromodpy.solver.modflow6.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
@@ -214,6 +215,103 @@ def _watershed_drainage_mask(model, cell_centroids: np.ndarray) -> np.ndarray | 
         "buffer DRN drains out instead of feeding the streams.",
         n_in,
         int(mask.size),
+    )
+    return mask
+
+
+def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
+    """Boolean channel-pixel mask aligned to ``surface_topo`` for zonal top sampling.
+
+    Only produced when ``sgrid.top_sampling.mode == 'zonal'`` and its
+    ``channel_source`` requests one. Reads the delineated stream raster and
+    reprojects it (nearest) onto the model-top DEM grid. Returns ``None`` (channel
+    class disabled, every pixel treated as hillslope) when zonal is off, the
+    source is 'none', or no stream raster / georeferenced surface is available.
+    """
+    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
+    top_sampling = getattr(sgrid_cfg, "top_sampling", None)
+    if top_sampling is None or top_sampling.mode != "zonal":
+        return None
+    if top_sampling.channel_source == "none":
+        return None
+
+    geographic = getattr(model, "geographic", None)
+    path = None
+    for name in ("river_stream_link_id_tif", "river_streams_tif"):
+        candidate = getattr(geographic, name, None)
+        if candidate and os.path.exists(str(candidate)):
+            path = str(candidate)
+            break
+    if path is None:
+        logger.warning(
+            "Zonal channel_source=%s but no stream raster found; the channel class "
+            "is disabled (every DEM pixel treated as hillslope).",
+            top_sampling.channel_source,
+        )
+        return None
+
+    surface = getattr(model.domain, "surface_topo", None)
+    support = getattr(surface, "support", None)
+    fields = ("xmin", "xmax", "ymin", "ymax", "nrows", "ncols")
+    if support is None or any(getattr(support, name, None) is None for name in fields):
+        logger.warning("Zonal channel mask needs a georeferenced surface; channel class disabled.")
+        return None
+
+    import rasterio
+    from rasterio.transform import from_bounds
+    from rasterio.warp import Resampling, reproject
+
+    out_shape = (int(support.nrows), int(support.ncols))
+    dst_transform = from_bounds(
+        float(support.xmin),
+        float(support.ymin),
+        float(support.xmax),
+        float(support.ymax),
+        int(support.ncols),
+        int(support.nrows),
+    )
+    dst = np.zeros(out_shape, dtype=np.float64)
+    with rasterio.open(path) as src:
+        src_nodata = src.nodata
+        src_crs = src.crs
+        dst_crs = support.crs if support.crs is not None else src_crs
+        # WhiteboxTools strips the delineated stream raster CRS to an engineering
+        # LOCAL_CS tag, but it is delineated from the same projected DEM domain, so
+        # it is already co-registered with the model top. Asking PROJ to transform
+        # an engineering CRS to the projected DEM CRS raises, so treat a missing or
+        # non-standard tag as the model coordinate space (a pure nearest resample).
+        if src_crs is None or not (src_crs.is_projected or src_crs.is_geographic):
+            src_crs = dst_crs
+        try:
+            reproject(
+                source=src.read(1).astype(np.float64),
+                destination=dst,
+                src_transform=src.transform,
+                src_crs=src_crs,
+                dst_transform=dst_transform,
+                dst_crs=dst_crs,
+                resampling=Resampling.nearest,
+                src_nodata=src_nodata,
+                dst_nodata=0.0,
+            )
+        except Exception as exc:  # noqa: BLE001 - degrade, never abort the build
+            logger.warning(
+                "Zonal channel mask reprojection failed (%s); channel class disabled.", exc
+            )
+            return None
+    # Channel pixels carry a positive link id / stream flag; 0 is background. A
+    # nearest reproject can still copy the source nodata value into the target
+    # (it is not always filled with dst_nodata), so require a strictly positive
+    # value and drop a positive nodata sentinel explicitly.
+    mask = np.isfinite(dst) & (dst > 0.0)
+    if src_nodata is not None and float(src_nodata) > 0.0:
+        mask &= dst != float(src_nodata)
+    if top_sampling.channel_buffer_px > 0:
+        from scipy import ndimage
+
+        mask = ndimage.binary_dilation(mask, iterations=int(top_sampling.channel_buffer_px))
+    logger.info(
+        "Zonal channel mask: %d/%d channel pixels from %s.", int(mask.sum()), mask.size, path
     )
     return mask
 
@@ -455,6 +553,7 @@ def run_pre_processing(  # noqa: PLR0915
         domain=model.domain,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
         runtime_planar_mesh=model.runtime_mesh_planar,
+        channel_mask=_resolve_channel_mask_for_zonal(model),
     )
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh
@@ -579,14 +678,65 @@ def run_pre_processing(  # noqa: PLR0915
         model.inactive_mask = solver_mesh.inactive_mask[0]
         model.dem_mask = model.inactive_mask
 
+    # Projecting the DEM onto irregular Voronoi cells reintroduces closed
+    # depressions the raster fill removed. Condition the mesh top so every active
+    # non-lake cell drains to the boundary. Lakes (marnage cells kept low) and the
+    # idomain edge are base levels; only the top is raised, never the bottom.
+    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
+    if sgrid_cfg is not None and getattr(sgrid_cfg, "condition_top", False):
+        # Every lake cell is a fixed base level: a reservoir bed is a legitimate
+        # low, so the fill must drain INTO it, never raise it. Fixed-area lakes are
+        # already inactive (skipped); the ones that matter here are the active
+        # marnage cells whose carved bed would otherwise flood to its spill level.
+        lake_cells = {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
+        solver_mesh, cond_info = condition_solver_mesh_top(
+            solver_mesh,
+            getattr(model, "runtime_mesh_support", None),
+            protected_cells=lake_cells,
+            epsilon=float(getattr(sgrid_cfg, "condition_top_epsilon", 1e-3)),
+        )
+        model.solver_mesh = solver_mesh
+        if cond_info["unreached_active"]:
+            logger.warning(
+                "Mesh top conditioning could not drain %d active cells (no mesh face "
+                "graph or isolated basins); their pits remain.",
+                cond_info["unreached_active"],
+            )
+        logger.info(
+            "Mesh top conditioned: %d cells raised (max +%.2f m, mean +%.2f m) to "
+            "remove closed depressions.",
+            cond_info["cells_raised"],
+            cond_info["max_raise_m"],
+            cond_info["mean_raise_m"],
+        )
+
     idomain = solver_mesh.idomain()
 
     # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
     # active aquifer cell. Resolution happens before DRN so the drain rows
     # coincident with a reach can be dropped (baseflow discharges to the stream,
     # not out of the model); the package itself is built after LAK.
-    sfr_networks = resolve_sfr_networks(model, solver_mesh=solver_mesh)
-    sfr_mover_records = build_sfr_mover_records(sfr_networks)
+    lake_cells_by_number = {
+        index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
+    }
+    # SFR resolves against the lake cells so trace reaches are truncated at the
+    # shoreline (never left sitting on a LAK cell once the DEM routes a stream
+    # through the lake), then the mover builder hands their flow to that lake.
+    sfr_networks = resolve_sfr_networks(
+        model, solver_mesh=solver_mesh, lake_cells_by_number=lake_cells_by_number
+    )
+    _geo = getattr(model, "geographic", None)
+    _x_out = getattr(_geo, "x_outlet", None)
+    _y_out = getattr(_geo, "y_outlet", None)
+    sfr_outlet_xy = (
+        (float(_x_out), float(_y_out)) if _x_out is not None and _y_out is not None else None
+    )
+    sfr_mover_records = build_sfr_mover_records(
+        sfr_networks,
+        lake_cells_by_number=lake_cells_by_number,
+        cell_centroids=solver_mesh.cell_centroids(),
+        outlet_xy=sfr_outlet_xy,
+    )
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
     # covers both. Native DIS is reserved for the NWT backend, which only supports
@@ -852,6 +1002,7 @@ def run_pre_processing(  # noqa: PLR0915
             networks=sfr_networks,
             external_mover=any(str(row[2]) == "SFR" for row in all_mover_rows),
             has_mover_records=bool(sfr_mover_records),
+            solver_mesh=solver_mesh,
         )
         if sfr_args is not None:
             sfr_obs_continuous = sfr_args.pop("obs_continuous", None)

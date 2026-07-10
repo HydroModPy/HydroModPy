@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_common.sgrid_to_flopy import translate as sgrid_spec_to_flopy
 from hydromodpy.solver.modflow_grid.grid_context import (
@@ -16,11 +17,15 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,
     SolverSGridConfig,
+    TopSamplingConfig,
     VerticalGridConfig,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.spatial.mesh.zonal_stats import zonal_top
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
+
+logger = get_logger(__name__)
 
 
 def resolve_domain_surfaces(
@@ -133,6 +138,78 @@ def _assert_bottom_below_top(
         )
 
 
+def _zonal_top_flat(
+    *,
+    hydro_mesh: object,
+    top_surface: Surface,
+    centroid_top: np.ndarray,
+    bottom_flat: np.ndarray,
+    nodata: float,
+    top_sampling: TopSamplingConfig,
+    channel_mask: np.ndarray | None,
+) -> np.ndarray:
+    """Zonal per-cell top from the DEM; falls back to the centroid sample.
+
+    Reduces every DEM pixel inside each cell (thalweg stat on channel pixels,
+    area stat on hillslope pixels) instead of one bilinear sample at the cell
+    generator. Requires a fully georeferenced ``top_surface``; without it the
+    centroid projection is returned unchanged.
+    """
+    from rasterio.transform import from_bounds
+
+    support = getattr(top_surface, "support", None)
+    fields = ("xmin", "xmax", "ymin", "ymax", "nrows", "ncols")
+    if support is None or any(getattr(support, name, None) is None for name in fields):
+        logger.warning("Zonal top sampling needs a georeferenced surface; using centroid sample.")
+        return centroid_top
+
+    dem = np.asarray(top_surface.as_array(), dtype=float)
+    out_shape = (int(support.nrows), int(support.ncols))
+    if dem.shape != out_shape:
+        logger.warning(
+            "Surface array %s does not match its support %s; using centroid sample.",
+            dem.shape,
+            out_shape,
+        )
+        return centroid_top
+    transform = from_bounds(
+        float(support.xmin),
+        float(support.ymin),
+        float(support.xmax),
+        float(support.ymax),
+        int(support.ncols),
+        int(support.nrows),
+    )
+    result = zonal_top(
+        planar_mesh=hydro_mesh,
+        dem=dem,
+        transform=transform,
+        out_shape=out_shape,
+        centroid_top=centroid_top,
+        nodata=float(nodata),
+        channel_mask=channel_mask,
+        hillslope_stat=top_sampling.hillslope_stat,
+        channel_stat=top_sampling.channel_stat,
+        min_pixels=int(top_sampling.min_pixels),
+        spike_guard_tol_m=float(top_sampling.spike_guard_tol_m),
+        bottom=bottom_flat,
+        min_thickness_m=float(top_sampling.min_thickness_m),
+    )
+    logger.info(
+        "Zonal top sampling: %d/%d cells zonal (%d channel), %d lowered "
+        "(max -%.2f m, mean -%.2f m), %d spike-reverted, %d thickness-clamped.",
+        int(result.info["n_zonal"]),
+        int(result.info["n_cells"]),
+        int(result.info["n_channel_cells"]),
+        int(result.info["n_lowered"]),
+        result.info["max_lowered_m"],
+        result.info["mean_lowered_m"],
+        int(result.info["n_spike_reverted"]),
+        int(result.info["n_thickness_clamped"]),
+    )
+    return result.top
+
+
 def _build_extruded_solver_mesh_from_runtime_planar(
     *,
     planar_mesh: object,
@@ -141,6 +218,8 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     vertical_config: VerticalGridConfig | None,
     nodata: float,
     grid_dual: str = "voronoi",
+    top_sampling: TopSamplingConfig | None = None,
+    channel_mask: np.ndarray | None = None,
 ) -> SolverMesh:
     # grid_dual="voronoi" (MF6 default): the solver grid is the Voronoi/PEBI dual of
     # the gmsh triangulation (exact perpendicular-bisector CVFD orthogonality, an
@@ -174,6 +253,20 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
     bottom_flat = np.asarray(bottom_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
 
+    # Optional zonal projection: reduce every DEM pixel inside a cell (thalweg on
+    # channel pixels) instead of one centroid sample. Default 'centroid' leaves
+    # top_flat byte-identical. Only top is zonal; bottom stays on the centroid.
+    if top_sampling is not None and top_sampling.mode == "zonal":
+        top_flat = _zonal_top_flat(
+            hydro_mesh=hydro_mesh,
+            top_surface=top_surface,
+            centroid_top=top_flat,
+            bottom_flat=bottom_flat,
+            nodata=nodata,
+            top_sampling=top_sampling,
+            channel_mask=channel_mask,
+        )
+
     invalid = (
         ~np.isfinite(top_flat)
         | ~np.isfinite(bottom_flat)
@@ -206,15 +299,23 @@ def build_spatial_discretization(
     domain: DomainLike,
     sgrid_config: SolverSGridConfig | None,
     runtime_planar_mesh: object | None = None,
+    channel_mask: np.ndarray | None = None,
 ) -> SolverGridContext:
-    """Build normalized spatial discretization from domain surfaces or runtime mesh."""
+    """Build normalized spatial discretization from domain surfaces or runtime mesh.
+
+    ``channel_mask`` (aligned to ``domain.surface_topo``) flags DEM channel pixels
+    for zonal top sampling; it is only used on the runtime-mesh path when
+    ``sgrid_config.top_sampling.mode == 'zonal'``.
+    """
     vertical_config: VerticalGridConfig | None = None
     planar_config: PlanarGridConfig | None = None
     grid_dual = "voronoi"
+    top_sampling: TopSamplingConfig | None = None
     if sgrid_config is not None:
         vertical_config = sgrid_config.vertical
         planar_config = sgrid_config.planar
         grid_dual = sgrid_config.grid_dual
+        top_sampling = sgrid_config.top_sampling
 
     nodata = float(vertical_config.nodata if vertical_config is not None else -9999.0)
 
@@ -252,6 +353,8 @@ def build_spatial_discretization(
             vertical_config=vertical_config,
             nodata=nodata,
             grid_dual=grid_dual,
+            top_sampling=top_sampling,
+            channel_mask=channel_mask,
         )
 
     return SolverGridContext(

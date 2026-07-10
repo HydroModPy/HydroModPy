@@ -100,6 +100,40 @@ def _downstream_cell(row: int, col: int, d8: np.ndarray) -> tuple[int, int] | No
     return None
 
 
+def _trace_downstream_target(
+    outlet: tuple[int, int],
+    d8: np.ndarray,
+    link_id: np.ndarray,
+    lake: np.ndarray | None,
+    this_link: int,
+    max_steps: int = 2000,
+) -> tuple[str, tuple[int, int] | None]:
+    """Follow the D8 path below a link outlet through non-stream gap cells.
+
+    The WBT stream-link raster can drop cells (a link_id gap) between two links
+    or just short of the lake, which would leave the reach a spurious inland
+    outlet. Walking the D8 pointer past those gap cells reunites the fragment
+    with its true continuation. Returns ('lake', cell), ('link', cell) at the
+    first lake cell or different stream link reached, else ('none', None) when
+    the path leaves the domain, hits a pit, or cycles.
+    """
+    step = _downstream_cell(outlet[0], outlet[1], d8)
+    seen: set[tuple[int, int]] = set()
+    steps = 0
+    while step is not None and steps < max_steps:
+        if step in seen:
+            break
+        seen.add(step)
+        if lake is not None and lake[step]:
+            return "lake", step
+        lid = int(link_id[step])
+        if lid > 0 and lid != this_link:
+            return "link", step
+        step = _downstream_cell(step[0], step[1], d8)
+        steps += 1
+    return "none", None
+
+
 def _cell_xy(row: int, col: int, transform) -> tuple[float, float]:
     """Return the projected (x, y) centroid of a raster cell via its affine."""
     x, y = transform * (col + 0.5, row + 0.5)
@@ -237,14 +271,29 @@ def delineate_sfr_reaches(
             downstream_link[link] = int(link_id[nxt])
             terminal_to_lake[link] = False
         else:
-            # Bare network outlet: its D8 path leaves the domain (or the
-            # watershed-mask clip) without entering the lake or another link.
-            # The catchment is delineated to drain to the reservoir, so when a
-            # lake is present this outlet feeds it (MVR) instead of leaking out
-            # of the model by EXT-OUTFLOW. The MVR is only emitted for networks
-            # that set outflow_to_lake, so a lake-free trace is unaffected.
-            downstream_link[link] = None
-            terminal_to_lake[link] = lake is not None
+            # The immediate D8 neighbour is a non-stream gap cell (or None). Follow
+            # the D8 path through the gap: WBT link rasters drop cells between links
+            # and short of the lake, so a fragment that looks like an inland outlet
+            # usually continues to its true downstream link or to the lake a few
+            # cells on. Only a path that genuinely leaves the domain is a true bare
+            # outlet, and that leaves the model by EXT-OUTFLOW (not teleported to
+            # the lake from mid-catchment).
+            kind, target = _trace_downstream_target(outlet, d8, link_id, lake, link)
+            if kind == "lake":
+                downstream_link[link] = None
+                terminal_to_lake[link] = True
+                if lake_label is not None and target is not None:
+                    terminal_lake_of[link] = int(lake_label[target])
+            elif kind == "link":
+                downstream_link[link] = int(link_id[target])
+                terminal_to_lake[link] = False
+            else:
+                # A genuine bare outlet: the D8 path leaves the domain / pits without
+                # reaching a link or lake. The solver mover builder decides its fate
+                # (nearest lake in a lake-coupled catchment, else EXT-OUTFLOW), where
+                # the final reach geometry and the lake cells are known.
+                downstream_link[link] = None
+                terminal_to_lake[link] = False
 
         info[link] = {
             "line": line,

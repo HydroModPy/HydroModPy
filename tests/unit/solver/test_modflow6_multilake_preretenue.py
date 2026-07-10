@@ -217,10 +217,11 @@ def test_two_lake_build_without_outlets_still_builds_both_lakes() -> None:
     assert "mover" not in args
 
 
-def test_two_overlapping_lakes_raise() -> None:
-    # Two lake polygons that share grid cells must be rejected: MF6 LAK allows one
-    # lake per cell. poly_a covers the lower-left 2x2 block, poly_b is shifted by
-    # one cell so the two overlap on the 4x4 grid (a coarse-mesh collision).
+def test_two_overlapping_lakes_are_resolved_cell_disjoint() -> None:
+    # Two lake polygons that clip shared grid cells are reconciled, not rejected:
+    # MF6 LAK allows one lake per cell, so each shared cell goes to its larger-overlap
+    # lake and the footprints come out cell-disjoint. poly_a covers the lower-left 2x2
+    # block, poly_b is shifted by one cell so they collide on the coarse 4x4 grid.
     poly_a = Polygon([(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)])
     poly_b = Polygon([(1.0, 1.0), (3.0, 1.0), (3.0, 3.0), (1.0, 3.0)])
     model = SimpleNamespace(
@@ -236,5 +237,6 @@ def test_two_overlapping_lakes_raise() -> None:
             },
         ),
     )
-    with pytest.raises(ValueError, match="one lake per cell"):
-        resolve_lake_cells_for_active_lakes(model, _grid_4x4())
+    cells = resolve_lake_cells_for_active_lakes(model, _grid_4x4())
+    assert set(cells["lac0"]).isdisjoint(cells["lac1"])
+    assert cells["lac0"] and cells["lac1"]  # neither lake was emptied

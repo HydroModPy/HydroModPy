@@ -2025,7 +2025,7 @@ Fields
                     <code class="hmp-field-name">bedleak</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L313>`__
+               :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L325>`__
 
                   Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface; the under-dam leakage calibration parameter. 0 means a perfectly sealed lakebed (no leakage).
 
@@ -2039,7 +2039,7 @@ Fields
                     <code class="hmp-field-name">bedleak_unit</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "1/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L322>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "1/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L334>`__
 
                   Unit of bedleak (leakance, 1/T): one of 1/s, 1/day, 1/h, 1/min (aliases like 1/d accepted). HydroModPy converts it to 1/s for MF6, so a 1/day leakance is not silently taken as 1/s.
 
@@ -2053,7 +2053,7 @@ Fields
                     <code class="hmp-field-name">stageinit</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L330>`__
+               :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L342>`__
 
                   Initial lake stage [L].
 
@@ -2067,7 +2067,7 @@ Fields
                     <code class="hmp-field-name">steady_stage_hold</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L331>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L343>`__
 
                   Hold the lake stage at stageinit during the steady warm-up period(s) (LAK status CONSTANT) and re-activate it on the first transient period. Use for a managed reservoir whose observed initial level is far from the natural steady equilibrium: the aquifer equilibrates around the observed stage instead of overriding it.
 
@@ -2081,7 +2081,7 @@ Fields
                     <code class="hmp-field-name">occupied_layers</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L341>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L353>`__
 
                   Number of top grid layers the lake occupies in each of its columns. 1 is a surface lake; a deeper reservoir embedded over several layers uses a higher count. Must leave at least one active layer below the lake for the VERTICAL leakage connection.
 
@@ -2095,7 +2095,7 @@ Fields
                     <code class="hmp-field-name">fill_enclosed_cells</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L351>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L363>`__
 
                   Fill cells enclosed by the lake footprint (the polygon's interior rings / islands) so the lake is contiguous. Off by default: interior rings stay active aquifer (real islands). Enable to drop sub-grid islands and classification pockets that would otherwise be isolated non-lake cells inside the lake.
 
@@ -2109,7 +2109,7 @@ Fields
                     <code class="hmp-field-name">surfdep</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L361>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L373>`__
 
                   LAK surface depression depth [L] that smooths the dry/wet (marnage) transition for Newton. Default (None) uses 0.1 m. Raise it (e.g. 0.5 to 1.0 m) to stabilise and speed up the active-littoral steady solve when many lakebed cells toggle at once; it slightly fuzzes the shoreline.
 
@@ -2125,7 +2125,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.bed_reconstruction]</code>
                   </div>
 
-               :bdg-primary:`BathymetryReconstructionConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L371>`__
+               :bdg-primary:`BathymetryReconstructionConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L383>`__
 
                   Optional bathymetry-driven bed carving. When set, the real lake bed is reconstructed from the lake_bathymetry raster (reconciled to the abacus) and carved into the grid instead of a flat reservoir.
 
@@ -2178,6 +2178,20 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-lakes-id-bed-reconstruction-bank-seepage
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.bed_reconstruction.bank_seepage">
+                          <code class="hmp-field-name">bank_seepage</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L267>`__
+
+                        Also emit HORIZONTAL (bank) LAK connections on the active-littoral footprint, in addition to the VERTICAL (bed) ones, so the lake exchanges with the aquifer through both the bed AND the banks (the physical case). Sealed at the cutoff wall (dam) when one is declared. Only applies with dynamic_area = true; a fixed-area lake always emits both. Set False to keep the bed-only marnage representation (the bedleak then absorbs the bank contribution).
+
+
+                  .. container:: hmp-field hmp-field-level-user
                      :name: flow-sinks-sources-lakes-id-bed-reconstruction-min-thickness
 
                      .. raw:: html
@@ -2186,7 +2200,7 @@ Fields
                           <code class="hmp-field-name">min_thickness</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.5` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L267>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.5` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L279>`__
 
                         Minimum layer thickness [L, model units] kept when re-grading a lake column around the carved bed, so no degenerate (near-zero) cell breaks the solver. The bed is clamped into [base + min_thickness, top - min_thickness].
 
@@ -2200,7 +2214,7 @@ Fields
                           <code class="hmp-field-name">min_pixels</code>
                         </div>
 
-                     :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L277>`__
+                     :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L289>`__
 
                         Minimum bathymetry pixels whose centre must fall inside a cell for the zonal mean to be used; below it a bilinear sample at the cell centroid is taken instead.
 
@@ -2218,7 +2232,7 @@ Fields
                     <code class="hmp-field-toml">[[flow.sinks_sources.lakes.&lt;id&gt;.outlets]]</code>
                   </div>
 
-               :bdg-primary:`couttype = "WEIR" | "MANNING" | "SPECIFIED"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L379>`__
+               :bdg-primary:`couttype = "WEIR" | "MANNING" | "SPECIFIED"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L391>`__
 
                   Surverse / spillway / controlled-release outlets for this lake.
 
@@ -2473,7 +2487,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.cutoff_wall]</code>
                   </div>
 
-               :bdg-primary:`FlowBarrierConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L383>`__
+               :bdg-primary:`FlowBarrierConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L395>`__
 
                   Optional dam cutoff wall / grout curtain on the dam axis, modeled as a MODFLOW 6 HFB (the lake-derived use of FlowBarrierConfig). The barrier forces the under-dam seepage to dive below the wall instead of leaking through the top layers.
 
@@ -2484,6 +2498,20 @@ Fields
                   .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-lakes-id-cutoff-wall-auto
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.cutoff_wall.auto">
+                          <code class="hmp-field-name">auto</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L47>`__
+
+                        Auto-place the dam cutoff wall (lakes only): the trace is derived at bind time as the chord across the reservoir at its downstream neck (the footprint point nearest the catchment outlet), perpendicular to the outlet-flow direction. Mutually exclusive with line / line_path; the mesh dam refinement then follows this auto axis too.
+
+
+                  .. container:: hmp-field hmp-field-level-user
                      :name: flow-sinks-sources-lakes-id-cutoff-wall-line
 
                      .. raw:: html
@@ -2492,9 +2520,9 @@ Fields
                           <code class="hmp-field-name">line</code>
                         </div>
 
-                     :bdg-primary:`list[tuple[float, float]] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L47>`__
+                     :bdg-primary:`list[tuple[float, float]] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L57>`__
 
-                        Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path.
+                        Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path and auto.
 
 
                   .. container:: hmp-field hmp-field-level-user
@@ -2506,9 +2534,9 @@ Fields
                           <code class="hmp-field-name">line_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L54>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L64>`__
 
-                        Vector file (gpkg / shp / GeoJSON) holding the barrier-trace polyline. Alternative to line.
+                        Barrier-trace file: a vector polyline (gpkg / shp / GeoJSON) or a CSV of ordered x,y (or lon,lat) vertices. A bare filename resolves against <workspace>/data/cutoff_wall/. Alternative to line and auto.
 
 
                   .. container:: hmp-field hmp-field-level-user
@@ -2520,9 +2548,37 @@ Fields
                           <code class="hmp-field-name">depths</code>
                         </div>
 
-                     :bdg-primary:`list[float]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L61>`__
+                     :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L72>`__
 
-                        Barrier depth below the model top [m]. One value is a uniform depth; several are interpolated per vertex along the trace. The HFB blocks every top layer down to this depth, so the flow dives underneath.
+                        Barrier depth [m] below the top (or below crest_elevation). One value is uniform; several are interpolated per vertex along the trace. The HFB blocks every layer down to this depth. Mutually exclusive with base_elevation.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-lakes-id-cutoff-wall-crest-elevation
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.cutoff_wall.crest_elevation">
+                          <code class="hmp-field-name">crest_elevation</code>
+                        </div>
+
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L81>`__
+
+                        Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell top (the DEM). Set it when the barrier crest sits below the DEM top.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-lakes-id-cutoff-wall-base-elevation
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.lakes.&lt;id&gt;.cutoff_wall.base_elevation">
+                          <code class="hmp-field-name">base_elevation</code>
+                        </div>
+
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L88>`__
+
+                        Absolute BOTTOM elevation of the barrier [m, model datum]. When set, the HFB spans [base_elevation, crest_elevation or top] and blocks EVERY layer in that band. Use it to make a full-height dam impervious: the concrete body plus the grout curtain block all flow from the crest down to the curtain foot (e.g. base_elevation = 41 m), so nothing seeps across the dam above that. Mutually exclusive with depths.
 
 
                   .. container:: hmp-field hmp-field-level-user
@@ -2534,7 +2590,7 @@ Fields
                           <code class="hmp-field-name">hydchr</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L70>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L99>`__
 
                         HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Mutually exclusive with k + thickness.
 
@@ -2548,7 +2604,7 @@ Fields
                           <code class="hmp-field-name">hydchr_unit</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "1/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L79>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "1/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L108>`__
 
                         Unit of hydchr (1/T): 1/s, 1/day, 1/h, 1/min. Converted to 1/s for MF6.
 
@@ -2562,7 +2618,7 @@ Fields
                           <code class="hmp-field-name">k</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L83>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L112>`__
 
                         Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.
 
@@ -2576,7 +2632,7 @@ Fields
                           <code class="hmp-field-name">k_unit</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "m/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L88>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "m/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L117>`__
 
                         Unit of k (L/T): m/s, m/day, m/h, m/min. Converted to m/s.
 
@@ -2590,7 +2646,7 @@ Fields
                           <code class="hmp-field-name">thickness</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L92>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L121>`__
 
                         Barrier thickness [L]; used with k when hydchr is unset.
 
@@ -2604,7 +2660,7 @@ Fields
                           <code class="hmp-field-name">thickness_unit</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L97>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L126>`__
 
                         Unit of thickness (L): m, cm, mm, km. Converted to m.
 
@@ -2622,7 +2678,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.rainfall]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L392>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L404>`__
 
                   Optional rainfall rate forcing [L/T] (per unit lake surface).
 
@@ -2888,7 +2944,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.evaporation]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L396>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L408>`__
 
                   Optional open-water evaporation rate forcing [L/T].
 
@@ -3154,7 +3210,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.runoff]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L400>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L412>`__
 
                   Optional runoff forcing, volumetric [L^3/T].
 
@@ -3420,7 +3476,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.inflow]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L404>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L416>`__
 
                   Optional inflow forcing, volumetric [L^3/T].
 
@@ -3686,7 +3742,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.lakes.&lt;id&gt;.withdrawal]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L408>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/lake.py#L420>`__
 
                   Optional withdrawal forcing, volumetric [L^3/T].
 
@@ -5573,6 +5629,20 @@ Fields
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-flow-barriers-id-auto
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.flow_barriers.&lt;id&gt;.auto">
+                    <code class="hmp-field-name">auto</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L47>`__
+
+                  Auto-place the dam cutoff wall (lakes only): the trace is derived at bind time as the chord across the reservoir at its downstream neck (the footprint point nearest the catchment outlet), perpendicular to the outlet-flow direction. Mutually exclusive with line / line_path; the mesh dam refinement then follows this auto axis too.
+
+
+            .. container:: hmp-field hmp-field-level-user
                :name: flow-sinks-sources-flow-barriers-id-line
 
                .. raw:: html
@@ -5581,9 +5651,9 @@ Fields
                     <code class="hmp-field-name">line</code>
                   </div>
 
-               :bdg-primary:`list[tuple[float, float]] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L47>`__
+               :bdg-primary:`list[tuple[float, float]] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L57>`__
 
-                  Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path.
+                  Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path and auto.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5595,9 +5665,9 @@ Fields
                     <code class="hmp-field-name">line_path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L54>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L64>`__
 
-                  Vector file (gpkg / shp / GeoJSON) holding the barrier-trace polyline. Alternative to line.
+                  Barrier-trace file: a vector polyline (gpkg / shp / GeoJSON) or a CSV of ordered x,y (or lon,lat) vertices. A bare filename resolves against <workspace>/data/cutoff_wall/. Alternative to line and auto.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5609,9 +5679,37 @@ Fields
                     <code class="hmp-field-name">depths</code>
                   </div>
 
-               :bdg-primary:`list[float]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L61>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L72>`__
 
-                  Barrier depth below the model top [m]. One value is a uniform depth; several are interpolated per vertex along the trace. The HFB blocks every top layer down to this depth, so the flow dives underneath.
+                  Barrier depth [m] below the top (or below crest_elevation). One value is uniform; several are interpolated per vertex along the trace. The HFB blocks every layer down to this depth. Mutually exclusive with base_elevation.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-flow-barriers-id-crest-elevation
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.flow_barriers.&lt;id&gt;.crest_elevation">
+                    <code class="hmp-field-name">crest_elevation</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L81>`__
+
+                  Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell top (the DEM). Set it when the barrier crest sits below the DEM top.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-flow-barriers-id-base-elevation
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.flow_barriers.&lt;id&gt;.base_elevation">
+                    <code class="hmp-field-name">base_elevation</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L88>`__
+
+                  Absolute BOTTOM elevation of the barrier [m, model datum]. When set, the HFB spans [base_elevation, crest_elevation or top] and blocks EVERY layer in that band. Use it to make a full-height dam impervious: the concrete body plus the grout curtain block all flow from the crest down to the curtain foot (e.g. base_elevation = 41 m), so nothing seeps across the dam above that. Mutually exclusive with depths.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5623,7 +5721,7 @@ Fields
                     <code class="hmp-field-name">hydchr</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L70>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L99>`__
 
                   HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Mutually exclusive with k + thickness.
 
@@ -5637,7 +5735,7 @@ Fields
                     <code class="hmp-field-name">hydchr_unit</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "1/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L79>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "1/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L108>`__
 
                   Unit of hydchr (1/T): 1/s, 1/day, 1/h, 1/min. Converted to 1/s for MF6.
 
@@ -5651,7 +5749,7 @@ Fields
                     <code class="hmp-field-name">k</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L83>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L112>`__
 
                   Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.
 
@@ -5665,7 +5763,7 @@ Fields
                     <code class="hmp-field-name">k_unit</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "m/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L88>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "m/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L117>`__
 
                   Unit of k (L/T): m/s, m/day, m/h, m/min. Converted to m/s.
 
@@ -5679,7 +5777,7 @@ Fields
                     <code class="hmp-field-name">thickness</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L92>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L121>`__
 
                   Barrier thickness [L]; used with k when hydchr is unset.
 
@@ -5693,7 +5791,7 @@ Fields
                     <code class="hmp-field-name">thickness_unit</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L97>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/flow_barrier.py#L126>`__
 
                   Unit of thickness (L): m, cm, mm, km. Converted to m.
 

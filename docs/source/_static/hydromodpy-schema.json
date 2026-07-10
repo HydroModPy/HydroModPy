@@ -261,6 +261,16 @@
           "type": "boolean",
           "x-hmp-profile": "expert"
         },
+        "bank_seepage": {
+          "default": true,
+          "description": "Also emit HORIZONTAL (bank) LAK connections on the active-littoral footprint, in addition to the VERTICAL (bed) ones, so the lake exchanges with the aquifer through both the bed AND the banks (the physical case). Sealed at the cutoff wall (dam) when one is declared. Only applies with dynamic_area = true; a fixed-area lake always emits both. Set False to keep the bed-only marnage representation (the bedleak then absorbs the bank contribution).",
+          "examples": [
+            true
+          ],
+          "title": "Bank Seepage",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
         "min_thickness": {
           "default": 0.5,
           "description": "Minimum layer thickness [L, model units] kept when re-grading a lake column around the carved bed, so no degenerate (near-zero) cell breaks the solver. The bed is clamped into [base + min_thickness, top - min_thickness].",
@@ -2935,6 +2945,65 @@
       "title": "CustomLakeGeometrySource",
       "type": "object"
     },
+    "DamCarveConfig": {
+      "additionalProperties": false,
+      "description": "Optional dam structure-carve of the MODEL-TOP DEM.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the model-top DEM down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream,\nand no need for a stream-burned DEM that would lower every channel). It is\nthe mirror of enforce_lakes: enforce_lakes carves the routing DEM, this\ncarves the top DEM, at the dam only.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Carve the dam footprint of the model-top DEM down to the local valley floor so the cutoff wall sits at the true dam on a raw DEM.",
+          "examples": [
+            false
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "line_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dam trace (gpkg/shp/csv) along which the top is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled.",
+          "title": "Line Path",
+          "x-hmp-profile": "user"
+        },
+        "buffer_m": {
+          "default": 40.0,
+          "description": "Half-width (metres) of the carved corridor around the dam trace. Make it a bit wider than one DEM/cell size so the whole dam body is brought to the valley floor.",
+          "examples": [
+            40.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Buffer M",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "search_radius_m": {
+          "anyOf": [
+            {
+              "gt": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Radius (metres) of the neighborhood whose minimum elevation defines the valley floor the corridor is carved to. When omitted, derives 3 * buffer_m.",
+          "title": "Search Radius M",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "DamCarveConfig",
+      "type": "object"
+    },
     "DataManagersConfig": {
       "additionalProperties": false,
       "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
@@ -5120,6 +5189,16 @@
       "additionalProperties": false,
       "description": "Typed payload for one MODFLOW 6 horizontal flow barrier (HFB).\n\nThe barrier is a quasi-impermeable vertical wall on a polyline. It sits on\nthe shared mesh faces the trace crosses and spans every top layer down to\n``depths`` below the model top, so the flow is blocked there and forced\nunderneath. The dam cutoff wall is the lake-derived use of this payload.",
       "properties": {
+        "auto": {
+          "default": false,
+          "description": "Auto-place the dam cutoff wall (lakes only): the trace is derived at bind time as the chord across the reservoir at its downstream neck (the footprint point nearest the catchment outlet), perpendicular to the outlet-flow direction. Mutually exclusive with line / line_path; the mesh dam refinement then follows this auto axis too.",
+          "examples": [
+            false
+          ],
+          "title": "Auto",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
         "line": {
           "anyOf": [
             {
@@ -5143,7 +5222,7 @@
             }
           ],
           "default": null,
-          "description": "Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path.",
+          "description": "Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path and auto.",
           "title": "Line",
           "x-hmp-profile": "user"
         },
@@ -5158,18 +5237,54 @@
             }
           ],
           "default": null,
-          "description": "Vector file (gpkg / shp / GeoJSON) holding the barrier-trace polyline. Alternative to line.",
+          "description": "Barrier-trace file: a vector polyline (gpkg / shp / GeoJSON) or a CSV of ordered x,y (or lon,lat) vertices. A bare filename resolves against <workspace>/data/cutoff_wall/. Alternative to line and auto.",
           "title": "Line Path",
           "x-hmp-profile": "user"
         },
         "depths": {
-          "description": "Barrier depth below the model top [m]. One value is a uniform depth; several are interpolated per vertex along the trace. The HFB blocks every top layer down to this depth, so the flow dives underneath.",
-          "items": {
-            "type": "number"
-          },
-          "minItems": 1,
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Barrier depth [m] below the top (or below crest_elevation). One value is uniform; several are interpolated per vertex along the trace. The HFB blocks every layer down to this depth. Mutually exclusive with base_elevation.",
           "title": "Depths",
-          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "crest_elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell top (the DEM). Set it when the barrier crest sits below the DEM top.",
+          "title": "Crest Elevation",
+          "x-hmp-profile": "user"
+        },
+        "base_elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Absolute BOTTOM elevation of the barrier [m, model datum]. When set, the HFB spans [base_elevation, crest_elevation or top] and blocks EVERY layer in that band. Use it to make a full-height dam impervious: the concrete body plus the grout curtain block all flow from the crest down to the curtain foot (e.g. base_elevation = 41 m), so nothing seeps across the dam above that. Mutually exclusive with depths.",
+          "title": "Base Elevation",
           "x-hmp-profile": "user"
         },
         "hydchr": {
@@ -5248,9 +5363,6 @@
           "x-hmp-profile": "user"
         }
       },
-      "required": [
-        "depths"
-      ],
       "title": "FlowBarrierConfig",
       "type": "object"
     },
@@ -9087,6 +9199,16 @@
           "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.",
           "x-hmp-profile": "user"
         },
+        "enforce_lakes": {
+          "$ref": "#/$defs/LakeEnforcementConfig",
+          "description": "Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.",
+          "x-hmp-profile": "user"
+        },
+        "dam_carve": {
+          "$ref": "#/$defs/DamCarveConfig",
+          "description": "Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).",
+          "x-hmp-profile": "user"
+        },
         "reuse_existing_outputs": {
           "default": false,
           "description": "If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.",
@@ -10685,6 +10807,72 @@
       "title": "LakeBathymetryConfig",
       "type": "object"
     },
+    "LakeEnforcementConfig": {
+      "additionalProperties": false,
+      "description": "Hydro-enforce lakes into the ROUTING DEM before D8 flow routing.\n\nA topographic breach/fill is lake-blind: on a dammed reservoir it carves a\nthalweg that misses the flat water body, so streams dead-end short of the lake\nand the outlet-delineated catchment excludes the reservoir. When enabled, the\nlake footprints are carved (a gentle ramp toward the outlet plus an outlet\nnotch) into a SEPARATE routing DEM used only for delineation; the model grid\ntop stays on the raw DEM, so the lake-aquifer geometry is untouched. It reuses\nthe lake footprint polygons already supplied for LAK cells -- no river source.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Carve the lake footprints into the routing DEM before D8 so streams converge into the lakes and drain to the outlet through them.",
+          "examples": [
+            false
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "lake_geometry_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lake footprint polygons (gpkg/shp) to carve. A bare filename resolves against <workspace>/data/lake_geometry/. Required when enabled.",
+          "title": "Lake Geometry Path",
+          "x-hmp-profile": "user"
+        },
+        "slope": {
+          "default": 0.003,
+          "description": "Ramp gradient (m per m of distance to the outlet). Small and positive so each lake slopes gently toward the outlet with no flat depression (a flat sink would make the breach crawl).",
+          "examples": [
+            0.003
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Slope",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "buffer_m": {
+          "default": 15.0,
+          "description": "Buffer (metres) applied to each lake footprint to bridge inter-lake sills and knit the shoreline into the carve.",
+          "examples": [
+            15.0
+          ],
+          "minimum": 0.0,
+          "title": "Buffer M",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "capture_radius_m": {
+          "default": 0.0,
+          "description": "If > 0, run a SECOND delineation pass: any stream that dead-ends within this distance of a lake (a near-miss over a flat forebay) is carved to the lake and re-delineated, so its channel reaches the shoreline. 0 disables the capture pass (lake carve only).",
+          "examples": [
+            0.0
+          ],
+          "minimum": 0.0,
+          "title": "Capture Radius M",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "LakeEnforcementConfig",
+      "type": "object"
+    },
     "LakeGeometryConfig": {
       "additionalProperties": false,
       "description": "Top-level lake-geometry variable configuration.\n\nExample TOML::\n\n    [[data.lake_geometry.sources]]\n    source = \"custom\"\n    path = \"data/lake_geometry/lake_geometry_custom_lac0.gpkg\"",
@@ -11424,11 +11612,11 @@
     },
     "LakeRefinementConfig": {
       "additionalProperties": false,
-      "description": "Local mesh-refinement targets for the lake footprint and the dam outlet.",
+      "description": "Local mesh-refinement targets for the lake shoreline and the hydraulic structures.",
       "properties": {
         "enabled": {
           "default": false,
-          "description": "Refine the GMSH mesh on the lake footprint (+ the dam outlet).",
+          "description": "Refine the GMSH mesh on the lake shoreline band (+ hydraulic structures).",
           "examples": [
             false
           ],
@@ -11438,7 +11626,7 @@
         },
         "cell_size": {
           "default": 40.0,
-          "description": "Target cell size [L] inside the lake footprint.",
+          "description": "Target cell size [L] in the lake shoreline band.",
           "examples": [
             40.0
           ],
@@ -11447,9 +11635,24 @@
           "type": "number",
           "x-hmp-profile": "user"
         },
+        "shoreline_band": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Half-width [L] of the refined band around the lake shoreline. When omitted, derives 2 * cell_size. Must be >= cell_size so the band holds at least one target cell (a thinner band would slip between the size-field sampling nodes).",
+          "title": "Shoreline Band",
+          "x-hmp-profile": "user"
+        },
         "buffer": {
           "default": 200.0,
-          "description": "Transition distance [L] over which the lake size ramps back to global.",
+          "description": "Transition distance [L] over which the lake sizes ramp back to global.",
           "examples": [
             200.0
           ],
@@ -11458,9 +11661,24 @@
           "type": "number",
           "x-hmp-profile": "user"
         },
+        "interior_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional target cell size [L] inside the whole lake footprint (marnage / bathymetry resolution). When omitted, the interior keeps the background size.",
+          "title": "Interior Size",
+          "x-hmp-profile": "user"
+        },
         "dam_cell_size": {
           "default": 30.0,
-          "description": "Target cell size [L] in the under-dam outlet zone.",
+          "description": "Target cell size [L] in the hydraulic-structure zones (cutoff wall, sill).",
           "examples": [
             30.0
           ],
@@ -11471,13 +11689,42 @@
         },
         "dam_buffer": {
           "default": 150.0,
-          "description": "Radius [L] of the refined disk around the dam / catchment outlet.",
+          "description": "Base half-width [L] of the structure refinement corridors; also the radius of the optional dam-outlet disk.",
           "examples": [
             150.0
           ],
           "exclusiveMinimum": 0.0,
           "title": "Dam Buffer",
           "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "hfb_buffer": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Half-width [L] of the refined zone around the dam cutoff wall (HFB). The zone covers the lake outlet area. When omitted, derives 2 * dam_buffer. Must be >= dam_cell_size so the zone holds at least one target cell.",
+          "title": "Hfb Buffer",
+          "x-hmp-profile": "user"
+        },
+        "dam_outlet_disk": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Refine a disk of radius dam_buffer around the dam / catchment outlet. None (auto) emits the disk unless a cutoff-wall zone overlaps it: the widened HFB zone then already covers the outlet.",
+          "title": "Dam Outlet Disk",
           "x-hmp-profile": "user"
         }
       },
@@ -12111,7 +12358,16 @@
         },
         "lake_refinement": {
           "$ref": "#/$defs/LakeRefinementConfig",
-          "description": "Optional local refinement on the lake footprint (any shape) and the under-dam outlet. Disabled by default; set enabled = true to add the lake size fields.",
+          "description": "Optional local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). Disabled by default; set enabled = true to add the lake size fields.",
+          "x-hmp-profile": "user"
+        },
+        "refinement_zone": {
+          "description": "User-provided zones of interest for local refinement. Each entry names one vector layer (polygons = zones, points / lines = corridors) and a target cell size; declare entries as [[mesh_catchment.refinement_zone]] tables.",
+          "items": {
+            "$ref": "#/$defs/RefinementZoneConfig"
+          },
+          "title": "Refinement Zone",
+          "type": "array",
           "x-hmp-profile": "user"
         }
       },
@@ -16357,6 +16613,52 @@
       "title": "RechargeSourceConfig",
       "type": "object"
     },
+    "RefinementZoneConfig": {
+      "additionalProperties": false,
+      "description": "One user-provided refinement zone layer.",
+      "properties": {
+        "path": {
+          "description": "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or points or lines (corridors). A bare filename resolves against <workspace>/data/refinement_zone/; relative paths resolve against that directory, the data directory, then the config directory.",
+          "examples": [
+            "example"
+          ],
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "cell_size": {
+          "description": "Target cell size [L] inside the zone.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Cell Size",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "buffer": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Corridor half-width [L] for point / line features, and transition distance back to the background size. When omitted, derives 2 * cell_size. Must be >= cell_size so the corridor holds at least one target cell.",
+          "title": "Buffer",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path",
+        "cell_size"
+      ],
+      "title": "RefinementZoneConfig",
+      "type": "object"
+    },
     "RegionalLabCatalogConfig": {
       "additionalProperties": false,
       "description": "Normalized catalog-loading contract.",
@@ -18506,6 +18808,32 @@
           "title": "Grid Dual",
           "type": "string",
           "x-hmp-profile": "user"
+        },
+        "condition_top": {
+          "default": false,
+          "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Default false keeps the raw projected top.",
+          "examples": [
+            false
+          ],
+          "title": "Condition Top",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "condition_top_epsilon": {
+          "default": 0.001,
+          "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true.",
+          "examples": [
+            0.001
+          ],
+          "minimum": 0.0,
+          "title": "Condition Top Epsilon",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "top_sampling": {
+          "$ref": "#/$defs/TopSamplingConfig",
+          "description": "How the runtime-mesh top is sampled from the DEM before conditioning.",
+          "x-hmp-profile": "user"
         }
       },
       "title": "SolverSGridConfig",
@@ -20211,6 +20539,121 @@
       "title": "TestbedRunnerConfig",
       "type": "object"
     },
+    "TopSamplingConfig": {
+      "additionalProperties": false,
+      "description": "How the DISV mesh top is sampled from the DEM before conditioning.\n\nMODFLOW 6 runtime-mesh only. The default 'centroid' mode samples the DEM at\neach Voronoi generator, which under-represents narrow incised channels that\nfall between generators (the generator lands on a bank, not the thalweg). The\n'zonal' mode reduces every DEM pixel inside a cell with a per-class statistic\n(a thalweg-preserving stat on channel pixels, an area stat on hillslope\npixels), so channel cells keep their incised low. Ignored for structured\ngrids, MODFLOW-NWT and Boussinesq. Every non-default value changes the\ncalibration params_hash (config-scoped); when the sampling CODE changes, bump\nthe version so the code-blind cache re-solves.",
+      "properties": {
+        "mode": {
+          "default": "centroid",
+          "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats.",
+          "enum": [
+            "centroid",
+            "zonal"
+          ],
+          "examples": [
+            "centroid"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "hillslope_stat": {
+          "default": "median",
+          "description": "Zonal statistic over non-channel (hillslope) pixels inside a cell.",
+          "enum": [
+            "mean",
+            "median",
+            "min",
+            "max",
+            "p10",
+            "p25"
+          ],
+          "examples": [
+            "mean"
+          ],
+          "title": "Hillslope Stat",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "channel_stat": {
+          "default": "min",
+          "description": "Zonal statistic over channel pixels inside a cell (thalweg-preserving; 'min' keeps the incised low).",
+          "enum": [
+            "min",
+            "p10",
+            "p25",
+            "median",
+            "mean"
+          ],
+          "examples": [
+            "min"
+          ],
+          "title": "Channel Stat",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "channel_source": {
+          "default": "streams_raster",
+          "description": "Where channel pixels come from when mode='zonal'. 'streams_raster' uses the delineated river-network raster reprojected onto the DEM grid; 'none' disables the channel class (every pixel is hillslope).",
+          "enum": [
+            "none",
+            "streams_raster"
+          ],
+          "examples": [
+            "none"
+          ],
+          "title": "Channel Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "channel_buffer_px": {
+          "default": 0,
+          "description": "Dilate the channel pixel mask by this many pixels before reducing, to capture a channel that grazes a cell without a pixel centre on it.",
+          "examples": [
+            0
+          ],
+          "minimum": 0,
+          "title": "Channel Buffer Px",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "spike_guard_tol_m": {
+          "default": 2.0,
+          "description": "Revert a hillslope cell's zonal value to the centroid sample when it deviates more than this many metres (guards nodata/edge spikes); channel cells are exempt since they are lowered on purpose. 0 disables the guard.",
+          "examples": [
+            2.0
+          ],
+          "minimum": 0.0,
+          "title": "Spike Guard Tol M",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        },
+        "min_pixels": {
+          "default": 3,
+          "description": "Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; below this the cell falls back to the centroid sample. A channel cell uses its channel stat from a single thalweg pixel.",
+          "examples": [
+            3
+          ],
+          "exclusiveMinimum": 0,
+          "title": "Min Pixels",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "min_thickness_m": {
+          "default": 0.1,
+          "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom.",
+          "examples": [
+            0.1
+          ],
+          "minimum": 0.0,
+          "title": "Min Thickness M",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "TopSamplingConfig",
+      "type": "object"
+    },
     "TransportConfig": {
       "additionalProperties": false,
       "description": "Transport-process configuration.",
@@ -21505,7 +21948,7 @@
       "properties": {
         "enabled": {
           "default": true,
-          "description": "If False, this family is parsed but skipped during refinement.",
+          "description": "If False, this family is parsed but skipped during refinement. Per-family defaults: river and geology_interface are enabled, watershed_boundary is disabled (whole-divide refinement is opt-in).",
           "examples": [
             true
           ],

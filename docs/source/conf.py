@@ -176,7 +176,6 @@ _DOC_OPTIONAL_IMPORTS = [
     "sklearn",
     "cma",
     "optuna",
-    "streamlit",
     "ultraplot",
     "vedo",
     "whitebox_workflows",

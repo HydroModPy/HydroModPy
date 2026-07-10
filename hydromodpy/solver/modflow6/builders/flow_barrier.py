@@ -49,18 +49,21 @@ def build_flow_barrier_hfb(
     solver_mesh: SolverMesh,
     *,
     line: LineString,
-    depths: list[float],
+    depths: list[float] | None = None,
     hydchr: float,
+    crest_elevation: float | None = None,
+    base_elevation: float | None = None,
     label: str = "flow barrier",
 ) -> list[list]:
-    """Return HFB rows for a barrier line carved to ``depths`` below the model top.
+    """Return HFB rows for a barrier line, over a depth or an absolute elevation band.
 
-    ``depths`` is one value (uniform) or one per line vertex (interpolated along
-    the line at the vertices' real arc-length stations). Each crossed face
-    contributes the top layers down to the local depth, skipping any layer where
-    a joined cell is inactive. Raises when the trace crosses no interior face
-    (the wall is the object of the study), and warns when every row was dropped
-    for inactivity.
+    The barrier top is ``crest_elevation`` (or the cell top). The foot is either
+    ``base_elevation`` (an absolute floor, blocking EVERY layer in the band -- a
+    full-height impervious dam) or ``depths`` below the top (one value, or one per
+    line vertex, interpolated at the vertices' arc-length stations). Each crossed
+    face contributes its layers over that band, skipping any layer where a joined
+    cell is inactive. Raises when the trace crosses no interior face, and warns
+    when every row was dropped for inactivity.
     """
     faces = barrier_faces_from_line(solver_mesh.planar_mesh, line)
     if not faces:
@@ -69,12 +72,12 @@ def build_flow_barrier_hfb(
             "coordinates and that it lies within the model extent and off the mesh edges."
         )
     stations = _vertex_stations(line)
-    n_vertices = int(stations.size)
-    if len(depths) not in (1, n_vertices):
-        raise ValueError(
-            f"{label}: depths must have 1 value or one per line vertex ({n_vertices}), "
-            f"got {len(depths)}."
-        )
+    if base_elevation is None:
+        n_vertices = int(stations.size)
+        if depths is None or len(depths) not in (1, n_vertices):
+            raise ValueError(
+                f"{label}: depths must have 1 value or one per line vertex ({n_vertices})."
+            )
 
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
     botm = np.asarray(solver_mesh.botm, dtype=float)
@@ -84,14 +87,20 @@ def build_flow_barrier_hfb(
     rows: list[list] = []
     n_dropped = 0
     for face in faces:
-        depth = _interp_depth(face.s, depths, stations)
         ca = int(face.cell_a)
         cb = int(face.cell_b)
-        barrier_bottom = float(top[ca]) - float(depth)
+        barrier_top = float(top[ca]) if crest_elevation is None else float(crest_elevation)
+        if base_elevation is not None:
+            barrier_bottom = float(base_elevation)
+        else:
+            barrier_bottom = barrier_top - _interp_depth(face.s, depths, stations)
         for lay in range(nlay):
             layer_top = float(top[ca]) if lay == 0 else float(botm[lay - 1, ca])
+            layer_bottom = float(botm[lay, ca])
+            if layer_bottom >= barrier_top:
+                continue  # layer sits entirely above the barrier crest
             if layer_top <= barrier_bottom:
-                break
+                break  # layer (and every deeper one) sits entirely below the barrier foot
             if inactive[lay, ca] or inactive[lay, cb]:
                 n_dropped += 1
                 continue
@@ -119,11 +128,15 @@ def _rows_for_barrier(
     solver_mesh: SolverMesh, cfg: object, line: LineString, label: str
 ) -> list[list]:
     """HFB rows for one FlowBarrierConfig and its resolved shapely trace."""
+    crest = getattr(cfg, "crest_elevation", None)
+    base = getattr(cfg, "base_elevation", None)
     return build_flow_barrier_hfb(
         solver_mesh,
         line=line,
-        depths=[float(d) for d in cfg.depths],
+        depths=None if cfg.depths is None else [float(d) for d in cfg.depths],
         hydchr=cfg.effective_hydchr(),
+        crest_elevation=None if crest is None else float(crest),
+        base_elevation=None if base is None else float(base),
         label=label,
     )
 

@@ -77,6 +77,10 @@ Sub-models are linked back to their per-section page.
       # synthetic = ...  # uses factory default
       # Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
       # river_network = ...  # uses factory default
+      # Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
+      # enforce_lakes = ...  # uses factory default
+      # Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).
+      # dam_carve = ...  # uses factory default
       # If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
       reuse_existing_outputs = false
       # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), results_stable/ is removed after ingestion into the simulation Zarr store.
@@ -496,8 +500,10 @@ Sub-models are linked back to their per-section page.
       # domain = ...  # uses factory default
       # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells.
       # zone_meshing = ...  # uses factory default
-      # Optional local refinement on the lake footprint (any shape) and the under-dam outlet. Disabled by default; set enabled = true to add the lake size fields.
+      # Optional local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). Disabled by default; set enabled = true to add the lake size fields.
       # lake_refinement = ...  # uses factory default
+      # User-provided zones of interest for local refinement. Each entry names one vector layer (polygons = zones, points / lines = corridors) and a target cell size; declare entries as [[mesh_catchment.refinement_zone]] tables.
+      # refinement_zone = ...  # uses factory default
 
 .. dropdown:: ``[mesh_input]`` (MeshInputConfig)
    :icon: gear

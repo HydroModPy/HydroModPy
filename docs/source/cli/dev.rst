@@ -32,8 +32,8 @@ schema
 
 Synopsis: ``hmp dev schema {export|validate-field} [...]``
 
-Export the JSON Schema for :class:`HydroModPyConfig` (consumed by the
-Streamlit UI and any frontend hook) or validate a single field value
+Export the JSON Schema for :class:`HydroModPyConfig` (consumed by any
+frontend hook) or validate a single field value
 against its declared type. The exported schema is the canonical
 contract between the Python core and external tooling.
 

@@ -611,6 +611,10 @@ def test_watershed_boundary_builds_linear_constraint_and_preserves_full_geology(
             "interface_size": 90.0,
             "interface_distance": 450.0,
             "interface_sampling": 64,
+            # Whole-divide refinement is opt-in since the shoreline-band redesign.
+            "refinement_policy": {
+                "families": {"watershed_boundary": {"enabled": True, "priority": 100}}
+            },
         },
     }
 
@@ -714,7 +718,7 @@ def test_outside_coarsening_lifts_lake_field_far_size(tmp_path: Path) -> None:
         config_path, section="mesh_catchment", section_data_override=section_data
     )
     lake_field = ZoneRegionalSizeField(
-        name="lake::footprint",
+        name="lake::shoreline",
         region_geometry=box(356000.0, 6713500.0, 356500.0, 6714000.0),
         inside_size=80.0,
         outside_size=250.0,  # == global_size, the far-field that would defeat coarsening
@@ -726,11 +730,11 @@ def test_outside_coarsening_lifts_lake_field_far_size(tmp_path: Path) -> None:
         config_path=config_path,
         river_trace=None,
         domain_geographic=SimpleNamespace(watershed_shp=str(watershed_path)),
-        lake_size_fields=(lake_field,),
+        extra_size_fields=(lake_field,),
     )
     by_name = {field.name: field for field in inputs.regional_size_fields}
     assert "watershed::outside_coarsening" in by_name
-    lake = by_name["lake::footprint"]
+    lake = by_name["lake::shoreline"]
     assert lake.inside_size == pytest.approx(80.0)  # near-lake refinement preserved
     assert lake.outside_size == pytest.approx(500.0)  # far-field lifted to the coarsened size
 

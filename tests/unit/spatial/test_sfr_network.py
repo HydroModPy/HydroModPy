@@ -102,6 +102,72 @@ def _delineate(lake: bool) -> SfrReachTrace:
     )
 
 
+def test_link_gap_is_bridged_by_the_d8_path() -> None:
+    # A WBT link raster can drop a cell between two links. Following the D8 pointer
+    # through the gap reunites link 1 with its true downstream link 2, so link 1
+    # connects onward instead of dead-ending as a spurious mid-catchment outlet.
+    link = np.zeros((_NROW, _NCOL), dtype=int)
+    d8 = np.zeros((_NROW, _NCOL), dtype=int)
+    acc = np.zeros((_NROW, _NCOL), dtype=float)
+    dem = np.full((_NROW, _NCOL), 20.0, dtype=float)
+    for r in range(5):
+        d8[r, 1] = _S  # a single central column flows south into the lake row
+        dem[r, 1] = 10.0 - r
+    link[0, 1] = link[1, 1] = 1  # link 1
+    link[2, 1] = 0  # <- the gap cell (non-stream, but D8 still flows through it)
+    link[3, 1] = link[4, 1] = 2  # link 2, continues to the lake
+    for r in range(5):
+        acc[r, 1] = r + 1
+    lake_mask = np.zeros((_NROW, _NCOL), dtype=bool)
+    lake_mask[5, :] = True
+    trace = delineate_sfr_reaches(
+        link_id=link,
+        d8=d8,
+        acc=acc,
+        dem=dem,
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        lake_mask=lake_mask,
+        min_slope=1e-4,
+    )
+    assert trace.reach_count == 2
+    upstream = min(trace.reaches, key=lambda r: r.ifno)  # link 1
+    assert upstream.downstream != ()  # bridged the gap onto link 2, not a terminal
+    assert not upstream.is_terminal_to_lake
+    assert sum(r.is_terminal_to_lake for r in trace.reaches) == 1  # only link 2 enters the lake
+
+
+def test_bare_outlet_is_unflagged_for_the_solver_to_route() -> None:
+    # A reach whose D8 path dead-ends (a pit) without reaching a link or lake is left
+    # UNFLAGGED by the delineation, even when a lake exists: the solver mover builder
+    # decides its fate (nearest lake in a lake-coupled catchment, else EXT-OUTFLOW),
+    # where the final reach geometry and the lake cells are known.
+    link = np.zeros((_NROW, _NCOL), dtype=int)
+    d8 = np.zeros((_NROW, _NCOL), dtype=int)
+    acc = np.zeros((_NROW, _NCOL), dtype=float)
+    dem = np.full((_NROW, _NCOL), 20.0, dtype=float)
+    link[0, 1] = link[1, 1] = 1
+    d8[0, 1] = _S  # (0,1) -> (1,1); (1,1) is a pit (d8 = 0), the path dead-ends
+    acc[0, 1], acc[1, 1] = 1, 2
+    dem[0, 1], dem[1, 1] = 10.0, 9.0
+    lake_mask = np.zeros((_NROW, _NCOL), dtype=int)
+    lake_mask[5, :] = 1  # a lake exists, but the reach never reaches it on the D8 path
+    trace = delineate_sfr_reaches(
+        link_id=link,
+        d8=d8,
+        acc=acc,
+        dem=dem,
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        lake_mask=lake_mask,
+        min_slope=1e-4,
+    )
+    assert trace.reach_count == 1
+    assert not trace.reaches[0].is_terminal_to_lake
+
+
 def test_reaches_are_numbered_downstream_increasing() -> None:
     trace = _delineate(lake=True)
     assert trace.reach_count == 3

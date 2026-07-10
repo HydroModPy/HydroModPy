@@ -695,7 +695,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.sgrid.planar]</code>
             </div>
 
-         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L192>`__
+         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L270>`__
 
             Planar discretization of the solver grid.
 
@@ -774,7 +774,7 @@ Fields
               <code class="hmp-field-toml">[modflownwt.sgrid.vertical]</code>
             </div>
 
-         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L196>`__
+         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L274>`__
 
             Vertical layering of the solver grid.
 
@@ -865,9 +865,172 @@ Fields
               <code class="hmp-field-name">grid_dual</code>
             </div>
 
-         :bdg-primary:`Literal['voronoi', 'triangle']` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L200>`__
+         :bdg-primary:`Literal['voronoi', 'triangle']` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278>`__
 
             Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: modflownwt-sgrid-condition-top
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.condition_top">
+              <code class="hmp-field-name">condition_top</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L288>`__
+
+            MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Default false keeps the raw projected top.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: modflownwt-sgrid-condition-top-epsilon
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.condition_top_epsilon">
+              <code class="hmp-field-name">condition_top_epsilon</code>
+            </div>
+
+         :bdg-primary:`float` :bdg-secondary:`default = 0.001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L301>`__
+
+            Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: modflownwt-sgrid-top-sampling
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling">
+              <code class="hmp-field-name">top_sampling</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">[modflownwt.sgrid.top_sampling]</code>
+            </div>
+
+         :bdg-primary:`TopSamplingConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L310>`__
+
+            How the runtime-mesh top is sampled from the DEM before conditioning.
+
+         .. dropdown:: Fields of ``TopSamplingConfig``
+            :icon: list-unordered
+            :animate: fade-in-slide-down
+
+            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: modflownwt-sgrid-top-sampling-mode
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.mode">
+                    <code class="hmp-field-name">mode</code>
+                  </div>
+
+               :bdg-primary:`Literal['centroid', 'zonal']` :bdg-secondary:`default = "centroid"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L203>`__
+
+                  Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: modflownwt-sgrid-top-sampling-hillslope-stat
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.hillslope_stat">
+                    <code class="hmp-field-name">hillslope_stat</code>
+                  </div>
+
+               :bdg-primary:`Literal['mean', 'median', 'min', 'max', 'p10', 'p25']` :bdg-secondary:`default = "median"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L211>`__
+
+                  Zonal statistic over non-channel (hillslope) pixels inside a cell.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: modflownwt-sgrid-top-sampling-channel-stat
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.channel_stat">
+                    <code class="hmp-field-name">channel_stat</code>
+                  </div>
+
+               :bdg-primary:`Literal['min', 'p10', 'p25', 'median', 'mean']` :bdg-secondary:`default = "min"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L217>`__
+
+                  Zonal statistic over channel pixels inside a cell (thalweg-preserving; 'min' keeps the incised low).
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: modflownwt-sgrid-top-sampling-channel-source
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.channel_source">
+                    <code class="hmp-field-name">channel_source</code>
+                  </div>
+
+               :bdg-primary:`Literal['none', 'streams_raster']` :bdg-secondary:`default = "streams_raster"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L224>`__
+
+                  Where channel pixels come from when mode='zonal'. 'streams_raster' uses the delineated river-network raster reprojected onto the DEM grid; 'none' disables the channel class (every pixel is hillslope).
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: modflownwt-sgrid-top-sampling-channel-buffer-px
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.channel_buffer_px">
+                    <code class="hmp-field-name">channel_buffer_px</code>
+                  </div>
+
+               :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L232>`__
+
+                  Dilate the channel pixel mask by this many pixels before reducing, to capture a channel that grazes a cell without a pixel centre on it.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: modflownwt-sgrid-top-sampling-spike-guard-tol-m
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.spike_guard_tol_m">
+                    <code class="hmp-field-name">spike_guard_tol_m</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 2.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240>`__
+
+                  Revert a hillslope cell's zonal value to the centroid sample when it deviates more than this many metres (guards nodata/edge spikes); channel cells are exempt since they are lowered on purpose. 0 disables the guard.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: modflownwt-sgrid-top-sampling-min-pixels
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.min_pixels">
+                    <code class="hmp-field-name">min_pixels</code>
+                  </div>
+
+               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249>`__
+
+                  Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; below this the cell falls back to the centroid sample. A channel cell uses its channel stat from a single thalweg pixel.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: modflownwt-sgrid-top-sampling-min-thickness-m
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="modflownwt.sgrid.top_sampling.min_thickness_m">
+                    <code class="hmp-field-name">min_thickness_m</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L257>`__
+
+                  Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom.
+
+
 
 
 
@@ -1096,6 +1259,9 @@ Starter TOML snippet
       # planar = ...  # factory default
       # vertical = ...  # factory default
       # grid_dual = "voronoi"
+      # condition_top = false
+      # condition_top_epsilon = 0.001
+      # top_sampling = ...  # factory default
 
       [modflownwt.tgrid]
       # genmtd = "synthetic_regular"

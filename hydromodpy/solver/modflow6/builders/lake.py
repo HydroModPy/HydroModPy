@@ -382,6 +382,8 @@ def build_lake_connectiondata(
     occupied_layers: int = 1,
     occupied_layers_by_cell: Mapping[int, int] | None = None,
     dynamic_area: bool = False,
+    cutoff_wall_line: object | None = None,
+    bank_seepage: bool = True,
 ) -> list[list[Any]]:
     """Build the CONNECTIONDATA rows for one lake on a DISV grid.
 
@@ -407,28 +409,6 @@ def build_lake_connectiondata(
     if not lake_set:
         raise ValueError("build_lake_connectiondata requires at least one lake cell.")
 
-    if dynamic_area:
-        # Active-littoral (marnage): each lakebed cell stays ACTIVE with its top set
-        # to the bathymetric bed; emit one VERTICAL connection on the cell itself.
-        # MF6 sets belev = cell top, so the connection wets when stage > bed and the
-        # cell recharges as land otherwise (RCH/ET toggled per cell by IWETLAKE).
-        rows: list[list[Any]] = []
-        for iconn, cid in enumerate(sorted(lake_set)):
-            rows.append(
-                [
-                    int(lake_index),
-                    int(iconn),
-                    (0, int(cid)),
-                    _VERTICAL,
-                    float(bedleak),
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                ]
-            )
-        return rows
-
     idomain = solver_mesh.idomain()  # (nlay, n_cells)
     top = np.asarray(solver_mesh.top, dtype=float)
     botm = np.asarray(solver_mesh.botm, dtype=float)  # (nlay, n_cells)
@@ -445,39 +425,33 @@ def build_lake_connectiondata(
 
     lake_cells = sorted(lake_set)
 
+    # Dam seal: cut every HORIZONTAL bank connection to a cell BEHIND the cutoff
+    # wall (across the dam from the lake body), so the lake never seeps sideways
+    # past the dam. This is a LAK concern, independent of the HFB: the HFB is an
+    # optional GWF-GWF barrier that does not throttle LAK-GWF flow, so the seal
+    # lives here and uses only the wall trace. Vertical (bed) connections are kept.
+    _wall = None
+    if cutoff_wall_line is not None and not getattr(cutoff_wall_line, "is_empty", True):
+        _wx = float(np.mean([centroids[c, 0] for c in lake_cells]))
+        _wy = float(np.mean([centroids[c, 1] for c in lake_cells]))
+        _wall = (_wall_endpoints(cutoff_wall_line), (_wx, _wy))
+
+    def _neighbour_behind_wall(neighbour: int) -> bool:
+        if _wall is None:
+            return False
+        (p0, p1), (bx, by) = _wall
+        return _cell_behind_wall(
+            float(centroids[neighbour, 0]), float(centroids[neighbour, 1]), bx, by, p0, p1
+        )
+
     # Each cell's undirected edges, used to find shared edges with neighbours.
     cell_edges: dict[int, list[tuple[int, int]]] = {
         cid: _cell_edges(conn[cid]) for cid in range(int(solver_mesh.n_cells))
     }
 
-    rows: list[list[Any]] = []
-    iconn = 0
-    for cid in lake_cells:
-        occ_c = _occ(cid)
-        # This column's vertical extent: its own top down to the bottom of its
-        # occupied cap (per-cell, so bank seepage clips to the real local basin).
-        lake_top = float(top[cid])
-        lake_bottom = float(botm[occ_c - 1, cid])
-        # VERTICAL: connect to the first active cell below the occupied layers.
-        below_layer = _first_active_layer_below(idomain, cid, occ_c, nlay)
-        if below_layer is not None:
-            rows.append(
-                [
-                    int(lake_index),
-                    int(iconn),
-                    (int(below_layer), int(cid)),
-                    _VERTICAL,
-                    float(bedleak),
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                ]
-            )
-            iconn += 1
-
-        # HORIZONTAL: per occupied layer, one connection per shared edge with an
-        # active non-lake neighbour at that layer.
+    def _horizontal_rows(cid: int, lake_top: float, lake_bottom: float, occ_c: int, iconn: int):
+        """HORIZONTAL bank connections of one lake column, sealed at the dam."""
+        out: list[list[Any]] = []
         for lay in range(occ_c):
             for edge in cell_edges[cid]:
                 width = _edge_length(vertices, edge)
@@ -488,6 +462,8 @@ def build_lake_connectiondata(
                         continue  # never connect a lake to another lake cell
                     if int(idomain[lay, neighbour]) != 1:
                         continue  # neighbour inactive at this layer
+                    if _neighbour_behind_wall(neighbour):
+                        continue  # seal: no bank seepage across the dam
                     connlen = _point_to_segment_distance(
                         centroids[neighbour], vertices[edge[0]], vertices[edge[1]]
                     )
@@ -500,10 +476,10 @@ def build_lake_connectiondata(
                     telev = min(cell_top, lake_top)
                     if telev <= belev:
                         continue  # neighbour cell sits outside the lake vertical extent
-                    rows.append(
+                    out.append(
                         [
                             int(lake_index),
-                            int(iconn),
+                            len(out) + iconn,
                             (int(lay), int(neighbour)),
                             _HORIZONTAL,
                             float(bedleak),
@@ -513,7 +489,60 @@ def build_lake_connectiondata(
                             float(width),
                         ]
                     )
-                    iconn += 1
+        return out
+
+    rows: list[list[Any]] = []
+    iconn = 0
+    for cid in lake_cells:
+        occ_c = _occ(cid)
+        # This column's vertical extent: its own top down to the bottom of its
+        # occupied cap (per-cell, so bank seepage clips to the real local basin).
+        lake_top = float(top[cid])
+        lake_bottom = float(botm[occ_c - 1, cid])
+        if dynamic_area:
+            # Active-littoral (marnage): the lakebed cell stays ACTIVE with the
+            # bathymetric bed as its top; one VERTICAL connection on the cell itself
+            # (bed seepage; MF6 wets it when stage > bed and toggles RCH/ET per cell).
+            rows.append(
+                [
+                    int(lake_index),
+                    iconn,
+                    (0, int(cid)),
+                    _VERTICAL,
+                    float(bedleak),
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ]
+            )
+            iconn += 1
+        else:
+            # Fixed-area: the footprint is inactive; VERTICAL to the first active
+            # cell below the occupied cap.
+            below_layer = _first_active_layer_below(idomain, cid, occ_c, nlay)
+            if below_layer is not None:
+                rows.append(
+                    [
+                        int(lake_index),
+                        iconn,
+                        (int(below_layer), int(cid)),
+                        _VERTICAL,
+                        float(bedleak),
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ]
+                )
+                iconn += 1
+
+        # HORIZONTAL (bank) seepage: for a fixed-area lake always; for a marnage
+        # lake only when bank_seepage is on (add the bank path to the bed one).
+        if (not dynamic_area) or bank_seepage:
+            hrows = _horizontal_rows(cid, lake_top, lake_bottom, occ_c, iconn)
+            rows.extend(hrows)
+            iconn += len(hrows)
 
     if not rows:
         raise ValueError(
@@ -703,6 +732,7 @@ def build_lak_package_args(
         lake_layers = int(definition.get("occupied_layers") or occupied_layers)
         bed_cfg = definition.get("bed_reconstruction")
         dynamic_area = bool(getattr(bed_cfg, "dynamic_area", False))
+        bank_seepage = bool(getattr(bed_cfg, "bank_seepage", True))
         rows = build_lake_connectiondata(
             model,
             lake_index=lake_index,
@@ -712,6 +742,8 @@ def build_lak_package_args(
             occupied_layers=lake_layers,
             occupied_layers_by_cell=(occupied_layers_by_cell or {}).get(lake_id),
             dynamic_area=dynamic_area,
+            cutoff_wall_line=definition.get("cutoff_wall_line"),
+            bank_seepage=bank_seepage,
         )
         connectiondata.extend(rows)
         # VERTICAL connections sit under the lake footprint: their per-lake iconn
@@ -880,7 +912,8 @@ def resolve_lake_cells_for_active_lakes(
         )
         cells_by_lake[lake_id] = cells
         intersected_area_by_lake[lake_id] = intersected
-    _raise_on_shared_lake_cells(cells_by_lake)
+    _resolve_shared_lake_cells(cells_by_lake, intersected_area_by_lake)
+    _drop_cutoff_wall_downstream_cells(model, cells_by_lake, intersected_area_by_lake, solver_mesh)
     # The true per-cell lake area (edge cells under-filled), used by the carve so the
     # area_scale and the abacus reconciliation see the real lake area, not the
     # full-cell footprint over-count.
@@ -888,14 +921,100 @@ def resolve_lake_cells_for_active_lakes(
     return cells_by_lake
 
 
-def _raise_on_shared_lake_cells(cells_by_lake: Mapping[str, Sequence[int]]) -> None:
-    """Reject two lakes that resolve to the same grid cell.
+def _wall_endpoints(line) -> tuple[tuple[float, float], tuple[float, float]]:
+    """The two end vertices of a wall trace (its overall span)."""
+    from shapely.geometry import MultiLineString
 
-    MF6 LAK allows one vertical lake connection per GWF cell, so two lakes
-    sharing a cell would deactivate it twice and emit two VERTICAL connections
-    into the same aquifer cell below. Adjacent lakes (a pre-retenue and its
-    reservoir across a sill) must stay cell-disjoint; refine the mesh or move the
-    polygon boundary if they collide.
+    if isinstance(line, MultiLineString):
+        coords: list = []
+        for part in line.geoms:
+            coords.extend(part.coords)
+    else:
+        coords = list(line.coords)
+    p0 = (float(coords[0][0]), float(coords[0][1]))
+    p1 = (float(coords[-1][0]), float(coords[-1][1]))
+    return p0, p1
+
+
+def _cell_behind_wall(px: float, py: float, body_x: float, body_y: float, p0, p1) -> bool:
+    """True when (px, py) is across the wall's supporting line from the lake body.
+
+    Uses the wall's INFINITE supporting line (not the finite segment), so a cell
+    just past the end of the wall trace is still classified as behind it. The dam
+    is roughly perpendicular to the reservoir axis, so the reservoir body sits on
+    one side and only the downstream cells fall on the other.
+    """
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    s_pt = dx * (py - p0[1]) - dy * (px - p0[0])
+    s_body = dx * (body_y - p0[1]) - dy * (body_x - p0[0])
+    return s_pt * s_body < 0.0
+
+
+def _drop_cutoff_wall_downstream_cells(
+    model,
+    cells_by_lake: dict[str, list[int]],
+    intersected_area_by_lake: dict[str, dict[int, float]],
+    solver_mesh: SolverMesh,
+) -> None:
+    """Drop lake cells on the downstream (outlet) side of the cutoff-wall fence.
+
+    The lake polygon can extend past the dam, so a few cells are captured behind
+    the cutoff wall (voile). Those cells are not reservoir: the dam retains the
+    water upstream. A cell is behind the wall when it is across the wall's
+    supporting line from the lake body (this catches cells past the trace ends,
+    not only those a finite segment crosses). Dropping them makes the footprint
+    stop at the dam so idomain, the bed carve, RCH/EVT masking, SFR movers and
+    the LAK package all see a footprint that does not leak past the wall.
+    """
+    definitions = _active_lake_definitions(model)
+    centroids = solver_mesh.cell_centroids()
+    x_c = np.asarray(centroids[:, 0], dtype=float)
+    y_c = np.asarray(centroids[:, 1], dtype=float)
+    for lake_id, cells in list(cells_by_lake.items()):
+        line = definitions.get(lake_id, {}).get("cutoff_wall_line")
+        if line is None or getattr(line, "is_empty", True) or not cells:
+            continue
+        body_x = float(np.mean([x_c[c] for c in cells]))
+        body_y = float(np.mean([y_c[c] for c in cells]))
+        p0, p1 = _wall_endpoints(line)
+        kept: list[int] = []
+        dropped: list[int] = []
+        for c in cells:
+            behind = _cell_behind_wall(float(x_c[c]), float(y_c[c]), body_x, body_y, p0, p1)
+            (dropped if behind else kept).append(int(c))
+        if not kept:
+            raise ValueError(
+                f"cutoff wall for lake '{lake_id}' classifies every cell as downstream "
+                "of the voile; check the trace orientation and position."
+            )
+        if not dropped:
+            continue
+        cells_by_lake[lake_id] = kept
+        area = intersected_area_by_lake.get(lake_id)
+        if isinstance(area, dict):
+            for c in dropped:
+                area.pop(int(c), None)
+        logger.info(
+            "Cutoff wall '%s': dropped %d LAK cell(s) downstream of the voile.",
+            lake_id,
+            len(dropped),
+        )
+
+
+def _resolve_shared_lake_cells(
+    cells_by_lake: dict[str, list[int]],
+    intersected_area_by_lake: Mapping[str, Mapping[int, float]],
+) -> None:
+    """Assign each cell claimed by >1 lake to its largest-overlap lake, in place.
+
+    MF6 LAK allows one vertical lake connection per GWF cell, so two lakes sharing
+    a cell would deactivate it twice and emit two VERTICAL connections into the
+    same aquifer cell below. Adjacent lakes (a pre-retenue and its reservoir across
+    a narrow sill) can each clip the same edge cell when the mesh is coarser than
+    the gap. Rather than reject the model, the cell goes to the lake it overlaps
+    most (by intersected area) and is dropped from the others, so the footprints
+    stay cell-disjoint. Logged, never silent. A lake left with zero cells is a real
+    geometry error (fully swallowed by a neighbour) and still raises.
     """
     owners: dict[int, list[str]] = {}
     for lake_id, cells in cells_by_lake.items():
@@ -904,13 +1023,26 @@ def _raise_on_shared_lake_cells(cells_by_lake: Mapping[str, Sequence[int]]) -> N
     shared = {cell: lakes for cell, lakes in owners.items() if len(lakes) > 1}
     if not shared:
         return
-    sample = "; ".join(
-        f"cell {cell} -> {sorted(set(lakes))}" for cell, lakes in sorted(shared.items())[:5]
-    )
-    raise ValueError(
-        f"flow.sinks_sources.lakes: {len(shared)} grid cell(s) are claimed by more than "
-        f"one lake (e.g. {sample}). MF6 LAK allows one lake per cell; refine the mesh or "
-        "separate the lake polygons across the sill."
+    for cell, lake_ids in shared.items():
+        winner = max(
+            lake_ids,
+            key=lambda lid, c=cell: float(intersected_area_by_lake.get(lid, {}).get(c, 0.0)),
+        )
+        for lid in lake_ids:
+            if lid != winner:
+                cells_by_lake[lid] = [c for c in cells_by_lake[lid] if int(c) != cell]
+    emptied = [lid for lid, cells in cells_by_lake.items() if not cells]
+    if emptied:
+        raise ValueError(
+            f"flow.sinks_sources.lakes: {sorted(emptied)} lost every grid cell to an "
+            "overlapping neighbour after sharing resolution; the footprints overlap too much. "
+            "Separate the lake polygons or refine the mesh across the sill."
+        )
+    logger.warning(
+        "flow.sinks_sources.lakes: %d cell(s) claimed by multiple lakes reassigned to their "
+        "largest-overlap lake (sill cells on a mesh coarser than the lake gap). Refine "
+        "mesh_catchment.lake_refinement further if the sill needs to be sharper.",
+        len(shared),
     )
 
 
@@ -970,6 +1102,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "steady_stage_hold": _lake_attr(payload, "steady_stage_hold"),
             "occupied_layers": _lake_attr(payload, "occupied_layers"),
             "fill_enclosed_cells": _lake_attr(payload, "fill_enclosed_cells"),
+            "cutoff_wall_line": _lake_attr(payload, "cutoff_wall_line"),
             "surfdep": _lake_attr(payload, "surfdep"),
             "outlets": _lake_attr(payload, "outlets"),
             "rainfall": _lake_attr(payload, "rainfall"),
@@ -999,7 +1132,9 @@ def _forcing_si_per_period(
     """
     if forcing is None:
         return ()
-    raw = forcing.get("values") if isinstance(forcing, Mapping) else getattr(forcing, "values", None)
+    raw = (
+        forcing.get("values") if isinstance(forcing, Mapping) else getattr(forcing, "values", None)
+    )
     if isinstance(raw, (list, tuple, np.ndarray)) and len(raw) > 0:
         # Explicit per-period values: take them directly and convert units.
         unit = forcing_unit(forcing)

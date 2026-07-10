@@ -270,15 +270,37 @@ def apply_lake_geometry_to_flow(
     return True
 
 
-def _resolve_barrier_line(cfg: object, *, where: str, project_crs: object = None):
-    """Build the shapely barrier trace from a FlowBarrierConfig (inline or file).
+def _read_barrier_csv(path, where):
+    """Read a bare x,y (optionally z) CSV of ordered polyline vertices."""
+    import pandas as pd
+    from shapely.geometry import LineString
 
-    Inline ``line`` coordinates are taken verbatim. A ``line_path`` vector file is
-    read, reprojected to the project CRS when both CRSs are known, and line-merged
-    into a single LineString; a genuinely multi-part or non-line geometry (e.g. a
-    QGIS MultiLineString of disjoint segments, or a polygon) raises a typed error
-    naming the file, instead of crashing later in the mesh crossing.
+    df = pd.read_csv(path)
+    cols = {c.strip().lower(): c for c in df.columns}
+    xcol = cols.get("x") or cols.get("lon") or cols.get("easting") or df.columns[0]
+    ycol = cols.get("y") or cols.get("lat") or cols.get("northing") or df.columns[1]
+    coords = [(float(x), float(y)) for x, y in zip(df[xcol], df[ycol], strict=False)]
+    if len(coords) < 2:
+        raise ValueError(f"{where} CSV '{path}' needs at least two (x, y) rows.")
+    return LineString(coords)
+
+
+def _resolve_barrier_line(cfg: object, *, where: str, project_crs: object = None, data_dir=None):
+    """Build the shapely barrier trace from a FlowBarrierConfig.
+
+    Four input formats, so the user can pick whatever they have:
+    * inline ``line`` coordinates (a list of (x, y) vertices, multi-segment OK);
+    * ``line_path`` to a vector file (.gpkg / .shp / .geojson), reprojected to the
+      project CRS and line-merged into a single (possibly multi-vertex) LineString;
+    * ``line_path`` to a bare ``.csv`` of ordered x,y (or lon,lat) vertices, taken
+      in the project CRS;
+    * (``auto`` is handled by the caller, not here).
+
+    A bare ``line_path`` filename resolves against ``<workspace>/data/cutoff_wall/``.
+    A genuinely multi-part or non-line geometry raises a typed error naming the file.
     """
+    from pathlib import Path
+
     from shapely.geometry import LineString
     from shapely.ops import linemerge
 
@@ -289,38 +311,105 @@ def _resolve_barrier_line(cfg: object, *, where: str, project_crs: object = None
     if line:
         return LineString([(float(x), float(y)) for x, y in line])
     if line_path:
+        resolved = Path(str(line_path)).expanduser()
+        if not resolved.is_absolute() and data_dir is not None:
+            from hydromodpy.core.toml_io.paths import resolve_declared_path
+
+            resolved = resolve_declared_path(
+                line_path, base_dir=Path(data_dir) / "cutoff_wall", fallback_dirs=[Path(data_dir)]
+            )
+        if str(resolved).lower().endswith(".csv"):
+            return _read_barrier_csv(resolved, where)
+
         import geopandas as gpd
 
-        gdf = gpd.read_file(str(line_path))
+        gdf = gpd.read_file(str(resolved))
         if gdf.empty:
-            raise ValueError(f"{where} line_path '{line_path}' has no geometry.")
+            raise ValueError(f"{where} line_path '{resolved}' has no geometry.")
         if gdf.crs is None:
             logger.warning(
                 "%s line_path '%s' has no CRS; assuming it is already in the project CRS.",
                 where,
-                line_path,
+                resolved,
             )
         elif project_crs is not None:
             gdf = gdf.to_crs(project_crs)
-        merged = linemerge(gdf.union_all())
+        unioned = gdf.union_all()
+        # linemerge stitches a MultiLineString into one; a lone LineString it rejects.
+        merged = linemerge(unioned) if unioned.geom_type == "MultiLineString" else unioned
         if isinstance(merged, LineString) and not merged.is_empty:
             return merged
         raise ValueError(
-            f"{where} line_path '{line_path}' resolves to a {merged.geom_type}, not a single "
+            f"{where} line_path '{resolved}' resolves to a {merged.geom_type}, not a single "
             "LineString; provide one contiguous polyline (a branching or multi-part trace is "
             "not supported)."
         )
-    raise ValueError(f"{where} has neither line nor line_path.")
+    raise ValueError(f"{where} has neither auto, line, nor line_path.")
 
 
-def apply_cutoff_wall_to_flow(*, flow: Flow, project_crs: object = None) -> bool:
+def auto_dam_axis(
+    polygon: object,
+    outlet_xy: tuple[float, float],
+    *,
+    width_probe: float = 15.0,
+    extend: float = 1.12,
+) -> object:
+    """Auto-derive the dam cutoff-wall axis at the reservoir's DOWNSTREAM EDGE.
+
+    The dam is where the reservoir drains toward the catchment outlet: the
+    footprint boundary point nearest the outlet (the spill point). The axis is
+    CENTRED ON that boundary point (so the wall sits at the lake edge and leaves
+    essentially no lake cells behind it), oriented PERPENDICULAR to the outlet
+    flow (spill -> outlet), with the local reservoir width taken from a chord a
+    short ``width_probe`` inside the neck (the tip itself is degenerate), and
+    extended a little past both banks so the HFB reaches into the abutments.
+    Pure shapely so it can bind before the mesh exists.
+    """
+    import numpy as np
+    from shapely.geometry import LineString, Point
+    from shapely.ops import nearest_points
+
+    o = Point(float(outlet_xy[0]), float(outlet_xy[1]))
+    spill = nearest_points(polygon.exterior, o)[0]
+    u = np.array([o.x - spill.x, o.y - spill.y], dtype=float)
+    norm = float(np.hypot(*u)) or 1.0
+    u /= norm
+    n = np.array([-u[1], u[0]])
+    # Local width from a chord a short step inside the neck (the tip is degenerate).
+    anchor = np.array([spill.x, spill.y]) - u * float(width_probe)
+    probe = LineString([tuple(anchor - n * 8000.0), tuple(anchor + n * 8000.0)])
+    inter = probe.intersection(polygon)
+    segments = [inter] if inter.geom_type == "LineString" else list(getattr(inter, "geoms", []))
+    segments = [s for s in segments if s.geom_type == "LineString" and not s.is_empty]
+    if not segments:
+        raise ValueError(
+            "cutoff_wall auto: the perpendicular probe does not cross the reservoir "
+            "footprint; give an explicit line instead."
+        )
+    seg = min(segments, key=lambda s: s.distance(Point(*anchor)))
+    axis_dir = np.array(seg.coords[-1]) - np.array(seg.coords[0])
+    axis_dir /= float(np.hypot(*axis_dir)) or 1.0
+    half = axis_dir * (seg.length / 2.0) * float(extend)
+    center = np.array([spill.x, spill.y])  # sit the wall ON the downstream edge
+    return LineString([tuple(center - half), tuple(center + half)])
+
+
+def apply_cutoff_wall_to_flow(
+    *,
+    flow: Flow,
+    project_crs: object = None,
+    outlet_xy: tuple[float, float] | None = None,
+    data_dir: object = None,
+) -> bool:
     """Resolve each lake's cutoff_wall trace into a shapely line on its payload.
 
-    The wall trace is declared on ``FlowLakeConfig.cutoff_wall`` (inline ``line``
-    coordinates or a ``line_path`` vector file). This reads it into a shapely
-    LineString and attaches it as ``payload['cutoff_wall_line']`` so the HFB
-    builder can map it onto the mesh faces. Mirrors ``apply_lake_geometry_to_flow``
-    but for a line that lives on the lake config (no separate data family).
+    The wall trace is declared on ``FlowLakeConfig.cutoff_wall`` in any of four
+    forms: inline ``line`` coordinates, a ``line_path`` vector file (.gpkg / .shp
+    / .geojson), a ``line_path`` .csv of x,y vertices, or ``auto`` (derived from
+    the reservoir footprint + the catchment ``outlet_xy``). A bare ``line_path``
+    resolves against ``<data_dir>/cutoff_wall/``. This reads / derives it into a
+    shapely LineString and attaches it as ``payload['cutoff_wall_line']`` so the
+    HFB builder and the mesh dam refinement both map it onto the faces.
 
     Returns True if at least one wall line was attached, False otherwise.
     """
@@ -333,9 +422,23 @@ def apply_cutoff_wall_to_flow(*, flow: Flow, project_crs: object = None) -> bool
         cfg = payload.get("cutoff_wall")
         if cfg is None:
             continue
-        payload["cutoff_wall_line"] = _resolve_barrier_line(
-            cfg, where=f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall", project_crs=project_crs
-        )
+        where = f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall"
+        if bool(getattr(cfg, "auto", False)):
+            polygon = payload.get("polygon")
+            if polygon is None:
+                raise ValueError(
+                    f"{where} auto needs the lake footprint; bind lake geometry first."
+                )
+            if outlet_xy is None:
+                raise ValueError(
+                    f"{where} auto needs the catchment outlet; only from_outlet_coord catchments "
+                    "expose x_outlet/y_outlet. Give an explicit line instead."
+                )
+            payload["cutoff_wall_line"] = auto_dam_axis(polygon, outlet_xy)
+        else:
+            payload["cutoff_wall_line"] = _resolve_barrier_line(
+                cfg, where=where, project_crs=project_crs, data_dir=data_dir
+            )
         attached = True
 
     if not attached:

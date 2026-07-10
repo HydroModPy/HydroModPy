@@ -51,9 +51,8 @@ Command inventory
        ``lock``, ``rank``, ``manage``, ``completion``, and
        ``run-script`` cover the remaining developer surfaces.
    * - ``hmp viz``
-     - Figure rendering and UI
-     - ``show <sim_ref> <figure>``, ``gallery <config.toml>``, and
-       ``serve`` (Streamlit configuration UI).
+     - Figure rendering
+     - ``show <sim_ref> <figure>`` and ``gallery <config.toml>``.
    * - ``hmp report``
      - Reporting
      - ``render`` builds a calibration-session HTML report, ``compare``

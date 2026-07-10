@@ -2,8 +2,8 @@ schema
 ======
 
 ``hydromodpy.schema`` exposes the JSON Schema export and the
-partial-field validator that any frontend (Streamlit, Angular,
-React, Jupyter widget) consumes. It is the only public, stable
+partial-field validator that any frontend (Angular, React,
+Jupyter widget) consumes. It is the only public, stable
 contract for non-Python integrations.
 
 Sub-modules
@@ -82,7 +82,7 @@ See also
 - :doc:`/architecture/overview/frontend-hooks` -- design rationale
   for the integration surface.
 - :doc:`/architecture/how-to/build-a-frontend` -- step-by-step
-  recipe (Streamlit, Angular, React).
+  recipe (Angular, React).
 - :doc:`/architecture/how-to/add-a-config-field` -- adding a field
   with the annotations the schema consumes.
 - :doc:`/user_guide/config_reference/schema_explorer` -- user-facing

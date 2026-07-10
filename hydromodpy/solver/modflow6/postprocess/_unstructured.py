@@ -4,58 +4,17 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.spatial.mesh.cell_adjacency import build_planar_cell_adjacency
+
 from ._models import NODATA, FlowPostprocessModel
 
 
 def build_unstructured_cell_adjacency(model: FlowPostprocessModel) -> list[set[int]]:
     """Return cell-to-cell adjacency for one unstructured planar mesh."""
     n_cells = int(getattr(model, "ncpl", 0) or getattr(model.solver_mesh, "n_cells", 0))
-    adjacency: list[set[int]] = [set() for _ in range(n_cells)]
-    support = getattr(model, "runtime_mesh_support", None)
-    if support is not None:
-        edge_cell_a = np.asarray(getattr(support, "edge_cell_a", ()), dtype=int).reshape(-1)
-        edge_cell_b = np.asarray(getattr(support, "edge_cell_b", ()), dtype=int).reshape(-1)
-        for cell_a, cell_b in zip(edge_cell_a.tolist(), edge_cell_b.tolist(), strict=False):
-            if int(cell_a) < 0 or int(cell_b) < 0:
-                continue
-            if int(cell_a) >= n_cells or int(cell_b) >= n_cells:
-                continue
-            adjacency[int(cell_a)].add(int(cell_b))
-            adjacency[int(cell_b)].add(int(cell_a))
-        if any(neighbors for neighbors in adjacency):
-            return adjacency
-
     planar_mesh = getattr(model.solver_mesh, "planar_mesh", None)
-    if planar_mesh is None:
-        return adjacency
-
-    edge_owner: dict[tuple[int, int], int] = {}
-    cell_offset = 0
-    for block in tuple(getattr(planar_mesh, "cell_blocks", ()) or ()):
-        connectivity = np.asarray(getattr(block, "connectivity", ()), dtype=int)
-        if connectivity.ndim != 2:
-            continue
-        for local_index, node_ids in enumerate(connectivity.tolist()):
-            cell_id = int(cell_offset + local_index)
-            if cell_id >= n_cells:
-                break
-            nodes = np.asarray(node_ids, dtype=int).reshape(-1)
-            if nodes.size < 3:
-                continue
-            for node_index in range(int(nodes.size)):
-                node_a = int(nodes[node_index])
-                node_b = int(nodes[(node_index + 1) % int(nodes.size)])
-                edge = tuple(sorted((node_a, node_b)))
-                owner = edge_owner.get(edge)
-                if owner is None:
-                    edge_owner[edge] = cell_id
-                    continue
-                if int(owner) == cell_id:
-                    continue
-                adjacency[cell_id].add(int(owner))
-                adjacency[int(owner)].add(cell_id)
-        cell_offset += int(connectivity.shape[0])
-    return adjacency
+    support = getattr(model, "runtime_mesh_support", None)
+    return build_planar_cell_adjacency(planar_mesh, n_cells, support)
 
 
 def accumulate_unstructured_cell_values(

@@ -30,8 +30,8 @@ def _two_polygon_mesh() -> HydroMesh:
 
 def test_flow_barrier_faces_on_a_ragged_mesh() -> None:
     mesh = _two_polygon_mesh()
-    line = LineString([(0.5, 0.5), (1.5, 0.5)])  # crosses the shared vertical edge at (1, 0.5)
-    faces = barrier_faces_from_line(mesh, line)
+    line = LineString([(1.0, -0.5), (1.0, 1.5)])  # passes between cells 0 and 1 (crosses their
+    faces = barrier_faces_from_line(mesh, line)  # centroid segment) -> bars the shared face
     assert len(faces) == 1
     assert {faces[0].cell_a, faces[0].cell_b} == {0, 1}
 

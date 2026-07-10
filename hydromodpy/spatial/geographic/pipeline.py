@@ -22,6 +22,11 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     FlowProducts,
     build_regional_flow_products,
 )
+from hydromodpy.spatial.geographic.core.lake_enforcement import (
+    capture_from_config,
+    routing_dem_from_config,
+    top_dem_from_config,
+)
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
@@ -77,6 +82,8 @@ class GeographicRuntimeContext:
     crs_project: str | None
     epsg: int | None
     dem_res: float
+    x_outlet: float | None = None
+    y_outlet: float | None = None
 
     def runtime_attributes(self) -> dict[str, object]:
         """Return the public attribute payload expected from ``CatchmentDelineation``."""
@@ -91,6 +98,8 @@ class GeographicRuntimeContext:
                 "crs_proj": self.crs_project,
                 "epsg": self.epsg,
                 "dem_res": self.dem_res,
+                "x_outlet": self.x_outlet,
+                "y_outlet": self.y_outlet,
                 "_paths": self.paths,
                 "_dem_metadata": self.dem_metadata,
                 "_river_network_products": self.river_network_products,
@@ -434,8 +443,12 @@ def build_geographic_runtime_context(
         river_network_products = cached_products.river_network_products
         catchment_area_km2 = cached_products.catchment_area_km2
     else:
+        # Lake hydro-enforcement: delineate on a routing DEM with the lakes carved so
+        # streams route INTO the lakes and drain to the outlet. The model top (below,
+        # via build_domain_rasters on setup.dem_init_path) stays on the raw DEM.
+        routing_dem_path = routing_dem_from_config(config, setup)
         flow_products = build_regional_flow_products(
-            dem_init_path=setup.dem_init_path,
+            dem_init_path=routing_dem_path,
             dem_out_dir_path=setup.paths.correcflow_path,
             dem_correc_type=str(config.dem_correc_type),
             crs_project=setup.crs_project,
@@ -500,9 +513,69 @@ def build_geographic_runtime_context(
                 backend=tool,
             )
 
+        # Second enforcement pass: carve any stream that dead-ends near a lake (a flat
+        # forebay near-miss) to the shoreline and re-delineate, so its channel reaches
+        # the lake instead of leaving unfed. Standard-catchment branch only.
+        captured_dem = capture_from_config(
+            config,
+            setup,
+            flow_direc=flow_products.direc,
+            link_id_tif=getattr(river_network_products, "stream_link_id_full_tif", None),
+        )
+        if captured_dem is not None and config.catch_def != "dem":
+            with progress.status("Re-delineating on captured streams"):
+                flow_products = build_regional_flow_products(
+                    dem_init_path=captured_dem,
+                    dem_out_dir_path=setup.paths.correcflow_path,
+                    dem_correc_type=str(config.dem_correc_type),
+                    crs_project=setup.crs_project,
+                    backend=tool,
+                )
+                build_standard_catchment(
+                    config=config,
+                    paths=setup.paths,
+                    direc_path=flow_products.direc,
+                    acc_path=flow_products.acc,
+                    direc_data=flow_products.direc_data,
+                    acc_data=flow_products.acc_data,
+                    crs_project=setup.crs_project,
+                    backend=tool,
+                    unsupported_mode="ignore",
+                )
+                catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
+                domain_products = build_standard_domain_polygons(
+                    config=config,
+                    paths=setup.paths,
+                    dem_init_path=setup.dem_init_path,
+                    crs_project=setup.crs_project,
+                )
+                tool.delineation.polygons_to_lines(
+                    setup.paths.watershed_shp,
+                    setup.paths.watershed_contour_shp,
+                )
+                river_network_products = build_river_network_products(
+                    river_network=config.river_network,
+                    dem_correc_path=flow_products.correc,
+                    d8_pointer_path=flow_products.direc,
+                    watershed_shp=setup.paths.watershed_shp,
+                    geographic_dir=setup.paths.geographic_path,
+                    correcflow_dir=setup.paths.correcflow_path,
+                    dem_res_m=float(setup.dem_res),
+                    streams_tif_path=setup.paths.river_streams_tif,
+                    streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
+                    stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
+                    stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
+                    network_shp_path=setup.paths.hydrographic_network_generated_shp,
+                    summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
+                    network_crs=setup.crs_project,
+                    backend=tool,
+                )
+
         with progress.status("Clipping domain rasters"):
+            # The model TOP: raw DEM, optionally with the dam footprint carved down
+            # to the valley floor (geographic.dam_carve). Routing (above) is separate.
             raster_products = build_domain_rasters(
-                dem_init_path=setup.dem_init_path,
+                dem_init_path=top_dem_from_config(config, setup),
                 correc_path=flow_products.correc,
                 direc_path=flow_products.direc,
                 correc_data=flow_products.correc_data,
@@ -538,4 +611,6 @@ def build_geographic_runtime_context(
         crs_project=setup.crs_project,
         epsg=setup.epsg,
         dem_res=setup.dem_res,
+        x_outlet=(float(config.x_outlet) if config.x_outlet is not None else None),
+        y_outlet=(float(config.y_outlet) if config.y_outlet is not None else None),
     )

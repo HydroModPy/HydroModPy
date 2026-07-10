@@ -19,6 +19,7 @@ from types import SimpleNamespace
 import geopandas as gpd
 from shapely.ops import unary_union
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.derived_features import (
     resolve_river_mesh_trace,
 )
@@ -44,7 +45,6 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing import (
     build_zone_conformal_partition_from_dataframe,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
-    ZoneMeshingRefinementPolicy,
     ZoneMeshingSettings,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import ZoneMeshingDomainPayload
@@ -54,6 +54,8 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.geometry_utils import (
     make_valid_linework,
 )
 from hydromodpy.spatial.protocols import get_geology_data_source
+
+logger = get_logger(__name__)
 
 
 def _resolve_river_trace_for_meshing(
@@ -311,6 +313,7 @@ def _build_watershed_boundary_constraint(
     *,
     watershed_geometry,
     effective_domain_payload: ZoneMeshingDomainPayload,
+    participates_in_refinement: bool,
 ) -> ZoneLinearConstraint | None:
     return _normalize_linear_constraint(
         name="watershed::boundary",
@@ -318,7 +321,7 @@ def _build_watershed_boundary_constraint(
         lines=_iter_line_geometries((watershed_geometry.boundary,)),
         domain_geometry=effective_domain_payload.geometry,
         min_segment_length=0.0,
-        participates_in_refinement=True,
+        participates_in_refinement=participates_in_refinement,
         clip_to_domain=False,
     )
 
@@ -515,6 +518,15 @@ def _apply_geology_conformity_mode(
     return combined, geometry_constraints, conformity_geometry, summary
 
 
+def _watershed_boundary_refinement_enabled(zone_meshing_cfg: ZoneMeshingSettings) -> bool:
+    """True when the user opted in to refining along the watershed boundary."""
+    policy = zone_meshing_cfg.refinement_policy
+    if policy is None:
+        return False
+    family = policy.families.get("watershed_boundary")
+    return family is not None and bool(family.enabled)
+
+
 def _derive_watershed_runtime_zone_meshing_config(
     *,
     zone_meshing_cfg: ZoneMeshingSettings,
@@ -524,17 +536,16 @@ def _derive_watershed_runtime_zone_meshing_config(
     runtime_payload = zone_meshing_cfg.to_mapping()
     if not bool(runtime_payload.get("refine_interfaces", False)):
         return zone_meshing_cfg
+    # Refining the whole water divide is opt-in (families.watershed_boundary):
+    # without it the boundary stays a conformal constraint at the background size.
+    if not _watershed_boundary_refinement_enabled(zone_meshing_cfg):
+        return zone_meshing_cfg
 
-    refinement_policy = runtime_payload.get("refinement_policy")
-    if refinement_policy is None:
-        refinement_policy = ZoneMeshingRefinementPolicy(enabled=True).model_dump(mode="python")
-    else:
-        refinement_policy = dict(refinement_policy)
-        refinement_policy["enabled"] = True
+    refinement_policy = dict(runtime_payload["refinement_policy"])
+    refinement_policy["enabled"] = True
 
     families = dict(refinement_policy.get("families", {}))
     watershed_family = dict(families.get("watershed_boundary", {}))
-    watershed_family["enabled"] = True
     if watershed_family.get("interface_size") is None:
         watershed_family["interface_size"] = float(runtime_payload["interface_size"])
 
@@ -603,9 +614,17 @@ def _build_watershed_boundary_inputs(
     boundary_constraints: tuple[ZoneLinearConstraint, ...] = ()
     boundary_summary: dict[str, object] | None = None
     if cfg.watershed_boundary.enabled and geometry_conformity_mode != "buffered_watershed_envelope":
+        refinement_family_enabled = _watershed_boundary_refinement_enabled(zone_meshing_cfg)
+        if refinement_family_enabled and not zone_meshing_cfg.refine_interfaces:
+            logger.warning(
+                "families.watershed_boundary is enabled but zone_meshing.refine_interfaces "
+                "is false: the water divide stays a conformal constraint at the background "
+                "size, no refinement field is built."
+            )
         boundary_constraint = _build_watershed_boundary_constraint(
             watershed_geometry=watershed_geometry,
             effective_domain_payload=effective_domain_payload,
+            participates_in_refinement=refinement_family_enabled,
         )
         if boundary_constraint is not None:
             boundary_constraints = (boundary_constraint,)
@@ -616,6 +635,7 @@ def _build_watershed_boundary_inputs(
             )
             boundary_summary = {
                 "enabled": True,
+                "refinement_family_enabled": bool(refinement_family_enabled),
                 "smoothing_enabled": bool(cfg.watershed_boundary.smoothing.enabled),
                 "boundary_length": float(getattr(watershed_geometry.boundary, "length", 0.0)),
                 "boundary_area_source": float(getattr(watershed_geometry, "area", 0.0)),
@@ -821,7 +841,7 @@ def _build_zone_conformal_meshing_inputs(
     river_trace: object | None,
     domain_geographic: object | None,
     geographic_features: object | None = None,
-    lake_size_fields: tuple[ZoneRegionalSizeField, ...] = (),
+    extra_size_fields: tuple[ZoneRegionalSizeField, ...] = (),
 ) -> ZoneConformalMeshingInputs:
     (
         source_payload,
@@ -874,7 +894,7 @@ def _build_zone_conformal_meshing_inputs(
         )
     regional_size_fields: tuple[ZoneRegionalSizeField, ...] = ()
     outside_coarsening_summary: dict[str, object] | None = None
-    effective_lake_size_fields = lake_size_fields
+    effective_extra_size_fields = extra_size_fields
     outside_field = _build_watershed_outside_size_field(
         region_geometry=outside_region_geometry,
         watershed_boundary_cfg=cfg.watershed_boundary,
@@ -882,18 +902,19 @@ def _build_zone_conformal_meshing_inputs(
     )
     if outside_field is not None:
         regional_size_fields = (outside_field,)
-        # Lake refinement fields default their far-field (outside_size) to global_size.
-        # GMSH combines all size fields with Min, so that far-field would clamp the whole
-        # domain to global_size and silently defeat the outside coarsening. Lift each lake
-        # field's far-field to the coarsened outside size, so it only refines NEAR the lake
-        # and defers to the coarsened background elsewhere. The coarsening field still holds
-        # global_size inside the watershed, so nothing coarsens there.
-        effective_lake_size_fields = tuple(
+        # Caller-injected fields (lake / user zones) default their far-field
+        # (outside_size) to global_size. GMSH combines all size fields with Min, so
+        # that far-field would clamp the whole domain to global_size and silently
+        # defeat the outside coarsening. Lift each field's far-field to the coarsened
+        # outside size, so it only refines NEAR its region and defers to the coarsened
+        # background elsewhere. The coarsening field still holds global_size inside
+        # the watershed, so nothing coarsens there.
+        effective_extra_size_fields = tuple(
             replace(
                 field,
                 outside_size=max(float(field.outside_size), float(outside_field.outside_size)),
             )
-            for field in lake_size_fields
+            for field in extra_size_fields
         )
         outside_coarsening_summary = {
             "enabled": True,
@@ -916,7 +937,7 @@ def _build_zone_conformal_meshing_inputs(
             + tuple(geology_linear_constraints)
             + linear_constraints
         ),
-        regional_size_fields=tuple(regional_size_fields) + tuple(effective_lake_size_fields),
+        regional_size_fields=tuple(regional_size_fields) + tuple(effective_extra_size_fields),
         diagnostics=ZoneConformalMeshingDiagnostics(
             source_plot_gdf=source_plot_gdf,
             rivers_cfg=cfg.rivers,

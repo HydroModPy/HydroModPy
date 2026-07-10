@@ -15,6 +15,11 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingRefinementFamilySettings,
 )
 
+# Hard cap on the per-field structured sampling grid: each node costs one
+# point-in-polygon test in pure Python, so a runaway grid (tiny target size
+# over a large domain) must fail loudly instead of hanging for hours.
+_MAX_STRUCTURED_FIELD_NODES = 2_000_000
+
 
 def _disable_automatic_mesh_size_sources(gmsh) -> None:
     """Force Gmsh to rely only on explicitly constructed background fields."""
@@ -216,17 +221,48 @@ def create_regional_structured_size_field(
     scratch_dir: str | os.PathLike[str],
     field_name: str,
 ) -> tuple[int, dict[str, Any], Path]:
-    """Create one structured inside/outside background-size field."""
-    minx, miny, maxx, maxy = [float(value) for value in domain_bounds]
-    width = max(float(maxx - minx), 0.0)
-    height = max(float(maxy - miny), 0.0)
+    """Create one structured inside/outside background-size field.
+
+    The raster is sampled on the region's own window (its bounds plus the
+    transition ramp), not the whole domain, and at a step that resolves the
+    target size and the transition edge. Outside that window Gmsh falls back to
+    ``OutsideValue`` (the background size). This keeps a thin band (a lake
+    shoreline, a structure corridor) crisp and even instead of aliasing on a
+    coarse domain-wide grid, while keeping the node count bounded.
+    """
     if grid_resolution <= 0.0:
         raise ValueError("grid_resolution must be > 0 for regional size fields")
 
-    nx = max(int(np.ceil(width / float(grid_resolution))) + 1, 2)
-    ny = max(int(np.ceil(height / float(grid_resolution))) + 1, 2)
-    dx = float(width / float(nx - 1)) if nx > 1 else float(grid_resolution)
-    dy = float(height / float(ny - 1)) if ny > 1 else float(grid_resolution)
+    dminx, dminy, dmaxx, dmaxy = [float(value) for value in domain_bounds]
+    # Resolve the smallest length scale of the field (target size, and the
+    # transition edge when there is a ramp), sampling at half of it.
+    scales = [float(inside_size)]
+    if transition_distance > 0.0:
+        scales.append(float(transition_distance))
+    step = min(float(grid_resolution), 0.5 * min(scales))
+    step = max(step, 1e-6)
+
+    # Local sampling window: the region plus its transition ramp, clamped to the
+    # domain. A margin of one extra step keeps the ramp fully inside the raster.
+    rminx, rminy, rmaxx, rmaxy = [float(value) for value in region_geometry.bounds]
+    margin = float(transition_distance) + step
+    minx = max(dminx, rminx - margin)
+    miny = max(dminy, rminy - margin)
+    maxx = min(dmaxx, rmaxx + margin)
+    maxy = min(dmaxy, rmaxy + margin)
+    width = max(maxx - minx, 0.0)
+    height = max(maxy - miny, 0.0)
+
+    nx = max(int(np.ceil(width / step)) + 1, 2)
+    ny = max(int(np.ceil(height / step)) + 1, 2)
+    if nx * ny > _MAX_STRUCTURED_FIELD_NODES:
+        raise ValueError(
+            f"regional size field '{field_name}' would sample {nx * ny} nodes "
+            f"({nx} x {ny} at {step} m); increase the target cell size or the "
+            "transition distance."
+        )
+    dx = float(width / float(nx - 1)) if nx > 1 else step
+    dy = float(height / float(ny - 1)) if ny > 1 else step
     boundary = region_geometry.boundary
 
     rows: list[str] = []
@@ -276,7 +312,7 @@ def create_regional_structured_size_field(
         "inside_size": float(inside_size),
         "outside_size": float(outside_size),
         "transition_distance": float(transition_distance),
-        "grid_resolution": float(grid_resolution),
+        "grid_resolution": float(step),
         "grid_shape": [int(nx), int(ny), 1],
         "grid_spacing": [float(dx), float(dy), 1.0],
         "field_tag": int(field_tag),
