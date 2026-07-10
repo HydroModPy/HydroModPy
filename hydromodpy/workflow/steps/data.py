@@ -139,7 +139,17 @@ def apply_structural_updates_from_data(
         lake_geometry=getattr(data_state, "lake_geometry", None),
     )
     _project_crs = getattr(getattr(setup_state, "geographic", None), "crs_proj", None)
-    apply_cutoff_wall_to_flow(flow=setup_state.flow, project_crs=_project_crs)
+    _geo = getattr(run_state.cfg, "geographic", None)
+    _xo = getattr(_geo, "x_outlet", None)
+    _yo = getattr(_geo, "y_outlet", None)
+    _outlet_xy = (float(_xo), float(_yo)) if _xo is not None and _yo is not None else None
+    _data_dir = getattr(getattr(run_state.cfg, "workspace", None), "data_dir", None)
+    apply_cutoff_wall_to_flow(
+        flow=setup_state.flow,
+        project_crs=_project_crs,
+        outlet_xy=_outlet_xy,
+        data_dir=_data_dir,
+    )
     apply_flow_barriers_to_flow(flow=setup_state.flow, project_crs=_project_crs)
     apply_lake_abacus_to_flow(
         flow=setup_state.flow,

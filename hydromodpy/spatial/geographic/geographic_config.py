@@ -256,6 +256,117 @@ class RiverNetworkConfig(HydroModelBase):
         return self
 
 
+class LakeEnforcementConfig(HydroModelBase):
+    """Hydro-enforce lakes into the ROUTING DEM before D8 flow routing.
+
+    A topographic breach/fill is lake-blind: on a dammed reservoir it carves a
+    thalweg that misses the flat water body, so streams dead-end short of the lake
+    and the outlet-delineated catchment excludes the reservoir. When enabled, the
+    lake footprints are carved (a gentle ramp toward the outlet plus an outlet
+    notch) into a SEPARATE routing DEM used only for delineation; the model grid
+    top stays on the raw DEM, so the lake-aquifer geometry is untouched. It reuses
+    the lake footprint polygons already supplied for LAK cells -- no river source.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Carve the lake footprints into the routing DEM before D8 so streams "
+            "converge into the lakes and drain to the outlet through them."
+        ),
+    )
+    lake_geometry_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="lake_enforcement_geometry", category="geometry"),
+    ] = Field(
+        default=None,
+        description=(
+            "Lake footprint polygons (gpkg/shp) to carve. A bare filename resolves "
+            "against <workspace>/data/lake_geometry/. Required when enabled."
+        ),
+    )
+    slope: Annotated[float, Profile.USER] = Field(
+        default=0.003,
+        gt=0.0,
+        description=(
+            "Ramp gradient (m per m of distance to the outlet). Small and positive "
+            "so each lake slopes gently toward the outlet with no flat depression "
+            "(a flat sink would make the breach crawl)."
+        ),
+    )
+    buffer_m: Annotated[LengthMeters, Profile.USER] = Field(
+        default=15.0,
+        ge=0.0,
+        description=(
+            "Buffer (metres) applied to each lake footprint to bridge inter-lake "
+            "sills and knit the shoreline into the carve."
+        ),
+    )
+    capture_radius_m: Annotated[LengthMeters, Profile.USER] = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "If > 0, run a SECOND delineation pass: any stream that dead-ends within "
+            "this distance of a lake (a near-miss over a flat forebay) is carved to "
+            "the lake and re-delineated, so its channel reaches the shoreline. 0 "
+            "disables the capture pass (lake carve only)."
+        ),
+    )
+
+
+class DamCarveConfig(HydroModelBase):
+    """Optional dam structure-carve of the MODEL-TOP DEM.
+
+    A raw DEM samples the concrete dam crest as terrain, so the aquifer column
+    under the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a
+    cutoff-wall HFB band lands above the real seepage. This carves ONLY the dam
+    footprint of the model-top DEM down to the surrounding valley floor, so the
+    cutoff wall can sit on the surveyed axis at the dam (not shifted downstream,
+    and no need for a stream-burned DEM that would lower every channel). It is
+    the mirror of enforce_lakes: enforce_lakes carves the routing DEM, this
+    carves the top DEM, at the dam only.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Carve the dam footprint of the model-top DEM down to the local "
+            "valley floor so the cutoff wall sits at the true dam on a raw DEM."
+        ),
+    )
+    line_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="dam_carve_line", category="geometry"),
+    ] = Field(
+        default=None,
+        description=(
+            "Dam trace (gpkg/shp/csv) along which the top is carved. A bare "
+            "filename resolves against <workspace>/data/cutoff_wall/. Usually the "
+            "same surveyed voile axis as the cutoff_wall. Required when enabled."
+        ),
+    )
+    buffer_m: Annotated[LengthMeters, Profile.USER] = Field(
+        default=40.0,
+        gt=0.0,
+        description=(
+            "Half-width (metres) of the carved corridor around the dam trace. "
+            "Make it a bit wider than one DEM/cell size so the whole dam body is "
+            "brought to the valley floor."
+        ),
+    )
+    search_radius_m: Annotated[LengthMeters | None, Profile.USER] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Radius (metres) of the neighborhood whose minimum elevation defines "
+            "the valley floor the corridor is carved to. When omitted, derives "
+            "3 * buffer_m."
+        ),
+    )
+
+
 class GeographicConfig(HydroModelBase):
     """Geographic configuration for watershed delineation.
 
@@ -332,6 +443,22 @@ class GeographicConfig(HydroModelBase):
         description=(
             "Optional DEM-derived river-network extraction settings. "
             "When disabled, no stream network is generated in geographic preprocessing."
+        ),
+    )
+    enforce_lakes: Annotated[LakeEnforcementConfig, Profile.USER] = Field(
+        default_factory=LakeEnforcementConfig,
+        description=(
+            "Optional lake hydro-enforcement of the routing DEM: carve the lake "
+            "footprints so streams route into the lakes and drain to the outlet, "
+            "without touching the model grid top."
+        ),
+    )
+    dam_carve: Annotated[DamCarveConfig, Profile.USER] = Field(
+        default_factory=DamCarveConfig,
+        description=(
+            "Optional dam structure-carve of the model-top DEM: lower the dam "
+            "footprint to the valley floor so a cutoff wall sits at the dam on a "
+            "raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM)."
         ),
     )
     reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
