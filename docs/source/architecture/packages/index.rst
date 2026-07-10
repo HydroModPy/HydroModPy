@@ -117,8 +117,7 @@ Subpackages
       :link-type: doc
 
       HTML composites: calibration session report, comparison web
-      report, streamlit configurator, and guidance for block-based
-      workflow reports.
+      report, and guidance for block-based workflow reports.
 
    .. grid-item-card:: workflow
       :link: workflow

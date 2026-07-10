@@ -3,7 +3,7 @@ Frontend Hooks
 
 HydroModPy stays a pure Python library: no HTTP server, no FastAPI, no
 WebSocket. Two stable integration points are exposed for any frontend
-(Streamlit, Angular, React, Jupyter widget) that does not need to
+(Angular, React, Jupyter widget) that does not need to
 import the Python package.
 
 For complementary reading, see :doc:`design-patterns` (item 10) and
@@ -85,31 +85,6 @@ for frontends) and only adds a second artifact for the doc viewer.
 .. seealso::
    :doc:`/user_guide/config_reference/schema_explorer` for the
    user-facing schema browser that consumes the OpenAPI wrapper.
-
-Streamlit (local, Python)
--------------------------
-
-Minimal example of auto-generating a form from the schema:
-
-.. code-block:: python
-
-   import json
-   from pathlib import Path
-   import streamlit as st
-
-   schema = json.loads(Path("schema/config.json").read_text())
-   flow = schema["$defs"]["FlowPhysicalProperties"]["properties"]
-
-   k = st.slider(
-       flow["k_aquifer"]["display_name_fr"],
-       min_value=flow["k_aquifer"]["display_min"],
-       max_value=flow["k_aquifer"]["display_max"],
-       help=flow["k_aquifer"]["help_text_fr"],
-   )
-   st.caption(f"Unit: {flow['k_aquifer']['unit']}")
-
-See ``examples/integrations/streamlit_app.py`` for a self-contained
-example that discovers the sections dynamically.
 
 Angular (external repository)
 -----------------------------
