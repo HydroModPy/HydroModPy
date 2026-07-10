@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 50 tolerances enforced today. Every tolerance
+The table below records the 55 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -78,6 +78,11 @@ must carry a rationale before it is merged.
 | 48 | SFR+LAK+MVR ex-gwf-lak-p02 (Merritt & Konikow 2000) | final lake stages vs published / MVR block structure / transfer activity / budget | stages `abs < 0.05 ft` of the published 116.98 / 111.93 ft; HMP-built MVR rows `==` published `mvr_spd` verbatim; each of the 4 movers `> 1000 ft3/d`; discrepancy `<= 1 %` | Published converged stages from the bundled MF6 examples doc; reproduction error observed `< 0.004 ft` on MF6 6.6.3 (`validation_cases/numerical/transient/sfr_lak_mvr/tolerances.toml`) | The HMP package-agnostic MVR seam (MoverRecord -> period rows -> packages list, the exact build.py assembly) drives the upstream 2-lake / 22-reach / 4-mover example; everything else copies the published model verbatim so a disagreement isolates to the seam |
 | 49 | Lake bed reconstruction abacus match (synthetic) | simulated vs reference abacus on the carved bed | storage `NSE > 0.99`; wetted-area `max-abs <= 3` cell areas | Area-weighted quantile mapping reproduces the abacus area-elevation distribution up to the mesh cell granularity (one carved bed per cell); the residual is the sub-cell discretization of the curve (`tests/unit/solver/test_modflow6_lake_bed_carve.py`, `tests/unit/spatial/test_lake_bed_reconstruction.py`) | The reconciliation is an exact one-pass monotone remap, so the only error is sub-cell; matching the area-stage curve also matches volume by integration. The footprint-vs-abacus area ratio is reported as `area_scale` and absorbed before matching |
 | 50 | Active-littoral marnage recharge toggle (MF6 solve) | areal recharge in vs lake stage | submerged period `RCHA_IN == 0` (`abs 1e-6`); emerged period `RCHA_IN == n_emerged * rate * cell_area` (`rel 5 %`) | MF6 native IWETLAKE toggle on VERTICAL connections of ACTIVE cells (gwf-lak.f90 lak_cf): exact per-cell on/off of RCH/ET vs lake exchange (`tests/integration/test_modflow6_lake_marnage.py`) | The toggle is a step function on `hlak > cell_top`; with CONSTANT lake stage it is deterministic, so submerged recharge is exactly zero and emerged recharge is the full areal rate over the emerged cells. The 5 % band only absorbs listing-budget print rounding |
+| 51 | Mesh surface conditioning / Q2 residual inversions (75 m recipe) | n conditioned inversions along channel chains | `<= 3 (vs 12 baseline); created == 0` | Plan 2026-07-10 §5 Phase-1 gate; projection-artifact target | measured by `tools/diagnostics/mesh_flow_qc.py` (q2_cond_n_inversions, q2_n_inversions_created_by_fill); baseline `qc_mesh_flow_cheze75m_v7.json` |
+| 52 | Mesh surface conditioning / Q4 channel over-raise (75 m recipe) | fraction of channel cells raised > 1 cm by the fill | `<= 5 % (vs 35.5 % baseline)` | Plan 2026-07-10 §5 Phase-1 gate; anti-channel fill regression guard | `tools/diagnostics/mesh_flow_qc.py` (q4_frac_raised_gt_1cm_channel) |
+| 53 | Mesh surface conditioning / Q3 channel accumulation carriers | n channel cells below 0.5x their raster accumulation | `< 10 of 75 (vs 23 baseline)` | Plan 2026-07-10 §5 Phase-1 gate | `tools/diagnostics/mesh_flow_qc.py` (q3_n_channel_below_half_raster_acc) |
+| 54 | Mesh surface conditioning / mass balance | stranded accumulation area | `0 km2 (exact; all area exits to lake or boundary)` | Plan 2026-07-10 §0 measured verdict | `tools/diagnostics/mesh_flow_qc.py` (q3_acc_stranded_km2) |
+| 55 | Mesh surface conditioning / Phase-2 5 m KGE non-regression | KGE drift vs validated Cheze preretenue chronicle (0.769) | `within calibration envelope (see row 3, absolute NSE drift 0.01)` | Plan 2026-07-10 §5 Phase-2 gate; guards zonal top change | params_hash invalidated; measured on `cheze_calibration_preretenue_chronicle` |
 
 ## Update policy
 
