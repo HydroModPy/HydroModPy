@@ -20,6 +20,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.bundle_export_contracts import (
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,
 )
+from hydromodpy.spatial.mesh.refinement_zones import build_refinement_zone_size_fields
 
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
 
@@ -430,7 +431,7 @@ def run_single_mesh_catchment_workflow_typed(
     workspace: object | None = None,
     geographic_features: object | None = None,
     domain_geographic: object | None = None,
-    lake_size_fields: tuple = (),
+    extra_size_fields: tuple = (),
     section_name: str,
     deps: MeshCatchmentSingleRunDependencies,
     return_runtime_artifacts: bool = False,
@@ -480,6 +481,15 @@ def run_single_mesh_catchment_workflow_typed(
             else None
         ),
     )
+    # User zones of interest are resolved here so both the embedded workflow step
+    # and the dedicated mesh-catchment launcher (mono and batch) honor them.
+    zone_size_fields = build_refinement_zone_size_fields(
+        zones=section_cfg.refinement_zone,
+        global_size=float(section_cfg.zone_meshing.global_size),
+        target_crs=getattr(geographic_cfg, "crs_project", None),
+        data_dir=getattr(workspace_cfg, "data_dir", None),
+        config_dir=config_path.parent,
+    )
     case_kwargs: dict[str, Any] = {
         "section": section_name,
         "section_data_override": section_cfg.model_dump(mode="python"),
@@ -490,7 +500,7 @@ def run_single_mesh_catchment_workflow_typed(
         "river_trace": river_trace,
         "geographic_features": prepared_runtime.geographic_features,
         "domain_geographic": prepared_runtime.domain_geographic,
-        "lake_size_fields": tuple(lake_size_fields),
+        "extra_size_fields": tuple(extra_size_fields) + tuple(zone_size_fields),
         "show_plot": resolved_outputs.show_plot,
     }
     if return_runtime_artifacts:

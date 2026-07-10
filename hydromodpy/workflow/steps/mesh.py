@@ -110,10 +110,61 @@ def _resolve_setup_lake_polygon(setup_state: object):
     return unary_union(polygons)
 
 
+def _hydraulic_feature_geometries(setup_state: object, lr_cfg: object) -> list:
+    """Collect (label, geometry, target_size, zone_buffer) refinement targets.
+
+    So each structure resolves cleanly on the mesh: the dam cutoff wall (voile)
+    line at ``dam_cell_size``, dilated by ``hfb_buffer`` into a zone wide enough
+    to cover the lake outlet, and the sill between every pair of coupled lakes
+    (the shortest segment between the two footprints). The SILL size is forced
+    BELOW the lake-to-lake gap (0.4 * gap), else a single cell straddles both
+    lakes and MF6 LAK rejects the model (one lake per cell). Outlet / SFR-entry
+    points can be appended later.
+    """
+    flow = getattr(setup_state, "flow", None)
+    if flow is None:
+        return []
+    lakes = getattr(flow, "sinks_sources", {}).get("lakes", {})
+    if not isinstance(lakes, dict):
+        return []
+    dam_cell_size = float(getattr(lr_cfg, "dam_cell_size", 30.0))
+    dam_buffer = float(getattr(lr_cfg, "dam_buffer", 150.0))
+    hfb_buffer = getattr(lr_cfg, "hfb_buffer", None)
+    hfb_width = float(hfb_buffer) if hfb_buffer is not None else 2.0 * dam_buffer
+    features: list = []
+    # dam cutoff walls (voile): the resolved trace line, one per lake that has one
+    for lake_id, payload in lakes.items():
+        if not isinstance(payload, dict):
+            continue
+        line = payload.get("cutoff_wall_line")
+        if line is not None and not line.is_empty:
+            features.append((f"voile:{lake_id}", line, dam_cell_size, hfb_width))
+    # sill between every pair of lakes: refine the WHOLE proximity ZONE (not just the
+    # single nearest point) to below the gap, so no cell anywhere along the sill
+    # straddles both footprints. The lakes can run close over a long stretch.
+    from itertools import combinations
+
+    polys = {
+        lid: payload["polygon"]
+        for lid, payload in lakes.items()
+        if isinstance(payload, dict) and payload.get("polygon") is not None
+    }
+    for (ida, pa), (idb, pb) in combinations(polys.items(), 2):
+        gap = float(pa.distance(pb))
+        if gap <= 0.0:
+            continue  # overlapping/touching footprints cannot be separated by refinement
+        sill_size = max(5.0, min(dam_cell_size, 0.4 * gap))
+        margin = max(1.5 * gap, dam_cell_size)
+        sill_zone = pa.buffer(margin).intersection(pb.buffer(margin))
+        if not sill_zone.is_empty:
+            features.append((f"sill:{ida}-{idb}", sill_zone, sill_size, margin))
+    return features
+
+
 def _build_lake_mesh_refinement(
     *, cfg: object, section_data: MeshCatchmentConfig, setup_state: object
 ) -> tuple:
-    """Build the lake/dam GMSH regional size fields for local refinement, or ()."""
+    """Build the lake/dam/feature GMSH regional size fields for local refinement, or ()."""
     lr = getattr(section_data, "lake_refinement", None)
     if lr is None or not getattr(lr, "enabled", False):
         return ()
@@ -125,11 +176,28 @@ def _build_lake_mesh_refinement(
     y_outlet = getattr(geographic, "y_outlet", None)
     if x_outlet is not None and y_outlet is not None:
         dam_xy = (float(x_outlet), float(y_outlet))
+    feature_geometries = _hydraulic_feature_geometries(setup_state, lr)
+    # The dam-outlet disk is redundant only when a cutoff-wall zone actually
+    # reaches the outlet: the wall zone (radius = its zone_buffer) must overlap
+    # the would-be disk (radius = dam_buffer). A wall on another lake far from
+    # the outlet must not suppress the under-dam refinement.
+    has_cutoff_wall = False
+    if dam_xy is not None:
+        from shapely.geometry import Point
+
+        outlet = Point(dam_xy)
+        has_cutoff_wall = any(
+            label.startswith("voile:")
+            and float(geom.distance(outlet)) <= float(width) + float(lr.dam_buffer)
+            for label, geom, _size, width in feature_geometries
+        )
     return build_lake_refinement_size_fields(
         lake_polygon=_resolve_setup_lake_polygon(setup_state),
         dam_xy=dam_xy,
         cfg=lr,
         global_size=float(section_data.zone_meshing.global_size),
+        feature_geometries=feature_geometries,
+        has_cutoff_wall=has_cutoff_wall,
     )
 
 
@@ -149,7 +217,7 @@ def run_mesh_phase(
     )
 
     setup_state = run_state.setup
-    lake_size_fields = _build_lake_mesh_refinement(
+    extra_size_fields = _build_lake_mesh_refinement(
         cfg=cfg, section_data=mesh_section_data, setup_state=setup_state
     )
     mesh_runtime = run_single_mesh_catchment_workflow_with_runtime_artifacts(
@@ -162,7 +230,7 @@ def run_mesh_phase(
         workspace=setup_state.workspace,
         geographic_features=setup_state.geographic_features,
         domain_geographic=setup_state.domain_geographic,
-        lake_size_fields=lake_size_fields,
+        extra_size_fields=extra_size_fields,
     )
     setup_state.mesh_summary = mesh_runtime.summary
     setup_state.mesh_planar = mesh_runtime.mesh_planar

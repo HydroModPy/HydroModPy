@@ -25,6 +25,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainGeographicBoxBuffer,
 )
 from hydromodpy.spatial.mesh.lake_refinement import LakeRefinementConfig
+from hydromodpy.spatial.mesh.refinement_zones import RefinementZoneConfig
 from hydromodpy.spatial.protocols import get_geology_data_source
 
 
@@ -184,8 +185,17 @@ class MeshCatchmentConfig(HydroModelBase):
     lake_refinement: Annotated[LakeRefinementConfig, Profile.USER] = Field(
         default_factory=LakeRefinementConfig,
         description=(
-            "Optional local refinement on the lake footprint (any shape) and the under-dam "
-            "outlet. Disabled by default; set enabled = true to add the lake size fields."
+            "Optional local refinement on the lake shoreline band and the hydraulic "
+            "structures (cutoff wall, sill, dam outlet). Disabled by default; set "
+            "enabled = true to add the lake size fields."
+        ),
+    )
+    refinement_zone: Annotated[list[RefinementZoneConfig], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "User-provided zones of interest for local refinement. Each entry names one "
+            "vector layer (polygons = zones, points / lines = corridors) and a target "
+            "cell size; declare entries as [[mesh_catchment.refinement_zone]] tables."
         ),
     )
 
