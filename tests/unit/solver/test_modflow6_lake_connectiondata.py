@@ -321,3 +321,68 @@ def test_modflowgwflak_builds_with_expected_nlakeconn_and_laktab(tmp_path: Path)
     # OBS6 requests one continuous CSV with a stage observation per lake.
     obs_csv = next(iter(obs_continuous))
     assert any(obs[1] == "stage" for obs in obs_continuous[obs_csv])
+
+
+def test_cutoff_wall_seals_horizontal_connections_behind_the_dam() -> None:
+    # A cutoff wall (dam) placed just "south" of the lake seals every bank-seepage
+    # HORIZONTAL connection to cells behind it, independent of any HFB, while the
+    # VERTICAL (bed) connections are untouched.
+    from shapely.geometry import LineString
+
+    from hydromodpy.solver.modflow6.builders.lake import build_lake_connectiondata
+
+    mesh = _masked_grid()
+    cen = mesh.cell_centroids()
+    body = cen[_LAKE_CELLS].mean(axis=0)
+    y_wall = float(min(cen[c][1] for c in _LAKE_CELLS)) - 0.01
+    wall = LineString([(float(body[0]) - 5.0, y_wall), (float(body[0]) + 5.0, y_wall)])
+
+    sealed = build_lake_connectiondata(
+        None,
+        lake_index=0,
+        lake_cell_ids=_LAKE_CELLS,
+        bedleak=0.5,
+        solver_mesh=mesh,
+        cutoff_wall_line=wall,
+    )
+    plain = _rows()
+
+    def horiz_neighbours(rows):
+        return {int(r[2][1]) for r in rows if r[3] == "HORIZONTAL"}
+
+    behind = {c for c in range(mesh.n_cells) if float(cen[c][1]) < y_wall}
+    # With the wall: no bank connection reaches a cell behind the dam.
+    assert horiz_neighbours(sealed).isdisjoint(behind)
+    # Without the wall: some behind cells ARE connected (the seal actually removed them).
+    assert horiz_neighbours(plain) & behind
+    # Vertical connections are unchanged by the seal.
+    n_vert = lambda rows: sum(1 for r in rows if r[3] == "VERTICAL")  # noqa: E731
+    assert n_vert(sealed) == n_vert(plain)
+
+
+def test_marnage_bank_seepage_adds_horizontal_to_vertical() -> None:
+    # A marnage (dynamic_area) lake keeps its cells ACTIVE with one VERTICAL bed
+    # connection each. With bank_seepage on it ALSO emits HORIZONTAL bank
+    # connections (bed + bank, the physical case); with it off it stays bed-only.
+    from hydromodpy.solver.modflow6.builders.lake import build_lake_connectiondata
+
+    mesh = _grid_4x4(nlay=2)  # active everywhere (marnage keeps lake cells active)
+
+    def types(bank: bool):
+        rows = build_lake_connectiondata(
+            None,
+            lake_index=0,
+            lake_cell_ids=_LAKE_CELLS,
+            bedleak=0.5,
+            solver_mesh=mesh,
+            dynamic_area=True,
+            bank_seepage=bank,
+        )
+        return sorted(r[3] for r in rows)
+
+    with_bank = types(True)
+    bed_only = types(False)
+    assert bed_only.count("VERTICAL") == len(_LAKE_CELLS)
+    assert "HORIZONTAL" not in bed_only  # bed-only marnage
+    assert with_bank.count("VERTICAL") == len(_LAKE_CELLS)
+    assert with_bank.count("HORIZONTAL") > 0  # bank added on top of the bed

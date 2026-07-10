@@ -264,6 +264,18 @@ class BathymetryReconstructionConfig(HydroModelBase):
             "runoff already covers the footprint area in a lumped, stage-static way."
         ),
     )
+    bank_seepage: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Also emit HORIZONTAL (bank) LAK connections on the active-littoral "
+            "footprint, in addition to the VERTICAL (bed) ones, so the lake exchanges "
+            "with the aquifer through both the bed AND the banks (the physical case). "
+            "Sealed at the cutoff wall (dam) when one is declared. Only applies with "
+            "dynamic_area = true; a fixed-area lake always emits both. Set False to "
+            "keep the bed-only marnage representation (the bedleak then absorbs the "
+            "bank contribution)."
+        ),
+    )
     min_thickness: Annotated[float, Profile.USER] = Field(
         default=0.5,
         gt=0.0,
