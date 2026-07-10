@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -52,11 +51,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--list-modules",
         action="store_true",
         help="List available module names and exit",
-    )
-    tpl.add_argument(
-        "--ui",
-        action="store_true",
-        help="Launch interactive Streamlit configuration editor",
     )
 
     chk = sub.add_parser("check", help="Validate a TOML against the Pydantic schema")
@@ -121,23 +115,6 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
     if getattr(args, "list_modules", False):
         for name in available_modules():
             print(name)
-        return
-
-    if getattr(args, "ui", False):
-        ui_module = Path(__file__).resolve().parents[3] / "reporting" / "streamlit_config.py"
-        cmd = [
-            sys.executable,
-            "-m",
-            "streamlit",
-            "run",
-            str(ui_module),
-            "--server.headless",
-            "true",
-        ]
-        if args.output:
-            cmd.extend(["--", "--load", str(args.output)])
-        print("Launching interactive config editor...")
-        subprocess.run(cmd)
         return
 
     output = getattr(args, "output", None)

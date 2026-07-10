@@ -2,7 +2,7 @@
 
 Field-level metadata primitives consumed by the Pydantic introspection layer
 to decide which fields show up in generated TOML templates, JSON schemas,
-and Streamlit forms.
+and generated forms.
 """
 
 from dataclasses import dataclass
