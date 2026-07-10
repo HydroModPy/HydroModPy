@@ -14,6 +14,8 @@ from hydromodpy.physics.flow.sinks_sources.sfr import (
 )
 from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
 from hydromodpy.solver.modflow6.builders.sfr import (
+    ResolvedSfrNetwork,
+    SfrReachRecord,
     build_drainage_mover_records,
     build_sfr_mover_records,
     build_sfr_obs_spec,
@@ -347,6 +349,188 @@ def test_drain_deconfliction_drops_reach_cells() -> None:
     assert remaining == set(range(25)) - cells
 
 
+def test_trace_reach_is_truncated_at_a_lake_cell() -> None:
+    # Once the DEM is hydro-conditioned, a stream routes THROUGH a lake; the reach
+    # must be cut at the lake footprint (no reach on a LAK cell) and the last dry
+    # reach flagged terminal-to-lake, tagged with that lake.
+    mesh = _mesh()
+    line = LineString([(5.0, 45.0), (45.0, 45.0)])  # straight west-east, top row
+    trace = SfrReachTrace(reaches=(_reach_row(0, line, rtp=95.0),), crs_wkt="")
+    model = _fake_model({"net0": _trace_payload(trace, outflow_to_lake=1)})
+    base = [r.cellid[1] for r in resolve_sfr_networks(model, solver_mesh=mesh)["net0"].reaches]
+    lake_cell = base[-1]  # the downstream-most cell becomes a lake cell
+    trunc = resolve_sfr_networks(model, solver_mesh=mesh, lake_cells_by_number={0: [lake_cell]})
+    cells = [r.cellid[1] for r in trunc["net0"].reaches if r.cellid is not None]
+    assert lake_cell not in cells  # no reach sits on the lake cell
+    assert len(cells) == len(base) - 1
+    terminals = [r for r in trunc["net0"].reaches if r.is_terminal_to_lake]
+    assert len(terminals) == 1
+    assert terminals[0].cellid[1] == base[-2]  # the last dry cell is the shoreline
+    assert terminals[0].terminal_lake == 1  # 0-based lake 0 -> 1-based tag
+
+
+def test_bare_outlet_routes_to_the_nearest_lake_cell() -> None:
+    # A lake-coupled network with a flagged shoreline tributary PLUS an unflagged bare
+    # outlet (the main stem dead-ending short of the flat forebay): the bare outlet
+    # hands its flow to the NEAREST lake cell, not EXT-OUTFLOW nor the far fallback.
+    flagged = SfrReachRecord(
+        ifno=0,
+        cellid=(0, 0),
+        rlen=10.0,
+        rwid=1.0,
+        rgrd=0.01,
+        rtp=95.0,
+        upstream=(),
+        downstream=(),
+        is_terminal_to_lake=True,
+        terminal_lake=1,
+    )
+    bare = SfrReachRecord(
+        ifno=1,
+        cellid=(0, 5),
+        rlen=10.0,
+        rwid=1.0,
+        rgrd=0.01,
+        rtp=95.0,
+        upstream=(),
+        downstream=(),
+        is_terminal_to_lake=False,
+    )
+    network = ResolvedSfrNetwork(
+        network_id="net0", reaches=(flagged, bare), definition={"outflow_to_lake": 1}
+    )
+    cell_centroids = np.zeros((11, 2), dtype=float)
+    cell_centroids[5] = (5.0, 0.0)  # the bare outlet reach
+    cell_centroids[6] = (6.0, 0.0)  # lake 1 cell (near the bare outlet)
+    cell_centroids[10] = (100.0, 0.0)  # lake 0 cell (far)
+    records = build_sfr_mover_records(
+        {"net0": network},
+        lake_cells_by_number={0: [10], 1: [6]},
+        cell_centroids=cell_centroids,
+    )
+    by_provider = {r.provider_id: r for r in records}
+    assert by_provider[0].receiver_id == 0  # flagged terminal_lake=1 -> 0-based lake 0
+    assert by_provider[1].receiver == "LAK"
+    assert by_provider[1].receiver_id == 1  # bare outlet -> nearest lake cell 6 = lake 1
+
+
+def _flagged_plus_bare(bare_xy: tuple[float, float]) -> tuple[dict, np.ndarray]:
+    flagged = SfrReachRecord(
+        ifno=0,
+        cellid=(0, 0),
+        rlen=10.0,
+        rwid=1.0,
+        rgrd=0.01,
+        rtp=95.0,
+        upstream=(),
+        downstream=(),
+        is_terminal_to_lake=True,
+        terminal_lake=1,
+    )
+    bare = SfrReachRecord(
+        ifno=1,
+        cellid=(0, 5),
+        rlen=10.0,
+        rwid=1.0,
+        rgrd=0.01,
+        rtp=95.0,
+        upstream=(),
+        downstream=(),
+        is_terminal_to_lake=False,
+    )
+    network = ResolvedSfrNetwork(
+        network_id="net0", reaches=(flagged, bare), definition={"outflow_to_lake": 1}
+    )
+    cc = np.zeros((11, 2), dtype=float)
+    cc[5] = bare_xy
+    cc[6] = (0.0, 0.0)  # lake 1 cell at the origin
+    cc[10] = (10_000.0, 0.0)  # lake 0 cell far away
+    return {"net0": network}, cc
+
+
+def test_bare_outlet_far_from_any_shoreline_is_not_teleported() -> None:
+    # A dead-end 400 m from the nearest lake cell (> the 300 m feeder snap) is not a
+    # feeder the DEM fell short on; teleporting it would drop an entry "in the void".
+    nets, cc = _flagged_plus_bare((400.0, 0.0))
+    records = build_sfr_mover_records(
+        nets, lake_cells_by_number={0: [10], 1: [6]}, cell_centroids=cc
+    )
+    assert all(r.provider_id != 1 for r in records)  # the bare outlet leaves the model
+
+
+def test_bare_outlet_near_the_model_outlet_is_not_teleported() -> None:
+    # A dead-end 50 m from a lake but right at the model outlet is the below-dam
+    # DISCHARGE reach; it leaves the model (the lake feeds it), never fed to the lake.
+    nets, cc = _flagged_plus_bare((50.0, 0.0))
+    records = build_sfr_mover_records(
+        nets,
+        lake_cells_by_number={0: [10], 1: [6]},
+        cell_centroids=cc,
+        outlet_xy=(60.0, 0.0),  # 10 m from the reach, well inside the 1000 m keepout
+    )
+    assert all(r.provider_id != 1 for r in records)
+
+
+def test_flagged_terminal_near_the_outlet_is_not_fed() -> None:
+    # A flagged shoreline terminal sitting at the model outlet is the below-dam
+    # DISCHARGE reach (the notch outflow reaching back into the footprint); it leaves
+    # the model, never fed to the lake -- regardless of its streambed elevation.
+    near_outlet = SfrReachRecord(
+        ifno=0,
+        cellid=(0, 0),
+        rlen=10.0,
+        rwid=1.0,
+        rgrd=0.01,
+        rtp=95.0,
+        upstream=(),
+        downstream=(),
+        is_terminal_to_lake=True,
+        terminal_lake=1,
+    )
+    network = ResolvedSfrNetwork(
+        network_id="net0", reaches=(near_outlet,), definition={"outflow_to_lake": 1}
+    )
+    cc = np.zeros((2, 2), dtype=float)
+    cc[0] = (0.0, 0.0)
+    records = build_sfr_mover_records(
+        {"net0": network},
+        lake_cells_by_number={0: [1]},
+        cell_centroids=cc,
+        outlet_xy=(5.0, 0.0),  # 5 m from the terminal, well inside the keepout
+    )
+    assert all(r.provider_id != 0 for r in records)
+
+
+def test_deep_feeder_far_from_outlet_is_fed() -> None:
+    # A shoreline feeder entering the reservoir at a LOW streambed (deep bathymetry) is
+    # still coupled: elevation is not the discriminator, distance to the outlet is. Far
+    # from the outlet -> a real feeder, fed to the lake.
+    feeder = SfrReachRecord(
+        ifno=0,
+        cellid=(0, 0),
+        rlen=10.0,
+        rwid=1.0,
+        rgrd=0.01,
+        rtp=58.0,  # deep bed
+        upstream=(),
+        downstream=(),
+        is_terminal_to_lake=True,
+        terminal_lake=1,
+    )
+    network = ResolvedSfrNetwork(
+        network_id="net0", reaches=(feeder,), definition={"outflow_to_lake": 1}
+    )
+    cc = np.zeros((2, 2), dtype=float)
+    cc[0] = (0.0, 0.0)
+    records = build_sfr_mover_records(
+        {"net0": network},
+        lake_cells_by_number={0: [1]},
+        cell_centroids=cc,
+        outlet_xy=(5000.0, 0.0),  # far from the outlet
+    )
+    assert any(r.provider_id == 0 and r.receiver == "LAK" for r in records)
+
+
 def test_mover_records_couple_terminal_reach_to_lake() -> None:
     mesh = _mesh()
     model = _fake_model(
@@ -487,23 +671,22 @@ def test_drainage_mover_records_are_empty_without_the_opt_in() -> None:
     assert records == []
 
 
-def test_drainage_near_the_lake_routes_to_the_lake_tributary() -> None:
-    # The network is truncated at the shoreline: a lakeside DRN cell has no
-    # local reach. Its water enters through the nearest TERMINAL reach (the
-    # lake's tributary), damped by the routing, never through a direct
-    # DRN -> LAK record (stiff same-iteration feedback at the spillway).
+def test_drainage_near_the_lake_routes_directly_to_the_lake() -> None:
+    # A lakeside DRN cell has no local reach (the network is truncated at the
+    # shoreline). It hands its drainage DIRECTLY to the nearest lake cell (a real
+    # DRN -> LAK mover), not through a distant terminal-reach proxy: the nearest
+    # target wins. A drain on the trace path still routes to its nearest reach.
     mesh = _mesh()
     model = _fake_model(
         {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
     )
     networks = resolve_sfr_networks(model, solver_mesh=mesh)
-    # Pretend the lake occupies the north-east corner cell, away from the
-    # diagonal trace; the neighbouring drain is closer to the lake than to any
-    # reach, the far drain sits on the trace's path.
+    # The lake occupies the north-east corner cell, away from the diagonal trace;
+    # the neighbouring drain is closer to the lake than to any reach.
     lake_cells = [24]
     drn_spd = {
         0: [
-            [0, 23, 100.0, 0.05],  # lakeside -> DRN -> LAK
+            [0, 23, 100.0, 0.05],  # lakeside -> DRN -> LAK (nearest lake cell)
             [0, 4, 100.0, 0.05],  # on the trace path -> nearest reach
         ]
     }
@@ -513,10 +696,8 @@ def test_drainage_near_the_lake_routes_to_the_lake_tributary() -> None:
         cell_centroids=mesh.cell_centroids(),
         lake_cells_by_number={0: lake_cells},
     )
-    assert [r.receiver for r in records] == ["SFR", "SFR"]
-    # The lakeside drain lands on the terminal-to-lake reach, not a far one.
-    terminal = max(reach.ifno for reach in networks["net0"].reaches)
-    assert records[0].receiver_id == terminal
+    assert [r.receiver for r in records] == ["LAK", "SFR"]
+    assert records[0].receiver_id == 0  # outflow_to_lake=1 -> 0-based lake number 0
 
 
 def test_drainage_mover_records_skip_buffer_cells_outside_the_watershed() -> None:
