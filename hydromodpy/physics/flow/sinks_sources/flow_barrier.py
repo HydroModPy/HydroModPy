@@ -44,27 +44,56 @@ class FlowBarrierConfig(HydroModelBase):
     underneath. The dam cutoff wall is the lake-derived use of this payload.
     """
 
+    auto: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Auto-place the dam cutoff wall (lakes only): the trace is derived at "
+            "bind time as the chord across the reservoir at its downstream neck "
+            "(the footprint point nearest the catchment outlet), perpendicular to "
+            "the outlet-flow direction. Mutually exclusive with line / line_path; "
+            "the mesh dam refinement then follows this auto axis too."
+        ),
+    )
     line: Annotated[list[tuple[float, float]] | None, Profile.USER] = Field(
         default=None,
         description=(
             "Inline barrier-trace vertices [(x, y), ...] in the project CRS. "
-            "Mutually exclusive with line_path."
+            "Mutually exclusive with line_path and auto."
         ),
     )
     line_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Vector file (gpkg / shp / GeoJSON) holding the barrier-trace polyline. "
-            "Alternative to line."
+            "Barrier-trace file: a vector polyline (gpkg / shp / GeoJSON) or a CSV of "
+            "ordered x,y (or lon,lat) vertices. A bare filename resolves against "
+            "<workspace>/data/cutoff_wall/. Alternative to line and auto."
         ),
     )
-    depths: Annotated[list[float], Profile.USER] = Field(
-        ...,
+    depths: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
         min_length=1,
         description=(
-            "Barrier depth below the model top [m]. One value is a uniform depth; "
-            "several are interpolated per vertex along the trace. The HFB blocks "
-            "every top layer down to this depth, so the flow dives underneath."
+            "Barrier depth [m] below the top (or below crest_elevation). One value is "
+            "uniform; several are interpolated per vertex along the trace. The HFB blocks "
+            "every layer down to this depth. Mutually exclusive with base_elevation."
+        ),
+    )
+    crest_elevation: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell "
+            "top (the DEM). Set it when the barrier crest sits below the DEM top."
+        ),
+    )
+    base_elevation: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Absolute BOTTOM elevation of the barrier [m, model datum]. When set, the HFB "
+            "spans [base_elevation, crest_elevation or top] and blocks EVERY layer in that "
+            "band. Use it to make a full-height dam impervious: the concrete body plus the "
+            "grout curtain block all flow from the crest down to the curtain foot (e.g. "
+            "base_elevation = 41 m), so nothing seeps across the dam above that. Mutually "
+            "exclusive with depths."
         ),
     )
     hydchr: Annotated[float | None, Profile.USER] = Field(
@@ -130,19 +159,35 @@ class FlowBarrierConfig(HydroModelBase):
 
     @field_validator("depths")
     @classmethod
-    def _validate_depths(cls, value: list[float]) -> list[float]:
-        """Every depth is a positive distance below the model top."""
-        if any(d <= 0.0 for d in value):
-            raise ValueError("flow barrier depths must be positive (metres below the model top).")
+    def _validate_depths(cls, value: list[float] | None) -> list[float] | None:
+        """Every depth is a positive distance below the top."""
+        if value is not None and any(d <= 0.0 for d in value):
+            raise ValueError("flow barrier depths must be positive (metres below the top).")
         return value
 
     @model_validator(mode="after")
+    def _validate_vertical_extent(self) -> FlowBarrierConfig:
+        """Exactly one way to set the barrier foot: a depth XOR an absolute base_elevation."""
+        if (self.depths is None) == (self.base_elevation is None):
+            raise ValueError(
+                "flow barrier needs exactly one vertical extent: set depths (below the top / "
+                "crest) or base_elevation (an absolute floor), not both and not neither."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _validate_geometry_source(self) -> FlowBarrierConfig:
-        """Exactly one geometry source: inline line XOR a vector file."""
+        """Exactly one geometry source: auto XOR inline line XOR a vector file."""
+        if self.auto:
+            if self.line is not None or self.line_path is not None:
+                raise ValueError(
+                    "flow barrier auto derives the trace; do not also set line or line_path."
+                )
+            return self
         if (self.line is None) == (self.line_path is None):
             raise ValueError(
-                "flow barrier needs exactly one geometry source: set line (inline "
-                "coordinates) or line_path (a vector file), not both."
+                "flow barrier needs exactly one geometry source: set auto, line (inline "
+                "coordinates), or line_path (a vector file)."
             )
         return self
 

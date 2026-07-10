@@ -1,9 +1,13 @@
-"""Map a barrier line onto the planar-mesh faces it crosses."""
+"""Map a barrier line onto the mesh faces it separates (a continuous cut).
+
+A cutoff wall is barred on the shared faces whose two cells the trace passes
+BETWEEN (its centroid-segment is crossed), so the barrier is a single connected
+fence with no leak paths, independent of the grid.
+"""
 
 from __future__ import annotations
 
 import numpy as np
-import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.cell_types import CellType
@@ -11,52 +15,80 @@ from hydromodpy.spatial.mesh.flow_barrier import barrier_faces_from_line
 from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
 
 
-def _row_of_quads() -> HydroMesh:
-    # Three unit quads in a row sharing vertical faces at x = 1 and x = 2.
-    vertices = np.array(
-        [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]], dtype=float
+def _quad_grid(nx: int, ny: int) -> HydroMesh:
+    """An ``nx`` by ``ny`` grid of unit quads; cell (i, j) has id ``j * nx + i``."""
+    verts = np.array([[i, j] for j in range(ny + 1) for i in range(nx + 1)], dtype=float)
+
+    def v(i: int, j: int) -> int:
+        return j * (nx + 1) + i
+
+    conn = np.array(
+        [
+            [v(i, j), v(i + 1, j), v(i + 1, j + 1), v(i, j + 1)]
+            for j in range(ny)
+            for i in range(nx)
+        ],
+        dtype=int,
     )
-    conn = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype=int)
-    return HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
+    return HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
 
 
-def test_line_crossing_both_interior_faces() -> None:
-    mesh = _row_of_quads()
-    faces = barrier_faces_from_line(mesh, LineString([(0.5, 0.5), (2.5, 0.5)]))
-    assert [(f.cell_a, f.cell_b) for f in faces] == [(0, 1), (1, 2)]
-    # ordered by line position
-    assert faces[0].s < faces[1].s
-    assert faces[0].s == 0.25
-    assert faces[1].s == 0.75
+def _n_components(faces, mesh: HydroMesh) -> int:
+    """Connected components of the graph formed by the barred faces' shared edges."""
+    conn = mesh.flat_connectivity
+
+    def edges(ci: int) -> set[tuple[int, int]]:
+        cell = [int(k) for k in conn[ci]]
+        return {tuple(sorted((cell[k], cell[(k + 1) % len(cell)]))) for k in range(len(cell))}
+
+    barred: set[tuple[int, int]] = set()
+    for f in faces:
+        barred |= edges(f.cell_a) & edges(f.cell_b)
+    adj: dict[int, set[int]] = {}
+    for a, b in barred:
+        adj.setdefault(a, set()).add(b)
+        adj.setdefault(b, set()).add(a)
+    seen: set[int] = set()
+    comps = 0
+    for start in adj:
+        if start in seen:
+            continue
+        comps += 1
+        stack = [start]
+        while stack:
+            u = stack.pop()
+            if u in seen:
+                continue
+            seen.add(u)
+            stack.extend(adj[u])
+    return comps
 
 
-def test_partial_line_crosses_one_face() -> None:
-    mesh = _row_of_quads()
-    faces = barrier_faces_from_line(mesh, LineString([(0.5, 0.5), (1.5, 0.5)]))
-    assert [(f.cell_a, f.cell_b) for f in faces] == [(0, 1)]
+def test_cutting_line_bars_a_connected_chain_of_faces() -> None:
+    # A near-vertical trace across a 2x3 grid separates the left column from the
+    # right one at every row: the barred faces are a single connected fence.
+    mesh = _quad_grid(2, 3)
+    faces = barrier_faces_from_line(mesh, LineString([(1.01, -0.5), (1.01, 3.5)]))
+    assert {(f.cell_a, f.cell_b) for f in faces} == {(0, 1), (2, 3), (4, 5)}
+    assert _n_components(faces, mesh) == 1
 
 
-def test_line_missing_all_interior_faces() -> None:
-    mesh = _row_of_quads()
-    # A line entirely inside one cell crosses no shared face.
+def test_only_faces_the_trace_separates_are_barred() -> None:
+    # A near-horizontal trace between row 0 and row 1 bars exactly those two faces.
+    mesh = _quad_grid(2, 3)
+    faces = barrier_faces_from_line(mesh, LineString([(-0.5, 1.01), (2.5, 1.01)]))
+    assert {(f.cell_a, f.cell_b) for f in faces} == {(0, 2), (1, 3)}
+    assert _n_components(faces, mesh) == 1
+
+
+def test_faces_are_ordered_along_the_line() -> None:
+    mesh = _quad_grid(2, 3)
+    faces = barrier_faces_from_line(mesh, LineString([(1.01, -0.5), (1.01, 3.5)]))
+    stations = [f.s for f in faces]
+    assert stations == sorted(stations)
+    assert all(0.0 <= s <= 1.0 for s in stations)
+
+
+def test_line_inside_one_cell_bars_nothing() -> None:
+    mesh = _quad_grid(2, 3)
     assert barrier_faces_from_line(mesh, LineString([(0.2, 0.2), (0.8, 0.8)])) == []
-
-
-def test_trace_collinear_with_a_mesh_edge_raises() -> None:
-    mesh = _row_of_quads()
-    # A trace running along the shared face x = 1 is geometrically ambiguous.
-    with pytest.raises(ValueError, match="collinear"):
-        barrier_faces_from_line(mesh, LineString([(1.0, 0.0), (1.0, 1.0)]))
-
-
-def test_zigzag_crossing_the_same_face_twice_keeps_the_face_once() -> None:
-    mesh = _row_of_quads()
-    # Re-crosses the x = 1 face (MultiPoint intersection); the face must survive.
-    faces = barrier_faces_from_line(mesh, LineString([(0.5, 0.2), (1.5, 0.5), (0.5, 0.8)]))
-    assert [(f.cell_a, f.cell_b) for f in faces] == [(0, 1)]
-
-
-def test_line_ending_on_a_face_is_not_a_barrier() -> None:
-    mesh = _row_of_quads()
-    # Stops on the x = 1 face without entering cell 1: a touch, not a crossing.
-    assert barrier_faces_from_line(mesh, LineString([(0.5, 0.5), (1.0, 0.5)])) == []

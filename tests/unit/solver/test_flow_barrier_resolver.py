@@ -24,18 +24,28 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.cell_types import CellType
 from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
 
+# A near-vertical trace across the 2x2 grid bars the connected faces (0, 1) and (2, 3).
+_CUT_COORDS = [[1.01, -0.5], [1.01, 2.5]]
+_CUT_LINE = LineString([(1.01, -0.5), (1.01, 2.5)])
 
-def _two_layer_row() -> SolverMesh:
-    vertices = np.array(
-        [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]], dtype=float
+
+def _two_layer_grid() -> SolverMesh:
+    # 2x2 unit quads (c0=(0,0), c1=(1,0), c2=(0,1), c3=(1,1)); top = 10, two 5 m layers.
+    verts = np.array([[i, j] for j in range(3) for i in range(3)], dtype=float)
+
+    def v(i: int, j: int) -> int:
+        return j * 3 + i
+
+    conn = np.array(
+        [[v(i, j), v(i + 1, j), v(i + 1, j + 1), v(i, j + 1)] for j in range(2) for i in range(2)],
+        dtype=int,
     )
-    conn = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype=int)
-    mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
+    mesh = HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
     return SolverMesh(
         planar_mesh=mesh,
-        top=np.full(3, 10.0),
-        botm=np.array([[5.0, 5.0, 5.0], [0.0, 0.0, 0.0]]),
-        inactive_mask=np.zeros((2, 3), dtype=bool),
+        top=np.full(4, 10.0),
+        botm=np.array([[5.0] * 4, [0.0] * 4]),
+        inactive_mask=np.zeros((2, 4), dtype=bool),
     )
 
 
@@ -44,10 +54,10 @@ def _model(sinks_sources: dict) -> SimpleNamespace:
 
 
 def test_resolver_builds_rows_for_a_bound_cutoff_wall() -> None:
-    wall = FlowBarrierConfig(line=[[0.5, 0.5], [2.5, 0.5]], depths=[7.0], hydchr=1e-9)
-    payload = {"cutoff_wall": wall, "cutoff_wall_line": LineString([(0.5, 0.5), (2.5, 0.5)])}
+    wall = FlowBarrierConfig(line=_CUT_COORDS, depths=[7.0], hydchr=1e-9)
+    payload = {"cutoff_wall": wall, "cutoff_wall_line": _CUT_LINE}
     rows = resolve_flow_barrier_hfb_rows(
-        _model({"lakes": {"reservoir": payload}}), _two_layer_row()
+        _model({"lakes": {"reservoir": payload}}), _two_layer_grid()
     )
     assert len(rows) == 4  # depth 7 m spans both 5 m layers across the two faces
     assert sorted({r[0][0] for r in rows}) == [0, 1]
@@ -55,28 +65,28 @@ def test_resolver_builds_rows_for_a_bound_cutoff_wall() -> None:
 
 
 def test_resolver_builds_rows_for_a_general_flow_barrier() -> None:
-    barrier = FlowBarrierConfig(line=[[0.5, 0.5], [2.5, 0.5]], depths=[4.0], hydchr=1e-9)
-    payload = {"barrier": barrier, "line": LineString([(0.5, 0.5), (2.5, 0.5)])}
+    barrier = FlowBarrierConfig(line=_CUT_COORDS, depths=[4.0], hydchr=1e-9)
+    payload = {"barrier": barrier, "line": _CUT_LINE}
     rows = resolve_flow_barrier_hfb_rows(
-        _model({"flow_barriers": {"wall_a": payload}}), _two_layer_row()
+        _model({"flow_barriers": {"wall_a": payload}}), _two_layer_grid()
     )
     # depth 4 m stays in the top 5 m layer only => 2 faces, layer 0 only.
     assert sorted({r[0][0] for r in rows}) == [0]
-    assert sorted({(r[0][1], r[1][1]) for r in rows}) == [(0, 1), (1, 2)]
+    assert sorted({(r[0][1], r[1][1]) for r in rows}) == [(0, 1), (2, 3)]
 
 
 def test_resolver_is_empty_without_a_barrier() -> None:
     rows = resolve_flow_barrier_hfb_rows(
-        _model({"lakes": {"reservoir": {"bedleak": 1e-6}}}), _two_layer_row()
+        _model({"lakes": {"reservoir": {"bedleak": 1e-6}}}), _two_layer_grid()
     )
     assert rows == []
 
 
 def test_resolver_raises_when_barrier_declared_but_not_bound() -> None:
-    barrier = FlowBarrierConfig(line=[[0.5, 0.5], [2.5, 0.5]], depths=[7.0], hydchr=1e-9)
+    barrier = FlowBarrierConfig(line=_CUT_COORDS, depths=[7.0], hydchr=1e-9)
     model = _model({"flow_barriers": {"wall_a": {"barrier": barrier}}})  # no line
     with pytest.raises(ValueError, match="not resolved"):
-        resolve_flow_barrier_hfb_rows(model, _two_layer_row())
+        resolve_flow_barrier_hfb_rows(model, _two_layer_grid())
 
 
 def test_binder_to_resolver_chain_for_lake_and_general() -> None:
@@ -84,15 +94,15 @@ def test_binder_to_resolver_chain_for_lake_and_general() -> None:
         {
             "bedleak": 1e-6,
             "stageinit": "8 m",
-            "cutoff_wall": {"line": [[0.5, 0.5], [2.5, 0.5]], "depths": [4.0], "hydchr": 1e-9},
+            "cutoff_wall": {"line": _CUT_COORDS, "depths": [4.0], "hydchr": 1e-9},
         }
     )
-    barrier = FlowBarrierConfig(line=[[0.5, 0.5], [2.5, 0.5]], depths=[7.0], hydchr=1e-9)
+    barrier = FlowBarrierConfig(line=_CUT_COORDS, depths=[7.0], hydchr=1e-9)
     flow = SimpleNamespace(
         sinks_sources={"lakes": {"reservoir": lake}, "flow_barriers": {"wall_a": barrier}}
     )
     apply_cutoff_wall_to_flow(flow=flow)
     apply_flow_barriers_to_flow(flow=flow)
-    rows = resolve_flow_barrier_hfb_rows(SimpleNamespace(flow=flow), _two_layer_row())
+    rows = resolve_flow_barrier_hfb_rows(SimpleNamespace(flow=flow), _two_layer_grid())
     # lake wall (depth 4 -> layer 0, 2 faces) + general barrier (depth 7 -> 2 layers, 4 rows)
     assert len(rows) == 2 + 4
