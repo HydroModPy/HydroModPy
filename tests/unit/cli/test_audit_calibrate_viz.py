@@ -124,11 +124,13 @@ def test_audit_prune_missing_workspace_maps_to_not_found(monkeypatch, capsys) ->
     assert "missing catalog" in capsys.readouterr().err
 
 
-def test_viz_family_help_lists_serve(monkeypatch, capsys) -> None:
+def test_viz_family_help_lists_actions(monkeypatch, capsys) -> None:
     code = _run(monkeypatch, ["hmp", "viz", "--help"])
     assert code == 0
     out = capsys.readouterr().out
-    assert "serve" in out
+    assert "show" in out
+    assert "gallery" in out
+    assert "serve" not in out
 
 
 def test_report_render_calls_api_and_opens_browser_after_success(
