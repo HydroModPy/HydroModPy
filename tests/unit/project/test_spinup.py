@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
 from hydromodpy.project.spinup import cycle_delta, run_spinup
 from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.modflow6.builders.initial_conditions import read_final_head
@@ -75,13 +76,15 @@ class _StubProject:
             store=SimpleNamespace(zarr_path_for=lambda sid: self._by_sid[sid])
         )
         self.simulated_restart_from: list[str | None] = []
+        self.simulated_ic_type: list[str] = []
 
     def prepare(self):
         return self
 
     def simulate(self, *, name: str):
-        # Record what restart_from the driver injected for this cycle.
+        # Record the restart_from and IC type the driver set for this cycle.
         self.simulated_restart_from.append(self.config.flow.restart_from)
+        self.simulated_ic_type.append(self.config.flow.ic.h.type)
         path = self._cycle_zarrs[self._i]
         self._i += 1
         sid = f"sid::{name}"
@@ -128,3 +131,24 @@ def test_run_spinup_stops_at_max_cycles_without_converging(tmp_path: Path) -> No
     assert result.converged is False
     assert result.n_cycles == 3
     assert result.restart_from == zarrs[2]
+
+
+def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None:
+    """Cycles >= 1 flip a steady_state IC to top so the steady pre-solve cannot
+    clobber the restarted heads; cycle 0 keeps the original steady IC."""
+    zarrs = [
+        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0]], {"lac0": 80.0}),
+        _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
+        _write_cycle_zarr(tmp_path / "c2.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
+    ]
+    cfg = _stub_config()
+    cfg.flow.ic = FlowInitialConditions.model_validate({"type": "steady_state"})
+    project = _StubProject(cfg, zarrs)
+
+    run_spinup(project, spinup=SpinupConfig(max_cycles=3, tol_head=0.01, tol_stage=0.01))
+
+    # Cycle 0 ran with the original steady IC; every restarted cycle used top.
+    assert project.simulated_ic_type[0] == "steady_state"
+    assert project.simulated_ic_type[1:] == ["top", "top"]
+    # And each restarted cycle carried the prior cycle's Zarr as restart_from.
+    assert project.simulated_restart_from == [None, zarrs[0], zarrs[1]]
