@@ -277,6 +277,7 @@ Use these pages once you have generated or opened result pages:
    catchment-report
    project-api
    solvers
+   initialization
    modflow6-prt
    modflow6-lake
    modflow6-sfr
