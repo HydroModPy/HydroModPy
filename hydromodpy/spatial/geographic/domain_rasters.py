@@ -74,9 +74,6 @@ def _export_reshaped_rasters(
         (paths.watershed_box_buff_dem, paths.watershed_buff_dem, -9999),
         (paths.watershed_box_buff_fill, paths.watershed_buff_fill, -9999),
         (paths.watershed_box_buff_direc, paths.watershed_buff_direc, -32768),
-        (paths.watershed_box_buff_dem, paths.watershed_box_buff_dem, -9999),
-        (paths.watershed_box_buff_fill, paths.watershed_box_buff_fill, -9999),
-        (paths.watershed_box_buff_direc, paths.watershed_box_buff_direc, -32768),
     ]
     for src_path, dst_path, nodata in jobs:
         with rasterio.open(src_path) as src:
@@ -230,7 +227,8 @@ def build_domain_rasters(
         rasterio.open(paths.watershed_buff_dem) as src2,
         rasterio.open(paths.watershed_dem) as src3,
     ):
-        if src1.read(1).shape != src2.read(1).shape != src3.read(1).shape:
+        s1, s2, s3 = src1.read(1).shape, src2.read(1).shape, src3.read(1).shape
+        if not (s1 == s2 == s3):
             _export_reshaped_rasters(paths=paths)
 
     return DomainRasterProducts(
