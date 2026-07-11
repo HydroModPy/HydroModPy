@@ -17,11 +17,33 @@ import pytest
 
 from hydromodpy.calibration.objective import (
     CompositeObjective,
+    ConfigBlockObjective,
     ObjectiveValue,
     ObservationSet,
     ScalarObjective,
     SimulationOutput,
 )
+
+
+def test_config_block_warmup_drops_leading_periods_per_output() -> None:
+    """burn_in slices the first ``warmup`` periods of EACH output, not the concat."""
+    # Leading two periods are wrong in BOTH outputs; the rest match exactly.
+    observed = {"a": [100.0, 100.0, 3.0, 4.0, 5.0], "b": [100.0, 100.0, 30.0, 40.0, 50.0]}
+    sim = {"a": [1.0, 2.0, 3.0, 4.0, 5.0], "b": [10.0, 20.0, 30.0, 40.0, 50.0]}
+
+    warmed = ConfigBlockObjective(
+        name="x", metric="nse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=2
+    ).evaluate(sim)
+    plain = ConfigBlockObjective(
+        name="x", metric="nse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=0
+    ).evaluate(sim)
+
+    # Per-output warmup drops the bad leading periods of both series -> perfect fit.
+    # A slice of the concatenated array would keep b's bad leading periods -> nonzero.
+    assert warmed.total == pytest.approx(0.0, abs=1e-9)
+    assert plain.total > 0.1
+    assert warmed.components["x.n_values"] == 6.0  # (5 - 2) periods x 2 outputs
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
