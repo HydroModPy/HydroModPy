@@ -262,6 +262,23 @@ class TopSamplingConfig(HydroModelBase):
             "channel top never collides with the aquifer bottom."
         ),
     )
+    network_safety_net: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Before the priority-flood fill, carve the channel cells into a monotone "
+            "descending thalweg (lower-only) and pin them so the fill never raises "
+            "them. Fixes the fill re-raising a zonal-lowered channel; needs a channel "
+            "source (mode='zonal' with channel_source!='none'). Off by default."
+        ),
+    )
+    max_channel_lowering_m: Annotated[float, Profile.DEV] = Field(
+        default=5.0,
+        ge=0.0,
+        description=(
+            "Cap (m) on how far the network safety net may carve a single channel "
+            "cell below its sampled top."
+        ),
+    )
 
 
 class SolverSGridConfig(HydroModelBase):

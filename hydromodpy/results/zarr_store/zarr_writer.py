@@ -168,11 +168,16 @@ def write_mesh(
     source_cell_indices: np.ndarray | None = None,
     topography: np.ndarray | None = None,
     *,
+    topography_reference: np.ndarray | None = None,
     start_index: int = 0,
     grid_type: str | None = None,
     structured_shape: tuple[int, int] | None = None,
 ) -> None:
-    """Write the UGRID-1.0 mesh group, including the optional topography array."""
+    """Write the UGRID-1.0 mesh group, including the optional topography array.
+
+    ``topography_reference`` (the pre-conditioning per-face top) is stored beside
+    ``topography`` so the conditioning-impact map can render their difference.
+    """
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
         _write_array(
@@ -218,6 +223,17 @@ def write_mesh(
                 store_obj, mesh, "topography", np.asarray(topography, dtype="float64")
             )
             update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
+        if topography_reference is not None:
+            _write_array(
+                store_obj,
+                mesh,
+                "topography_reference",
+                np.asarray(topography_reference, dtype="float64"),
+                attrs={
+                    "long_name": "Pre-conditioning model top per face",
+                    "units": "m",
+                },
+            )
 
         mesh_attrs: dict[str, object] = {
             "start_index": int(start_index),

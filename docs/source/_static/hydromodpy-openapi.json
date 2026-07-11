@@ -20853,6 +20853,27 @@
             "title": "Min Thickness M",
             "type": "number",
             "x-hmp-profile": "dev"
+          },
+          "network_safety_net": {
+            "default": false,
+            "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with channel_source!='none'). Off by default.",
+            "examples": [
+              false
+            ],
+            "title": "Network Safety Net",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "max_channel_lowering_m": {
+            "default": 5.0,
+            "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top.",
+            "examples": [
+              5.0
+            ],
+            "minimum": 0.0,
+            "title": "Max Channel Lowering M",
+            "type": "number",
+            "x-hmp-profile": "dev"
           }
         },
         "title": "TopSamplingConfig",

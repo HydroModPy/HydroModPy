@@ -25,6 +25,10 @@ class Mesh:
     vertices: np.ndarray
     face_node_connectivity: np.ndarray
     z_interfaces: np.ndarray
+    topography: np.ndarray | None = None
+    """Per-face model top (conditioned), when persisted in the mesh group."""
+    topography_reference: np.ndarray | None = None
+    """Per-face model top BEFORE conditioning, when persisted (for the impact map)."""
 
 
 @dataclass(frozen=True, slots=True)
