@@ -164,6 +164,10 @@ def _compute_seepage_mask(
     source; otherwise MODFLOW-style runs use ``watertable >= topography``.
     """
     with _zarr_root(store, sim_id) as grp:
+        existing = grp.get("derived")
+        if existing is not None and "seepage_mask" in existing:
+            logger.debug("seepage_mask already present, skipping recompute for sim %s", sim_id)
+            return
         if "mesh" not in grp:
             logger.debug("No mesh data, skipping seepage_mask for sim %s", sim_id)
             return
