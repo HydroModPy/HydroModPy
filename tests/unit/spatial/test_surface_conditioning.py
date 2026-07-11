@@ -9,6 +9,7 @@ from hydromodpy.spatial.mesh.surface_conditioning import (
     SurfaceConditioningInput,
     accumulation_budget,
     boundary_cells,
+    breach_channel_corridor,
     classify_depressions,
     condition_surface_top,
     steepest_descent_accumulation,
@@ -113,3 +114,56 @@ def test_input_top_is_not_mutated():
     original = top.copy()
     condition_surface_top(_base_input(top), epsilon=1e-3)
     np.testing.assert_array_equal(np.nan_to_num(top), np.nan_to_num(original))
+
+
+# -- Channel breach (network safety net) --------------------------------------
+
+# Channel chain 0-1-2-3 draining right to outlet 3; cell 1 is a local low.
+_CH_ADJ = [{1}, {0, 2}, {1, 3}, {2}]
+
+
+def test_breach_carves_a_local_low_monotone():
+    top = np.array([10.0, 8.0, 9.0, 5.0])  # 1 (8) sits below its downstream 2 (9)
+    carved, info = breach_channel_corridor(
+        top, adjacency=_CH_ADJ, channel_cells=[0, 1, 2, 3], outlet_cells=[3], epsilon=0.1
+    )
+    assert all(carved[i] > carved[i + 1] for i in range(3))  # strictly descending
+    assert carved[2] == pytest.approx(7.9)  # 2 lowered below 1 by epsilon
+    assert info["cells_lowered"] == 1
+
+
+def test_breach_leaves_a_descending_channel_untouched():
+    top = np.array([10.0, 8.0, 6.0, 4.0])
+    carved, info = breach_channel_corridor(
+        top, adjacency=_CH_ADJ, channel_cells=[0, 1, 2, 3], outlet_cells=[3], epsilon=0.1
+    )
+    np.testing.assert_array_equal(carved, top)
+    assert info["cells_lowered"] == 0
+
+
+def test_breach_never_raises_and_respects_the_cap():
+    top = np.array([10.0, 8.0, 20.0, 5.0])  # 2 is a big barrier above 1
+    carved, _ = breach_channel_corridor(
+        top,
+        adjacency=_CH_ADJ,
+        channel_cells=[0, 1, 2, 3],
+        outlet_cells=[3],
+        epsilon=0.1,
+        max_lowering_m=2.0,
+    )
+    assert (carved <= top + 1e-12).all()  # lower-only
+    assert carved[2] == pytest.approx(18.0)  # capped at top-2.0, not down to 7.9
+
+
+def test_breach_floor_blocks_overcarving():
+    top = np.array([10.0, 8.0, 9.0, 5.0])
+    floor = np.array([-1.0, -1.0, 8.5, -1.0])  # cell 2 cannot go below 8.5
+    carved, _ = breach_channel_corridor(
+        top,
+        adjacency=_CH_ADJ,
+        channel_cells=[0, 1, 2, 3],
+        outlet_cells=[3],
+        floor=floor,
+        epsilon=0.1,
+    )
+    assert carved[2] == pytest.approx(8.5)  # floor wins over need (7.9)

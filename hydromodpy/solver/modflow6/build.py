@@ -316,6 +316,49 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
     return mask
 
 
+def _resolve_channel_cells_for_breach(model, solver_mesh) -> set[int] | None:
+    """Channel cell ids for the network-safety-net breach, else None.
+
+    Enabled only when ``sgrid.top_sampling.network_safety_net`` is set. Reuses the
+    zonal channel pixel mask (aligned to the model-top DEM) and maps it to the
+    runtime mesh cells that hold at least one channel pixel.
+    """
+    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
+    top_sampling = getattr(sgrid_cfg, "top_sampling", None)
+    if top_sampling is None or not getattr(top_sampling, "network_safety_net", False):
+        return None
+    mask = _resolve_channel_mask_for_zonal(model)
+    if mask is None:
+        return None
+    support = getattr(getattr(model.domain, "surface_topo", None), "support", None)
+    if support is None:
+        return None
+
+    from rasterio.transform import from_bounds
+
+    from hydromodpy.spatial.mesh.zonal_stats import rasterize_cell_ids
+
+    transform = from_bounds(
+        float(support.xmin),
+        float(support.ymin),
+        float(support.xmax),
+        float(support.ymax),
+        int(support.ncols),
+        int(support.nrows),
+    )
+    labels = rasterize_cell_ids(
+        solver_mesh.planar_mesh,
+        transform=transform,
+        out_shape=(int(support.nrows), int(support.ncols)),
+    )
+    channel_labels = labels[np.asarray(mask, dtype=bool)]
+    cells = {int(c) for c in np.unique(channel_labels) if c >= 0}
+    logger.info(
+        "Network safety net: %d channel cells to breach into a monotone thalweg.", len(cells)
+    )
+    return cells
+
+
 def xt3d_requested(model) -> bool | None:
     """Return the configured XT3D override."""
     return xt3d_requested_value(model)
@@ -689,10 +732,13 @@ def run_pre_processing(  # noqa: PLR0915
         # already inactive (skipped); the ones that matter here are the active
         # marnage cells whose carved bed would otherwise flood to its spill level.
         lake_cells = {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
+        top_sampling = getattr(sgrid_cfg, "top_sampling", None)
         solver_mesh, cond_info = condition_solver_mesh_top(
             solver_mesh,
             getattr(model, "runtime_mesh_support", None),
             protected_cells=lake_cells,
+            channel_cells=_resolve_channel_cells_for_breach(model, solver_mesh),
+            max_channel_lowering_m=float(getattr(top_sampling, "max_channel_lowering_m", 5.0)),
             epsilon=float(getattr(sgrid_cfg, "condition_top_epsilon", 1e-3)),
         )
         model.solver_mesh = solver_mesh

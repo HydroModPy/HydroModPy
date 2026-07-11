@@ -8,6 +8,7 @@ that extracts them from its native discretization and writes the top back.
 
 from __future__ import annotations
 
+from hydromodpy.spatial.mesh.surface_conditioning.breach import breach_channel_corridor
 from hydromodpy.spatial.mesh.surface_conditioning.contract import (
     SurfaceConditioningInput,
     SurfaceConditioningResult,
@@ -25,6 +26,7 @@ __all__ = [
     "SurfaceConditioningResult",
     "accumulation_budget",
     "boundary_cells",
+    "breach_channel_corridor",
     "classify_depressions",
     "condition_surface_top",
     "steepest_descent_accumulation",

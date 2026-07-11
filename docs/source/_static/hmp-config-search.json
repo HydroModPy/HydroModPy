@@ -13642,7 +13642,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L270",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -13702,7 +13702,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L291",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -13774,7 +13774,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-grid-dual",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L295",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
   },
   {
@@ -13786,7 +13786,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-condition-top",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L288",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L305",
     "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
   },
   {
@@ -13798,7 +13798,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-condition-top-epsilon",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L301",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L318",
     "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
@@ -13810,7 +13810,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L310",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L327",
     "description": "How the runtime-mesh top is sampled from the DEM before conditioning."
   },
   {
@@ -13908,6 +13908,30 @@
     "page": "modflownwt.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L257",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
+  },
+  {
+    "path": "modflownwt.sgrid.top_sampling.network_safety_net",
+    "name": "network_safety_net",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "modflownwt",
+    "anchor": "modflownwt-sgrid-top-sampling-network-safety-net",
+    "page": "modflownwt.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L265",
+    "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
+  },
+  {
+    "path": "modflownwt.sgrid.top_sampling.max_channel_lowering_m",
+    "name": "max_channel_lowering_m",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "modflownwt",
+    "anchor": "modflownwt-sgrid-top-sampling-max-channel-lowering-m",
+    "page": "modflownwt.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L274",
+    "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {
     "path": "modflownwt.tgrid",
@@ -14410,7 +14434,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L270",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -14470,7 +14494,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L291",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -14542,7 +14566,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-grid-dual",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L295",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
   },
   {
@@ -14554,7 +14578,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-condition-top",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L288",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L305",
     "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
   },
   {
@@ -14566,7 +14590,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-condition-top-epsilon",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L301",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L318",
     "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
@@ -14578,7 +14602,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L310",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L327",
     "description": "How the runtime-mesh top is sampled from the DEM before conditioning."
   },
   {
@@ -14676,6 +14700,30 @@
     "page": "modflow6.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L257",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
+  },
+  {
+    "path": "modflow6.sgrid.top_sampling.network_safety_net",
+    "name": "network_safety_net",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-sgrid-top-sampling-network-safety-net",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L265",
+    "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
+  },
+  {
+    "path": "modflow6.sgrid.top_sampling.max_channel_lowering_m",
+    "name": "max_channel_lowering_m",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-sgrid-top-sampling-max-channel-lowering-m",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L274",
+    "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {
     "path": "display.enabled",
