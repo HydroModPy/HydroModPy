@@ -733,6 +733,7 @@ def run_pre_processing(  # noqa: PLR0915
         # marnage cells whose carved bed would otherwise flood to its spill level.
         lake_cells = {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
         top_sampling = getattr(sgrid_cfg, "top_sampling", None)
+        top_pre_conditioning = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()
         solver_mesh, cond_info = condition_solver_mesh_top(
             solver_mesh,
             getattr(model, "runtime_mesh_support", None),
@@ -742,6 +743,15 @@ def run_pre_processing(  # noqa: PLR0915
             epsilon=float(getattr(sgrid_cfg, "condition_top_epsilon", 1e-3)),
         )
         model.solver_mesh = solver_mesh
+        # Sidecar the pre-conditioning top so the flow extractor persists it beside
+        # the conditioned topography for the conditioning-impact map.
+        try:
+            np.save(
+                os.path.join(model.full_path, f"{model.model_output_name}.conditioning_ref.npy"),
+                top_pre_conditioning,
+            )
+        except OSError:
+            logger.debug("Could not write conditioning reference sidecar", exc_info=True)
         if cond_info["unreached_active"]:
             logger.warning(
                 "Mesh top conditioning could not drain %d active cells (no mesh face "

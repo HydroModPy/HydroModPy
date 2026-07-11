@@ -694,6 +694,15 @@ class Modflow6OutputAdapter:
                 and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
             ):
                 structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
+            # Pre-conditioning top (written by the builder as a sidecar) lets the
+            # conditioning-impact map show how much the fill/breach moved the top.
+            topography_reference = None
+            ref_files = list(solver_output_dir.glob("*.conditioning_ref.npy"))
+            if ref_files:
+                ref = np.asarray(np.load(ref_files[0]), dtype="float64").ravel()[:n_cells]
+                if ref.size == top.size:
+                    topography_reference = ref
+
             sz = store.open_zarr(sim_id)
             try:
                 sz.write_mesh(
@@ -701,6 +710,7 @@ class Modflow6OutputAdapter:
                     face_node_connectivity=face_node_connectivity,
                     z_interfaces=z_flat,
                     topography=top,
+                    topography_reference=topography_reference,
                     grid_type=grid_type,
                     structured_shape=structured_shape,
                 )
