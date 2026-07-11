@@ -797,46 +797,68 @@ def build_drainage_mover_records(
         else np.empty((0, 2), dtype=float)
     )
 
-    records: list[MoverRecord] = []
+    reach_ids_arr = np.asarray(reach_ids, dtype=int)
+    lake_ids_arr = np.asarray(lake_target_ids, dtype=int)
+
     rows = next(iter(drn_spd.values()))
-    for boundary_index, row in enumerate(rows):
-        cell2d = int(row[1])
-        if watershed_cell_mask is not None and not bool(watershed_cell_mask[cell2d]):
-            # Buffer cell: its hillslope drainage belongs to a neighbouring basin
-            # and leaves the model as a plain DRN, so no MVR record. The boundary
-            # index still tracks the row position, keeping the other providers aligned.
-            continue
-        drn_elev = float(row[2])
-        here = cell_centroids[cell2d]
-        best_d2 = np.inf
-        best: tuple[str, int] | None = None
-        if reach_cells:
-            rd2 = ((reach_xy - here) ** 2).sum(axis=1)
-            # Only reaches the drain can flow DOWN to (streambed at/below the drain
-            # surface); fall back to the nearest reach when none is downslope.
-            pool = np.where(reach_rtp_arr <= drn_elev + _DRAIN_ROUTE_TOL_M)[0]
-            if pool.size == 0:
-                pool = np.arange(len(reach_cells))
-            k = int(pool[np.argmin(rd2[pool])])
-            best_d2 = float(rd2[k])
-            best = (_SFR_PACKAGE_NAME, reach_ids[k])
-        if lake_target_cells:
-            ld2 = ((lake_xy - here) ** 2).sum(axis=1)
-            k = int(np.argmin(ld2))
-            if float(ld2[k]) < best_d2:
-                best = (_LAK_PACKAGE_NAME, lake_target_ids[k])
-        if best is None:
-            continue
-        records.append(
-            MoverRecord(
-                provider="DRN",
-                provider_id=int(boundary_index),
-                receiver=best[0],
-                receiver_id=int(best[1]),
-                mvrtype="FACTOR",
-                value=1.0,
+    drn_cells = np.array([int(r[1]) for r in rows], dtype=int)
+    drn_elev = np.array([float(r[2]) for r in rows], dtype=float)
+    if watershed_cell_mask is not None:
+        # Buffer cells drain to a neighbouring basin and leave the model as a plain
+        # DRN (no MVR record). Their row index is dropped here; the surviving
+        # provider_id still equals the original boundary index, so the other
+        # providers stay aligned.
+        keep = np.where(np.asarray(watershed_cell_mask, dtype=bool)[drn_cells])[0]
+    else:
+        keep = np.arange(drn_cells.shape[0])
+
+    n_reach = len(reach_cells)
+    n_lake = len(lake_target_cells)
+    records: list[MoverRecord] = []
+    # Batched nearest target per in-watershed DRN cell: identical result to a per-row
+    # argmin, fewer Python iterations. The downslope gate (rtp <= drn_elev + tol) is
+    # per row, so it masks the reach distances before the argmin, with fallback to the
+    # nearest reach when none is downslope; a lake wins only on a strictly smaller
+    # distance. Chunked so the (rows x targets) distance block stays bounded.
+    chunk = max(1, 4_000_000 // max(1, n_reach + n_lake))
+    for start in range(0, keep.shape[0], chunk):
+        idx = keep[start : start + chunk]
+        here = cell_centroids[drn_cells[idx]]
+        n = here.shape[0]
+        best_d2 = np.full(n, np.inf)
+        receiver = np.full(n, None, dtype=object)
+        receiver_id = np.zeros(n, dtype=int)
+        if n_reach:
+            rd2 = ((reach_xy[None, :, :] - here[:, None, :]) ** 2).sum(axis=2)
+            eligible = reach_rtp_arr[None, :] <= (drn_elev[idx][:, None] + _DRAIN_ROUTE_TOL_M)
+            has_pool = eligible.any(axis=1)
+            k = np.where(
+                has_pool,
+                np.argmin(np.where(eligible, rd2, np.inf), axis=1),
+                np.argmin(rd2, axis=1),
             )
-        )
+            best_d2 = rd2[np.arange(n), k]
+            receiver[:] = _SFR_PACKAGE_NAME
+            receiver_id = reach_ids_arr[k]
+        if n_lake:
+            ld2 = ((lake_xy[None, :, :] - here[:, None, :]) ** 2).sum(axis=2)
+            kk = np.argmin(ld2, axis=1)
+            win = ld2[np.arange(n), kk] < best_d2
+            receiver[win] = _LAK_PACKAGE_NAME
+            receiver_id = np.where(win, lake_ids_arr[kk], receiver_id)
+        for j in range(n):
+            if receiver[j] is None:
+                continue
+            records.append(
+                MoverRecord(
+                    provider="DRN",
+                    provider_id=int(idx[j]),
+                    receiver=str(receiver[j]),
+                    receiver_id=int(receiver_id[j]),
+                    mvrtype="FACTOR",
+                    value=1.0,
+                )
+            )
     return records
 
 
