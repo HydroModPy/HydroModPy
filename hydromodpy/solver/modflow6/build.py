@@ -661,6 +661,29 @@ def run_pre_processing(  # noqa: PLR0915
         time_units=time_units,
         start_date_time=start_date_time,
     )
+    if runtime.mf6_ats:
+        # Adaptive time stepping on the transient periods: (iper, dt0, dtmin, dtmax,
+        # dtadj, dtfailadj). Each period starts at its full length (dt0=perlen) and MF6
+        # subdivides only when the solver fails, instead of carrying budget error at
+        # nstp=1. iper is 1-based. OC below saves per period end so one record/period.
+        ats_perioddata = [
+            (
+                i + 1,
+                float(model.perlen[i]),
+                float(runtime.mf6_ats_dtmin_s),
+                float(model.perlen[i]),
+                2.0,
+                5.0,
+            )
+            for i in range(int(model.nper))
+            if not bool(model.steady[i])
+        ]
+        if ats_perioddata:
+            flopy.mf6.ModflowUtlats(
+                model.tdis,
+                maxats=len(ats_perioddata),
+                perioddata=ats_perioddata,
+            )
     model.ims = flopy.mf6.ModflowIms(
         model.sim,
         print_option="SUMMARY" if runtime.mf_verbose else "NONE",
@@ -1117,11 +1140,14 @@ def run_pre_processing(  # noqa: PLR0915
             perioddata={0: all_mover_rows},
         )
 
+    # With ATS the step count per period is variable; save per period end so the
+    # extraction still sees exactly one record per stress period (as with nstp=1).
+    oc_frequency = "LAST" if runtime.mf6_ats else "ALL"
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
         head_filerecord=f"{model.model_output_name}.hds",
         budget_filerecord=f"{model.model_output_name}.cbc",
-        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+        saverecord=[("HEAD", oc_frequency), ("BUDGET", oc_frequency)],
         printrecord=[("HEAD", "LAST")],
     )
     model._runtime_dirty_packages = ()

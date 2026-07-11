@@ -103,6 +103,20 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=True,
         description=("Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true."),
     )
+    mf6_ats: Annotated[bool, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each "
+            "stress period starts at its full length and MF6 subdivides only the periods "
+            "the solver cannot converge in one step (e.g. littoral wet/dry under Newton), "
+            "instead of carrying budget error at nstp=1. When on, OC saves per period end "
+            "so the extraction still sees one record per period. Default off (baseline)."
+        ),
+    )
+    mf6_ats_dtmin_s: Annotated[PositiveFloat, Profile.EXPERT] = Field(
+        default=60.0,
+        description="Minimum ATS time step in seconds (only used when mf6_ats is true).",
+    )
     mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(
