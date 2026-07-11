@@ -1,10 +1,13 @@
 """Read-only drainage QC primitives on a mesh face graph.
 
-These are the shared, solver-agnostic building blocks the diagnostic tool
-(`tools/diagnostics/mesh_flow_qc.py`) and the conditioning tests both measure
-with, so a "does the conditioned top drain?" check has one implementation. They
-operate on plain arrays (top, active, adjacency, centroids, areas) plus the
-control-cell set, never a SolverMesh or flopy. Pure numpy + math.
+Solver-agnostic building blocks the conditioning kernel and its tests use to
+answer "does the conditioned top drain?". They operate on plain arrays (top,
+active, adjacency, centroids, areas) plus the control-cell set, never a
+SolverMesh or flopy. Pure numpy + math.
+
+The standalone diagnostic `tools/diagnostics/mesh_flow_qc.py` reimplements the
+same classification/accumulation semantics on purpose, to stay import-free of
+the package; keep the two in sync.
 """
 
 from __future__ import annotations

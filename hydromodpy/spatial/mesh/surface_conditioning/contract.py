@@ -3,9 +3,11 @@
 The conditioning kernel is a pure function of the ``spatial`` layer: it takes
 primitives (per-cell top, active mask, face adjacency, optional floor and fixed
 control levels) and returns a conditioned top. It holds no solver type and no
-flopy import, so every backend (MODFLOW 6 DISV, structured, MODFLOW-NWT,
-Boussinesq, a future DISU) can feed it by extracting these primitives from its
-native discretization and writing the returned top back.
+flopy import (the layer matrix forbids it), so a backend feeds it by extracting
+these primitives from its native discretization and writing the returned top
+back. Today the only adapter is MODFLOW 6 DISV
+(``solver/modflow6/mesh_conditioning.py``); the contract stays solver-agnostic
+so another discretization can add one without touching the kernel.
 """
 
 from __future__ import annotations
