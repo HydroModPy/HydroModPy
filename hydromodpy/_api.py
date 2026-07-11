@@ -276,6 +276,43 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
         return project.calibrate(**kwargs)
 
 
+def spinup(config: Any, **kwargs: Any) -> Any:
+    """Run a cyclic spin-up from a TOML file or config object.
+
+    Repeats the representative window (``[spinup] window_*``, else
+    ``[simulation.time]``), restarting each cycle from the previous cycle's state,
+    until the aquifer heads and the lake stage converge. One :class:`Project` is
+    reused so the mesh is identical across cycles.
+
+    Parameters
+    ----------
+    config
+        TOML path or validated configuration object.
+    kwargs
+        Forwarded to :func:`~hydromodpy.project.spinup.run_spinup` (``spinup``
+        settings override, ``name_prefix``). ``headless`` controls the project.
+
+    Returns
+    -------
+    hydromodpy.project.spinup.SpinupResult
+        The loop outcome. Feed ``result.restart_from`` to a production run's
+        ``[flow] restart_from`` (enable ``[mesh_catchment] cache`` for a gmsh grid
+        so that run reproduces this mesh).
+
+    See Also
+    --------
+    hydromodpy.project.spinup.run_spinup
+        The underlying driver, callable on an existing Project.
+    """
+    from hydromodpy.project import Project
+    from hydromodpy.project.spinup import run_spinup
+
+    headless = bool(kwargs.pop("headless", True))
+    source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config
+    with Project(source, headless=headless, no_display=True) as project:
+        return run_spinup(project, **kwargs)
+
+
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     """Compare two simulations by id or result object.
 

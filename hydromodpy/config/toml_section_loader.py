@@ -16,6 +16,7 @@ from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
@@ -279,6 +280,16 @@ def _load_optional_calibration_section(
     if section_data is None:
         return None
     return load_standard_section(section_data, CalibrationConfig, base)
+
+
+def _load_optional_spinup_section(
+    section_data: Any,
+    base: Path,
+) -> SpinupConfig | None:
+    """Load the optional ``[spinup]`` cyclic spin-up section."""
+    if section_data is None:
+        return None
+    return load_standard_section(section_data, SpinupConfig, base)
 
 
 def _load_optional_analysis_section(

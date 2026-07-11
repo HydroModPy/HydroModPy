@@ -103,14 +103,18 @@ Advanced: restart and cyclic spin-up
   the cache pins the grid between runs (the generator is not deterministic on
   its own), and a cell-count mismatch is refused rather than silently
   reindexed. A lake absent from the prior run keeps its ``stageinit``.
-- **Cyclic spin-up to dynamic equilibrium** (part of the design, not yet
-  available). Repeat a representative forcing cycle until the state stops
-  changing between cycles, judged on the aquifer heads and the lake stage
-  together. This gives a seasonally consistent antecedent state that a single
-  steady solve cannot, and it is the right method when the lake stage and the
-  heads are strongly coupled. With ``restart_from`` and the mesh cache in place,
-  it becomes a driver that runs a window, restarts from its Zarr, and repeats
-  until the head and stage changes fall below tolerance.
+- **Cyclic spin-up to dynamic equilibrium.** ``hmp spinup <toml>`` repeats a
+  representative window, restarting each cycle from the previous cycle's state,
+  until the aquifer heads and the lake stage stop changing between cycles (L-inf
+  below tolerance). This gives a seasonally consistent antecedent state that a
+  single steady solve cannot, and it is the right method when the lake stage and
+  the heads are strongly coupled. Configure it under ``[spinup]``:
+  ``max_cycles``, ``tol_head`` / ``tol_stage`` (metres), and an optional shorter
+  ``window_start`` / ``window_end`` so each cycle repeats a representative period
+  rather than the full chronicle. The driver reuses one model, so the mesh is
+  identical across cycles; it prints the converged Zarr path to set as
+  ``[flow] restart_from`` on the production run (enable ``[mesh_catchment] cache``
+  there so that run reproduces the mesh).
 
 References
 ----------

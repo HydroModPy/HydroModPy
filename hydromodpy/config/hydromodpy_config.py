@@ -45,6 +45,7 @@ from hydromodpy.config.toml_section_loader import (
     _load_optional_mesh_catchment_section,
     _load_optional_mesh_input_section,
     _load_optional_overview_section,
+    _load_optional_spinup_section,
     _load_optional_testbed_section,
     _raw_declares_dem_source,
     _validation_context,
@@ -71,6 +72,7 @@ from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.export_config import ExportConfig
+from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
@@ -270,6 +272,14 @@ class HydroModPyConfig(HydroModelBase):
         description=(
             "Optional calibration settings loaded from the [calibration] "
             "section.  When present, triggers the calibration workflow."
+        ),
+    )
+    spinup: Annotated[SpinupConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional cyclic spin-up settings loaded from the [spinup] section. "
+            "Drives 'hmp spinup': repeat a forcing window, restart each cycle from "
+            "the previous state, until the heads and the lake stage converge."
         ),
     )
     testbed: Annotated[TestbedConfig | None, Profile.USER] = Field(
@@ -614,6 +624,7 @@ class HydroModPyConfig(HydroModelBase):
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
             "mesh_input": (None, _load_optional_mesh_input_section),
             "calibration": (None, _load_optional_calibration_section),
+            "spinup": (None, _load_optional_spinup_section),
             "testbed": (None, _load_optional_testbed_section),
             "site_selection": (
                 None,
