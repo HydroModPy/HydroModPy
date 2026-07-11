@@ -72,8 +72,12 @@ class _StubProject:
         self._cycle_zarrs = cycle_zarrs
         self._i = 0
         self._by_sid: dict[str, str] = {}
+        self.tags: list[tuple[str, str]] = []
         self._catalog = SimpleNamespace(
-            store=SimpleNamespace(zarr_path_for=lambda sid: self._by_sid[sid])
+            store=SimpleNamespace(
+                zarr_path_for=lambda sid: self._by_sid[sid],
+                add_tag=lambda sid, tag: self.tags.append((str(sid), tag)),
+            )
         )
         self.simulated_restart_from: list[str | None] = []
         self.simulated_ic_type: list[str] = []
@@ -152,3 +156,18 @@ def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None
     assert project.simulated_ic_type[1:] == ["top", "top"]
     # And each restarted cycle carried the prior cycle's Zarr as restart_from.
     assert project.simulated_restart_from == [None, zarrs[0], zarrs[1]]
+
+
+def test_run_spinup_tags_intermediate_and_converged(tmp_path: Path) -> None:
+    """Every cycle is tagged; the final one is the reusable converged antecedent."""
+    zarrs = [
+        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0]], {"lac0": 80.0}),
+        _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
+        _write_cycle_zarr(tmp_path / "c2.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
+    ]
+    project = _StubProject(_stub_config(), zarrs)
+    result = run_spinup(project, spinup=SpinupConfig(max_cycles=5, tol_head=0.01, tol_stage=0.01))
+
+    tag_by_sid = dict(project.tags)
+    assert tag_by_sid[result.cycles[-1].sim_id] == "spinup-converged"
+    assert all(tag_by_sid[c.sim_id] == "spinup-intermediate" for c in result.cycles[:-1])

@@ -31,6 +31,11 @@ HELP: str = "Cyclic spin-up: restart each cycle until heads and lake stage conve
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     parser.add_argument("config", type=Path, help="Path to a simulation TOML file")
+    parser.add_argument(
+        "--then-run",
+        action="store_true",
+        help="After convergence, run the full production chronicle from the converged state",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -57,7 +62,7 @@ def run(args: argparse.Namespace) -> None:
     profile_output = resolve_profile_output(profile_arg, target)
     try:
         with profile_run(profile_output, description=f"hmp spinup {target.name}"):
-            result = hmp.spinup(target)
+            result = hmp.spinup(target, then_run=args.then_run)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
@@ -81,8 +86,13 @@ def run(args: argparse.Namespace) -> None:
             )
     if result.restart_from:
         print(f"Converged state: {result.restart_from}", file=sys.stderr)
-        print(
-            "Set [flow] restart_from to this path in the production run "
-            "(enable [mesh_catchment] cache for a gmsh grid so it reproduces this mesh).",
-            file=sys.stderr,
-        )
+        if result.production_sim_id:
+            print(
+                f"Production run from converged state: {result.production_sim_id}", file=sys.stderr
+            )
+        else:
+            print(
+                "Set [flow] restart_from to this path in the production run "
+                "(enable [mesh_catchment] cache for a gmsh grid so it reproduces this mesh).",
+                file=sys.stderr,
+            )

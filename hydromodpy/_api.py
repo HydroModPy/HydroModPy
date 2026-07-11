@@ -304,13 +304,40 @@ def spinup(config: Any, **kwargs: Any) -> Any:
     hydromodpy.project.spinup.run_spinup
         The underlying driver, callable on an existing Project.
     """
+    import copy
+    import dataclasses
+
     from hydromodpy.project import Project
+    from hydromodpy.project.facade import _resolve_config
     from hydromodpy.project.spinup import run_spinup
 
     headless = bool(kwargs.pop("headless", True))
+    then_run = bool(kwargs.pop("then_run", False))
     source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config
+
+    # Snapshot a clean production config before the spin-up mutates the model's
+    # (cycle window, restart_from, IC).
+    prod_cfg = None
+    if then_run:
+        if isinstance(source, Path):
+            from hydromodpy.config import HydroModPyConfig
+
+            prod_cfg = HydroModPyConfig.from_toml(source)
+        else:
+            prod_cfg = copy.deepcopy(_resolve_config(source))
+
     with Project(source, headless=headless, no_display=True) as project:
-        return run_spinup(project, **kwargs)
+        result = run_spinup(project, **kwargs)
+
+    if not then_run or not result.restart_from:
+        return result
+
+    # Production run: a fresh project over the full [simulation.time] window,
+    # seeded from the converged state. Its mesh must reproduce the spin-up mesh,
+    # so a gmsh grid needs [mesh_catchment] cache = true.
+    prod_cfg.flow.restart_from = result.restart_from
+    production = run(prod_cfg, headless=headless)
+    return dataclasses.replace(result, production_sim_id=getattr(production, "sim_id", None))
 
 
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:

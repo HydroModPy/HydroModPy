@@ -54,6 +54,7 @@ class SpinupResult:
     converged: bool
     cycles: list[SpinupCycle]
     restart_from: str
+    production_sim_id: str | None = None  # set when --then-run chains a production run
 
     @property
     def n_cycles(self) -> int:
@@ -160,4 +161,25 @@ def run_spinup(
             "antecedent. Raise max_cycles or the tolerances.",
             settings.max_cycles,
         )
+    _tag_spinup_cycles(project, cycles)
     return SpinupResult(converged=converged, cycles=cycles, restart_from=prev_zarr or "")
+
+
+def _tag_spinup_cycles(project: Project, cycles: list[SpinupCycle]) -> None:
+    """Tag spin-up runs so they are easy to find and gc.
+
+    Intermediate cycles get ``spinup-intermediate``; the final (converged) cycle,
+    the reusable antecedent, gets ``spinup-converged``. Best-effort: a tag failure
+    never breaks the loop result.
+    """
+    store = getattr(project._catalog, "store", None)
+    add_tag = getattr(store, "add_tag", None)
+    if add_tag is None or not cycles:
+        return
+    last = len(cycles) - 1
+    for position, cycle in enumerate(cycles):
+        tag = "spinup-converged" if position == last else "spinup-intermediate"
+        try:
+            add_tag(cycle.sim_id, tag)
+        except Exception:  # noqa: BLE001
+            logger.debug("could not tag spin-up run %s", cycle.sim_id, exc_info=True)
