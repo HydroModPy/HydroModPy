@@ -33,6 +33,7 @@ from hydromodpy.solver.modflow6.builders import (
     carve_lake_bed,
     collapse_identical_periods,
     empty_recharge_aux,
+    evt_list_spd_to_array_payload,
     externalize_recharge_spd,
     finalize_pending_recharge_evt,
     log_xt3d_resolution,
@@ -871,13 +872,32 @@ def run_pre_processing(  # noqa: PLR0915
         lake_cell_ids=model._lake_cell_ids,
     )
     if evt_spd is not None:
-        maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
-        model.evt = flopy.mf6.ModflowGwfevt(
-            model.gwf,
-            stress_period_data=collapse_identical_periods(evt_spd),
-            maxbound=maxbound,
-            save_flows=True,
+        evt_spd = collapse_identical_periods(evt_spd)
+        # Prefer the array package (EVTA): a compact READARRAY per changed period is far
+        # cheaper to write than O(ncells) list records on chronicles. It is exactly
+        # equivalent while every EVT record sits on layer 0 (the builder skips lake
+        # cells, the usual inactive-top source); otherwise fall back to the list.
+        evt_array = evt_list_spd_to_array_payload(
+            evt_spd, top_flat=solver_mesh.top, ncpl=int(model.ncpl)
         )
+        if evt_array is not None:
+            rate_by_period, evt_surface, evt_depth = evt_array
+            model.evt = flopy.mf6.ModflowGwfevta(
+                model.gwf,
+                surface=evt_surface,
+                depth=evt_depth,
+                rate=rate_by_period,
+                save_flows=True,
+                pname="EVTA",
+            )
+        else:
+            maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
+            model.evt = flopy.mf6.ModflowGwfevt(
+                model.gwf,
+                stress_period_data=evt_spd,
+                maxbound=maxbound,
+                save_flows=True,
+            )
 
     drainage_cond_series = resolve_drainage_conductance_series(model)
     model._drainage_cond_series = (
