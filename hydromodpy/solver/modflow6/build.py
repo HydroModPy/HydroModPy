@@ -86,13 +86,18 @@ logger = get_logger(__name__)
 
 
 def mf6_safe_name(name: str, max_len: int = 16) -> str:
-    """Return a safe MODFLOW 6 model name, hashed when longer than max_len."""
-    text = str(name)
+    """Return a safe MODFLOW 6 model name: no whitespace, hashed when too long.
+
+    MODFLOW 6 rejects a model name that contains a space, so every whitespace run
+    collapses to a single underscore before the length check. Names longer than
+    ``max_len`` are hashed to stay unique and within the identifier limit.
+    """
+    text = re.sub(r"\s+", "_", str(name).strip())
     if len(text) <= max_len:
         return text
     if max_len <= 6:
         return text[:max_len]
-    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:6]
+    digest = hashlib.sha1(str(name).encode("utf-8")).hexdigest()[:6]
     prefix_len = max_len - 7
     return f"{text[:prefix_len]}_{digest}"
 
