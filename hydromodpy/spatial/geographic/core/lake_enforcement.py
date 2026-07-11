@@ -26,22 +26,9 @@ from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points, unary_union
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
 
 logger = get_logger(__name__)
-
-
-# WhiteboxTools non-ESRI D8 pointer (esri_pntr=False): power-of-two direction ->
-# (drow, dcol). A pit / nodata / any other code has no downstream cell.
-_D8_OFFSETS = {
-    1: (0, 1),  # E
-    2: (1, 1),  # SE
-    4: (1, 0),  # S
-    8: (1, -1),  # SW
-    16: (0, -1),  # W
-    32: (-1, -1),  # NW
-    64: (-1, 0),  # N
-    128: (-1, 1),  # NE
-}
 
 
 @dataclass(frozen=True)
@@ -249,7 +236,7 @@ def capture_stream_gaps(
     dc = sc.copy()
     has_down = np.zeros(sr.shape, dtype=bool)
     codes = d8[sr, sc]
-    for code, (odr, odc) in _D8_OFFSETS.items():
+    for code, (odr, odc) in WBT_D8_OFFSETS.items():
         m = codes == code
         dr[m] = sr[m] + odr
         dc[m] = sc[m] + odc
