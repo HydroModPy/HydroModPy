@@ -212,6 +212,12 @@ def run_mesh_phase(
     if mesh_section_data is None or constraints_mode is None:
         return
 
+    from hydromodpy.spatial.mesh.mesh_cache import (
+        cached_mesh_paths,
+        compute_mesh_cache_key,
+        mesh_cache_is_valid,
+        write_mesh_cache_key,
+    )
     from hydromodpy.spatial.mesh.runtime import (
         run_single_mesh_catchment_workflow_with_runtime_artifacts,
     )
@@ -220,6 +226,29 @@ def run_mesh_phase(
     extra_size_fields = _build_lake_mesh_refinement(
         cfg=cfg, section_data=mesh_section_data, setup_state=setup_state
     )
+
+    # Gmsh is not reproducible run to run (see mesh_cache), so when caching is enabled
+    # reuse a previously generated mesh whose inputs are unchanged instead of
+    # regenerating. Fail-safe: a key mismatch or any missing file regenerates.
+    mesh_dir = Path(getattr(setup_state.workspace, "project_root", ".")) / "mesh"
+    cache_key: str | None = None
+    if bool(getattr(mesh_section_data, "cache", False)):
+        cache_key = compute_mesh_cache_key(
+            section_data=mesh_section_data,
+            geographic_cfg=cfg.geographic,
+            domain_cfg=getattr(cfg, "domain", None),
+            constraints_mode=constraints_mode,
+            extra_size_fields=extra_size_fields,
+            domain_geographic=setup_state.domain_geographic,
+        )
+        if mesh_cache_is_valid(mesh_dir, cache_key):
+            cached_msh, cached_bundle, _ = cached_mesh_paths(mesh_dir)
+            run_mesh_input_phase(
+                run_state,
+                {"mesh_path": str(cached_msh), "bundle_dir": str(cached_bundle)},
+            )
+            return
+
     mesh_runtime = run_single_mesh_catchment_workflow_with_runtime_artifacts(
         config_path=config_path,
         section_data=mesh_section_data,
@@ -235,6 +264,8 @@ def run_mesh_phase(
     setup_state.mesh_summary = mesh_runtime.summary
     setup_state.mesh_planar = mesh_runtime.mesh_planar
     load_mesh_artifacts_from_summary(run_state, strict=False, preserve_preloaded=True)
+    if cache_key is not None:
+        write_mesh_cache_key(mesh_dir, cache_key)
 
 
 def run_mesh_input_phase(

@@ -704,11 +704,52 @@ def build_evt_stress_period_data(
     return None
 
 
+def evt_list_spd_to_array_payload(
+    evt_spd: Mapping[int, list[list[float]]],
+    *,
+    top_flat: np.ndarray,
+    ncpl: int,
+) -> tuple[dict[int, np.ndarray], np.ndarray, float] | None:
+    """Convert list EVT stress-period data to EVTA (array) input, if it is safe.
+
+    The array package writes a compact READARRAY of rates per changed period
+    instead of ``O(ncells)`` list records, which dominates ``write_simulation`` on
+    long chronicles. It is byte-for-byte equivalent to the list builder ONLY when
+    every EVT record targets layer 0: EVTA applies ET to the highest active cell of
+    each column, which matches the list builder's ``top_layer_by_cell`` exactly
+    while that layer is 0, but diverges when the top layer is inactive (the list
+    moves ET down a layer, the array does not). The builder already skips lake
+    cells (the usual inactive-top source), so this normally holds; ``None`` here
+    tells the caller to keep the list package for the rare case that it does not.
+
+    Returns ``(rate_by_period, surface, depth)``. ``surface`` is the model top for
+    every cell (rate is 0 where no EVT, so the surface value is inert there);
+    ``depth`` is the builder's single extinction depth. Period keys mirror the
+    (already collapsed) input, so MF6 reuses the previous array for gaps.
+    """
+    top_flat = np.asarray(top_flat, dtype=float).reshape(-1)
+    depth: float | None = None
+    rate_by_period: dict[int, np.ndarray] = {}
+    for kper, records in evt_spd.items():
+        rate = np.zeros(ncpl, dtype=float)
+        for record in records:
+            if int(record[0]) != 0:
+                return None
+            rate[int(record[1])] = float(record[3])
+            if depth is None:
+                depth = float(record[4])
+        rate_by_period[int(kper)] = rate
+    if depth is None:
+        return None
+    return rate_by_period, top_flat[:ncpl].copy(), float(depth)
+
+
 __all__ = [
     "as_recharge_flat",
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",
     "build_evt_stress_period_data",
+    "evt_list_spd_to_array_payload",
     "clip_negative_payload",
     "copy_runtime_payload",
     "empty_recharge_aux",

@@ -99,6 +99,35 @@ class DeriveStep:
         # runs. Release them before the derive stacks allocate.
         ctx.execution.models_by_run_id.clear()
 
+        # Registry first (needs head): it writes watertable_elevation/depth, seepage_mask
+        # and budget fluxes slab-wise. Running it before compute_derived lets that pass
+        # reuse the slab-written water table instead of reloading the full head stack into
+        # RAM to recompute a seepage_mask the registry then overwrote anyway.
+        derived_names: list[str] = []
+        try:
+            sim_zarr = store.open_zarr(sim_id)
+        except Exception as exc:
+            raise ExtractError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
+        try:
+            if "head" in sim_zarr.root:
+                results = self._registry.apply(sim_zarr)
+                for result in results:
+                    if result.status == "computed":
+                        derived_names.append(result.name)
+                        logger.debug("DeriveStep: computed '%s'", result.name)
+                    else:
+                        logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
+            else:
+                logger.debug(
+                    "DeriveStep: no 'head' field in Zarr for sim %s, registry skipped",
+                    sim_id,
+                )
+        finally:
+            _close_owned_zarr_handle(sim_zarr)
+
+        # compute_derived (opt-in transport/flux variables) plus catchment aggregation.
+        # Runs regardless of head, as before; its seepage step is now a guarded no-op and
+        # water-table readers find the registry's slab-written field.
         plan = ctx.execution.simulation_plan
         if plan is not None and not ctx.execution.lightweight:
             from hydromodpy.simulation.extraction.post_run import derive_run_outputs
@@ -119,34 +148,6 @@ class DeriveStep:
                     results_config=results_cfg,
                     store=store,
                 )
-
-        try:
-            sim_zarr = store.open_zarr(sim_id)
-        except Exception as exc:
-            raise ExtractError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
-
-        derived_names: list[str] = []
-        try:
-            if "head" not in sim_zarr.root:
-                logger.debug(
-                    "DeriveStep: no 'head' field in Zarr for sim %s, nothing to derive",
-                    sim_id,
-                )
-                return state.advance(
-                    step_index=state.step_index + 1,
-                    step_name=self.name,
-                    ctx=ctx,
-                )
-
-            results = self._registry.apply(sim_zarr)
-            for result in results:
-                if result.status == "computed":
-                    derived_names.append(result.name)
-                    logger.debug("DeriveStep: computed '%s'", result.name)
-                else:
-                    logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
-        finally:
-            _close_owned_zarr_handle(sim_zarr)
 
         return state.advance(
             step_index=state.step_index + 1,

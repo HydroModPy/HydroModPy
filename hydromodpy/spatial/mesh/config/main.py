@@ -93,6 +93,17 @@ class MeshCatchmentConfig(HydroModelBase):
             "Downstream solvers that require runtime mesh support may fail without this bundle."
         ),
     )
+    cache: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "If true, reuse a previously generated mesh when its inputs (domain geometry, "
+            "river constraint, lake/dam refinement, mesh and delineation configuration) are "
+            "unchanged, instead of regenerating it. Gmsh is not reproducible run to run "
+            "(it reseeds from the system clock), so regeneration yields a different mesh and "
+            "makes results and calibration objectives irreproducible; caching pins the mesh. "
+            "Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache."
+        ),
+    )
     figure_dpi: Annotated[PositiveInt, Profile.USER] = Field(
         default=300,
         description=(

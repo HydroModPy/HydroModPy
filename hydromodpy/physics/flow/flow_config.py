@@ -114,6 +114,15 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             ),
         ),
     )
+    restart_from: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional hotstart: path to a prior simulation Zarr store whose last time step "
+            "seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior "
+            "run must share this run's mesh, so enable [mesh_catchment] cache = true; "
+            "otherwise the cell count differs and restart is refused. None keeps [flow.ic]."
+        ),
+    )
     param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(

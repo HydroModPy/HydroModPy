@@ -376,6 +376,18 @@ class CalibrationConfig(HydroModelBase):
             "thread pool. parallel=1 keeps the legacy sequential loop."
         ),
     )
+    warmup_periods: Annotated[int, Profile.USER] = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Spin-up (burn-in) periods excluded from every objective block. The first "
+            "warmup_periods of each observed/simulated series are dropped before the "
+            "metric, so the window where the state still depends on the initial condition "
+            "does not bias the calibration. Default 0 (no exclusion). Size it by "
+            "increasing it until the objective stops changing (initial-condition "
+            "insensitivity), not a fixed guess."
+        ),
+    )
     seed: Annotated[int | None, Profile.USER] = Field(
         default=None,
         description="Random seed for reproducibility.",

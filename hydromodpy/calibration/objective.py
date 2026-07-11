@@ -326,6 +326,7 @@ class ConfigBlockObjective:
         observed_by_output: Mapping[str, Iterable[float]],
         normalize_cost: bool = False,
         transform: str = "identity",
+        warmup: int = 0,
     ) -> None:
         metric_key = str(metric).strip().lower()
         if metric_key not in METRICS:
@@ -348,6 +349,8 @@ class ConfigBlockObjective:
         self._higher_is_better = metric_key in HIGHER_IS_BETTER
         self._outputs = outputs
         self._observed = observed
+        self._observed_parts = observed_parts
+        self._warmup = max(0, int(warmup))
         self._normalize_cost = bool(normalize_cost)
         self._transform_name = str(transform).strip().lower() if transform else "identity"
         self._transform_fn = _resolve_transform(self._transform_name)
@@ -385,15 +388,22 @@ class ConfigBlockObjective:
                     components={f"{self.name}.missing": 1.0},
                 )
             simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
-        simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
-        if self._observed.size == 0 or simulated.size == 0:
+        # Burn-in: drop the first _warmup periods of EACH output before concatenation, so the
+        # spin-up window (state still depending on the initial condition) does not enter the
+        # metric. Slicing per output keeps every series' own leading periods aligned.
+        if self._warmup > 0:
+            simulated = np.concatenate([part[self._warmup :] for part in simulated_parts])
+            observed = np.concatenate([part[self._warmup :] for part in self._observed_parts])
+        else:
+            simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
+            observed = self._observed
+        if observed.size == 0 or simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
-        if simulated.size != self._observed.size:
+        if simulated.size != observed.size:
             raise ValueError(
                 f"Block {self.name!r}: simulated length {simulated.size} does not match "
-                f"observed length {self._observed.size}"
+                f"observed length {observed.size}"
             )
-        observed = self._observed
         raw = float(self._metric_fn(simulated, observed))
         if not np.isfinite(raw):
             return ObjectiveValue(
@@ -407,7 +417,7 @@ class ConfigBlockObjective:
             f"{self.name}.raw_cost": float(cost),
             f"{self.name}.normalized_cost": float(normalized),
             f"{self.name}.reference_scale": float(self._reference_scale),
-            f"{self.name}.n_values": float(self._observed.size),
+            f"{self.name}.n_values": float(observed.size),
         }
         return ObjectiveValue(total=float(transformed), components=components)
 
@@ -432,6 +442,9 @@ def build_objective_from_config(cfg: Any) -> Objective:
         values = getattr(decl, "observed_values", None)
         if values is not None:
             observed_by_output[str(output_name)] = tuple(float(v) for v in values)
+    # Burn-in periods excluded from every block's metric (spin-up window). A block can
+    # override the calibration-wide default with its own ``warmup``.
+    default_warmup = int(getattr(cfg, "warmup_periods", 0) or 0)
     block_objectives: list[Objective] = []
     for block in blocks:
         name = str(block.name)
@@ -439,6 +452,7 @@ def build_objective_from_config(cfg: Any) -> Objective:
         metric = str(getattr(block, "metric", "rmse"))
         normalize_cost = bool(getattr(block, "normalize_cost", False))
         transform = str(getattr(block, "transform", "identity"))
+        warmup = int(getattr(block, "warmup", default_warmup) or default_warmup)
         block_objectives.append(
             ConfigBlockObjective(
                 name=name,
@@ -447,6 +461,7 @@ def build_objective_from_config(cfg: Any) -> Objective:
                 observed_by_output=observed_by_output,
                 normalize_cost=normalize_cost,
                 transform=transform,
+                warmup=warmup,
             )
         )
     if len(block_objectives) == 1:

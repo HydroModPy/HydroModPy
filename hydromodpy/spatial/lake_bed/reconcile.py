@@ -16,9 +16,15 @@ preserved and the simulated volume matches up to that footprint-area ratio.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping, Sequence
 
 import numpy as np
+
+# Warn when the mesh footprint area diverges from the abacus full-pool area by more
+# than this fraction: the remap stretches storage onto the footprint, so a large gap
+# means a bad lake polygon or a coarse boundary is shifting every reconciled bed.
+_AREA_SCALE_WARN_TOL = 0.05
 
 __all__ = ["reconcile_bed_to_abacus"]
 
@@ -73,6 +79,16 @@ def reconcile_bed_to_abacus(
     if abacus_area_max <= 0.0:
         raise ValueError("reconcile_bed_to_abacus: abacus top sarea must be positive")
     scale = footprint_area / abacus_area_max
+    if abs(scale - 1.0) > _AREA_SCALE_WARN_TOL:
+        warnings.warn(
+            f"lake bed reconcile: mesh footprint area ({footprint_area:.0f} m2) departs from "
+            f"the abacus full-pool area ({abacus_area_max:.0f} m2) by "
+            f"{abs(scale - 1.0) * 100:.1f}% (area_scale={scale:.3f}); simulated storage is "
+            f"stretched onto the footprint, so a bad lake polygon or a coarse mesh boundary "
+            f"shifts every reconciled bed elevation.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     # Rank cells deepest-first; ties by cell id (cells already id-sorted).
     order = np.argsort(beds, kind="stable")

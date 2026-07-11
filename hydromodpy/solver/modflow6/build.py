@@ -33,6 +33,7 @@ from hydromodpy.solver.modflow6.builders import (
     carve_lake_bed,
     collapse_identical_periods,
     empty_recharge_aux,
+    evt_list_spd_to_array_payload,
     externalize_recharge_spd,
     finalize_pending_recharge_evt,
     log_xt3d_resolution,
@@ -660,6 +661,29 @@ def run_pre_processing(  # noqa: PLR0915
         time_units=time_units,
         start_date_time=start_date_time,
     )
+    if runtime.mf6_ats:
+        # Adaptive time stepping on the transient periods: (iper, dt0, dtmin, dtmax,
+        # dtadj, dtfailadj). Each period starts at its full length (dt0=perlen) and MF6
+        # subdivides only when the solver fails, instead of carrying budget error at
+        # nstp=1. iper is 1-based. OC below saves per period end so one record/period.
+        ats_perioddata = [
+            (
+                i + 1,
+                float(model.perlen[i]),
+                float(runtime.mf6_ats_dtmin_s),
+                float(model.perlen[i]),
+                2.0,
+                5.0,
+            )
+            for i in range(int(model.nper))
+            if not bool(model.steady[i])
+        ]
+        if ats_perioddata:
+            flopy.mf6.ModflowUtlats(
+                model.tdis,
+                maxats=len(ats_perioddata),
+                perioddata=ats_perioddata,
+            )
     model.ims = flopy.mf6.ModflowIms(
         model.sim,
         print_option="SUMMARY" if runtime.mf_verbose else "NONE",
@@ -871,13 +895,32 @@ def run_pre_processing(  # noqa: PLR0915
         lake_cell_ids=model._lake_cell_ids,
     )
     if evt_spd is not None:
-        maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
-        model.evt = flopy.mf6.ModflowGwfevt(
-            model.gwf,
-            stress_period_data=collapse_identical_periods(evt_spd),
-            maxbound=maxbound,
-            save_flows=True,
+        evt_spd = collapse_identical_periods(evt_spd)
+        # Prefer the array package (EVTA): a compact READARRAY per changed period is far
+        # cheaper to write than O(ncells) list records on chronicles. It is exactly
+        # equivalent while every EVT record sits on layer 0 (the builder skips lake
+        # cells, the usual inactive-top source); otherwise fall back to the list.
+        evt_array = evt_list_spd_to_array_payload(
+            evt_spd, top_flat=solver_mesh.top, ncpl=int(model.ncpl)
         )
+        if evt_array is not None:
+            rate_by_period, evt_surface, evt_depth = evt_array
+            model.evt = flopy.mf6.ModflowGwfevta(
+                model.gwf,
+                surface=evt_surface,
+                depth=evt_depth,
+                rate=rate_by_period,
+                save_flows=True,
+                pname="EVTA",
+            )
+        else:
+            maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
+            model.evt = flopy.mf6.ModflowGwfevt(
+                model.gwf,
+                stress_period_data=evt_spd,
+                maxbound=maxbound,
+                save_flows=True,
+            )
 
     drainage_cond_series = resolve_drainage_conductance_series(model)
     model._drainage_cond_series = (
@@ -1097,11 +1140,14 @@ def run_pre_processing(  # noqa: PLR0915
             perioddata={0: all_mover_rows},
         )
 
+    # With ATS the step count per period is variable; save per period end so the
+    # extraction still sees exactly one record per stress period (as with nstp=1).
+    oc_frequency = "LAST" if runtime.mf6_ats else "ALL"
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
         head_filerecord=f"{model.model_output_name}.hds",
         budget_filerecord=f"{model.model_output_name}.cbc",
-        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+        saverecord=[("HEAD", oc_frequency), ("BUDGET", oc_frequency)],
         printrecord=[("HEAD", "LAST")],
     )
     model._runtime_dirty_packages = ()

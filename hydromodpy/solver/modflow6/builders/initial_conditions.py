@@ -25,22 +25,74 @@ def rewet_is_enabled(model) -> bool:
     return bool(enable_rewet) if enable_rewet is not None else False
 
 
+def resolve_restart_from(model) -> str | None:
+    """Resolve the ``[flow] restart_from`` hotstart source path, or None."""
+    flow = getattr(model, "flow", None)
+    config = getattr(flow, "config", None) if flow is not None else None
+    value = getattr(config, "restart_from", None)
+    if value is None and flow is not None:
+        value = getattr(flow, "restart_from", None)
+    text = str(value).strip() if value else ""
+    return text or None
+
+
+def _open_restart_zarr(path: str):
+    import zarr
+
+    if path.endswith(".zip"):
+        return zarr.open(zarr.storage.ZipStore(path, mode="r"), mode="r")
+    return zarr.open(path, mode="r")
+
+
+def read_restart_heads(path: str, *, nlay: int, ncpl: int, top_flat: np.ndarray) -> np.ndarray:
+    """Return start heads ``(nlay, ncpl)`` from a prior run's last time step (hotstart).
+
+    The prior run must share this run's mesh (same cell count), which is what the
+    mesh cache guarantees; a shape mismatch raises rather than silently reindexing.
+    """
+    root = _open_restart_zarr(path)
+    if "head" not in root:
+        raise ValueError(f"restart_from: no 'head' field in {path!r}")
+    head = np.asarray(root["head"][-1], dtype=float)
+    head = head.reshape(head.shape[0], -1) if head.ndim > 1 else head.reshape(1, -1)
+    if head.shape != (nlay, ncpl):
+        raise ValueError(
+            f"restart_from: prior head shape {head.shape} does not match this run "
+            f"({nlay}, {ncpl}). Enable [mesh_catchment] cache = true so the mesh, and the "
+            f"cell count, is identical between the two runs."
+        )
+    # Inactive cells carry a NaN / large sentinel; MF6 ignores strt there but the array must
+    # be finite, so fill them with the cell top like the default initial condition.
+    head = np.where(np.abs(head) > 1e20, np.nan, head)
+    top = np.asarray(top_flat, dtype=float).reshape(-1)
+    for ilay in range(nlay):
+        missing = ~np.isfinite(head[ilay])
+        head[ilay][missing] = top[missing]
+    return head
+
+
 def build_start_heads(model, solver_mesh) -> np.ndarray:
     """Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
-    h_ic = resolve_head_initial_condition(model)
-    if h_ic is None:
-        raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
-
     ncpl = solver_mesh.n_cells
     top_flat = solver_mesh.top  # (ncpl,)
     botm_flat = solver_mesh.botm  # (nlay, ncpl)
-    strt = build_head_initial_condition_array(
-        h_ic,
-        top=top_flat,
-        bottom=botm_flat[-1],
-        target_shape=(int(model.nlay), int(ncpl)),
-        location_prefix="flow.ic",
-    )
+
+    restart_source = resolve_restart_from(model)
+    if restart_source:
+        strt = read_restart_heads(
+            restart_source, nlay=int(model.nlay), ncpl=int(ncpl), top_flat=top_flat
+        )
+    else:
+        h_ic = resolve_head_initial_condition(model)
+        if h_ic is None:
+            raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
+        strt = build_head_initial_condition_array(
+            h_ic,
+            top=top_flat,
+            bottom=botm_flat[-1],
+            target_shape=(int(model.nlay), int(ncpl)),
+            location_prefix="flow.ic",
+        )
     ocean_series = resolve_ocean_boundary_series(model)
     ocean_mask = ocean_chd_support_mask(model, ocean_series)
     if np.any(ocean_mask):
