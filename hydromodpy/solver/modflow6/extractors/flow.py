@@ -421,6 +421,7 @@ class Modflow6OutputAdapter:
         """
         from hydromodpy.solver.modflow6.extractors.lake import (
             build_lake_records,
+            final_lake_stages,
             read_lake_meta,
         )
 
@@ -450,6 +451,9 @@ class Modflow6OutputAdapter:
             )
             if timeseries:
                 store.write_timeseries_batch(sim_id, timeseries)
+                final_stages = final_lake_stages(timeseries)
+                if final_stages:
+                    store.write_lake_restart_state(sim_id, final_stages)
             if budgets:
                 store.write_budgets(sim_id, budgets)
 

@@ -365,6 +365,10 @@ class SimulationZarr:
     def lake_abacus_lakes(self) -> list[str]:
         return zarr_reader.lake_abacus_lakes(self)
 
+    def write_lake_restart_state(self, stages: dict[str, float]) -> None:
+        """Persist each lake's final stage under ``lake_state_final`` (hotstart)."""
+        zarr_writer.write_lake_restart_state(self, stages)
+
     # -- ACDD ----------------------------------------------------------------
 
     def write_acdd_root_attrs(

@@ -665,6 +665,24 @@ def write_lake_abacus(
         )
 
 
+def write_lake_restart_state(store_obj: SimulationZarr, stages: dict[str, float]) -> None:
+    """Persist each lake's final stage under ``lake_state_final`` for hotstart.
+
+    The companion of the heads field for ``[flow] restart_from``: a later run
+    seeds each lake's initial stage from this last value. ``stages`` maps
+    ``lake_id -> stage`` in metres; an empty mapping writes nothing.
+    """
+    if not stages:
+        return
+    lake_ids = [str(lake_id) for lake_id in stages]
+    values = np.asarray([float(stages[lake_id]) for lake_id in lake_ids], dtype="float64")
+    with store_obj._guard_write():
+        ensure_child_dir(store_obj, store_obj._root, "lake_state_final")
+        grp = store_obj._root.require_group("lake_state_final")
+        _write_array(store_obj, grp, "stage", values, attrs={"units": "m"})
+        update_attrs(grp, {"lake_ids": lake_ids})
+
+
 # -- ACDD --------------------------------------------------------------------
 
 

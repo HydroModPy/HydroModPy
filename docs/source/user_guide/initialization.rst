@@ -93,20 +93,24 @@ The steady warm-up handles the aquifer heads. A lake adds its stage to the state
 that must equilibrate, and the burn-in window is what lets both settle before the
 objective starts.
 
-Advanced: cyclic spin-up and restart
+Advanced: restart and cyclic spin-up
 ------------------------------------
 
-Two further strategies are part of the design but not yet available:
-
-- **Cyclic spin-up to dynamic equilibrium.** Repeat a representative forcing
-  cycle until the state stops changing between cycles, judged on the aquifer
-  heads and the lake stage together. This gives a seasonally consistent
-  antecedent state that a single steady solve cannot, and it is the right method
-  when the lake stage and the heads are strongly coupled.
-- **Restart.** Read the head field and the lake stage from a previous run and use
-  them as the initial state. This requires the two runs to share the same mesh;
-  the mesh generator is not yet deterministic between runs, so restart is only
-  reliable once the mesh is pinned.
+- **Restart (hotstart).** ``[flow] restart_from = "<prior-run>.zarr"`` reads the
+  head field and the lake stage from a previous run's Zarr and uses them as the
+  initial state, overriding ``[flow.ic]`` and each lake's ``stageinit``. The two
+  runs must share the same mesh, so enable ``[mesh_catchment] cache = true``:
+  the cache pins the grid between runs (the generator is not deterministic on
+  its own), and a cell-count mismatch is refused rather than silently
+  reindexed. A lake absent from the prior run keeps its ``stageinit``.
+- **Cyclic spin-up to dynamic equilibrium** (part of the design, not yet
+  available). Repeat a representative forcing cycle until the state stops
+  changing between cycles, judged on the aquifer heads and the lake stage
+  together. This gives a seasonally consistent antecedent state that a single
+  steady solve cannot, and it is the right method when the lake stage and the
+  heads are strongly coupled. With ``restart_from`` and the mesh cache in place,
+  it becomes a driver that runs a window, restarts from its Zarr, and repeats
+  until the head and stage changes fall below tolerance.
 
 References
 ----------

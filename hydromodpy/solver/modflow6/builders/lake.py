@@ -33,6 +33,10 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.leakance import parse_to_per_s
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow6.builders.initial_conditions import (
+    read_restart_lake_stages,
+    resolve_restart_from,
+)
 from hydromodpy.solver.modflow6.builders.mvr import (
     MoverRecord,
     build_mvr_period_records,
@@ -705,6 +709,12 @@ def build_lak_package_args(
     laktab_specs: list[dict[str, Any]] = []
     lake_conn_info: list[dict[str, Any]] = []
 
+    # Hotstart: a prior run's Zarr (via [flow] restart_from) seeds each lake's
+    # initial stage from its last value, overriding stageinit. Absent lake / older
+    # store -> empty map, so the stageinit fallback below still applies.
+    restart_source = resolve_restart_from(model)
+    restart_stages = read_restart_lake_stages(restart_source) if restart_source else {}
+
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         cell_ids = list(lake_cell_ids_by_lake.get(lake_id, []))
         if not cell_ids:
@@ -761,7 +771,12 @@ def build_lak_package_args(
         abacus = definition.get("abacus")
         table = build_lake_table(model, lake_id=lake_id, abacus=abacus)
         stageinit = definition.get("stageinit")
-        strt = _scalar(stageinit) if stageinit is not None else float(table[0][0])
+        if lake_id in restart_stages:
+            strt = float(restart_stages[lake_id])
+        elif stageinit is not None:
+            strt = _scalar(stageinit)
+        else:
+            strt = float(table[0][0])
 
         packagedata.append([int(lake_index), strt, len(rows), str(lake_id)])
         filename = f"{_lak_output_stem(model)}.{_safe_lake_tag(lake_id)}.laktab"

@@ -71,6 +71,27 @@ def read_restart_heads(path: str, *, nlay: int, ncpl: int, top_flat: np.ndarray)
     return head
 
 
+def read_restart_lake_stages(path: str) -> dict[str, float]:
+    """Return each lake's final stage ``{lake_id: stage}`` from a prior run's Zarr.
+
+    Reads the ``lake_state_final`` group written at extraction time, the lake
+    companion of the ``head`` field for ``[flow] restart_from``. Returns an empty
+    mapping when the prior run had no lake (older stores, non-lake runs), so
+    callers keep the per-lake ``stageinit``.
+    """
+    root = _open_restart_zarr(path)
+    if "lake_state_final" not in root:
+        return {}
+    group = root["lake_state_final"]
+    if "stage" not in group:
+        return {}
+    stages = np.asarray(group["stage"][:], dtype=float).reshape(-1)
+    lake_ids = [str(lake_id) for lake_id in group.attrs.get("lake_ids", [])]
+    if len(lake_ids) != len(stages):
+        return {}
+    return {lake_id: float(value) for lake_id, value in zip(lake_ids, stages, strict=True)}
+
+
 def build_start_heads(model, solver_mesh) -> np.ndarray:
     """Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
     ncpl = solver_mesh.n_cells

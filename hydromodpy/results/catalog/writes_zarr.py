@@ -46,6 +46,15 @@ class WritesMixinZarr:
         finally:
             sz.close()
 
+    def write_lake_restart_state(self, sim_id: str | UUID, stages: dict[str, float]) -> None:
+        if not self._persistence.save_zarr or not stages:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            sz.write_lake_restart_state(stages)
+        finally:
+            sz.close()
+
     def write_field(
         self,
         sim_id: str | UUID,
