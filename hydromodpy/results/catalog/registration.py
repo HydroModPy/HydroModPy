@@ -33,7 +33,13 @@ from hydromodpy.results.catalog.constants import (
 )
 from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
-from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX
+from hydromodpy.results.storage_contract import (
+    PARQUET_DIR_SUFFIX,
+    PARQUET_FILE_SUFFIX,
+    SIMULATIONS_DIRNAME,
+    ZARR_SUFFIX,
+    ZARR_ZIP_SUFFIX,
+)
 from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 
 logger = get_logger(__name__)
@@ -523,13 +529,20 @@ class RegistrationMixin:
         """
         name = Path(store_path).name
         basename: str | None = None
-        for suffix in (".zarr.zip", ".zarr", ".parquet"):
+        # Longest suffix first so .zarr.zip wins over .zarr and .parquet.d over
+        # a hypothetical .parquet.
+        for suffix in (ZARR_ZIP_SUFFIX, PARQUET_DIR_SUFFIX, ZARR_SUFFIX):
             if name.endswith(suffix):
                 basename = name[: -len(suffix)]
                 break
         if basename is None:
-            raise ValueError(f"{name!r} is not a recognised store (.zarr/.zarr.zip/.parquet)")
-        snapshot = self._simulations_dir / f"{basename}.parquet" / "simulation.parquet"
+            raise ValueError(
+                f"{name!r} is not a recognised store "
+                f"({ZARR_SUFFIX}/{ZARR_ZIP_SUFFIX}/{PARQUET_DIR_SUFFIX})"
+            )
+        snapshot = (
+            self._simulations_dir / f"{basename}{PARQUET_DIR_SUFFIX}" / f"simulation{PARQUET_FILE_SUFFIX}"
+        )
         if not snapshot.exists():
             raise FileNotFoundError(
                 f"No simulation.parquet snapshot for {basename!r}; this run predates "
