@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage_contract import PARQUET_DIR_SUFFIX, PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage_diagnostics import (
     diagnose_result_storage,
     storage_artefact_basename,
@@ -83,7 +83,7 @@ def test_orphans_and_tmp_parquet_are_reported(tmp_path):
 
         orphan_zarr = catalog.simulations_dir / "orphan.zarr"
         orphan_zarr.mkdir()
-        orphan_parquet = catalog.simulations_dir / "orphan.parquet"
+        orphan_parquet = catalog.simulations_dir / f"orphan{PARQUET_DIR_SUFFIX}"
         orphan_parquet.mkdir()
 
     diagnostics = _by_name(diagnose_result_storage(workspace))
@@ -105,7 +105,7 @@ def test_storage_artefact_helpers_use_shared_suffix_contract(tmp_path):
     zarr_zip.write_bytes(b"zip")
     zarr_dir = tmp_path / "demo.zarr"
     zarr_dir.mkdir()
-    parquet_dir = tmp_path / "demo.parquet"
+    parquet_dir = tmp_path / f"demo{PARQUET_DIR_SUFFIX}"
     parquet_dir.mkdir()
 
     assert storage_artefact_kind(zarr_zip) == "zarr.zip"
