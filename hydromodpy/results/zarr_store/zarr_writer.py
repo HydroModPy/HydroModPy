@@ -309,7 +309,18 @@ def write_time(
     calendar: str = "proleptic_gregorian",
     units: str = "seconds since 1970-01-01T00:00:00",
 ) -> None:
-    """Persist the CF time coordinate."""
+    """Persist the CF time coordinate.
+
+    Only the 1970-01-01 CF epoch is accepted: ``read_time`` decodes any unit
+    scale (seconds/minutes/hours/days since 1970) but cannot honor another epoch,
+    so a non-1970 anchor is rejected here rather than producing a store that
+    write-validates then fails every read.
+    """
+    if "1970-01-01" not in epoch or "since 1970-01-01" not in units:
+        raise ValueError(
+            "write_time only supports the 1970-01-01 CF epoch "
+            f"(read_time cannot decode another epoch): got epoch={epoch!r}, units={units!r}."
+        )
     with store_obj._guard_write():
         _write_array(
             store_obj,
@@ -407,7 +418,10 @@ def _create_field_array(
         chunks=chunk_shape,
         dtype=dtype,
         compressors=BLOSC_ZSTD,
-        fill_value=float("nan"),
+        # Derive the fill from the dtype so the array fill and the CF _FillValue
+        # attr agree: NaN for floats, iinfo(dtype).min for ints (NaN is invalid
+        # for an integer array).
+        fill_value=_fill_value_for_dtype(dtype),
         overwrite=True,
     )
     if shards is not None:
@@ -617,6 +631,9 @@ def write_geographic_raster(
                 "transform": list(transform),
                 "crs": str(crs),
                 "nodata": float(nodata),
+                # CF _FillValue so xarray/rasterio auto-mask the nodata sentinel
+                # on load instead of the consumer having to know -99999.
+                "_FillValue": float(nodata),
                 "shape": list(np.asarray(data).shape),
             },
             compressors=BLOSC_ZSTD,

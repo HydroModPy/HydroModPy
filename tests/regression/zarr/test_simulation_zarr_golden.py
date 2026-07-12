@@ -33,7 +33,7 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 # before computing the snapshot SHA-256.
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
-EXPECTED_DIGEST = "381c50fbf9cb0eb76aa1aa162f02d148b40e18173d46752b0589cc7588fd1150"
+EXPECTED_DIGEST = "00ea20e65c83e735217a82f5b96fa77617c4ea0aad82d4ef5e95bb2d2724487a"
 
 
 class _FrozenDatetime(datetime):
@@ -113,9 +113,9 @@ def _build_synthetic_store(path: Path) -> Path:
 
     sz.write_time(
         values=np.array([0, 86400, 172800], dtype="int64"),
-        epoch="2020-01-01T00:00:00",
+        epoch="1970-01-01T00:00:00",
         calendar="proleptic_gregorian",
-        units="seconds since 2020-01-01T00:00:00",
+        units="seconds since 1970-01-01T00:00:00",
     )
 
     head = np.full((2, 10), 5.5, dtype="float64")
