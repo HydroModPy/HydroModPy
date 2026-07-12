@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli._conventions import format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
 
 NAME: str = "watch"
@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), format_parser()],
         epilog="Example:\n  hmp catalog watch --stale-minutes 5",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -54,6 +54,12 @@ def run(args: argparse.Namespace) -> None:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+
+    if args.format == "json":
+        import json
+
+        print(json.dumps(rows, default=str))
+        return
 
     if not rows:
         print("no running simulations.")

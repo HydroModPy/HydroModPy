@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli._conventions import format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for, find_catalog_root
 
 NAME: str = "diff"
@@ -17,7 +17,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), format_parser()],
         epilog="Example:\n  hmp catalog diff cheze_baseline.v2 cheze_baseline.v3",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -25,6 +25,13 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument("ref_b", help="Second run reference")
     parser.set_defaults(_handler=run)
     return parser
+
+
+def _delta_to_list(delta: dict) -> list[dict]:
+    """Flatten a ``{(name, scope): (a, b)}`` delta into JSON-serialisable rows."""
+    return [
+        {"name": name, "scope": scope, "a": a, "b": b} for (name, scope), (a, b) in delta.items()
+    ]
 
 
 def _print_delta(title: str, delta: dict) -> None:
@@ -51,6 +58,22 @@ def run(args: argparse.Namespace) -> None:
     except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
+
+    if args.format == "json":
+        import json
+
+        print(
+            json.dumps(
+                {
+                    "a": result["a"],
+                    "b": result["b"],
+                    "params": _delta_to_list(result["params"]),
+                    "metrics": _delta_to_list(result["metrics"]),
+                },
+                default=str,
+            )
+        )
+        return
 
     print(f"a: {result['a'][:8]}   b: {result['b'][:8]}")
     _print_delta("params", result["params"])
