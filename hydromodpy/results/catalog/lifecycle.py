@@ -366,6 +366,13 @@ class LifecycleMixin:
         for table in ("workflow_steps", "workflow_events"):
             if self._table_exists(table):
                 self._backend.execute(f"DELETE FROM {table} WHERE run_id = ?", [sid])
+        # Clear any calibration session that named this sim as its best, so the
+        # purge does not leave a dangling best_sim_id (there is no DB-level FK).
+        self._backend.execute(
+            "UPDATE calibration_sessions SET best_sim_id = NULL, best_params_hash = NULL "
+            "WHERE best_sim_id = ?",
+            [sid],
+        )
         self._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
     def _remove_sim_storage(self, parquet_dir, zarr_abs) -> None:
