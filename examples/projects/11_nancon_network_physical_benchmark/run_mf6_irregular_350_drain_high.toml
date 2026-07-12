@@ -11,7 +11,7 @@ root = "outputs/nancon_network_physical_benchmark/workspaces/mf6_irregular_350_d
 name = "nancon_network_physical_benchmark__mf6_irregular_350_drain_high"
 run_id = "nancon_network_physical_benchmark__mf6_irregular_350_drain_high"
 description = "MODFLOW 6 generated irregular Nancon benchmark, 350 m global mesh size."
-on_collision = "replace"
+if_exists = "replace"
 
 [flow.bc.cauchy.drainage]
 value = 1.0e-3

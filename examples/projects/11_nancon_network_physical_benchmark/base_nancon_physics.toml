@@ -8,7 +8,7 @@ root = "../../"
 [simulation]
 name = "nancon_network_physical_benchmark_shared_case"
 description = "Nancon monthly transient physical benchmark for network diagnostics."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-10-01 00:00:00"

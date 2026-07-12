@@ -64,7 +64,7 @@ project_root = "outputs/nancon_k_sensitivity/k_low_workspace"
 [testbed.variant.overlay.simulation]
 name = "nancon_k_low"
 run_id = "nancon_k_low"
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.variant.overlay.flow.param.K.field]
 value = "1e-5 m/s"
@@ -80,7 +80,7 @@ project_root = "outputs/nancon_k_sensitivity/k_mid_workspace"
 [testbed.variant.overlay.simulation]
 name = "nancon_k_mid"
 run_id = "nancon_k_mid"
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.variant.overlay.flow.param.K.field]
 value = "5e-5 m/s"
@@ -96,7 +96,7 @@ project_root = "outputs/nancon_k_sensitivity/k_high_workspace"
 [testbed.variant.overlay.simulation]
 name = "nancon_k_high"
 run_id = "nancon_k_high"
-on_collision = "replace"
+if_exists = "replace"
 
 [testbed.variant.overlay.flow.param.K.field]
 value = "2.5e-4 m/s"
