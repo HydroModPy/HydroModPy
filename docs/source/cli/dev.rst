@@ -50,11 +50,8 @@ recorded hashes against the on-disk artefacts.
 config
 ------
 
-Synopsis: ``hmp dev config {template|check|schema|wizard} [...]``
-
-TOML configuration tooling: generate a starter template, validate a
-TOML against the Pydantic schema, export the JSON Schema (alias of
-:command:`hmp dev schema export`), or open the stdin-driven wizard.
+Moved to the top level: use ``hmp config {template|check|schema|wizard}``
+(configuration authoring is an end-user task, not a developer-only one).
 
 rank
 ----

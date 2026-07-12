@@ -147,10 +147,10 @@ Some commands expose their own subcommands:
 
 .. code-block:: bash
 
-   hmp dev config template --help
-   hmp dev config check --help
+   hmp config template --help
+   hmp config check --help
    hmp dev schema export --help
-   hmp data list --help
+   hmp data ls --help
    hmp report catchment --help
    hmp dev lock verify --help
    hmp site-selection plan --help

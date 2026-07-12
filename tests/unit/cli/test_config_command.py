@@ -1,4 +1,4 @@
-"""Unit tests for ``hmp dev config``."""
+"""Unit tests for ``hmp config``."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from tests._helpers.cli_runner import CliRunner
 
 
-def test_dev_config_check_comparison_dispatches_to_comparison_config(
+def test_config_check_comparison_dispatches_to_comparison_config(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -42,7 +42,7 @@ def test_dev_config_check_comparison_dispatches_to_comparison_config(
         fake_module,
     )
 
-    result = CliRunner().invoke(["dev", "config", "check", str(config)])
+    result = CliRunner().invoke(["config", "check", str(config)])
 
     assert result.exit_code == 0
     assert calls == {
@@ -51,7 +51,7 @@ def test_dev_config_check_comparison_dispatches_to_comparison_config(
     assert f"OK: {config.resolve()}" in result.stdout
 
 
-def test_dev_config_check_invalid_toml_maps_to_config_exit(monkeypatch, tmp_path) -> None:
+def test_config_check_invalid_toml_maps_to_config_exit(monkeypatch, tmp_path) -> None:
     config = tmp_path / "broken.toml"
     config.write_text("not = [valid", encoding="utf-8")
 
@@ -64,14 +64,14 @@ def test_dev_config_check_invalid_toml_maps_to_config_exit(monkeypatch, tmp_path
         fake_load_toml,
     )
 
-    result = CliRunner().invoke(["dev", "config", "check", str(config)])
+    result = CliRunner().invoke(["config", "check", str(config)])
 
     assert result.exit_code == 14
     assert "Invalid TOML syntax:" in result.stderr
     assert "bad syntax" in result.stderr
 
 
-def test_dev_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path) -> None:
+def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path) -> None:
     out = tmp_path / "schema.json"
     calls: dict[str, object] = {}
 
@@ -84,7 +84,6 @@ def test_dev_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_
 
     result = CliRunner().invoke(
         [
-            "dev",
             "config",
             "schema",
             "--section",
@@ -104,7 +103,7 @@ def test_dev_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_
     assert f"Written to: {out}" in result.stderr
 
 
-def test_dev_config_template_list_modules_prints_modules_without_generating(
+def test_config_template_list_modules_prints_modules_without_generating(
     monkeypatch,
 ) -> None:
     calls: dict[str, bool] = {}
@@ -119,7 +118,7 @@ def test_dev_config_template_list_modules_prints_modules_without_generating(
     )
     monkeypatch.setattr("hydromodpy.core.toml_io.generator.generate_toml", fake_generate_toml)
 
-    result = CliRunner().invoke(["dev", "config", "template", "--list-modules"])
+    result = CliRunner().invoke(["config", "template", "--list-modules"])
 
     assert result.exit_code == 0
     assert result.stdout.splitlines() == ["workspace", "flow"]
