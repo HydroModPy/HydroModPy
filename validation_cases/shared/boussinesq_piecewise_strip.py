@@ -436,7 +436,6 @@ def write_piecewise_strip_launcher_config(
         "[simulation]",
         f"name = {json.dumps(str(simulation_name))}",
         f"description = {json.dumps(str(simulation_description))}",
-        f"run_id = {json.dumps(str(run_id))}",
         "",
         "[simulation.time]",
         'start_datetime = "2000-01-01 00:00:00"',
