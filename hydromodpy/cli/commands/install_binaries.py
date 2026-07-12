@@ -1,4 +1,9 @@
-"""``hmp install-binaries`` - thin wrapper around :func:`hydromodpy.install_binaries`."""
+"""``hmp install-binaries`` - pre-warm the solver binary cache.
+
+Wraps :func:`hydromodpy.solver.modflow_common.binaries.download_solver_binaries`
+via the ``_workers.dev`` helper. Binaries also download lazily on first solver
+use, so this verb is only needed to pre-fetch them (e.g. for offline runs).
+"""
 
 from __future__ import annotations
 

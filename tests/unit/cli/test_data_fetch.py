@@ -41,7 +41,8 @@ def test_data_fetch_help_displays(monkeypatch, capsys) -> None:
     assert "--bbox" in out
 
 
-def test_data_fetch_dem_writes_sidecar(monkeypatch, tmp_path, capsys) -> None:
+def test_data_fetch_dem_not_implemented(monkeypatch, tmp_path, capsys) -> None:
+    """``hmp data get`` is gated: it must never silently write a placeholder file."""
     workspace = _make_workspace(tmp_path)
     code = _run(
         monkeypatch,
@@ -58,20 +59,13 @@ def test_data_fetch_dem_writes_sidecar(monkeypatch, tmp_path, capsys) -> None:
             "test",
         ],
     )
-    assert code == 0
+    assert code != 0
+    err = capsys.readouterr().err
+    assert "not implemented" in err.lower()
 
     var_dir = workspace / "data" / "dem"
-    assert var_dir.is_dir()
-
-    tifs = list(var_dir.glob("dem_*.tif"))
-    assert tifs, "no .tif written"
-    sidecars = list(var_dir.glob("dem_*.tif.json"))
-    assert sidecars, "no sidecar written"
-
-    payload = json.loads(sidecars[0].read_text())
-    assert payload["source"] == "test"
-    assert payload["bbox"] == [0.0, 0.0, 1.0, 1.0]
-    assert len(payload["sha256"]) == 64
+    if var_dir.is_dir():
+        assert not list(var_dir.glob("dem_*")), "gated fetch must not write a file"
 
 
 def test_data_fetch_unknown_variable_fails(monkeypatch, tmp_path, capsys) -> None:
@@ -104,7 +98,11 @@ def test_data_fetch_invalid_bbox_fails(monkeypatch, tmp_path, capsys) -> None:
 
 
 def test_bbox_parses_negative_first_value(monkeypatch, tmp_path, capsys) -> None:
-    """``--bbox=-1.17,48.4,-1.0,48.5`` parses without argparse swallowing the negative."""
+    """``--bbox=-1.17,48.4,-1.0,48.5`` parses without argparse swallowing the negative.
+
+    The fetch itself is gated (not implemented); reaching that gate rather than
+    an argparse usage error proves the negative-leading bbox parsed.
+    """
     workspace = _make_workspace(tmp_path)
     code = _run(
         monkeypatch,
@@ -120,11 +118,9 @@ def test_bbox_parses_negative_first_value(monkeypatch, tmp_path, capsys) -> None
             "test",
         ],
     )
-    assert code == 0
-    sidecars = list((workspace / "data" / "dem").glob("dem_*.tif.json"))
-    assert sidecars
-    payload = json.loads(sidecars[0].read_text())
-    assert payload["bbox"] == [-1.17, 48.4, -1.0, 48.5]
+    assert code != 2  # not an argparse usage error -> the bbox parsed
+    err = capsys.readouterr().err
+    assert "not implemented" in err.lower()
 
 
 def test_bbox_help_mentions_equals_workaround(monkeypatch, capsys) -> None:

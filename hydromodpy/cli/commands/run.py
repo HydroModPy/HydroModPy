@@ -253,6 +253,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """
     import hydromodpy as hmp
     from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.project.dispatch.workflow import dispatch_workflow
     from hydromodpy.workflow.dispatch import (
         WorkflowError,
         resolve_workflow,
@@ -349,7 +350,12 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     try:
         with profile_run(profile_output, description=f"hmp run {config_path.name} ({workflow})"):
             if workflow == "simulation":
-                summary = hmp.run(
+                # Dispatch through DISPATCH (not hmp.run) so the CLI keeps the
+                # rich summary dict: the "identical run skipped" message and the
+                # mesh-process stats. hmp.run exposes the same run as a Run
+                # object for the Python API.
+                summary = dispatch_workflow(
+                    "simulation",
                     run_path,
                     resume=resume,
                     from_step=from_step,
