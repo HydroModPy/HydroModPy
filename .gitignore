@@ -383,3 +383,6 @@ catalog.duckdb.pre_*
 catalog.duckdb.preexisting_corrupt
 examples/projects/**/catalog.duckdb.bak.*
 examples/projects/**/catalog.duckdb.pre_*
+
+# CLI --set/--overlay materialized effective configs (temporary)
+*.effective.*.toml
