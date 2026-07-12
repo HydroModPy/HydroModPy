@@ -73,7 +73,6 @@ def export_vtu(
         mesh = grp["mesh"]
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
-        max_vpf = connectivity.shape[1]
 
         # Read field data
         arr = _resolve_zarr_path(grp, descriptor.zarr_path)
@@ -91,7 +90,7 @@ def export_vtu(
         vertices = np.column_stack([vertices, np.zeros(vertices.shape[0])])
 
     # Build meshio cells from face_node_connectivity
-    cells = _build_meshio_cells(connectivity, max_vpf)
+    cells, cell_indices = _build_meshio_cells(connectivity)
 
     if data.ndim == 2:
         # 3D field (layer, cell) → extract one layer
@@ -100,39 +99,43 @@ def export_vtu(
     mesh_out = meshio.Mesh(
         points=vertices,
         cells=cells,
-        cell_data={variable: _split_cell_data(data, cells)},
+        cell_data={variable: _split_cell_data(data, cell_indices)},
     )
     meshio.write(str(output_path), mesh_out)
     logger.info("Exported VTU: %s", output_path)
     return output_path
 
 
-def _build_meshio_cells(connectivity: np.ndarray, max_vpf: int) -> list:
-    """Convert UGRID face_node_connectivity to meshio cell blocks."""
+def _build_meshio_cells(connectivity: np.ndarray) -> tuple[list, list[np.ndarray]]:
+    """Convert UGRID face_node_connectivity to meshio cell blocks.
+
+    Groups faces by valence (number of valid vertices) so mixed and Voronoi/PEBI
+    meshes keep every node: 3 -> ``triangle``, 4 -> ``quad``, >=5 -> ``polygon``.
+    UGRID pads unused slots with a negative fill value at the tail of each row.
+    Returns the cell blocks and, per block, the original face indices so field
+    data can be gathered in the same cell order.
+    """
     import meshio
 
-    tri_mask = (
-        (connectivity[:, 3] == -1) if max_vpf >= 4 else np.ones(len(connectivity), dtype=bool)
-    )
-    quad_mask = ~tri_mask
+    valence = (connectivity >= 0).sum(axis=1)
+    type_for = {3: "triangle", 4: "quad"}
 
-    cells = []
-    if tri_mask.any():
-        cells.append(meshio.CellBlock("triangle", connectivity[tri_mask, :3]))
-    if quad_mask.any():
-        cells.append(meshio.CellBlock("quad", connectivity[quad_mask, :4]))
-    return cells
+    cells: list = []
+    cell_indices: list[np.ndarray] = []
+    for n in np.unique(valence):
+        n = int(n)
+        if n < 3:
+            continue
+        face_idx = np.nonzero(valence == n)[0]
+        block = connectivity[face_idx, :n]
+        cells.append(meshio.CellBlock(type_for.get(n, "polygon"), block))
+        cell_indices.append(face_idx)
+    return cells, cell_indices
 
 
-def _split_cell_data(data: np.ndarray, cells: list) -> list[np.ndarray]:
-    """Split flat cell data into per-block arrays matching meshio cells."""
-    result = []
-    offset = 0
-    for block in cells:
-        n = block.data.shape[0]
-        result.append(data[offset : offset + n])
-        offset += n
-    return result
+def _split_cell_data(data: np.ndarray, cell_indices: list[np.ndarray]) -> list[np.ndarray]:
+    """Gather flat per-cell data into per-block arrays matching the cell blocks."""
+    return [data[idx] for idx in cell_indices]
 
 
 def _resolve_zarr_path(grp, zarr_path: str):
