@@ -24,12 +24,20 @@ import platform as _platform
 import socket
 import subprocess
 import sys
+from functools import cache
 from pathlib import Path
 from typing import TypedDict
 
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# The host environment is constant within a process, but calibration re-runs
+# ``capture_environment`` for every trial. The subprocess-backed probes below
+# (``mamba env export``, ``pip list``, ``git rev-parse``, ``--version``, binary
+# hashing) dominate a fast trial's build, so memoise them for the process. This
+# is pure provenance metadata: it never touches the model build, solve, or
+# objective, so caching it cannot change a result.
 
 
 class EnvironmentSnapshot(TypedDict, total=False):
@@ -54,6 +62,7 @@ class EnvironmentSnapshot(TypedDict, total=False):
     rng_seed: int | None
 
 
+@cache
 def _git_head(cwd: Path) -> str | None:
     """Return the short HEAD SHA at ``cwd``, or ``None`` if not a repo."""
     try:
@@ -98,6 +107,7 @@ def _memory_gb() -> float | None:
         return None
 
 
+@cache
 def _cpu_info() -> dict:
     info: dict = {"machine": _platform.machine(), "processor": _platform.processor()}
     try:
@@ -121,6 +131,7 @@ def _hydromodpy_version() -> str:
     return __version__
 
 
+@cache
 def _env_packages() -> list[str]:
     """Return ``pip freeze``-equivalent lines, or an empty list on failure."""
     try:
@@ -135,6 +146,7 @@ def _env_packages() -> list[str]:
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
+@cache
 def _binary_sha256(path: Path | str | None) -> str | None:
     if path is None:
         return None
@@ -151,6 +163,7 @@ def _binary_sha256(path: Path | str | None) -> str | None:
     return h.hexdigest()
 
 
+@cache
 def _solver_version_text(path: Path | str | None) -> str | None:
     """Capture the textual solver version banner from ``<solver> --version``."""
     if path is None:
@@ -170,6 +183,7 @@ def _solver_version_text(path: Path | str | None) -> str | None:
     return out.strip() or None
 
 
+@cache
 def _conda_env_hash() -> str | None:
     """Return SHA-256 of ``mamba env export`` (or ``conda env export``).
 
@@ -232,7 +246,9 @@ def capture_environment(
         "platform": _platform.platform(),
         "hostname": socket.gethostname(),
         "user_name": _user_name() or "",
-        "cpu_info": _cpu_info(),
+        # Copy the memoised mutable probes so a caller mutating the snapshot
+        # cannot corrupt the process-level cache.
+        "cpu_info": dict(_cpu_info()),
         "memory_gb": _memory_gb(),
         "git_commit": _git_head(_hydromodpy_root()),
         "project_git_commit": _git_head(Path(project_root)) if project_root else None,
@@ -241,6 +257,6 @@ def capture_environment(
         "solver_binary_sha256": _binary_sha256(solver_binary_path),
         "solver_version_text": _solver_version_text(solver_binary_path),
         "conda_env_hash": _conda_env_hash(),
-        "env_packages": _env_packages(),
+        "env_packages": list(_env_packages()),
     }
     return snapshot
