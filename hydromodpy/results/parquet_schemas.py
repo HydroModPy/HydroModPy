@@ -9,8 +9,10 @@ incoming records to the matching schema before handing them to
 
 Schema-level metadata embeds ``hmp.schema``, ``hmp.schema_version``, ``hmp.pk``
 and CF ``Conventions``. Per-field metadata documents the physical unit and a
-short description. ``PARQUET_SCHEMA_VERSION`` is bumped to ``v2`` and rejected
-at read time when a Parquet file ships an older marker.
+short description. ``PARQUET_SCHEMA_VERSION`` is ``v2``; :func:`check_schema_version`
+enforces it when an existing per-simulation Parquet file is re-opened for append
+(the merge path in ``writes_helpers``), so a stale or version-less file is
+rejected before it can silently corrupt a ``union_by_name`` read.
 """
 
 from __future__ import annotations
@@ -386,43 +388,13 @@ PROVENANCE_SCHEMA: Final[pa.Schema] = pa.schema(
 """Per-simulation provenance records for inputs and derived arrays."""
 
 
-GEOGRAPHIC_FEATURES_SCHEMA: Final[pa.Schema] = pa.schema(
-    [
-        pa.field(
-            "sim_id",
-            pa.string(),
-            nullable=False,
-            metadata=_field_meta(description="Owning simulation id"),
-        ),
-        pa.field(
-            "feature_name",
-            pa.string(),
-            nullable=False,
-            metadata=_field_meta(description="Feature collection name"),
-        ),
-        pa.field(
-            "geometry",
-            pa.binary(),
-            nullable=False,
-            metadata=_field_meta(
-                encoding="WKB",
-                description="Well-Known Binary encoded geometry",
-            ),
-        ),
-    ],
-    metadata=_schema_metadata(
-        "geographic_features",
-        pk=("sim_id", "feature_name"),
-        extra={"geometry_encoding": "WKB"},
-    ),
-)
-"""Logical schema of the GeoParquet 1.1 vector files.
-
-Note: in practice the on-disk file is produced by ``geopandas.to_parquet``
-which adds extra columns inherited from the source ``GeoDataFrame`` plus the
-``geo`` OGC metadata key. This schema is the minimum contract every consumer
-should expect.
-"""
+# Geographic vector files are NOT declared as a pa.Schema here: they are written
+# by ``geopandas.to_parquet`` (OGC GeoParquet 1.1) and carry every column of the
+# source GeoDataFrame plus the ``geo`` OGC metadata key, so no fixed pyarrow
+# schema describes them faithfully. Consumers should read them with
+# ``geopandas.read_parquet`` and expect at least a ``geometry`` column (WKB) plus
+# the attributes the producing step attached; they are keyed logically by
+# ``(sim_id, feature_name)`` via the ``geographic_features`` catalog table.
 
 
 VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
@@ -478,7 +450,6 @@ def check_schema_version(metadata: dict[bytes, bytes] | dict[str, str] | None) -
 __all__ = [
     "BUDGETS_SCHEMA",
     "CF_CONVENTIONS",
-    "GEOGRAPHIC_FEATURES_SCHEMA",
     "MASS_BALANCE_SCHEMA",
     "METRICS_SCHEMA",
     "PARQUET_SCHEMA_VERSION",

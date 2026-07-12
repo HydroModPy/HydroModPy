@@ -1,4 +1,4 @@
-"""SimulationZarr: per-simulation Zarr v2 store (CF-1.11 + ACDD-1.3 + UGRID-1.0).
+"""SimulationZarr: per-simulation Zarr v3 store (CF-1.11 + ACDD-1.3 + UGRID-1.0).
 
 Thin facade over four single-concern modules:
 
@@ -58,7 +58,7 @@ def _file_lock_for_store(path: Path) -> FileLock:
 
 
 class SimulationZarr:
-    """Per-simulation Zarr v2 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
+    """Per-simulation Zarr v3 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
 
     def __init__(self, path: Path | UPath | str, *, balanced: bool = True) -> None:
         self._path = Path(str(path))

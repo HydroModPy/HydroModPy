@@ -23,7 +23,6 @@ from hydromodpy.results.zarr_store import (
     ZARR_SCHEMA_VERSION,
     SimulationZarr,
     ZarrSchemaVersionError,
-    atomic_write_array,
     compose_acdd_root_attrs,
     compute_balanced_chunks_2d,
     should_use_sharding,
@@ -39,30 +38,6 @@ def fresh_store(tmp_path: Path) -> SimulationZarr:
     )
     yield sz
     sz.close()
-
-
-def test_atomic_write_completes_marker(tmp_path: Path) -> None:
-    path = atomic_write_array(
-        tmp_path,
-        "alpha",
-        np.arange(20, dtype="float64"),
-        attrs={"long_name": "demo"},
-    )
-    root = zarr.open_group(zarr.storage.LocalStore(str(path)), mode="r")
-    assert root.attrs["_status"] == "complete"
-    assert path.name == "alpha"
-    assert "value" in root
-    assert np.allclose(root["value"][:], np.arange(20))
-
-
-def test_atomic_write_rolls_back_on_failure(tmp_path: Path) -> None:
-    bad_attrs: dict = {"unserializable": object()}
-    with pytest.raises(Exception):
-        atomic_write_array(tmp_path, "boom", np.arange(5, dtype="float64"), attrs=bad_attrs)
-    siblings = list(tmp_path.iterdir())
-    # No final 'boom' directory, and the tmp directory has been removed.
-    assert not any(s.name == "boom" for s in siblings)
-    assert not any(s.name.startswith("boom.zarr.tmp-") for s in siblings)
 
 
 def test_filelock_prevents_concurrent_write(tmp_path: Path) -> None:

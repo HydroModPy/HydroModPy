@@ -3,7 +3,7 @@
 Cover the pyarrow schemas declared in
 :mod:`hydromodpy.results.parquet_schemas`, the atomic writer in
 :mod:`hydromodpy.results.parquet_io`, the OGC GeoParquet 1.1 round-trip via
-:mod:`hydromodpy.results.geoparquet_io`, the batched timeseries writer, the
+:mod:`hydromodpy.core.io.geoparquet`, the batched timeseries writer, the
 lazy loaders, the enriched KV metadata, and the schema-version enforcement.
 """
 
@@ -22,13 +22,14 @@ from shapely.geometry import Point, Polygon
 
 pl = pytest.importorskip("polars")
 
-from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.geoparquet_io import (
+from hydromodpy.core.io.geoparquet import (
     GEOPARQUET_SCHEMA_VERSION,
     read_geoparquet,
     write_geoparquet_atomic,
 )
+from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
+from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.lazy_loaders import (
     list_field_paths,
     list_parquet_paths,
@@ -36,7 +37,6 @@ from hydromodpy.results.lazy_loaders import (
     scan_timeseries,
 )
 from hydromodpy.results.parquet_io import (
-    PARQUET_WRITE_DEFAULTS,
     read_kv_metadata,
     write_table_atomic,
 )

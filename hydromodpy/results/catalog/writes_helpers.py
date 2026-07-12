@@ -229,7 +229,12 @@ def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[st
     """
     import pyarrow.parquet as pq
 
+    from hydromodpy.results.parquet_schemas import check_schema_version
+
     existing = pq.read_table(target)
+    # Reject a stale/version-less Parquet before appending to it: union_by_name
+    # would otherwise silently NULL-fill or coerce a schema-drifted older file.
+    check_schema_version(existing.schema.metadata)
     # Ensure columns line up: project new_table onto existing's column order
     # when both share the same names, otherwise rely on concat_tables' promote.
     combined = pa.concat_tables([existing, new_table], promote_options="default")

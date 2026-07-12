@@ -23,7 +23,13 @@ GEOPARQUET_WRITE_DEFAULTS: Final[dict[str, object]] = {
     "write_covering_bbox": True,
     "index": False,
 }
-"""Canonical write options applied by :func:`write_geoparquet_atomic`."""
+"""Canonical write options applied by :func:`write_geoparquet_atomic`.
+
+Row-group sizing, page index and column statistics are intentionally left at
+the ``geopandas.to_parquet`` / pyarrow defaults: HMP vector layers hold few
+features, so the tuned tabular knobs (see ``core.io.parquet``) would not pay
+off and are not reliably forwarded through geopandas across versions.
+"""
 
 
 def write_geoparquet_atomic(

@@ -29,17 +29,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from hydromodpy.core.io.filesystem import native_io_path as _native_io_path
-
-PARQUET_WRITE_DEFAULTS: Final[dict[str, object]] = {
-    "compression": "zstd",
-    "compression_level": 5,
-    "row_group_size": 50_000,
-    "use_dictionary": True,
-    "write_statistics": True,
-    "write_page_index": True,
-    "version": "2.6",
-}
-"""Canonical write options applied by :func:`write_table_atomic`."""
+from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 
 
 def _supports_bloom_filter_columns() -> bool:
@@ -178,7 +168,6 @@ def read_kv_metadata(path: Path | str) -> dict[str, str]:
 
 
 __all__ = [
-    "PARQUET_WRITE_DEFAULTS",
     "read_kv_metadata",
     "write_table_atomic",
 ]

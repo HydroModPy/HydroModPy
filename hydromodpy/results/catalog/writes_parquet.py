@@ -21,6 +21,7 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.io.db_retry import with_lock_retry
+from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
 from hydromodpy.core.version import __version__ as _HMP_VERSION
@@ -33,7 +34,6 @@ from hydromodpy.results.catalog.writes_helpers import (
     _table_from_columns,
     _table_from_records,
 )
-from hydromodpy.results.geoparquet_io import write_geoparquet_atomic
 from hydromodpy.results.parquet_io import read_kv_metadata, write_table_atomic
 from hydromodpy.results.parquet_schemas import (
     BUDGETS_SCHEMA,

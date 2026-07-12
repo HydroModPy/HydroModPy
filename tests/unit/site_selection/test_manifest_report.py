@@ -330,7 +330,7 @@ def test_validate_selection_manifest_accepts_production_vector_artifacts(tmp_pat
     pytest.importorskip("pyarrow")
     from shapely.geometry import Point
 
-    from hydromodpy.results.geoparquet_io import write_geoparquet_atomic
+    from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
 
     root = tmp_path / "out"
     root.mkdir()

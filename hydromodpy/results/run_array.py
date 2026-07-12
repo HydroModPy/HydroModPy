@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
 
@@ -21,14 +22,29 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.run import Run
 
+logger = get_logger(__name__)
+
+_DASK_FALLBACK_WARNED = False
+
 
 def _optional_dask_array():
-    """Return ``dask.array`` when installed, otherwise ``None``."""
+    """Return ``dask.array`` when installed, otherwise ``None``.
+
+    Warns once when dask is absent: the array views then load eagerly (full
+    ``np.asarray``), which can OOM on a large multi-year store.
+    """
+    global _DASK_FALLBACK_WARNED
     try:
         import dask.array as da
     except ModuleNotFoundError as exc:
         if exc.name != "dask":
             raise
+        if not _DASK_FALLBACK_WARNED:
+            logger.warning(
+                "dask is not installed: field/xarray views load eagerly into RAM "
+                "and can OOM on large stores. Install dask for lazy access."
+            )
+            _DASK_FALLBACK_WARNED = True
         return None
     return da
 

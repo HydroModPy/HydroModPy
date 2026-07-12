@@ -13,6 +13,10 @@ BLOSC_ZSTD = zarr.codecs.BloscCodec(
 )
 
 # CF + ACDD + UGRID conventions advertised at the root of every store.
+# CF compliance is partial by design: core hydrogeology variables (head,
+# concentration, most derived/budget fields) have no CF standard_name in the
+# CF v85 table and carry a CSDMS csdms_standard_name instead, so a strict
+# cfchecker flags them as missing standard_name.
 CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 
 # Schema version of the Zarr layout produced by HydroModPy V1 (P6).
