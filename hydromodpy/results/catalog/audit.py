@@ -22,6 +22,7 @@ import json
 import socket
 import subprocess
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
@@ -108,57 +109,29 @@ def _canonical_payload(payload: dict[str, Any] | None) -> str:
     return json.dumps(payload or {}, sort_keys=True, separators=(",", ":"), default=str)
 
 
-def _audit_log_has_seq_column(db: duckdb.DuckDBPyConnection) -> bool:
-    """Detect whether ``audit_log`` carries the monotonic ``seq`` column (0009)."""
-    try:
-        row = db.execute(
-            "SELECT COUNT(*) FROM information_schema.columns "
-            "WHERE table_name = 'audit_log' AND column_name = 'seq'"
-        ).fetchone()
-    except Exception:
-        return False
-    return bool(row and int(row[0]) == 1)
+def _canonical_ts(value: Any) -> str:
+    """Stable UTC-microsecond string for hashing a TIMESTAMPTZ across the DB round-trip."""
+    if value is None:
+        return ""
+    return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")
 
 
-def _audit_order_clause(db: duckdb.DuckDBPyConnection, *, descending: bool) -> str:
-    """Chain ordering clause: monotonic ``seq`` when present, else the legacy key.
+def _next_audit_seq(db: duckdb.DuckDBPyConnection) -> int:
+    """Return the next monotonic ``seq`` value (``MAX(seq) + 1``).
 
-    ``seq`` (migration 0009) reflects true insertion order, which
-    ``(occurred_at, event_id)`` cannot when several rows share a transaction
-    (occurred_at is frozen per transaction and event_id is random).
+    Computed inside the caller's transaction; the catalog's single-writer lock
+    and the uncommitted-read visibility of the pending insert keep it monotonic
+    even for several audit rows written in one transaction.
     """
-    direction = "DESC" if descending else "ASC"
-    if _audit_log_has_seq_column(db):
-        return f"ORDER BY seq {direction}"
-    return f"ORDER BY occurred_at {direction}, event_id {direction}"
-
-
-def _next_audit_seq(db: duckdb.DuckDBPyConnection) -> int | None:
-    """Return the next monotonic ``seq`` value, or None when the column is absent.
-
-    Computed as ``MAX(seq) + 1`` inside the caller's transaction; the catalog's
-    single-writer lock and the uncommitted-read visibility of the pending insert
-    keep it monotonic even for several audit rows in one transaction.
-    """
-    if not _audit_log_has_seq_column(db):
-        return None
-    try:
-        row = db.execute("SELECT COALESCE(MAX(seq), 0) + 1 FROM audit_log").fetchone()
-    except Exception:
-        return None
+    row = db.execute("SELECT COALESCE(MAX(seq), 0) + 1 FROM audit_log").fetchone()
     return int(row[0]) if row else 1
 
 
 def _fetch_prev_chain_hash(db: duckdb.DuckDBPyConnection) -> str | None:
-    """Return the most recent ``chain_hash`` row, or None on cold start."""
-    try:
-        row = db.execute(
-            "SELECT chain_hash FROM audit_log "
-            "WHERE chain_hash IS NOT NULL "
-            f"{_audit_order_clause(db, descending=True)} LIMIT 1"
-        ).fetchone()
-    except Exception:
-        return None
+    """Return the ``chain_hash`` of the latest audit row, or None on cold start."""
+    row = db.execute(
+        "SELECT chain_hash FROM audit_log WHERE chain_hash IS NOT NULL ORDER BY seq DESC LIMIT 1"
+    ).fetchone()
     if row is None:
         return None
     return row[0] if row[0] else None
@@ -172,8 +145,18 @@ def _compute_chain_hash(
     sim_id: str | None,
     project: str | None,
     payload_json: str,
+    occurred_at: Any,
+    actor: str | None,
+    actor_kind: str | None,
+    hostname: str | None,
 ) -> str:
-    """SHA-256 over prev_hash and the immutable subset of the row."""
+    """SHA-256 over prev_hash and the tamper-evident subset of the row.
+
+    ``occurred_at``, ``actor``, ``actor_kind`` and ``hostname`` are folded in so
+    they cannot be rewritten after the fact without breaking the chain.
+    ``occurred_at`` is normalized to a stable UTC-microsecond string so it
+    survives the TIMESTAMPTZ round-trip identically on write and on verify.
+    """
     parts = [
         prev_hash or "",
         event_id,
@@ -181,21 +164,13 @@ def _compute_chain_hash(
         sim_id or "",
         project or "",
         payload_json,
+        _canonical_ts(occurred_at),
+        actor or "",
+        actor_kind or "",
+        hostname or "",
     ]
     blob = "\x1f".join(parts).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
-
-
-def _audit_log_has_chain_columns(db: duckdb.DuckDBPyConnection) -> bool:
-    """Detect whether the catalog has been migrated to the hash-chain schema."""
-    try:
-        row = db.execute(
-            "SELECT COUNT(*) FROM information_schema.columns "
-            "WHERE table_name = 'audit_log' AND column_name = 'chain_hash'"
-        ).fetchone()
-    except Exception:
-        return False
-    return bool(row and int(row[0]) == 1)
 
 
 def emit_audit_event(
@@ -213,64 +188,52 @@ def emit_audit_event(
     """Write one event into ``audit_log`` and return the generated ``event_id``.
 
     The caller controls transactions; the INSERT runs on the supplied
-    connection without an enclosing BEGIN/COMMIT so it can be wrapped in
-    the same transaction as the operation it audits.
-
-    When the catalog has the hash-chain columns (migration ``0002``), the
-    row carries ``prev_hash`` (the chain_hash of the latest row) and
-    ``chain_hash`` (SHA-256 over the immutable subset of the new row).
-    Cold-start rows have ``prev_hash`` NULL.
+    connection without an enclosing BEGIN/COMMIT so it can be wrapped in the
+    same transaction as the operation it audits. Each row carries a monotonic
+    ``seq``, a ``prev_hash`` (the chain_hash of the latest row, NULL on cold
+    start) and a ``chain_hash`` (SHA-256 over the tamper-evident subset of the
+    row, including ``occurred_at``/``actor``/``hostname``).
     """
     event_id = str(uuid4())
     payload_json = _canonical_payload(payload)
-    if _audit_log_has_chain_columns(db):
-        prev_hash = _fetch_prev_chain_hash(db)
-        chain_hash = _compute_chain_hash(
-            prev_hash=prev_hash,
-            event_id=event_id,
-            event_type=event_type,
-            sim_id=sim_id,
-            project=project,
-            payload_json=payload_json,
-        )
-        seq = _next_audit_seq(db)
-        columns = "event_id, actor, actor_kind, event_type, sim_id, project, payload, git_commit, hostname, prev_hash, chain_hash"
-        values = [
+    occurred_at = datetime.now(UTC)
+    actor_value = actor if actor is not None else _resolve_actor()
+    hostname_value = hostname if hostname is not None else _resolve_hostname()
+    git_commit_value = git_commit if git_commit is not None else _resolve_git_commit()
+    prev_hash = _fetch_prev_chain_hash(db)
+    chain_hash = _compute_chain_hash(
+        prev_hash=prev_hash,
+        event_id=event_id,
+        event_type=event_type,
+        sim_id=sim_id,
+        project=project,
+        payload_json=payload_json,
+        occurred_at=occurred_at,
+        actor=actor_value,
+        actor_kind=actor_kind,
+        hostname=hostname_value,
+    )
+    db.execute(
+        """INSERT INTO audit_log
+            (event_id, seq, occurred_at, actor, actor_kind, event_type, sim_id,
+             project, payload, git_commit, hostname, prev_hash, chain_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [
             event_id,
-            actor if actor is not None else _resolve_actor(),
+            _next_audit_seq(db),
+            occurred_at,
+            actor_value,
             actor_kind,
             event_type,
             sim_id,
             project,
             payload_json,
-            git_commit if git_commit is not None else _resolve_git_commit(),
-            hostname if hostname is not None else _resolve_hostname(),
+            git_commit_value,
+            hostname_value,
             prev_hash,
             chain_hash,
-        ]
-        if seq is not None:
-            columns += ", seq"
-            values.append(seq)
-        placeholders = ", ".join("?" * len(values))
-        db.execute(f"INSERT INTO audit_log ({columns}) VALUES ({placeholders})", values)
-    else:
-        db.execute(
-            """INSERT INTO audit_log
-                (event_id, actor, actor_kind, event_type, sim_id, project,
-                 payload, git_commit, hostname)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [
-                event_id,
-                actor if actor is not None else _resolve_actor(),
-                actor_kind,
-                event_type,
-                sim_id,
-                project,
-                payload_json,
-                git_commit if git_commit is not None else _resolve_git_commit(),
-                hostname if hostname is not None else _resolve_hostname(),
-            ],
-        )
+        ],
+    )
     return event_id
 
 
@@ -278,20 +241,29 @@ def verify_chain(db: duckdb.DuckDBPyConnection) -> bool:
     """Recompute and verify the entire ``audit_log`` chain.
 
     Returns ``True`` when every row whose ``chain_hash`` is set matches the
-    recomputed digest of (``prev_hash`` || canonical subset). Rows with a
-    NULL ``chain_hash`` are tolerated (pre-migration legacy entries).
+    recomputed digest of (``prev_hash`` || tamper-evident subset), replayed in
+    monotonic ``seq`` order. Rows with a NULL ``chain_hash`` are tolerated.
     """
-    if not _audit_log_has_chain_columns(db):
-        return True
     rows = db.execute(
-        "SELECT event_id, event_type, sim_id, project, payload, prev_hash, chain_hash "
-        "FROM audit_log "
-        "WHERE chain_hash IS NOT NULL "
-        f"{_audit_order_clause(db, descending=False)}"
+        "SELECT event_id, event_type, sim_id, project, payload, prev_hash, chain_hash, "
+        "occurred_at, actor, actor_kind, hostname "
+        "FROM audit_log WHERE chain_hash IS NOT NULL ORDER BY seq ASC"
     ).fetchall()
     expected_prev: str | None = None
     for row in rows:
-        event_id, event_type, sim_id, project, payload, prev_hash, chain_hash = row
+        (
+            event_id,
+            event_type,
+            sim_id,
+            project,
+            payload,
+            prev_hash,
+            chain_hash,
+            occurred_at,
+            actor,
+            actor_kind,
+            hostname,
+        ) = row
         sim_id_str = str(sim_id) if sim_id is not None else None
         payload_str = payload if isinstance(payload, str) else (payload or "")
         if isinstance(payload_str, (bytes, bytearray)):
@@ -303,6 +275,10 @@ def verify_chain(db: duckdb.DuckDBPyConnection) -> bool:
             sim_id=sim_id_str,
             project=str(project) if project is not None else None,
             payload_json=str(payload_str),
+            occurred_at=occurred_at,
+            actor=str(actor) if actor is not None else None,
+            actor_kind=str(actor_kind) if actor_kind is not None else None,
+            hostname=str(hostname) if hostname is not None else None,
         )
         if recomputed != str(chain_hash):
             return False
