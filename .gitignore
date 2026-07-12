@@ -378,6 +378,7 @@ docs/_dev_notes/test_suite_overhaul_*.md
 /MESH_DISCRETIZATION_RESEARCH.md
 /abaque_cheze_mobilisable_extended.csv
 /LAKERES_REFACT_CHANGES.md
+/ANALYSE_APPLIED_GROUNDWATER_MODELING.md
 catalog.duckdb.bak.*
 catalog.duckdb.pre_*
 catalog.duckdb.preexisting_corrupt
