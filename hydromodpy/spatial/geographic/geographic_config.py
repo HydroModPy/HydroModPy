@@ -313,6 +313,23 @@ class LakeEnforcementConfig(HydroModelBase):
             "disables the capture pass (lake carve only)."
         ),
     )
+    capture_max_streams: Annotated[int, Profile.EXPERT] = Field(
+        default=8,
+        ge=1,
+        description=(
+            "Capture pass: cap on how many near-miss stream terminals are carved to "
+            "lakes per pass (kept by decreasing flow accumulation)."
+        ),
+    )
+    capture_min_acc_fraction: Annotated[float, Profile.EXPERT] = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Capture pass: keep only near-miss terminals whose flow accumulation is at "
+            "least this fraction of the largest, so a tiny rivulet is not carved."
+        ),
+    )
 
 
 class DamCarveConfig(HydroModelBase):

@@ -9,7 +9,7 @@ root = "../../"
 [simulation]
 name = "nancon_transient_seasonal_shared_case"
 description = "Nancon watershed transient benchmark with a synthetic seasonal recharge chronicle."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-10-01 00:00:00"

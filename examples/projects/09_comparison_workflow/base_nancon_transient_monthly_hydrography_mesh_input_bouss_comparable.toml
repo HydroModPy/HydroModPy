@@ -20,7 +20,7 @@ root = "../../"
 [simulation]
 name = "nancon_transient_monthly_hydrography_mesh_input_bouss_comparable"
 description = "Nancon monthly transient MF6/Boussinesq comparability pilot on one precomputed mesh."
-on_collision = "replace"
+if_exists = "replace"
 
 [flow]
 runtime_max_iterations = 320

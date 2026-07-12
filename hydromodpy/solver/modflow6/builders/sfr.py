@@ -166,6 +166,8 @@ def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
                 "outflow_to_lake",
                 "outflow_mvrtype",
                 "outflow_value",
+                "lake_feeder_snap",
+                "outlet_keepout",
                 "reach_trace",
             )
         }
@@ -870,9 +872,10 @@ def build_drainage_mover_records(
 # A reach is coupled to a lake only when it is within this distance of a shoreline (a
 # real feeder the DEM merely fell short on) and stays at least this far from the model
 # outlet (else it is the below-dam DISCHARGE reach, which leaves the model -- the lake
-# feeds it, not the reverse).
-_LAKE_FEEDER_SNAP_M = 300.0
-_OUTLET_KEEPOUT_M = 1000.0
+# feeds it, not the reverse). These are DEFAULTS; each network overrides them through
+# FlowReachNetworkConfig.lake_feeder_snap / outlet_keepout.
+_DEFAULT_LAKE_FEEDER_SNAP_M = 300.0
+_DEFAULT_OUTLET_KEEPOUT_M = 1000.0
 
 
 def build_sfr_mover_records(
@@ -918,6 +921,12 @@ def build_sfr_mover_records(
         mvrtype = str(definition.get("outflow_mvrtype") or "FACTOR").strip().upper()
         raw_value = definition.get("outflow_value")
         value = float(raw_value) if raw_value is not None else 1.0
+        _snap = definition.get("lake_feeder_snap")
+        feeder_snap_m = _length_m(_snap) if _snap is not None else _DEFAULT_LAKE_FEEDER_SNAP_M
+        _keepout = definition.get("outlet_keepout")
+        outlet_keepout_m = (
+            _length_m(_keepout) if _keepout is not None else _DEFAULT_OUTLET_KEEPOUT_M
+        )
 
         # Bare outlets (no downstream, no lake flag) hand to the nearest lake cell.
         # Only when the network HAS flagged shoreline reaches: with none, the single
@@ -926,13 +935,13 @@ def build_sfr_mover_records(
         # DISCHARGE reach (the lake feeds it and it leaves the model), not a feeder --
         # position, not elevation, since a deep-bathymetry feeder can be lower than the
         # discharge. Elevation is unreliable; the outlet distance separates them.
-        def _near_outlet(cellid: tuple[int, int] | None) -> bool:
+        def _near_outlet(
+            cellid: tuple[int, int] | None, *, keepout_m: float = outlet_keepout_m
+        ) -> bool:
             if outlet_xy is None or cellid is None or cell_centroids is None:
                 return False
             here = cell_centroids[int(cellid[1])]
-            return (
-                float(np.hypot(here[0] - outlet_xy[0], here[1] - outlet_xy[1])) < _OUTLET_KEEPOUT_M
-            )
+            return float(np.hypot(here[0] - outlet_xy[0], here[1] - outlet_xy[1])) < keepout_m
 
         if flagged and lake_xy is not None:
             for reach in network.reaches:
@@ -943,7 +952,7 @@ def build_sfr_mover_records(
                 nearest = int(np.argmin(d2))
                 # Skip a dead-end FAR from any shoreline (a main stem stopping at a flat
                 # forebay): teleporting it would drop an entry "in the void".
-                if float(d2[nearest]) ** 0.5 > _LAKE_FEEDER_SNAP_M:
+                if float(d2[nearest]) ** 0.5 > feeder_snap_m:
                     continue
                 if _near_outlet(reach.cellid):
                     continue  # below-dam discharge reach, not a lake feeder

@@ -30,6 +30,10 @@ from hydromodpy.spatial.geographic.core.d8 import WBT_D8_OFFSETS
 
 logger = get_logger(__name__)
 
+# Minimum half-width [m] of the punched outlet notch, so a narrow lake buffer still
+# yields a channel wide enough to capture cells on the routing grid.
+_MIN_NOTCH_HALF_WIDTH_M = 6.0
+
 
 @dataclass(frozen=True)
 class LakeEnforcementReport:
@@ -135,7 +139,9 @@ def carve_routing_dem(
     if outlet_xy is not None:
         merged = unary_union(lakes)
         near = nearest_points(merged.boundary, Point(*anchor_xy))[0]
-        channel = LineString([(near.x, near.y), anchor_xy]).buffer(max(buffer_m * 0.6, 6.0))
+        channel = LineString([(near.x, near.y), anchor_xy]).buffer(
+            max(buffer_m * 0.6, _MIN_NOTCH_HALF_WIDTH_M)
+        )
         notch_mask = (
             rasterize(
                 [(channel, 1)],
@@ -534,6 +540,8 @@ def capture_from_config(
         lake_polygons=_lakes_from_config(enforce, setup),
         capture_radius_m=radius,
         acc_tif=acc_tif if Path(acc_tif).exists() else None,
+        min_acc_fraction=float(enforce.capture_min_acc_fraction),
+        max_streams=int(enforce.capture_max_streams),
         slope=float(enforce.slope),
         buffer_m=float(enforce.buffer_m),
     )

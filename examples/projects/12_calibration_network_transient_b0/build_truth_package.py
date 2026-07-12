@@ -23,7 +23,7 @@ from hydromodpy.calibration.network_transient_truth import (
     write_network_transient_truth_package,
     write_network_transient_truth_package_from_runs,
 )
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--scored-periods", type=int, default=36)
     args = parser.parse_args(argv)
 
-    steady_catalog = SimulationCatalog(args.steady_catalog)
+    steady_catalog = Catalog(args.steady_catalog)
     transient_catalog = None
     try:
         steady_sim_id = steady_catalog.resolve(args.steady_ref, project=args.steady_project)
@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         if Path(transient_catalog_path).resolve() == Path(args.steady_catalog).resolve():
             transient_catalog = steady_catalog
         else:
-            transient_catalog = SimulationCatalog(transient_catalog_path)
+            transient_catalog = Catalog(transient_catalog_path)
         transient_sim_id = transient_catalog.resolve(
             args.transient_ref,
             project=args.transient_project,

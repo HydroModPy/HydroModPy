@@ -57,9 +57,7 @@ def run(args: argparse.Namespace) -> None:
             )
             print(f"wrote {single['path']}  [{single['sim_id'][:8]}]")
         else:
-            multi = export_package_runs(
-                args.sim_refs, workspace=workspace_root, output=args.output
-            )
+            multi = export_package_runs(args.sim_refs, workspace=workspace_root, output=args.output)
             ids = ", ".join(s[:8] for s in multi["sim_ids"])
             print(f"wrote {multi['path']}  ({len(multi['sim_ids'])} runs: {ids})")
     except FileNotFoundError as exc:

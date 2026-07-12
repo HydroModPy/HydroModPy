@@ -294,7 +294,7 @@ name = "nancon_base"
 description = "Bassin du Nancon - config de base partagee pour les runs."
 # `replace` ecrase un run de meme nom dans le catalog. Utile quand on
 # itere sur la meme configuration.
-on_collision = "replace"
+if_exists = "replace"
 
 
 [simulation.time]

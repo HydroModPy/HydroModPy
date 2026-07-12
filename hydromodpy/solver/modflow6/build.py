@@ -1002,7 +1002,16 @@ def run_pre_processing(  # noqa: PLR0915
 
     wel_spd = build_well_stress_period_data(model, int(model.nper))
     if any(len(v) > 0 for v in wel_spd.values()):
-        model.wel = flopy.mf6.ModflowGwfwel(model.gwf, stress_period_data=wel_spd, save_flows=True)
+        wel_kwargs: dict[str, object] = {"stress_period_data": wel_spd, "save_flows": True}
+        if runtime.mf6_newton:
+            # Under the Newton formulation a well that dewaters its cell makes
+            # the head oscillate across the confined/unconfined threshold and the
+            # solve diverges. AUTO_FLOW_REDUCE tapers the extraction as the
+            # saturated thickness drops below 10% of the cell (physically
+            # correct: you cannot pump water that is not there), which removes
+            # the oscillation. No effect on cells that stay saturated.
+            wel_kwargs["auto_flow_reduce"] = 0.1
+        model.wel = flopy.mf6.ModflowGwfwel(model.gwf, **wel_kwargs)
 
     model.model_output_name = mf6_output_name(model)
 

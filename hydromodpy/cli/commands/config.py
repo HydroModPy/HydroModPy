@@ -222,7 +222,10 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
         print(f"  {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except ValueError as exc:
-        print(f"Invalid base_config chain: {exc}", file=sys.stderr)
+        # base_config is already resolved above; a ValueError here is the
+        # validation error that from_toml wraps (its message carries the
+        # file:line:key detail), not a base_config chain failure.
+        print(f"Config invalid: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except Exception as exc:
         print(f"Config check failed: {exc}", file=sys.stderr)

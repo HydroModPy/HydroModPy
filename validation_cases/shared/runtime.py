@@ -729,13 +729,14 @@ def _build_validation_launcher_config(
             tomllib.loads(profile_block),
         )
 
-    # Inject a stable run_id so the model folder name is predictable
+    # Inject a stable simulation name so the model folder name is predictable
     # (derived from case_dir name + solver) instead of the temp TOML filename.
+    # ``[simulation] name`` is the run identity (``run_id`` was removed by the
+    # simulation-management v2 schema); it must stay unique per solver.
     case_id = str(metadata.get("case_id", case_dir.name))
-    stable_run_id = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
+    stable_name = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
     sim_section = merged_payload.setdefault("simulation", {})
-    if not sim_section.get("run_id"):
-        sim_section["run_id"] = stable_run_id
+    sim_section["name"] = stable_name
 
     if "workflow" not in merged_payload:
         raise ValueError(f"{config_path} must define [workflow] or inherit it from base_config.")

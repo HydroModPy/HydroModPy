@@ -33,6 +33,13 @@ class CustomLakeGeometrySource(HydroModelBase):
         ...,
         description="Path to a custom lake-geometry vector file (SHP, GPKG, GeoJSON).",
     )
+    default_crs: Annotated[str, Profile.USER] = Field(
+        default="EPSG:2154",
+        description=(
+            "Fallback CRS used only when the file carries none of its own. Defaults to "
+            "RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset."
+        ),
+    )
 
 
 class LakeGeometryConfig(HydroModelBase):

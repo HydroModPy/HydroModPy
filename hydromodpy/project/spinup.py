@@ -103,66 +103,83 @@ def run_spinup(
     cfg = project.config
     settings = spinup or cfg.spinup or SpinupConfig()
 
-    # A dedicated, shorter representative window keeps each cycle cheap. Set it
-    # before prepare() so the data step loads forcing for the cycle window.
-    if settings.window_start is not None:
-        cfg.simulation.time.start_datetime = settings.window_start
-    if settings.window_end is not None:
-        cfg.simulation.time.end_datetime = settings.window_end
+    # run_spinup drives ONE Project through cycles by mutating its config in place
+    # (short window, restart_from, ic). Snapshot the touched fields and restore them
+    # on exit so a caller that reuses the Project afterwards keeps its original config.
+    _saved_config = (
+        cfg.simulation.time.start_datetime,
+        cfg.simulation.time.end_datetime,
+        cfg.flow.restart_from,
+        cfg.flow.ic,
+    )
+    try:
+        # A dedicated, shorter representative window keeps each cycle cheap. Set it
+        # before prepare() so the data step loads forcing for the cycle window.
+        if settings.window_start is not None:
+            cfg.simulation.time.start_datetime = settings.window_start
+        if settings.window_end is not None:
+            cfg.simulation.time.end_datetime = settings.window_end
 
-    if cfg.mesh_catchment is None or not cfg.mesh_catchment.cache:
-        logger.warning(
-            "spin-up reuses one Project, so its mesh is stable across cycles. But a "
-            "later production run that restarts from the converged Zarr needs the SAME "
-            "mesh: enable [mesh_catchment] cache = true for a gmsh grid, or the restart "
-            "shape check will reject it."
-        )
-
-    project.prepare()  # build geographic / data / mesh once, reused every cycle
-
-    cycles: list[SpinupCycle] = []
-    prev_zarr: str | None = None
-    converged = False
-
-    for index in range(settings.max_cycles):
-        if prev_zarr is not None:
-            cfg.flow.restart_from = prev_zarr
-            if cfg.flow.ic.h.type == "steady_state":
-                cfg.flow.ic = FlowInitialConditions.model_validate({"type": "top"})
-
-        run = project.simulate(name=f"{name_prefix}_{index}")
-        if run is None:
-            raise RuntimeError(f"spin-up cycle {index} produced no run")
-        zarr_path = str(project._catalog.store.zarr_path_for(run.sim_id))
-
-        d_head: float | None = None
-        d_stage: float | None = None
-        if prev_zarr is not None:
-            d_head, d_stage = cycle_delta(prev_zarr, zarr_path)
-            logger.info(
-                "spin-up cycle %d: d_head=%.4g m, d_stage=%.4g m (tol %.4g / %.4g)",
-                index,
-                d_head,
-                d_stage,
-                settings.tol_head,
-                settings.tol_stage,
+        if cfg.mesh_catchment is None or not cfg.mesh_catchment.cache:
+            logger.warning(
+                "spin-up reuses one Project, so its mesh is stable across cycles. But a "
+                "later production run that restarts from the converged Zarr needs the SAME "
+                "mesh: enable [mesh_catchment] cache = true for a gmsh grid, or the restart "
+                "shape check will reject it."
             )
-            converged = d_head < settings.tol_head and d_stage < settings.tol_stage
 
-        cycles.append(SpinupCycle(index, run.sim_id, zarr_path, d_head, d_stage))
-        prev_zarr = zarr_path
-        if converged:
-            logger.info("spin-up converged after %d cycles", index + 1)
-            break
+        project.prepare()  # build geographic / data / mesh once, reused every cycle
 
-    if not converged:
-        logger.warning(
-            "spin-up did not converge in %d cycles; using the last state as the "
-            "antecedent. Raise max_cycles or the tolerances.",
-            settings.max_cycles,
-        )
-    _tag_spinup_cycles(project, cycles)
-    return SpinupResult(converged=converged, cycles=cycles, restart_from=prev_zarr or "")
+        cycles: list[SpinupCycle] = []
+        prev_zarr: str | None = None
+        converged = False
+
+        for index in range(settings.max_cycles):
+            if prev_zarr is not None:
+                cfg.flow.restart_from = prev_zarr
+                if cfg.flow.ic.h.type == "steady_state":
+                    cfg.flow.ic = FlowInitialConditions.model_validate({"type": "top"})
+
+            run = project.simulate(name=f"{name_prefix}_{index}")
+            if run is None:
+                raise RuntimeError(f"spin-up cycle {index} produced no run")
+            zarr_path = str(project._catalog.store.zarr_path_for(run.sim_id))
+
+            d_head: float | None = None
+            d_stage: float | None = None
+            if prev_zarr is not None:
+                d_head, d_stage = cycle_delta(prev_zarr, zarr_path)
+                logger.info(
+                    "spin-up cycle %d: d_head=%.4g m, d_stage=%.4g m (tol %.4g / %.4g)",
+                    index,
+                    d_head,
+                    d_stage,
+                    settings.tol_head,
+                    settings.tol_stage,
+                )
+                converged = d_head < settings.tol_head and d_stage < settings.tol_stage
+
+            cycles.append(SpinupCycle(index, run.sim_id, zarr_path, d_head, d_stage))
+            prev_zarr = zarr_path
+            if converged:
+                logger.info("spin-up converged after %d cycles", index + 1)
+                break
+
+        if not converged:
+            logger.warning(
+                "spin-up did not converge in %d cycles; using the last state as the "
+                "antecedent. Raise max_cycles or the tolerances.",
+                settings.max_cycles,
+            )
+        _tag_spinup_cycles(project, cycles)
+        return SpinupResult(converged=converged, cycles=cycles, restart_from=prev_zarr or "")
+    finally:
+        (
+            cfg.simulation.time.start_datetime,
+            cfg.simulation.time.end_datetime,
+            cfg.flow.restart_from,
+            cfg.flow.ic,
+        ) = _saved_config
 
 
 def _tag_spinup_cycles(project: Project, cycles: list[SpinupCycle]) -> None:

@@ -1534,7 +1534,7 @@ def synthesize_truth_observations_via_project_api(
         workspace_root=benchmark_root / "project_truth",
         extra_sections={
             "display": {"enabled": False, "show": False, "save": False},
-            "simulation": {"run_id": "twin_truth"},
+            "simulation": {"name": "twin_truth"},
         },
     )
 

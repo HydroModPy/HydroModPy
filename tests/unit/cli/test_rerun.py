@@ -53,9 +53,7 @@ def test_rerun_reads_snapshot_and_forwards_overrides(tmp_path: Path, restore_pro
             config_snapshot={"workspace": {"root": str(tmp_path)}, "flow": {"k": 1e-4}},
         )
 
-    result = rerun_simulation(
-        "baseline", workspace=tmp_path, overrides={"flow.k": 2e-4}, name=None
-    )
+    result = rerun_simulation("baseline", workspace=tmp_path, overrides={"flow.k": 2e-4}, name=None)
     assert result["sim_id"] == "11111111-2222-3333-4444-555555555555"
     assert result["name"] == "baseline_rerun"
     assert calls["overrides"] == {"flow.k": 2e-4}

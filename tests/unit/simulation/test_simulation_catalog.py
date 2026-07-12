@@ -138,8 +138,7 @@ class TestRegisterAndFinalize:
         count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 3
         names = {
-            r[0]
-            for r in catalog.connection.execute("SELECT name FROM simulations").fetchall()
+            r[0] for r in catalog.connection.execute("SELECT name FROM simulations").fetchall()
         }
         assert names == {"r1.v1", "r1.v2", "r1.v3"}
         latest = catalog.connection.execute(
