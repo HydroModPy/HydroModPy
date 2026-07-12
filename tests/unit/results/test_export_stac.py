@@ -203,7 +203,9 @@ class TestBuildStacItem:
         zarr = item["assets"]["zarr"]
         assert zarr["type"] == "application/zip; application=zarr"
         assert zarr["roles"] == ["data", "fields"]
-        assert zarr["sha256"] == "deadbeef"
+        # file:checksum is a sha2-256 multihash (0x12 0x20 + digest), not bare hex.
+        assert zarr["file:checksum"] == "1220deadbeef"
+        assert "sha256" not in zarr
         assert zarr["file:size"] == 42
 
     def test_missing_bbox_drops_bbox_and_nulls_geometry(self):

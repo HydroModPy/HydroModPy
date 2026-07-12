@@ -146,6 +146,13 @@ def _copy_backup(
 ) -> None:
     """Atomically duplicate ``db_path`` to ``backup``."""
     backup.parent.mkdir(parents=True, exist_ok=True)
+    # Fold the WAL into the main file before the file-level copy so the backup
+    # cannot miss committed-but-uncheckpointed rows or capture a torn main file.
+    if connection is not None:
+        try:
+            connection.execute("CHECKPOINT")
+        except Exception:  # noqa: BLE001 - a checkpoint hiccup must not block the backup
+            logger.debug("Pre-backup CHECKPOINT failed for %s", db_path, exc_info=True)
     try:
         shutil.copy2(db_path, backup)
     except PermissionError:
@@ -168,6 +175,19 @@ def restore_backup(db_path: Path, backup: Path) -> None:
     shutil.copy2(backup, db_path)
 
 
+def _resolve_db_path_from_connection(connection: duckdb.DuckDBPyConnection) -> Path:
+    """Best-effort discovery of the on-disk database path from a live connection."""
+    try:
+        rows = connection.execute("PRAGMA database_list").fetchall()
+    except Exception:
+        return Path("memory.duckdb")
+    for row in rows:
+        candidate = row[2] if len(row) >= 3 else None
+        if candidate and candidate != ":memory:":
+            return Path(str(candidate))
+    return Path("memory.duckdb")
+
+
 def _has_pending_migrations(
     connection: duckdb.DuckDBPyConnection,
     *,
@@ -186,7 +206,7 @@ def _has_pending_migrations(
 def ensure_schema_safe(
     connection: duckdb.DuckDBPyConnection,
     *,
-    db_path: Path,
+    db_path: Path | None = None,
     versions_dir: Path,
     component: str = DEFAULT_COMPONENT,
     lock_timeout: float = DEFAULT_LOCK_TIMEOUT,
@@ -206,7 +226,12 @@ def ensure_schema_safe(
     - on failure restores the backup (file-level copy) and re-raises.
     - when ``HMP_AUTO_MIGRATE=0`` (and ``allow_auto`` is True), pending
       migrations raise :class:`AutoMigrationDisabled` instead of running.
+
+    ``db_path`` is resolved from the live connection when omitted so every
+    scope (catalog, global index, data cache) can share this safe path.
     """
+    if db_path is None:
+        db_path = _resolve_db_path_from_connection(connection)
     lock = FileLock(f"{db_path}.lock", timeout=lock_timeout)
     with lock:
         pending = _has_pending_migrations(

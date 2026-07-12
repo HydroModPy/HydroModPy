@@ -89,11 +89,15 @@ def profile_parser() -> argparse.ArgumentParser:
 
 
 def add_sim_ref(parser: argparse.ArgumentParser, *, help: str | None = None) -> None:
-    """Add the canonical ``sim_ref`` positional (UUID / unique prefix / name)."""
+    """Add the canonical ``sim_ref`` positional (UUID / unique prefix / name / @-selector)."""
     parser.add_argument(
         "sim_ref",
         metavar="SIM_REF",
-        help=help or "Full sim_id, unique hex prefix, or simulation name",
+        help=(
+            help
+            or "Full sim_id, unique hex prefix, name, or an @-selector "
+            "(@last, @best:METRIC, @worst:METRIC, @running)"
+        ),
     )
 
 

@@ -26,16 +26,21 @@ def fingerprint(data: np.ndarray) -> dict:
         (with ``mean``, ``min``, ``max``, ``std``).
     """
     contiguous = np.ascontiguousarray(data)
-    return {
-        "checksum": hashlib.sha256(contiguous.tobytes()).hexdigest(),
-        "shape": list(data.shape),
-        "dtype": str(data.dtype),
-        "stats": {
+    # nanmin/nanmax/nanmean raise on a zero-size array; a legitimately empty
+    # forcing array must not abort provenance recording.
+    stats = None
+    if data.size > 0:
+        stats = {
             "mean": float(np.nanmean(data)),
             "min": float(np.nanmin(data)),
             "max": float(np.nanmax(data)),
             "std": float(np.nanstd(data)),
-        },
+        }
+    return {
+        "checksum": hashlib.sha256(contiguous.tobytes()).hexdigest(),
+        "shape": list(data.shape),
+        "dtype": str(data.dtype),
+        "stats": stats,
     }
 
 
@@ -56,4 +61,12 @@ def verify_fingerprint(stored: dict, current: np.ndarray) -> bool:
     """
     contiguous = np.ascontiguousarray(current)
     current_hash = hashlib.sha256(contiguous.tobytes()).hexdigest()
-    return current_hash == stored["checksum"]
+    if current_hash != stored["checksum"]:
+        return False
+    # The checksum hashes raw bytes only, so a reshape (or dtype view) that keeps
+    # the byte payload would otherwise pass. Compare shape and dtype explicitly.
+    if "shape" in stored and list(current.shape) != list(stored["shape"]):
+        return False
+    if "dtype" in stored and str(current.dtype) != str(stored["dtype"]):
+        return False
+    return True

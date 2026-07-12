@@ -178,6 +178,7 @@ class LifecycleMixin:
         if status == "completed":
             basename = self._paths.basename_for(sid)
             zarr_dir = self._simulations_dir / f"{basename}{ZARR_SUFFIX}"
+            packed_zip = self._simulations_dir / f"{basename}{ZARR_ZIP_SUFFIX}"
             if zarr_dir.is_dir():
                 try:
                     self._close_open_zarr_handles()
@@ -196,16 +197,34 @@ class LifecycleMixin:
                     finally:
                         sz.close()
                 except Exception as exc:
-                    self._backend.execute(
-                        """UPDATE simulations
-                              SET status_id = (SELECT id FROM statuses WHERE code = 'partial'),
-                                  duration_s = ?,
-                                  ended_at = current_timestamp,
-                                  updated_at = current_timestamp
-                            WHERE sim_id = ?""",
-                        [duration_s, sid],
-                    )
+                    # Wrap the partial transition in a transaction and record it
+                    # in the audit log: the @audited decorator only fires on a
+                    # successful return, so this failure path would otherwise
+                    # flip the run to 'partial' with no trail.
+                    with self._backend.transaction():
+                        self._backend.execute(
+                            """UPDATE simulations
+                                  SET status_id = (SELECT id FROM statuses WHERE code = 'partial'),
+                                      duration_s = ?,
+                                      ended_at = current_timestamp,
+                                      updated_at = current_timestamp
+                                WHERE sim_id = ?""",
+                            [duration_s, sid],
+                        )
+                        emit_audit_event(
+                            self._db,
+                            event_type="sim.finalize",
+                            sim_id=sid,
+                            payload={"status": "partial", "error": "zarr_pack_failed"},
+                        )
                     raise RuntimeError(f"Could not pack Zarr store for sim {sid}") from exc
+            elif packed_zip.is_file():
+                # Recovery: a prior finalize packed the store (which removes the
+                # .zarr dir) but crashed before committing zarr_path. Point the
+                # row at the existing .zip so a re-run converges instead of
+                # leaving a stale zarr_path with zarr_packed=false.
+                rel_zarr_path = f"{SIMULATIONS_DIRNAME}/{packed_zip.name}"
+                zarr_packed = True
 
         # Transactional block driven by the backend port (BEGIN/COMMIT/ROLLBACK
         # are routed through CatalogBackend.transaction() so the same code
@@ -347,6 +366,13 @@ class LifecycleMixin:
         for table in ("workflow_steps", "workflow_events"):
             if self._table_exists(table):
                 self._backend.execute(f"DELETE FROM {table} WHERE run_id = ?", [sid])
+        # Clear any calibration session that named this sim as its best, so the
+        # purge does not leave a dangling best_sim_id (there is no DB-level FK).
+        self._backend.execute(
+            "UPDATE calibration_sessions SET best_sim_id = NULL, best_params_hash = NULL "
+            "WHERE best_sim_id = ?",
+            [sid],
+        )
         self._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
     def _remove_sim_storage(self, parquet_dir, zarr_abs) -> None:

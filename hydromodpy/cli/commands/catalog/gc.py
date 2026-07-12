@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from hydromodpy.cli._conventions import format_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "gc"
@@ -17,7 +18,7 @@ HELP: str = "Maintenance: expire trash, drop orphan stores, replay purges, compa
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[format_parser()])
     parser.add_argument(
         "-w",
         "--workspace",
@@ -44,6 +45,12 @@ def run(args: argparse.Namespace) -> None:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+
+    if args.format == "json":
+        import json
+
+        print(json.dumps(result, default=str))
+        sys.exit(EXIT_OK)
 
     label = "[plan] " if dry_run else ""
     for key, items in result["plan"].items():

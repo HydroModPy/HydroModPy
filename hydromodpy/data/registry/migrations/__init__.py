@@ -21,7 +21,7 @@ from hydromodpy.core.migrations import apply_migration as _apply_migration
 from hydromodpy.core.migrations import apply_migrations as _apply_migrations
 from hydromodpy.core.migrations import current_version as _current_version
 from hydromodpy.core.migrations import discover_migrations as _discover_migrations
-from hydromodpy.core.migrations import ensure_schema as _ensure_schema
+from hydromodpy.core.migrations import ensure_schema_safe as _ensure_schema_safe
 from hydromodpy.core.migrations import target_version as _target_version
 
 if TYPE_CHECKING:
@@ -37,10 +37,15 @@ def ensure_schema(
     *,
     versions_dir: Path | None = None,
 ) -> None:
-    """Bring the data cache DuckDB schema up to the latest bundled version."""
+    """Bring the data cache DuckDB schema up to the latest bundled version.
+
+    Routes through :func:`ensure_schema_safe` (file lock + pre-migration backup +
+    restore-on-failure) so the data cache shares the catalog's migration safety
+    net; ``db_path`` is resolved from the connection.
+    """
     resolved_versions_dir = versions_dir if versions_dir is not None else _MIGRATIONS_DIR
     _adopt_legacy_v1_schema(connection, versions_dir=resolved_versions_dir)
-    _ensure_schema(
+    _ensure_schema_safe(
         connection,
         versions_dir=resolved_versions_dir,
         component=DATA_CACHE_COMPONENT,

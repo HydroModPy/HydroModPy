@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli._conventions import format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
 
 NAME: str = "trash"
@@ -17,7 +17,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), format_parser()],
         epilog="Examples:\n  hmp catalog trash\n  hmp catalog trash --empty --force",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -56,6 +56,12 @@ def run(args: argparse.Namespace) -> None:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+
+    if args.format == "json":
+        import json
+
+        print(json.dumps(entries, default=str))
+        return
 
     if not entries:
         print("trash is empty.")
