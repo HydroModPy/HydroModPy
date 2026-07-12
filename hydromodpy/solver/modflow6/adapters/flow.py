@@ -161,8 +161,10 @@ class Modflow6FlowAdapter:
             raise NotImplementedError(
                 "flow_runtime_overrides['reuse_solver_model'] is disabled: solver-model reuse "
                 "was validated as NOT output-equivalent (identical parameters produced different "
-                "objectives). Re-enable it only behind an integration test that asserts objective "
-                "equality versus a full rebuild."
+                "objectives). Profiling (2026-07) also found the per-trial model build is small "
+                "(a lightweight trial builds in ~0.1 s; the solve dominates), so reuse trades a "
+                "real correctness risk for a negligible speedup. Re-enable it only behind an "
+                "integration test that asserts objective equality versus a full rebuild."
             )
         preprocess_options = build_preprocess_options(state)
         model_name = resolve_run_model_name(ctx)
