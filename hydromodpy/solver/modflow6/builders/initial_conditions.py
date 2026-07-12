@@ -151,18 +151,20 @@ def resolve_rewet_npf_options(
     if not rewet_is_enabled(model):
         return None, None
 
-    wetdry_value = abs(float(getattr(runtime, "mf6_rewet_wetdry", 0.1)))
+    wetdry_value = abs(float(runtime.mf6_rewet_wetdry))
     if wetdry_value <= 0.0:
         raise ValueError("modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled.")
 
     # FloPy injects the REWET keyword itself and expects only the labeled payload.
+    # rewet_is_enabled() above guarantees runtime is set, so read the fields directly
+    # (their defaults live on the Pydantic runtime config, not here).
     rewet_record = [
         "WETFCT",
-        float(getattr(runtime, "mf6_rewet_wetfct", 0.1)),
+        float(runtime.mf6_rewet_wetfct),
         "IWETIT",
-        int(getattr(runtime, "mf6_rewet_iwetit", 1)),
+        int(runtime.mf6_rewet_iwetit),
         "IHDWET",
-        int(getattr(runtime, "mf6_rewet_ihdwet", 0)),
+        int(runtime.mf6_rewet_ihdwet),
     ]
     wetdry = np.where(
         np.asarray(solver_mesh.inactive_mask, dtype=bool),
