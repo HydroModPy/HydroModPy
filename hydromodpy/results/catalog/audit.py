@@ -108,13 +108,54 @@ def _canonical_payload(payload: dict[str, Any] | None) -> str:
     return json.dumps(payload or {}, sort_keys=True, separators=(",", ":"), default=str)
 
 
+def _audit_log_has_seq_column(db: duckdb.DuckDBPyConnection) -> bool:
+    """Detect whether ``audit_log`` carries the monotonic ``seq`` column (0009)."""
+    try:
+        row = db.execute(
+            "SELECT COUNT(*) FROM information_schema.columns "
+            "WHERE table_name = 'audit_log' AND column_name = 'seq'"
+        ).fetchone()
+    except Exception:
+        return False
+    return bool(row and int(row[0]) == 1)
+
+
+def _audit_order_clause(db: duckdb.DuckDBPyConnection, *, descending: bool) -> str:
+    """Chain ordering clause: monotonic ``seq`` when present, else the legacy key.
+
+    ``seq`` (migration 0009) reflects true insertion order, which
+    ``(occurred_at, event_id)`` cannot when several rows share a transaction
+    (occurred_at is frozen per transaction and event_id is random).
+    """
+    direction = "DESC" if descending else "ASC"
+    if _audit_log_has_seq_column(db):
+        return f"ORDER BY seq {direction}"
+    return f"ORDER BY occurred_at {direction}, event_id {direction}"
+
+
+def _next_audit_seq(db: duckdb.DuckDBPyConnection) -> int | None:
+    """Return the next monotonic ``seq`` value, or None when the column is absent.
+
+    Computed as ``MAX(seq) + 1`` inside the caller's transaction; the catalog's
+    single-writer lock and the uncommitted-read visibility of the pending insert
+    keep it monotonic even for several audit rows in one transaction.
+    """
+    if not _audit_log_has_seq_column(db):
+        return None
+    try:
+        row = db.execute("SELECT COALESCE(MAX(seq), 0) + 1 FROM audit_log").fetchone()
+    except Exception:
+        return None
+    return int(row[0]) if row else 1
+
+
 def _fetch_prev_chain_hash(db: duckdb.DuckDBPyConnection) -> str | None:
     """Return the most recent ``chain_hash`` row, or None on cold start."""
     try:
         row = db.execute(
             "SELECT chain_hash FROM audit_log "
             "WHERE chain_hash IS NOT NULL "
-            "ORDER BY occurred_at DESC, event_id DESC LIMIT 1"
+            f"{_audit_order_clause(db, descending=True)} LIMIT 1"
         ).fetchone()
     except Exception:
         return None
@@ -192,25 +233,26 @@ def emit_audit_event(
             project=project,
             payload_json=payload_json,
         )
-        db.execute(
-            """INSERT INTO audit_log
-                (event_id, actor, actor_kind, event_type, sim_id, project,
-                 payload, git_commit, hostname, prev_hash, chain_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [
-                event_id,
-                actor if actor is not None else _resolve_actor(),
-                actor_kind,
-                event_type,
-                sim_id,
-                project,
-                payload_json,
-                git_commit if git_commit is not None else _resolve_git_commit(),
-                hostname if hostname is not None else _resolve_hostname(),
-                prev_hash,
-                chain_hash,
-            ],
-        )
+        seq = _next_audit_seq(db)
+        columns = "event_id, actor, actor_kind, event_type, sim_id, project, payload, git_commit, hostname, prev_hash, chain_hash"
+        values = [
+            event_id,
+            actor if actor is not None else _resolve_actor(),
+            actor_kind,
+            event_type,
+            sim_id,
+            project,
+            payload_json,
+            git_commit if git_commit is not None else _resolve_git_commit(),
+            hostname if hostname is not None else _resolve_hostname(),
+            prev_hash,
+            chain_hash,
+        ]
+        if seq is not None:
+            columns += ", seq"
+            values.append(seq)
+        placeholders = ", ".join("?" * len(values))
+        db.execute(f"INSERT INTO audit_log ({columns}) VALUES ({placeholders})", values)
     else:
         db.execute(
             """INSERT INTO audit_log
@@ -245,7 +287,7 @@ def verify_chain(db: duckdb.DuckDBPyConnection) -> bool:
         "SELECT event_id, event_type, sim_id, project, payload, prev_hash, chain_hash "
         "FROM audit_log "
         "WHERE chain_hash IS NOT NULL "
-        "ORDER BY occurred_at ASC, event_id ASC"
+        f"{_audit_order_clause(db, descending=False)}"
     ).fetchall()
     expected_prev: str | None = None
     for row in rows:

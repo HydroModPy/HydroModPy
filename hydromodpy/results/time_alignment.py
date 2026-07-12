@@ -43,6 +43,28 @@ def normalize_datetime_series(series: pd.Series) -> pd.Series:
     return out.sort_index()
 
 
+def normalize_period_bounds(period: tuple | str) -> tuple[Any, Any, bool]:
+    """Return ``(lo, hi, hi_inclusive)`` tz-aware UTC bounds for a query period.
+
+    Timeseries ``time`` is stored as UTC-aware TIMESTAMPTZ, so the caller's
+    bounds must be normalized to UTC to keep the comparison stable regardless of
+    DuckDB's session timezone. A ``(start, end)`` pair keeps the historical
+    inclusive upper bound (``hi_inclusive=True``). A single ``"YYYY"`` string
+    expands to the half-open calendar year ``[YYYY-01-01, (YYYY+1)-01-01)`` with
+    an exclusive upper bound so sub-daily 31 December samples are not dropped.
+    """
+    if isinstance(period, str):
+        year = int(period)
+        lo = pd.Timestamp(year=year, month=1, day=1, tz="UTC")
+        hi = pd.Timestamp(year=year + 1, month=1, day=1, tz="UTC")
+        return lo.to_pydatetime(), hi.to_pydatetime(), False
+    lo = pd.Timestamp(period[0])
+    hi = pd.Timestamp(period[1])
+    lo = lo.tz_localize("UTC") if lo.tz is None else lo.tz_convert("UTC")
+    hi = hi.tz_localize("UTC") if hi.tz is None else hi.tz_convert("UTC")
+    return lo.to_pydatetime(), hi.to_pydatetime(), True
+
+
 def median_step(index: pd.DatetimeIndex) -> pd.Timedelta | None:
     """Return the median spacing of a datetime index."""
     if len(index) < 2:

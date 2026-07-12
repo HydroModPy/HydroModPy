@@ -154,21 +154,17 @@ class ReadsMixin:
         variable: str,
         period: tuple | None = None,
     ) -> pd.Series:
+        from hydromodpy.results.time_alignment import normalize_period_bounds
+
         query = (
             "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [str(sim_id), station_id, variable]
         if period is not None:
-            # Times are stored as UTC-aware TIMESTAMPTZ; normalize the
-            # caller's bounds to tz-aware UTC so the comparison is stable
-            # regardless of DuckDB's session timezone.
-            lo = pd.Timestamp(period[0])
-            hi = pd.Timestamp(period[1])
-            lo = lo.tz_localize("UTC") if lo.tz is None else lo.tz_convert("UTC")
-            hi = hi.tz_localize("UTC") if hi.tz is None else hi.tz_convert("UTC")
-            query += " AND time >= ? AND time <= ?"
-            params.extend([lo.to_pydatetime(), hi.to_pydatetime()])
+            lo, hi, hi_inclusive = normalize_period_bounds(period)
+            query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")
+            params.extend([lo, hi])
         query += " ORDER BY timestep"
         result = self._backend.query(query, params)
         if result.empty:

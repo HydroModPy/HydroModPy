@@ -76,9 +76,15 @@ def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
         return idx
     row = sim._load_row()
     start, end = row.get("period_start"), row.get("period_end")
-    if start is not None and end is not None:
-        return pd.date_range(start=start, end=end, periods=n)
-    return pd.date_range("2000-01-01", periods=n, freq="D")
+    if start is None or end is None or pd.isna(start) or pd.isna(end):
+        # Match run_timeseries.time_index: fail loudly instead of fabricating a
+        # year-2000 calendar, so a run missing its clock does not put derived
+        # views on a different axis than sibling series (which raise here too).
+        raise RuntimeError(
+            f"Simulation '{sim._sim_id}' has no /time axis and no period bounds "
+            "in the catalog - cannot build a time index."
+        )
+    return pd.date_range(start=start, end=end, periods=n)
 
 
 def _catchment_mask(sim: Run) -> np.ndarray | None:
@@ -95,12 +101,33 @@ def _catchment_mask(sim: Run) -> np.ndarray | None:
 
 
 def _stack_field(sim: Run, variable: str) -> np.ndarray:
-    """Stack a per-timestep cell field into a ``(n_t, n_cells)`` array."""
+    """Stack a per-timestep cell field into a ``(n_t, n_cells)`` array.
+
+    Opens the Zarr store once and reads every timestep from it. The previous
+    implementation called ``Run.field`` per timestep, and each call reopened and
+    closed the store, so a long run triggered thousands of open/close round-trips
+    per figure (very costly on packed ``.zarr.zip`` stores).
+    """
+    from hydromodpy.results.errors import FieldNotFoundError
+
     n = sim.n_timesteps or 1
-    # status, not track: views are called per sim and per figure, a bar
-    # per call would spam one INFO line each in non-TTY runs.
-    with progress.status(f"Reading {variable}"):
-        frames = [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
+    sz = sim._catalog.open_zarr(sim._sim_id)
+    try:
+        # status, not track: views are called per sim and per figure, a bar
+        # per call would spam one INFO line each in non-TTY runs.
+        with progress.status(f"Reading {variable}"):
+            try:
+                frames = [
+                    np.asarray(sz.read_field(variable, t, layer=None)).ravel() for t in range(n)
+                ]
+            except KeyError as exc:
+                raise FieldNotFoundError(
+                    f"Field '{variable}' not found in simulation '{sim._sim_id}'",
+                    sim_id=sim._sim_id,
+                    variable=variable,
+                ) from exc
+    finally:
+        sz.close()
     return np.stack(frames)
 
 
@@ -371,12 +398,13 @@ def persistence(
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
     window: Literal["year", "full"] = "full",
-) -> np.ndarray:
+) -> np.ndarray | pd.DataFrame:
     """Per-cell fraction of timesteps where ``variable`` exceeds ``threshold``.
 
     ``window='full'`` reduces over the whole simulation and returns a 1D
-    array of length ``n_cells``. ``window='year'`` groups by calendar
-    year and returns a 2D array ``(n_years, n_cells)``.
+    ``np.ndarray`` of length ``n_cells``. ``window='year'`` groups by calendar
+    year and returns a ``pd.DataFrame`` indexed by year (rows) with one column
+    per cell, so the year each row belongs to is explicit.
     """
     stack = _stack_field(sim, variable)
     active = stack > threshold
@@ -385,7 +413,9 @@ def persistence(
     if window == "year":
         idx = _time_index(sim, stack.shape[0])
         frame = pd.DataFrame(active, index=idx)
-        return frame.groupby(frame.index.year).mean().to_numpy()
+        yearly = frame.groupby(frame.index.year).mean()
+        yearly.index.name = "year"
+        return yearly
     raise ValueError(f"Unknown window '{window}'")
 
 
