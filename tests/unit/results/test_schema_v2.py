@@ -303,25 +303,15 @@ def test_metric_definitions_seeded(catalog: Catalog) -> None:
 def test_schema_version_records_catalog_v1(catalog: Catalog) -> None:
     """``_schema_version`` carries the latest catalog migration after init."""
     rows = catalog.connection.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert ("catalog", 9) in rows
+    assert ("catalog", 1) in rows
 
 
 def test_schema_migrations_records_all_known_migrations(catalog: Catalog) -> None:
-    """``schema_migrations`` records the bundled migrations in order."""
+    """``schema_migrations`` records the single consolidated schema."""
     rows = catalog.connection.execute(
         "SELECT version, slug FROM schema_migrations ORDER BY version"
     ).fetchall()
-    assert rows == [
-        (1, "initial"),
-        (2, "audit_hash_chain"),
-        (3, "retention_policies"),
-        (4, "workflow_events"),
-        (5, "drop_simulation_heartbeat"),
-        (6, "drop_simulation_heartbeat_column"),
-        (7, "simulation_lifecycle"),
-        (8, "trash_original_status"),
-        (9, "audit_log_seq"),
-    ]
+    assert rows == [(1, "initial")]
 
 
 def test_workflow_steps_has_artifact_uris_column(catalog: Catalog) -> None:
@@ -348,7 +338,7 @@ def test_double_init_is_idempotent(tmp_path: Path) -> None:
     cat2.close()
 
     assert tables_a == tables_b
-    assert rows[0] == 9, "schema_migrations should record every bundled migration"
+    assert rows[0] == 1, "schema_migrations should record the single consolidated schema"
     assert version_rows[0] == 1
 
 
