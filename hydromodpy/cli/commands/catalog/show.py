@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import add_sim_ref, format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for, find_catalog_root
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "show"
@@ -53,12 +53,11 @@ def run(args: argparse.Namespace) -> None:
 
     try:
         payload = show_simulation(args.sim_ref, workspace=workspace_root, detail=args.detail)
-    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+    except (AmbiguousReferenceError, SimulationNotFoundError, FileNotFoundError) as exc:
+        # Route through exit_code_for so an ambiguous ref exits 20 like the
+        # mutating verbs (tag/delete/...), not 10 as if it were simply absent.
         print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        sys.exit(exit_code_for(exc))
 
     if args.format == "json":
         print(json.dumps(payload, indent=2, default=str))
