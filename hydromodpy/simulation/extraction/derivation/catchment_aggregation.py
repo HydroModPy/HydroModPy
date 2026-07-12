@@ -118,11 +118,32 @@ def aggregate_catchment_timeseries(
                 series_by_var["discharge"], sim_id, store, grp
             )
 
-        written = 0
+        # One batched write, not one write_timeseries per variable: the latter
+        # re-reads and rewrites the whole timeseries.parquet each call (O(K^2)).
+        records: list[dict[str, Any]] = []
         for output_var, ts in series_by_var.items():
             unit = VARIABLE_UNITS.get(output_var, "")
-            store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
-            written += 1
+            index = pd.DatetimeIndex(ts.index)
+            index = index.tz_localize("UTC") if index.tz is None else index.tz_convert("UTC")
+            for step, (when, value) in enumerate(
+                zip(index.to_pydatetime(), ts.to_numpy(dtype="float64"), strict=False)
+            ):
+                records.append(
+                    {
+                        "sim_id": str(sim_id),
+                        "station_id": _CATCHMENT_STATION,
+                        "variable": output_var,
+                        "component": None,
+                        "timestep": step,
+                        "time": when,
+                        "value": float(value),
+                        "unit": unit,
+                        "qflag": "simulated",
+                    }
+                )
+        if records:
+            store.write_timeseries_batch(sim_id, records)
+        written = len(series_by_var)
     finally:
         sz.close()
 
