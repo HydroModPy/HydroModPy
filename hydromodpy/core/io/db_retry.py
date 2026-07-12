@@ -15,6 +15,7 @@ import functools
 import random
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import TypeVar
 
 import duckdb
@@ -26,6 +27,12 @@ logger = get_logger(__name__)
 _DEFAULT_RETRIES = 48
 _DEFAULT_BACKOFF = 0.05
 _DEFAULT_MAX_BACKOFF = 1.0
+
+# DuckDB defaults to 256 KiB blocks, which bloats a small many-table metadata
+# database (a fresh catalog needs one block per table minimum). 16 KiB is the
+# DuckDB minimum and cuts the on-disk footprint several-fold. block_size is
+# immutable after file creation, so it can only be set when the file is created.
+HMP_DUCKDB_BLOCK_SIZE = 16384
 _LOCK_ERROR_SNIPPETS = (
     "conflicting lock",
     "another process",
@@ -50,12 +57,29 @@ def _sleep_with_jitter(delay: float) -> float:
     return sleep_for
 
 
+def _precreate_with_block_size(db_path: str, block_size: int) -> None:
+    """Materialise a new DuckDB file with ``block_size`` before the real open.
+
+    ATTACHes the not-yet-existing file with the requested block size and
+    checkpoints so the header records it; subsequent plain ``connect()`` calls
+    then inherit it (block_size is immutable once the file exists).
+    """
+    escaped = db_path.replace("'", "''")
+    tmp = duckdb.connect(":memory:")
+    try:
+        tmp.execute(f"ATTACH '{escaped}' (BLOCK_SIZE {int(block_size)})")
+        tmp.execute("CHECKPOINT")
+    finally:
+        tmp.close()
+
+
 def connect_with_retry(
     db_path: str,
     *,
     retries: int = _DEFAULT_RETRIES,
     backoff: float = _DEFAULT_BACKOFF,
     max_backoff: float = _DEFAULT_MAX_BACKOFF,
+    block_size: int | None = None,
     **kwargs: object,
 ) -> duckdb.DuckDBPyConnection:
     """Open a DuckDB connection, retrying on file-lock contention.
@@ -65,7 +89,19 @@ def connect_with_retry(
     ``duckdb.IOException`` immediately - no built-in waiting. We loop with
     a capped exponential backoff so short-lived contention resolves
     transparently, including bursty ``spawn`` workloads on Windows.
+
+    ``block_size`` pre-creates a not-yet-existing read-write file with that
+    DuckDB block size (see :data:`HMP_DUCKDB_BLOCK_SIZE`) to keep small metadata
+    databases compact.
     """
+    if (
+        block_size is not None
+        and db_path != ":memory:"
+        and not kwargs.get("read_only")
+        and not Path(db_path).exists()
+    ):
+        _precreate_with_block_size(db_path, block_size)
+
     last_exc: Exception | None = None
     for attempt in range(retries):
         try:

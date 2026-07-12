@@ -37,9 +37,19 @@ def test_audited_decorator_emits_event_after_method_returns() -> None:
     emitted: list[dict] = []
 
     class _FakeDb:
+        def __init__(self) -> None:
+            self._last_sql = ""
+
         def execute(self, sql, params=None):
+            self._last_sql = sql
             emitted.append({"sql": sql, "params": params})
             return self
+
+        def fetchone(self):
+            # emit_audit_event queries the next seq and the previous chain hash.
+            if "MAX(seq)" in self._last_sql:
+                return (1,)
+            return (None,)
 
     class _Target:
         def __init__(self) -> None:

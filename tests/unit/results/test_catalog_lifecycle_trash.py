@@ -434,7 +434,7 @@ def test_finalize_writes_snapshot_and_store_can_be_adopted(catalog):
 
 def test_adopt_without_snapshot_raises(catalog):
     with pytest.raises(FileNotFoundError):
-        catalog.adopt(catalog._simulations_dir / "missing__deadbeef.parquet")
+        catalog.adopt(catalog._simulations_dir / "missing__deadbeef.parquet.d")
 
 
 def test_adopt_already_registered_raises(catalog):

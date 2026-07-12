@@ -42,23 +42,33 @@ def test_hash_chain_consistency(catalog: Catalog) -> None:
     # The catalog already emitted ``migrate`` events while applying the
     # bundled migrations. Capture the last chain_hash before emitting more.
     anchor_row = catalog.connection.execute(
-        "SELECT chain_hash FROM audit_log "
-        "WHERE chain_hash IS NOT NULL "
-        "ORDER BY occurred_at DESC, event_id DESC LIMIT 1"
+        "SELECT chain_hash FROM audit_log WHERE chain_hash IS NOT NULL ORDER BY seq DESC LIMIT 1"
     ).fetchone()
     expected_prev: str | None = anchor_row[0] if anchor_row else None
 
     _emit_three_events(catalog)
 
     rows = catalog.connection.execute(
-        "SELECT event_id, event_type, sim_id, project, payload, prev_hash, chain_hash "
-        "FROM audit_log WHERE event_type = 'metric.write' "
-        "ORDER BY occurred_at ASC, event_id ASC"
+        "SELECT event_id, event_type, sim_id, project, payload, prev_hash, chain_hash, "
+        "occurred_at, actor, actor_kind, hostname "
+        "FROM audit_log WHERE event_type = 'metric.write' ORDER BY seq ASC"
     ).fetchall()
     assert len(rows) == 3
 
     for row in rows:
-        event_id, event_type, sim_id, project, payload, prev_hash, chain_hash = row
+        (
+            event_id,
+            event_type,
+            sim_id,
+            project,
+            payload,
+            prev_hash,
+            chain_hash,
+            occurred_at,
+            actor,
+            actor_kind,
+            hostname,
+        ) = row
         assert chain_hash is not None
         assert prev_hash == expected_prev
         recomputed = _compute_chain_hash(
@@ -68,6 +78,10 @@ def test_hash_chain_consistency(catalog: Catalog) -> None:
             sim_id=str(sim_id) if sim_id is not None else None,
             project=str(project) if project is not None else None,
             payload_json=str(payload),
+            occurred_at=occurred_at,
+            actor=str(actor) if actor is not None else None,
+            actor_kind=str(actor_kind) if actor_kind is not None else None,
+            hostname=str(hostname) if hostname is not None else None,
         )
         assert recomputed == chain_hash
         expected_prev = chain_hash
@@ -76,9 +90,9 @@ def test_hash_chain_consistency(catalog: Catalog) -> None:
 
 
 def test_hash_chain_survives_multiple_events_in_one_transaction(catalog: Catalog) -> None:
-    """Several audit rows in one transaction share ``occurred_at``; the monotonic
-    ``seq`` (migration 0009) keeps ``verify_chain`` stable where the old
-    ``(occurred_at, event_id)`` order would fork the chain ~50% per pair."""
+    """Several audit rows in one transaction verify via the monotonic ``seq``,
+    the ordering key that keeps ``verify_chain`` stable where the old
+    ``(occurred_at, event_id)`` order could fork the chain."""
     conn = catalog.connection
     conn.execute("BEGIN TRANSACTION")
     for index in range(8):
@@ -90,12 +104,6 @@ def test_hash_chain_survives_multiple_events_in_one_transaction(catalog: Catalog
             payload={"tag": f"t{index}"},
         )
     conn.execute("COMMIT")
-
-    # Fork precondition: all rows written in the transaction share occurred_at.
-    distinct_ts = conn.execute(
-        "SELECT COUNT(DISTINCT occurred_at) FROM audit_log WHERE event_type = 'sim.tag_add'"
-    ).fetchone()[0]
-    assert distinct_ts == 1
 
     # seq is present and strictly increasing in insertion order.
     seqs = [

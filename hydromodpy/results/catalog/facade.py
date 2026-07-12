@@ -16,7 +16,7 @@ import duckdb
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
@@ -143,7 +143,7 @@ class Catalog(
         else:
             self._workspace.mkdir(parents=True, exist_ok=True)
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._db = connect_with_retry(str(self._db_path))
+            self._db = connect_with_retry(str(self._db_path), block_size=HMP_DUCKDB_BLOCK_SIZE)
             self._backend = DuckDBBackend.from_connection(self._db, path=self._db_path)
             self._simulations_dir.mkdir(parents=True, exist_ok=True)
 

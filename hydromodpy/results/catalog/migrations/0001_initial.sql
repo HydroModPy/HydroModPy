@@ -1,40 +1,37 @@
 -- =====================================================================
--- HydroModPy V1 project catalog DDL (initial migration)
+-- HydroModPy per-project catalog DDL (single canonical schema).
 --
--- Per-project DuckDB catalog: holds the results of every simulation run
--- under that project. One file per project lets multiple projects share
--- the same machine without contending for DuckDB's single-writer lock.
+-- Per-project DuckDB catalog holding the results of every simulation run
+-- under that project. One file per project lets multiple projects share the
+-- same machine without contending for DuckDB's single-writer lock.
+--
+-- This project is pre-1.0 and recreates catalogs freely, so there is one
+-- consolidated schema instead of an incremental migration chain: change the
+-- schema here directly. The summary views (v_simulation_summary,
+-- v_metrics_wide, v_params_long/wide, v_best_per_project) are code-managed by
+-- results/catalog/views.py (installed after this DDL), so they are NOT created
+-- here.
 --
 -- Notation: DuckDB-portable subset (no PIVOT, no MAP, no QUALIFY).
--- TIMESTAMPTZ, UUID, VARCHAR (alias TEXT), JSON, BOOLEAN.
+-- TIMESTAMPTZ, UUID, VARCHAR (alias TEXT), JSON, BOOLEAN, BIGINT.
 --
 -- Foreign-key strategy
---   * Declarative FK to dim tables (solvers, statuses, flow_regimes,
---     mesh_topologies) is kept: those tables are insert-only at schema
---     creation, so the DuckDB FK engine never trips on them.
---   * Declarative FK from per-sim tables to ``simulations(sim_id)`` is
---     NOT added: DuckDB issue duckdb/duckdb#11132 blocks UPDATEs on a
---     parent row whose children carry a composite PK that references
---     it (and simulations rows do get UPDATEd: ``last_heartbeat``,
---     ``status_id``, ...). Cascading deletes are enforced in Python by
---     ``results/catalog/lifecycle.py``.
---   * Self-FK on ``simulations.parent_sim_id`` is also omitted for the
---     same reason.
+--   * Declarative FK to insert-only dim tables (solvers, statuses,
+--     flow_regimes, mesh_topologies) is kept.
+--   * Declarative FK from per-sim tables to ``simulations(sim_id)`` is NOT
+--     added (DuckDB duckdb/duckdb#11132 blocks UPDATEs on a parent row whose
+--     children carry a composite PK referencing it). Cascading deletes are
+--     enforced in Python by results/catalog/lifecycle.py.
+--   * Self-FK on ``simulations.parent_sim_id`` is omitted for the same reason.
 --
--- ENUMs
---   V1 uses CHECK constraints instead of DuckDB ``CREATE TYPE ... AS
---   ENUM`` for the five categorical columns. Functionally equivalent,
---   no schema churn for existing queries.
---
--- UUIDs
---   Generated client-side (UUIDv7 recommended, RFC 9562) or via the
---   DuckDB ``uuid()`` function (v4). v7 ordering is opportunistic and
---   not enforced at the DDL layer.
+-- Categorical columns use CHECK constraints as lightweight enums. Widening a
+-- vocabulary is a one-line edit here (no table rebuild) since catalogs are
+-- recreated.
 -- =====================================================================
 
 
 -- =====================================================================
--- Dimension tables (replace CHECK enums where worth it)
+-- Dimension tables
 -- =====================================================================
 
 CREATE TABLE solvers (
@@ -68,7 +65,8 @@ INSERT INTO statuses (id, code) VALUES
     (4, 'partial'),
     (5, 'failed'),
     (6, 'aborted'),
-    (7, 'resumed');
+    (7, 'resumed'),
+    (8, 'trashed');
 
 CREATE TABLE flow_regimes (
     id   SMALLINT PRIMARY KEY,
@@ -97,11 +95,6 @@ INSERT INTO mesh_topologies (id, code) VALUES
     (4, 'unstructured_3d'),
     (5, 'lumped'),
     (6, 'network_1d');
-
--- =====================================================================
--- Star-schema dimensions (``dim_*`` prefix to avoid colliding with the
--- richer ``stations`` fact table below)
--- =====================================================================
 
 CREATE TABLE dim_variables (
     id            SMALLINT PRIMARY KEY,
@@ -184,9 +177,13 @@ CREATE INDEX ix_stations_active   ON stations(active);
 CREATE TABLE simulations (
     sim_id                  UUID PRIMARY KEY,
     name                    VARCHAR,
+    name_stem               VARCHAR,
+    version_int             INTEGER,
+    original_name           VARCHAR,
     project                 VARCHAR NOT NULL,
     solver_id               SMALLINT NOT NULL REFERENCES solvers(id),
     status_id               SMALLINT NOT NULL REFERENCES statuses(id) DEFAULT 1,
+    original_status_id      SMALLINT,
     flow_regime_id          SMALLINT REFERENCES flow_regimes(id),
     mesh_topology_id        SMALLINT REFERENCES mesh_topologies(id),
     mesh_hash               VARCHAR,
@@ -217,6 +214,7 @@ CREATE TABLE simulations (
     ended_at                TIMESTAMPTZ,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    trashed_at              TIMESTAMPTZ,
     notes                   VARCHAR,
     description             VARCHAR,
     scientific_objective    VARCHAR,
@@ -226,7 +224,6 @@ CREATE TABLE simulations (
     outlet_x                DOUBLE,
     outlet_y                DOUBLE,
     principal_id            VARCHAR,
-    last_heartbeat          TIMESTAMPTZ,
     UNIQUE (project, name),
     CONSTRAINT ck_sim_period CHECK (period_end IS NULL OR period_start IS NULL OR period_end >= period_start),
     CONSTRAINT ck_sim_bbox_x CHECK (bbox_xmax IS NULL OR bbox_xmin IS NULL OR bbox_xmax >= bbox_xmin),
@@ -242,10 +239,10 @@ CREATE INDEX ix_sim_geo_fp         ON simulations(geographic_fingerprint);
 CREATE INDEX ix_sim_study_area     ON simulations(study_area_name);
 CREATE INDEX ix_sim_scientific_obj ON simulations(scientific_objective);
 CREATE INDEX ix_sim_principal      ON simulations(principal_id);
-CREATE INDEX ix_sim_heartbeat      ON simulations(last_heartbeat);
+CREATE INDEX ix_sim_name_stem      ON simulations(project, name_stem, version_int);
 
 -- =====================================================================
--- parameters (sim parameters, point-in-time via valid_from)
+-- parameters (sim parameters)
 -- =====================================================================
 
 CREATE TABLE parameters (
@@ -414,14 +411,16 @@ CREATE TABLE observation_points (
 CREATE INDEX ix_obs_points_cell ON observation_points(sim_id, cell_id);
 
 -- =====================================================================
--- audit_log (event sourcing)
---   Event types listed in the CHECK constraint are the V1 set.
---   Adding a value goes via a follow-up migration to keep the audit
---   surface explicit and reviewed.
+-- audit_log (event sourcing + SHA-256 hash chain)
+--   ``seq`` is the monotonic insertion order used to build and verify the
+--   chain (occurred_at is frozen per transaction and cannot order rows that
+--   share a transaction). prev_hash/chain_hash carry the tamper-evident
+--   chain. Adding an event_type is a one-line edit to the CHECK below.
 -- =====================================================================
 
 CREATE TABLE audit_log (
     event_id    UUID PRIMARY KEY,
+    seq         BIGINT,
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     actor       VARCHAR NOT NULL,
     actor_kind  VARCHAR NOT NULL
@@ -434,19 +433,25 @@ CREATE TABLE audit_log (
                     'metric.write', 'tracked_file.add',
                     'tracked_file.remove', 'objective.set',
                     'config.replay', 'migrate', 'gc', 'vacuum',
-                    'export', 'import'
+                    'export', 'import',
+                    'sim.trash', 'sim.restore',
+                    'sim.purge.begin', 'sim.purge.commit',
+                    'note.add', 'export.write'
                 )),
     sim_id      UUID,
     project     VARCHAR,
     payload     JSON NOT NULL,
     git_commit  VARCHAR,
-    hostname    VARCHAR
+    hostname    VARCHAR,
+    prev_hash   VARCHAR,
+    chain_hash  VARCHAR
 );
 
-CREATE INDEX ix_audit_sim   ON audit_log(sim_id);
-CREATE INDEX ix_audit_type  ON audit_log(event_type);
-CREATE INDEX ix_audit_time  ON audit_log(occurred_at DESC);
-CREATE INDEX ix_audit_actor ON audit_log(actor);
+CREATE INDEX ix_audit_sim        ON audit_log(sim_id);
+CREATE INDEX ix_audit_type       ON audit_log(event_type);
+CREATE INDEX ix_audit_time       ON audit_log(occurred_at DESC);
+CREATE INDEX ix_audit_actor      ON audit_log(actor);
+CREATE INDEX ix_audit_chain_hash ON audit_log(chain_hash);
 
 -- =====================================================================
 -- deletions (GDPR tombstones)
@@ -543,6 +548,61 @@ CREATE TABLE tags (
 CREATE INDEX ix_tags_tag ON tags(tag);
 
 -- =====================================================================
+-- sim_notes (append-only timestamped run notes)
+-- =====================================================================
+
+CREATE TABLE sim_notes (
+    note_id  UUID PRIMARY KEY,
+    sim_id   UUID NOT NULL,
+    note     VARCHAR NOT NULL,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    added_by VARCHAR
+);
+
+CREATE INDEX ix_sim_notes_sim ON sim_notes(sim_id);
+
+-- =====================================================================
+-- export_log (one row per emitted export artefact)
+-- =====================================================================
+
+CREATE TABLE export_log (
+    export_id  UUID PRIMARY KEY,
+    sim_id     UUID NOT NULL,
+    kind       VARCHAR NOT NULL,
+    rel_path   VARCHAR NOT NULL,
+    bytes      BIGINT,
+    sha256     VARCHAR,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
+);
+
+CREATE INDEX ix_export_log_sim ON export_log(sim_id);
+
+-- =====================================================================
+-- purge_journal (two-phase crash-safe hard purge)
+-- =====================================================================
+
+CREATE TABLE purge_journal (
+    sim_id       UUID PRIMARY KEY,
+    phase        VARCHAR NOT NULL CHECK (phase IN ('pending', 'rmtree_done')),
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    requested_by VARCHAR
+);
+
+-- =====================================================================
+-- retention_policies (audit_log retention sweep)
+-- =====================================================================
+
+CREATE TABLE retention_policies (
+    policy_id      UUID PRIMARY KEY,
+    event_type     VARCHAR NOT NULL,
+    retention_days INTEGER NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    UNIQUE (event_type)
+);
+
+CREATE INDEX ix_retention_event ON retention_policies(event_type);
+
+-- =====================================================================
 -- calibration_sessions (one row per calibration run)
 -- =====================================================================
 
@@ -606,8 +666,6 @@ CREATE INDEX ix_cal_iter_hash ON calibration_iterations(params_hash);
 
 -- =====================================================================
 -- workflow_steps (per-pipeline-step ledger with artifact tracking)
---   ``artifact_uris`` is JSON of workspace-relative paths produced by
---   the step, used by the resume planner.
 -- =====================================================================
 
 CREATE TABLE workflow_steps (
@@ -631,48 +689,33 @@ CREATE INDEX ix_wf_run_id ON workflow_steps(run_id);
 CREATE INDEX ix_wf_status ON workflow_steps(status_id);
 
 -- =====================================================================
--- Precomputed views
+-- workflow_events (per-step event stream + heartbeat view)
 -- =====================================================================
 
--- v_simulation_summary: solver-aware sim listing. Used by the global
--- index federation (fixes ``GlobalIndex.find(solver=...)`` referencing a
--- non-existent ``solver`` column on the catalog).
-CREATE VIEW v_simulation_summary AS
-SELECT
-    s.sim_id,
-    s.name,
-    s.project,
-    sv.code         AS solver,
-    sv.category     AS solver_category,
-    st.code         AS status,
-    fr.code         AS flow_regime,
-    mt.code         AS mesh_topology,
-    s.study_area_name,
-    s.scientific_objective,
-    s.description,
-    s.contact_email,
-    s.principal_id,
-    s.bbox_xmin, s.bbox_ymin, s.bbox_xmax, s.bbox_ymax,
-    s.period_start, s.period_end,
-    s.created_at,
-    s.updated_at,
-    s.duration_s
-FROM simulations s
-JOIN solvers   sv ON sv.id = s.solver_id
-JOIN statuses  st ON st.id = s.status_id
-LEFT JOIN flow_regimes    fr ON fr.id = s.flow_regime_id
-LEFT JOIN mesh_topologies mt ON mt.id = s.mesh_topology_id;
+CREATE SEQUENCE IF NOT EXISTS seq_workflow_events START 1;
 
--- v_metrics_pivot: best per-metric value per sim. Used by ``hmp find
--- --metric=...``.
-CREATE VIEW v_metrics_pivot AS
+CREATE TABLE workflow_events (
+    event_id    INTEGER PRIMARY KEY DEFAULT nextval('seq_workflow_events'),
+    run_id      VARCHAR NOT NULL,
+    step_name   VARCHAR NOT NULL,
+    event_type  VARCHAR NOT NULL
+                CHECK (event_type IN (
+                    'step_start', 'step_end', 'heartbeat',
+                    'cancel', 'log'
+                )),
+    payload     JSON,
+    ts          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX ix_wf_events_run_id   ON workflow_events(run_id);
+CREATE INDEX ix_wf_events_type     ON workflow_events(event_type);
+CREATE INDEX ix_wf_events_run_step ON workflow_events(run_id, step_name);
+CREATE INDEX ix_wf_events_ts       ON workflow_events(ts);
+
+CREATE VIEW v_workflow_heartbeats AS
 SELECT
-    m.sim_id,
-    MAX(CASE WHEN m.metric_name = 'nse'  THEN m.value END) AS nse,
-    MAX(CASE WHEN m.metric_name = 'kge'  THEN m.value END) AS kge,
-    MAX(CASE WHEN m.metric_name = 'rmse' THEN m.value END) AS rmse,
-    MAX(CASE WHEN m.metric_name = 'r2'   THEN m.value END) AS r2,
-    MAX(CASE WHEN m.metric_name = 'mae'  THEN m.value END) AS mae,
-    MAX(CASE WHEN m.metric_name = 'bias' THEN m.value END) AS bias
-FROM metrics m
-GROUP BY m.sim_id;
+    run_id,
+    MAX(ts) AS last_heartbeat
+FROM workflow_events
+WHERE event_type = 'heartbeat'
+GROUP BY run_id;

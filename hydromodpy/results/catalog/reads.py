@@ -102,7 +102,10 @@ def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
 
 
 _SIMULATIONS_VIEW_SELECT = (
-    "SELECT s.*, "
+    # Listing/search path: never pull the two heavy config JSON blobs (per-sim
+    # config access goes through Run._load_row's own query). Dropping them at the
+    # SQL layer keeps `ls` memory bounded on large, federated workspaces.
+    "SELECT s.* EXCLUDE (config_toml, config_snapshot), "
     "sv.code AS solver, sv.category AS solver_category, "
     "st.code AS status, "
     "fr.code AS flow_regime, "
