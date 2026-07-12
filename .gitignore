@@ -386,3 +386,11 @@ examples/projects/**/catalog.duckdb.pre_*
 
 # CLI --set/--overlay materialized effective configs (temporary)
 *.effective.*.toml
+
+# Chèze reservoir working data (large rasters / meshes / blobs — not versioned)
+examples/data/dem/DEM_cheze_*.tif
+examples/data/dem/DEM_ille_vilaine_*.tif
+examples/data/dem/DEM_ille_vilaine_*.tif.aux.xml
+examples/data/blobs/
+examples/data/cutoff_wall/
+examples/projects/19_cheze_reservoir/mesh/
