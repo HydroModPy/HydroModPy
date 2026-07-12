@@ -452,8 +452,15 @@ class Modflow6OutputAdapter:
             if timeseries:
                 store.write_timeseries_batch(sim_id, timeseries)
                 final_stages = final_lake_stages(timeseries)
-                if final_stages:
-                    store.write_lake_restart_state(sim_id, final_stages)
+                # Persist each lake's final stage for [flow] restart_from. Written
+                # through open_zarr (guarded by save_zarr, like the write_* verbs)
+                # rather than a dedicated Catalog verb, to keep the facade bounded.
+                if final_stages and getattr(store, "save_zarr", True):
+                    lake_zarr = store.open_zarr(sim_id)
+                    try:
+                        lake_zarr.write_lake_restart_state(final_stages)
+                    finally:
+                        lake_zarr.close()
             if budgets:
                 store.write_budgets(sim_id, budgets)
 

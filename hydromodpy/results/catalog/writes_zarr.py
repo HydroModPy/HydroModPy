@@ -19,6 +19,16 @@ if TYPE_CHECKING:
 class WritesMixinZarr:
     """Zarr-backed write operations for the catalog facade."""
 
+    @property
+    def save_zarr(self) -> bool:
+        """Whether Zarr artefact writes are enabled (read-only view of persistence).
+
+        Lets a writer that opens the Zarr directly (e.g. the solver extractor
+        persisting a lake's restart state) honour the same switch as the guarded
+        ``write_*`` verbs without growing the facade's method surface.
+        """
+        return self._persistence.save_zarr
+
     def write_geographic_raster(
         self,
         sim_id: str | UUID,
@@ -43,15 +53,6 @@ class WritesMixinZarr:
         sz = self.open_zarr(sim_id)
         try:
             sz.write_lake_abacus(lake_id, **arrays)
-        finally:
-            sz.close()
-
-    def write_lake_restart_state(self, sim_id: str | UUID, stages: dict[str, float]) -> None:
-        if not self._persistence.save_zarr or not stages:
-            return
-        sz = self.open_zarr(sim_id)
-        try:
-            sz.write_lake_restart_state(stages)
         finally:
             sz.close()
 
