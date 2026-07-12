@@ -20,6 +20,7 @@ from hydromodpy._api import (
     read,
     report,
     run,
+    spinup,
 )
 from hydromodpy._bootstrap import bootstrap  # noqa: F401  -- import registers the lazy hook
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
@@ -49,6 +50,7 @@ _DIRECT_EXPORTS = [
     "export",
     "run",
     "calibrate",
+    "spinup",
     "index",
     "compare_pair",
     "report",

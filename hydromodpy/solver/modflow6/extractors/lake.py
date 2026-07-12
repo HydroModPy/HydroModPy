@@ -48,6 +48,7 @@ __all__ = [
     "LakeObsSpec",
     "build_lake_records",
     "extract_lake_series",
+    "final_lake_stages",
     "lake_station_id",
     "read_lake_abacus",
     "read_lake_meta",
@@ -388,6 +389,28 @@ def build_lake_records(
                 )
 
     return timeseries, budgets
+
+
+def final_lake_stages(timeseries: Sequence[Mapping[str, Any]]) -> dict[str, float]:
+    """Return each lake's last-step stage ``{lake_id: stage}`` (metres).
+
+    Scans the records built by :func:`build_lake_records`, keeps the ``stage``
+    value at the largest timestep per ``lake:<id>`` station, and strips the
+    ``lake:`` prefix. Feeds the hotstart restart state persisted to the Zarr so a
+    later ``[flow] restart_from`` run seeds each lake's initial stage.
+    """
+    best: dict[str, tuple[int, float]] = {}
+    for record in timeseries:
+        if record.get("variable") != "stage":
+            continue
+        station = str(record.get("station_id", ""))
+        if not station.startswith("lake:"):
+            continue
+        step = int(record.get("timestep", 0))
+        current = best.get(station)
+        if current is None or step >= current[0]:
+            best[station] = (step, float(record["value"]))
+    return {station[len("lake:") :]: value for station, (_, value) in best.items()}
 
 
 def _sum_connection_flux(

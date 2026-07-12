@@ -41,6 +41,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
+from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_lake_stages
 from tests.regression.golden_utils import (
     _open_result_store,
     _resolve_sim_id,
@@ -375,6 +376,21 @@ def test_lake_project_e2e_builds_lak_and_extracts_stage(tmp_path: Path) -> None:
         # The lake-aquifer exchange must also be extracted for the lake id.
         exchange = store.query_timeseries(sim_id, f"lake:{_LAKE_ID}", "gwf_exchange")
         assert not exchange.empty, "lake-aquifer exchange series is empty"
+
+        # RESTART: the run persisted each lake's final stage under lake_state_final,
+        # and the solver-side reader (the [flow] restart_from hotstart seed) recovers
+        # it from the raw Zarr. It must match the last extracted stage.
+        sz = store.open_zarr(sim_id)
+        try:
+            restart_stages = read_restart_lake_stages(str(sz.path))
+        finally:
+            sz.close()
+        assert set(restart_stages) == {_LAKE_ID}, (
+            f"lake_state_final did not persist {_LAKE_ID}: got {restart_stages}"
+        )
+        assert restart_stages[_LAKE_ID] == pytest.approx(last_stage, rel=1e-6), (
+            "persisted restart stage does not match the last extracted stage"
+        )
     finally:
         store.close()
 
