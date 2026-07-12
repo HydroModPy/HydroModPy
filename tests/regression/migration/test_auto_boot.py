@@ -32,6 +32,17 @@ from .conftest import copy_fixture, discover_fixture_stems
 
 ALL_FIXTURES = discover_fixture_stems()
 
+# The nine catalog migrations were folded into a single canonical 0001 schema
+# (commit 89c78e5cf). There is no longer an incremental v1 -> latest migration
+# path: an old catalog is recreated, not migrated. The v1-fixture round-trip /
+# opt-out / restore tests below therefore exercise a removed capability. They
+# are skipped (not deleted) so the framework tests keep running and the intent
+# is preserved if incremental migration is ever reintroduced.
+_OBSOLETE_FOLD = (
+    "obsolete since 89c78e5cf: catalog migrations folded to one canonical schema; "
+    "no incremental v1->latest migration path (old catalogs are recreated)"
+)
+
 
 def _count_simulations(db_path: Path) -> int:
     conn = duckdb.connect(str(db_path), read_only=True)
@@ -41,6 +52,7 @@ def _count_simulations(db_path: Path) -> int:
         conn.close()
 
 
+@pytest.mark.skip(reason=_OBSOLETE_FOLD)
 @pytest.mark.parametrize("stem", ALL_FIXTURES)
 def test_round_trip_v1_to_latest(tmp_path: Path, stem: str) -> None:
     """Every v1 fixture migrates to the latest version with a backup written."""
@@ -66,6 +78,7 @@ def test_round_trip_v1_to_latest(tmp_path: Path, stem: str) -> None:
     assert len(new_backups) == 1, "auto-boot must drop exactly one backup before migrating"
 
 
+@pytest.mark.skip(reason=_OBSOLETE_FOLD)
 @pytest.mark.parametrize("stem", ALL_FIXTURES[:1])
 def test_opt_out_disables_migration(
     tmp_path: Path, stem: str, monkeypatch: pytest.MonkeyPatch
@@ -110,6 +123,7 @@ def test_rolling_backups_respect_max(tmp_path: Path) -> None:
     assert len(survivors) == MAX_BACKUPS
 
 
+@pytest.mark.skip(reason=_OBSOLETE_FOLD)
 def test_restore_on_migration_failure(tmp_path: Path) -> None:
     """A simulated migration failure rolls the file back to the v1 backup."""
     from hydromodpy.core.migrations import auto_boot as auto_boot_mod

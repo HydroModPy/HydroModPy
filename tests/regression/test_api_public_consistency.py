@@ -31,6 +31,7 @@ _DIRECT_EXPORTS = frozenset(
         "export",
         "run",
         "calibrate",
+        "spinup",
         "index",
         "compare_pair",
         "report",
