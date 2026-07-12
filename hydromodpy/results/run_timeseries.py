@@ -12,7 +12,7 @@ from functools import cached_property
 
 import pandas as pd
 
-from hydromodpy.results.time_alignment import solver_time_index
+from hydromodpy.results.time_alignment import normalize_period_bounds, solver_time_index
 from hydromodpy.results.timeseries_downsample import (
     DEFAULT_TARGET_POINTS,
     lttb_downsample,
@@ -149,16 +149,15 @@ class RunTimeseriesMixin:
                     "pass station= explicitly."
                 )
             station = str(stations["station_id"].iloc[0])
-        if isinstance(period, str):
-            period = (f"{period}-01-01", f"{period}-12-31")
         query = (
             "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [self._sim_id, station, variable]
         if period is not None:
-            query += " AND time >= ? AND time <= ?"
-            params.extend([period[0], period[1]])
+            lo, hi, hi_inclusive = normalize_period_bounds(period)
+            query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")
+            params.extend([lo, hi])
         query += " ORDER BY timestep"
         result = self._catalog.backend.query(query, params)
         if result.empty:
