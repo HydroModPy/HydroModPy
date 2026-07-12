@@ -18,6 +18,7 @@ from __future__ import annotations
 import importlib
 import platform
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -28,10 +29,15 @@ if TYPE_CHECKING:
     import pandas as pd
     import xarray as xr
 
+    from hydromodpy.core.state.global_index import GlobalIndex
+    from hydromodpy.project.spinup import SpinupResult
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.run import Run
+
     Readable = xr.DataArray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
-def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any:
+def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Catalog:
     """Open a HydroModPy project catalog.
 
     The single door to a workspace catalog: returns a
@@ -102,7 +108,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Any
     return Catalog(ws, read_only=read_only)
 
 
-def index(db_path: Any = None, *, read_only: bool = True) -> Any:
+def index(db_path: Any = None, *, read_only: bool = True) -> GlobalIndex:
     """Open the machine-wide global index that federates registered workspaces.
 
     Read-only by default, mirroring :func:`open`: browsing the federation index
@@ -153,7 +159,68 @@ def index(db_path: Any = None, *, read_only: bool = True) -> Any:
     return GlobalIndex(resolved, read_only=read_only)
 
 
-def run(config: Any, **kwargs: Any) -> Any:
+def _open_run(project_root: Any, sim_id: Any) -> Any:
+    """Return the :class:`Run` for ``sim_id`` bound to an open catalog.
+
+    Both :func:`run` branches expose the ``simulation`` workflow as a ``Run``
+    (or ``None`` for a dry-run / no persisted result) so :func:`read` /
+    :func:`export` accept the result directly. The catalog is intentionally
+    **not** context-managed here: the Run reads through it, so it must stay
+    open after :func:`run` returns (matching ``cat = hmp.open(...); cat[ref]``).
+    Returns ``None`` on any resolution failure rather than raising.
+    """
+    if not sim_id:
+        return None
+    try:
+        return open(project_root)[sim_id]
+    except Exception:
+        return None
+
+
+def _write_lock_for_run(config_source: Any, *, no_lock: bool) -> None:
+    """Write ``hydromodpy.lock`` after a Python-driven simulation.
+
+    Mirrors the CLI post-run lock write so ``hmp.run`` records the same
+    reproducibility provenance the terminal does. Best-effort and silent on
+    failure. ``config_source`` is a TOML path or a resolved config object.
+    """
+    if no_lock:
+        return
+    try:
+        from hydromodpy.project.lockfile import write_project_lockfile
+
+        if isinstance(config_source, (str, Path)):
+            from hydromodpy.config import HydroModPyConfig
+
+            cfg = HydroModPyConfig.from_toml(config_source)
+        else:
+            cfg = config_source
+        write_project_lockfile(cfg)
+    except Exception:
+        pass
+
+
+@contextmanager
+def _materialized_config(config: Any):
+    """Write a resolved config to a temp TOML in its project_root and yield it.
+
+    Lets the config-object branch of :func:`run` reuse the same path-based
+    workflow adapters as the TOML branch. The temp file lives inside
+    ``project_root`` so relative paths resolve identically; it is removed
+    afterwards.
+    """
+    import uuid
+
+    root = Path(config.workspace.project_root).expanduser().resolve()
+    materialized = root / f".hmp_effective_{uuid.uuid4().hex[:8]}.toml"
+    config.to_toml(materialized)
+    try:
+        yield materialized
+    finally:
+        materialized.unlink(missing_ok=True)
+
+
+def run(config: Any, **kwargs: Any) -> Run | dict | None:
     """Run a HydroModPy workflow from Python.
 
     Path and config-object inputs converge on the same dispatch. Simulation
@@ -168,7 +235,10 @@ def run(config: Any, **kwargs: Any) -> Any:
     kwargs
         Runtime options forwarded to the selected workflow. The ``headless``
         keyword is honored on both branches (path and config object) and
-        controls the underlying ``Project`` interactive side effects.
+        controls the underlying ``Project`` interactive side effects. Set
+        ``no_lock=True`` to skip the post-run ``hydromodpy.lock`` write (a
+        successful simulation writes the reproducibility lock by default,
+        matching ``hmp run``).
 
     Returns
     -------
@@ -199,6 +269,7 @@ def run(config: Any, **kwargs: Any) -> Any:
         Object-oriented form for repeated runs from one project.
     """
     headless = bool(kwargs.pop("headless", False))
+    no_lock = bool(kwargs.pop("no_lock", False))
 
     if isinstance(config, (str, Path)):
         from hydromodpy.project.dispatch.workflow import dispatch_workflow
@@ -210,12 +281,36 @@ def run(config: Any, **kwargs: Any) -> Any:
             cli_workflow=None,
             require_toml_field=True,
         )
-        return dispatch_workflow(workflow, config_path, **kwargs)
+        summary = dispatch_workflow(workflow, config_path, **kwargs)
+        # The simulation adapter returns a summary dict; expose it as the Run
+        # so hmp.read / hmp.export accept the result on either branch.
+        if workflow == "simulation":
+            sim_id = summary.get("sim_id") if isinstance(summary, dict) else None
+            run_obj = _open_run(config_path.parent, sim_id)
+            if run_obj is not None:
+                _write_lock_for_run(config_path, no_lock=no_lock)
+            return run_obj
+        return summary
 
-    from hydromodpy.project import Project
+    # In-memory config object: dispatch on the declared workflow mode so a
+    # pure-Python config reaches every workflow, not only a plain simulation.
+    mode = getattr(getattr(config, "workflow", None), "mode", "simulation")
+    if mode == "simulation":
+        from hydromodpy.project import Project
 
-    with Project(config, headless=headless) as project:
-        return project.simulate(**kwargs)
+        with Project(config, headless=headless) as project:
+            result = project.simulate(**kwargs)
+        if result is None:
+            return None
+        _write_lock_for_run(config, no_lock=no_lock)
+        # Re-bind to a freshly opened catalog so hmp.read works after the
+        # project context (and its catalog connection) has closed.
+        return _open_run(config.workspace.project_root, result.sim_id) or result
+
+    from hydromodpy.project.dispatch.workflow import dispatch_workflow
+
+    with _materialized_config(config) as materialized_path:
+        return dispatch_workflow(mode, materialized_path, **kwargs)
 
 
 def calibrate(config: Any, **kwargs: Any) -> Any:
@@ -276,7 +371,7 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
         return project.calibrate(**kwargs)
 
 
-def spinup(config: Any, **kwargs: Any) -> Any:
+def spinup(config: Any, **kwargs: Any) -> SpinupResult:
     """Run a cyclic spin-up from a TOML file or config object.
 
     Repeats the representative window (``[spinup] window_*``, else
@@ -447,7 +542,7 @@ def read(
     layer: int | None = None,
     sel: dict | None = None,
     bbox: tuple[float, float, float, float] | None = None,
-) -> Any:
+) -> Readable:
     """Read a variable from a simulation Run with storage-kind auto-dispatch.
 
     Single entry point for reads on a :class:`~hydromodpy.results.run.Run`.
