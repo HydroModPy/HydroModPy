@@ -171,6 +171,13 @@ class WritesMixinDuckDB:
             rel = str(p.resolve().relative_to(self.project_path.resolve()))
         except ValueError:
             rel = str(p)
+        # Idempotent on (sim_id, kind, rel_path): re-exporting the same artefact
+        # to the same path refreshes its row instead of accumulating duplicates
+        # that no longer map one-to-one to on-disk files.
+        self._backend.execute(
+            "DELETE FROM export_log WHERE sim_id = ? AND kind = ? AND rel_path = ?",
+            [str(sim_id), str(kind), rel],
+        )
         self._backend.execute(
             "INSERT INTO export_log (export_id, sim_id, kind, rel_path, bytes, sha256) "
             "VALUES (gen_random_uuid(), ?, ?, ?, ?, ?)",
@@ -530,6 +537,13 @@ class WritesMixinDuckDB:
         period_start: Any | None = None,
         period_end: Any | None = None,
     ) -> None:
+        """Write one metric to the DuckDB ``metrics`` table (authoritative).
+
+        The DuckDB row is the source of truth (queried by find/leaderboards and
+        the ``metrics`` view). The Parquet mirror written below is a portable
+        columnar copy for export and ML scans, not a second source of truth; the
+        two sinks are not written in one transaction, so on any drift DuckDB wins.
+        """
         if not self._persistence.save_catalog:
             return
         self._backend.execute(
@@ -595,6 +609,12 @@ class WritesMixinDuckDB:
         period_start: Any = None,
         period_end: Any = None,
     ) -> None:
+        """Write one provenance record to the DuckDB ``provenance`` table (authoritative).
+
+        As with :meth:`write_metric`, the DuckDB row is the source of truth and
+        the Parquet mirror is a portable copy; the two are not written in one
+        transaction, so DuckDB wins on any drift.
+        """
         if not self._persistence.save_catalog:
             return
         fp = fingerprint(data)
