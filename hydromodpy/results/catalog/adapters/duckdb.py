@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 import duckdb
 import pandas as pd
 
-from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
 from hydromodpy.results.catalog.migrations import ensure_schema as _ensure_catalog_schema
 
 if TYPE_CHECKING:
@@ -63,7 +63,9 @@ class DuckDBBackend:
 
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
-        self._connection: duckdb.DuckDBPyConnection = connect_with_retry(str(self._path))
+        self._connection: duckdb.DuckDBPyConnection = connect_with_retry(
+            str(self._path), block_size=HMP_DUCKDB_BLOCK_SIZE
+        )
         self._owns_connection = True
         self._read_only = False
 
