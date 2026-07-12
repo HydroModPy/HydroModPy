@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 from shapely.geometry import Polygon
 
+from hydromodpy.core.io.geoparquet import read_geoparquet, write_geoparquet_atomic
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.geoparquet_io import read_geoparquet, write_geoparquet_atomic
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 

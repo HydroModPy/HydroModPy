@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import TypedDict
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.io.geoparquet import GEOPARQUET_WRITE_DEFAULTS
+from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.data.schemas import (
     StationCollectionSchema,
     TimeSeriesSchema,
@@ -175,17 +177,7 @@ def _write_parquet_v2(table: object, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
     try:
-        pq.write_table(
-            table,
-            tmp,
-            compression="zstd",
-            compression_level=5,
-            row_group_size=50_000,
-            use_dictionary=True,
-            write_statistics=True,
-            write_page_index=True,
-            version="2.6",
-        )
+        pq.write_table(table, tmp, **PARQUET_WRITE_DEFAULTS)
     except Exception:
         if tmp.exists():
             tmp.unlink()
@@ -407,15 +399,7 @@ def convert_locations_csv_to_geoparquet(
         )
     tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
     try:
-        gdf.to_parquet(
-            tmp,
-            compression="zstd",
-            compression_level=5,
-            schema_version="1.1.0",
-            geometry_encoding="WKB",
-            write_covering_bbox=True,
-            index=False,
-        )
+        gdf.to_parquet(tmp, **GEOPARQUET_WRITE_DEFAULTS)
     except Exception:
         if tmp.exists():
             tmp.unlink()

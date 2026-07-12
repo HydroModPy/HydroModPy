@@ -259,7 +259,7 @@ class ReadsMixin:
         feature_name: str,
     ) -> gpd.GeoDataFrame:
         """Read a per-simulation GeoParquet 1.1 feature via geopandas."""
-        from hydromodpy.results.geoparquet_io import read_geoparquet
+        from hydromodpy.core.io.geoparquet import read_geoparquet
 
         row = self._backend.fetch_one(
             "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
