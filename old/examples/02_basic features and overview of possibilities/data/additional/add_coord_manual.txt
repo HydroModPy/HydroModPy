@@ -1,2 +1,0 @@
-code_sub;x_outlet;y_outlet
-pointA;310348.618;6779967.342
