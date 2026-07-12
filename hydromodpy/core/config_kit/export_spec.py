@@ -31,6 +31,7 @@ class ExportFormat(StrEnum):
     netcdf = "netcdf"
     geotiff = "geotiff"
     shapefile = "shapefile"
+    geopackage = "geopackage"
     vtu = "vtu"
     hmp = "hmp"
 
@@ -42,12 +43,20 @@ _SUFFIX_TO_FORMAT: dict[str, ExportFormat] = {
     ".tif": ExportFormat.geotiff,
     ".tiff": ExportFormat.geotiff,
     ".shp": ExportFormat.shapefile,
+    ".gpkg": ExportFormat.geopackage,
     ".vtu": ExportFormat.vtu,
     ".hmp": ExportFormat.hmp,
 }
 
 # Formats that render exactly one timestep per file.
-_SINGLE_TIMESTEP = frozenset({ExportFormat.geotiff, ExportFormat.shapefile, ExportFormat.vtu})
+_SINGLE_TIMESTEP = frozenset(
+    {
+        ExportFormat.geotiff,
+        ExportFormat.shapefile,
+        ExportFormat.geopackage,
+        ExportFormat.vtu,
+    }
+)
 
 
 def format_from_path(path: str | Path) -> ExportFormat | None:
