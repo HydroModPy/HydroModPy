@@ -27,7 +27,6 @@ meaningful for tamper detection.
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import shutil
 import tarfile
@@ -147,8 +146,18 @@ def _dematerialise_parquet(
     return copied
 
 
+# Earliest timestamp the ZIP format can store. Stamped on every member so two
+# exports of the same store produce byte-identical zarr.zip bytes (the tar layer
+# normalizes mtime to 0; ZIP cannot go below 1980).
+_ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
+
+
 def _pack_zarr(zarr_src: Path, dst: Path) -> None:
-    """Pack a zarr directory (or copy an already-zipped zarr) to ``dst``."""
+    """Pack a zarr directory (or copy an already-zipped zarr) to ``dst``.
+
+    Member timestamps and permissions are normalized so the archive is
+    reproducible: the on-disk mtime is not stamped into the ZIP.
+    """
     if zarr_src.is_file():
         shutil.copy2(zarr_src, dst)
         return
@@ -156,8 +165,13 @@ def _pack_zarr(zarr_src: Path, dst: Path) -> None:
         raise FileNotFoundError(f"Zarr store not found at {zarr_src}")
     with zipfile.ZipFile(str(dst), "w", compression=zipfile.ZIP_STORED) as zf:
         for fpath in sorted(zarr_src.rglob("*")):
-            if fpath.is_file():
-                zf.write(str(fpath), str(fpath.relative_to(zarr_src)))
+            if not fpath.is_file():
+                continue
+            arcname = str(fpath.relative_to(zarr_src)).replace("\\", "/")
+            info = zipfile.ZipInfo(arcname, date_time=_ZIP_EPOCH)
+            info.compress_type = zipfile.ZIP_STORED
+            info.external_attr = 0o644 << 16
+            zf.writestr(info, fpath.read_bytes())
 
 
 def _looks_like_shapefile(path: Path) -> bool:
@@ -491,38 +505,49 @@ def _write_tar_zst(staging: Path, output: Path) -> None:
 
     File order is deterministic (sorted) so the archive is reproducible.
     """
+    import tempfile
+
     import zstandard as zstd
 
     files = sorted(staging.rglob("*"))
-    buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w") as tar:
-        for path in files:
-            if not path.is_file():
-                continue
-            arcname = str(path.relative_to(staging)).replace("\\", "/")
-            info = tar.gettarinfo(str(path), arcname=arcname)
-            info.uid = 0
-            info.gid = 0
-            info.uname = ""
-            info.gname = ""
-            info.mtime = 0
-            with open(path, "rb") as fh:
-                tar.addfile(info, fh)
-    cctx = zstd.ZstdCompressor(level=10)
     output.parent.mkdir(parents=True, exist_ok=True)
-    with open(output, "wb") as fh:
-        fh.write(cctx.compress(buffer.getvalue()))
+    cctx = zstd.ZstdCompressor(level=10)
+    # Stage the tar on disk (not in a BytesIO), then stream-compress it with its
+    # known size so the whole uncompressed archive is never resident in memory
+    # (a chronicle run is multi-GB) while the zstd frame still embeds the content
+    # size, keeping it readable by one-shot decompressors.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tar_path = Path(tmpdir) / "archive.tar"
+        with tarfile.open(str(tar_path), mode="w") as tar:
+            for path in files:
+                if not path.is_file():
+                    continue
+                arcname = str(path.relative_to(staging)).replace("\\", "/")
+                info = tar.gettarinfo(str(path), arcname=arcname)
+                info.uid = 0
+                info.gid = 0
+                info.uname = ""
+                info.gname = ""
+                info.mtime = 0
+                with open(path, "rb") as inner:
+                    tar.addfile(info, inner)
+        tar_size = tar_path.stat().st_size
+        with (
+            open(tar_path, "rb") as src,
+            open(output, "wb") as fh,
+            cctx.stream_writer(fh, size=tar_size) as compressor,
+        ):
+            shutil.copyfileobj(src, compressor, length=1024 * 1024)
 
 
 def _read_tar_zst(archive: Path, staging: Path) -> None:
-    """Extract ``archive`` (tar.zst) into ``staging``."""
+    """Extract ``archive`` (tar.zst) into ``staging`` without buffering it all."""
     import zstandard as zstd
 
     dctx = zstd.ZstdDecompressor()
-    with open(archive, "rb") as fh:
-        raw = dctx.decompress(fh.read())
-    with tarfile.open(fileobj=io.BytesIO(raw), mode="r") as tar:
-        tar.extractall(str(staging), filter="data")
+    with open(archive, "rb") as fh, dctx.stream_reader(fh) as reader:
+        with tarfile.open(fileobj=reader, mode="r|") as tar:
+            tar.extractall(str(staging), filter="data")
 
 
 def export_hmp_package(

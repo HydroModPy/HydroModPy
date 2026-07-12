@@ -58,8 +58,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="append",
         default=None,
         help=(
-            "Emit a FAIR sidecar in addition to the per-variable exports. "
-            "Repeatable: pass --format multiple times to render several formats."
+            "Also emit, alongside the per-variable exports: 'hmp' a portable "
+            ".hmp archive (same as `hmp catalog export`), or a 'stac'/'rocrate'/"
+            "'prov' metadata sidecar. Repeatable to render several."
         ),
     )
     parser.add_argument(
@@ -130,13 +131,25 @@ def run(args: argparse.Namespace) -> None:
         geo_dir = output_dir or (project_dir / "exports" / "geographic")
         geo_dir.mkdir(parents=True, exist_ok=True)
 
-        if args.raster:
+        # Honor --sim for geographic exports; fall back to the latest run.
+        geo_sid: str | None = None
+        if args.sim:
+            try:
+                geo_sid = catalog.resolve(args.sim, project=project_name)
+            except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+                print(str(exc), file=sys.stderr)
+                catalog.close()
+                sys.exit(EXIT_NOT_FOUND)
+        else:
             sims = catalog.list_simulations(project=project_name)
-            if sims.empty:
-                print("  No simulations found; cannot export rasters", file=sys.stderr)
-            else:
-                latest_sid = str(sims.iloc[-1]["sim_id"])
-                sz = catalog.open_zarr(latest_sid)
+            if not sims.empty:
+                geo_sid = str(sims.iloc[-1]["sim_id"])
+
+        if geo_sid is None:
+            print("  No simulations found; cannot export geographic data", file=sys.stderr)
+        else:
+            if args.raster:
+                sz = catalog.open_zarr(geo_sid)
                 geo_grp = sz.root.get("geographic")
                 for name in args.raster:
                     try:
@@ -170,16 +183,16 @@ def run(args: argparse.Namespace) -> None:
                     except KeyError:
                         print(f"  Raster '{name}' not found in store", file=sys.stderr)
 
-        if args.feature:
-            for name in args.feature:
-                try:
-                    gdf = catalog.read_geographic_feature(latest_sid, name)
-                    out_path = geo_dir / f"{name}.shp"
-                    gdf.to_file(out_path)
-                    exported.append(out_path)
-                    print(f"  {out_path}", file=sys.stderr)
-                except KeyError:
-                    print(f"  Feature '{name}' not found in store", file=sys.stderr)
+            if args.feature:
+                for name in args.feature:
+                    try:
+                        gdf = catalog.read_geographic_feature(geo_sid, name)
+                        out_path = geo_dir / f"{name}.gpkg"
+                        gdf.to_file(out_path, driver="GPKG")
+                        exported.append(out_path)
+                        print(f"  {out_path}", file=sys.stderr)
+                    except KeyError:
+                        print(f"  Feature '{name}' not found in store", file=sys.stderr)
 
     fair_formats: tuple[str, ...] = tuple(args.fair_format or ())
 
@@ -325,8 +338,11 @@ def _emit_fair(
     for fmt in formats:
         try:
             if fmt == "hmp":
-                # Embed the RO-Crate alongside the .hmp archive root.
-                path = write_ro_crate(catalog, sim_id, sim_dir, context=context)
+                # Real portable archive (config, provenance, fields, timeseries),
+                # not just a metadata sidecar. Same output as `hmp catalog export`.
+                archive = sim_dir / f"{sim_dir.name}.hmp"
+                path = catalog.export_package(sim_id, archive)
+                catalog.record_export(sim_id, kind="hmp", path=path)
             elif fmt == "rocrate":
                 path = write_ro_crate(catalog, sim_id, sim_dir, context=context)
             elif fmt == "stac":

@@ -424,6 +424,14 @@ class ReadsMixin:
                 zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
             )
 
+        if fmt is ExportFormat.geopackage:
+            from hydromodpy.results.exporters.geopackage import export_geopackage
+
+            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
+            return export_geopackage(
+                zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
+            )
+
         raise ValueError(f"Unsupported export format '{fmt}'")
 
     def list_exports(self, ref: str | UUID) -> list[dict]:
