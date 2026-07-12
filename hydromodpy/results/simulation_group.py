@@ -171,13 +171,42 @@ class RunSet:
 
     # -- Comparison ----------------------------------------------------------
 
-    def compare(self, metric: str) -> pd.DataFrame:
+    def _resolve_metric_station(self, metric: str, station: str | None) -> str | None:
+        """Return the station to scope a metric ranking to.
+
+        When ``station`` is given it is used verbatim. Otherwise the distinct
+        stations carrying ``metric`` across the group are inspected: a single
+        station (the common case) is used silently, and several stations raise a
+        ``KeyError`` asking the caller to disambiguate, so best/worst/compare
+        never mix stations across runs.
+        """
+        if station is not None:
+            return station
+        placeholders = ", ".join(["?"] * len(self._sim_ids))
+        rows = self._catalog.backend.query(
+            f"SELECT DISTINCT station_id FROM metrics "
+            f"WHERE sim_id IN ({placeholders}) AND metric_name = ?",
+            self._sim_ids + [metric],
+        )
+        stations = sorted(str(value) for value in rows["station_id"].tolist())
+        if len(stations) <= 1:
+            return stations[0] if stations else None
+        raise KeyError(
+            f"Metric '{metric}' exists at multiple stations ({', '.join(stations)}); "
+            "pass station= to disambiguate."
+        )
+
+    def compare(self, metric: str, *, station: str | None = None) -> pd.DataFrame:
         """Compare one metric across every simulation in the group.
 
         Parameters
         ----------
         metric
             Metric name stored in the catalog.
+        station
+            Observation station to scope the comparison to. When omitted and the
+            metric exists at a single station, that station is used; several
+            stations raise a ``KeyError``.
 
         Returns
         -------
@@ -186,64 +215,71 @@ class RunSet:
         """
         if not self._sim_ids:
             return pd.DataFrame()
+        resolved = self._resolve_metric_station(metric, station)
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        return self._catalog.backend.query(
+        query = (
             f"SELECT s.sim_id, s.name, s.project, sv.code AS solver, "
             f"m.station_id, m.value "
             f"FROM simulations s "
             f"JOIN solvers sv ON s.solver_id = sv.id "
             f"JOIN metrics m ON s.sim_id = m.sim_id "
-            f"WHERE s.sim_id IN ({placeholders}) AND m.metric_name = ? "
-            f"ORDER BY m.value DESC",
-            self._sim_ids + [metric],
+            f"WHERE s.sim_id IN ({placeholders}) AND m.metric_name = ?"
         )
+        params = self._sim_ids + [metric]
+        if resolved is not None:
+            query += " AND m.station_id = ?"
+            params.append(resolved)
+        query += " ORDER BY m.value DESC"
+        return self._catalog.backend.query(query, params)
 
-    def best(self, metric: str) -> Run:
+    def best(self, metric: str, *, station: str | None = None) -> Run:
         """Return the run with the highest value for ``metric``.
 
+        ``station`` scopes the ranking; when omitted a single-station metric is
+        used silently and a multi-station metric raises ``KeyError``.
+
         Raises
         ------
         ValueError
             Raised when the group is empty.
         KeyError
-            Raised when the metric is absent from every run.
+            Raised when the metric is absent, or ambiguous across stations.
         """
-        from hydromodpy.results.run import Run
+        return self._extreme(metric, station=station, descending=True)
 
-        if not self._sim_ids:
-            raise ValueError("Empty group")
-        placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog.backend.fetch_one(
-            f"SELECT m.sim_id FROM metrics m "
-            f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
-            f"ORDER BY m.value DESC LIMIT 1",
-            self._sim_ids + [metric],
-        )
-        if row is None:
-            raise KeyError(f"No metric '{metric}' found in group")
-        return Run(str(row[0]), self._catalog)
-
-    def worst(self, metric: str) -> Run:
+    def worst(self, metric: str, *, station: str | None = None) -> Run:
         """Return the run with the lowest value for ``metric``.
 
+        ``station`` scopes the ranking; when omitted a single-station metric is
+        used silently and a multi-station metric raises ``KeyError``.
+
         Raises
         ------
         ValueError
             Raised when the group is empty.
         KeyError
-            Raised when the metric is absent from every run.
+            Raised when the metric is absent, or ambiguous across stations.
         """
+        return self._extreme(metric, station=station, descending=False)
+
+    def _extreme(self, metric: str, *, station: str | None, descending: bool) -> Run:
+        """Return the run holding the extreme value of a station-scoped metric."""
         from hydromodpy.results.run import Run
 
         if not self._sim_ids:
             raise ValueError("Empty group")
+        resolved = self._resolve_metric_station(metric, station)
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog.backend.fetch_one(
+        query = (
             f"SELECT m.sim_id FROM metrics m "
-            f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
-            f"ORDER BY m.value ASC LIMIT 1",
-            self._sim_ids + [metric],
+            f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ?"
         )
+        params = self._sim_ids + [metric]
+        if resolved is not None:
+            query += " AND m.station_id = ?"
+            params.append(resolved)
+        query += f" ORDER BY m.value {'DESC' if descending else 'ASC'} LIMIT 1"
+        row = self._catalog.backend.fetch_one(query, params)
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")
         return Run(str(row[0]), self._catalog)
