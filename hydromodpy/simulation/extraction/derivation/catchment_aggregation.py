@@ -187,7 +187,10 @@ def _routed_outflow_by_timestep(
         return None
     if not rows:
         return None
-    values = np.zeros(n_timesteps, dtype="float64")
+    # NaN, not zero, for timesteps with no ext_outflow row: a genuine zero
+    # outflow still arrives as a row (total=0.0), so only true gaps stay missing
+    # and are excluded from metrics instead of biasing them toward zero flow.
+    values = np.full(n_timesteps, np.nan, dtype="float64")
     for timestep, total in rows:
         t = int(timestep)
         if 0 <= t < n_timesteps and total is not None:
