@@ -304,6 +304,22 @@ class FlowReachNetworkConfig(HydroModelBase):
             "UPTO / EXCESS / THRESHOLD."
         ),
     )
+    lake_feeder_snap: Annotated[Length, Profile.EXPERT] = Field(
+        default="300 m",
+        description=(
+            "Max distance from a lake shoreline within which a dead-end reach is snapped "
+            "to that lake via MVR (a real feeder the DEM fell short of). Scale it to the "
+            "catchment: too large teleports an unrelated reach into the lake."
+        ),
+    )
+    outlet_keepout: Annotated[Length, Profile.EXPERT] = Field(
+        default="1000 m",
+        description=(
+            "Min distance from the model outlet a terminal reach must keep to count as a "
+            "lake feeder. A terminal closer than this is the below-dam discharge reach "
+            "(the lake feeds it and it leaves the model), so it is not routed into the lake."
+        ),
+    )
 
     @field_validator("streambed_k_unit")
     @classmethod
