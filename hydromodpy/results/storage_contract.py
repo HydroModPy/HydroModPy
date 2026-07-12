@@ -11,21 +11,21 @@ shares one canonical definition.
 
 Parquet naming
 --------------
-Two distinct shapes coexist on disk and both happen to end in ``.parquet``:
+Two distinct shapes coexist on disk, with DISTINCT suffixes so a plain
+``glob`` is never ambiguous:
 
-* **Container directory** (``PARQUET_DIR_SUFFIX``): the per-simulation folder
-  ``<basename>.parquet/`` that groups every view payload for one run.
-* **Single-file payload** (``PARQUET_FILE_SUFFIX``): the individual
-  ``<view>.parquet`` files placed inside the container directory.
-
-Because both literals are the same string, naive ``glob("*.parquet")`` calls
-are ambiguous. Callers that walk the workspace must therefore filter by
-``Path.is_dir()`` or ``Path.is_file()`` to disambiguate intent.
+* **Container directory** (``PARQUET_DIR_SUFFIX`` = ``.parquet.d``): the
+  per-simulation folder ``<basename>.parquet.d/`` that groups every view
+  payload for one run. The ``.d`` marks it as a directory, so external tools
+  cannot mistake it for a single Parquet file.
+* **Single-file payload** (``PARQUET_FILE_SUFFIX`` = ``.parquet``): the
+  individual ``<view>.parquet`` files placed inside the container directory
+  (read directly by ``read_parquet`` / ``geopandas``).
 
 ``PARQUET_DATASET_MARKER`` is reserved for the future Hive-partitioned dataset
-layout (``<view>.parquet/<part=...>/...``). It is not used by the current v1
-contract; new partitioned datasets must place this subdirectory marker at
-their root so directory-walking code can detect them without a heuristic.
+layout. It is not used by the current contract; new partitioned datasets must
+place this subdirectory marker at their root so directory-walking code can
+detect them without a heuristic.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ SIMULATIONS_DIRNAME = "simulations"
 
 ZARR_SUFFIX = ".zarr"
 ZARR_ZIP_SUFFIX = ".zarr.zip"
-PARQUET_DIR_SUFFIX = ".parquet"
+PARQUET_DIR_SUFFIX = ".parquet.d"
 PARQUET_FILE_SUFFIX = ".parquet"
 PARQUET_DATASET_MARKER = "_dataset"
 
