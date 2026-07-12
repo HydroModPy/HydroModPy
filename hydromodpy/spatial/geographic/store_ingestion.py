@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import geopandas as gpd
+
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
@@ -121,12 +123,6 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
 
 
 def _ingest_shapefiles(geographic: Any, store: Any, sim_id: str) -> None:
-    try:
-        import geopandas as gpd
-    except ImportError:
-        logger.debug("geopandas not available, skipping shapefile ingestion")
-        return
-
     for feature_name, attr in _SHAPEFILE_ATTRS:
         path = getattr(geographic, attr, None)
         if path is None or not Path(path).exists():
@@ -142,12 +138,6 @@ def _ingest_shapefiles(geographic: Any, store: Any, sim_id: str) -> None:
 
 
 def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
-    try:
-        import geopandas as gpd
-    except ImportError:
-        logger.debug("geopandas not available, skipping river network ingestion")
-        return
-
     generated_network = None
     generated_network_crs = None
     path = getattr(geographic, _GENERATED_HYDROGRAPHIC_NETWORK_ATTR, None)

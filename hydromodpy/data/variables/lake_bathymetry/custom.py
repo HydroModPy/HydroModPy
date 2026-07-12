@@ -9,8 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.adapters import convert_asc_to_geotiff
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+
+logger = get_logger(__name__)
 
 
 def load_custom_lake_bathymetry(
@@ -37,7 +40,16 @@ def load_custom_lake_bathymetry(
 
     with rasterio.open(str(path)) as src:
         bounds = src.bounds
-        crs = str(src.crs) if src.crs else "EPSG:2154"
+        if src.crs:
+            crs = str(src.crs)
+        else:
+            crs = str(getattr(source_cfg, "default_crs", "EPSG:2154"))
+            logger.warning(
+                "Custom lake-bathymetry raster %s carries no CRS; using default_crs=%s. "
+                "Set data.lake_bathymetry.sources[].default_crs for a non-French site.",
+                path,
+                crs,
+            )
         bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
     if data_dir is not None:

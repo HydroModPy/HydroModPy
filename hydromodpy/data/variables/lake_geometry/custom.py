@@ -9,8 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.adapters import convert_vector_to_geoparquet
 from hydromodpy.data.contracts.spatial_field import FieldRecord
+
+logger = get_logger(__name__)
 
 
 def load_custom_lake_geometry(
@@ -39,7 +42,16 @@ def load_custom_lake_geometry(
     if gdf.empty:
         raise ValueError(f"Custom lake-geometry file is empty: {path}")
 
-    crs = str(gdf.crs) if gdf.crs else "EPSG:2154"
+    if gdf.crs:
+        crs = str(gdf.crs)
+    else:
+        crs = str(getattr(source_cfg, "default_crs", "EPSG:2154"))
+        logger.warning(
+            "Custom lake-geometry file %s carries no CRS; using default_crs=%s. Set "
+            "data.lake_geometry.sources[].default_crs for a non-French site.",
+            path,
+            crs,
+        )
     bbox = tuple(gdf.total_bounds)
 
     if data_dir is not None:
