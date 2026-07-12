@@ -318,7 +318,7 @@ def register(
                         encoded_path,
                         mtime,
                         digest,
-                        1 if is_custom else 0,
+                        is_custom,
                         json_or_none(fetch_metadata),
                         eid,
                     ],
@@ -350,7 +350,7 @@ def register(
                         encoded_path,
                         mtime,
                         digest,
-                        1 if is_custom else 0,
+                        is_custom,
                         json_or_none(fetch_metadata),
                     ],
                 )
