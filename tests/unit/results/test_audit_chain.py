@@ -75,6 +75,41 @@ def test_hash_chain_consistency(catalog: Catalog) -> None:
     assert verify_chain(catalog.connection) is True
 
 
+def test_hash_chain_survives_multiple_events_in_one_transaction(catalog: Catalog) -> None:
+    """Several audit rows in one transaction share ``occurred_at``; the monotonic
+    ``seq`` (migration 0009) keeps ``verify_chain`` stable where the old
+    ``(occurred_at, event_id)`` order would fork the chain ~50% per pair."""
+    conn = catalog.connection
+    conn.execute("BEGIN TRANSACTION")
+    for index in range(8):
+        emit_audit_event(
+            conn,
+            event_type="sim.tag_add",
+            sim_id=None,
+            project="lab",
+            payload={"tag": f"t{index}"},
+        )
+    conn.execute("COMMIT")
+
+    # Fork precondition: all rows written in the transaction share occurred_at.
+    distinct_ts = conn.execute(
+        "SELECT COUNT(DISTINCT occurred_at) FROM audit_log WHERE event_type = 'sim.tag_add'"
+    ).fetchone()[0]
+    assert distinct_ts == 1
+
+    # seq is present and strictly increasing in insertion order.
+    seqs = [
+        row[0]
+        for row in conn.execute(
+            "SELECT seq FROM audit_log WHERE event_type = 'sim.tag_add' ORDER BY seq"
+        ).fetchall()
+    ]
+    assert len(seqs) == 8
+    assert len(set(seqs)) == 8
+
+    assert verify_chain(conn) is True
+
+
 def test_hash_chain_corruption_detected(catalog: Catalog) -> None:
     """Mutating one row's payload after the fact breaks ``verify_chain``."""
     _emit_three_events(catalog)
