@@ -131,6 +131,18 @@ def resolve_base_model_name(setup) -> str:
     return "default"
 
 
+def nwt_safe_name(name: str) -> str:
+    """Collapse whitespace to underscores for a MODFLOW-NWT model name.
+
+    MODFLOW-NWT (Fortran) truncates a NAME-file path at the first space, so a
+    ``[simulation] name`` with spaces (e.g. ``"Example 12 launcher fast"``) must
+    be sanitised before it reaches the solver files, or the run diverges on a
+    truncated NAME file. Mirrors MF6's ``mf6_safe_name`` whitespace collapse;
+    MODFLOW-NWT imposes no 16-char identifier limit, so no hashing is needed.
+    """
+    return re.sub(r"\s+", "_", str(name).strip())
+
+
 def build_preprocess_options(state) -> ModflowPreprocessOptions:
     """Build the flow pre-processing options from the runtime setup.
 
