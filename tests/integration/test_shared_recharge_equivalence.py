@@ -106,12 +106,18 @@ def test_shared_recharge_matches_per_trial_and_runs(tmp_path: Path) -> None:
     # shared recharge is indistinguishable from writing it per trial.
     import flopy
 
-    ok_a, _ = flopy.mf6.MFSimulation.load(sim_ws=str(ws_a), exe_name=exe).run_simulation(silent=True)
-    ok_b, _ = flopy.mf6.MFSimulation.load(sim_ws=str(ws_b), exe_name=exe).run_simulation(silent=True)
+    ok_a, _ = flopy.mf6.MFSimulation.load(sim_ws=str(ws_a), exe_name=exe).run_simulation(
+        silent=True
+    )
+    ok_b, _ = flopy.mf6.MFSimulation.load(sim_ws=str(ws_b), exe_name=exe).run_simulation(
+        silent=True
+    )
     assert ok_a and ok_b, "a recharge model did not converge"
     head_a = flopy.utils.HeadFile(str(ws_a / "m.hds")).get_alldata()
     head_b = flopy.utils.HeadFile(str(ws_b / "m.hds")).get_alldata()
-    assert np.allclose(head_a, head_b, atol=1e-9), "shared vs per-trial recharge give different heads"
+    assert np.allclose(head_a, head_b, atol=1e-9), (
+        "shared vs per-trial recharge give different heads"
+    )
 
 
 def test_short_recharge_stays_internal() -> None:

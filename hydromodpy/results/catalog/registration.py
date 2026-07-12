@@ -541,7 +541,9 @@ class RegistrationMixin:
                 f"({ZARR_SUFFIX}/{ZARR_ZIP_SUFFIX}/{PARQUET_DIR_SUFFIX})"
             )
         snapshot = (
-            self._simulations_dir / f"{basename}{PARQUET_DIR_SUFFIX}" / f"simulation{PARQUET_FILE_SUFFIX}"
+            self._simulations_dir
+            / f"{basename}{PARQUET_DIR_SUFFIX}"
+            / f"simulation{PARQUET_FILE_SUFFIX}"
         )
         if not snapshot.exists():
             raise FileNotFoundError(
