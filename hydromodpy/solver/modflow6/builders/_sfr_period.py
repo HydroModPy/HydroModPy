@@ -20,7 +20,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     resolve_use_ts6,
     ts6_times_and_values,
 )
-from hydromodpy.solver.modflow6.common.time_series import Ts6Series
+from hydromodpy.solver.modflow6.support.time_series import Ts6Series
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow6.builders.sfr import ResolvedSfrNetwork, SfrReachRecord

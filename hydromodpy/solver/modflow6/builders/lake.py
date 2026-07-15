@@ -82,7 +82,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     resolve_forcing_mode,
 )
 from hydromodpy.solver.modflow6.builders.vertex_grid import build_vertex_grid_for_intersection
-from hydromodpy.solver.modflow6.common.time_series import Ts6Series
+from hydromodpy.solver.modflow6.support.time_series import Ts6Series
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
