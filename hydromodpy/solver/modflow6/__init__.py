@@ -1,7 +1,7 @@
 """MODFLOW 6 solver package."""
 
-from . import builders, diagnostics, postprocess
-from .api_runner import Mf6ApiContext, Mf6ApiStep, run_mf6_api
+from . import builders, postprocess
+from .api.api_runner import Mf6ApiContext, Mf6ApiStep, run_mf6_api
 from .modflow6 import Modflow6
 from .modflow6_config import (
     Modflow6Config,
@@ -10,6 +10,7 @@ from .modflow6_config import (
     Modflow6SpecifParams,
 )
 from .prt import Modflow6Prt
+from .support import diagnostics
 from .transport import Modflow6Transport
 
 __all__ = [

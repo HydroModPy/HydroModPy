@@ -19,7 +19,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
 
-from ..diagnostics import export_runtime_support_overview
+from ..support.diagnostics import export_runtime_support_overview
 from ._budget import (
     compute_chd_outlet_discharge_east_side_m3_s,
     compute_drain_outflow_and_seepage,

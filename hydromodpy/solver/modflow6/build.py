@@ -59,15 +59,15 @@ from hydromodpy.solver.modflow6.builders import (
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow6.common import attach_time_series
-from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
-from hydromodpy.solver.modflow6.mesh_conditioning import condition_solver_mesh_top
-from hydromodpy.solver.modflow6.property_mapping import (
+from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
+from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
+from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
     resolve_k33_field,
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.modflow6.runtime_reuse import (
+from hydromodpy.solver.modflow6.support.runtime_reuse import (
     can_refresh_runtime_reuse,
     refresh_reused_runtime_property_packages,
     runtime_reuse_signature,

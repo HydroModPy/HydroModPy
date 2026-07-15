@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.mesh_conditioning import condition_solver_mesh_top
+from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
 from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 
 

@@ -836,7 +836,7 @@ def resolve_lake_occupied_layers(model) -> dict[str, int]:
 def build_exposed_band_runoff_specs(model) -> list:
     """Build the exposed-band (marnage) runoff coupling specs, or ``[]``.
 
-    One :class:`~hydromodpy.solver.modflow6.lake_band_runoff.LakeBandRunoffSpec`
+    One :class:`~hydromodpy.solver.modflow6.support.lake_band_runoff.LakeBandRunoffSpec`
     per active-littoral lake whose ``bed_reconstruction.exposed_band_runoff`` is
     on. ``lake_index`` matches the LAK packagedata order (the
     ``_active_lake_definitions`` order). The watershed runoff RATE and the lake's
@@ -848,7 +848,7 @@ def build_exposed_band_runoff_specs(model) -> list:
     if not reconstruction or not marnage:
         return []
 
-    from hydromodpy.solver.modflow6.lake_band_runoff import LakeBandRunoffSpec
+    from hydromodpy.solver.modflow6.support.lake_band_runoff import LakeBandRunoffSpec
 
     nper = int(getattr(model, "nper", 0) or 0)
     specs: list[LakeBandRunoffSpec] = []

@@ -16,12 +16,12 @@ import pytest
 pytest.importorskip("modflowapi")
 pytest.importorskip("xmipy")
 
-from hydromodpy.solver.modflow6.api_runner import (  # noqa: E402
+from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
     Mf6ApiContext,
     Mf6ApiStep,
     run_mf6_api,
 )
-from hydromodpy.solver.modflow6.lake_band_runoff import (  # noqa: E402
+from hydromodpy.solver.modflow6.support.lake_band_runoff import (  # noqa: E402
     LakeBandRunoffSpec,
     make_exposed_band_runoff_callback,
 )

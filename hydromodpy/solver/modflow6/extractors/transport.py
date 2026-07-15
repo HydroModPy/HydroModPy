@@ -11,7 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow6.gwt_mass_balance import find_gwt_listing, parse_gwt_mass_balance
+from hydromodpy.solver.modflow6.extractors.gwt_mass_balance import (
+    find_gwt_listing,
+    parse_gwt_mass_balance,
+)
 from hydromodpy.solver.modflow_common.mt3dms_extractor_base import Mt3dmsExtractorBase
 
 logger = get_logger(__name__)

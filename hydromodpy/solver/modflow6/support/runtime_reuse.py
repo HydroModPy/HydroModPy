@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 
 from hydromodpy.solver.modflow6.builders import build_drain_stress_period_data
-from hydromodpy.solver.modflow6.property_mapping import (
+from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
     resolve_required_flow_properties,

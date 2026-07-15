@@ -15,7 +15,7 @@ from hydromodpy.solver.modflow6.build import (
 )
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_ims_complexity
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config, Modflow6RuntimeConfig
-from hydromodpy.solver.modflow6.steady_initial_conditions import (
+from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _modflow_config_for_steady_initialization,
 )
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import _last_percent_discrepancy

@@ -9,9 +9,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import hydromodpy.solver.modflow6.property_mapping as pm
+import hydromodpy.solver.modflow6.support.property_mapping as pm
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.solver.modflow6.property_mapping import resolve_k33_field
+from hydromodpy.solver.modflow6.support.property_mapping import resolve_k33_field
 
 
 def test_uniform_ratio_divides_kh() -> None:

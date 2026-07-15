@@ -7,7 +7,7 @@ private ``libmf6`` instance, which makes the in-process API runner safe under
 parallel calibration (and isolates a solver crash from the parent).
 
 The exposed-band (marnage) runoff callback is rebuilt in the child from the
-picklable :class:`~hydromodpy.solver.modflow6.lake_band_runoff.LakeBandRunoffSpec`
+picklable :class:`~hydromodpy.solver.modflow6.support.lake_band_runoff.LakeBandRunoffSpec`
 list, so no closure has to cross the process boundary. A custom, non-serializable
 developer callback is NOT supported here; that path stays in-process in
 :func:`hydromodpy.solver.modflow6.run._run_via_api` (and is single-threaded).
@@ -31,7 +31,7 @@ from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.solver.modflow6.lake_band_runoff import LakeBandRunoffSpec
+    from hydromodpy.solver.modflow6.support.lake_band_runoff import LakeBandRunoffSpec
 
 logger = get_logger(__name__)
 
@@ -59,10 +59,10 @@ def _api_subprocess_entry(
     """
     try:
         from hydromodpy.core import progress
-        from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext, run_mf6_api
+        from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext, run_mf6_api
 
         if band_specs:
-            from hydromodpy.solver.modflow6.lake_band_runoff import (
+            from hydromodpy.solver.modflow6.support.lake_band_runoff import (
                 make_exposed_band_runoff_callback,
             )
 

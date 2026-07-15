@@ -16,7 +16,7 @@ import flopy
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.runtime_reuse import (
+from hydromodpy.solver.modflow6.support.runtime_reuse import (
     refresh_reused_lak_bedleak,
     runtime_reuse_signature,
 )

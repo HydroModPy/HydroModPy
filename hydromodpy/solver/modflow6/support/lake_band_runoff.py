@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext, Mf6ApiStep
+from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext, Mf6ApiStep
 
 __all__ = [
     "LakeBandRunoffSpec",

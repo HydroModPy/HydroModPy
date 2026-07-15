@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.modflow6.lake_band_runoff import (
+from hydromodpy.solver.modflow6.support.lake_band_runoff import (
     LakeBandRunoffSpec,
     exposed_band_area,
 )

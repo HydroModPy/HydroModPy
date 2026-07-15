@@ -1,6 +1,6 @@
 """FloPy MF6 block-header transient-key cache: patch correctness.
 
-The patch (``hydromodpy.solver.modflow6.flopy_header_cache``) reaches into
+The patch (``hydromodpy.solver.modflow6.support.flopy_header_cache``) reaches into
 flopy private internals on purpose; these tests double as a canary that
 breaks loudly if a flopy upgrade changes them.
 """
@@ -14,7 +14,7 @@ import flopy
 import numpy as np
 from flopy.mf6.mfpackage import MFBlockHeader
 
-from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
+from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 
 NPER = 40
 NROW = NCOL = 3

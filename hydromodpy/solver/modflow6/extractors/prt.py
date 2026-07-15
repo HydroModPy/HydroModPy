@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow6.prt_tracks import (
+from hydromodpy.solver.modflow6.extractors.prt_tracks import (
     read_prt_track_csv,
     read_time_units_from_tdis,
 )

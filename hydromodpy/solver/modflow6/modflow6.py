@@ -16,7 +16,7 @@ import numpy as np
 
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext
+from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
     mf6_safe_name,

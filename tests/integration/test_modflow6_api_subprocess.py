@@ -20,7 +20,7 @@ import pytest
 
 pytest.importorskip("modflowapi")
 
-from hydromodpy.solver.modflow6.api_subprocess import run_mf6_api_isolated  # noqa: E402
+from hydromodpy.solver.modflow6.api.api_subprocess import run_mf6_api_isolated  # noqa: E402
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary  # noqa: E402
 
 
@@ -176,7 +176,7 @@ def test_isolated_api_relays_progress_and_succeeds() -> None:
 def test_drain_progress_applies_total_then_completed() -> None:
     import queue as _queue
 
-    from hydromodpy.solver.modflow6.api_subprocess import _drain_progress
+    from hydromodpy.solver.modflow6.api.api_subprocess import _drain_progress
 
     relay: _queue.Queue = _queue.Queue()
     relay.put((0, 5))
