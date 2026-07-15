@@ -15,8 +15,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_for_simulation
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.simulation.planning.plan import SimulationPlan
-    from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
 

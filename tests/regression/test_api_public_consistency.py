@@ -125,7 +125,7 @@ def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> Non
         def __init__(self, *a, **k):
             raise AssertionError("Project must not be constructed on the TOML branch")
 
-    monkeypatch.setattr("hydromodpy.calibration.cli_runner.run_calibration_cli", fake_cli)
+    monkeypatch.setattr("hydromodpy.calibration.runners.cli_runner.run_calibration_cli", fake_cli)
     monkeypatch.setattr("hydromodpy.project.Project", _SentinelProject)
 
     result = hmp.calibrate(config)

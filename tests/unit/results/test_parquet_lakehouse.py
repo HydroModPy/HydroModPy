@@ -14,7 +14,7 @@ import pandas as pd
 
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 
 
 def _make_series(n: int = 5, start: str = "2020-01-01") -> pd.Series:

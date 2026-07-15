@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.core.metrics.goodness_of_fit import bias, correlation, mae, nse, rmse
-from hydromodpy.results.time_alignment import (
+from hydromodpy.core.metrics import bias, correlation, mae, nse, rmse
+from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     normalize_datetime_series,
 )

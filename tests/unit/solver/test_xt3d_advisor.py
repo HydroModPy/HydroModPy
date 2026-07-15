@@ -15,9 +15,9 @@ from hydromodpy.solver.modflow6.builders.solver_options import (
     logger as advisor_logger,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.mesh_orthogonality import nonorthogonality_summary
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
 
 from ._test_modflow6_boundary_conditions_builders import _build_unstructured_model
 

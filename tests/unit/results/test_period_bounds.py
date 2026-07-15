@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from hydromodpy.results.time_alignment import normalize_period_bounds
+from hydromodpy.results.derive.time_alignment import normalize_period_bounds
 
 UTC = dt.UTC
 

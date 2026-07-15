@@ -21,9 +21,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display.catalog import get as _get_figure
-from hydromodpy.display.catalog import names as _figure_names
-from hydromodpy.results.time_alignment import (
+from hydromodpy.display.figure_registry import get as _get_figure
+from hydromodpy.display.figure_registry import names as _figure_names
+from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
 )

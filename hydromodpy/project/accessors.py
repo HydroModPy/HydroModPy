@@ -20,7 +20,7 @@ class ProjectDataAccessor:
     """Helper exposed as ``project.data``.
 
     Lists input-data cache entries used by the project, locates a specific
-    :class:`~hydromodpy.data.entry.DataEntry`, and reports missing variables.
+    :class:`~hydromodpy.data.loading.entry.DataEntry`, and reports missing variables.
     """
 
     def __init__(self, project: Project) -> None:

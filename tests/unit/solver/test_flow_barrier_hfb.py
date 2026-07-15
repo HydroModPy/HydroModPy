@@ -8,8 +8,8 @@ from shapely.geometry import LineString
 
 from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_hfb
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 # A near-vertical trace across the 2x2 grid: it separates the left column from the
 # right one at both rows, so it bars the connected faces (0, 1) and (2, 3).
@@ -80,6 +80,33 @@ def test_per_segment_depth_is_interpolated_along_the_line() -> None:
     # the shallow end stays in the top layer, the deeper end reaches the bottom layer
     assert by_face[(0, 1)] == [0]
     assert sorted(by_face[(2, 3)]) == [0, 1]
+
+
+def _stepped_two_cells() -> SolverMesh:
+    # Two side-by-side quads; cell 0 is elevated (aquifer 10-20 m), cell 1 is low
+    # (aquifer 0-10 m), so an absolute band below 10 m misses cell 0's aquifer.
+    verts = np.array([[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], dtype=float)
+    conn = np.array([[0, 1, 4, 3], [1, 2, 5, 4]], dtype=int)
+    mesh = HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
+    return SolverMesh(
+        planar_mesh=mesh,
+        top=np.array([20.0, 10.0]),
+        botm=np.array([[15.0, 5.0], [10.0, 0.0]]),
+        inactive_mask=np.zeros((2, 2), dtype=bool),
+    )
+
+
+def test_band_below_the_aquifer_seals_the_nearest_layer_for_continuity() -> None:
+    # The wall band [1, 4] m sits below cell 0's aquifer (10-20 m). Without clamping the
+    # face emits no row (a leak window in the fence); it is sealed at the nearest (bottom)
+    # layer so the cutoff wall stays continuous.
+    sm = _stepped_two_cells()
+    cut = LineString([(1.0, -0.5), (1.0, 1.5)])
+    rows = build_flow_barrier_hfb(
+        sm, line=cut, hydchr=1e-9, crest_elevation=4.0, base_elevation=1.0
+    )
+    assert len(rows) == 1
+    assert rows[0][0] == (1, 0) and rows[0][1] == (1, 1)  # bottom layer, face (0, 1)
 
 
 def test_line_missing_the_mesh_raises() -> None:

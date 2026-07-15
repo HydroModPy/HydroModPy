@@ -10,7 +10,7 @@ from hydromodpy.calibration.adapters._prior_sampling import (
     transformed_prior_center,
     transformed_prior_samples,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def test_log_uniform_center_uses_geometric_mean() -> None:

@@ -69,7 +69,7 @@ class FieldDescriptor:
         (defaults to ``"crs"``).
     derived_by:
         Either ``"solver"`` (written by a solver adapter) or ``"core"``
-        (derived by :mod:`hydromodpy.results.derived`).
+        (derived by :mod:`hydromodpy.results.derive.derived`).
     description:
         Free-form description used as fallback when the CF long_name is
         insufficient.

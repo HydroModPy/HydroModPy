@@ -620,119 +620,135 @@ def test_inactive_sfr_returns_no_network() -> None:
     assert build_sfr_package_args(model, networks={}) is None
 
 
-def test_drainage_mover_records_route_each_drn_cell_to_its_nearest_reach() -> None:
-    mesh = _mesh()
-    model = _fake_model(
-        {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
+def _reach(ifno: int, cell2d: int, rtp: float = 97.0) -> SfrReachRecord:
+    """One connected reach record at ``cell2d`` for the routing tests."""
+    return SfrReachRecord(
+        ifno=ifno,
+        cellid=(0, cell2d),
+        rlen=10.0,
+        rwid=2.0,
+        rgrd=1e-3,
+        rtp=rtp,
+        upstream=(),
+        downstream=(),
     )
-    networks = resolve_sfr_networks(model, solver_mesh=mesh)
-    reach_cells = {reach.cellid[1] for reach in networks["net0"].reaches}
-    drn_spd = remove_drain_cells(
-        {0: [[0, cid, 100.0, 0.05] for cid in range(25)]}, cells=reach_cells
+
+
+def _chain_adjacency(n: int) -> list[set[int]]:
+    """Face adjacency of a 1-D cell chain 0-1-...-(n-1)."""
+    adj: list[set[int]] = [set() for _ in range(n)]
+    for i in range(n - 1):
+        adj[i].add(i + 1)
+        adj[i + 1].add(i)
+    return adj
+
+
+def _line_centroids(n: int) -> np.ndarray:
+    return np.array([[i * 10.0, 0.0] for i in range(n)], dtype=float)
+
+
+def test_drainage_routes_to_the_first_reach_or_lake_on_the_descent_path() -> None:
+    # A 1-D chain descending west->east (top = 100 - i). A reach sits at cell 3, a
+    # lake at cell 6. Each hillslope cell hands its drainage to the FIRST of these its
+    # steepest descent meets: cells 0,1,2 -> reach 0; cells 4,5 -> lake 0.
+    n = 7
+    top = np.array([100.0 - i for i in range(n)])
+    network = ResolvedSfrNetwork(
+        "net0", (_reach(0, 3),), {"route_drainage": True, "outflow_to_lake": 1}
     )
+    drn_spd = {0: [[0, c, 100.0, 0.05] for c in (0, 1, 2, 4, 5)]}
     records = build_drainage_mover_records(
-        networks, drn_spd=drn_spd, cell_centroids=mesh.cell_centroids()
+        {"net0": network},
+        drn_spd=drn_spd,
+        cell_centroids=_line_centroids(n),
+        mesh_top=top,
+        cell_adjacency=_chain_adjacency(n),
+        lake_cells_by_number={0: [6]},
     )
-    assert len(records) == len(drn_spd[0])
-    by_ifno = {reach.ifno: reach for reach in networks["net0"].reaches}
-    centroids = mesh.cell_centroids()
-    for boundary_index, record in enumerate(records):
-        assert record.provider == "DRN"
-        assert record.provider_id == boundary_index
-        assert record.receiver == "SFR"
-        assert record.mvrtype == "FACTOR" and record.value == 1.0
-        # The receiver really is the nearest reach cell.
-        drn_xy = centroids[int(drn_spd[0][boundary_index][1])]
-        best = min(
-            by_ifno.values(),
-            key=lambda reach: float(((centroids[reach.cellid[1]] - drn_xy) ** 2).sum()),
-        )
-        assert record.receiver_id == best.ifno
+    got = {r.provider_id: (r.receiver, r.receiver_id) for r in records}
+    assert got == {0: ("SFR", 0), 1: ("SFR", 0), 2: ("SFR", 0), 3: ("LAK", 0), 4: ("LAK", 0)}
+    assert all(r.provider == "DRN" and r.mvrtype == "FACTOR" and r.value == 1.0 for r in records)
 
 
-def test_drainage_mover_records_require_a_static_single_period_drn() -> None:
-    mesh = _mesh()
-    model = _fake_model({"net0": _trace_payload(_two_reach_trace(), route_drainage=True)})
-    networks = resolve_sfr_networks(model, solver_mesh=mesh)
-    rows = [[0, 0, 100.0, 0.05]]
-    with pytest.raises(ValueError, match="single-period"):
-        build_drainage_mover_records(
-            networks, drn_spd={0: rows, 1: rows}, cell_centroids=mesh.cell_centroids()
-        )
-
-
-def test_drainage_mover_records_are_empty_without_the_opt_in() -> None:
-    mesh = _mesh()
-    model = _fake_model({"net0": _trace_payload(_two_reach_trace())})
-    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+def test_drainage_uses_every_lake_not_only_outflow_to_lake() -> None:
+    # Two lakes (0 uphill at cell 0, 1 downhill at cell 4). A cell descends to lake 1
+    # even though the network's outflow_to_lake points at lake 0: every lake is a sink.
+    n = 5
+    top = np.array([100.0 - i for i in range(n)])
+    network = ResolvedSfrNetwork("net0", (), {"route_drainage": True, "outflow_to_lake": 1})
     records = build_drainage_mover_records(
-        networks, drn_spd={0: [[0, 0, 100.0, 0.05]]}, cell_centroids=mesh.cell_centroids()
+        {"net0": network},
+        drn_spd={0: [[0, 2, 100.0, 0.05]]},
+        cell_centroids=_line_centroids(n),
+        mesh_top=top,
+        cell_adjacency=_chain_adjacency(n),
+        lake_cells_by_number={0: [0], 1: [4]},
+    )
+    assert [(r.receiver, r.receiver_id) for r in records] == [("LAK", 1)]
+
+
+def test_drainage_pit_cell_without_a_descending_path_stays_plain_drn() -> None:
+    # Cell 0 is a local minimum (a projection pit). Cell 1's steepest descent falls
+    # into it and never reaches the reach at cell 2, so it stays a plain DRN.
+    top = np.array([90.0, 100.0, 99.0])
+    network = ResolvedSfrNetwork("net0", (_reach(0, 2),), {"route_drainage": True})
+    records = build_drainage_mover_records(
+        {"net0": network},
+        drn_spd={0: [[0, 1, 100.0, 0.05]]},
+        cell_centroids=_line_centroids(3),
+        mesh_top=top,
+        cell_adjacency=_chain_adjacency(3),
     )
     assert records == []
 
 
-def test_drainage_near_the_lake_routes_directly_to_the_lake() -> None:
-    # A lakeside DRN cell has no local reach (the network is truncated at the
-    # shoreline). It hands its drainage DIRECTLY to the nearest lake cell (a real
-    # DRN -> LAK mover), not through a distant terminal-reach proxy: the nearest
-    # target wins. A drain on the trace path still routes to its nearest reach.
-    mesh = _mesh()
-    model = _fake_model(
-        {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
-    )
-    networks = resolve_sfr_networks(model, solver_mesh=mesh)
-    # The lake occupies the north-east corner cell, away from the diagonal trace;
-    # the neighbouring drain is closer to the lake than to any reach.
-    lake_cells = [24]
-    drn_spd = {
-        0: [
-            [0, 23, 100.0, 0.05],  # lakeside -> DRN -> LAK (nearest lake cell)
-            [0, 4, 100.0, 0.05],  # on the trace path -> nearest reach
-        ]
-    }
+def test_drainage_mover_records_require_a_static_single_period_drn() -> None:
+    network = ResolvedSfrNetwork("net0", (_reach(0, 2),), {"route_drainage": True})
+    rows = [[0, 0, 100.0, 0.05]]
+    with pytest.raises(ValueError, match="single-period"):
+        build_drainage_mover_records(
+            {"net0": network},
+            drn_spd={0: rows, 1: rows},
+            cell_centroids=_line_centroids(3),
+            mesh_top=np.zeros(3),
+            cell_adjacency=_chain_adjacency(3),
+        )
+
+
+def test_drainage_mover_records_are_empty_without_the_opt_in() -> None:
+    network = ResolvedSfrNetwork("net0", (_reach(0, 2),), {"route_drainage": False})
     records = build_drainage_mover_records(
-        networks,
-        drn_spd=drn_spd,
-        cell_centroids=mesh.cell_centroids(),
-        lake_cells_by_number={0: lake_cells},
+        {"net0": network},
+        drn_spd={0: [[0, 0, 100.0, 0.05]]},
+        cell_centroids=_line_centroids(3),
+        mesh_top=np.zeros(3),
+        cell_adjacency=_chain_adjacency(3),
     )
-    assert [r.receiver for r in records] == ["LAK", "SFR"]
-    assert records[0].receiver_id == 0  # outflow_to_lake=1 -> 0-based lake number 0
+    assert records == []
 
 
 def test_drainage_mover_records_skip_buffer_cells_outside_the_watershed() -> None:
     # Buffer DRN cells (outside the watershed) model neighbouring basins: their
     # discharge must leave the model as a plain DRN, so they get NO mover record,
     # while the surviving providers keep their period-0 row index (no renumber).
-    mesh = _mesh()
-    model = _fake_model(
-        {"net0": _trace_payload(_two_reach_trace(), route_drainage=True, outflow_to_lake=1)}
-    )
-    networks = resolve_sfr_networks(model, solver_mesh=mesh)
-    reach_cells = {reach.cellid[1] for reach in networks["net0"].reaches}
-    drn_spd = remove_drain_cells(
-        {0: [[0, cid, 100.0, 0.05] for cid in range(25)]}, cells=reach_cells
-    )
-    # Mark the last two grid rows (cell2d >= 15) as buffer, outside the watershed.
-    watershed_mask = np.array([cid < 15 for cid in range(mesh.n_cells)], dtype=bool)
-
+    n = 5
+    top = np.array([100.0 - i for i in range(n)])
+    network = ResolvedSfrNetwork("net0", (_reach(0, 4),), {"route_drainage": True})
+    drn_spd = {0: [[0, c, 100.0, 0.05] for c in (0, 1, 2)]}
+    # Cell 1 is buffer (outside the watershed) -> skipped in place.
+    watershed_mask = np.array([True, False, True, True, True])
     records = build_drainage_mover_records(
-        networks,
+        {"net0": network},
         drn_spd=drn_spd,
-        cell_centroids=mesh.cell_centroids(),
+        cell_centroids=_line_centroids(n),
+        mesh_top=top,
+        cell_adjacency=_chain_adjacency(n),
         watershed_cell_mask=watershed_mask,
     )
-
-    rows = drn_spd[0]
-    inside_indices = [i for i, row in enumerate(rows) if watershed_mask[int(row[1])]]
-    outside_indices = [i for i, row in enumerate(rows) if not watershed_mask[int(row[1])]]
-    assert outside_indices, "the fixture must include buffer DRN cells to exercise the skip"
-    # One record per in-watershed DRN cell; provider ids are exactly the in-watershed
-    # row positions (buffer rows dropped in place, not renumbered).
-    assert [r.provider_id for r in records] == inside_indices
-    assert all(watershed_mask[int(rows[r.provider_id][1])] for r in records)
-    # No buffer cell is routed to any surface water.
-    assert not (set(r.provider_id for r in records) & set(outside_indices))
+    ids = {r.provider_id for r in records}
+    assert 1 not in ids  # the buffer cell (row index 1) is dropped
+    assert ids == {0, 2}  # in-watershed rows keep their original index, no renumber
+    assert all(r.receiver == "SFR" and r.receiver_id == 0 for r in records)
 
 
 def test_watershed_drainage_cell_mask_classifies_cells_by_centroid() -> None:

@@ -298,7 +298,7 @@ def _assert_planner_infers_lake_families(config_path: Path) -> None:
     while the loader / binder are unported.
     """
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.data.planner import DataPlanner
+    from hydromodpy.data.managers.planner import DataPlanner
 
     cfg = HydroModPyConfig.from_toml(config_path)
     plan = DataPlanner().build(cfg.data, flow_active_bc=cfg.flow.active_bc)

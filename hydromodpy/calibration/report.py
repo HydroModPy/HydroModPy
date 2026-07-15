@@ -119,7 +119,7 @@ class CalibrationReport:
             raise ValueError("CalibrationReport has no workspace")
         if self.store_factory is not None:
             return self.store_factory(self.workspace)
-        from hydromodpy.calibration.state import default_store_factory
+        from hydromodpy.calibration.runners.state import default_store_factory
 
         return default_store_factory(self.workspace, None)
 

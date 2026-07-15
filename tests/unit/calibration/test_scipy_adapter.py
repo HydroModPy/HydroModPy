@@ -24,12 +24,12 @@ from __future__ import annotations
 import math
 
 from hydromodpy.calibration.adapters.scipy_adapter import ScipyDE, ScipyNelderMead
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
     build_optimizer,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 _TARGET = {"x": 0.3, "y": 0.5}
 

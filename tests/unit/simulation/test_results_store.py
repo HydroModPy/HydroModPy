@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.array_fingerprint import fingerprint
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.array_fingerprint import fingerprint
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 

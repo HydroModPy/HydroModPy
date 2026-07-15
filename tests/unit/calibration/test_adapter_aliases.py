@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.calibration.optimizer import build_optimizer
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.optimizer import build_optimizer
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def _two_dim_space() -> ParameterSpace:
@@ -111,7 +111,7 @@ class TestCmaEsAdapter:
             if not sugg:
                 break
             results = []
-            from hydromodpy.calibration.optimizer import EvaluationResult
+            from hydromodpy.calibration.optim.optimizer import EvaluationResult
 
             for s in sugg:
                 trial_to_vec[s.trial_id] = dict(s.values)

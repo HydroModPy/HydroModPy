@@ -20,7 +20,7 @@ import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.metrics import build_metric_extractor
-from hydromodpy.calibration.objective import build_objective_from_config
+from hydromodpy.calibration.optim.objective import build_objective_from_config
 
 
 def _empty_ctx():

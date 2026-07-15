@@ -33,7 +33,7 @@ from hydromodpy.results.catalog.constants import (
 )
 from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
-from hydromodpy.results.storage_contract import (
+from hydromodpy.results.storage.contract import (
     PARQUET_DIR_SUFFIX,
     PARQUET_FILE_SUFFIX,
     SIMULATIONS_DIRNAME,

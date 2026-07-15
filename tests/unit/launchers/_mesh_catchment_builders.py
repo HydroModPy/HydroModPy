@@ -53,11 +53,11 @@ def _patch_dummy_geographic_builders(
         else (lambda **_: _DummyGeographicFeatures(river_mesh_trace=river_mesh_trace))
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.build_geographic_derived_features",
+        "hydromodpy.spatial.mesh.launcher.runtime.build_geographic_derived_features",
         build_fn,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.build_domain_geographic_context",
+        "hydromodpy.spatial.mesh.launcher.runtime.build_domain_geographic_context",
         lambda **kwargs: build_fn(**kwargs).to_domain_geographic_context(),
     )
 

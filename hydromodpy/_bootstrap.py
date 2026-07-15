@@ -28,7 +28,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.config import hydromodpy_config as cfg_module
-    from hydromodpy.data.data_managers_config import DataManagersConfig
+    from hydromodpy.data.managers.config_schema import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.overview.config import OverviewConfig
     from hydromodpy.physics.flow.flow_config import FlowConfig
@@ -126,7 +126,7 @@ def _register_calibration_contracts() -> None:
 def _register_rerun_provider() -> None:
     """Wire the Project-backed rerun provider used by ``catalog.rerun``."""
     from hydromodpy.project.dispatch.rerun import ProjectRerunProvider
-    from hydromodpy.results.rerun_contract import register_rerun_provider
+    from hydromodpy.results.run.rerun_contract import register_rerun_provider
 
     register_rerun_provider(ProjectRerunProvider())
 

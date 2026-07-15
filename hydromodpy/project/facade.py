@@ -510,12 +510,12 @@ class Project:
         from hydromodpy.core.exceptions import ConfigMissingError
 
         if config_path is not None:
-            from hydromodpy.calibration.cli_runner import run_calibration_cli
+            from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
             return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
 
         from hydromodpy.calibration.config import CalibrationConfig
-        from hydromodpy.calibration.programmatic_runner import run_calibration_programmatic
+        from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
 
         if not parameters:
             # Fall back to the [calibration] section carried by this project's

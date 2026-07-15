@@ -22,6 +22,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
+from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 
 INFLOW_M3S = 0.05
 RUNOFF_M3S = 0.02
@@ -165,7 +166,11 @@ COUPLED_MODEL_NAME = "sfrlak"
 def _coupled_mesh_and_lake() -> tuple[SolverMesh, list[int]]:
     """8x8 / 2-layer mesh with a 3x3 lake footprint in the low (south-east) corner."""
     nrow = ncol = 8
-    top = np.full((nrow, ncol), 100.0)
+    # Tilt the top down towards the north-east lake corner so the hillslope drainage
+    # has a descending path to the reaches / lake (the topographic DRN router follows
+    # steepest descent; a flat top would leave every cell a local minimum).
+    rr, cc = np.meshgrid(np.arange(nrow), np.arange(ncol), indexing="ij")
+    top = 100.0 + 0.5 * rr + 0.25 * (ncol - 1 - cc)
     botm = np.stack([np.full((nrow, ncol), 90.0), np.full((nrow, ncol), 50.0)])
     lake_cells = [r * ncol + c for r in (0, 1, 2) for c in (5, 6, 7)]
     inactive = np.zeros((2, nrow * ncol), dtype=bool)
@@ -259,7 +264,11 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
     drn_spd: dict[int, list[list[float]]] = {0: [[0, cid, 92.5, 1e-4] for cid in (9, 10, 17, 18)]}
     drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(networks))
     drainage_movers = build_drainage_mover_records(
-        networks, drn_spd=drn_spd, cell_centroids=mesh.cell_centroids()
+        networks,
+        drn_spd=drn_spd,
+        cell_centroids=mesh.cell_centroids(),
+        mesh_top=mesh.top,
+        cell_adjacency=build_planar_cell_adjacency(mesh.planar_mesh, int(mesh.n_cells)),
     )
 
     args = build_sfr_package_args(model, networks=networks, external_mover=bool(drainage_movers))

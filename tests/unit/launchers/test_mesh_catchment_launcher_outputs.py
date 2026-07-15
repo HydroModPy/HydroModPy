@@ -45,7 +45,7 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -60,11 +60,11 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.export_catchment_mesh_bundle",
+        "hydromodpy.spatial.mesh.launcher.runtime.export_catchment_mesh_bundle",
         lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
     )
 
@@ -100,7 +100,7 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
         lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch)
@@ -115,11 +115,11 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.export_catchment_mesh_bundle",
+        "hydromodpy.spatial.mesh.launcher.runtime.export_catchment_mesh_bundle",
         lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
     )
 
@@ -192,7 +192,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -203,7 +203,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 

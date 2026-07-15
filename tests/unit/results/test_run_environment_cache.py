@@ -9,7 +9,7 @@ by a caller mutating the returned snapshot.
 
 from __future__ import annotations
 
-from hydromodpy.results import run_environment as env
+from hydromodpy.results.run import environment as env
 
 
 def test_expensive_probes_run_once_across_captures() -> None:

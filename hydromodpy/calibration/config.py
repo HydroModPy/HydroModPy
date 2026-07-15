@@ -478,8 +478,8 @@ class CalibrationConfig(HydroModelBase):
         failure happens at config-load time instead of inside the adapter
         constructor.
         """
-        from hydromodpy.calibration.method_config import validate_method_kwargs
-        from hydromodpy.calibration.optimizer import available_optimizers
+        from hydromodpy.calibration.optim.method_config import validate_method_kwargs
+        from hydromodpy.calibration.optim.optimizer import available_optimizers
 
         available = available_optimizers()
         if self.method not in available:

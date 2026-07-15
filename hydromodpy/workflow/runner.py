@@ -42,7 +42,7 @@ from hydromodpy.workflow.internals.step import Step
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.workflow.journal import WorkflowJournal
+    from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
 logger = get_logger(__name__)
 
@@ -108,10 +108,10 @@ class Pipeline:
         ``parallel=False`` to fall back to the legacy sequential path.
         """
         from hydromodpy.solver.base import registry as solver_registry
-        from hydromodpy.workflow.events import WorkflowEventStream
-        from hydromodpy.workflow.heartbeat import HeartbeatPulse
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
-        from hydromodpy.workflow.journal import WorkflowJournal
+        from hydromodpy.workflow.tracking.events import WorkflowEventStream
+        from hydromodpy.workflow.tracking.heartbeat import HeartbeatPulse
+        from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
         solver_registry.load_plugins()
         solver_registry.load_extractor_plugins()
@@ -289,11 +289,11 @@ class Pipeline:
     ) -> PipelineState:
         """Run every step from ``restart_index`` to the end with journal writes."""
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
-        from hydromodpy.workflow.journal import WorkflowJournal as _Journal
         from hydromodpy.workflow.parallel import (
             SequentialExecutor,
             ThreadPoolCohortExecutor,
         )
+        from hydromodpy.workflow.tracking.journal import WorkflowJournal as _Journal
 
         if restart_index >= len(self.steps):
             return state

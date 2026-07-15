@@ -23,7 +23,7 @@ from hydromodpy.core.time import (
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingPiecewiseConfig
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
-from hydromodpy.solver.modflow6.common.time_series import attach_time_series
+from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 
 # Four daily stress periods: 2000-01-01 .. 2000-01-04.

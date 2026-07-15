@@ -135,9 +135,9 @@ def test_collapse_identical_periods_keeps_only_changes() -> None:
 def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
     # NWT and MF6 both call hk_fallback_drain_conductance, so identical inputs give
     # the identical conductance. Guard the imported symbol is the same object.
-    from hydromodpy.solver.modflow_nwt.nwt import _well_drainage_payloads
+    from hydromodpy.solver.modflow_nwt.nwt.payloads import well_drainage
 
-    assert _well_drainage_payloads.hk_fallback_drain_conductance is hk_fallback_drain_conductance
+    assert well_drainage.hk_fallback_drain_conductance is hk_fallback_drain_conductance
     mf6_value = build_drain_stress_period_data(
         _drn_model(),
         solver_mesh=_drn_mesh(5.0),
@@ -145,7 +145,7 @@ def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
         ocean_support_mask=np.zeros(6, dtype=bool),
         stream_support_mask=np.zeros(6, dtype=bool),
     )[0][0][3]
-    nwt_value = _well_drainage_payloads.hk_fallback_drain_conductance(
+    nwt_value = well_drainage.hk_fallback_drain_conductance(
         hk=1e-4, cell_area=100.0, top_thickness=5.0
     )
     assert mf6_value == pytest.approx(nwt_value) == pytest.approx(2.0e-3)

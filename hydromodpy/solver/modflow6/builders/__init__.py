@@ -50,9 +50,11 @@ from hydromodpy.solver.modflow6.builders.lake import (
     carve_lake_bed,
     convert_bedleak_to_per_s,
     lake_definitions_for_bedleak,
+    resolve_downstream_spillway_reaches,
     resolve_lake_cells,
     resolve_lake_cells_for_active_lakes,
     resolve_lake_occupied_layers,
+    resolve_spillway_seed_cells,
 )
 from hydromodpy.solver.modflow6.builders.mvr import (
     MoverRecord,
@@ -197,7 +199,9 @@ __all__ = [
     "resolve_ims_complexity",
     "resolve_flow_barrier_hfb_rows",
     "resolve_lake_cells",
+    "resolve_downstream_spillway_reaches",
     "resolve_lake_cells_for_active_lakes",
+    "resolve_spillway_seed_cells",
     "resolve_lake_occupied_layers",
     "resolve_ocean_boundary_series",
     "resolve_reach_line_cells",

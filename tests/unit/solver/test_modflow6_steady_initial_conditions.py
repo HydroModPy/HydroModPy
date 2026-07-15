@@ -6,7 +6,7 @@ from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     Modflow6RuntimeConfig,
 )
-from hydromodpy.solver.modflow6.steady_initial_conditions import (
+from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _modflow_config_for_steady_initialization,
     _read_final_percent_discrepancy,
     _steady_initialization_balance_is_acceptable,

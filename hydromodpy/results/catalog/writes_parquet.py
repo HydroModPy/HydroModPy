@@ -34,14 +34,14 @@ from hydromodpy.results.catalog.writes_helpers import (
     _table_from_columns,
     _table_from_records,
 )
-from hydromodpy.results.parquet_io import read_kv_metadata, write_table_atomic
-from hydromodpy.results.parquet_schemas import (
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
+from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
     MASS_BALANCE_SCHEMA,
     PARQUET_SCHEMA_VERSION,
     TIMESERIES_SCHEMA,
 )
-from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
 
 if TYPE_CHECKING:
     import geopandas as gpd

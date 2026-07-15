@@ -1,4 +1,4 @@
-"""Tests for :func:`hydromodpy.calibration.materialize.materialize_candidate`.
+"""Tests for :func:`hydromodpy.calibration.runners.materialize.materialize_candidate`.
 
 Covers Phase 5 of the calibration integration:
 
@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration.materialize import materialize_candidate
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.runners.materialize import materialize_candidate
 
 
 @pytest.fixture()
@@ -364,9 +364,9 @@ class TestMaterializeHookFromCli:
         :mod:`hydromodpy.calibration.runner` so the test exercises the same
         materialize call path without needing a full DuckDB / solver run.
         """
-        from hydromodpy.calibration.materialize import materialize_candidate
-        from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
-        from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+        from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
+        from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+        from hydromodpy.calibration.runners.materialize import materialize_candidate
 
         candidates_root = tmp_path / "overlays"
         candidates_root.mkdir(parents=True, exist_ok=True)

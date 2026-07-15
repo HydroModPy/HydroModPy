@@ -56,7 +56,7 @@ def test_sfr_figures_render_from_the_real_store(sfr_run: Path, tmp_path: Path) -
 
     matplotlib.use("Agg")
 
-    from hydromodpy.display.catalog import get as get_figure
+    from hydromodpy.display.figure_registry import get as get_figure
     from hydromodpy.results.run import Run
 
     store = _open_result_store(sfr_run)

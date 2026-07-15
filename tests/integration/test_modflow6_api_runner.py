@@ -31,7 +31,7 @@ import pytest
 modflowapi = pytest.importorskip("modflowapi")
 pytest.importorskip("xmipy")
 
-from hydromodpy.solver.modflow6.api_runner import (  # noqa: E402
+from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
     Mf6ApiContext,
     Mf6ApiStep,
     run_mf6_api,

@@ -31,9 +31,9 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import ExportedState, PipelineState
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.run import Run
-    from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
 

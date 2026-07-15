@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.spatial.mesh import runtime as mesh_runtime
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.launcher import runtime as mesh_runtime
 
 from ._mesh_catchment_builders import (
     _DummyDomainGeographic,
@@ -61,11 +61,11 @@ def test_mesh_runtime_can_skip_exchange_bundle_export(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.export_catchment_mesh_bundle",
+        "hydromodpy.spatial.mesh.launcher.runtime.export_catchment_mesh_bundle",
         lambda **_: pytest.fail("exchange bundle export should be skipped"),
     )
 
@@ -111,11 +111,11 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.export_catchment_mesh_bundle",
+        "hydromodpy.spatial.mesh.launcher.runtime.export_catchment_mesh_bundle",
         lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
     )
 
@@ -160,7 +160,7 @@ def test_mesh_runtime_accepts_external_geographic_features(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 

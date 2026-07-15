@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.flow_barrier import barrier_faces_from_line
+from hydromodpy.spatial.mesh.ops.flow_barrier import barrier_faces_from_line
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString
@@ -43,6 +43,26 @@ def _interp_depth(s: float, depths: list[float], stations: np.ndarray) -> float:
     if len(depths) == 1:
         return float(depths[0])
     return float(np.interp(max(0.0, min(1.0, s)), stations, depths))
+
+
+def _nearest_active_layer_to_band(
+    ca: int,
+    cb: int,
+    barrier_bottom: float,
+    top: np.ndarray,
+    inactive: np.ndarray,
+    nlay: int,
+) -> int | None:
+    """The layer active at both cells nearest the barrier band, or ``None``.
+
+    When the band foot sits above the aquifer top, seal from the top layer down;
+    otherwise the band lies below the aquifer, so seal from the bottom layer up.
+    """
+    order = range(nlay) if barrier_bottom >= float(top[ca]) else range(nlay - 1, -1, -1)
+    for lay in order:
+        if not inactive[lay, ca] and not inactive[lay, cb]:
+            return int(lay)
+    return None
 
 
 def build_flow_barrier_hfb(
@@ -86,6 +106,7 @@ def build_flow_barrier_hfb(
 
     rows: list[list] = []
     n_dropped = 0
+    n_clamped = 0
     for face in faces:
         ca = int(face.cell_a)
         cb = int(face.cell_b)
@@ -94,6 +115,7 @@ def build_flow_barrier_hfb(
             barrier_bottom = float(base_elevation)
         else:
             barrier_bottom = barrier_top - _interp_depth(face.s, depths, stations)
+        band_overlaps = False
         for lay in range(nlay):
             layer_top = float(top[ca]) if lay == 0 else float(botm[lay - 1, ca])
             layer_bottom = float(botm[lay, ca])
@@ -101,12 +123,29 @@ def build_flow_barrier_hfb(
                 continue  # layer sits entirely above the barrier crest
             if layer_top <= barrier_bottom:
                 break  # layer (and every deeper one) sits entirely below the barrier foot
+            band_overlaps = True
             if inactive[lay, ca] or inactive[lay, cb]:
                 n_dropped += 1
                 continue
             rows.append([(lay, ca), (lay, cb), float(hydchr)])
+        if not band_overlaps:
+            # The absolute band misses the aquifer entirely at this face (its bottom sits
+            # above the crest, or its top below the foot -- the model bottom follows the
+            # terrain, so a fixed band leaves the crest cells uncovered). Seal the nearest
+            # active layer so the cutoff wall stays a continuous fence with no leak window.
+            lay = _nearest_active_layer_to_band(ca, cb, barrier_bottom, top, inactive, nlay)
+            if lay is not None:
+                rows.append([(lay, ca), (lay, cb), float(hydchr)])
+                n_clamped += 1
     if n_dropped:
         logger.info("%s: %d HFB row(s) dropped over inactive cells.", label, n_dropped)
+    if n_clamped:
+        logger.info(
+            "%s: %d face(s) sealed at the nearest layer where the band misses the aquifer "
+            "(fence continuity).",
+            label,
+            n_clamped,
+        )
     if not rows:
         logger.warning(
             "%s: resolves to %d face(s) but every layer joins an inactive cell; no HFB "

@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.workflow.journal import WorkflowJournal
-from hydromodpy.workflow.resume import ResumePlan, ResumePlanner
+from hydromodpy.workflow.tracking.journal import WorkflowJournal
+from hydromodpy.workflow.tracking.resume import ResumePlan, ResumePlanner
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 BLUEPRINT = ("resolve", "load", "mesh", "solve", "extract")

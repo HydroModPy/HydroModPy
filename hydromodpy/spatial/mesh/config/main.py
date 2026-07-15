@@ -24,8 +24,8 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainGeographicBoxBuffer,
 )
-from hydromodpy.spatial.mesh.lake_refinement import LakeRefinementConfig
-from hydromodpy.spatial.mesh.refinement_zones import RefinementZoneConfig
+from hydromodpy.spatial.mesh.refinement.lake_refinement import LakeRefinementConfig
+from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
 from hydromodpy.spatial.protocols import get_geology_data_source
 
 

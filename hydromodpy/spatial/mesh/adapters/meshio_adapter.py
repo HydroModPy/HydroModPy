@@ -19,8 +19,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 # meshio name → CellType
 _FROM_MESHIO: dict[str, CellType] = {ct.meshio_name: ct for ct in CellType}

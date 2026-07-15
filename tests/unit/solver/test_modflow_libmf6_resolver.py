@@ -45,14 +45,14 @@ def test_ensure_solver_library_returns_absolute_existing() -> None:
 
 
 def test_run_mf6_api_missing_namefile_raises(tmp_path: Path) -> None:
-    from hydromodpy.solver.modflow6.api_runner import run_mf6_api
+    from hydromodpy.solver.modflow6.api.api_runner import run_mf6_api
 
     with pytest.raises(FileNotFoundError):
         run_mf6_api(tmp_path, lambda ctx: None)
 
 
 def test_normal_termination_detection_keys_off_the_listing(tmp_path: Path) -> None:
-    from hydromodpy.solver.modflow6.api_runner import _simulation_reached_normal_termination
+    from hydromodpy.solver.modflow6.api.api_runner import _simulation_reached_normal_termination
 
     # No listing -> failure.
     assert _simulation_reached_normal_termination(tmp_path) is False
@@ -70,7 +70,7 @@ def test_normal_termination_detection_keys_off_the_listing(tmp_path: Path) -> No
 def test_resolve_api_success_maps_none_return_to_listing_verdict(tmp_path: Path) -> None:
     # modflowapi.run_simulation returns None on both success and divergence, so a
     # None return must be resolved from the listing, not assumed to be success.
-    from hydromodpy.solver.modflow6.api_runner import _resolve_api_success
+    from hydromodpy.solver.modflow6.api.api_runner import _resolve_api_success
 
     # None + no/failed listing -> failure (the old code wrongly returned True).
     assert _resolve_api_success(None, tmp_path) is False
@@ -87,7 +87,7 @@ def test_resolve_api_success_maps_none_return_to_listing_verdict(tmp_path: Path)
 def test_api_runner_imports_without_modflowapi() -> None:
     # The module must import even when modflowapi is absent: the dependency
     # is imported lazily inside run_mf6_api, never at module top.
-    import hydromodpy.solver.modflow6.api_runner as runner
+    import hydromodpy.solver.modflow6.api.api_runner as runner
 
     assert hasattr(runner, "run_mf6_api")
     assert hasattr(runner, "Mf6ApiContext")

@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`hydromodpy.calibration.diagnostics`."""
+"""Unit tests for :mod:`hydromodpy.calibration.optim.diagnostics`."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.diagnostics import (
+from hydromodpy.calibration.optim.diagnostics import (
     convergence_rate,
     iterations_to_dataframe,
     parameter_correlation,

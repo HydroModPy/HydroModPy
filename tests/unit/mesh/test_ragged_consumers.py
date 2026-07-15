@@ -6,10 +6,10 @@ import numpy as np
 from shapely.geometry import LineString
 
 from hydromodpy.spatial.field.meshes.polygon_field_mesh import PolygonFieldMesh
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.flow_barrier import barrier_faces_from_line
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.mesh_orthogonality import connection_nonorthogonality_deg
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.ops.flow_barrier import barrier_faces_from_line
+from hydromodpy.spatial.mesh.ops.mesh_orthogonality import connection_nonorthogonality_deg
 
 
 def _two_polygon_mesh() -> HydroMesh:

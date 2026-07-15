@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.common.time_series import Ts6Series, attach_time_series
+from hydromodpy.solver.modflow6.support.time_series import Ts6Series, attach_time_series
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 
 # Non-uniform stress periods (seconds) and a distinct inflow per period (m3/s).

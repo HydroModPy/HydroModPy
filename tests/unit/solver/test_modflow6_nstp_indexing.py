@@ -44,10 +44,12 @@ class _MultiStepHeadFile:
 
 def _patch_flow_readers(monkeypatch, head_cls, budget_cls) -> None:
     # Do NOT patch get_water_table: the real function runs on clean heads.
-    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", head_cls)
-    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile", budget_cls)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", head_cls)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile", budget_cls
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -140,7 +142,7 @@ def test_mf6_flow_postprocess_warns_on_budget_count_mismatch(monkeypatch, tmp_pa
 
     warnings_logged: list[str] = []
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.logger.warning",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.logger.warning",
         lambda msg, *args: warnings_logged.append(str(msg) % args if args else str(msg)),
     )
 
@@ -178,11 +180,11 @@ def _run_transport(monkeypatch, tmp_path, name, ucn_data, outflow_drain, **kwarg
     (Path(flow_model.full_path) / "_postprocess").mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.UcnFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.UcnFile",
         lambda path: _TwoSliceUcn(path, ucn_data),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
     transport_model.post_processing(transport_model, **kwargs)

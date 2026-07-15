@@ -299,11 +299,11 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
             discretize_points_on_sgrid,
         )
     else:
-        from hydromodpy.spatial.mesh.cell_types import CellType
         from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
             discretize_fields_on_planar_mesh,
             discretize_points_on_planar_mesh,
         )
+        from hydromodpy.spatial.mesh.model.cell_types import CellType
 
         solver_planar = model.solver_mesh.planar_mesh
         planar_mesh = getattr(model, "runtime_mesh_planar", None)

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.storage_contract import PARQUET_DIR_SUFFIX, PARQUET_FILE_SUFFIX
-from hydromodpy.results.storage_diagnostics import (
+from hydromodpy.results.storage.contract import PARQUET_DIR_SUFFIX, PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.diagnostics import (
     diagnose_result_storage,
     storage_artefact_basename,
     storage_artefact_kind,

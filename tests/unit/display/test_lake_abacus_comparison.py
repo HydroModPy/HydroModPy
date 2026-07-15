@@ -42,8 +42,8 @@ def test_registered_figure_renders_from_run(monkeypatch):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    import hydromodpy.results.lake_abacus_view as view
-    from hydromodpy.display.catalog import get
+    import hydromodpy.results.run.lake_abacus_view as view
+    from hydromodpy.display.figure_registry import get
 
     monkeypatch.setattr(
         view,

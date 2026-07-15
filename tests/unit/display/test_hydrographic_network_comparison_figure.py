@@ -6,7 +6,7 @@ import geopandas as gpd
 import matplotlib
 from shapely.geometry import LineString, box
 
-from hydromodpy.display.catalog import get
+from hydromodpy.display.figure_registry import get
 from hydromodpy.spatial.geographic.core.hydrographic_network_comparison import (
     compare_hydrographic_networks,
 )

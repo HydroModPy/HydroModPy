@@ -34,7 +34,7 @@ def resolve_optional_mesh_section(
 ) -> MeshCatchmentConfig | None:
     """Extract and validate the optional [mesh_catchment] section from raw TOML."""
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_batch_config_data
-    from hydromodpy.spatial.mesh.runtime import get_optional_mesh_section
+    from hydromodpy.spatial.mesh.launcher.runtime import get_optional_mesh_section
 
     section = get_optional_mesh_section(raw_toml)
     batch_section = raw_toml.get("mesh_catchment_batch")
@@ -168,7 +168,7 @@ def _build_lake_mesh_refinement(
     lr = getattr(section_data, "lake_refinement", None)
     if lr is None or not getattr(lr, "enabled", False):
         return ()
-    from hydromodpy.spatial.mesh.lake_refinement import build_lake_refinement_size_fields
+    from hydromodpy.spatial.mesh.refinement.lake_refinement import build_lake_refinement_size_fields
 
     dam_xy = None
     geographic = getattr(cfg, "geographic", None)
@@ -212,14 +212,14 @@ def run_mesh_phase(
     if mesh_section_data is None or constraints_mode is None:
         return
 
+    from hydromodpy.spatial.mesh.launcher.runtime import (
+        run_single_mesh_catchment_workflow_with_runtime_artifacts,
+    )
     from hydromodpy.spatial.mesh.mesh_cache import (
         cached_mesh_paths,
         compute_mesh_cache_key,
         mesh_cache_is_valid,
         write_mesh_cache_key,
-    )
-    from hydromodpy.spatial.mesh.runtime import (
-        run_single_mesh_catchment_workflow_with_runtime_artifacts,
     )
 
     setup_state = run_state.setup

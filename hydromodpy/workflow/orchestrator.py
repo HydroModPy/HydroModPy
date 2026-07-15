@@ -37,9 +37,9 @@ from hydromodpy.workflow.steps.prepare_solver import (
 )
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.results.run import Run
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-    from hydromodpy.workflow.context import WorkflowContext
     from hydromodpy.workflow.launcher_protocol import Launcher
 
 

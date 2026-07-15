@@ -20,7 +20,7 @@ import zarr
 from upath import UPath
 
 from hydromodpy.core.version import __version__ as _HMP_VERSION
-from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
+from hydromodpy.results.storage.contract import ZARR_ZIP_SUFFIX
 from hydromodpy.results.zarr_store.constants import (
     _SUBGROUPS,
     CF_CONVENTIONS,

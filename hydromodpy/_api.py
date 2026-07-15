@@ -351,15 +351,15 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
 
     See Also
     --------
-    hydromodpy.calibration.cli_runner.run_calibration_cli
+    hydromodpy.calibration.runners.cli_runner.run_calibration_cli
         TOML entry point used by the path branch.
-    hydromodpy.calibration.programmatic_runner.run_calibration_programmatic
+    hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic
         Python entry point used by the config-object branch.
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
     if isinstance(config, (str, Path)):
-        from hydromodpy.calibration.cli_runner import run_calibration_cli
+        from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
         kwargs.pop("headless", None)
         return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
@@ -598,7 +598,7 @@ def read(
     >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
     >>> gdf = hmp.read(run, "watershed_polygon")  # doctest: +SKIP
     """
-    from hydromodpy.results.reading import read_variable
+    from hydromodpy.results.derive.reading import read_variable
 
     return read_variable(sim, var, time=time, layer=layer, sel=sel, bbox=bbox)
 

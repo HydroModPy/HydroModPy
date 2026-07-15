@@ -20,32 +20,32 @@ import hydromodpy
 hydromodpy.bootstrap()
 
 import hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal as conformal_case_package
-import hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning as conformal_planning_module
-import hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting as conformal_plotting_module
-import hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.reporting as conformal_reporting_module
 import hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal as conformal_case_module
+import hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.planning as conformal_planning_module
+import hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.plotting as conformal_plotting_module
+import hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.reporting as conformal_reporting_module
 from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
-)
-from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
-    _resolve_case_config,
-    _resolve_constraint_families,
-    _resolve_constraints_mode,
-)
-from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
-    ZoneConformalGeologyConfig,
-    ZoneConformalRiversConfig,
-)
-from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
-    _build_zone_conformal_meshing_inputs,
-    _clip_river_trace_to_domain,
-    _resolve_river_trace_for_meshing,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.contracts import ZoneRegionalSizeField
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainConfig,
     ZoneMeshingDomainPayload,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.case_config import (
+    _resolve_case_config,
+    _resolve_constraint_families,
+    _resolve_constraints_mode,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.contracts import (
+    ZoneConformalGeologyConfig,
+    ZoneConformalRiversConfig,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.planning import (
+    _build_zone_conformal_meshing_inputs,
+    _clip_river_trace_to_domain,
+    _resolve_river_trace_for_meshing,
 )
 
 CASE_TOML = (

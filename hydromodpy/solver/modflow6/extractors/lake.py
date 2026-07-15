@@ -83,6 +83,12 @@ _RATE_QUANTITIES = frozenset(
 # SFR extractor (MF6 reports lake outflow negative).
 _NEGATED_LAKE_QUANTITIES = frozenset({"ext_outflow", "to_mvr"})
 
+# MF6 writes its "no data" sentinel (3e30) for an observation that does not apply to a
+# given outlet -- e.g. ext-outflow on an outlet that is a mover or routes to another lake
+# (its flow leaves via to-mvr / the outlet, never externally). Treat it as zero flow so it
+# does not poison the summed budget term.
+_DNODATA_THRESHOLD = 1e29
+
 # Output unit per stored quantity (SI; rates land in m3/s after scaling).
 _UNIT_BY_QUANTITY: dict[str, str] = {
     "stage": "m",
@@ -331,6 +337,8 @@ def build_lake_records(
                 if pos is None or pos >= len(row):
                     continue
                 value = float(row[pos])
+                if abs(value) > _DNODATA_THRESHOLD:
+                    value = 0.0  # MF6 no-data sentinel: obs not applicable = no flow
                 if entry.quantity in _RATE_QUANTITIES:
                     value /= spt
                 if entry.quantity in _NEGATED_LAKE_QUANTITIES:

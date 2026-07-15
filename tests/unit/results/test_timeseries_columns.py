@@ -11,7 +11,7 @@ import pytest
 
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.writes_helpers import _table_from_columns, _table_from_records
-from hydromodpy.results.parquet_schemas import TIMESERIES_SCHEMA
+from hydromodpy.results.storage.parquet_schemas import TIMESERIES_SCHEMA
 
 
 def _register(catalog: Catalog, name: str = "sim") -> str:

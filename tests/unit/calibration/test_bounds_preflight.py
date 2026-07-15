@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.cli_runner import _assert_bounds_valid
+from hydromodpy.calibration.runners.cli_runner import _assert_bounds_valid
 
 pytestmark = pytest.mark.fast
 
@@ -59,7 +59,9 @@ def _floor_flow(monkeypatch):
             raise ValueError(f"specific yield value {v} outside [0.0001, 0.5]")
         return object()
 
-    monkeypatch.setattr("hydromodpy.calibration.parameters.apply_parameter_to_config", fake_apply)
+    monkeypatch.setattr(
+        "hydromodpy.calibration.optim.parameters.apply_parameter_to_config", fake_apply
+    )
     monkeypatch.setattr("hydromodpy.physics.flow.Flow", fake_flow)
 
 

@@ -1,4 +1,4 @@
-"""Unit tests for :class:`hydromodpy.calibration.objective.CompositeObjective`.
+"""Unit tests for :class:`hydromodpy.calibration.optim.objective.CompositeObjective`.
 
 The new architecture ships a weighted multi-block composite objective as a
 building block users compose when writing their own ``metric_fn``. Each
@@ -15,7 +15,7 @@ import math
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.objective import (
+from hydromodpy.calibration.optim.objective import (
     CompositeObjective,
     ConfigBlockObjective,
     ObjectiveValue,

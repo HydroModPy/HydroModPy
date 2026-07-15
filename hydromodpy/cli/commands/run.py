@@ -500,7 +500,7 @@ def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> Non
     from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.results.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
     workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None

@@ -1,8 +1,8 @@
 """P7 Parquet v2 contract tests.
 
 Cover the pyarrow schemas declared in
-:mod:`hydromodpy.results.parquet_schemas`, the atomic writer in
-:mod:`hydromodpy.results.parquet_io`, the OGC GeoParquet 1.1 round-trip via
+:mod:`hydromodpy.results.storage.parquet_schemas`, the atomic writer in
+:mod:`hydromodpy.results.storage.parquet_io`, the OGC GeoParquet 1.1 round-trip via
 :mod:`hydromodpy.core.io.geoparquet`, the batched timeseries writer, the
 lazy loaders, the enriched KV metadata, and the schema-version enforcement.
 """
@@ -30,17 +30,18 @@ from hydromodpy.core.io.geoparquet import (
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.lazy_loaders import (
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.lazy_loaders import (
     list_field_paths,
     list_parquet_paths,
     scan_field,
     scan_timeseries,
 )
-from hydromodpy.results.parquet_io import (
+from hydromodpy.results.storage.parquet_io import (
     read_kv_metadata,
     write_table_atomic,
 )
-from hydromodpy.results.parquet_schemas import (
+from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
     MASS_BALANCE_SCHEMA,
     METRICS_SCHEMA,
@@ -51,7 +52,6 @@ from hydromodpy.results.parquet_schemas import (
     ParquetSchemaVersionError,
     check_schema_version,
 )
-from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
 
 
 def _register(catalog: Catalog, name: str = "sim") -> str:

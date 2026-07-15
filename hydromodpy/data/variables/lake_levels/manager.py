@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from hydromodpy.data.base_manager_variable import BaseVariableManager
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
 from hydromodpy.data.variables.lake_levels.config import LakeLevelsSourceConfig
 
 

@@ -320,6 +320,42 @@ class FlowReachNetworkConfig(HydroModelBase):
             "(the lake feeds it and it leaves the model), so it is not routed into the lake."
         ),
     )
+    rectify_on_mesh: Annotated[bool, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) "
+            "channel on the DISV mesh. From every delineated cell the steepest descent of the "
+            "(conditioned) mesh top is traced one face-neighbour at a time until it reaches a "
+            "lake, the domain edge, or an already-traced cell; a residual pit or flat spill is "
+            "crossed by stepping to the lowest unvisited rim. The union of those paths is the "
+            "channel: one cell wide (a single downstream per cell, so no braiding), "
+            "face-continuous (no geometric gap), following the true thalweg (so the surface "
+            "flow follows the reach), and always reaching a real sink (no inland dead-end that "
+            "leaks its flow out). Requires [modflow6.sgrid] condition_top = true so every cell "
+            "has a descending path."
+        ),
+    )
+    rectify_stub_max_upstream: Annotated[int, Profile.EXPERT] = Field(
+        default=2,
+        description=(
+            "When rectify_on_mesh is set, demote a low-order parallel stub to hillslope "
+            "drainage (DRN -> SFR) to thin braided bands: a reach cell with at most this many "
+            "reach cells upstream of it that runs beside a reach carrying strictly more (the "
+            "true channel) is dropped from SFR, keeping a one-thread channel; its water still "
+            "reaches the network as routed drainage. 0 demotes only headwater leaves, a "
+            "negative value keeps every traced cell. Default 2 removes stubs up to ~3 cells."
+        ),
+    )
+    rectify_min_component_cells: Annotated[int, Profile.EXPERT] = Field(
+        default=2,
+        description=(
+            "When rectify_on_mesh is set, drop a whole reach component smaller than this "
+            "many cells (a lone one-cell stream that just touches a lake or the outlet is "
+            "hillslope drainage, not a channel, and reads as a spurious SFR -> lake entry). "
+            "Its water still reaches the network as routed DRN. Default 2 drops single-cell "
+            "components; 1 keeps every component."
+        ),
+    )
 
     @field_validator("streambed_k_unit")
     @classmethod

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def transformed_prior_center(space: ParameterSpace) -> np.ndarray:

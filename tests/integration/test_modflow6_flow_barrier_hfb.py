@@ -15,8 +15,8 @@ from shapely.geometry import LineString
 from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_hfb
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 _N = 11  # cells in a single row; the interior face at x = 5 carries the wall.
 _TOP = 10.0

@@ -16,9 +16,9 @@ import pytest
 
 from hydromodpy.core.exceptions import StepError
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.workflow.journal import WorkflowJournal
-from hydromodpy.workflow.resume import ResumePlanner
 from hydromodpy.workflow.runner import Pipeline
+from hydromodpy.workflow.tracking.journal import WorkflowJournal
+from hydromodpy.workflow.tracking.resume import ResumePlanner
 
 SIM_ID = "55555555-5555-5555-5555-555555555555"
 

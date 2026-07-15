@@ -25,7 +25,7 @@ from hydromodpy.core.time import ResolvedSimulationTimeWindow, build_simulation_
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingCsvConfig
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.builders.period_forcing import resolve_use_ts6
-from hydromodpy.solver.modflow6.common.time_series import (
+from hydromodpy.solver.modflow6.support.time_series import (
     Ts6Series,
     attach_time_series,
     build_ts6_table,

@@ -7,8 +7,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from hydromodpy.core import progress
-from hydromodpy.solver.modflow6.flopy_header_cache import install_flopy_header_cache
-from hydromodpy.solver.modflow6.steady_initial_conditions import (
+from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
+from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     apply_modflow6_steady_state_initial_heads,
     flow_uses_steady_state_initial_condition,
     run_modflow6_steady_state_initialization,
@@ -173,7 +173,7 @@ def _run_via_api(model, *, verbose: bool) -> bool:
     callback = getattr(model, "_mf6_api_callback", None)
 
     if callback is None and api_isolation_enabled():
-        from hydromodpy.solver.modflow6.api_subprocess import run_mf6_api_isolated
+        from hydromodpy.solver.modflow6.api.api_subprocess import run_mf6_api_isolated
 
         return run_mf6_api_isolated(
             model.full_path,
@@ -183,12 +183,12 @@ def _run_via_api(model, *, verbose: bool) -> bool:
             label=getattr(model, "model_name", None),
         )
 
-    from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext, run_mf6_api
+    from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext, run_mf6_api
 
     if callback is None:
         band_specs = getattr(model, "_exposed_band_runoff_specs", None)
         if band_specs:
-            from hydromodpy.solver.modflow6.lake_band_runoff import (
+            from hydromodpy.solver.modflow6.support.lake_band_runoff import (
                 make_exposed_band_runoff_callback,
             )
 

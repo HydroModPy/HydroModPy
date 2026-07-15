@@ -14,8 +14,8 @@ import pytest
 from hydromodpy.core.exceptions import StepError
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.journal import WorkflowJournal
 from hydromodpy.workflow.runner import Pipeline
+from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
 
 class _AddOne:

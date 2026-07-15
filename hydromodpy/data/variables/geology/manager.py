@@ -5,7 +5,7 @@ files. Returns a ``LoadResult`` containing ``FieldRecord`` objects
 pointing to cached GeoPackage/GeoTIFF files.
 
 The ``GeologyField`` (field framework) is NOT built here - that
-happens in :mod:`hydromodpy.data.loader`, which takes the loaded
+happens in :mod:`hydromodpy.data.loading.loader`, which takes the loaded
 geodata and rasterizes it on the domain grid.
 """
 

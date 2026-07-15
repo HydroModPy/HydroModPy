@@ -112,6 +112,32 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(tmp_path: Path) -> None:
     assert budget["flux_in"] == pytest.approx(0.0)
 
 
+def test_lake_extractor_treats_dnodata_sentinel_as_zero(tmp_path: Path) -> None:
+    # MF6 writes 3e30 (no-data) for ext-outflow on an outlet that is a mover or routes
+    # to another lake (it has no external outflow). The extractor must read that as 0,
+    # not sum the sentinel into a poisoned budget term.
+    spec, obs_continuous = _single_lake_spec()
+    obs_path = tmp_path / spec.obs_csv
+    _write_obs_csv(
+        obs_path,
+        obs_continuous,
+        {
+            "LAC0_STAGE": 90.0,
+            "LAC0_VOLUME": 450.0,
+            "LAC0_SURFACE_AREA": 90.0,
+            "LAC0_EXT_OUTFLOW_0": 3.0e30,  # MF6 no-data sentinel
+            "LAC0_LAK_0": 0.0,
+            "LAC0_LAK_1": 0.0,
+            "LAC0_LAK_2": 0.0,
+        },
+    )
+    timeseries, _ = build_lake_records(
+        spec, obs_path, times=[_SECONDS_PER_STEP], seconds_per_time_unit=_SECONDS_PER_STEP
+    )
+    rec = {(r["station_id"], r["variable"]): r for r in timeseries}
+    assert rec[(lake_station_id("lac0"), "ext_outflow")]["value"] == pytest.approx(0.0)
+
+
 def test_lake_extractor_keys_each_lake_and_timestep(tmp_path: Path) -> None:
     # Two lakes, two time steps: every record must carry the right (lake_id,
     # totim) key, and per-lake stage must not bleed across lakes.

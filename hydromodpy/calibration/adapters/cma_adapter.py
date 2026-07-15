@@ -1,7 +1,7 @@
 """CMA-ES optimizer adapter backed by the `cma` package.
 
 The adapter runs the CMA-ES search in the transformed parameter space exposed by
-:class:`~hydromodpy.calibration.parameters.ParameterSpace` and optionally
+:class:`~hydromodpy.calibration.optim.parameters.ParameterSpace` and optionally
 normalises the search domain into the unit cube.
 
 The ask/tell contract:
@@ -21,13 +21,13 @@ import math
 import numpy as np
 
 from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_center
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 
 @register_optimizer("cma_es")

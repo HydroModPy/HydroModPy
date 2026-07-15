@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.hydrographic_network import _plot_topography_background
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import (
