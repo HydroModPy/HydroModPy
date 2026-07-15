@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.metrics.goodness_of_fit import nse, rmse
-from hydromodpy.display.catalog import register
+from hydromodpy.core.metrics import nse, rmse
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -158,7 +158,7 @@ class LakeAbacusComparison(BaseFigure):
     )
 
     def render(self, sim: Run, ax: Axes, *, lake_id: str | None = None, **_: Any) -> Axes:
-        from hydromodpy.results.lake_abacus_view import run_lake_abacus
+        from hydromodpy.results.run.lake_abacus_view import run_lake_abacus
 
         try:
             ab = run_lake_abacus(sim, lake_id)

@@ -13,7 +13,7 @@ import zarr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
-from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
+from hydromodpy.results.storage.contract import ZARR_ZIP_SUFFIX
 
 logger = get_logger(__name__)
 

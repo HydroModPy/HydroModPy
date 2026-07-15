@@ -114,7 +114,7 @@ def lock_update(workspace: Any = None, *, output: Any = None) -> Path:
     from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-    from hydromodpy.results.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)

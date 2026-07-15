@@ -128,7 +128,7 @@ class TestCompositeRouting:
         ctx = _empty_ctx()
         # Patch the cell extractor for this single test by running the
         # composite directly against a known sim mapping.
-        from hydromodpy.calibration.objective import build_objective_from_config
+        from hydromodpy.calibration.optim.objective import build_objective_from_config
 
         cfg_subset = SimpleNamespace(outputs=dict(outputs), objective_blocks=list(blocks))
         obj = build_objective_from_config(cfg_subset)

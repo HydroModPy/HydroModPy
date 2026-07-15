@@ -165,13 +165,15 @@ def _build_model(work_dir: Path) -> Modflow6:
 
 
 def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> None:
-    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFile)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", _DummyHeadFile
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile",
         budget_file_cls,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 

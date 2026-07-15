@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 
 def from_field_mesh(field_mesh) -> HydroMesh:

@@ -46,7 +46,7 @@ def test_watch_empty_when_nothing_running(tmp_path: Path) -> None:
 
 
 def test_watch_reports_from_sidecar_when_catalog_unreadable(tmp_path: Path) -> None:
-    from hydromodpy.workflow.heartbeat import write_sidecar
+    from hydromodpy.workflow.tracking.heartbeat import write_sidecar
 
     # No catalog on disk: watch must still surface the live run from its sidecar.
     workspace = tmp_path / "ws"
@@ -60,7 +60,7 @@ def test_watch_reports_from_sidecar_when_catalog_unreadable(tmp_path: Path) -> N
 
 
 def test_watch_fresh_sidecar_overrides_db_stale(tmp_path: Path) -> None:
-    from hydromodpy.workflow.heartbeat import write_sidecar
+    from hydromodpy.workflow.tracking.heartbeat import write_sidecar
 
     workspace = tmp_path / "ws"
     with Catalog(workspace) as catalog:

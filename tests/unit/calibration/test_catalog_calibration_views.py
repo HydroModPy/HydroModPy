@@ -16,7 +16,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.results.catalog import Catalog
 from tests._helpers.fixtures_catalog import simulation_catalog

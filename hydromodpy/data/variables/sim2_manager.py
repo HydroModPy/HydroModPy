@@ -5,9 +5,9 @@ from __future__ import annotations
 import importlib
 from typing import Any, ClassVar
 
-from hydromodpy.data.base_manager_field import BaseFieldManager
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.managers.base_manager_field import BaseFieldManager
 
 
 class Sim2BackedFieldManager(BaseFieldManager):

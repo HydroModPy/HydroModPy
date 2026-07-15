@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from hydromodpy.results.derived import (
+from hydromodpy.results.derive.derived import (
     fluxes_from_budget,
     seepage_mask,
     watertable_depth,

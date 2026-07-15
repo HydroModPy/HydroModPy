@@ -30,7 +30,7 @@ from hydromodpy.results.catalog.schema import SchemaDiscoveryMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.catalog.writes import WritesMixin
-from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
+from hydromodpy.results.storage.contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -92,7 +92,7 @@ class Catalog(
     --------
     hydromodpy.results.run.Run
         Per-simulation view returned by catalog queries.
-    hydromodpy.results.simulation_group.RunSet
+    hydromodpy.results.run.group.RunSet
         Multi-run view returned by cohort queries.
     """
 
@@ -400,7 +400,7 @@ class Catalog(
         or name). For an already-resolved :class:`~hydromodpy.results.run.Run`,
         use :func:`hydromodpy.read`.
         """
-        from hydromodpy.results.reading import read_variable
+        from hydromodpy.results.derive.reading import read_variable
 
         return read_variable(self[ref], var, time=time, layer=layer, sel=sel, bbox=bbox)
 

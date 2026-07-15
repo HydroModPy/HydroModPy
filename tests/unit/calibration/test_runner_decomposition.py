@@ -20,20 +20,22 @@ import pytest
 
 
 def test_cli_runner_module_exposes_public_callables() -> None:
-    cli_runner = importlib.import_module("hydromodpy.calibration.cli_runner")
+    cli_runner = importlib.import_module("hydromodpy.calibration.runners.cli_runner")
 
     assert callable(cli_runner.run_calibration_cli)
     assert callable(cli_runner.run_calibration_core)
 
 
 def test_programmatic_runner_module_exposes_run_calibration_programmatic() -> None:
-    programmatic_runner = importlib.import_module("hydromodpy.calibration.programmatic_runner")
+    programmatic_runner = importlib.import_module(
+        "hydromodpy.calibration.runners.programmatic_runner"
+    )
 
     assert callable(programmatic_runner.run_calibration_programmatic)
 
 
 def test_promotion_module_exposes_helpers() -> None:
-    promotion = importlib.import_module("hydromodpy.calibration.promotion")
+    promotion = importlib.import_module("hydromodpy.calibration.optim.promotion")
 
     assert callable(promotion.promote_iterations)
     assert callable(promotion.select_iterations_to_promote)
@@ -43,7 +45,7 @@ def test_promotion_module_exposes_helpers() -> None:
 
 
 def test_state_module_exposes_helpers() -> None:
-    state = importlib.import_module("hydromodpy.calibration.state")
+    state = importlib.import_module("hydromodpy.calibration.runners.state")
 
     assert callable(state.default_store_factory)
     assert callable(state.preload_hash_cache)

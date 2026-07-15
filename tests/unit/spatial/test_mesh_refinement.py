@@ -15,11 +15,11 @@ from shapely.geometry import LineString, Point, Polygon
 
 from hydromodpy.spatial.mesh.config.main import MeshCatchmentConfig
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import ZoneMeshingSettings
-from hydromodpy.spatial.mesh.lake_refinement import (
+from hydromodpy.spatial.mesh.refinement.lake_refinement import (
     LakeRefinementConfig,
     build_lake_refinement_size_fields,
 )
-from hydromodpy.spatial.mesh.refinement_zones import (
+from hydromodpy.spatial.mesh.refinement.refinement_zones import (
     RefinementZoneConfig,
     build_refinement_zone_size_fields,
 )
@@ -238,7 +238,7 @@ class TestWatershedBoundaryOptIn:
         assert settings.refinement_policy.families["river"].enabled is True
 
     def test_refinement_enabled_helper(self) -> None:
-        from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+        from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.planning import (
             _watershed_boundary_refinement_enabled,
         )
 
@@ -264,7 +264,7 @@ class TestWatershedBoundaryOptIn:
 
     @staticmethod
     def _watershed_boundary_cfg(boundary_refinement_distance: float | None = None):
-        from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+        from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.contracts import (
             ZoneConformalWatershedBoundaryConfig,
             ZoneConformalWatershedBoundarySmoothingConfig,
             ZoneConformalWatershedGeologyConformityConfig,
@@ -286,7 +286,7 @@ class TestWatershedBoundaryOptIn:
         )
 
     def test_derive_keeps_config_untouched_without_opt_in(self) -> None:
-        from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+        from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.planning import (
             _derive_watershed_runtime_zone_meshing_config,
         )
 
@@ -301,7 +301,7 @@ class TestWatershedBoundaryOptIn:
         assert derived is settings
 
     def test_derive_forces_policy_on_opt_in(self) -> None:
-        from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+        from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.planning import (
             _derive_watershed_runtime_zone_meshing_config,
         )
 
@@ -327,7 +327,7 @@ class TestWatershedBoundaryOptIn:
         assert family.interface_distance == pytest.approx(250.0)
 
     def test_boundary_constraint_refinement_flag(self) -> None:
-        from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+        from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.planning import (
             _build_watershed_boundary_constraint,
         )
 
@@ -529,7 +529,7 @@ class TestWatershedBoundaryInputsFlag:
         import geopandas as gpd
         from shapely.geometry import box
 
-        from hydromodpy.spatial.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+        from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.orchestration.planning import (
             _build_watershed_boundary_inputs,
         )
 

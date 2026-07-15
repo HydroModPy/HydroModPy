@@ -1,4 +1,4 @@
-"""Unit tests for ``hydromodpy.calibration.objective_mapping``.
+"""Unit tests for ``hydromodpy.calibration.optim.objective_mapping``.
 
 The module is a dependency-light JSONL reader that turns persisted
 calibration iteration traces into :class:`ObjectiveMappingPoint` records.
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration.objective_mapping import (
+from hydromodpy.calibration.optim.objective_mapping import (
     ObjectiveMappingPoint,
     load_objective_mapping_points,
 )

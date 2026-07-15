@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hydromodpy.project import runner as runner_mod
-from hydromodpy.workflow.resume import ResumePlan
+from hydromodpy.workflow.tracking.resume import ResumePlan
 
 
 def _patch_planner(monkeypatch, plan: ResumePlan) -> None:
@@ -16,7 +16,7 @@ def _patch_planner(monkeypatch, plan: ResumePlan) -> None:
         def compute(self, **kwargs) -> ResumePlan:
             return plan
 
-    monkeypatch.setattr("hydromodpy.workflow.resume.ResumePlanner", _FakePlanner)
+    monkeypatch.setattr("hydromodpy.workflow.tracking.resume.ResumePlanner", _FakePlanner)
 
 
 def _capture_logs(monkeypatch) -> dict[str, list[str]]:

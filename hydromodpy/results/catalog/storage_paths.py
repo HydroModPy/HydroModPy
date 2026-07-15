@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from hydromodpy.results.storage_contract import (
+from hydromodpy.results.storage.contract import (
     PARQUET_DIR_SUFFIX,
     PARQUET_FILE_SUFFIX,
     ZARR_SUFFIX,

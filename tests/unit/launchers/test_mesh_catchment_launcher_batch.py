@@ -67,7 +67,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -85,7 +85,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         }
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 
@@ -177,7 +177,7 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -195,7 +195,7 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
         }
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 
@@ -259,7 +259,7 @@ def test_mesh_catchment_launcher_batch_can_disable_figures(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -277,7 +277,7 @@ def test_mesh_catchment_launcher_batch_can_disable_figures(
         }
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 

@@ -75,7 +75,7 @@ def main() -> None:
     # The SFR side, through the registered display figures (read-only on the
     # store): the reach network map, the routed-flow longitudinal profile, and
     # the most-downstream-reach flow chronicle.
-    from hydromodpy.display.catalog import get as get_figure
+    from hydromodpy.display.figure_registry import get as get_figure
     from hydromodpy.results.run import Run
 
     run = Run(result.sim_id, store)

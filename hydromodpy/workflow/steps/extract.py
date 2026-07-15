@@ -18,7 +18,7 @@ from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
 
 if TYPE_CHECKING:
-    from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.core.state.run_state import WorkflowContext
 
 logger = get_logger(__name__)
 

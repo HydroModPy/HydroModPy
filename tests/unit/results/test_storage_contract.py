@@ -32,10 +32,10 @@ def test_index_filename_is_canonical():
 
 
 def test_storage_contract_module_does_not_redefine_catalog_filename():
-    """``results.storage_contract`` must reuse the core constant verbatim."""
-    from hydromodpy.results import storage_contract
+    """``results.storage.contract`` must reuse the core constant verbatim."""
+    from hydromodpy.results.storage import contract
 
-    assert storage_contract.CATALOG_FILENAME is CATALOG_FILENAME
+    assert contract.CATALOG_FILENAME is CATALOG_FILENAME
 
 
 def test_no_legacy_hydromodpy_duckdb_in_filename_constants():

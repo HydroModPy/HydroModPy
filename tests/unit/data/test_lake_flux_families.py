@@ -14,10 +14,10 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from hydromodpy.data._dispatch import VARIABLE_SPECS, get_manager_class
-from hydromodpy.data.base_manager_variable import BaseVariableManager
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.data_managers_config import SUPPORTED_DATA_MANAGER_TYPES
+from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
+from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
+from hydromodpy.data.managers.config_schema import SUPPORTED_DATA_MANAGER_TYPES
 from hydromodpy.data.scaffold import VARIABLES
 from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
 from hydromodpy.data.variables.lake_inflow.manager import LakeInflowManager

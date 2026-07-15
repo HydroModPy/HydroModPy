@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.time_alignment import observed_on_simulation_index
+from hydromodpy.results.derive.time_alignment import observed_on_simulation_index
 
 logger = get_logger(__name__)
 

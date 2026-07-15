@@ -92,7 +92,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.data.ensure_flow", _noop_ensure)
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         _fake_mesh_workflow,
     )
     monkeypatch.setattr(
@@ -118,7 +118,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     )
     mesh_section_data = parse_mesh_catchment_config_data({"constraints_mode": "rivers_only"})
 
-    from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.core.state.run_state import WorkflowContext
 
     ctx = WorkflowContext(cfg=cfg, config_path=Path("config.toml"), raw_toml={})
     ctx.setup.time_grid = SimpleNamespace(window=SimpleNamespace())
@@ -208,7 +208,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.data.ensure_flow", _noop_ensure)
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         lambda **kw: (_ for _ in ()).throw(AssertionError("embedded mesh workflow should not run")),
     )
     monkeypatch.setattr("hydromodpy.workflow.steps.mesh.load_planar_mesh", _fake_load_planar_mesh)
@@ -231,7 +231,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
     )
     external_mesh_input = {"mesh_path": str(external_mesh_path)}
 
-    from hydromodpy.workflow.context import WorkflowContext
+    from hydromodpy.core.state.run_state import WorkflowContext
 
     ctx = WorkflowContext(cfg=cfg, config_path=Path("config.toml"), raw_toml={})
     ctx.setup.time_grid = SimpleNamespace(window=SimpleNamespace())

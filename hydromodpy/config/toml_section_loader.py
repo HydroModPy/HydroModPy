@@ -13,7 +13,7 @@ from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
-from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.data.managers.config_schema import DataManagersConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig

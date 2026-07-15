@@ -7,7 +7,7 @@ import pytest
 
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
-from hydromodpy.results.simulation_group import RunSet
+from hydromodpy.results.run.group import RunSet
 
 from ._test_simulation_api_builders import _populate, _register, catalog
 

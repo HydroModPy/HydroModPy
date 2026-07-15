@@ -43,7 +43,7 @@ from hydromodpy.results.geographic_cache import (
     MANIFEST_FILENAME,
     GeographicCache,
 )
-from hydromodpy.results.storage_contract import (
+from hydromodpy.results.storage.contract import (
     PARQUET_DIR_SUFFIX,
     PARQUET_FILE_SUFFIX,
     SIMULATIONS_DIRNAME,

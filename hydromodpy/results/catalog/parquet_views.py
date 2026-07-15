@@ -17,11 +17,11 @@ from typing import TYPE_CHECKING
 import pyarrow as pa
 
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.parquet_schemas import VIEW_SCHEMAS
-from hydromodpy.results.storage_contract import (
+from hydromodpy.results.storage.contract import (
     PARQUET_DIR_SUFFIX,
     PARQUET_FILE_SUFFIX,
 )
+from hydromodpy.results.storage.parquet_schemas import VIEW_SCHEMAS
 
 if TYPE_CHECKING:
     import duckdb

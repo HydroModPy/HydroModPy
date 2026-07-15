@@ -29,7 +29,7 @@ from hydromodpy.calibration.metrics.solver_extract import (
     resolve_flow_adapter,
     resolve_station_cells,
 )
-from hydromodpy.calibration.objective import build_objective_from_config
+from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:

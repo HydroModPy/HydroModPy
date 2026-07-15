@@ -20,7 +20,7 @@ import pandas as pd
 def example_custom_csv():
     """Load hydrometry from custom CSV files (location CSV + chronicles)."""
     print("\n=== Example: Custom CSV ===")
-    from hydromodpy.data.store import DataStore
+    from hydromodpy.data.loading.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,7 +78,7 @@ def example_custom_csv():
 def example_custom_csv_one_line():
     """Load hydrometry with a single-line CSV (constant value in file)."""
     print("\n=== Example: Custom CSV Single Line (Constant) ===")
-    from hydromodpy.data.store import DataStore
+    from hydromodpy.data.loading.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -117,7 +117,7 @@ def example_custom_csv_one_line():
 def example_custom_unit_conversion():
     """Load hydrometry with unit conversion (L/s → m³/s)."""
     print("\n=== Example: Custom with Unit Conversion ===")
-    from hydromodpy.data.store import DataStore
+    from hydromodpy.data.loading.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -167,7 +167,7 @@ def example_hubeau_api():
     """
     print("\n=== Example: Hub'Eau API ===")
     print("  (requires internet connection)")
-    from hydromodpy.data.store import DataStore
+    from hydromodpy.data.loading.store import DataStore
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 
     cfg = HydrometryConfig(

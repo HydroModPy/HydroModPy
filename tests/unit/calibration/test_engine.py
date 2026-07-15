@@ -1,4 +1,4 @@
-"""Unit tests for ``hydromodpy.calibration.engine``.
+"""Unit tests for ``hydromodpy.calibration.optim.engine``.
 
 Ports the behavioural intent of the old ``test_calibration2_core.py``
 to the new ask/tell architecture. The old engine took raw ``observed``
@@ -19,14 +19,14 @@ from collections.abc import Mapping
 
 import pytest
 
-from hydromodpy.calibration.cache import ParamsHashCache, params_hash
-from hydromodpy.calibration.engine import CalibrationEngine
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def _unit_space() -> ParameterSpace:

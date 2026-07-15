@@ -1,7 +1,7 @@
 """Gaussian-process surrogate adapter with Expected Improvement acquisition.
 
 The adapter works in the transformed parameter space exposed by
-:class:`~hydromodpy.calibration.parameters.ParameterSpace`. An initial
+:class:`~hydromodpy.calibration.optim.parameters.ParameterSpace`. An initial
 Latin-hypercube design is sampled and evaluated; subsequent iterations
 fit a :class:`sklearn.gaussian_process.GaussianProcessRegressor`
 surrogate to the accumulated (x, y) pairs and pick the next point by
@@ -19,12 +19,12 @@ from collections.abc import Sequence
 import numpy as np
 
 from hydromodpy.calibration.adapters._prior_sampling import transformed_prior_samples
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 try:
     from scipy.optimize import minimize as _scipy_minimize

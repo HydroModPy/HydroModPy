@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_ZIP_SUFFIX
+from hydromodpy.results.storage.contract import SIMULATIONS_DIRNAME, ZARR_ZIP_SUFFIX
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 

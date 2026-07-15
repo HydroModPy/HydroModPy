@@ -20,7 +20,7 @@ import zarr
 from filelock import FileLock, Timeout
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
+from hydromodpy.results.storage.contract import ZARR_ZIP_SUFFIX
 from hydromodpy.results.zarr_store.zarr_schema import windows_long_path
 
 if TYPE_CHECKING:

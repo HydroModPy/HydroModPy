@@ -445,7 +445,7 @@ def _probe_result_storage(
 ) -> list[dict]:
     """Report on the catalog/Zarr/Parquet storage layout."""
     try:
-        from hydromodpy.results.storage_diagnostics import diagnose_result_storage
+        from hydromodpy.results.storage.diagnostics import diagnose_result_storage
     except Exception as exc:  # pragma: no cover - defensive
         return [
             {

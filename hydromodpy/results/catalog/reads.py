@@ -139,7 +139,7 @@ class ReadsMixin:
         try:
             return sz.read_field(variable, timestep, layer=layer)
         except KeyError:
-            from hydromodpy.results.virtual_fields import compute_virtual_field
+            from hydromodpy.results.derive.virtual_fields import compute_virtual_field
 
             result = compute_virtual_field(self, str(sim_id), variable, timestep)
             if result is not None:
@@ -157,7 +157,7 @@ class ReadsMixin:
         variable: str,
         period: tuple | None = None,
     ) -> pd.Series:
-        from hydromodpy.results.time_alignment import normalize_period_bounds
+        from hydromodpy.results.derive.time_alignment import normalize_period_bounds
 
         query = (
             "SELECT time, timestep, value FROM timeseries "

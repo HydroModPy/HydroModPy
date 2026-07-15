@@ -12,7 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
-from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 
 PersistDetail = Literal["none", "summary", "full"]

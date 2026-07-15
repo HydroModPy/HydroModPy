@@ -263,7 +263,7 @@ ignore = [
 # Package __init__ files commonly re-export symbols and set up paths.
 "__init__.py" = ["F401", "E402", "TID251"]
 # Logging subsystem is the canonical wrapper around stdlib `logging.getLogger`.
-"hydromodpy/core/logging/**" = ["TID251"]
+"hydromodpy/core/logging.py" = ["TID251"]
 # core/progress is imported by core/logging (console handler); importing
 # get_logger back would be circular.
 "hydromodpy/core/progress.py" = ["TID251"]
@@ -296,7 +296,7 @@ known-first-party = ["hydromodpy", "hydromodpy_annex"]
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Force every module-level logger to go through hydromodpy.core.logging.get_logger
 # so that the LogManager hierarchy ("hydromodpy.<sub>") stays consistent.
-# Allowed only inside core/logging/ (the wrapper) and in __init__.py re-exports.
+# Allowed only inside core/logging.py (the wrapper) and in __init__.py re-exports.
 "logging.getLogger".msg = "Use `from hydromodpy.core.logging import get_logger` instead."
 
 [tool.ruff.lint.flake8-type-checking]

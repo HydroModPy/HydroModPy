@@ -23,7 +23,7 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
 
 def run_calibration(config_path: str | Path) -> dict[str, Any]:
     """Run a parameter calibration campaign from a TOML file."""
-    from hydromodpy.calibration.cli_runner import run_calibration_cli
+    from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
     return cast(dict[str, Any], run_calibration_cli(config_path))
 

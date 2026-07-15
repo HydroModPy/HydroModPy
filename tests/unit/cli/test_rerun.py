@@ -10,8 +10,8 @@ import pytest
 import hydromodpy
 from hydromodpy.cli._workers.catalog import rerun_simulation
 from hydromodpy.cli.commands.catalog import rerun as rerun_cmd
-from hydromodpy.results import rerun_contract
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.run import rerun_contract
 
 
 @pytest.fixture

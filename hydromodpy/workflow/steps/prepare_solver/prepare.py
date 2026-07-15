@@ -26,10 +26,10 @@ from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.physics.flow import Flow
     from hydromodpy.results.catalog.protocol import SimulationStore
     from hydromodpy.spatial.domain import Domain
-    from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
 
@@ -104,7 +104,7 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str) -> None:
         vertices = mesh_planar.points_xy
         connectivity = mesh_planar.connectivity
     else:
-        from hydromodpy.spatial.mesh.grid_wrappers import RegularGrid
+        from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 
         support = getattr(domain.surface_topo, "support", None)
         if support is None or support.nrows is None or support.ncols is None:

@@ -122,7 +122,12 @@ def test_lake_outlet_mover_accepts_reach_receiver_and_enforces_xor() -> None:
     to_reach = FlowLakeOutletMover.model_validate({"reach": 3, "mvrtype": "UPTO", "value": 0.4})
     assert to_reach.reach == 3 and to_reach.lake is None
 
-    with pytest.raises(ValidationError, match="exactly one of lake or reach"):
+    to_downstream = FlowLakeOutletMover.model_validate({"to_downstream_reach": True})
+    assert to_downstream.to_downstream_reach and to_downstream.reach is None
+
+    with pytest.raises(ValidationError, match="exactly one of lake, reach"):
         FlowLakeOutletMover.model_validate({"lake": 1, "reach": 2})
-    with pytest.raises(ValidationError, match="exactly one of lake or reach"):
+    with pytest.raises(ValidationError, match="exactly one of lake, reach"):
+        FlowLakeOutletMover.model_validate({"reach": 2, "to_downstream_reach": True})
+    with pytest.raises(ValidationError, match="exactly one of lake, reach"):
         FlowLakeOutletMover.model_validate({})

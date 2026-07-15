@@ -10,6 +10,6 @@ WorkflowContext
     Extended run state with result-store lifecycle support.
 """
 
-from hydromodpy.workflow.context import WorkflowContext
+from hydromodpy.core.state.run_state import WorkflowContext
 
 __all__ = ["WorkflowContext"]

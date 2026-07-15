@@ -84,8 +84,8 @@ def _resolve_resume_step_index(
     from step 0.
     """
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.workflow.journal import WorkflowJournal
-    from hydromodpy.workflow.resume import ResumePlanner
+    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+    from hydromodpy.workflow.tracking.resume import ResumePlanner
 
     try:
         catalog = Catalog(workspace)
@@ -349,7 +349,7 @@ class ProjectRunner:
         catalog, Zarr store, in-memory ``WorkflowContext``) is not
         pickle-safe.
         """
-        from hydromodpy.results.simulation_group import RunSet
+        from hydromodpy.results.run.group import RunSet
         from hydromodpy.workflow.parallel import run_sweep
 
         self._project._ensure_model_built()

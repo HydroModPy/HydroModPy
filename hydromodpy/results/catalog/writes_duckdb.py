@@ -21,7 +21,6 @@ import pandas as pd
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
-from hydromodpy.results.array_fingerprint import fingerprint
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.writes_helpers import (
@@ -33,11 +32,12 @@ from hydromodpy.results.catalog.writes_helpers import (
     _sha256_directory,
     _sha256_streaming,
 )
-from hydromodpy.results.parquet_schemas import (
+from hydromodpy.results.spatial_index import point_in_cell
+from hydromodpy.results.storage.array_fingerprint import fingerprint
+from hydromodpy.results.storage.parquet_schemas import (
     METRICS_SCHEMA,
     PROVENANCE_SCHEMA,
 )
-from hydromodpy.results.spatial_index import point_in_cell
 
 logger = get_logger(__name__)
 
@@ -364,7 +364,7 @@ class WritesMixinDuckDB:
         """
         if not self._persistence.save_catalog:
             return
-        from hydromodpy.results.run_environment import capture_environment
+        from hydromodpy.results.run.environment import capture_environment
 
         snap = capture_environment(
             project_root=project_root,
@@ -465,7 +465,7 @@ class WritesMixinDuckDB:
         """
         if not self._persistence.save_catalog or solver_binary_path is None:
             return
-        from hydromodpy.results.run_environment import solver_binary_identity
+        from hydromodpy.results.run.environment import solver_binary_identity
 
         sha256, version_text = solver_binary_identity(solver_binary_path)
         self._backend.execute(

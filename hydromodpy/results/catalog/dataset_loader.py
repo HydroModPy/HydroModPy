@@ -5,7 +5,7 @@ Joins scalar tables (``simulations``, ``parameters``, ``metrics``,
 into a single :class:`xarray.Dataset` indexed by ``sim_id``.
 
 Field arrays stay lazy: each per-sim Zarr store is opened through
-:func:`hydromodpy.results.simulation_group._open_simulation_lazy` which
+:func:`hydromodpy.results.run.group._open_simulation_lazy` which
 wraps each registered field in a dask-backed :class:`xr.DataArray` and
 routes the resulting dataset through :func:`xr.decode_cf` for CF time
 decoding. Per-sim datasets are concatenated along ``sim_id`` without
@@ -119,7 +119,7 @@ class DatasetLoader:
 
     def _resolve_group(self, filters: dict[str, Any] | None):
         if not filters:
-            from hydromodpy.results.simulation_group import RunSet
+            from hydromodpy.results.run.group import RunSet
 
             rows = self._catalog.backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations ORDER BY created_at DESC"
@@ -241,7 +241,7 @@ class DatasetLoader:
         """Open each per-sim Zarr store and concat lazily on ``sim_id``.
 
         Each store is opened through
-        :func:`hydromodpy.results.simulation_group._open_simulation_lazy`
+        :func:`hydromodpy.results.run.group._open_simulation_lazy`
         (dask-backed, CF-decoded). Variables absent from a store are
         skipped per-simulation. Stores that error out are skipped with a
         logged warning.
@@ -287,6 +287,6 @@ class DatasetLoader:
 
     def _open_simulation_lazy(self, sim_id: str) -> xr.Dataset:
         """Open one simulation's Zarr root as a lazy ``xr.Dataset``."""
-        from hydromodpy.results.simulation_group import _open_simulation_lazy
+        from hydromodpy.results.run.group import _open_simulation_lazy
 
         return _open_simulation_lazy(self._catalog, sim_id)

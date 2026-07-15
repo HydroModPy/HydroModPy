@@ -1,6 +1,6 @@
 """Field mesh over a ragged POLYGON HydroMesh (Voronoi/PEBI cells).
 
-Bridges a :class:`~hydromodpy.spatial.mesh.hydro_mesh.HydroMesh` whose cells are
+Bridges a :class:`~hydromodpy.spatial.mesh.model.hydro_mesh.HydroMesh` whose cells are
 arbitrary n-gons into the field-mesh interface, so support-field sampling (K, Sy,
 recharge, ...) works on Voronoi cells exactly as it does on triangles.
 """

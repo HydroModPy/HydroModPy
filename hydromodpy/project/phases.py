@@ -36,6 +36,7 @@ def configure(
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx."""
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time import (
         apply_explicit_time_window_to_tgrids,
         require_flow_simulation_time_grid,
@@ -45,7 +46,6 @@ def configure(
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
-    from hydromodpy.workflow.context import WorkflowContext
     from hydromodpy.workflow.steps.data import log_data_plan
     from hydromodpy.workflow.steps.mesh import (
         resolve_optional_mesh_input,
@@ -88,7 +88,7 @@ def configure(
             "exclusive. Use only one mesh source."
         )
     if project._mesh_section_data is not None:
-        from hydromodpy.spatial.mesh.runtime import (
+        from hydromodpy.spatial.mesh.launcher.runtime import (
             prepare_geographic_config_for_meshing,
         )
 
@@ -100,7 +100,7 @@ def configure(
     elif project._external_mesh_input is not None and "stream" in {
         str(bc_id).strip().lower() for bc_id in getattr(project._cfg.flow, "active_bc", ())
     }:
-        from hydromodpy.spatial.mesh.runtime import (
+        from hydromodpy.spatial.mesh.launcher.runtime import (
             prepare_geographic_config_for_meshing,
         )
 

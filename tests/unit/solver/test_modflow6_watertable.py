@@ -88,12 +88,14 @@ class _SentinelHeadFile:
 
 def test_postprocess_flow_mesh_uses_real_water_table(monkeypatch, tmp_path) -> None:
     model = _build_model(_workspace_dir(tmp_path, "watertable_real"))
-    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _SentinelHeadFile)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile", _DummyBudgetFile
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.HeadFile", _SentinelHeadFile
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.CellBudgetFile", _DummyBudgetFile
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         lambda *args, **kwargs: None,
     )
 

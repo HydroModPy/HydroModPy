@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from hydromodpy.calibration.objective import HIGHER_IS_BETTER, METRICS
-from hydromodpy.results.time_alignment import align_observed_simulated
+from hydromodpy.calibration.optim.objective import HIGHER_IS_BETTER, METRICS
+from hydromodpy.results.derive.time_alignment import align_observed_simulated
 
 
 def score(observed: pd.Series, simulated: pd.Series, objective: str) -> float:

@@ -1,4 +1,4 @@
-"""Unit tests for the rewritten :mod:`hydromodpy.calibration.cli_runner`.
+"""Unit tests for the rewritten :mod:`hydromodpy.calibration.runners.cli_runner`.
 
 Exercises the end-to-end wiring of ``run_calibration_cli`` without
 touching MODFLOW: ``prepare_trials`` and ``promote_prepared_trial`` are
@@ -24,11 +24,11 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration import cli_runner as runner_module
-from hydromodpy.calibration import promotion as promotion_module
-from hydromodpy.calibration.cache import ParamsHashCache
-from hydromodpy.calibration.cli_runner import run_calibration_cli
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.optim import promotion as promotion_module
+from hydromodpy.calibration.optim.cache import ParamsHashCache
+from hydromodpy.calibration.runners import cli_runner as runner_module
+from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -312,7 +312,7 @@ class TestCachePreload:
 
         # Intercept cache to observe what gets preloaded.
         preloaded_snapshot: dict = {}
-        from hydromodpy.calibration import state as state_module
+        from hydromodpy.calibration.runners import state as state_module
 
         real_preload = state_module.preload_hash_cache
 
@@ -354,7 +354,7 @@ class TestCachePreload:
         )
 
         cache = ParamsHashCache()
-        from hydromodpy.calibration import state as state_module
+        from hydromodpy.calibration.runners import state as state_module
 
         n_preloaded = state_module.preload_hash_cache(conn, cache)
 
@@ -393,7 +393,7 @@ class TestObjectiveEscapeHatch:
 class TestDefaultEvaluatorIsGone:
     def test_no_default_evaluator_is_exported(self):
         """The P1→P2 contract: the user-facing path must not use the mock."""
-        import hydromodpy.calibration.cli_runner as runner
+        import hydromodpy.calibration.runners.cli_runner as runner
 
         assert not hasattr(runner, "_default_evaluator")
 
@@ -419,7 +419,7 @@ class TestConfigOverridePaths:
                 },
             }
         )
-        from hydromodpy.calibration.state import override_paths as resolve_override_paths
+        from hydromodpy.calibration.runners.state import override_paths as resolve_override_paths
 
         assert resolve_override_paths(cfg) == {
             "K": "flow.param.K.field.value",
@@ -438,7 +438,7 @@ class TestConfigOverridePaths:
                 },
             }
         )
-        from hydromodpy.calibration.state import override_paths as resolve_override_paths
+        from hydromodpy.calibration.runners.state import override_paths as resolve_override_paths
 
         with pytest.raises(ValueError, match="must declare a 'path'"):
             resolve_override_paths(cfg)
@@ -460,7 +460,7 @@ class TestSessionLifecycle:
             ).fetchone()
 
     def test_engine_failure_marks_session_failed(self, calib_toml, fake_pipeline, monkeypatch):
-        from hydromodpy.calibration import engine as engine_mod
+        from hydromodpy.calibration.optim import engine as engine_mod
 
         def boom(self):
             raise RuntimeError("boom from engine")
@@ -488,7 +488,7 @@ class TestSessionLifecycle:
         assert row[2] == 0
 
     def test_keyboard_interrupt_marks_session_aborted(self, calib_toml, fake_pipeline, monkeypatch):
-        from hydromodpy.calibration import engine as engine_mod
+        from hydromodpy.calibration.optim import engine as engine_mod
 
         def boom(self):
             raise KeyboardInterrupt

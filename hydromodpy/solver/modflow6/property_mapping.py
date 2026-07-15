@@ -59,7 +59,7 @@ def _resolve_field_discretization(
 
 
 def _resolve_planar_mesh(planar_mesh: object | None, solver_mesh) -> object:
-    from hydromodpy.spatial.mesh.cell_types import CellType
+    from hydromodpy.spatial.mesh.model.cell_types import CellType
 
     hydro = getattr(solver_mesh, "planar_mesh", None)
     # On a Voronoi (ragged POLYGON) solver grid the property MUST be mapped onto the

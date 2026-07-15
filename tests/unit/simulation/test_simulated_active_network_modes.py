@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.results import views
+from hydromodpy.results.derive import views
 
 
 class _FakeZarr:

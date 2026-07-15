@@ -16,7 +16,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
-from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX, ZARR_ZIP_SUFFIX
+from hydromodpy.results.storage.contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX, ZARR_ZIP_SUFFIX
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:

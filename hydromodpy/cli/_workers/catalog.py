@@ -384,7 +384,7 @@ def rerun_simulation(
     Reads the snapshot through a short-lived read-only catalog (closed before
     launching) so the fresh run's writable catalog never contends in-process.
     """
-    from hydromodpy.results.rerun_contract import get_rerun_provider
+    from hydromodpy.results.run.rerun_contract import get_rerun_provider
 
     with _open_project_catalog(workspace, read_only=True) as catalog:
         sid = catalog.resolve(sim_ref)

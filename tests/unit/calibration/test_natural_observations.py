@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.natural_observations import (
+from hydromodpy.calibration.observations.natural_observations import (
     discharge_log_nse_cost,
     natural_network_cost,
     score_natural_network_transient_candidate,

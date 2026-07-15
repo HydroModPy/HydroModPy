@@ -710,7 +710,7 @@ def _build_twin_metric_fn(
     ``output_dirs_by_run_id`` and assemble the composite via
     :class:`ConfigBlockObjective`.
     """
-    from hydromodpy.calibration.objective import ConfigBlockObjective
+    from hydromodpy.calibration.optim.objective import ConfigBlockObjective
 
     block_objectives: list[ConfigBlockObjective] = []
     raw_weights: list[float] = []
@@ -953,7 +953,7 @@ def _resolve_cell_top_from_dir(
 
     Mirrors :func:`hydromodpy.solver.modflow6.extractors.flow._write_surface_elevation`:
     the GRB grid metadata exposes ``top1d`` (DISV) or ``top`` (DIS) which
-    feed :func:`hydromodpy.results.derived.watertable_elevation`. Returning
+    feed :func:`hydromodpy.results.derive.derived.watertable_elevation`. Returning
     a finite value here lets the trial-time HDS reader apply the same
     ``min(head, top)`` clip the catalog applies.
     """
@@ -1491,12 +1491,12 @@ def synthesize_truth_observations_via_project_api(
     """Run the truth candidate via :class:`hydromodpy.Project` and extract observables.
 
     Materializes the truth K via
-    :func:`hydromodpy.calibration.materialize.materialize_candidate`,
+    :func:`hydromodpy.calibration.runners.materialize.materialize_candidate`,
     runs :class:`hydromodpy.Project` on the resulting overlay, and pulls
     each observable through :func:`extract_outputs`.
     """
-    from hydromodpy.calibration.materialize import materialize_candidate
-    from hydromodpy.calibration.parameters import ParameterSpace
+    from hydromodpy.calibration.runners.materialize import materialize_candidate
+    from hydromodpy.calibration.optim.parameters import ParameterSpace
     from hydromodpy.project import Project as _Project
 
     if definition.parameter_targets is None:
@@ -1702,7 +1702,7 @@ def run_twin_benchmark_case(
             objective_blocks=tuple(definition.objective_block_specs),
         )
 
-        from hydromodpy.calibration.cli_runner import run_calibration_cli
+        from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
         session_prepare_t0 = time.perf_counter()
         report = run_calibration_cli(

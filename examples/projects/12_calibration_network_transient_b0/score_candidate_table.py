@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.calibration.network_transient_truth import (
+from hydromodpy.calibration.observations.network_transient_truth import (
     CandidateScore,
     score_network_transient_candidate,
     score_network_transient_candidate_from_runs,

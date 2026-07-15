@@ -16,8 +16,8 @@ Shared helpers live in
 lives in :mod:`hydromodpy.results.catalog.registration`.
 
 In v2 every Parquet payload is built as a :class:`pyarrow.Table` matching
-one of the schemas in :mod:`hydromodpy.results.parquet_schemas`, then
-dispatched to :func:`hydromodpy.results.parquet_io.write_table_atomic`.
+one of the schemas in :mod:`hydromodpy.results.storage.parquet_schemas`, then
+dispatched to :func:`hydromodpy.results.storage.parquet_io.write_table_atomic`.
 The legacy DuckDB ``COPY ... (FORMAT PARQUET)`` path is gone.
 """
 

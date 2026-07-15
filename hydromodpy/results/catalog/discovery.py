@@ -18,7 +18,7 @@ from hydromodpy.results.catalog.constants import OUTLET_STATION
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
-    from hydromodpy.results.simulation_group import RunSet
+    from hydromodpy.results.run.group import RunSet
 
 
 def iter_project_catalog_roots(workspace_root: Path | str) -> list[Path]:
@@ -314,7 +314,7 @@ class DiscoveryMixin:
         return Run(sid, self)
 
     def find(self, **filters) -> RunSet:
-        from hydromodpy.results.simulation_group import RunSet
+        from hydromodpy.results.run.group import RunSet
 
         # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
         # Always-on JOINs keep the WHERE clause uniform whether or not the
@@ -514,7 +514,7 @@ class DiscoveryMixin:
         ascending: bool = False,
         n: int = 1,
     ) -> RunSet:
-        from hydromodpy.results.simulation_group import RunSet
+        from hydromodpy.results.run.group import RunSet
 
         order = "ASC" if ascending else "DESC"
         rows = self._backend.fetch_all(

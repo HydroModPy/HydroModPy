@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.cell_adjacency import build_planar_cell_adjacency
+from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 
 from ._models import NODATA, FlowPostprocessModel
 

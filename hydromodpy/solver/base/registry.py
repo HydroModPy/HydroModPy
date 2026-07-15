@@ -29,7 +29,7 @@ from importlib.metadata import entry_points
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.protocol import SolverAdapter
+from hydromodpy.solver.base.adapter_protocol import SolverAdapter
 
 logger = get_logger(__name__)
 

@@ -21,7 +21,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     VerticalGridConfig,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.spatial.mesh.zonal_stats import zonal_top
+from hydromodpy.spatial.mesh.ops.zonal_stats import zonal_top
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
@@ -227,7 +227,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     # triangulation cells as the DISV grid (for solvers that need simplices). Either
     # way the triangulation stays the refinement/constraint seed engine.
     if grid_dual == "voronoi":
-        from hydromodpy.spatial.mesh.voronoi import (
+        from hydromodpy.spatial.mesh.ops.voronoi import (
             domain_polygon_from_mesh,
             voronoi_dual_of_mesh,
         )

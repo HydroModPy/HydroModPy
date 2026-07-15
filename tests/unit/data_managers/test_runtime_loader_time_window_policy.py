@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.data.loader import DataManagersRuntimeLoader
-from hydromodpy.data.plan import DataLoadPlan
+from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
+from hydromodpy.data.managers.plan import DataLoadPlan
 
 
 def _build_loader(tmp_path: Path) -> DataManagersRuntimeLoader:

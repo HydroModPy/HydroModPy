@@ -21,8 +21,8 @@ from hydromodpy.physics.flow.structure_binders import (
 )
 from hydromodpy.solver.modflow6.builders.flow_barrier import resolve_flow_barrier_hfb_rows
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 # A near-vertical trace across the 2x2 grid bars the connected faces (0, 1) and (2, 3).
 _CUT_COORDS = [[1.01, -0.5], [1.01, 2.5]]

@@ -7,9 +7,9 @@ import pytest
 from shapely.geometry import Polygon
 
 from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.voronoi import (
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.ops.voronoi import (
     voronoi_cells,
     voronoi_dual_of_mesh,
     voronoi_planar_mesh,

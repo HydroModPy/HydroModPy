@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.time_alignment import solver_time_index
+from hydromodpy.results.derive.time_alignment import solver_time_index
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 # ---------------------------------------------------------------------------

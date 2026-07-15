@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.cli_runner import _api_isolation_needed
+from hydromodpy.calibration.runners.cli_runner import _api_isolation_needed
 from hydromodpy.calibration.runners.sandbox import KEEP_ENV_VAR, TrialSandbox
 
 # ---------------------------------------------------------------------------

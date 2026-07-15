@@ -174,7 +174,7 @@ class TrialContext:
 
         new_cfg = self.base_cfg.model_copy(deep=True)
         if self.parameter_space is not None:
-            from hydromodpy.calibration.parameters import apply_parameter_to_config
+            from hydromodpy.calibration.optim.parameters import apply_parameter_to_config
 
             for param in self.parameter_space:
                 if param.name not in values or param.effective_path is None:
@@ -261,7 +261,7 @@ def prepare_trials(
         Pipeline steps to compose over. Defaults to the workflow
         provider's ``standard_steps()``.
     parameter_space
-        Optional :class:`~hydromodpy.calibration.parameters.ParameterSpace`.
+        Optional :class:`~hydromodpy.calibration.optim.parameters.ParameterSpace`.
         When supplied, :meth:`TrialContext.fork` injects values through the
         calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
         falls back to the raw dotted-path writer.

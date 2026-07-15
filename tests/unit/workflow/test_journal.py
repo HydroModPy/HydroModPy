@@ -9,7 +9,7 @@ import pytest
 
 from hydromodpy.core.exceptions import JournalError
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.workflow.journal import WorkflowJournal, WorkflowStepRow
+from hydromodpy.workflow.tracking.journal import WorkflowJournal, WorkflowStepRow
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 

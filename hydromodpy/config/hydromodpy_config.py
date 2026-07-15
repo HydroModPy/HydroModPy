@@ -64,7 +64,7 @@ from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.core.toml_io.error_locator import format_validation_error
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.data.managers.config_schema import DataManagersConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig

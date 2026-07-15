@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.workflow.events import WorkflowEventStream
-from hydromodpy.workflow.heartbeat import HeartbeatPulse
+from hydromodpy.workflow.tracking.events import WorkflowEventStream
+from hydromodpy.workflow.tracking.heartbeat import HeartbeatPulse
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 

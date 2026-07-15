@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.mesh_orthogonality import nonorthogonality_summary
+from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
 
 logger = get_logger(__name__)
 

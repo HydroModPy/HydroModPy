@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from rasterio.transform import from_bounds
 
-from hydromodpy.spatial.mesh.zonal_stats import (
+from hydromodpy.spatial.mesh.ops.zonal_stats import (
     grouped_reduce,
     rasterize_cell_ids,
     zonal_top,

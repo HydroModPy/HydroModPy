@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.network_transient_truth import (
+from hydromodpy.calibration.observations.network_transient_truth import (
     discharge_rmse_cost,
     mesh_cell_geometry,
     q_total_release_from_drain_by_cell,

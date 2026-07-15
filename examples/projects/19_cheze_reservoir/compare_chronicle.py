@@ -29,7 +29,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import hydromodpy as hmp  # noqa: E402
-from hydromodpy.core.metrics.goodness_of_fit import (  # noqa: E402
+from hydromodpy.core.metrics import (  # noqa: E402
     bias,
     correlation,
     mae,

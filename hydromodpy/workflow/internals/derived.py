@@ -33,7 +33,7 @@ import numpy as np
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results import derived as _pure
+from hydromodpy.results.derive import derived as _pure
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 

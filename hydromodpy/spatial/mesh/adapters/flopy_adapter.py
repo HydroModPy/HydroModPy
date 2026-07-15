@@ -15,8 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 
 def _signed_polygon_area_xy(vertices_xy: np.ndarray) -> float:

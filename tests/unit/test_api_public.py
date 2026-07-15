@@ -76,7 +76,7 @@ def test_simulation_catalog_repr_html() -> None:
 
 
 def test_simulation_group_fluent_methods_present() -> None:
-    from hydromodpy.results.simulation_group import RunSet
+    from hydromodpy.results.run.group import RunSet
 
     assert hasattr(RunSet, "filter")
     assert hasattr(RunSet, "to_dataframe")

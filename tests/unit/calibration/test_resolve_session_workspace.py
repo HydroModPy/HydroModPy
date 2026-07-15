@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.report import resolve_session_in_workspace
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
