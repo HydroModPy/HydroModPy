@@ -44,12 +44,13 @@ class FlowLakeOutletMover(HydroModelBase):
     """A controlled LAK transfer for one outlet, routed through MVR.
 
     The outlet keeps ``lakeout = 0`` (external) and this spec sends its discharge
-    to a receiver through a MODFLOW 6 MVR record. The receiver is either ``lake``
-    (1-based downstream lake number, LAK -> LAK) or ``reach`` (1-based downstream
-    SFR reach, LAK -> SFR spillway release); exactly one must be set. ``mvrtype``
-    picks how much water moves: ``FACTOR`` (a fraction ``value`` of the provider
-    flow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above ``value``) or
-    ``THRESHOLD`` (all-or-nothing above ``value``).
+    to a receiver through a MODFLOW 6 MVR record. The receiver is one of ``lake``
+    (1-based downstream lake number, LAK -> LAK), ``reach`` (1-based downstream SFR
+    reach, LAK -> SFR spillway release), or ``to_downstream_reach`` (auto-resolve the
+    downstream reach on the mesh, robust to remeshing); exactly one must be set.
+    ``mvrtype`` picks how much water moves: ``FACTOR`` (a fraction ``value`` of the
+    provider flow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above ``value``)
+    or ``THRESHOLD`` (all-or-nothing above ``value``).
     """
 
     lake: Annotated[int | None, Profile.USER] = Field(
@@ -61,6 +62,23 @@ class FlowLakeOutletMover(HydroModelBase):
         default=None,
         ge=1,
         description="Downstream receiving SFR reach (1-based) for a LAK -> SFR transfer.",
+    )
+    to_downstream_reach: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Auto-resolve the LAK -> SFR receiver: route the spillway to the SFR reach at "
+            "the foot of the dam (the channel is extended to it if needed). Robust to "
+            "remeshing, unlike a fixed reach number. Keep lakeout = 0."
+        ),
+    )
+    discharge_xy: Annotated[tuple[float, float] | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "Optional explicit spillway discharge point [x, y] in the project CRS. With "
+            "to_downstream_reach, the dam foot is located nearest this point instead of "
+            "inferred from the domain outlet. Use it when the spillway is not on the "
+            "outlet-facing shore, or for a lake away from the catchment outlet."
+        ),
     )
     mvrtype: Annotated[Literal["FACTOR", "UPTO", "EXCESS", "THRESHOLD"], Profile.USER] = Field(
         default="FACTOR",
@@ -77,10 +95,12 @@ class FlowLakeOutletMover(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_receiver(self) -> FlowLakeOutletMover:
-        """The mover targets exactly one receiver: a lake or an SFR reach."""
-        if (self.lake is None) == (self.reach is None):
+        """The mover targets exactly one receiver: a lake, an SFR reach, or auto-downstream."""
+        set_count = (self.lake is not None) + (self.reach is not None) + self.to_downstream_reach
+        if set_count != 1:
             raise ValueError(
-                "flow.sinks_sources.lakes outlet mover needs exactly one of lake or reach"
+                "flow.sinks_sources.lakes outlet mover needs exactly one of lake, reach, "
+                "or to_downstream_reach"
             )
         return self
 

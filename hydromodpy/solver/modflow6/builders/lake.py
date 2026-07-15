@@ -683,6 +683,7 @@ def build_lak_package_args(
     occupied_layers: int = 1,
     occupied_layers_by_cell: Mapping[str, Mapping[int, int]] | None = None,
     external_mover_to_lake: bool = False,
+    downstream_reach_by_lake: Mapping[str, int] | None = None,
 ) -> dict[str, Any] | None:
     """Assemble the ``ModflowGwflak`` arguments for every active lake.
 
@@ -786,7 +787,11 @@ def build_lak_package_args(
 
     outlets = build_lake_outlets(model, lakes=lakes)
     perioddata, ts_specs = build_lake_period_data(model, lakes=lakes)
-    mover_records = build_mvr_period_records(build_lake_mover_records(model, lakes=lakes))
+    mover_records = build_mvr_period_records(
+        build_lake_mover_records(
+            model, lakes=lakes, downstream_reach_by_lake=downstream_reach_by_lake
+        )
+    )
     surfdep = max(
         (float(d["surfdep"]) for d in lakes.values() if d.get("surfdep") is not None),
         default=_DEFAULT_SURFDEP,
@@ -928,12 +933,71 @@ def resolve_lake_cells_for_active_lakes(
         cells_by_lake[lake_id] = cells
         intersected_area_by_lake[lake_id] = intersected
     _resolve_shared_lake_cells(cells_by_lake, intersected_area_by_lake)
+    _fill_lake_enclosed_cells(cells_by_lake, intersected_area_by_lake, solver_mesh)
     _drop_cutoff_wall_downstream_cells(model, cells_by_lake, intersected_area_by_lake, solver_mesh)
     # The true per-cell lake area (edge cells under-filled), used by the carve so the
     # area_scale and the abacus reconciliation see the real lake area, not the
     # full-cell footprint over-count.
     model._lake_cell_intersected_area = intersected_area_by_lake
     return cells_by_lake
+
+
+def _fill_lake_enclosed_cells(
+    cells_by_lake: dict[str, list[int]],
+    intersected_area_by_lake: dict[str, dict[int, float]],
+    solver_mesh: SolverMesh,
+) -> None:
+    """Absorb every interior cell whose faces all touch lake cells into that lake.
+
+    A cell entirely surrounded by lake cells is a pinhole in the intersected footprint
+    (the polygon just missed it) and would otherwise stay a lone active column inside the
+    reservoir. Only interior cells qualify: a cell on the mesh boundary has an open edge
+    (fewer face-neighbours than polygon edges), so its water can still leave and it is not
+    lake-enclosed. Assign each hole to the lake owning most of its neighbours, with the full
+    cell area. Iterated so a hole freed by a previous fill can itself be closed.
+    """
+    from collections import Counter
+
+    from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+
+    n_cells = int(solver_mesh.n_cells)
+    adjacency = build_planar_cell_adjacency(solver_mesh.planar_mesh, n_cells)
+    active0 = np.asarray(solver_mesh.idomain()[0] > 0)
+    areas = solver_mesh.cell_areas()
+    conn = solver_mesh.planar_mesh.flat_connectivity
+    n_edges = [
+        int(np.asarray(conn[c]).reshape(-1).size) if c < len(conn) else 0 for c in range(n_cells)
+    ]
+
+    lake_of: dict[int, str] = {}
+    for lake_id, cells in cells_by_lake.items():
+        for cell in cells:
+            lake_of[int(cell)] = lake_id
+
+    filled = 0
+    for _ in range(n_cells):
+        added = False
+        for cell in range(n_cells):
+            if cell in lake_of or not active0[cell]:
+                continue
+            neighbours = adjacency[cell]
+            # Interior only: an open (unshared) polygon edge means fewer neighbours than
+            # edges, so a boundary cell is never treated as lake-enclosed.
+            if n_edges[cell] < 3 or len(neighbours) != n_edges[cell]:
+                continue
+            if any(nb not in lake_of for nb in neighbours):
+                continue
+            counts = Counter(lake_of[nb] for nb in neighbours)
+            owner = min(counts.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+            cells_by_lake[owner].append(cell)
+            intersected_area_by_lake[owner][cell] = float(areas[cell])
+            lake_of[cell] = owner
+            filled += 1
+            added = True
+        if not added:
+            break
+    if filled:
+        logger.info("Lake footprint: absorbed %d fully lake-enclosed cell(s).", filled)
 
 
 def _wall_endpoints(line) -> tuple[tuple[float, float], tuple[float, float]]:
@@ -1372,6 +1436,7 @@ def build_lake_mover_records(
     model,
     *,
     lakes: Mapping[str, dict[str, Any]],
+    downstream_reach_by_lake: Mapping[str, int] | None = None,
 ) -> list[MoverRecord]:
     """Compile the LAK outlet ``mover`` specs into general MVR transfers.
 
@@ -1399,7 +1464,15 @@ def build_lake_mover_records(
                 outletno += 1
                 continue
             reach = _lake_attr(mover, "reach")
-            if reach is not None:
+            if _lake_attr(mover, "to_downstream_reach"):
+                receiver = _SFR_PACKAGE_NAME
+                if downstream_reach_by_lake is None or lake_id not in downstream_reach_by_lake:
+                    raise ValueError(
+                        f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach "
+                        "could not resolve a downstream SFR reach (no SFR channel below the dam?)."
+                    )
+                receiver_index = int(downstream_reach_by_lake[lake_id])
+            elif reach is not None:
                 receiver = _SFR_PACKAGE_NAME
                 receiver_index = int(_scalar(reach)) - 1
                 if receiver_index < 0:
@@ -1426,6 +1499,99 @@ def build_lake_mover_records(
             )
             outletno += 1
     return records
+
+
+def _downstream_spillway_ref(
+    definition: Mapping[str, Any], outlet_xy: tuple[float, float] | None
+) -> tuple[float, float] | None:
+    """Reference point for a lake's dam foot, or ``None`` if it has no auto spillway.
+
+    Scans the lake outlets for one whose mover asks to auto-route to the downstream reach;
+    returns that mover's explicit ``discharge_xy`` when given, else the domain ``outlet_xy``.
+    """
+    for outlet in definition.get("outlets") or []:
+        mover = _lake_attr(outlet, "mover")
+        if mover is None or not bool(_lake_attr(mover, "to_downstream_reach")):
+            continue
+        discharge_xy = _lake_attr(mover, "discharge_xy")
+        if discharge_xy is not None:
+            return (float(discharge_xy[0]), float(discharge_xy[1]))
+        return outlet_xy
+    return None
+
+
+def resolve_spillway_seed_cells(
+    model,
+    *,
+    lake_cells_by_id: Mapping[str, Sequence[int]],
+    cell_adjacency: Sequence[set[int]],
+    cell_centroids: np.ndarray,
+    idomain: np.ndarray,
+    mesh_top: np.ndarray,
+    outlet_xy: tuple[float, float] | None,
+) -> dict[str, int]:
+    """Dam-toe cell for each lake whose spillway routes to the downstream reach.
+
+    The seed is the cell at the foot of the dam: the lowest active non-lake neighbour of
+    the lake's discharge point. The discharge point is the outlet mover's explicit
+    ``discharge_xy`` when given, else the lake shoreline cell nearest the domain outlet.
+    Feeding it to the SFR rectification extends the channel up to the dam, so the spillway
+    feeds an SFR reach at the dam foot rather than a gap of hillslope DRN cells. Returns
+    ``{lake_id: toe_cell}`` for the lakes that request it.
+    """
+    seeds: dict[str, int] = {}
+    centroids = np.asarray(cell_centroids, dtype=float)
+    top = np.asarray(mesh_top, dtype=float).reshape(-1)
+    active0 = np.asarray(idomain[0] > 0)
+    all_lake_cells = {int(c) for cells in lake_cells_by_id.values() for c in cells}
+    for lake_id, definition in _active_lake_definitions(model).items():
+        ref = _downstream_spillway_ref(definition, outlet_xy)
+        if ref is None:
+            continue
+        ox, oy = ref
+        cells = [int(c) for c in lake_cells_by_id.get(lake_id, [])]
+        shore = [
+            c
+            for c in cells
+            if any(nb not in all_lake_cells and active0[nb] for nb in cell_adjacency[c])
+        ]
+        if not shore:
+            continue
+        dam = min(shore, key=lambda c: float(np.hypot(centroids[c][0] - ox, centroids[c][1] - oy)))
+        toe = [nb for nb in cell_adjacency[dam] if nb not in all_lake_cells and active0[nb]]
+        if toe:
+            seeds[lake_id] = int(min(toe, key=lambda c: float(top[c])))
+    return seeds
+
+
+def resolve_downstream_spillway_reaches(
+    seed_cell_by_lake: Mapping[str, int],
+    *,
+    reach_cell_to_ifno: Mapping[int, int],
+    cell_centroids: np.ndarray,
+) -> dict[str, int]:
+    """Map each spillway dam-toe seed to the 0-based SFR reach that receives its overflow.
+
+    After the rectification seeds the dam toe (:func:`resolve_spillway_seed_cells`), that
+    cell is itself a reach, so the receiver is exact. If it is not (rectification off, or
+    the extension did not reach it), fall back to the nearest reach to the toe. Returns
+    ``{lake_id: reach_ifno}``.
+    """
+    resolved: dict[str, int] = {}
+    if not reach_cell_to_ifno:
+        return resolved
+    centroids = np.asarray(cell_centroids, dtype=float)
+    for lake_id, seed in seed_cell_by_lake.items():
+        if seed in reach_cell_to_ifno:
+            resolved[lake_id] = int(reach_cell_to_ifno[seed])
+            continue
+        sx, sy = float(centroids[seed][0]), float(centroids[seed][1])
+        target = min(
+            reach_cell_to_ifno,
+            key=lambda c: float(np.hypot(centroids[c][0] - sx, centroids[c][1] - sy)),
+        )
+        resolved[lake_id] = int(reach_cell_to_ifno[target])
+    return resolved
 
 
 def _resolve_receiver_lake(lake_id: str, mover: object, lake_count: int) -> int:
@@ -1863,7 +2029,9 @@ __all__ = [
     "build_lake_table",
     "convert_bedleak_to_per_s",
     "lake_definitions_for_bedleak",
+    "resolve_downstream_spillway_reaches",
     "resolve_lake_cells",
+    "resolve_spillway_seed_cells",
     "resolve_lake_cells_for_active_lakes",
     "resolve_lake_occupied_layers",
 ]

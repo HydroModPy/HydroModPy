@@ -42,6 +42,7 @@ from hydromodpy.solver.modflow6.builders import (
     recharge_to_spd,
     remove_drain_cells,
     resolve_deferred_heterogeneous_recharge,
+    resolve_downstream_spillway_reaches,
     resolve_drainage_conductance_series,
     resolve_flow_barrier_hfb_rows,
     resolve_ims_complexity,
@@ -49,6 +50,7 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_lake_occupied_layers,
     resolve_rewet_npf_options,
     resolve_sfr_networks,
+    resolve_spillway_seed_cells,
     resolve_xt3d_npf_options,
     sfr_drain_cells_to_drop,
     sto_period_settings,
@@ -342,7 +344,7 @@ def _resolve_channel_cells_for_breach(model, solver_mesh) -> set[int] | None:
 
     from rasterio.transform import from_bounds
 
-    from hydromodpy.spatial.mesh.zonal_stats import rasterize_cell_ids
+    from hydromodpy.spatial.mesh.ops.zonal_stats import rasterize_cell_ids
 
     transform = from_bounds(
         float(support.xmin),
@@ -807,14 +809,39 @@ def run_pre_processing(  # noqa: PLR0915
     # SFR resolves against the lake cells so trace reaches are truncated at the
     # shoreline (never left sitting on a LAK cell once the DEM routes a stream
     # through the lake), then the mover builder hands their flow to that lake.
-    sfr_networks = resolve_sfr_networks(
-        model, solver_mesh=solver_mesh, lake_cells_by_number=lake_cells_by_number
-    )
     _geo = getattr(model, "geographic", None)
     _x_out = getattr(_geo, "x_outlet", None)
     _y_out = getattr(_geo, "y_outlet", None)
     sfr_outlet_xy = (
         (float(_x_out), float(_y_out)) if _x_out is not None and _y_out is not None else None
+    )
+
+    # Dam-toe seeds so the SFR channel reaches the foot of any lake spillway routed to the
+    # downstream reach (mover.to_downstream_reach). Fed to the rectification below, they
+    # extend the channel up to the dam so the overflow enters an SFR reach at the dam foot
+    # instead of a gap of hillslope DRN cells. Resolved on the mesh (not a fixed number),
+    # so it survives remeshing.
+    spillway_seed_by_lake: dict[str, int] = {}
+    if lake_cell_ids_by_lake:
+        from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+
+        spillway_seed_by_lake = resolve_spillway_seed_cells(
+            model,
+            lake_cells_by_id=lake_cell_ids_by_lake,
+            cell_adjacency=build_planar_cell_adjacency(
+                solver_mesh.planar_mesh, int(solver_mesh.n_cells)
+            ),
+            cell_centroids=solver_mesh.cell_centroids(),
+            idomain=solver_mesh.idomain(),
+            mesh_top=solver_mesh.top,
+            outlet_xy=sfr_outlet_xy,
+        )
+
+    sfr_networks = resolve_sfr_networks(
+        model,
+        solver_mesh=solver_mesh,
+        lake_cells_by_number=lake_cells_by_number,
+        spillway_seeds=set(spillway_seed_by_lake.values()),
     )
     sfr_mover_records = build_sfr_mover_records(
         sfr_networks,
@@ -822,6 +849,21 @@ def run_pre_processing(  # noqa: PLR0915
         cell_centroids=solver_mesh.cell_centroids(),
         outlet_xy=sfr_outlet_xy,
     )
+
+    # Map each dam-toe seed to the reach that now sits on it (the spillway receiver).
+    downstream_reach_by_lake: dict[str, int] = {}
+    if sfr_networks and spillway_seed_by_lake:
+        reach_cell_to_ifno = {
+            int(reach.cellid[1]): int(reach.ifno)
+            for network in sfr_networks.values()
+            for reach in network.reaches
+            if reach.cellid is not None
+        }
+        downstream_reach_by_lake = resolve_downstream_spillway_reaches(
+            spillway_seed_by_lake,
+            reach_cell_to_ifno=reach_cell_to_ifno,
+            cell_centroids=solver_mesh.cell_centroids(),
+        )
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
     # covers both. Native DIS is reserved for the NWT backend, which only supports
@@ -958,18 +1000,27 @@ def run_pre_processing(  # noqa: PLR0915
                 cells={int(cid) for cells in marnage_cells.values() for cid in cells},
             )
         if sfr_networks:
+            from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+
             drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
-            # route_drainage: every in-watershed DRN cell hands its discharge to the
-            # nearest reach, or to the coupled lake when its shoreline is closer
-            # (MVR), so the hillslope drainage converges to the surface water
-            # instead of leaving the model. Buffer cells model neighbouring basins
-            # and stay plain DRN (they must not feed this catchment). The provider
-            # ids index the period-0 rows, hence the static-DRN requirement.
+            # route_drainage: every in-watershed DRN cell follows the mesh-top
+            # steepest descent to the FIRST reach or lake it reaches (D8-style on the
+            # face graph), so the hillslope drainage joins the water body it
+            # physically drains to instead of the nearest one and instead of leaving
+            # the model. Buffer cells model neighbouring basins and stay plain DRN
+            # (they must not feed this catchment). The provider ids index the period-0
+            # rows, hence the static-DRN requirement.
             drn_cell_centroids = solver_mesh.cell_centroids()
             drainage_movers = build_drainage_mover_records(
                 sfr_networks,
                 drn_spd=drn_spd,
                 cell_centroids=drn_cell_centroids,
+                mesh_top=solver_mesh.top,
+                cell_adjacency=build_planar_cell_adjacency(
+                    solver_mesh.planar_mesh,
+                    int(solver_mesh.n_cells),
+                    getattr(model, "runtime_mesh_support", None),
+                ),
                 lake_cells_by_number={
                     index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
                 },
@@ -1030,6 +1081,7 @@ def run_pre_processing(  # noqa: PLR0915
             # DRN movers always target SFR by design (never a direct DRN -> LAK
             # record), so only the SFR movers can feed a lake externally.
             external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records),
+            downstream_reach_by_lake=downstream_reach_by_lake,
         )
         if lak_args is not None:
             laktab_specs = lak_args.pop("laktab_specs")
