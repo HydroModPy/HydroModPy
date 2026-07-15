@@ -15,7 +15,7 @@ from hydromodpy.core.units.volumetric_flow import (
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
 from hydromodpy.solver.modflow_grid.grid_context import grid_reference_from_solver_mesh
-from hydromodpy.solver.modflow_nwt.nwt._chd_payloads import forcing_units
+from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import forcing_units
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (

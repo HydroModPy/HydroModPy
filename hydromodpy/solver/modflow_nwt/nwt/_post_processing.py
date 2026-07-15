@@ -19,7 +19,7 @@ from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
-from hydromodpy.solver.modflow_nwt.common.binary_reader import (
+from hydromodpy.solver.modflow_nwt.extractors.binary_reader import (
     open_cell_budget_file,
     open_head_file,
 )

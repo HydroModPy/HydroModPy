@@ -17,7 +17,7 @@ from hydromodpy.physics.forcing.validation import (
 )
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.nwt._chd_payloads import is_scalar_number
+from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import is_scalar_number
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
