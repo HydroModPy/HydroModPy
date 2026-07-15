@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.modflow6.extractors.gwt_mass_balance import (
+from hydromodpy.solver.modflow6.extractors._gwt_mass_balance import (
     find_gwt_listing,
     parse_gwt_mass_balance,
 )

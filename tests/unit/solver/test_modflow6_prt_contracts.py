@@ -14,7 +14,7 @@ from hydromodpy.physics.transport.transport import Transport
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
-from hydromodpy.solver.modflow6.extractors.prt_tracks import read_prt_track_csv
+from hydromodpy.solver.modflow6.extractors._prt_tracks import read_prt_track_csv
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hydromodpy.solver.modflow6.extractors.transport import Modflow6GwtOutputAdapter
-from hydromodpy.solver.modflow6.extractors.gwt_mass_balance import find_gwt_listing, parse_gwt_mass_balance
+from hydromodpy.solver.modflow6.extractors._gwt_mass_balance import find_gwt_listing, parse_gwt_mass_balance
 
 _GWT_LST = """\
   VOLUME BUDGET line that must be ignored
