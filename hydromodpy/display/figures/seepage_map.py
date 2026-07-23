@@ -2,23 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-import numpy as np
-
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
-from hydromodpy.display.ugrid import last_timestep, render_face_field
-
-if TYPE_CHECKING:
-    from matplotlib.axes import Axes
-
-    from hydromodpy.results.run import Run
+from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 
 
 @register
-class SeepageMap(BaseFigure):
+class SeepageMap(ScalarFaceMap):
     """Binary seepage indicator over the mesh.
 
     1 marks cells where the simulated head reaches or exceeds the surface
@@ -32,22 +22,16 @@ class SeepageMap(BaseFigure):
         required_fields=("seepage_mask",),
         default_figsize=(7.0, 5.5),
     )
+    default_cmap = "Reds"
+    default_overlays = ("watershed", "outlet")
+    cbar_label = "Seepage (1 = water table at surface)"
 
-    def render(
-        self,
-        sim: Run,
-        ax: Axes,
-        *,
-        timestep: int | None = None,
-        cmap: str = "Reds",
-        **_,
-    ) -> Axes:
-        ts = last_timestep(sim) if timestep is None else timestep
-        mask = np.asarray(sim.field("seepage_mask", timestep=ts), dtype=float)
-        render_face_field(
-            ax, sim, mask, cmap=cmap, vmin=0.0, vmax=1.0, cbar_label="Seepage (1 = at surface)"
+    def render(self, sim, ax, *, vmin=None, vmax=None, **opts):
+        """Pin the colour scale to the 0-1 indicator range."""
+        return super().render(
+            sim,
+            ax,
+            vmin=0.0 if vmin is None else vmin,
+            vmax=1.0 if vmax is None else vmax,
+            **opts,
         )
-        overlay_watershed_contour(ax, sim)
-        style_relative_km_axes(ax)
-        ax.set_title(f"Seepage areas - {sim.name or sim.sim_id}")
-        return ax

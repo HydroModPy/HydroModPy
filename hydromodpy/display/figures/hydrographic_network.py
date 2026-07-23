@@ -23,6 +23,16 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
     title: str
     subtitle: str
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Require the persisted network of this role.
+
+        The requirement is a geographic feature, not a Zarr field or a
+        catalog table, so it is expressed here instead of in ``spec``.
+        """
+        if not sim.has_hydrographic_network(self.role):
+            return f"run has no '{self.role}' hydrographic network"
+        return None
+
     def render(self, sim: Run, ax: Axes, **_) -> Axes:
         raw_gdf = sim.hydrographic_network(self.role)
         if raw_gdf is None or raw_gdf.empty:

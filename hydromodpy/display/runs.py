@@ -30,44 +30,18 @@ def _backend_is_interactive(display_cfg: DisplayConfig) -> bool:
 
 
 def _figure_options(display_cfg: DisplayConfig, figure_name: str) -> dict:
-    options: dict = {"cmap": display_cfg.cmap}
-    overrides = dict(display_cfg.overrides.get(figure_name, {}))
-    options.update(overrides)
+    """Build the keyword options passed to one figure.
+
+    The project-wide ``cmap`` is forwarded only when the user actually set
+    it. Injecting the schema default would override each figure's own
+    colormap, which is chosen for the physics it shows (a reversed scale for
+    a depth, a discrete one for an indicator).
+    """
+    options: dict = {}
+    if "cmap" in display_cfg.model_fields_set:
+        options["cmap"] = display_cfg.cmap
+    options.update(dict(display_cfg.overrides.get(figure_name, {})))
     return options
-
-
-def _figure_allowed_by_switches(display_cfg: DisplayConfig, figure_name: str) -> bool:
-    flow = display_cfg.flow
-    particles = display_cfg.particles
-    transport = display_cfg.transport
-
-    if figure_name == "particle_tracks":
-        return particles.enabled and particles.pathlines
-
-    if figure_name == "concentration_map":
-        return transport.enabled and transport.concentration
-
-    if figure_name in {"cross_section"}:
-        return flow.enabled and flow.cross_section
-    if figure_name in {"hydrograph", "hydrograph_sim_obs", "duration_curve", "recession"}:
-        return flow.enabled and flow.streamflow
-    if figure_name in {"piezometric_map", "piezo_timeseries_sim_obs"}:
-        return flow.enabled and flow.piezometry
-    if figure_name in {"water_budget"}:
-        return flow.enabled and flow.budget
-    if figure_name in {
-        "hydrographic_network_reference",
-        "hydrographic_network_generated",
-        "hydrographic_network_reference_missing_only",
-        "hydrographic_network_generated_extra_only",
-        "simulated_active_network",
-        "simulated_active_network_reference_overlay",
-        "watershed_id_card",
-    }:
-        return flow.enabled and flow.hydrography
-    if figure_name in {"seepage_map"}:
-        return flow.enabled and flow.boussinesq_state
-    return flow.enabled
 
 
 def render_figure(
@@ -121,9 +95,12 @@ def render_figures_for_run(
 ) -> list[Path]:
     """Render the figures listed in ``display_cfg`` for one :class:`Run`.
 
-    Honors ``display_cfg.enabled`` and ``display_cfg.save``. Unknown
-    figure names are logged and skipped, not raised, so one bad entry
-    never aborts a run. Returns the list of written file paths.
+    Honors ``display_cfg.enabled`` and ``display_cfg.save``. A figure whose
+    declared requirements are not met by this run (no particle process, no
+    calibration, a solver that does not produce the field) is reported as
+    not applicable and skipped. A figure that fails while rendering raises
+    or is logged depending on ``display_cfg.on_error``. Returns the list of
+    written file paths.
     """
     if not display_cfg.enabled:
         return []
@@ -140,13 +117,12 @@ def render_figures_for_run(
     with matplotlib_backend(interactive=_backend_is_interactive(display_cfg), dpi=display_cfg.dpi):
         apply_theme(display_cfg.preset)
         for name in wanted:
-            if not _figure_allowed_by_switches(display_cfg, name):
-                logger.info("Figure '%s' disabled by display switches.", name)
-                continue
-            try:
-                fig = _get_figure(name)
-            except KeyError:
-                logger.warning("Unknown figure '%s' - skipped.", name)
+            fig = _get_figure(name)
+            reason = fig.unavailable_reason(sim)
+            if reason is not None:
+                # Skips are the norm (a run rarely feeds every figure); keep
+                # them out of the console. The batch summary reports the count.
+                logger.debug("Figure '%s' not applicable to this run: %s.", name, reason)
                 continue
             save_path = output_dir / f"{name}.png" if display_cfg.save else None
             try:
@@ -157,7 +133,10 @@ def render_figures_for_run(
                     **_figure_options(display_cfg, name),
                 )
             except Exception as exc:
-                logger.warning("Skipping figure '%s': %s", name, exc)
+                # One line per figure that fails, at WARNING so it is visible.
+                if display_cfg.on_error == "raise":
+                    raise
+                logger.warning("Figure '%s' failed to render: %s", name, exc)
                 continue
             if display_cfg.show:
                 import matplotlib.pyplot as plt
@@ -165,5 +144,5 @@ def render_figures_for_run(
                 plt.show()
             if save_path is not None:
                 written.append(save_path)
-                logger.info("Rendered figure '%s' -> %s", name, save_path)
+                logger.debug("Rendered figure '%s' -> %s", name, save_path)
     return written

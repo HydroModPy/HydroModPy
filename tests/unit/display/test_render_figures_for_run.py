@@ -3,7 +3,8 @@ both ``hmp display`` and the pipeline ``DisplayStep``.
 
 These tests exercise policy, not rendering:
     * ``enabled=False`` or empty ``figures`` must produce zero output.
-    * Unknown figure names are skipped with a warning, never raised.
+    * Unknown figure names are rejected by the config, not at render time.
+    * A figure whose requirements the run does not meet is skipped.
     * Written files land in ``<output_dir>/<figure>.png``.
     * ``resolve_run_output_dir`` picks the run name when available and
       falls back to a short sim_id otherwise.
@@ -28,9 +29,14 @@ class _StubRun:
 class _StubFigure:
     """Stubbed figure that just writes a placeholder PNG."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, *, unavailable: str | None = None) -> None:
         self.name = name
         self.calls: list[tuple[Path | None, int]] = []
+        self._unavailable = unavailable
+
+    def unavailable_reason(self, sim) -> str | None:
+        del sim
+        return self._unavailable
 
     def plot(self, sim, *, dpi: int = 150, save_path: Path | None = None, **kw) -> None:
         self.calls.append((save_path, dpi))
@@ -56,7 +62,10 @@ def patched_registry(monkeypatch, runs_module):
         if name not in stubs:
             if name.startswith("bad_"):
                 raise KeyError(name)
-            stubs[name] = _StubFigure(name)
+            stubs[name] = _StubFigure(
+                name,
+                unavailable="stub is not applicable" if name.startswith("na_") else None,
+            )
         return stubs[name]
 
     monkeypatch.setattr(runs_module, "_get_figure", _fake_get)
@@ -86,10 +95,30 @@ def test_writes_one_file_per_figure(tmp_path, patched_registry, runs_module):
     assert all(p.exists() for p in written)
 
 
-def test_unknown_figure_is_skipped_not_raised(tmp_path, patched_registry, runs_module):
-    # The helper must swallow KeyError for unknown figures and keep going -
-    # one typo in the TOML must not abort an otherwise-good render batch.
-    cfg = DisplayConfig(enabled=True, figures=["bad_missing", "piezometric_map"])
+def test_unknown_figure_is_rejected_by_config():
+    # A typo must fail at config load, where the user can see it, instead of
+    # silently producing one figure less at the end of a long run.
+    with pytest.raises(ValueError, match="unknown figure"):
+        DisplayConfig(enabled=True, figures=["bad_missing", "piezometric_map"])
+
+
+def test_inapplicable_figure_is_skipped(tmp_path, patched_registry, runs_module):
+    # A figure the run cannot feed (no particle process, no calibration) is
+    # reported and skipped; the rest of the batch still renders. Built with
+    # model_construct so the stub names bypass the registry validation.
+    cfg = DisplayConfig.model_construct(
+        enabled=True,
+        save=True,
+        dpi=150,
+        preset="default",
+        backend="auto",
+        show=False,
+        on_error="warn",
+        cmap="viridis",
+        overrides={},
+        output_dir=Path("figures"),
+        figures=["na_particles", "piezometric_map"],
+    )
     out = tmp_path / "figures" / "baseline"
     written = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
     assert [p.name for p in written] == ["piezometric_map.png"]

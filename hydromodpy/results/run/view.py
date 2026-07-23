@@ -366,57 +366,6 @@ class Run(
             return _json.dumps(data, default=str, indent=2, sort_keys=False)
         return data
 
-    # -- Display capabilities ------------------------------------------------
-
-    @property
-    def display_capabilities(self) -> list[str]:
-        """Figure capability names that can be rendered for this run."""
-        caps = ["piezometric_map", "water_budget"]
-        row = self._load_row()
-
-        n_layers = row.get("n_layers") or 0
-        if n_layers > 1:
-            caps.append("cross_section")
-
-        if row.get("flow_regime") == "transient":
-            caps.append("hydrograph")
-
-        sz = self._catalog.open_zarr(self._sim_id)
-        try:
-            if "concentration" in sz.root:
-                caps.append("concentration_map")
-            if "particles" in sz.root:
-                caps.append("particle_tracks")
-            mesh = sz.root.get("mesh")
-            derived = sz.root.get("derived")
-            if (
-                mesh is not None
-                and "vertices" in mesh
-                and "face_node_connectivity" in mesh
-                and derived is not None
-                and "accumulation_flux" in derived
-            ):
-                caps.append("simulated_active_network")
-                if self.has_hydrographic_network("reference"):
-                    caps.append("simulated_active_network_reference_overlay")
-        finally:
-            sz.close()
-
-        try:
-            available_roles = set(self.available_hydrographic_network_roles())
-            if "reference" in available_roles:
-                caps.append("hydrographic_network_reference")
-            if "generated" in available_roles:
-                caps.append("hydrographic_network_generated")
-            if {"reference", "generated"}.issubset(available_roles):
-                caps.append("hydrographic_network_comparison")
-                caps.append("hydrographic_network_reference_missing_only")
-                caps.append("hydrographic_network_generated_extra_only")
-        except Exception:
-            pass
-
-        return caps
-
     # -- Repr ----------------------------------------------------------------
 
     def __repr__(self) -> str:

@@ -82,6 +82,23 @@ class RunTimeseriesMixin:
             [self._sim_id],
         )
 
+    def has_table(self, table: str) -> bool:
+        """Return True when the catalog holds at least one row of ``table`` for this run.
+
+        Used by the display layer to decide whether a figure can render
+        before calling it, so a run that never produced (for example)
+        calibration iterations reports the figure as unavailable instead of
+        raising mid-render.
+        """
+        try:
+            result = self._catalog.backend.query(
+                f"SELECT 1 FROM {table} WHERE sim_id = ? LIMIT 1",  # noqa: S608 - fixed table names
+                [self._sim_id],
+            )
+        except Exception:
+            return False
+        return not result.empty
+
     def stations(self, variable: str) -> list[str]:
         """Return the sorted station ids carrying one simulated variable.
 

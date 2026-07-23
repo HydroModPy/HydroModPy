@@ -18,7 +18,7 @@ from hydromodpy.display.figures.hydrograph_sim_obs import HydrographSimObs
 from hydromodpy.display.figures.particle_tracks import ParticleTracks
 from hydromodpy.display.figures.piezometric_map import PiezometricMap
 from hydromodpy.display.figures.recession import RecessionCurveFigure
-from hydromodpy.display.figures.recharge_map import RechargeMap, _is_uniform
+from hydromodpy.display.figures.recharge_map import RechargeMap
 from hydromodpy.display.figures.residuals import Residuals
 from hydromodpy.display.figures.scatter_one_to_one import ScatterOneToOne
 from hydromodpy.display.figures.seasonal_boxplot import SeasonalBoxplotFigure
@@ -103,11 +103,33 @@ class _Run:
         del kwargs
         if variable == "head":
             return np.asarray([[10.0, 11.0], [9.0, 10.0]])
-        if variable in {"watertable_elevation", "concentration", "seepage_mask"}:
+        if variable in {
+            "watertable_elevation",
+            "watertable_depth",
+            "concentration",
+            "seepage_mask",
+        }:
             return self._values.copy()
+        if variable == "topography":
+            return self._values + 5.0
         if variable == "recharge":
             return self._values.reshape(1, -1)
         raise KeyError(variable)
+
+    def has_field(self, variable: str, **kwargs) -> bool:
+        del kwargs
+        try:
+            self.field(variable)
+        except KeyError:
+            return False
+        return True
+
+    def has_table(self, table: str) -> bool:
+        return table in {"timeseries", "budgets"}
+
+    @property
+    def time_index(self) -> pd.DatetimeIndex:
+        return pd.date_range("2020-01-01", periods=self.n_timesteps, freq="D")
 
     def geographic(self, name: str):
         raise KeyError(name)
@@ -306,7 +328,7 @@ def test_ensemble_band_uses_quantiles_and_observed_overlay(mpl) -> None:
 
 def test_spatial_figures_render_face_collections_and_titles(mpl) -> None:
     cases = [
-        (PiezometricMap(), _Run(values=np.asarray([10.0, 12.0])), "Water table"),
+        (PiezometricMap(), _Run(values=np.asarray([10.0, 12.0])), "Water-table elevation"),
         (RechargeMap(), _Run(values=np.asarray([3.0, 3.0])), "uniform"),
         (SeepageMap(), _Run(values=np.asarray([0.0, 1.0])), "Seepage areas"),
         (ConcentrationMap(), _Run(values=np.asarray([0.1, 0.2])), "Concentration"),
@@ -319,8 +341,10 @@ def test_spatial_figures_render_face_collections_and_titles(mpl) -> None:
         assert expected_title in ax.get_title()
         mpl.close(fig)
 
-    assert _is_uniform(np.asarray([np.nan, 2.0, 2.0]))
-    assert not _is_uniform(np.asarray([np.nan, 2.0, 3.0]))
+    fig, ax = mpl.subplots()
+    RechargeMap().render(_Run(values=np.asarray([3.0, 4.0])), ax)
+    assert "uniform" not in ax.get_title()
+    mpl.close(fig)
 
 
 def test_comparison_maps_validate_reference_and_shared_ranges(mpl) -> None:
@@ -345,14 +369,22 @@ def test_comparison_maps_validate_reference_and_shared_ranges(mpl) -> None:
     mpl.close(fig)
 
 
-def test_cross_section_selects_face_column_for_layered_head(mpl) -> None:
+def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    CrossSection().render(_Run(), ax, face_index=1)
+    # The stub mesh spans x in [0, 2], y in [0, 1]; the section runs west to
+    # east through the mesh centre and must sample both faces.
+    CrossSection().render(_Run(), ax, line=[0.0, 0.5, 2.0, 0.5])
 
-    assert ax.lines[0].get_xdata().tolist() == [11.0, 10.0]
-    assert ax.lines[0].get_ydata().tolist() == [0, 1]
-    assert ax.yaxis_inverted()
+    labels = [line.get_label() for line in ax.lines]
+    assert "Topography" in labels
+    assert "Water table" in labels
+    topography = ax.lines[labels.index("Topography")].get_ydata()
+    watertable = ax.lines[labels.index("Water table")].get_ydata()
+    # Topography is watertable + 5 in the stub, so the section is unsaturated
+    # everywhere and the two curves never cross.
+    assert np.nanmin(topography - watertable) == pytest.approx(5.0)
+    assert ax.get_xlabel() == "Distance along section (m)"
     mpl.close(fig)
 
 
@@ -361,14 +393,16 @@ def test_particle_tracks_draws_valid_tracks(monkeypatch, mpl) -> None:
 
     monkeypatch.setattr(
         module,
-        "_read_particles",
-        lambda sim: [np.asarray([[0.0, 0.0, 0.0], [1.0, 1.0, -1.0]])],
+        "read_particle_tracks",
+        lambda sim: [np.asarray([[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, -1.0, 10.0]])],
     )
+    monkeypatch.setattr(module, "particle_time_to_days", lambda sim: 1.0)
     fig, ax = mpl.subplots()
 
-    ParticleTracks().render(_Run(), ax)
+    ParticleTracks().render(_Run(), ax, overlays=[])
 
-    assert ax.lines[0].get_xdata().tolist() == [0.0, 1.0]
+    segments = ax.collections[0].get_segments()
+    assert segments[0][:, 0].tolist() == [0.0, 1.0]
     assert ax.get_aspect() == 1.0
     mpl.close(fig)
 
