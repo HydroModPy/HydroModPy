@@ -66,14 +66,6 @@ figures = [
   "simulated_active_network_reference_overlay",
 ]
 
-[display.flow]
-budget = true
-
-
-# ---- Calibratable parameters ----------------------------------------
-# These values override the baseline from project.toml. Keep them in
-# sync with the homogeneous-field schema (one block per parameter).
-
 [domain.depth_model]
 # Aquifer thickness. 30 m matches the project default.
 thickness = 30.0
