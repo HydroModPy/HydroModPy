@@ -375,7 +375,13 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         context = info.context if isinstance(info.context, Mapping) else {}
         raw_base_dir = context.get("base_dir")
         base_dir = raw_base_dir if isinstance(raw_base_dir, Path) else None
-        return flow_toml_loader.normalize_bc_payloads(value, base_dir=base_dir)
+        raw_data_dir = context.get("workspace_data_dir")
+        workspace_data_dir = raw_data_dir if isinstance(raw_data_dir, Path) else None
+        return flow_toml_loader.normalize_bc_payloads(
+            value,
+            base_dir=base_dir,
+            workspace_data_dir=workspace_data_dir,
+        )
 
     @field_validator("ic", mode="before")
     @classmethod
@@ -535,6 +541,12 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         flow_section: Mapping[str, object] | None,
         *,
         base_dir: Path,
+        workspace_data_dir: Path | None = None,
     ) -> FlowConfig:
         """Build a validated `FlowConfig` from the `[flow]` TOML section."""
-        return flow_toml_loader.from_toml_section(cls, flow_section, base_dir=base_dir)
+        return flow_toml_loader.from_toml_section(
+            cls,
+            flow_section,
+            base_dir=base_dir,
+            workspace_data_dir=workspace_data_dir,
+        )

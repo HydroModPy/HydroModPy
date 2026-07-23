@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
+from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.physics.flow.boundary_conditions import DIRICHLET_BC_CANONICAL_DOMAINS
 
 FlowConfigT = TypeVar("FlowConfigT", bound=BaseModel)
@@ -18,6 +19,7 @@ def from_toml_section(
     flow_section: Mapping[str, object] | None,
     *,
     base_dir: Path,
+    workspace_data_dir: Path | None = None,
 ) -> FlowConfigT:
     """Build a validated flow config from one `[flow]` TOML section."""
     if flow_section is None:
@@ -53,7 +55,11 @@ def from_toml_section(
     if len(declared_param) == 0 and len(raw_param) > 0:
         declared_param = list(raw_param.keys())
 
-    parsed_sinks_sources = resolve_well_forcing_paths(raw_sinks_sources, base_dir=base_dir)
+    parsed_sinks_sources = resolve_well_forcing_paths(
+        raw_sinks_sources,
+        base_dir=base_dir,
+        workspace_data_dir=workspace_data_dir,
+    )
     return flow_config_cls.model_validate(
         {
             "flow_regime": flow_section.get("flow_regime", "transient"),
@@ -80,7 +86,7 @@ def from_toml_section(
             "active_sinks_sources": list(raw_active_sinks_sources),
             "active_bc": list(raw_active_bc),
         },
-        context={"base_dir": base_dir},
+        context={"base_dir": base_dir, "workspace_data_dir": workspace_data_dir},
     )
 
 
@@ -88,13 +94,22 @@ def normalize_bc_payloads(
     value: Mapping[str, object] | None,
     *,
     base_dir: Path | None = None,
+    workspace_data_dir: Path | None = None,
 ) -> dict[str, object]:
     """Flatten `[flow.bc]` TOML sections into discriminated BC payloads."""
     if value is None:
         return {}
     if not isinstance(value, Mapping):
         raise ValueError("flow.bc must be a mapping payload")
-    bc_cfg = value if base_dir is None else resolve_bc_forcing_paths(value, base_dir=base_dir)
+    bc_cfg = (
+        value
+        if base_dir is None
+        else resolve_bc_forcing_paths(
+            value,
+            base_dir=base_dir,
+            workspace_data_dir=workspace_data_dir,
+        )
+    )
 
     parsed: dict[str, object] = {}
 
@@ -207,6 +222,7 @@ def resolve_bc_forcing_paths(
     raw_bc: Mapping[str, object],
     *,
     base_dir: Path,
+    workspace_data_dir: Path | None = None,
 ) -> dict[str, object]:
     """Resolve relative CSV paths declared under flow.bc.*.forcing."""
     payload = dict(raw_bc)
@@ -217,7 +233,12 @@ def resolve_bc_forcing_paths(
         item_payload = dict(item)
         forcing = item_payload.get("forcing")
         if isinstance(forcing, Mapping):
-            forcing_payload = _resolve_forcing_path(forcing, base_dir=base_dir)
+            forcing_payload = _resolve_forcing_path(
+                forcing,
+                base_dir=base_dir,
+                role="flow_bc",
+                workspace_data_dir=workspace_data_dir,
+            )
             item_payload["forcing"] = forcing_payload
         return item_payload
 
@@ -242,6 +263,7 @@ def resolve_well_forcing_paths(
     raw_sinks_sources: Mapping[str, object],
     *,
     base_dir: Path,
+    workspace_data_dir: Path | None = None,
 ) -> dict[str, object]:
     """Resolve relative CSV paths declared under flow.sinks_sources.wells.*.forcing."""
     payload = dict(raw_sinks_sources)
@@ -257,7 +279,12 @@ def resolve_well_forcing_paths(
         well_payload = dict(raw_well)
         forcing = well_payload.get("forcing")
         if isinstance(forcing, Mapping):
-            well_payload["forcing"] = _resolve_forcing_path(forcing, base_dir=base_dir)
+            well_payload["forcing"] = _resolve_forcing_path(
+                forcing,
+                base_dir=base_dir,
+                role="wells",
+                workspace_data_dir=workspace_data_dir,
+            )
         resolved_wells[str(well_id)] = well_payload
     payload["wells"] = resolved_wells
     return payload
@@ -320,14 +347,29 @@ def _canonicalize_dirichlet_bc_id(
     )
 
 
-def _resolve_forcing_path(forcing: Mapping[str, Any], *, base_dir: Path) -> dict[str, object]:
+def _resolve_forcing_path(
+    forcing: Mapping[str, Any],
+    *,
+    base_dir: Path,
+    role: str,
+    workspace_data_dir: Path | None,
+) -> dict[str, object]:
+    """Resolve one ``forcing.path_file`` against the TOML dir then the workspace data dir.
+
+    A bare filename falls back to ``<workspace>/data/<role>/`` and then
+    ``<workspace>/data/``, like every other ``InputFile`` config field.
+    """
     forcing_payload = dict(forcing)
     path_value = forcing_payload.get("path_file")
     if isinstance(path_value, str) and path_value.strip() != "":
-        path = Path(path_value).expanduser()
-        if not path.is_absolute():
-            path = (base_dir / path).resolve()
-        forcing_payload["path_file"] = path
+        fallback_dirs: list[Path] | None = None
+        if workspace_data_dir is not None:
+            fallback_dirs = [workspace_data_dir / role, workspace_data_dir]
+        forcing_payload["path_file"] = resolve_declared_path(
+            path_value,
+            base_dir=base_dir,
+            fallback_dirs=fallback_dirs,
+        )
     return forcing_payload
 
 

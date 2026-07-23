@@ -20,6 +20,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import FlowRate
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.physics.base.forcing import FlowTimeAggregate, FlowTimeFillMethod
@@ -52,9 +53,11 @@ class FlowWellForcingCsvConfig(HydroModelBase):
         default="csv",
         description="Discriminator tag for the CSV-backed well-forcing variant.",
     )
-    path_file: Annotated[Path, Profile.DEV] = Field(
-        ..., description="Path to the CSV chronicle file."
-    )
+    path_file: Annotated[
+        Path,
+        Profile.DEV,
+        InputFile(role="wells", category="data"),
+    ] = Field(..., description="Path to the CSV chronicle file.")
     sep: Annotated[NonEmptyStr, Profile.DEV] = Field(default=",", description="CSV delimiter.")
     date_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="date", description="CSV column containing timestamps."
