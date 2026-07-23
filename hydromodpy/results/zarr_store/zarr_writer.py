@@ -169,6 +169,7 @@ def write_mesh(
     topography: np.ndarray | None = None,
     *,
     topography_reference: np.ndarray | None = None,
+    layer_thickness: np.ndarray | None = None,
     start_index: int = 0,
     grid_type: str | None = None,
     structured_shape: tuple[int, int] | None = None,
@@ -177,6 +178,12 @@ def write_mesh(
 
     ``topography_reference`` (the pre-conditioning per-face top) is stored beside
     ``topography`` so the conditioning-impact map can render their difference.
+
+    ``layer_thickness`` is the ``(n_layers, n_faces)`` saturated-thickness
+    geometry of the model. ``z_interfaces`` only carries the vertical column of
+    one reference cell, which is enough for metadata but not for a cross-section:
+    the per-face thickness is what lets any figure rebuild the aquifer base
+    under each cell.
     """
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
@@ -234,6 +241,14 @@ def write_mesh(
                     "units": "m",
                 },
             )
+        if layer_thickness is not None:
+            thickness_arr = _write_array(
+                store_obj,
+                mesh,
+                "layer_thickness",
+                np.atleast_2d(np.asarray(layer_thickness, dtype="float64")),
+            )
+            update_attrs(thickness_arr, attrs_for_field("layer_thickness", thickness_arr.dtype))
 
         mesh_attrs: dict[str, object] = {
             "start_index": int(start_index),

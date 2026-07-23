@@ -14,6 +14,7 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
+from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
@@ -222,7 +223,7 @@ class ModflowNwtOutputAdapter:
         budget_records: list[dict] = []
         budget_slab = slab_steps(nlay, n_cells)
         for component in record_names:
-            comp_key = component.lower().strip()
+            comp_key = canonical_budget_component(component)
             slab_stack: np.ndarray | None = None
             window_t0 = 0
             spatial_written = False
@@ -255,7 +256,7 @@ class ModflowNwtOutputAdapter:
                     {
                         "timestep": t,
                         "zone_id": "0",
-                        "component": component.lower().strip(),
+                        "component": comp_key,
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
                         "unit": "m3/s",
@@ -392,11 +393,16 @@ class ModflowNwtOutputAdapter:
                 )
             top = np.asarray(m.dis.top.array, dtype="float64").ravel()[:n_cells]
             botm = np.asarray(m.dis.botm.array, dtype="float64")
+            botm_per_layer = botm.reshape(-1, n_cells) if botm.ndim == 3 else None
             z_flat = (
                 np.concatenate([top[:1], botm[:, 0, 0]])
                 if botm.ndim == 3
                 else np.array([float(top[0]), float(top[0]) - 10.0])
             )
+            layer_thickness = None
+            if botm_per_layer is not None:
+                interfaces = np.vstack([top[None, :], botm_per_layer])
+                layer_thickness = -np.diff(interfaces, axis=0)
 
             # Synthesize UGRID (vertices + face_node_connectivity) from the
             # structured DIS grid so downstream readers (piezometric_map,
@@ -426,6 +432,7 @@ class ModflowNwtOutputAdapter:
                     face_node_connectivity=fnc,
                     z_interfaces=z_flat,
                     topography=top,
+                    layer_thickness=layer_thickness,
                     grid_type="dis",
                     structured_shape=(int(nrow), int(ncol)),
                 )

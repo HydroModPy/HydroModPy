@@ -34,9 +34,9 @@ _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
     # The MVR-routed share lives in the separate DRN-TO-MVR budget record and
     # is therefore excluded: it re-enters the model through SFR and surfaces
     # in the routed ext_outflow series instead.
-    ("drains|drn|drain", "discharge", "abs_sum"),
+    ("drain", "discharge", "abs_sum"),
     # Well pumping total (m3/s).
-    ("wells|wel", "well_pumping", "sum"),
+    ("well", "well_pumping", "sum"),
 ]
 
 

@@ -15,7 +15,10 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
-from hydromodpy.solver.modflow_common.budget_components import is_scalar_budget_component
+from hydromodpy.solver.modflow_common.budget_components import (
+    canonical_budget_component,
+    is_scalar_budget_component,
+)
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
@@ -285,7 +288,7 @@ class Modflow6OutputAdapter:
 
             def _flush_window(t0: int) -> None:
                 for comp, stack in slab_stacks.items():
-                    comp_key = comp.lower().strip()
+                    comp_key = canonical_budget_component(comp)
                     try:
                         if comp not in created_fields and t0 != 0:
                             # First write of a variable must start at offset 0;
@@ -363,7 +366,7 @@ class Modflow6OutputAdapter:
                             {
                                 "timestep": t,
                                 "zone_id": "0",
-                                "component": component.lower().strip(),
+                                "component": canonical_budget_component(component),
                                 "flux_in": flux_in,
                                 "flux_out": abs(flux_out),
                                 "unit": "m3/s",
@@ -722,6 +725,7 @@ class Modflow6OutputAdapter:
                     z_interfaces=z_flat,
                     topography=top,
                     topography_reference=topography_reference,
+                    layer_thickness=_layer_thickness(top, botm_per_layer),
                     grid_type=grid_type,
                     structured_shape=structured_shape,
                 )
@@ -892,3 +896,15 @@ class Modflow6OutputAdapter:
 
         cfg = config or {}
         compute_derived(sim_id, store, cfg)
+
+
+def _layer_thickness(top: np.ndarray, botm_per_layer: np.ndarray | None) -> np.ndarray | None:
+    """Return the ``(n_layers, n_faces)`` thickness from the model top and bottoms.
+
+    ``None`` when the grid file did not expose per-layer bottoms, in which case
+    the mesh keeps only the reference ``z_interfaces`` column.
+    """
+    if botm_per_layer is None:
+        return None
+    interfaces = np.vstack([np.asarray(top, dtype="float64")[None, :], botm_per_layer])
+    return np.diff(interfaces, axis=0) * -1.0

@@ -183,7 +183,12 @@ class RunGeographicMixin:
                 return lookup_zarr_path(sz.root, field_registry.get(variable).zarr_path) is not None
             return any(
                 variable in group
-                for group in (sz.root, sz.root.get("derived"), sz.root.get("budget"))
+                for group in (
+                    sz.root,
+                    sz.root.get("derived"),
+                    sz.root.get("budget"),
+                    sz.root.get("mesh"),
+                )
                 if group is not None
             )
         finally:

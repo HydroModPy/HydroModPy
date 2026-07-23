@@ -288,7 +288,7 @@ def _run_fluxes_from_budget(sim_zarr: SimulationZarr) -> DerivedResult:
     # helper operates component-by-component). Most simulations record a
     # drain/recharge component; leave others untouched.
     component_name: str | None = None
-    for candidate in ("drn", "rch", "recharge", "drain", "drains"):
+    for candidate in ("drain", "recharge"):
         if candidate in budget_grp:
             component_name = candidate
             break

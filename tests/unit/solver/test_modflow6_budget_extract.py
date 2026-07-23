@@ -111,34 +111,40 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _FakeStore:
 def test_budget_records_time_major_then_component_order(store: _FakeStore) -> None:
     assert store.budgets is not None
     keys = [(rec["timestep"], rec["component"]) for rec in store.budgets]
-    assert keys == [(0, "rcha"), (0, "drn"), (0, "evt"), (1, "rcha"), (1, "drn")]
+    assert keys == [
+        (0, "recharge"),
+        (0, "drain"),
+        (0, "evapotranspiration"),
+        (1, "recharge"),
+        (1, "drain"),
+    ]
 
 
 def test_budget_fluxes_scaled_and_split(store: _FakeStore) -> None:
     by_key = {(rec["timestep"], rec["component"]): rec for rec in store.budgets}
-    rcha0 = by_key[(0, "rcha")]
+    rcha0 = by_key[(0, "recharge")]
     assert rcha0["flux_in"] == pytest.approx(4.0 / _SPT)
     assert rcha0["flux_out"] == pytest.approx(2.0 / _SPT)
     assert rcha0["zone_id"] == "0"
     assert rcha0["unit"] == "m3/s"
-    drn1 = by_key[(1, "drn")]
+    drn1 = by_key[(1, "drain")]
     assert drn1["flux_in"] == pytest.approx(4.0 / _SPT)
     assert drn1["flux_out"] == pytest.approx(0.0)
 
 
 def test_first_record_wins_for_duplicate_package_type(store: _FakeStore) -> None:
-    drn0 = next(r for r in store.budgets if r["timestep"] == 0 and r["component"] == "drn")
+    drn0 = next(r for r in store.budgets if r["timestep"] == 0 and r["component"] == "drain")
     assert drn0["flux_out"] == pytest.approx(5.0 / _SPT)
 
 
 def test_spatial_stacks_per_component(store: _FakeStore) -> None:
-    rcha_stack, subgroup = store.stacks["rcha"]
+    rcha_stack, subgroup = store.stacks["recharge"]
     assert subgroup == "budget"
     assert rcha_stack.shape == (2, 1, 4)
     np.testing.assert_allclose(rcha_stack[0, 0], np.array([1.0, -2.0, 3.0, 0.0]) / _SPT)
-    drn_stack, _ = store.stacks["drn"]
+    drn_stack, _ = store.stacks["drain"]
     np.testing.assert_allclose(drn_stack[0, 0], np.array([0.0, -5.0, 0.0, 0.0]) / _SPT)
-    evt_stack, _ = store.stacks["evt"]
+    evt_stack, _ = store.stacks["evapotranspiration"]
     assert np.isnan(evt_stack[1]).all()  # EVT has no t1 record
 
 
@@ -150,7 +156,7 @@ def test_unreadable_record_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
         ]
     )
     store = _run_extract(fake, monkeypatch)
-    assert [(r["timestep"], r["component"]) for r in store.budgets] == [(1, "rcha")]
+    assert [(r["timestep"], r["component"]) for r in store.budgets] == [(1, "recharge")]
 
 
 def test_unknown_kstpkper_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:

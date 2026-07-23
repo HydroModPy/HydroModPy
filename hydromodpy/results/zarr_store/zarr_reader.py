@@ -74,6 +74,21 @@ def resolve_geographic_dir(store_obj: SimulationZarr, workspace_path: Path | str
     return GeographicCache(workspace_path).path_for(fp)
 
 
+def _is_time_resolved(variable: str) -> bool:
+    """Return True when the registered field carries a leading time axis.
+
+    Static geometry (``topography``, ``layer_thickness``) has no time
+    dimension, so indexing it by timestep would silently return one layer or
+    raise. Unregistered variables are assumed time-resolved, which is the
+    historical behaviour for solver-specific arrays.
+    """
+    from hydromodpy.results import field_registry
+
+    if not field_registry.has(variable):
+        return True
+    return field_registry.get(variable).shape.startswith("time")
+
+
 def read_field(
     store_obj: SimulationZarr,
     variable: str,
@@ -82,17 +97,25 @@ def read_field(
     subgroup: str | None = None,
     layer: int | None = None,
 ) -> np.ndarray:
-    """Read one timestep slice of ``variable`` from ``subgroup`` (or auto)."""
+    """Read ``variable`` from ``subgroup`` (or auto), sliced at ``timestep``.
+
+    ``timestep`` is ignored for static fields (see :func:`_is_time_resolved`).
+    """
+    time_resolved = _is_time_resolved(variable)
+
+    def _select(array) -> np.ndarray:
+        return array[int(timestep)] if time_resolved else array[:]
+
     if subgroup:
         target = store_obj._root[subgroup]
         if variable not in target:
             raise KeyError(f"Variable '{variable}' not found in subgroup '{subgroup}'")
-        data = target[variable][int(timestep)]
+        data = _select(target[variable])
     else:
-        for loc_name in (None, "state", "derived", "budget"):
+        for loc_name in (None, "state", "derived", "budget", "mesh"):
             loc = store_obj._root if loc_name is None else store_obj._root.get(loc_name)
             if loc is not None and variable in loc:
-                data = loc[variable][int(timestep)]
+                data = _select(loc[variable])
                 break
         else:
             raise KeyError(f"Variable '{variable}' not found")

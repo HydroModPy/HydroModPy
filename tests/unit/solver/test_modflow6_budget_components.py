@@ -122,9 +122,9 @@ def test_extract_budget_drops_flow_ja_face_and_spdis(tmp_path, monkeypatch) -> N
     }
     store = _extract(monkeypatch, tmp_path, records, times=[1.0], kstpkpers=[(0, 0)])
     by = {r["component"]: r for r in store.budgets}
-    assert set(by) == {"drn", "rcha"}
-    assert by["rcha"]["flux_in"] == pytest.approx(5.0)
-    assert by["drn"]["flux_out"] == pytest.approx(5.0)
+    assert set(by) == {"drain", "recharge"}
+    assert by["recharge"]["flux_in"] == pytest.approx(5.0)
+    assert by["drain"]["flux_out"] == pytest.approx(5.0)
 
 
 def test_extract_budget_keeps_balanced_stress_term(tmp_path, monkeypatch) -> None:
@@ -135,7 +135,7 @@ def test_extract_budget_keeps_balanced_stress_term(tmp_path, monkeypatch) -> Non
     store = _extract(monkeypatch, tmp_path, records, times=[1.0], kstpkpers=[(0, 0)])
     assert len(store.budgets) == 1
     row = store.budgets[0]
-    assert row["component"] == "wel"
+    assert row["component"] == "well"
     assert row["flux_in"] == pytest.approx(10.0)
     assert row["flux_out"] == pytest.approx(10.0)
 
@@ -175,6 +175,6 @@ def test_extract_budget_multilayer_and_multistep_excludes_face_flow(tmp_path, mo
         n_cells=2,
     )
     by_step = {r["timestep"]: r for r in store.budgets}
-    assert {r["component"] for r in store.budgets} == {"drn"}
+    assert {r["component"] for r in store.budgets} == {"drain"}
     assert by_step[0]["flux_out"] == pytest.approx(3.0)
     assert by_step[1]["flux_out"] == pytest.approx(7.0)
