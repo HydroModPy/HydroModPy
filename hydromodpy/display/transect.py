@@ -69,14 +69,26 @@ def default_line(
     """Return a full-width line across the mesh in the requested direction.
 
     The line passes through ``through`` when given, else through the
-    catchment outlet when the run has one, else through the mesh centre.
+    catchment outlet when the run has one, else through the median cell
+    centroid. The centroid fallback guarantees the line crosses at least one
+    cell even on an irregular domain (a raw DEM extent, an L-shaped mask),
+    where the bounding-box centre could fall on a hole.
     """
     xmin, ymin, xmax, ymax = mesh_bounds(sim)
     if through is None:
         try:
             through = sim.outlet
         except Exception:
-            through = ((xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
+            from hydromodpy.display.mesh_geometry import face_centroids
+
+            # The centroid nearest the bounding-box centre. Using a real cell
+            # centroid (not the box centre or the median, which on an even grid
+            # lands exactly on a cell edge and the strict point-in-cell test
+            # would reject every sample) keeps the line inside the domain.
+            centroids = face_centroids(sim)
+            box_centre = np.array([(xmin + xmax) / 2.0, (ymin + ymax) / 2.0])
+            nearest = int(np.argmin(((centroids - box_centre) ** 2).sum(axis=1)))
+            through = (float(centroids[nearest, 0]), float(centroids[nearest, 1]))
     px, py = float(through[0]), float(through[1])
     if orientation == "we":
         return (xmin, py, xmax, py)
