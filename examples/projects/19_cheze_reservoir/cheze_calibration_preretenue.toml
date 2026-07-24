@@ -158,10 +158,3 @@ figures = [
     "water_budget",               # GWF + lake water budget
     "lake_abacus_comparison",     # reference vs carved-bed abaque, per lake
 ]
-
-[display.flow]
-enabled = true
-cross_section = true
-piezometry = true
-budget = true
-streamflow = true

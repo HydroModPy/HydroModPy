@@ -136,12 +136,12 @@ def test_mf6_budget_flux_scaled_to_m3_per_s_under_days(tmp_path, monkeypatch) ->
     }
     store = _run_extract(tmp_path, monkeypatch, "DAYS", records)
     by = {r["component"]: r for r in store.budgets}
-    assert by["rcha"]["flux_in"] == pytest.approx(1.0)
-    assert by["drn"]["flux_out"] == pytest.approx(1.0)
+    assert by["recharge"]["flux_in"] == pytest.approx(1.0)
+    assert by["drain"]["flux_out"] == pytest.approx(1.0)
 
     store_s = _run_extract(tmp_path, monkeypatch, "SECONDS", records)
     by_s = {r["component"]: r for r in store_s.budgets}
-    assert by_s["rcha"]["flux_in"] == pytest.approx(86400.0)
+    assert by_s["recharge"]["flux_in"] == pytest.approx(86400.0)
 
 
 def test_mf6_budget_flux_seconds_is_identity(tmp_path, monkeypatch) -> None:
@@ -357,7 +357,7 @@ def test_mf6_transient_recharge_reads_back_m3_per_s(tmp_path) -> None:
         by_component_inflow[rec["component"]] = max(
             by_component_inflow.get(rec["component"], 0.0), rec["flux_in"]
         )
-    assert by_component_inflow["rcha"] == pytest.approx(expected_recharge_m3_s, rel=1e-6)
+    assert by_component_inflow["recharge"] == pytest.approx(expected_recharge_m3_s, rel=1e-6)
 
     # Storage exchanges water during the transient period (m3/s, non-zero).
     assert any(abs(r["storage_in"]) + abs(r["storage_out"]) > 0.0 for r in store.mass)

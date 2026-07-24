@@ -87,6 +87,11 @@ class ModpathOutputAdapter:
                     data=arr,
                     overwrite=True,
                 )
+            particles_grp.attrs["source_solver"] = self.solver_name
+            # MODPATH reports tracking time in the flow model time unit, which
+            # the MODFLOW-NWT backend always builds in days. Recording it makes
+            # the store self-describing, like the MODFLOW 6 PRT extractor.
+            particles_grp.attrs["time_units"] = "days"
         finally:
             sz.close()
 

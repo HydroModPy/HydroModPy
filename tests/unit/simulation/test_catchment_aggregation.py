@@ -296,14 +296,14 @@ class TestAggregateVariable:
         return _DictGroup({name: _FakeArray(np.asarray(frames, dtype="float64"))})
 
     def test_resolves_root_alternative_and_abs_sum(self):
-        # store_var "drains|drn|drain" must resolve to the "drn" root array.
+        # store_var alternatives must resolve to the stored root array.
         frames = np.array([[-1.0, 2.0, -3.0], [4.0, -5.0, 6.0]])  # 2 timesteps
-        grp = self._grp_with_root_field("drn", frames)
+        grp = self._grp_with_root_field("drain", frames)
         out = _aggregate_variable(
             store=None,
             sim_id="s",
             grp=grp,
-            store_var="drains|drn|drain",
+            store_var="drains|drain",
             n_timesteps=2,
             active_mask=None,
             reducer="abs_sum",
@@ -320,14 +320,14 @@ class TestAggregateVariable:
 
     def test_missing_variable_returns_none(self):
         grp = _DictGroup({"head": _FakeArray(np.zeros((1, 3)))})
-        out = _aggregate_variable(None, "s", grp, "wells|wel", 1, None, "sum")
+        out = _aggregate_variable(None, "s", grp, "wells|well", 1, None, "sum")
         assert out is None
 
     def test_mask_excludes_inactive_cells(self):
         frames = np.array([[1.0, 999.0, 2.0]])
-        grp = self._grp_with_root_field("drn", frames)
+        grp = self._grp_with_root_field("drain", frames)
         mask = np.array([True, False, True])
-        out = _aggregate_variable(None, "s", grp, "drn", 1, mask, "sum")
+        out = _aggregate_variable(None, "s", grp, "drain", 1, mask, "sum")
         # Masked middle cell ignored: 1 + 2 = 3.
         assert out == pytest.approx([3.0])
 
@@ -412,7 +412,7 @@ class TestAggregateEndToEnd:
         }
         for t in range(n_ts):
             catalog.write_field(
-                sid, "drn", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
+                sid, "drain", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
             )
 
         aggregate_catchment_timeseries(sid, catalog)
@@ -464,7 +464,7 @@ class TestRoutedDischarge:
             }
             for t in range(n_ts):
                 catalog.write_field(
-                    sid, "drn", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
+                    sid, "drain", t, drain_frames[t], n_timesteps=n_ts if t == 0 else None
                 )
         return sid
 

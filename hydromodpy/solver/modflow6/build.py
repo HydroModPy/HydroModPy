@@ -1206,14 +1206,16 @@ def run_pre_processing(  # noqa: PLR0915
             perioddata={0: all_mover_rows},
         )
 
-    # With ATS the step count per period is variable; save per period end so the
-    # extraction still sees exactly one record per stress period (as with nstp=1).
-    oc_frequency = "LAST" if runtime.mf6_ats else "ALL"
+    # Save per period end, so the store always holds exactly one record per
+    # stress period. That is the catalog contract (n_timesteps == number of
+    # stress periods == len(run.time_index)). Sub-stepping (nstp > 1 through
+    # simulation.time.substeps_per_period) and ATS refine the transient
+    # solution, they do not add output records.
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
         head_filerecord=f"{model.model_output_name}.hds",
         budget_filerecord=f"{model.model_output_name}.cbc",
-        saverecord=[("HEAD", oc_frequency), ("BUDGET", oc_frequency)],
+        saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("HEAD", "LAST")],
     )
     model._runtime_dirty_packages = ()

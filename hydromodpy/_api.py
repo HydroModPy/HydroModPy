@@ -603,6 +603,72 @@ def read(
     return read_variable(sim, var, time=time, layer=layer, sel=sel, bbox=bbox)
 
 
+def figure(
+    sim: Any,
+    name: str,
+    *,
+    save: Any = None,
+    dpi: int = 150,
+    **opts: Any,
+) -> Any:
+    """Render one registered figure for a simulation Run.
+
+    The Python counterpart of ``[display].figures``: the same registry, the
+    same names, the same options, so a figure produced by ``hmp run`` can be
+    reproduced (or re-styled) from a script without importing anything from
+    the display internals. List the names with
+    :func:`hydromodpy.display.list_figures`.
+
+    Parameters
+    ----------
+    sim
+        A :class:`~hydromodpy.results.run.Run` (e.g. ``cat.latest()``).
+    name
+        Registered figure name, for example ``"piezometric_map"``.
+    save
+        Optional output path. A directory (or an extension-less path) gets
+        ``<name>.png`` appended.
+    dpi
+        Raster resolution used when saving.
+    **opts
+        Figure-specific options, identical to the ``[display.overrides]``
+        entries (``timestep``, ``overlays``, ``cmap``, ``units``, ...).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The rendered figure.
+
+    Raises
+    ------
+    KeyError
+        If ``name`` is not registered.
+    ValueError
+        If the run does not carry what the figure needs.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> cat = hmp.open("~/ws/projects/aber")  # doctest: +SKIP
+    >>> run = cat.latest()  # doctest: +SKIP
+    >>> hmp.figure(run, "cross_section", orientation="sn")  # doctest: +SKIP
+    """
+    from pathlib import Path as _Path
+
+    from hydromodpy.display import get as _get_figure
+
+    renderer = _get_figure(name)
+    reason = renderer.unavailable_reason(sim)
+    if reason is not None:
+        raise ValueError(f"figure '{name}' does not apply to this run: {reason}")
+
+    save_path = None
+    if save is not None:
+        target = _Path(save)
+        save_path = target / f"{name}.png" if target.suffix == "" else target
+    return renderer.plot(sim, dpi=dpi, save_path=save_path, **opts)
+
+
 def export(
     sim: Any,
     var: str | list[str],

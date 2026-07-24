@@ -107,7 +107,7 @@ class TestMassSeepageConservation:
             # Drain budget is signed: negative = outflow to the drain.
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn_stack[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -261,7 +261,7 @@ class TestReleaseFluxNonNegative:
         for t in range(n_ts):
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -366,7 +366,7 @@ class TestComputeDerivedDispatch:
             )
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -423,7 +423,7 @@ class TestDrainRoutingChain:
         for t in range(n_ts):
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn_stack[t],
                 n_timesteps=n_ts if t == 0 else None,
@@ -535,7 +535,7 @@ class TestMeshGraphRouting:
         for t in range(n_ts):
             catalog.write_field(
                 sid,
-                "drn",
+                "drain",
                 t,
                 drn_stack[t],
                 n_timesteps=n_ts if t == 0 else None,

@@ -200,11 +200,20 @@ def load_geographic_section(
     )
 
 
-def _load_flow_section(section_data: Any, base: Path) -> FlowConfig:
+def _load_flow_section(
+    section_data: Any,
+    base: Path,
+    *,
+    workspace_data_dir: Path | None = None,
+) -> FlowConfig:
     """Load the flow section using FlowConfig's dedicated parser."""
     if section_data is None:
         section_data = {}
-    return FlowConfig.from_toml_section(section_data, base_dir=base)
+    return FlowConfig.from_toml_section(
+        section_data,
+        base_dir=base,
+        workspace_data_dir=workspace_data_dir,
+    )
 
 
 def _load_data_section(

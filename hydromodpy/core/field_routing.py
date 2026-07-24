@@ -7,7 +7,11 @@ from typing import Any
 
 import numpy as np
 
-DRAIN_BUDGET_KEYS = ("drn", "drain", "drains", "DRN", "DRAINS")
+# Canonical public name of the drain budget field. Both MODFLOW backends
+# normalize their record name (DRN / DRAINS) through
+# ``solver.modflow_common.budget_components.canonical_budget_component``
+# before writing, so the store only ever holds "drain".
+DRAIN_BUDGET_KEYS = ("drain",)
 
 
 def find_drain_budget_key(mapping: Any) -> str | None:

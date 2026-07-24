@@ -108,11 +108,18 @@ def _try_render(
     *,
     render_figure: RenderFigureCallable,
 ) -> bool:
+    """Render one gallery asset when the figure applies to this run.
+
+    Applicability comes from the figure's own declared requirements
+    (:meth:`hydromodpy.display.figure.BaseFigure.unavailable_reason`), so the
+    gallery follows the registry instead of keeping its own list of names.
+    """
+    from hydromodpy.display import get as get_figure
+
     try:
-        capabilities = list(run.display_capabilities)
-    except Exception:
-        capabilities = []
-    if figure_name not in capabilities:
+        if get_figure(figure_name).unavailable_reason(run) is not None:
+            return False
+    except KeyError:
         return False
     try:
         render_figure(figure_name, run, target_path)
@@ -134,8 +141,8 @@ def publish_run_to_capability_gallery(
 
     Each asset named ``<figure_name>.png`` is produced as follows:
 
-    - if ``run`` and ``render_figure`` are provided and ``figure_name`` is
-      in ``run.display_capabilities``, the callback renders the figure;
+    - if ``run`` and ``render_figure`` are provided and the registered
+      figure applies to this run, the callback renders the figure;
     - otherwise, the publisher looks for a pre-existing PNG of the same
       name in standard subfolders of ``run_folder`` and copies it;
     - otherwise, the asset is listed as missing in the manifest.

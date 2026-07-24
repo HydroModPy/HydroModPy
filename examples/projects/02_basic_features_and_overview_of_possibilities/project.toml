@@ -1,0 +1,138 @@
+# ======================================================================
+# HydroModPy - example 02: basic features and overview of possibilities
+# ----------------------------------------------------------------------
+# A compact, self-contained conceptual case: a small teaching DEM
+# delineated from its outlet, solved steady with MODFLOW 6, exercising the
+# full set of standard figures without any external download. run_manual.py
+# then sweeps the recharge (dry / normal / wet) to show the domain respond,
+# the "recharge cases" of the overview.
+#
+# Launch:
+#   hmp run examples/projects/02_basic_features_and_overview_of_possibilities/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "conceptual_dem_mf6"
+description = "Conceptual DEM domain, steady MODFLOW 6, full standard figure set."
+if_exists = "replace"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+domain_extent = "box"
+
+[geographic.catchment]
+# Delineate the conceptual catchment from its lowest cell. Delineation masks
+# the DEM's nodata border, which the direct catch_def="dem" mode does not.
+catch_def = "from_outlet_coord"
+dem_init_path = "conceptual_dem.tif"
+x_outlet = 142687.4
+y_outlet = 6849096.4
+snap_dist = "150 m"
+buff_area = "10%"
+
+
+# ---------------------------------------------------------------------- domain
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+
+# ---------------------------------------------------------------------- data
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "recharge"]
+inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "custom"
+path = "conceptual_dem.tif"
+
+# Steady recharge, mm/day. run_manual.py sweeps this to show dry/normal/wet
+# scenarios, the "recharge cases" of the overview.
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.5]
+runoff_ratio = 0.0
+
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 1e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+
+[modflow6.sgrid.planar]
+mode = "keep_native"
+
+[modflow6.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 1
+
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true
+output_dir = "figures"
+on_error = "raise"
+figures = [
+    "mesh_map",
+    "recharge_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "cross_section",
+    "water_budget",
+]

@@ -266,7 +266,9 @@ def _compute_groundwater_flux(
     logger.debug("Derived groundwater_flux for sim %s", sim_id)
 
 
-_DRN_TO_MVR_KEYS = ("drn-to-mvr", "DRN-TO-MVR", "drn_to_mvr")
+# Canonical public name of the DRN-TO-MVR budget record (see
+# solver.modflow_common.budget_components.canonical_budget_component).
+_DRN_TO_MVR_KEYS = ("drain_to_mover",)
 
 
 def _drn_raw_stack_with_mvr(budget_grp: Any, drn_key: str | None, n_timesteps: int) -> Any:

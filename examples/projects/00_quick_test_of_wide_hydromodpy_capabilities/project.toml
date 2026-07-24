@@ -1,0 +1,292 @@
+# ======================================================================
+# HydroModPy - example 00: quick test of wide HydroModPy capabilities
+# ----------------------------------------------------------------------
+# Aber catchment (Brittany, EPSG:2154), extracted from a regional 75 m
+# DEM by outlet snapping. One monthly-transient year (2017) on the
+# buffered rectangular box, a single 50 m aquifer layer, two pumping
+# wells, hillslope drainage, and forward particle tracking, solved with
+# MODFLOW 6.
+#
+# It exercises a wide slice of the toolbox in a few seconds and renders
+# the full set of standard figures declared in [display].figures.
+#
+# Launch:
+#   hmp run examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+# "." is this file's folder. The workspace root is examples/, so bare
+# filenames below resolve against examples/data/<variable>/.
+project_root = "."
+
+
+# ----------------------------------------------------------------------
+# Simulation - orchestration
+# ----------------------------------------------------------------------
+
+[simulation]
+name = "aber_transient_mf6"
+description = "Aber catchment, monthly transient 2017, MODFLOW 6, two pumping wells and particle tracking."
+if_exists = "replace"
+
+[simulation.time]
+# One year of 2017 as 12 monthly stress periods (inclusive end).
+start_datetime = "2017-01-01"
+end_datetime = "2017-12-31"
+step_value = "1 month"
+# Subdivide each monthly stress period into daily solver time steps for a
+# smoother transient solution (output stays one record per period).
+substeps_per_period = 30
+coverage_policy = "warn"
+
+# Groundwater flow, solved by MODFLOW 6.
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+# Particle tracking, solved by the MODFLOW 6 PRT model. PRT tracks forward:
+# particles are released over the whole domain and terminate where the water
+# table outcrops, so the tracks show which recharge feeds the seepage areas.
+[[simulation.process]]
+id = "particles"
+type = "transport"
+solvers = ["modflow6_prt"]
+
+
+# ----------------------------------------------------------------------
+# Geographic - watershed delineation
+# ----------------------------------------------------------------------
+
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+# Carve the DEM along natural flow paths instead of filling the sinks.
+dem_correc_type = "breach"
+# Active domain = the buffered rectangular box around the catchment, so the
+# regional flow field around the outlet is kept.
+domain_extent = "box"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+# Regional 75 m DEM shipped with the examples.
+dem_init_path = "regional_dem_aber.tif"
+# Outlet of the Aber catchment, EPSG:2154.
+x_outlet = 150727.164
+y_outlet = 6858066.520
+# Snap the outlet to the nearest stream cell within 100 m.
+snap_dist = "100 m"
+# Keep a 10% buffer ring around the watershed polygon.
+buff_area = "10%"
+
+
+# ----------------------------------------------------------------------
+# Domain - vertical geometry
+# ----------------------------------------------------------------------
+
+[domain]
+
+[domain.depth_model]
+# Aquifer bottom is the topography lowered by a constant 50 m.
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+
+# ----------------------------------------------------------------------
+# Data - forcings and reference layers
+# ----------------------------------------------------------------------
+
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "hydrography", "recharge"]
+inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "custom"
+path = "regional_dem_aber.tif"
+
+# Reference stream network, used by the hydrography figures.
+[[data.hydrography.sources]]
+source = "custom"
+path = "regional_stream_network.shp"
+rasterize_field = "FID"
+
+# Monthly recharge chronicle (mm/day) for the catchment, read from the
+# shared recharge folder by station id.
+[data.recharge]
+date_start = "2017-01-01"
+date_end = "2017-12-31"
+
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["00"]
+
+
+# ----------------------------------------------------------------------
+# Flow - groundwater process
+# ----------------------------------------------------------------------
+
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge", "wells"]
+# Hillslope drainage: water leaves the aquifer where the water table
+# reaches the surface (auto conductance on the top face).
+active_bc = ["drainage"]
+# Solve the first period in steady state on the mean recharge to warm the
+# heads up before the transient year starts.
+first_period_steady = true
+
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+
+# Hydraulic conductivity: 1e-5 m/s.
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 1e-5
+
+# Specific yield: 1%.
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+# Specific storage: 1e-5 1/m.
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+# ---- Pumping wells ---------------------------------------------------
+# Two wells addressed by cell index [lay, row, col] (0-based), with monthly
+# rates in m3/day read from the shared wells chronicle.
+
+[flow.sinks_sources.wells.W1]
+description = "Pumping well 1, upstream of the cross-section."
+units = "m3/day"
+
+[flow.sinks_sources.wells.W1.location]
+kind = "cell"
+cell = [0, 8, 28]
+
+[flow.sinks_sources.wells.W1.forcing]
+kind = "csv"
+# Bare filename resolved under <workspace>/data/wells/.
+path_file = "wells_custom_00_20170101_20171231_M.csv"
+date_column = "date"
+value_column = "W1_m3_day"
+
+[flow.sinks_sources.wells.W2]
+description = "Pumping well 2, downstream of the cross-section."
+units = "m3/day"
+
+[flow.sinks_sources.wells.W2.location]
+kind = "cell"
+cell = [0, 16, 28]
+
+[flow.sinks_sources.wells.W2.forcing]
+kind = "csv"
+path_file = "wells_custom_00_20170101_20171231_M.csv"
+date_column = "date"
+value_column = "W2_m3_day"
+
+
+# ----------------------------------------------------------------------
+# Particle tracking - MODFLOW 6 PRT
+# ----------------------------------------------------------------------
+
+[transport.modflow6prt.parameters]
+# Release over the active domain, off the river cells, so the tracks
+# show where the recharge that feeds the seepage areas comes from.
+release_zone = "domain_nonriver"
+track_dir = "forward"
+porosity = 0.01
+max_particles = 300
+release_times_days = [0.0]
+track_time_step_days = 10.0
+stop_time_days = 3650.0
+extend_tracking = true
+dry_tracking_method = "drop"
+
+
+# ----------------------------------------------------------------------
+# Solver - MODFLOW 6
+# ----------------------------------------------------------------------
+
+[modflow6.runtime]
+# Newton is the default for convertible catchment cells; MODERATE is
+# enough for this small single-layer box.
+mf6_ims_complexity = "MODERATE"
+
+[modflow6.sgrid.planar]
+# Keep the native DEM support: a structured 75 m grid over the buffered box.
+mode = "keep_native"
+
+[modflow6.sgrid.vertical]
+# One aquifer layer.
+genmtd_lay = "constant"
+nlay = 1
+
+
+# ----------------------------------------------------------------------
+# Display - figures rendered at the end of the run
+# ----------------------------------------------------------------------
+
+[display]
+enabled = true
+show = false
+save = true
+output_dir = "figures"
+# No project-wide `cmap`: each figure keeps the colormap chosen for what it
+# shows (reversed for a depth, discrete for an indicator). Set `cmap` here to
+# force one everywhere, or per figure under [display.overrides].
+# A figure that does not apply to this run is skipped with a logged reason
+# (declared requirements vs what the run persisted). A figure that applies
+# but fails is an error here, so the example cannot silently degrade.
+on_error = "raise"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "recharge_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "particle_tracks",
+    "cross_section",
+    "flux_timeseries",
+    "water_budget",
+]
+
+# Composite water-table depth map: one field plus named overlays, instead of
+# a hand-composed figure.
+[display.overrides.watertable_depth_map]
+overlays = ["watershed", "seepage", "particles", "wells", "outlet"]
+
+# South-to-north section through the two pumping wells (both on column 28).
+[display.overrides.cross_section]
+orientation = "sn"
+through = [152687.5, 6857800.0]
+
+# Monthly water balance, shown as a depth over the model domain.
+[display.overrides.flux_timeseries]
+units = "mm/period"

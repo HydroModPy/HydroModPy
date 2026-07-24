@@ -57,8 +57,14 @@ def convert_vector_to_geoparquet(
             f"geopandas is required to convert non-Parquet vector files; cannot convert {src.name}"
         ) from None
 
-    read_kwargs = {"layer": layer} if layer else {}
-    gdf = gpd.read_file(src, **read_kwargs)
+    if src.suffix.lower() == ".parquet":
+        # GeoParquet is read with the native reader. gpd.read_file would route
+        # through the GDAL Parquet driver, which many GDAL builds ship without,
+        # so a perfectly valid GeoParquet would fail to ingest.
+        gdf = gpd.read_parquet(src)
+    else:
+        read_kwargs = {"layer": layer} if layer else {}
+        gdf = gpd.read_file(src, **read_kwargs)
     if gdf.crs is None:
         raise VectorConversionError(
             f"{src} has no CRS; add a .prj sidecar or set gdf.crs before ingest"

@@ -2,6 +2,11 @@
 
 Each value defaults to a non-interactive, save-enabled mode that is
 safe for CI.
+
+A run renders exactly the figures listed in ``figures``. Whether one of
+them applies is decided from the figure's own declared requirements
+(:class:`hydromodpy.display.figure.FigureSpec`) against what the run
+persisted, not from a second layer of per-family booleans.
 """
 
 from __future__ import annotations
@@ -9,101 +14,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-
-
-class DisplayFlowConfig(HydroModelBase):
-    """Display switches for flow figures."""
-
-    enabled: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Master switch for flow figures.",
-    )
-    cross_section: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render the flow cross-section plot.",
-    )
-    streamflow: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render the streamflow comparison plot.",
-    )
-    piezometry: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render the piezometry plot.",
-    )
-    watertable_map: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render water-table maps.",
-    )
-    dem_map: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render a DEM overview map.",
-    )
-    budget: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Render groundwater budget figures.",
-    )
-    hydrography: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render hydrography maps.",
-    )
-    boussinesq_state: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render the Boussinesq state figure.",
-    )
-    boussinesq_diagnostics: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render Boussinesq diagnostics.",
-    )
-    boussinesq_mass_balance: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render Boussinesq mass-balance diagnostics.",
-    )
-    boussinesq_probes: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render Boussinesq probe time series.",
-    )
-    boussinesq_edge_flux: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Render final Boussinesq edge fluxes.",
-    )
-
-
-class DisplayParticlesConfig(HydroModelBase):
-    """Display switches for particle figures."""
-
-    enabled: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Master switch for particle figures.",
-    )
-    pathlines: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Render particle pathlines.",
-    )
-
-
-class DisplayTransportConfig(HydroModelBase):
-    """Display switches for transport figures."""
-
-    enabled: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Master switch for transport figures.",
-    )
-    concentration: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Render concentration plots.",
-    )
-    gif: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Export concentration GIF animation.",
-    )
-    web_animation: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Export browser-friendly concentration animation.",
-    )
 
 
 class DisplayConfig(HydroModelBase):
@@ -149,10 +63,21 @@ class DisplayConfig(HydroModelBase):
         default_factory=list,
         description=(
             "Names of registered figures to auto-render at the end of "
-            "`hmp run` (and consumed by `hmp display`). Empty list disables "
-            "auto-rendering; figures can still be produced later with "
-            "`hmp display <toml>`. Disable per-run via `hmp run --no-display` "
-            "or for an entire Python Project via `Project(..., no_display=True)`."
+            "`hmp run` (and consumed by `hmp viz gallery`). Every name must "
+            "exist in the figure registry; list them with `hmp viz list`. "
+            "A figure whose requirements the run does not meet is skipped "
+            "with an explicit reason. Empty list disables auto-rendering. "
+            "Disable per-run via `hmp run --no-display` or for an entire "
+            "Python Project via `Project(..., no_display=True)`."
+        ),
+    )
+    on_error: Annotated[Literal["warn", "raise"], Profile.USER] = Field(
+        default="warn",
+        description=(
+            "Behaviour when a figure that IS applicable fails while rendering. "
+            "'warn' logs and continues (default, keeps a long run alive); "
+            "'raise' propagates, which is what example and CI configs want so "
+            "a broken figure cannot pass unnoticed."
         ),
     )
     overrides: Annotated[dict[str, dict], Profile.EXPERT] = Field(
@@ -162,15 +87,23 @@ class DisplayConfig(HydroModelBase):
             "(e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``)."
         ),
     )
-    flow: Annotated[DisplayFlowConfig, Profile.USER] = Field(
-        default_factory=DisplayFlowConfig,
-        description="Flow figure switches.",
-    )
-    particles: Annotated[DisplayParticlesConfig, Profile.USER] = Field(
-        default_factory=DisplayParticlesConfig,
-        description="Particle figure switches.",
-    )
-    transport: Annotated[DisplayTransportConfig, Profile.USER] = Field(
-        default_factory=DisplayTransportConfig,
-        description="Transport figure switches.",
-    )
+
+    @field_validator("figures", "overrides", mode="after")
+    @classmethod
+    def _validate_figure_names(cls, value, info):
+        """Reject figure names that are not in the registry.
+
+        Catching the typo here (config load) instead of at render time is
+        what makes a project TOML self-checking: `hmp config check` fails
+        loudly rather than a run silently producing one figure less.
+        """
+        from hydromodpy.display import figure_registry
+
+        known = set(figure_registry.names())
+        unknown = sorted(name for name in value if name not in known)
+        if unknown:
+            raise ValueError(
+                f"display.{info.field_name} references unknown figure(s): "
+                f"{', '.join(unknown)}. Registered figures: {', '.join(sorted(known))}"
+            )
+        return value

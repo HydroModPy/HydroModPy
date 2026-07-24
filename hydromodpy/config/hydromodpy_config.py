@@ -610,7 +610,10 @@ class HydroModPyConfig(HydroModelBase):
                 {},
                 lambda data, b: _load_data_section(data, b, workspace_data_dir=workspace_data_dir),
             ),
-            "flow": ({}, _load_flow_section),
+            "flow": (
+                {},
+                lambda data, b: _load_flow_section(data, b, workspace_data_dir=workspace_data_dir),
+            ),
             "transport": ({}, _std(TransportConfig)),
             "simulation": ({}, _std(SimulationConfig)),
             "solver": ({}, _std(SolverConfig)),

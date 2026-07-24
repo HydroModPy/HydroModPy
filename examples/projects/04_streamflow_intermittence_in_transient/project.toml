@@ -1,0 +1,182 @@
+# ======================================================================
+# HydroModPy - example 04: streamflow intermittence in transient
+# ----------------------------------------------------------------------
+# Nancon catchment (Brittany, EPSG:2154), extracted from the regional 75 m
+# DEM by outlet snapping. Monthly transient groundwater flow over three
+# years (2000-2002), solved with MODFLOW 6, forced by an observed monthly
+# recharge and runoff climatology.
+#
+# The theme is intermittence: as recharge swings between wet winters and
+# dry summers, the water table rises and falls, so the seepage cells and
+# the simulated active network expand and contract through the year. Render
+# the seepage map at a wet and a dry month (see run_manual.py) to see the
+# perennial vs intermittent parts of the network.
+#
+# Launch:
+#   hmp run examples/projects/04_streamflow_intermittence_in_transient/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "nancon_intermittence_mf6"
+description = "Nancon catchment, monthly transient 2000-2002, MODFLOW 6, seasonal seepage intermittence."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+domain_extent = "box"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+# Nancon gauging-station outlet, EPSG:2154.
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+compute_strahler_order = true
+compute_stream_links = true
+
+
+# ---------------------------------------------------------------------- domain
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+
+# ---------------------------------------------------------------------- data
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "recharge", "runoff"]
+inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+
+# Observed monthly recharge climatology for the Nancon (mm/day).
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON"]
+
+# Observed monthly runoff, added to the simulated baseflow to form the
+# total streamflow the discharge series reports.
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON"]
+
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+# Warm the heads up on the mean recharge before the transient starts.
+first_period_steady = true
+
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+# COMPLEX is the robust IMS preset for the transient Newton solve on the
+# buffered box (edge cells wet and dry as the water table swings); the outer
+# head-change criterion is relaxed to 1 cm, ample at catchment scale.
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-2
+
+[modflow6.sgrid.planar]
+mode = "keep_native"
+
+[modflow6.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 1
+
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true
+output_dir = "figures"
+on_error = "raise"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "simulated_active_network",
+    "hydrograph",
+    "flux_timeseries",
+    "cross_section",
+    "water_budget",
+]

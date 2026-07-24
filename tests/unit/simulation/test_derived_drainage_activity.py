@@ -114,7 +114,7 @@ def test_compute_derived_writes_positive_outflow_and_local_accumulation(
     sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=2)
     catalog.write_field(
         sim_id,
-        "drn",
+        "drain",
         0,
         np.array([[-2.0, 1.0, -0.5], [-3.0, -4.0, 2.0]]),
         n_timesteps=1,
@@ -298,7 +298,7 @@ def test_compute_derived_routes_accumulation_on_unstructured_mesh(
         sz.close()
     catalog.write_field(
         sim_id,
-        "drn",
+        "drain",
         0,
         np.array([[-2.5, 0.0]], dtype="float64"),
         n_timesteps=1,

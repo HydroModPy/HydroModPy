@@ -24,6 +24,7 @@ def point_in_cell(
     points: dict[str, tuple[float, float]],
     *,
     fill_value: int = -1,
+    warn_outside: bool = True,
 ) -> dict[str, int | None]:
     """Map observation points to mesh cell indices.
 
@@ -42,6 +43,11 @@ def point_in_cell(
         Mapping of station id to ``(x, y)`` coordinates.
     fill_value : int
         Padding value in *face_connectivity* (default -1).
+    warn_outside : bool
+        Emit a warning for each point outside the mesh. An observation
+        station outside the domain is a mistake worth reporting; a caller
+        that sweeps a regular line across the domain (a cross-section)
+        expects misses at both ends and turns this off.
 
     Returns
     -------
@@ -70,10 +76,11 @@ def point_in_cell(
         if len(idx) > 0:
             result[station_id] = int(idx[0])
         else:
-            warnings.warn(
-                f"Station '{station_id}' at ({px}, {py}) falls outside the mesh",
-                stacklevel=2,
-            )
+            if warn_outside:
+                warnings.warn(
+                    f"Station '{station_id}' at ({px}, {py}) falls outside the mesh",
+                    stacklevel=2,
+                )
             result[station_id] = None
 
     return result

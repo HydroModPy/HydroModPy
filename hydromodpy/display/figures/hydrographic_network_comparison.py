@@ -32,6 +32,15 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         default_figsize=(20.0, 5.8),
     )
 
+    def unavailable_reason(self, sim) -> str | None:
+        """Require both canonical networks: the figure compares them."""
+        missing = [
+            role for role in ("reference", "generated") if not sim.has_hydrographic_network(role)
+        ]
+        if missing:
+            return f"run has no {' and no '.join(missing)} hydrographic network"
+        return None
+
     def render(
         self,
         sim: Run,

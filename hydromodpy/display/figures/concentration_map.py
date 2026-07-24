@@ -2,22 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-import numpy as np
-
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.ugrid import last_timestep, render_face_field
-
-if TYPE_CHECKING:
-    from matplotlib.axes import Axes
-
-    from hydromodpy.results.run import Run
+from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 
 
 @register
-class ConcentrationMap(BaseFigure):
+class ConcentrationMap(ScalarFaceMap):
     """Per-cell solute concentration at one timestep."""
 
     spec = FigureSpec(
@@ -27,23 +18,5 @@ class ConcentrationMap(BaseFigure):
         required_fields=("concentration",),
         default_figsize=(7.0, 5.5),
     )
-
-    def render(
-        self,
-        sim: Run,
-        ax: Axes,
-        *,
-        timestep: int | None = None,
-        layer: int | None = None,
-        cmap: str = "plasma",
-        **_,
-    ) -> Axes:
-        ts = last_timestep(sim) if timestep is None else timestep
-        c = np.asarray(sim.field("concentration", timestep=ts, layer=layer))
-        if c.ndim == 2:
-            c = c[0]
-        render_face_field(ax, sim, c, cmap=cmap, cbar_label=self.axis_label_for("concentration"))
-        ax.set_title(f"Concentration - {sim.name or sim.sim_id}")
-        ax.set_xlabel("x (m)")
-        ax.set_ylabel("y (m)")
-        return ax
+    default_cmap = "plasma"
+    default_overlays = ("watershed",)

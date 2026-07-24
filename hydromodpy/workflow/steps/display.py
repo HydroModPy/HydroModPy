@@ -45,7 +45,11 @@ def _render_figures_tracked(
     output_dir: Path,
     figure_names: list[str],
 ) -> list[Path]:
-    """Render figures one at a time so the progress bar advances per figure."""
+    """Render figures one at a time so the progress bar advances per figure.
+
+    Individual figures log nothing on success (a skip or a per-figure failure
+    warning aside); this emits a single summary line for the whole batch.
+    """
     from hydromodpy.display.runs import render_figures_for_run
 
     written: list[Path] = []
@@ -57,6 +61,14 @@ def _render_figures_tracked(
                 output_dir=output_dir,
                 figure_names=[figure_name],
             )
+        )
+    requested = len(figure_names)
+    if requested:
+        logger.info(
+            "Rendered %d/%d figure(s) -> %s",
+            len(written),
+            requested,
+            output_dir,
         )
     return written
 

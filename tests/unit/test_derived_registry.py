@@ -74,14 +74,14 @@ def _make_zarr(
     if drn is not None:
         budget = sz.root["budget"]
         budget.create_array(
-            "drn",
+            "drain",
             shape=(n_timesteps, n_cells),
             chunks=(1, n_cells),
             dtype="float64",
             overwrite=True,
         )
         for t in range(n_timesteps):
-            budget["drn"][t, :] = drn[t]
+            budget["drain"][t, :] = drn[t]
 
     if surface_excess is not None:
         budget = sz.root["budget"]
