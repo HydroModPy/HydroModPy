@@ -1,0 +1,148 @@
+# ======================================================================
+# HydroModPy - example 05: piezometry in a coastal aquifer
+# ----------------------------------------------------------------------
+# Gouville coastal strip (Normandy, EPSG:2154). The model domain is a
+# polygon (model_area) over a 25 m coastal DEM. Steady groundwater flow
+# solved with MODFLOW 6, with a SEA boundary: every cell below mean sea
+# level is held at the sea level (a constant-head ocean boundary), so the
+# water table slopes from the inland recharge mound down to the shore.
+#
+# This is the coastal-piezometry case: the interplay of recharge inland
+# and a fixed sea level at the coast sets the water-table shape.
+#
+# Launch:
+#   hmp run examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "gouville_coastal_mf6"
+description = "Gouville coastal aquifer, steady MODFLOW 6, sea-level ocean boundary."
+if_exists = "replace"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+domain_extent = "box"
+
+[geographic.catchment]
+# The domain is a polygon (the coastal model area), not an outlet catchment.
+catch_def = "from_polyg_shp"
+dem_init_path = "DEM_gouville_25m.tif"
+polyg_shp_path = "gouville_model_area.shp"
+buff_area = "2%"
+
+
+# ---------------------------------------------------------------------- domain
+[domain]
+
+[domain.depth_model]
+# 20 m aquifer below the topography.
+kind = "constant_thickness"
+thickness = "20.0 m"
+
+
+# ---------------------------------------------------------------------- data
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "recharge"]
+inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_gouville_25m.tif"
+
+# Steady mean recharge over the coastal strip, mm/day.
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.0]
+runoff_ratio = 0.0
+
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+# Two boundaries: the sea (ocean, constant head at MSL on cells below sea
+# level) and hillslope drainage where the water table reaches the surface.
+active_bc = ["ocean", "drainage"]
+
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.1
+
+# Sea boundary: hold every cell whose land surface is at or below 0 m NGF
+# (French height datum, mean sea level) at the sea level.
+[flow.bc.dirichlet.ocean]
+id = "ocean"
+kind = "dirichlet"
+application_domain = "top"
+description = "Constant-head sea boundary at mean sea level."
+value = "0.0 m"
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+
+[modflow6.sgrid.planar]
+mode = "keep_native"
+
+[modflow6.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 1
+
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true
+output_dir = "figures"
+on_error = "raise"
+figures = [
+    "mesh_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "cross_section",
+    "water_budget",
+]
