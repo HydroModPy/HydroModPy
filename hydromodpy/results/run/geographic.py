@@ -133,7 +133,12 @@ class RunGeographicMixin:
         *,
         bbox: tuple[float, float, float, float] | None = None,
     ) -> np.ndarray:
-        """Read one field array from the simulation Zarr store.
+        """Read one field, persisted or recomputed on the fly.
+
+        Delegates to ``Catalog.query_field``, which falls back to the virtual
+        derivations (watertable elevation/depth, seepage mask, drain outflow)
+        when the field is not persisted. This keeps ``has_field`` honest: a
+        variable it reports as available always reads back as an array.
 
         Parameters
         ----------
@@ -153,35 +158,48 @@ class RunGeographicMixin:
         numpy.ndarray
             Field values for the requested time and layer selection.
         """
-        sz = self._catalog.open_zarr(self._sim_id)
+        n_ts = self._load_row().get("n_timesteps")
+        if n_ts is not None and timestep < 0:
+            timestep = n_ts + timestep
         try:
-            n_ts = self._load_row().get("n_timesteps")
-            if n_ts is not None and timestep < 0:
-                timestep = n_ts + timestep
-            try:
-                arr = sz.read_field(variable, timestep, layer=layer)
-            except KeyError as exc:
-                raise FieldNotFoundError(
-                    f"Field '{variable}' not found in simulation '{self._sim_id}'",
-                    sim_id=self._sim_id,
-                    variable=variable,
-                ) from exc
-        finally:
-            sz.close()
+            arr = self._catalog.query_field(self._sim_id, variable, timestep, layer=layer)
+        except KeyError as exc:
+            from hydromodpy.results.derive.config_flags import (
+                config_option_for,
+                enable_options_hint,
+            )
+
+            option = config_option_for(variable)
+            hint = "" if option is None else f" {enable_options_hint([option])}"
+            raise FieldNotFoundError(
+                f"Field '{variable}' not found in simulation '{self._sim_id}'.{hint}",
+                sim_id=self._sim_id,
+                variable=variable,
+            ) from exc
         if bbox is not None:
             arr = _apply_bbox_mask(self, arr, bbox)
         return arr
 
     def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
-        """Return true when a field array is persisted in this run's Zarr store."""
+        """Return true when a field is available for this run.
+
+        A field counts as available when it is persisted, or when it is a
+        virtual field this store can rebuild (watertable elevation/depth and
+        seepage mask from the stored head, drain outflow from the per-cell
+        budget), so figures find them even though ``results.derived.*`` is
+        off by default.
+        """
+        from hydromodpy.results.derive.virtual_fields import available_virtual_fields
+
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             if subgroup is not None:
                 group = sz.root.get(subgroup)
                 return group is not None and variable in group
             if field_registry.has(variable):
-                return lookup_zarr_path(sz.root, field_registry.get(variable).zarr_path) is not None
-            return any(
+                if lookup_zarr_path(sz.root, field_registry.get(variable).zarr_path) is not None:
+                    return True
+            elif any(
                 variable in group
                 for group in (
                     sz.root,
@@ -190,7 +208,9 @@ class RunGeographicMixin:
                     sz.root.get("mesh"),
                 )
                 if group is not None
-            )
+            ):
+                return True
+            return variable in available_virtual_fields(sz.root)
         finally:
             sz.close()
 

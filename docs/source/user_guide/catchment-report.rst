@@ -43,10 +43,11 @@ Run the configured simulation first, then rebuild context and HTML:
    hmp report catchment path/to/catchment_report.toml --run-simulation
 
 After the simulation command completes, the report pipeline checks that the
-expected ``exports/<simulation_name>/timeseries.csv`` file and
-``figures/<simulation_name>`` directory exist under the configured simulation
-workspace. If they do not, the report TOML and the simulation TOML are not
-pointing at the same run outputs.
+run named ``simulation_name`` is registered in the workspace catalog and that
+the ``figures/<simulation_name>`` directory exists under the configured
+simulation workspace. If they do not, the report TOML and the simulation TOML
+are not pointing at the same run outputs. The simulated discharge is read from
+the catalog, so no automated export has to be enabled.
 
 By default, logs from these optional ``hmp run`` steps are captured so the
 report command only prints the generated report paths. Use
@@ -54,7 +55,7 @@ report command only prints the generated report paths. Use
 
 Before executing the selected steps, the pipeline runs a preflight check on the
 resolved paths. It reports missing required execution inputs such as the
-simulation TOML, simulation export when context is rebuilt without rerunning the
+simulation TOML, the catalog run when context is rebuilt without rerunning the
 simulation, or the context summary in ``--report-only`` mode.
 
 After the final HTML is rendered, the pipeline writes
@@ -162,8 +163,8 @@ Optional ``[layout]`` fields:
      - Project directory used for overview/data figures when it differs from
        ``watershed_project_dir``.
    * - ``simulation_workspace_dir``
-     - Workspace holding simulation figures, exports, and parquet outputs when
-       it differs from ``watershed_project_dir``.
+     - Workspace holding the simulation catalog and figures when it differs
+       from ``watershed_project_dir``.
    * - ``simulation_name``
      - Simulation run name. Defaults to ``transient_nwt``.
    * - ``context_summary_name``
@@ -220,7 +221,7 @@ simulation even when ``run_simulation = true`` in the TOML.
 Observed discharge
 ------------------
 
-If observed discharge is available outside the simulation export, declare it in
+If observed discharge is available outside the simulated run, declare it in
 ``[context.observed_discharge]``:
 
 .. code-block:: toml

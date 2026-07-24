@@ -553,6 +553,11 @@ def read(
     - timeseries -> ``pd.Series``.
     - geographic feature -> ``gpd.GeoDataFrame``.
 
+    Every field a run reports through ``has_field`` reads back here. Fields
+    rebuilt on the fly (water-table elevation/depth, seepage mask, drain
+    outflow) are loaded eagerly rather than lazily, and ``time`` is ignored
+    for a field with no time dimension.
+
     To read by reference (id / unique prefix / name) instead of a ``Run``, use
     ``cat.read(ref, var)`` on a :class:`hydromodpy.catalog.Catalog`.
 

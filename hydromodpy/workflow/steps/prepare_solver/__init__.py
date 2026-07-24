@@ -79,10 +79,14 @@ class PrepareSolverStep:
                 ctx.execution.simulation_plan = SimulationPlanner().build(sim_cfg)
 
         if ctx.execution.simulation_plan is not None:
-            ctx.effective_results_config = step_configure_results(
+            reconciled = step_configure_results(
                 ctx.cfg.simulation.results,
                 ctx.execution.simulation_plan,
+                ctx.cfg.display,
+                display_active=not bool(state.get("skip_display")),
             )
+            ctx.effective_results_config = reconciled.config
+            ctx.forced_results_flags = reconciled.forced_flags
 
         if not ctx.execution.lightweight:
             step_open_store(ctx)

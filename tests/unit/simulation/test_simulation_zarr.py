@@ -46,8 +46,11 @@ def _make_mesh(n_cells=6):
 
 class TestCreate:
     def test_subgroups_exist(self, sz):
-        for name in ("meta", "mesh", "state", "derived", "budget", "particles", "forcing"):
+        for name in ("meta", "mesh", "state", "particles", "forcing"):
             assert name in sz.root
+        # derived / budget are opt-in and created on demand, not at init.
+        assert "derived" not in sz.root
+        assert "budget" not in sz.root
 
     def test_attrs(self, sz):
         assert sz.root.attrs["n_cells"] == 100

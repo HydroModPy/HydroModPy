@@ -364,10 +364,14 @@ def test_compose_acdd_bounds_wkt_empty_when_nan() -> None:
 
 
 def test_subgroups_created_at_init(fresh_store: SimulationZarr) -> None:
-    expected = {"meta", "mesh", "state", "derived", "budget", "particles", "forcing"}
+    # ``derived`` and ``budget`` are NOT pre-created: they are opt-in and appear
+    # only when a field is written to them.
+    expected = {"meta", "mesh", "state", "particles", "forcing"}
     actual = set(fresh_store.root.keys())
     # Subgroups are a subset; root may also have other arrays added later.
     assert expected.issubset(actual)
+    assert "derived" not in actual
+    assert "budget" not in actual
 
 
 def test_shard_trigger_constant_is_100_mib() -> None:

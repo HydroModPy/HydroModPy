@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,6 +10,8 @@ import pandas as pd
 import pytest
 
 from hydromodpy.cli._workers import viz as viz_worker
+from hydromodpy.core.logging import get_logger
+from hydromodpy.display.runs import FigureRenderReport, SkippedFigure
 from tests._helpers.cli_runner import CliRunner
 
 
@@ -128,14 +131,18 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
         *,
         output_dir: Path,
         figure_names: list[str] | None,
-    ) -> list[Path]:
+    ) -> FigureRenderReport:
         calls["render_request"] = {
             "sim": sim.name,
             "show": display_cfg.show,
             "output_dir": output_dir,
             "figure_names": figure_names,
         }
-        return [output_dir / "head.png", output_dir / "budget.png"]
+        return FigureRenderReport(
+            requested=("head", "budget"),
+            rendered=("head", "budget"),
+            written=(output_dir / "head.png", output_dir / "budget.png"),
+        )
 
     monkeypatch.setattr(
         "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
@@ -181,6 +188,80 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
         "figure_names": ["head", "budget"],
     }
     assert calls["closed"] is True
+
+
+def test_render_gallery_summarizes_a_figure_it_could_not_produce(monkeypatch, tmp_path) -> None:
+    # Same contract as the run path: the gallery never drops a requested
+    # figure without a visible line naming it and why.
+    config = tmp_path / "model.toml"
+    config.write_text("[display]\n", encoding="utf-8")
+
+    class FakeDisplayConfig:
+        show = True
+
+        @classmethod
+        def model_validate(cls, raw: dict[str, object]):
+            return cls()
+
+    class FakeCatalog:
+        def __init__(self, root: Path) -> None:
+            self.root = root
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            return None
+
+        def list_simulations(self, **kwargs: object) -> pd.DataFrame:
+            return pd.DataFrame({"sim_id": ["abcd1111"], "name": ["baseline"]})
+
+        def __getitem__(self, sim_id: str) -> SimpleNamespace:
+            return SimpleNamespace(name="baseline")
+
+    monkeypatch.setattr(
+        "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
+        lambda path: {"display": {}},
+    )
+    monkeypatch.setattr("hydromodpy.display.config.DisplayConfig", FakeDisplayConfig)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.resolve_run_output_dir",
+        lambda cfg, *, project_root, run_name, sim_id: project_root / "figures" / run_name,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.render_figures_for_run",
+        lambda sim, cfg, *, output_dir, figure_names: FigureRenderReport(
+            requested=("piezometric_map", "calibration_convergence"),
+            rendered=("piezometric_map",),
+            written=(output_dir / "piezometric_map.png",),
+            skipped=(
+                SkippedFigure(
+                    name="calibration_convergence",
+                    reason="missing catalog table(s): calibration_trials",
+                ),
+            ),
+        ),
+    )
+
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    summary_logger = get_logger("hydromodpy.display.runs")
+    summary_logger.addHandler(handler)
+    try:
+        paths = viz_worker.render_gallery(config, no_show=True)
+    finally:
+        summary_logger.removeHandler(handler)
+
+    assert paths == [tmp_path / "figures" / "baseline" / "piezometric_map.png"]
+    summaries = [r for r in records if "figure(s)" in r.getMessage()]
+    assert [r.levelname for r in summaries] == ["WARNING"]
+    assert summaries[0].getMessage().startswith("Rendered 1/2 figure(s)")
+    assert (
+        "1 skipped: calibration_convergence (missing catalog table(s): calibration_trials)"
+        in summaries[0].getMessage()
+    )
 
 
 def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> None:

@@ -408,6 +408,10 @@ class SimulationZarr:
         """Consolidate Zarr metadata into a single ``.zmetadata`` entry."""
         zarr_finalizer.consolidate_metadata(self._store, self._path)
 
+    def drop_group(self, name: str) -> int:
+        """Delete a top-level group; returns the bytes freed on disk."""
+        return zarr_finalizer.drop_group(self, name)
+
     def pack_to_zip(self) -> Path:
         """Compact the directory-based Zarr store into a ``.zarr.zip`` file."""
         return zarr_finalizer.pack_to_zip(self)

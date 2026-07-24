@@ -8,6 +8,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.derive.virtual_fields import derive_field_slice
 from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
@@ -74,14 +75,17 @@ def export_vtu(
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
 
-        # Read field data
+        # Read field data (rebuilt on the fly when it was never persisted).
         arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-        if arr is None:
-            raise KeyError(
-                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
-                f"not found for sim={sim_id}"
-            )
-        data = arr[timestep]
+        if arr is not None:
+            data = arr[timestep]
+        else:
+            data = derive_field_slice(sz, str(sim_id), variable, timestep)
+            if data is None:
+                raise KeyError(
+                    f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                    f"not found for sim={sim_id}"
+                )
     finally:
         sz.close()
 

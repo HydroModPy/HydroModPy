@@ -125,97 +125,101 @@
 <g id="node4" class="node">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig</title>
 <g id="a_node4"><a xlink:title="hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#10;&#10;Top&#45;level launcher contract for one mono&#45;catchment meshing run.&#10;">
-<polygon fill="none" stroke="black" points="0,-1453.25 0,-1475.75 1423.5,-1475.75 1423.5,-1453.25 0,-1453.25"/>
-<text xml:space="preserve" text-anchor="start" x="643.88" y="-1460.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">MeshCatchmentConfig</text>
-<polygon fill="none" stroke="black" points="0,-1430.75 0,-1453.25 150,-1453.25 150,-1430.75 0,-1430.75"/>
-<text xml:space="preserve" text-anchor="start" x="27" y="-1436.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">constraints_mode</text>
-<polygon fill="none" stroke="black" points="150,-1430.75 150,-1453.25 1423.5,-1453.25 1423.5,-1430.75 150,-1430.75"/>
-<text xml:space="preserve" text-anchor="start" x="641.62" y="-1436.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;geology_only&#39;, &#39;rivers_only&#39;, &#39;geology_rivers&#39;]</text>
-<polygon fill="none" stroke="black" points="0,-1408.25 0,-1430.75 150,-1430.75 150,-1408.25 0,-1408.25"/>
-<text xml:space="preserve" text-anchor="start" x="39.75" y="-1414.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_mesh</text>
-<polygon fill="none" stroke="black" points="150,-1408.25 150,-1430.75 1423.5,-1430.75 1423.5,-1408.25 150,-1408.25"/>
-<text xml:space="preserve" text-anchor="start" x="751.88" y="-1414.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
-<polygon fill="none" stroke="black" points="0,-1385.75 0,-1408.25 150,-1408.25 150,-1385.75 0,-1385.75"/>
-<text xml:space="preserve" text-anchor="start" x="13.88" y="-1391.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_summary_json</text>
-<polygon fill="none" stroke="black" points="150,-1385.75 150,-1408.25 1423.5,-1408.25 1423.5,-1385.75 150,-1385.75"/>
-<text xml:space="preserve" text-anchor="start" x="751.88" y="-1391.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
-<polygon fill="none" stroke="black" points="0,-1363.25 0,-1385.75 150,-1385.75 150,-1363.25 0,-1363.25"/>
-<text xml:space="preserve" text-anchor="start" x="38.25" y="-1369.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_figure</text>
-<polygon fill="none" stroke="black" points="150,-1363.25 150,-1385.75 1423.5,-1385.75 1423.5,-1363.25 150,-1363.25"/>
-<text xml:space="preserve" text-anchor="start" x="751.88" y="-1369.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
-<polygon fill="none" stroke="black" points="0,-1340.75 0,-1363.25 150,-1363.25 150,-1340.75 0,-1340.75"/>
-<text xml:space="preserve" text-anchor="start" x="12.75" y="-1346.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_figure_regional</text>
-<polygon fill="none" stroke="black" points="150,-1340.75 150,-1363.25 1423.5,-1363.25 1423.5,-1340.75 150,-1340.75"/>
-<text xml:space="preserve" text-anchor="start" x="751.88" y="-1346.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
-<polygon fill="none" stroke="black" points="0,-1318.25 0,-1340.75 150,-1340.75 150,-1318.25 0,-1318.25"/>
-<text xml:space="preserve" text-anchor="start" x="31.88" y="-1324.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">figures_enabled</text>
-<polygon fill="none" stroke="black" points="150,-1318.25 150,-1340.75 1423.5,-1340.75 1423.5,-1318.25 150,-1318.25"/>
-<text xml:space="preserve" text-anchor="start" x="774.75" y="-1324.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-1295.75 0,-1318.25 150,-1318.25 150,-1295.75 0,-1295.75"/>
-<text xml:space="preserve" text-anchor="start" x="7.12" y="-1301.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">export_exchange_bundle</text>
-<polygon fill="none" stroke="black" points="150,-1295.75 150,-1318.25 1423.5,-1318.25 1423.5,-1295.75 150,-1295.75"/>
-<text xml:space="preserve" text-anchor="start" x="774.75" y="-1301.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-1273.25 0,-1295.75 150,-1295.75 150,-1273.25 0,-1273.25"/>
-<text xml:space="preserve" text-anchor="start" x="46.88" y="-1279.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">figure_dpi</text>
-<polygon fill="none" stroke="black" points="150,-1273.25 150,-1295.75 1423.5,-1295.75 1423.5,-1273.25 150,-1273.25"/>
-<text xml:space="preserve" text-anchor="start" x="779.62" y="-1279.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="0,-1250.75 0,-1273.25 150,-1273.25 150,-1250.75 0,-1250.75"/>
-<text xml:space="preserve" text-anchor="start" x="21.38" y="-1256.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">figure_regional_dpi</text>
-<polygon fill="none" stroke="black" points="150,-1250.75 150,-1273.25 1423.5,-1273.25 1423.5,-1250.75 150,-1250.75"/>
-<text xml:space="preserve" text-anchor="start" x="779.62" y="-1256.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="0,-1228.25 0,-1250.75 150,-1250.75 150,-1228.25 0,-1228.25"/>
-<text xml:space="preserve" text-anchor="start" x="37.5" y="-1234.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_layout</text>
-<polygon fill="none" stroke="black" points="150,-1228.25 150,-1250.75 1423.5,-1250.75 1423.5,-1228.25 150,-1228.25"/>
-<text xml:space="preserve" text-anchor="start" x="724.12" y="-1234.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;standard&#39;, &#39;flat&#39;]</text>
-<polygon fill="none" stroke="black" points="0,-1205.75 0,-1228.25 150,-1228.25 150,-1205.75 0,-1205.75"/>
-<text xml:space="preserve" text-anchor="start" x="46.88" y="-1211.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">show_plot</text>
-<polygon fill="none" stroke="black" points="150,-1205.75 150,-1228.25 1423.5,-1228.25 1423.5,-1205.75 150,-1205.75"/>
-<text xml:space="preserve" text-anchor="start" x="774.75" y="-1211.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-1183.25 0,-1205.75 150,-1205.75 150,-1183.25 0,-1183.25"/>
-<text xml:space="preserve" text-anchor="start" x="3" y="-1189.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">geographic_outputs_mode</text>
-<polygon fill="none" stroke="black" points="150,-1183.25 150,-1205.75 1423.5,-1205.75 1423.5,-1183.25 150,-1183.25"/>
-<text xml:space="preserve" text-anchor="start" x="722.25" y="-1189.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;keep&#39;, &#39;cleanup&#39;]</text>
-<polygon fill="none" stroke="black" points="0,-1160.75 0,-1183.25 150,-1183.25 150,-1160.75 0,-1160.75"/>
-<text xml:space="preserve" text-anchor="start" x="59.62" y="-1166.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">rivers</text>
-<polygon fill="none" stroke="black" points="150,-1160.75 150,-1183.25 1423.5,-1183.25 1423.5,-1160.75 150,-1160.75"/>
-<text xml:space="preserve" text-anchor="start" x="705.38" y="-1166.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">MeshCatchmentRiversConfig</text>
-<polygon fill="none" stroke="black" points="0,-1138.25 0,-1160.75 150,-1160.75 150,-1138.25 0,-1138.25"/>
-<text xml:space="preserve" text-anchor="start" x="53.25" y="-1144.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">geology</text>
-<polygon fill="none" stroke="black" points="150,-1138.25 150,-1160.75 1423.5,-1160.75 1423.5,-1138.25 150,-1138.25"/>
-<text xml:space="preserve" text-anchor="start" x="730.88" y="-1144.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, Any] | None</text>
-<polygon fill="none" stroke="black" points="0,-1115.75 0,-1138.25 150,-1138.25 150,-1115.75 0,-1115.75"/>
-<text xml:space="preserve" text-anchor="start" x="18.75" y="-1121.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">watershed_boundary</text>
-<polygon fill="none" stroke="black" points="150,-1115.75 150,-1138.25 1423.5,-1138.25 1423.5,-1115.75 150,-1115.75"/>
-<text xml:space="preserve" text-anchor="start" x="667.88" y="-1121.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">MeshCatchmentWatershedBoundaryConfig</text>
-<polygon fill="none" stroke="black" points="0,-1093.25 0,-1115.75 150,-1115.75 150,-1093.25 0,-1093.25"/>
-<text xml:space="preserve" text-anchor="start" x="19.12" y="-1099.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">hydraulic_properties</text>
-<polygon fill="none" stroke="black" points="150,-1093.25 150,-1115.75 1423.5,-1115.75 1423.5,-1093.25 150,-1093.25"/>
-<text xml:space="preserve" text-anchor="start" x="648.75" y="-1099.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">MeshCatchmentHydraulicPropertiesConfig | None</text>
-<polygon fill="none" stroke="black" points="0,-1070.75 0,-1093.25 150,-1093.25 150,-1070.75 0,-1070.75"/>
-<text xml:space="preserve" text-anchor="start" x="54.38" y="-1076.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">domain</text>
-<polygon fill="none" stroke="black" points="150,-1070.75 150,-1093.25 1423.5,-1093.25 1423.5,-1070.75 150,-1070.75"/>
-<text xml:space="preserve" text-anchor="start" x="153" y="-1076.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ZoneMeshingDomainBBox | ZoneMeshingDomainPolygon | ZoneMeshingDomainVector | ZoneMeshingDomainGeographicBoxBuffer | ZoneMeshingDomainGeographicWatershed | ZoneMeshingDomainGeographicWatershedBox</text>
-<polygon fill="none" stroke="black" points="0,-1048.25 0,-1070.75 150,-1070.75 150,-1048.25 0,-1048.25"/>
-<text xml:space="preserve" text-anchor="start" x="35.62" y="-1054.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">zone_meshing</text>
-<polygon fill="none" stroke="black" points="150,-1048.25 150,-1070.75 1423.5,-1070.75 1423.5,-1048.25 150,-1048.25"/>
-<text xml:space="preserve" text-anchor="start" x="727.12" y="-1054.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ZoneMeshingSettings</text>
-<polygon fill="none" stroke="black" points="0,-1025.75 0,-1048.25 150,-1048.25 150,-1025.75 0,-1025.75"/>
-<text xml:space="preserve" text-anchor="start" x="30.75" y="-1031.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">lake_refinement</text>
-<polygon fill="none" stroke="black" points="150,-1025.75 150,-1048.25 1423.5,-1048.25 1423.5,-1025.75 150,-1025.75"/>
-<text xml:space="preserve" text-anchor="start" x="722.62" y="-1031.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">LakeRefinementConfig</text>
-<polygon fill="none" stroke="black" points="0,-1003.25 0,-1025.75 150,-1025.75 150,-1003.25 0,-1003.25"/>
-<text xml:space="preserve" text-anchor="start" x="29.25" y="-1009.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">refinement_zone</text>
-<polygon fill="none" stroke="black" points="150,-1003.25 150,-1025.75 1423.5,-1025.75 1423.5,-1003.25 150,-1003.25"/>
-<text xml:space="preserve" text-anchor="start" x="709.5" y="-1009.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[RefinementZoneConfig]</text>
+<polygon fill="none" stroke="black" points="0,-1476.5 0,-1499 1423.5,-1499 1423.5,-1476.5 0,-1476.5"/>
+<text xml:space="preserve" text-anchor="start" x="643.88" y="-1483.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">MeshCatchmentConfig</text>
+<polygon fill="none" stroke="black" points="0,-1454 0,-1476.5 150,-1476.5 150,-1454 0,-1454"/>
+<text xml:space="preserve" text-anchor="start" x="27" y="-1460.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">constraints_mode</text>
+<polygon fill="none" stroke="black" points="150,-1454 150,-1476.5 1423.5,-1476.5 1423.5,-1454 150,-1454"/>
+<text xml:space="preserve" text-anchor="start" x="641.62" y="-1460.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;geology_only&#39;, &#39;rivers_only&#39;, &#39;geology_rivers&#39;]</text>
+<polygon fill="none" stroke="black" points="0,-1431.5 0,-1454 150,-1454 150,-1431.5 0,-1431.5"/>
+<text xml:space="preserve" text-anchor="start" x="39.75" y="-1437.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_mesh</text>
+<polygon fill="none" stroke="black" points="150,-1431.5 150,-1454 1423.5,-1454 1423.5,-1431.5 150,-1431.5"/>
+<text xml:space="preserve" text-anchor="start" x="751.88" y="-1437.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
+<polygon fill="none" stroke="black" points="0,-1409 0,-1431.5 150,-1431.5 150,-1409 0,-1409"/>
+<text xml:space="preserve" text-anchor="start" x="13.88" y="-1415.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_summary_json</text>
+<polygon fill="none" stroke="black" points="150,-1409 150,-1431.5 1423.5,-1431.5 1423.5,-1409 150,-1409"/>
+<text xml:space="preserve" text-anchor="start" x="751.88" y="-1415.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
+<polygon fill="none" stroke="black" points="0,-1386.5 0,-1409 150,-1409 150,-1386.5 0,-1386.5"/>
+<text xml:space="preserve" text-anchor="start" x="38.25" y="-1392.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_figure</text>
+<polygon fill="none" stroke="black" points="150,-1386.5 150,-1409 1423.5,-1409 1423.5,-1386.5 150,-1386.5"/>
+<text xml:space="preserve" text-anchor="start" x="751.88" y="-1392.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
+<polygon fill="none" stroke="black" points="0,-1364 0,-1386.5 150,-1386.5 150,-1364 0,-1364"/>
+<text xml:space="preserve" text-anchor="start" x="12.75" y="-1370.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_figure_regional</text>
+<polygon fill="none" stroke="black" points="150,-1364 150,-1386.5 1423.5,-1386.5 1423.5,-1364 150,-1364"/>
+<text xml:space="preserve" text-anchor="start" x="751.88" y="-1370.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
+<polygon fill="none" stroke="black" points="0,-1341.5 0,-1364 150,-1364 150,-1341.5 0,-1341.5"/>
+<text xml:space="preserve" text-anchor="start" x="31.88" y="-1347.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">figures_enabled</text>
+<polygon fill="none" stroke="black" points="150,-1341.5 150,-1364 1423.5,-1364 1423.5,-1341.5 150,-1341.5"/>
+<text xml:space="preserve" text-anchor="start" x="774.75" y="-1347.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-1319 0,-1341.5 150,-1341.5 150,-1319 0,-1319"/>
+<text xml:space="preserve" text-anchor="start" x="7.12" y="-1325.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">export_exchange_bundle</text>
+<polygon fill="none" stroke="black" points="150,-1319 150,-1341.5 1423.5,-1341.5 1423.5,-1319 150,-1319"/>
+<text xml:space="preserve" text-anchor="start" x="774.75" y="-1325.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-1296.5 0,-1319 150,-1319 150,-1296.5 0,-1296.5"/>
+<text xml:space="preserve" text-anchor="start" x="59.62" y="-1302.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">cache</text>
+<polygon fill="none" stroke="black" points="150,-1296.5 150,-1319 1423.5,-1319 1423.5,-1296.5 150,-1296.5"/>
+<text xml:space="preserve" text-anchor="start" x="774.75" y="-1302.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-1274 0,-1296.5 150,-1296.5 150,-1274 0,-1274"/>
+<text xml:space="preserve" text-anchor="start" x="46.88" y="-1280.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">figure_dpi</text>
+<polygon fill="none" stroke="black" points="150,-1274 150,-1296.5 1423.5,-1296.5 1423.5,-1274 150,-1274"/>
+<text xml:space="preserve" text-anchor="start" x="779.62" y="-1280.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="0,-1251.5 0,-1274 150,-1274 150,-1251.5 0,-1251.5"/>
+<text xml:space="preserve" text-anchor="start" x="21.38" y="-1257.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">figure_regional_dpi</text>
+<polygon fill="none" stroke="black" points="150,-1251.5 150,-1274 1423.5,-1274 1423.5,-1251.5 150,-1251.5"/>
+<text xml:space="preserve" text-anchor="start" x="779.62" y="-1257.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="0,-1229 0,-1251.5 150,-1251.5 150,-1229 0,-1229"/>
+<text xml:space="preserve" text-anchor="start" x="37.5" y="-1235.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_layout</text>
+<polygon fill="none" stroke="black" points="150,-1229 150,-1251.5 1423.5,-1251.5 1423.5,-1229 150,-1229"/>
+<text xml:space="preserve" text-anchor="start" x="724.12" y="-1235.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;standard&#39;, &#39;flat&#39;]</text>
+<polygon fill="none" stroke="black" points="0,-1206.5 0,-1229 150,-1229 150,-1206.5 0,-1206.5"/>
+<text xml:space="preserve" text-anchor="start" x="46.88" y="-1212.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">show_plot</text>
+<polygon fill="none" stroke="black" points="150,-1206.5 150,-1229 1423.5,-1229 1423.5,-1206.5 150,-1206.5"/>
+<text xml:space="preserve" text-anchor="start" x="774.75" y="-1212.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-1184 0,-1206.5 150,-1206.5 150,-1184 0,-1184"/>
+<text xml:space="preserve" text-anchor="start" x="3" y="-1190.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">geographic_outputs_mode</text>
+<polygon fill="none" stroke="black" points="150,-1184 150,-1206.5 1423.5,-1206.5 1423.5,-1184 150,-1184"/>
+<text xml:space="preserve" text-anchor="start" x="722.25" y="-1190.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;keep&#39;, &#39;cleanup&#39;]</text>
+<polygon fill="none" stroke="black" points="0,-1161.5 0,-1184 150,-1184 150,-1161.5 0,-1161.5"/>
+<text xml:space="preserve" text-anchor="start" x="59.62" y="-1167.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">rivers</text>
+<polygon fill="none" stroke="black" points="150,-1161.5 150,-1184 1423.5,-1184 1423.5,-1161.5 150,-1161.5"/>
+<text xml:space="preserve" text-anchor="start" x="705.38" y="-1167.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">MeshCatchmentRiversConfig</text>
+<polygon fill="none" stroke="black" points="0,-1139 0,-1161.5 150,-1161.5 150,-1139 0,-1139"/>
+<text xml:space="preserve" text-anchor="start" x="53.25" y="-1145.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">geology</text>
+<polygon fill="none" stroke="black" points="150,-1139 150,-1161.5 1423.5,-1161.5 1423.5,-1139 150,-1139"/>
+<text xml:space="preserve" text-anchor="start" x="730.88" y="-1145.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, Any] | None</text>
+<polygon fill="none" stroke="black" points="0,-1116.5 0,-1139 150,-1139 150,-1116.5 0,-1116.5"/>
+<text xml:space="preserve" text-anchor="start" x="18.75" y="-1122.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">watershed_boundary</text>
+<polygon fill="none" stroke="black" points="150,-1116.5 150,-1139 1423.5,-1139 1423.5,-1116.5 150,-1116.5"/>
+<text xml:space="preserve" text-anchor="start" x="667.88" y="-1122.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">MeshCatchmentWatershedBoundaryConfig</text>
+<polygon fill="none" stroke="black" points="0,-1094 0,-1116.5 150,-1116.5 150,-1094 0,-1094"/>
+<text xml:space="preserve" text-anchor="start" x="19.12" y="-1100.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">hydraulic_properties</text>
+<polygon fill="none" stroke="black" points="150,-1094 150,-1116.5 1423.5,-1116.5 1423.5,-1094 150,-1094"/>
+<text xml:space="preserve" text-anchor="start" x="648.75" y="-1100.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">MeshCatchmentHydraulicPropertiesConfig | None</text>
+<polygon fill="none" stroke="black" points="0,-1071.5 0,-1094 150,-1094 150,-1071.5 0,-1071.5"/>
+<text xml:space="preserve" text-anchor="start" x="54.38" y="-1077.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">domain</text>
+<polygon fill="none" stroke="black" points="150,-1071.5 150,-1094 1423.5,-1094 1423.5,-1071.5 150,-1071.5"/>
+<text xml:space="preserve" text-anchor="start" x="153" y="-1077.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ZoneMeshingDomainBBox | ZoneMeshingDomainPolygon | ZoneMeshingDomainVector | ZoneMeshingDomainGeographicBoxBuffer | ZoneMeshingDomainGeographicWatershed | ZoneMeshingDomainGeographicWatershedBox</text>
+<polygon fill="none" stroke="black" points="0,-1049 0,-1071.5 150,-1071.5 150,-1049 0,-1049"/>
+<text xml:space="preserve" text-anchor="start" x="35.62" y="-1055.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">zone_meshing</text>
+<polygon fill="none" stroke="black" points="150,-1049 150,-1071.5 1423.5,-1071.5 1423.5,-1049 150,-1049"/>
+<text xml:space="preserve" text-anchor="start" x="727.12" y="-1055.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ZoneMeshingSettings</text>
+<polygon fill="none" stroke="black" points="0,-1026.5 0,-1049 150,-1049 150,-1026.5 0,-1026.5"/>
+<text xml:space="preserve" text-anchor="start" x="30.75" y="-1032.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">lake_refinement</text>
+<polygon fill="none" stroke="black" points="150,-1026.5 150,-1049 1423.5,-1049 1423.5,-1026.5 150,-1026.5"/>
+<text xml:space="preserve" text-anchor="start" x="722.62" y="-1032.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">LakeRefinementConfig</text>
+<polygon fill="none" stroke="black" points="0,-1004 0,-1026.5 150,-1026.5 150,-1004 0,-1004"/>
+<text xml:space="preserve" text-anchor="start" x="29.25" y="-1010.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">refinement_zone</text>
+<polygon fill="none" stroke="black" points="150,-1004 150,-1026.5 1423.5,-1026.5 1423.5,-1004 150,-1004"/>
+<text xml:space="preserve" text-anchor="start" x="709.5" y="-1010.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[RefinementZoneConfig]</text>
 </a>
 </g>
 </g>
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.config.hydraulic.MeshCatchmentHydraulicPropertiesConfig -->
 <g id="edge3" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.config.hydraulic.MeshCatchmentHydraulicPropertiesConfig:w</title>
-<path fill="none" stroke="black" d="M1433.44,-1104.96C1566.44,-1117.69 1443.03,-1391.69 1569.64,-1410.94"/>
-<polyline fill="none" stroke="black" points="1423.5,-1104.5 1428.49,-1104.73"/>
-<polyline fill="none" stroke="black" points="1428.49,-1104.73 1433.49,-1104.96"/>
+<path fill="none" stroke="black" d="M1433.43,-1105.71C1566.18,-1118.41 1443.28,-1391.74 1569.67,-1410.94"/>
+<polyline fill="none" stroke="black" points="1423.5,-1105.25 1428.49,-1105.48"/>
+<polyline fill="none" stroke="black" points="1428.49,-1105.48 1433.49,-1105.71"/>
 <polyline fill="none" stroke="black" points="1584.5,-1412 1579.51,-1411.64"/>
 <polygon fill="black" stroke="black" points="1578.87,-1406.58 1578.16,-1416.56 1576.16,-1416.42 1576.88,-1406.44 1578.87,-1406.58"/>
 <polyline fill="none" stroke="black" points="1579.51,-1411.64 1574.53,-1411.29"/>
@@ -254,9 +258,9 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.config.rivers.MeshCatchmentRiversConfig -->
 <g id="edge4" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.config.rivers.MeshCatchmentRiversConfig:w</title>
-<path fill="none" stroke="black" d="M1433.46,-1172.21C1624.12,-1180.6 1457.17,-1434.7 1531.5,-1623.5 1555.97,-1685.65 1541.86,-1753.79 1596.88,-1763.56"/>
-<polyline fill="none" stroke="black" points="1423.5,-1172 1428.5,-1172.11"/>
-<polyline fill="none" stroke="black" points="1428.5,-1172.11 1433.5,-1172.21"/>
+<path fill="none" stroke="black" d="M1433.45,-1172.96C1623.81,-1181.33 1457.25,-1435.01 1531.5,-1623.5 1555.98,-1685.65 1541.86,-1753.79 1596.88,-1763.56"/>
+<polyline fill="none" stroke="black" points="1423.5,-1172.75 1428.5,-1172.86"/>
+<polyline fill="none" stroke="black" points="1428.5,-1172.86 1433.5,-1172.96"/>
 <polyline fill="none" stroke="black" points="1611.5,-1764.75 1606.52,-1764.34"/>
 <polygon fill="black" stroke="black" points="1605.93,-1759.28 1605.11,-1769.25 1603.12,-1769.08 1603.93,-1759.12 1605.93,-1759.28"/>
 <polyline fill="none" stroke="black" points="1606.52,-1764.34 1601.53,-1763.94"/>
@@ -295,14 +299,14 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.config.watershed.MeshCatchmentWatershedBoundaryConfig -->
 <g id="edge5" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.config.watershed.MeshCatchmentWatershedBoundaryConfig:w</title>
-<path fill="none" stroke="black" d="M1433.38,-1127.36C1621.52,-1141.56 1336.85,-1571.52 1516.79,-1592.92"/>
-<polyline fill="none" stroke="black" points="1423.5,-1127 1428.5,-1127.18"/>
-<polyline fill="none" stroke="black" points="1428.5,-1127.18 1433.49,-1127.36"/>
-<polyline fill="none" stroke="black" points="1531.5,-1593.75 1526.51,-1593.47"/>
-<polygon fill="black" stroke="black" points="1525.79,-1588.42 1525.23,-1598.41 1523.23,-1598.29 1523.79,-1588.31 1525.79,-1588.42"/>
-<polyline fill="none" stroke="black" points="1526.51,-1593.47 1521.52,-1593.19"/>
-<polygon fill="black" stroke="black" points="1520.8,-1588.14 1520.24,-1598.12 1518.24,-1598.01 1518.8,-1588.03 1520.8,-1588.14"/>
-<polyline fill="none" stroke="black" points="1521.52,-1593.19 1516.52,-1592.91"/>
+<path fill="none" stroke="black" d="M1433.37,-1128.11C1621.12,-1142.28 1337.43,-1571.12 1516.54,-1592.89"/>
+<polyline fill="none" stroke="black" points="1423.5,-1127.75 1428.5,-1127.93"/>
+<polyline fill="none" stroke="black" points="1428.5,-1127.93 1433.49,-1128.11"/>
+<polyline fill="none" stroke="black" points="1531.5,-1593.75 1526.51,-1593.46"/>
+<polygon fill="black" stroke="black" points="1525.8,-1588.41 1525.22,-1598.4 1523.23,-1598.28 1523.8,-1588.3 1525.8,-1588.41"/>
+<polyline fill="none" stroke="black" points="1526.51,-1593.46 1521.52,-1593.18"/>
+<polygon fill="black" stroke="black" points="1520.8,-1588.13 1520.23,-1598.11 1518.23,-1598 1518.81,-1588.01 1520.8,-1588.13"/>
+<polyline fill="none" stroke="black" points="1521.52,-1593.18 1516.52,-1592.89"/>
 </g>
 <!-- hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainBBox -->
 <g id="node7" class="node">
@@ -324,9 +328,9 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainBBox -->
 <g id="edge6" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainBBox:w</title>
-<path fill="none" stroke="black" d="M1433.12,-1082.49C1503.55,-1090.06 1470.44,-1183.36 1531.5,-1234.5 1586.27,-1280.38 1607.93,-1304.57 1672.65,-1307.66"/>
-<polyline fill="none" stroke="black" points="1423.5,-1082 1428.49,-1082.25"/>
-<polyline fill="none" stroke="black" points="1428.49,-1082.25 1433.49,-1082.51"/>
+<path fill="none" stroke="black" d="M1433.09,-1083.24C1503.31,-1090.77 1470.58,-1183.59 1531.5,-1234.5 1586.33,-1280.32 1607.94,-1304.56 1672.65,-1307.66"/>
+<polyline fill="none" stroke="black" points="1423.5,-1082.75 1428.49,-1083"/>
+<polyline fill="none" stroke="black" points="1428.49,-1083 1433.49,-1083.26"/>
 <polyline fill="none" stroke="black" points="1687.62,-1308 1682.63,-1307.89"/>
 <polygon fill="black" stroke="black" points="1681.74,-1302.86 1681.51,-1312.86 1679.51,-1312.82 1679.74,-1302.82 1681.74,-1302.86"/>
 <polyline fill="none" stroke="black" points="1682.63,-1307.89 1677.63,-1307.77"/>
@@ -349,13 +353,13 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicBoxBuffer -->
 <g id="edge7" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicBoxBuffer:w</title>
-<path fill="none" stroke="black" d="M1433.35,-1082.46C1481.29,-1087.17 1484.42,-1126.89 1531.5,-1153.5 1572.98,-1176.94 1584.09,-1199.63 1624.38,-1204"/>
-<polyline fill="none" stroke="black" points="1423.5,-1082 1428.49,-1082.23"/>
-<polyline fill="none" stroke="black" points="1428.49,-1082.23 1433.49,-1082.47"/>
+<path fill="none" stroke="black" d="M1433.32,-1083.21C1481.14,-1087.86 1484.5,-1127.09 1531.5,-1153.5 1573.04,-1176.84 1584.11,-1199.61 1624.38,-1203.99"/>
+<polyline fill="none" stroke="black" points="1423.5,-1082.75 1428.49,-1082.98"/>
+<polyline fill="none" stroke="black" points="1428.49,-1082.98 1433.49,-1083.21"/>
 <polyline fill="none" stroke="black" points="1639.25,-1204.75 1634.26,-1204.5"/>
 <polygon fill="black" stroke="black" points="1633.51,-1199.45 1633,-1209.44 1631.01,-1209.34 1631.51,-1199.35 1633.51,-1199.45"/>
 <polyline fill="none" stroke="black" points="1634.26,-1204.5 1629.26,-1204.24"/>
-<polygon fill="black" stroke="black" points="1628.52,-1199.2 1628.01,-1209.19 1626.01,-1209.09 1626.52,-1199.1 1628.52,-1199.2"/>
+<polygon fill="black" stroke="black" points="1628.52,-1199.2 1628.01,-1209.18 1626.01,-1209.08 1626.52,-1199.1 1628.52,-1199.2"/>
 <polyline fill="none" stroke="black" points="1629.26,-1204.24 1624.27,-1203.99"/>
 </g>
 <!-- hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicWatershed -->
@@ -374,14 +378,14 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicWatershed -->
 <g id="edge8" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicWatershed:w</title>
-<path fill="none" stroke="black" d="M1433.45,-1082.15C1517.1,-1084.73 1541.48,-1119.54 1622.76,-1123.4"/>
-<polyline fill="none" stroke="black" points="1423.5,-1082 1428.5,-1082.08"/>
-<polyline fill="none" stroke="black" points="1428.5,-1082.08 1433.5,-1082.15"/>
-<polyline fill="none" stroke="black" points="1637.75,-1123.75 1632.75,-1123.63"/>
-<polygon fill="black" stroke="black" points="1631.87,-1118.61 1631.64,-1128.61 1629.64,-1128.56 1629.87,-1118.57 1631.87,-1118.61"/>
-<polyline fill="none" stroke="black" points="1632.75,-1123.63 1627.75,-1123.52"/>
-<polygon fill="black" stroke="black" points="1626.87,-1118.5 1626.64,-1128.49 1624.64,-1128.45 1624.87,-1118.45 1626.87,-1118.5"/>
-<polyline fill="none" stroke="black" points="1627.75,-1123.52 1622.75,-1123.4"/>
+<path fill="none" stroke="black" d="M1433.45,-1082.9C1517.05,-1085.43 1541.53,-1119.61 1622.77,-1123.41"/>
+<polyline fill="none" stroke="black" points="1423.5,-1082.75 1428.5,-1082.82"/>
+<polyline fill="none" stroke="black" points="1428.5,-1082.82 1433.5,-1082.9"/>
+<polyline fill="none" stroke="black" points="1637.75,-1123.75 1632.75,-1123.64"/>
+<polygon fill="black" stroke="black" points="1631.87,-1118.61 1631.64,-1128.61 1629.64,-1128.57 1629.87,-1118.57 1631.87,-1118.61"/>
+<polyline fill="none" stroke="black" points="1632.75,-1123.64 1627.75,-1123.52"/>
+<polygon fill="black" stroke="black" points="1626.87,-1118.5 1626.64,-1128.5 1624.64,-1128.45 1624.87,-1118.45 1626.87,-1118.5"/>
+<polyline fill="none" stroke="black" points="1627.75,-1123.52 1622.75,-1123.41"/>
 </g>
 <!-- hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicWatershedBox -->
 <g id="node10" class="node">
@@ -399,14 +403,14 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicWatershedBox -->
 <g id="edge9" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainGeographicWatershedBox:w</title>
-<path fill="none" stroke="black" d="M1433.44,-1081.84C1512.03,-1079.3 1535.33,-1046.9 1611.61,-1043.11"/>
-<polyline fill="none" stroke="black" points="1423.5,-1082 1428.5,-1081.92"/>
-<polyline fill="none" stroke="black" points="1428.5,-1081.92 1433.5,-1081.84"/>
+<path fill="none" stroke="black" d="M1433.44,-1082.59C1512.08,-1080 1535.28,-1046.98 1611.61,-1043.12"/>
+<polyline fill="none" stroke="black" points="1423.5,-1082.75 1428.5,-1082.67"/>
+<polyline fill="none" stroke="black" points="1428.5,-1082.67 1433.5,-1082.59"/>
 <polyline fill="none" stroke="black" points="1626.5,-1042.75 1621.5,-1042.87"/>
-<polygon fill="black" stroke="black" points="1620.38,-1037.9 1620.62,-1047.89 1618.62,-1047.94 1618.38,-1037.95 1620.38,-1037.9"/>
-<polyline fill="none" stroke="black" points="1621.5,-1042.87 1616.5,-1042.99"/>
-<polygon fill="black" stroke="black" points="1615.38,-1038.02 1615.62,-1048.02 1613.62,-1048.06 1613.38,-1038.07 1615.38,-1038.02"/>
-<polyline fill="none" stroke="black" points="1616.5,-1042.99 1611.5,-1043.11"/>
+<polygon fill="black" stroke="black" points="1620.38,-1037.9 1620.63,-1047.9 1618.63,-1047.95 1618.38,-1037.95 1620.38,-1037.9"/>
+<polyline fill="none" stroke="black" points="1621.5,-1042.87 1616.5,-1043"/>
+<polygon fill="black" stroke="black" points="1615.38,-1038.02 1615.63,-1048.02 1613.63,-1048.07 1613.38,-1038.07 1615.38,-1038.02"/>
+<polyline fill="none" stroke="black" points="1616.5,-1043 1611.5,-1043.12"/>
 </g>
 <!-- hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainPolygon -->
 <g id="node11" class="node">
@@ -428,13 +432,13 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainPolygon -->
 <g id="edge10" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainPolygon:w</title>
-<path fill="none" stroke="black" d="M1433.46,-1081.41C1485.08,-1074.93 1478.22,-1017.02 1531.5,-991.5 1587.49,-964.68 1609.33,-962.24 1665.16,-962.02"/>
-<polyline fill="none" stroke="black" points="1423.5,-1082 1428.49,-1081.7"/>
-<polyline fill="none" stroke="black" points="1428.49,-1081.7 1433.48,-1081.41"/>
+<path fill="none" stroke="black" d="M1433.17,-1082.19C1485.29,-1075.86 1477.98,-1017.27 1531.5,-991.5 1587.44,-964.57 1609.32,-962.22 1665.16,-962.02"/>
+<polyline fill="none" stroke="black" points="1423.5,-1082.75 1428.49,-1082.46"/>
+<polyline fill="none" stroke="black" points="1428.49,-1082.46 1433.48,-1082.17"/>
 <polyline fill="none" stroke="black" points="1680.12,-962 1675.13,-962.01"/>
 <polygon fill="black" stroke="black" points="1674.12,-957.01 1674.13,-967.01 1672.13,-967.01 1672.12,-957.01 1674.12,-957.01"/>
 <polyline fill="none" stroke="black" points="1675.13,-962.01 1670.13,-962.01"/>
-<polygon fill="black" stroke="black" points="1669.12,-957.02 1669.13,-967.02 1667.13,-967.02 1667.12,-957.02 1669.12,-957.02"/>
+<polygon fill="black" stroke="black" points="1669.12,-957.01 1669.13,-967.01 1667.13,-967.02 1667.12,-957.02 1669.12,-957.01"/>
 <polyline fill="none" stroke="black" points="1670.13,-962.01 1665.13,-962.02"/>
 </g>
 <!-- hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainVector -->
@@ -465,13 +469,13 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainVector -->
 <g id="edge11" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema.ZoneMeshingDomainVector:w</title>
-<path fill="none" stroke="black" d="M1433.31,-1081.5C1517.57,-1072.49 1454.18,-943.38 1531.5,-887.5 1583.35,-850.03 1610.89,-857.08 1669.52,-858.34"/>
-<polyline fill="none" stroke="black" points="1423.5,-1082 1428.49,-1081.75"/>
-<polyline fill="none" stroke="black" points="1428.49,-1081.75 1433.49,-1081.49"/>
+<path fill="none" stroke="black" d="M1433.34,-1082.25C1517.83,-1073.21 1453.99,-943.61 1531.5,-887.5 1583.32,-849.99 1610.88,-857.08 1669.52,-858.34"/>
+<polyline fill="none" stroke="black" points="1423.5,-1082.75 1428.49,-1082.5"/>
+<polyline fill="none" stroke="black" points="1428.49,-1082.5 1433.49,-1082.24"/>
 <polyline fill="none" stroke="black" points="1684.25,-858.5 1679.25,-858.44"/>
 <polygon fill="black" stroke="black" points="1678.31,-853.43 1678.19,-863.43 1676.19,-863.41 1676.31,-853.41 1678.31,-853.43"/>
 <polyline fill="none" stroke="black" points="1679.25,-858.44 1674.25,-858.39"/>
-<polygon fill="black" stroke="black" points="1673.31,-853.38 1673.2,-863.38 1671.2,-863.36 1671.31,-853.36 1673.31,-853.38"/>
+<polygon fill="black" stroke="black" points="1673.31,-853.38 1673.19,-863.38 1671.19,-863.35 1671.31,-853.36 1673.31,-853.38"/>
 <polyline fill="none" stroke="black" points="1674.25,-858.39 1669.25,-858.33"/>
 </g>
 <!-- hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config.ZoneMeshingSettings -->
@@ -538,19 +542,19 @@
 <!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config.ZoneMeshingSettings -->
 <g id="edge12" class="edge">
 <title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config.ZoneMeshingSettings:w</title>
-<path fill="none" stroke="black" d="M1433.39,-1059.06C1578.98,-1045.75 1413.97,-731.04 1552.39,-710.77"/>
-<polyline fill="none" stroke="black" points="1423.5,-1059.5 1428.5,-1059.28"/>
-<polyline fill="none" stroke="black" points="1428.5,-1059.28 1433.49,-1059.06"/>
+<path fill="none" stroke="black" d="M1433.41,-1059.81C1579.25,-1046.47 1413.7,-731.09 1552.36,-710.78"/>
+<polyline fill="none" stroke="black" points="1423.5,-1060.25 1428.5,-1060.03"/>
+<polyline fill="none" stroke="black" points="1428.5,-1060.03 1433.49,-1059.81"/>
 <polyline fill="none" stroke="black" points="1567.25,-709.75 1562.26,-710.09"/>
 <polygon fill="black" stroke="black" points="1560.92,-705.17 1561.61,-715.15 1559.61,-715.29 1558.93,-705.31 1560.92,-705.17"/>
 <polyline fill="none" stroke="black" points="1562.26,-710.09 1557.27,-710.44"/>
 <polygon fill="black" stroke="black" points="1555.93,-705.52 1556.62,-715.49 1554.62,-715.63 1553.94,-705.66 1555.93,-705.52"/>
 <polyline fill="none" stroke="black" points="1557.27,-710.44 1552.29,-710.78"/>
 </g>
-<!-- hydromodpy.spatial.mesh.lake_refinement.LakeRefinementConfig -->
+<!-- hydromodpy.spatial.mesh.refinement.lake_refinement.LakeRefinementConfig -->
 <g id="node14" class="node">
-<title>hydromodpy.spatial.mesh.lake_refinement.LakeRefinementConfig</title>
-<g id="a_node14"><a xlink:title="hydromodpy.spatial.mesh.lake_refinement.LakeRefinementConfig&#10;&#10;Local mesh&#45;refinement targets for the lake shoreline and the hydraulic structures.&#10;">
+<title>hydromodpy.spatial.mesh.refinement.lake_refinement.LakeRefinementConfig</title>
+<g id="a_node14"><a xlink:title="hydromodpy.spatial.mesh.refinement.lake_refinement.LakeRefinementConfig&#10;&#10;Local mesh&#45;refinement targets for the lake shoreline and the hydraulic structures.&#10;">
 <polygon fill="none" stroke="black" points="1686.75,-347.5 1686.75,-370 1854,-370 1854,-347.5 1686.75,-347.5"/>
 <text xml:space="preserve" text-anchor="start" x="1702.5" y="-354.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">LakeRefinementConfig</text>
 <polygon fill="none" stroke="black" points="1686.75,-325 1686.75,-347.5 1783.5,-347.5 1783.5,-325 1686.75,-325"/>
@@ -592,22 +596,22 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.lake_refinement.LakeRefinementConfig -->
+<!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.refinement.lake_refinement.LakeRefinementConfig -->
 <g id="edge13" class="edge">
-<title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.lake_refinement.LakeRefinementConfig:w</title>
-<path fill="none" stroke="black" d="M1433.31,-1036.12C1563.16,-1011.75 1431.91,-490.66 1531.5,-388.5 1576.71,-342.12 1610.7,-356.19 1671.13,-358.47"/>
-<polyline fill="none" stroke="black" points="1423.5,-1037 1428.48,-1036.55"/>
-<polyline fill="none" stroke="black" points="1428.48,-1036.55 1433.46,-1036.1"/>
+<title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.refinement.lake_refinement.LakeRefinementConfig:w</title>
+<path fill="none" stroke="black" d="M1433.32,-1036.87C1563.31,-1012.47 1431.81,-490.79 1531.5,-388.5 1576.71,-342.11 1610.7,-356.19 1671.13,-358.47"/>
+<polyline fill="none" stroke="black" points="1423.5,-1037.75 1428.48,-1037.3"/>
+<polyline fill="none" stroke="black" points="1428.48,-1037.3 1433.46,-1036.85"/>
 <polyline fill="none" stroke="black" points="1685.75,-358.75 1680.75,-358.65"/>
 <polygon fill="black" stroke="black" points="1679.85,-353.63 1679.65,-363.63 1677.65,-363.59 1677.85,-353.6 1679.85,-353.63"/>
 <polyline fill="none" stroke="black" points="1680.75,-358.65 1675.75,-358.56"/>
 <polygon fill="black" stroke="black" points="1674.85,-353.54 1674.66,-363.54 1672.66,-363.5 1672.85,-353.5 1674.85,-353.54"/>
 <polyline fill="none" stroke="black" points="1675.75,-358.56 1670.75,-358.46"/>
 </g>
-<!-- hydromodpy.spatial.mesh.refinement_zones.RefinementZoneConfig -->
+<!-- hydromodpy.spatial.mesh.refinement.refinement_zones.RefinementZoneConfig -->
 <g id="node15" class="node">
-<title>hydromodpy.spatial.mesh.refinement_zones.RefinementZoneConfig</title>
-<g id="a_node15"><a xlink:title="hydromodpy.spatial.mesh.refinement_zones.RefinementZoneConfig&#10;&#10;One user&#45;provided refinement zone layer.&#10;">
+<title>hydromodpy.spatial.mesh.refinement.refinement_zones.RefinementZoneConfig</title>
+<g id="a_node15"><a xlink:title="hydromodpy.spatial.mesh.refinement.refinement_zones.RefinementZoneConfig&#10;&#10;One user&#45;provided refinement zone layer.&#10;">
 <polygon fill="none" stroke="black" points="1699.5,-86 1699.5,-108.5 1841.25,-108.5 1841.25,-86 1699.5,-86"/>
 <text xml:space="preserve" text-anchor="start" x="1702.5" y="-93.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">RefinementZoneConfig</text>
 <polygon fill="none" stroke="black" points="1699.5,-63.5 1699.5,-86 1761.75,-86 1761.75,-63.5 1699.5,-63.5"/>
@@ -625,12 +629,12 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.refinement_zones.RefinementZoneConfig -->
+<!-- hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig&#45;&gt;hydromodpy.spatial.mesh.refinement.refinement_zones.RefinementZoneConfig -->
 <g id="edge14" class="edge">
-<title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.refinement_zones.RefinementZoneConfig:w</title>
-<path fill="none" stroke="black" d="M1433.31,-1013.86C1614.42,-989.29 1397.55,-269.45 1531.5,-127.5 1579.63,-76.5 1617.41,-94.18 1683.1,-96.92"/>
-<polyline fill="none" stroke="black" points="1423.5,-1014.5 1428.49,-1014.17"/>
-<polyline fill="none" stroke="black" points="1428.49,-1014.17 1433.48,-1013.85"/>
+<title>hydromodpy.spatial.mesh.config.main.MeshCatchmentConfig:e&#45;&gt;hydromodpy.spatial.mesh.refinement.refinement_zones.RefinementZoneConfig:w</title>
+<path fill="none" stroke="black" d="M1433.32,-1014.61C1614.58,-990.02 1397.45,-269.58 1531.5,-127.5 1579.62,-76.49 1617.41,-94.18 1683.1,-96.92"/>
+<polyline fill="none" stroke="black" points="1423.5,-1015.25 1428.49,-1014.92"/>
+<polyline fill="none" stroke="black" points="1428.49,-1014.92 1433.48,-1014.59"/>
 <polygon fill="black" stroke="black" points="1688.17,-97.03 1698.07,-101.74 1693.5,-97.14 1697.83,-97.24 1697.83,-97.24 1697.83,-97.24 1693.5,-97.14 1698.26,-92.74 1688.17,-97.03"/>
 <polyline fill="none" stroke="black" points="1686.95,-97 1681.95,-96.9"/>
 </g>

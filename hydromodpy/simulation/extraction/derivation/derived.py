@@ -8,12 +8,15 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.field_routing import (
     accumulate_on_downhill_graph,
     active_surface_mask,
     build_downhill_graph,
     drain_budget_stack_to_positive_outflow,
     find_drain_budget_key,
+    seepage_mask,
+    warn_on_geometric_seepage_fallback,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.nodata import RESULTS_NODATA
@@ -61,6 +64,42 @@ def _write_bare_tif(
         dst.write(data, 1)
 
 
+def _budget_dependency_error(variable: str, sim_id: str, cause: Exception) -> ExtractError:
+    """Error raised when a budget-dependent derived field has no budget to read."""
+    return ExtractError(
+        f"Derived field '{variable}' was requested for sim {sim_id} but the per-cell "
+        f"budget it needs is unavailable ({cause}). Set "
+        "[simulation.results.budget] spatial_fields = true, or drop "
+        f"[simulation.results.derived] {variable}."
+    )
+
+
+def _derived_dependency_error(variable: str, sim_id: str, dependency_flag: str) -> ExtractError:
+    """Error raised when a requested derived field misses another derived input."""
+    return ExtractError(
+        f"Derived field '{variable}' was requested for sim {sim_id} but the "
+        f"'{dependency_flag}' field it is built from is not in the store. Set "
+        f"[simulation.results.derived] {dependency_flag} = true, or drop "
+        f"[simulation.results.derived] {variable}."
+    )
+
+
+def _log_waiting_for_transport(variable: str, sim_id: str) -> None:
+    """Report a solute derivation deferred to the solute-transport run.
+
+    Post-run derivation happens after every run, so the flow run of a
+    flow-then-transport plan reaches the solute chain before any concentration
+    exists. A plan whose only transport run is particle tracking never gets
+    here: reconciliation turns those flags off, and says so.
+    """
+    logger.info(
+        "Derived field '%s' waits for the solute transport run of sim %s: the store holds "
+        "no concentration field yet.",
+        variable,
+        sim_id,
+    )
+
+
 def _metadata_epsg(metadata: dict[str, object]) -> int | None:
     """Return EPSG code from geographic metadata when available."""
     raw = metadata.get("epsg") or metadata.get("crs_epsg")
@@ -79,7 +118,6 @@ def _metadata_epsg(metadata: dict[str, object]) -> int | None:
 # transport-specific derivations.
 DERIVED_VARIABLES = {
     "seepage_areas": True,
-    "groundwater_flux": False,
     "release_flux": False,
     "accumulation_flux": False,
     "release_accumulation_flux": False,
@@ -117,7 +155,6 @@ def compute_derived(
                 return
             head_arr = grp["head"]
             n_timesteps = head_arr.shape[0]
-            n_layers = head_arr.shape[1] if head_arr.ndim == 3 else 1
             n_cells = head_arr.shape[-1]
     except Exception:
         logger.debug("Cannot read head field for sim %s", sim_id)
@@ -125,9 +162,6 @@ def compute_derived(
 
     if flags.get("seepage_areas"):
         _compute_seepage_mask(sim_id, store, n_timesteps, n_cells)
-
-    if flags.get("groundwater_flux"):
-        _compute_groundwater_flux(sim_id, store, n_timesteps, n_layers, n_cells)
 
     if flags.get("release_flux") or flags.get("release_accumulation_flux"):
         _compute_release_flux(sim_id, store, n_timesteps, n_cells)
@@ -187,6 +221,7 @@ def _compute_seepage_mask(
             surface_excess_stack = np.asarray(budget_grp["surface_excess"][:], dtype="float64")
         watertable_stack = None
         if surface_excess_stack is None:
+            warn_on_geometric_seepage_fallback(grp, sim_id=sim_id)
             derived_grp = grp.get("derived")
             if derived_grp is not None and "watertable_elevation" in derived_grp:
                 watertable_stack = np.asarray(
@@ -201,11 +236,12 @@ def _compute_seepage_mask(
                 return
 
     if surface_excess_stack is not None:
-        positive = _positive_cell_flux_stack(surface_excess_stack[:n_timesteps], n_cells=n_cells)
-        seepage = (positive > 0.0).astype("float64")
+        excess = _positive_cell_flux_stack(surface_excess_stack[:n_timesteps], n_cells=n_cells)
+        wt = None
     else:
+        excess = None
         wt = watertable_stack.reshape(watertable_stack.shape[0], -1)[:n_timesteps, :n_cells]
-        seepage = (wt >= top_elev[None, :]).astype("float64")
+    seepage = seepage_mask(watertable=wt, topography=top_elev, surface_excess=excess)
     store.write_field_stack(sim_id, "seepage_mask", seepage, subgroup="derived")
 
     logger.debug("Derived seepage_mask for sim %s", sim_id)
@@ -221,49 +257,6 @@ def _watertable_stack_from_head(head_stack: np.ndarray) -> np.ndarray:
         mask = np.isfinite(head_stack[:, layer]) & np.isnan(wt)
         wt[mask] = head_stack[:, layer][mask]
     return wt
-
-
-def _compute_groundwater_flux(
-    sim_id: str,
-    store: Any,
-    n_timesteps: int,
-    n_layers: int,
-    n_cells: int,
-) -> None:
-    """Magnitude of inter-cell groundwater flux from budget components.
-
-    Reads right-face, front-face, and lower-face flow from the budget
-    Zarr subgroup and computes the vector magnitude per cell.
-    """
-    with _zarr_root(store, sim_id) as grp:
-        budget_grp = grp.get("budget")
-        if budget_grp is None:
-            logger.debug("No budget fields, skipping groundwater_flux for sim %s", sim_id)
-            return
-
-        face_keys = []
-        for candidate in (
-            "flow_right_face",
-            "flow_front_face",
-            "flow_lower_face",
-            "flow-ja-face",
-            "flow_ja_face",
-        ):
-            if candidate in budget_grp:
-                face_keys.append(candidate)
-
-        if not face_keys:
-            logger.debug("No face-flow budget fields for groundwater_flux, sim %s", sim_id)
-            return
-
-        sq_sum = np.zeros((n_timesteps, n_layers, n_cells), dtype="float64")
-        for key in face_keys:
-            arr = np.asarray(budget_grp[key][:], dtype="float64")[:n_timesteps]
-            sq_sum += arr.reshape(n_timesteps, n_layers, n_cells) ** 2
-
-    store.write_field_stack(sim_id, "groundwater_flux", np.sqrt(sq_sum), subgroup="derived")
-
-    logger.debug("Derived groundwater_flux for sim %s", sim_id)
 
 
 # Canonical public name of the DRN-TO-MVR budget record (see
@@ -326,8 +319,7 @@ def _compute_accumulation_flux(
     try:
         drain_stack = _drain_outflow_stack(sim_id, store, n_timesteps, n_cells)
     except KeyError as exc:
-        logger.debug("%s, skipping accumulation_flux for sim %s", exc, sim_id)
-        return
+        raise _budget_dependency_error("accumulation_flux", sim_id, exc) from exc
 
     _route_cell_flux_stack_with_fallback(
         sim_id,
@@ -406,8 +398,7 @@ def _compute_release_flux(
     try:
         release_stack = _release_flux_stack(sim_id, store, n_timesteps, n_cells)
     except KeyError as exc:
-        logger.debug("%s, skipping release_flux for sim %s", exc, sim_id)
-        return
+        raise _budget_dependency_error("release_flux", sim_id, exc) from exc
 
     _write_derived_stack(
         sim_id,
@@ -545,9 +536,8 @@ def _compute_release_accumulation_flux(
             n_timesteps=n_timesteps,
             n_cells=n_cells,
         )
-    except Exception:
-        logger.debug("Cannot read release_flux for release_accumulation_flux, sim %s", sim_id)
-        return
+    except (KeyError, ValueError) as exc:
+        raise _budget_dependency_error("release_accumulation_flux", sim_id, exc) from exc
 
     _route_cell_flux_stack_with_fallback(
         sim_id,
@@ -694,14 +684,13 @@ def _compute_outflow_drain(
     try:
         drain_stack = _drain_outflow_stack(sim_id, store, n_timesteps, n_cells)
     except KeyError as exc:
-        logger.debug("%s, skipping outflow_drain for sim %s", exc, sim_id)
-        return
+        raise _budget_dependency_error("outflow_drain", sim_id, exc) from exc
 
     _write_derived_stack(sim_id, store, "outflow_drain", drain_stack, n_timesteps, n_cells)
     logger.debug("Derived outflow_drain for sim %s", sim_id)
 
 
-def _seepage_mask_stack(grp: Any, n_timesteps: int, n_cells: int) -> np.ndarray:
+def _seepage_mask_stack(grp: Any, sim_id: str, n_timesteps: int, n_cells: int) -> np.ndarray:
     """Read or derive the full seepage-mask stack, mirroring the virtual field."""
     derived_grp = grp.get("derived")
     if derived_grp is not None and "seepage_mask" in derived_grp:
@@ -712,11 +701,12 @@ def _seepage_mask_stack(grp: Any, n_timesteps: int, n_cells: int) -> np.ndarray:
     if budget_grp is not None and "surface_excess" in budget_grp:
         excess = np.asarray(budget_grp["surface_excess"][:], dtype="float64")[:n_timesteps]
         flat = excess.reshape(excess.shape[0], -1)[:, :n_cells]
-        return (flat > 0.0).astype("float64")
+        return seepage_mask(surface_excess=flat)
 
     mesh = grp.get("mesh")
     if mesh is None or "head" not in grp:
         raise KeyError("seepage_mask unavailable")
+    warn_on_geometric_seepage_fallback(grp, sim_id=sim_id)
     if "topography" in mesh:
         top = np.asarray(mesh["topography"][:], dtype="float64").reshape(-1)[:n_cells]
     elif "z_interfaces" in mesh:
@@ -725,7 +715,7 @@ def _seepage_mask_stack(grp: Any, n_timesteps: int, n_cells: int) -> np.ndarray:
         raise KeyError("seepage_mask unavailable")
     wt = _watertable_stack_from_head(np.asarray(grp["head"][:], dtype="float64"))
     wt = wt[:n_timesteps, :n_cells]
-    return (wt >= top[None, :]).astype("float64")
+    return seepage_mask(watertable=wt, topography=top)
 
 
 def _compute_concentration_seepage(
@@ -737,16 +727,15 @@ def _compute_concentration_seepage(
     """Concentration at seepage cells only. Zero elsewhere."""
     with _zarr_root(store, sim_id) as grp:
         if "concentration" not in grp:
-            logger.debug(
-                "No concentration field, skipping concentration_seepage for sim %s", sim_id
-            )
+            _log_waiting_for_transport("concentration_seepage", sim_id)
             return
 
         try:
-            seepage = _seepage_mask_stack(grp, n_timesteps, n_cells)
-        except KeyError:
-            logger.debug("seepage_mask missing, skipping concentration_seepage for %s", sim_id)
-            return
+            seepage = _seepage_mask_stack(grp, sim_id, n_timesteps, n_cells)
+        except KeyError as exc:
+            raise _derived_dependency_error(
+                "concentration_seepage", sim_id, "seepage_areas"
+            ) from exc
 
         conc = np.asarray(grp["concentration"][:], dtype="float64")[:n_timesteps]
         if conc.ndim == 3:
@@ -773,13 +762,14 @@ def _compute_mass_seepage(
         budget_grp = grp.get("budget")
 
         if budget_grp is None:
-            logger.debug("No budget fields, skipping mass_seepage for sim %s", sim_id)
-            return
+            raise _budget_dependency_error("mass_seepage", sim_id, KeyError("No budget fields"))
 
         derived_grp = grp.get("derived")
         if derived_grp is None or "concentration_seepage" not in derived_grp:
-            logger.debug("concentration_seepage missing, skipping mass_seepage for %s", sim_id)
-            return
+            if "concentration" not in grp:
+                _log_waiting_for_transport("mass_seepage", sim_id)
+                return
+            raise _derived_dependency_error("mass_seepage", sim_id, "concentration_seepage")
         conc_seep = np.asarray(derived_grp["concentration_seepage"][:], dtype="float64")
         conc_seep = conc_seep[:n_timesteps]
 
@@ -811,8 +801,10 @@ def _compute_mass_accumulated(
     with _zarr_root(store, sim_id) as grp:
         derived_grp = grp.get("derived")
         if derived_grp is None or "mass_seepage" not in derived_grp:
-            logger.debug("mass_seepage missing, skipping mass_accumulated for sim %s", sim_id)
-            return
+            if "concentration" not in grp:
+                _log_waiting_for_transport("mass_accumulated", sim_id)
+                return
+            raise _derived_dependency_error("mass_accumulated", sim_id, "mass_seepage")
         mass_seepage = np.asarray(derived_grp["mass_seepage"][:], dtype="float64")[:n_timesteps]
 
     store.write_field_stack(

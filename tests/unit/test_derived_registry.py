@@ -16,6 +16,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.workflow.internals.derived import (
     DerivedComputation,
     DerivedRegistry,
@@ -72,7 +73,7 @@ def _make_zarr(
 
     # budget/drn
     if drn is not None:
-        budget = sz.root["budget"]
+        budget = sz.root.require_group("budget")
         budget.create_array(
             "drain",
             shape=(n_timesteps, n_cells),
@@ -84,7 +85,7 @@ def _make_zarr(
             budget["drain"][t, :] = drn[t]
 
     if surface_excess is not None:
-        budget = sz.root["budget"]
+        budget = sz.root.require_group("budget")
         budget.create_array(
             "surface_excess",
             shape=(n_timesteps, n_cells),
@@ -96,7 +97,7 @@ def _make_zarr(
             budget["surface_excess"][t, :] = surface_excess[t]
 
     if seepage_rate is not None:
-        derived = sz.root["derived"]
+        derived = sz.root.require_group("derived")
         derived.create_array(
             "seepage_rate",
             shape=(n_timesteps, n_cells),
@@ -313,10 +314,12 @@ class _StoreStub:
 
 class _CtxStub:
     def __init__(self, store, sim_id: str = "stub") -> None:
+
         from hydromodpy.core.state.execution import ExecutionRegistry
 
         self.store = store
         self.sim_id = sim_id
+        self.cfg = SimpleNamespace(simulation=SimpleNamespace(results=ResultsConfig()))
         # Use the real ExecutionRegistry so the stub honours the same contract as
         # WorkflowContext.execution (notably models_by_run_id, which DeriveStep
         # clears); a bare SimpleNamespace was missing that attribute.
@@ -331,6 +334,17 @@ def test_derive_step_runs_registry(tmp_path):
         drn=np.array([[100.0, 0.0, -50.0, 20.0], [10.0, 20.0, 30.0, 40.0]]),
     )
     ctx = _CtxStub(_StoreStub(sz))
+    # Registry persistence is opt-in: enable every field this test asserts.
+    ctx.effective_results_config = ResultsConfig.model_validate(
+        {
+            "derived": {
+                "watertable_elevation": True,
+                "watertable_depth": True,
+                "seepage_areas": True,
+            },
+            "budget": {"spatial_fields": True},
+        }
+    )
     state = PipelineState(run_id="r", data={"ctx": ctx})
     out = DeriveStep().run(state)
     assert out.step_name == "derive"

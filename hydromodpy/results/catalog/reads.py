@@ -135,20 +135,9 @@ class ReadsMixin:
         timestep: int,
         layer: int | None = None,
     ) -> np.ndarray:
-        sz = self.open_zarr(sim_id)
-        try:
-            return sz.read_field(variable, timestep, layer=layer)
-        except KeyError:
-            from hydromodpy.results.derive.virtual_fields import compute_virtual_field
+        from hydromodpy.results.derive.virtual_fields import read_field_or_virtual
 
-            result = compute_virtual_field(self, str(sim_id), variable, timestep)
-            if result is not None:
-                if layer is not None and result.ndim == 2:
-                    return result[layer]
-                return result
-            raise KeyError(f"Variable '{variable}' not found for sim={sim_id}") from None
-        finally:
-            sz.close()
+        return read_field_or_virtual(self, str(sim_id), variable, timestep, layer=layer)
 
     def query_timeseries(
         self,

@@ -41,6 +41,28 @@ transient_config_name = "run_test.toml"
     )
 
 
+def _write_catalog_run(workspace: Path, name: str) -> None:
+    """Register one run with a discharge series: what the report reads."""
+    import uuid
+
+    import pandas as pd
+
+    from hydromodpy.results.catalog import Catalog
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    sim_id = str(uuid.uuid4())
+    with Catalog(workspace) as catalog:
+        catalog.register_simulation(sim_id, project="test", solver="modflow6", name=name)
+        catalog.write_timeseries(
+            sim_id,
+            "_catchment",
+            "discharge",
+            pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"])),
+            unit="m3/s",
+        )
+        catalog.finalize(sim_id)
+
+
 def _write_transient_config(root: Path) -> None:
     (root / "run_test.toml").write_text("[simulation]\n", encoding="utf-8")
 
@@ -79,7 +101,7 @@ def test_run_simulation_validates_expected_report_outputs(monkeypatch, tmp_path)
     assert calls[0][1]["errors"] == "replace"
     assert calls[0][1]["text"] is True
     message = str(exc_info.value)
-    assert "simulation export" in message
+    assert "simulation run 'test_run'" in message
     assert "simulation figures directory" in message
 
 
@@ -87,11 +109,7 @@ def test_run_simulation_accepts_expected_report_outputs(monkeypatch, tmp_path) -
     config_path = tmp_path / "catchment_report.toml"
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
-    (tmp_path / "sim_workspace" / "exports" / "test_run").mkdir(parents=True)
-    (tmp_path / "sim_workspace" / "exports" / "test_run" / "timeseries.csv").write_text(
-        "datetime,value\n2020-01-01,1.0\n",
-        encoding="utf-8",
-    )
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
     (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
 
     monkeypatch.setattr(
@@ -127,11 +145,7 @@ no_lock = false
 """,
     )
     _write_transient_config(tmp_path)
-    (tmp_path / "sim_workspace" / "exports" / "test_run").mkdir(parents=True)
-    (tmp_path / "sim_workspace" / "exports" / "test_run" / "timeseries.csv").write_text(
-        "datetime,value\n2020-01-01,1.0\n",
-        encoding="utf-8",
-    )
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
     (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
     calls = []
 
@@ -170,11 +184,7 @@ stream_run_logs = true
 """,
     )
     _write_transient_config(tmp_path)
-    (tmp_path / "sim_workspace" / "exports" / "test_run").mkdir(parents=True)
-    (tmp_path / "sim_workspace" / "exports" / "test_run" / "timeseries.csv").write_text(
-        "datetime,value\n2020-01-01,1.0\n",
-        encoding="utf-8",
-    )
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
     (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
     calls = []
 
@@ -212,11 +222,7 @@ build_report_html = false
     )
     _write_overview_config(tmp_path)
     _write_transient_config(tmp_path)
-    (tmp_path / "sim_workspace" / "exports" / "test_run").mkdir(parents=True)
-    (tmp_path / "sim_workspace" / "exports" / "test_run" / "timeseries.csv").write_text(
-        "datetime,value\n2020-01-01,1.0\n",
-        encoding="utf-8",
-    )
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
     (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
     calls = []
 
@@ -312,11 +318,7 @@ path = "missing_observed.csv"
         encoding="utf-8",
     )
     _write_transient_config(tmp_path)
-    (tmp_path / "sim_workspace" / "exports" / "test_run").mkdir(parents=True)
-    (tmp_path / "sim_workspace" / "exports" / "test_run" / "timeseries.csv").write_text(
-        "datetime,value\n2020-01-01,1.0\n",
-        encoding="utf-8",
-    )
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
     context_summary = tmp_path / "context" / "context" / "summary.json"
 
     def fake_build_context(inputs):

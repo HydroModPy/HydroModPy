@@ -43,10 +43,18 @@ def render_gallery(
     only: list[str] | None = None,
     no_show: bool = False,
 ) -> list[Path]:
-    """Render the ``[display]`` figure gallery for one or several runs."""
+    """Render the ``[display]`` figure gallery for one or several runs.
+
+    Each run gets its own summary line, so a figure the gallery was asked for
+    and could not produce is reported here exactly as it is on the run path.
+    """
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import render_figures_for_run, resolve_run_output_dir
+    from hydromodpy.display.runs import (
+        log_render_summary,
+        render_figures_for_run,
+        resolve_run_output_dir,
+    )
     from hydromodpy.results.catalog import Catalog
 
     target_path = Path(config_toml).expanduser()
@@ -89,7 +97,7 @@ def render_gallery(
             out_dir = resolve_run_output_dir(
                 display_cfg, project_root=project_dir, run_name=sim.name, sim_id=sid
             )
-            written_paths.extend(
-                render_figures_for_run(sim, display_cfg, output_dir=out_dir, figure_names=only)
-            )
+            report = render_figures_for_run(sim, display_cfg, output_dir=out_dir, figure_names=only)
+            log_render_summary(report, destination=out_dir)
+            written_paths.extend(report.written)
     return written_paths

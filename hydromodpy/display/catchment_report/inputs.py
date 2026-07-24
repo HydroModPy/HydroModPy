@@ -23,7 +23,6 @@ class CatchmentReportInputs:
     overview_figures: Path
     data_overview_figures: Path
     simulation_figures: Path
-    simulation_export: Path
     geographic_scratch: Path
     generated_network_root: Path
     context_html: Path
@@ -126,9 +125,6 @@ class CatchmentReportInputs:
             overview_figures=data_overview_project_dir / "figures" / "overview",
             data_overview_figures=data_overview_project_dir / "figures" / "overview",
             simulation_figures=simulation_workspace_dir / "figures" / simulation_name,
-            simulation_export=(
-                simulation_workspace_dir / "exports" / simulation_name / "timeseries.csv"
-            ),
             geographic_scratch=(
                 simulation_workspace_dir / ".solver_scratch" / "_preprocessing" / "geographic"
             ),

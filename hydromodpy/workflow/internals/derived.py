@@ -32,6 +32,7 @@ import numpy as np
 
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.field_routing import seepage_mask, warn_on_geometric_seepage_fallback
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive import derived as _pure
 from hydromodpy.results.zarr_store import SimulationZarr
@@ -233,37 +234,39 @@ def _run_seepage_mask(sim_zarr: SimulationZarr) -> DerivedResult:
         )
     wt_stack = np.asarray(derived_grp["watertable_elevation"][:], dtype="float64")
     wt_stack = wt_stack.reshape(wt_stack.shape[0], -1)[:n_timesteps, :n_cells]
-    surface_excess_mask = _surface_excess_seepage_stack(sim_zarr, n_timesteps, n_cells)
-    if surface_excess_mask is not None:
-        mask = surface_excess_mask
-    else:
-        mask = wt_stack >= top[None, :]
-    _write_derived_stack(sim_zarr, "seepage_mask", mask.astype("float64"))
+    excess = _surface_excess_stack(sim_zarr, n_timesteps, n_cells)
+    if excess is None:
+        warn_on_geometric_seepage_fallback(sim_zarr.root, sim_id=str(sim_zarr.path.stem))
+    mask = seepage_mask(
+        watertable=wt_stack,
+        topography=top,
+        surface_excess=excess,
+    )
+    _write_derived_stack(sim_zarr, "seepage_mask", mask)
     return DerivedResult(name="seepage_mask", status="computed")
 
 
-def _surface_excess_seepage_stack(
+def _surface_excess_stack(
     sim_zarr: SimulationZarr,
     n_timesteps: int,
     n_cells: int,
 ) -> np.ndarray | None:
-    """Return seepage cells declared by solver surface-excess fields.
+    """Return the solver-declared surface-release flux stack, or ``None``.
 
-    Authoritative when present: Boussinesq constrained formulations expose
-    active seepage through their solver-produced surface-excess flux (or
-    a pre-computed ``derived/seepage_rate``). Returns ``None`` for solvers
-    that do not write these fields (MODFLOW 6, MODFLOW-NWT); the caller
-    then derives the mask from the geometric head/topography criterion.
+    Boussinesq constrained formulations expose active seepage through this
+    flux (or a pre-computed ``derived/seepage_rate``). MODFLOW 6 and
+    MODFLOW-NWT write neither, so the caller falls back to the geometric
+    head/topography criterion.
     """
     derived_grp = sim_zarr.root.get("derived")
     if derived_grp is not None and "seepage_rate" in derived_grp:
         rate = np.asarray(derived_grp["seepage_rate"][:], dtype="float64")
-        return rate.reshape(rate.shape[0], -1)[:n_timesteps, :n_cells] > 0.0
+        return rate.reshape(rate.shape[0], -1)[:n_timesteps, :n_cells]
 
     budget_grp = sim_zarr.root.get("budget")
     if budget_grp is not None and "surface_excess" in budget_grp:
         flux = np.asarray(budget_grp["surface_excess"][:], dtype="float64")
-        return flux.reshape(flux.shape[0], -1)[:n_timesteps, :n_cells] > 0.0
+        return flux.reshape(flux.shape[0], -1)[:n_timesteps, :n_cells]
 
     return None
 
@@ -385,6 +388,10 @@ class DerivedRegistry:
             ``KeyError``.
         ctx
             Forwarded to each computation's ``compute`` method.
+
+        A skipped derivation is reported through its :class:`DerivedResult`
+        reason rather than logged here: only the caller knows whether the field
+        was asked for, and it is the one that has to be loud about it.
         """
         ordered = self.ordered_names()
         wanted = set(ordered if names is None else names)
@@ -403,8 +410,7 @@ class DerivedRegistry:
                     or _subgroup_has(sim_zarr, "mesh", required)
                     or _subgroup_has(sim_zarr, "derived", required)
                 ):
-                    reason = f"input '{required}' missing"
-                    logger.debug("DerivedRegistry: skipping '%s' (%s)", name, reason)
+                    reason = f"input '{required}' is not in the store"
                     results.append(DerivedResult(name=name, status="skipped", reason=reason))
                     break
             else:

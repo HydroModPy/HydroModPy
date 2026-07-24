@@ -78,6 +78,26 @@ def consolidate_metadata(store: Any, path: Path) -> None:
         logger.warning("consolidate_metadata failed for %s: %s", path, exc)
 
 
+def drop_group(store_obj: SimulationZarr, name: str) -> int:
+    """Delete a top-level group from a live directory store.
+
+    Returns the number of bytes freed on disk (0 when the group is absent).
+    Only valid before :func:`pack_to_zip`: a packed store is read-only.
+    """
+    root = store_obj.root
+    if name not in root:
+        return 0
+    if not store_obj._path.is_dir():
+        raise RuntimeError(f"Cannot drop group '{name}' from a packed store: {store_obj._path}")
+    group_dir = windows_long_path(store_obj._path / name)
+    freed = 0
+    if group_dir.is_dir():
+        freed = sum(f.stat().st_size for f in group_dir.rglob("*") if f.is_file())
+    with guard_write(store_obj._lock, store_obj._path):
+        del root[name]
+    return freed
+
+
 def pack_to_zip(store_obj: SimulationZarr) -> Path:
     """Compact the directory-based Zarr store into a ``.zarr.zip`` file.
 
@@ -161,6 +181,7 @@ __all__ = [
     "LOCK_TIMEOUT_SECONDS",
     "close",
     "consolidate_metadata",
+    "drop_group",
     "guard_write",
     "pack_to_zip",
 ]

@@ -204,9 +204,7 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
     assert inputs.simulation_figures == (
         inputs.simulation_workspace_dir / "figures" / "selune_nwt_report"
     )
-    assert inputs.simulation_export == (
-        inputs.simulation_workspace_dir / "exports" / "selune_nwt_report" / "timeseries.csv"
-    )
+    assert not hasattr(inputs, "simulation_export")
     assert inputs.observed_discharge_station_id == "I922102001"
     assert inputs.preset_name is None
     assert inputs.pipeline_run_overview is True

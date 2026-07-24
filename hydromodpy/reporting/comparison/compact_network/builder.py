@@ -6,6 +6,9 @@ import csv
 from collections.abc import Iterable
 from pathlib import Path
 
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results.derive.config_flags import log_missing_field
+
 from . import maps, network, sections
 from .io import (
     CompactNetworkSynthesisConfig,
@@ -17,6 +20,8 @@ from .io import (
     read_json_mapping,
     resolve_recorded_path,
 )
+
+logger = get_logger(__name__)
 
 
 class CompactNetworkSynthesisBuilder:
@@ -255,6 +260,9 @@ class CompactNetworkSynthesisBuilder:
                     catalog = Catalog(resolve_recorded_path(run_folder))
                     run = catalog[str(sim_id)]
                     if not run.has_field(variable):
+                        log_missing_field(
+                            logger, run, variable, f"distance metrics for run {sim_id}"
+                        )
                         continue
                     if run.has_hydrographic_network("reference"):
                         metrics = run.cell_field_network_distance_metrics(
@@ -390,6 +398,7 @@ class CompactNetworkSynthesisBuilder:
                     ),
                 ):
                     if not run.has_field(variable):
+                        log_missing_field(logger, run, variable, f"flux figure for run {sim_id}")
                         continue
                     reference_gdf = None
                     if not run.has_hydrographic_network("reference"):

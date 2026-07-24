@@ -43,7 +43,6 @@ _PERIOD_VALUE_VARIABLES = {
     "drainage_flux_history_m3_s",
     "drainage_flux_m3_s",
     "dry_deficit_history_m_s",
-    "groundwater_flux",
     "outflow_drain",
     "outlet_flux",
     "release_accumulation_flux",

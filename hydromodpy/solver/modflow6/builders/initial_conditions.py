@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.solver.initial_conditions import (
     build_head_initial_condition_array,
     initial_condition_field,
@@ -63,7 +64,7 @@ def read_restart_heads(path: str, *, nlay: int, ncpl: int, top_flat: np.ndarray)
         )
     # Inactive cells carry a NaN / large sentinel; MF6 ignores strt there but the array must
     # be finite, so fill them with the cell top like the default initial condition.
-    head = np.where(np.abs(head) > 1e20, np.nan, head)
+    head = np.where(np.abs(head) > SENTINEL_ABS_THRESHOLD, np.nan, head)
     top = np.asarray(top_flat, dtype=float).reshape(-1)
     for ilay in range(nlay):
         missing = ~np.isfinite(head[ilay])
@@ -104,7 +105,7 @@ def read_final_head(path: str) -> np.ndarray:
         raise ValueError(f"read_final_head: no 'head' field in {path!r}")
     head = np.asarray(root["head"][-1], dtype=float)
     head = head.reshape(head.shape[0], -1) if head.ndim > 1 else head.reshape(1, -1)
-    return np.where(np.abs(head) > 1e20, np.nan, head)
+    return np.where(np.abs(head) > SENTINEL_ABS_THRESHOLD, np.nan, head)
 
 
 def build_start_heads(model, solver_mesh) -> np.ndarray:

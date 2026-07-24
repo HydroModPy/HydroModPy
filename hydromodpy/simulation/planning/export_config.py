@@ -61,7 +61,11 @@ class ExportConfig(HydroModelBase):
         default=False, description="Export to NetCDF-4/UGRID."
     )
     csv_timeseries: Annotated[bool, Profile.USER] = Field(
-        default=True, description="Export time series to CSV."
+        default=False,
+        description=(
+            "Export time series to CSV at the end of the run. Off by default: the "
+            "canonical time series lives in tables.parquet; CSV is an on-demand export."
+        ),
     )
     vtu: Annotated[bool, Profile.DEV] = Field(
         default=False, description="Export to VTU (ParaView)."

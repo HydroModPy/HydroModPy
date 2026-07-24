@@ -232,6 +232,8 @@ Sub-models are linked back to their per-section page.
       # example: first_period_steady = true
       # example: first_period_steady = false
       first_period_steady = true
+      # Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic].
+      # restart_from = ...  # default = None
 
 .. dropdown:: ``[transport]`` (TransportConfig)
    :icon: gear
@@ -359,16 +361,12 @@ Sub-models are linked back to their per-section page.
       dpi = 150
       # Default sequential colormap for spatial figures.
       cmap = "viridis"
-      # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp display`). Empty list disables auto-rendering; figures can still be produced later with `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
+      # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
       # figures = ...  # uses factory default
+      # Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
+      on_error = "warn"
       # Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
       # overrides = ...  # uses factory default
-      # Flow figure switches.
-      # flow = ...  # uses factory default
-      # Particle figure switches.
-      # particles = ...  # uses factory default
-      # Transport figure switches.
-      # transport = ...  # uses factory default
 
 .. dropdown:: ``[export]`` (ExportConfig)
    :icon: gear
@@ -380,8 +378,8 @@ Sub-models are linked back to their per-section page.
       [export]
       # Export to NetCDF-4/UGRID.
       netcdf = false
-      # Export time series to CSV.
-      csv_timeseries = true
+      # Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.
+      csv_timeseries = false
       # Export to VTU (ParaView).
       vtu = false
       # Export to GeoTIFF.
@@ -478,6 +476,8 @@ Sub-models are linked back to their per-section page.
       figures_enabled = true
       # If true, export the solver-exchange mesh bundle next to the generated mesh. Set it to false for profiling or mesh-only runs that do not need bundle metadata. Downstream solvers that require runtime mesh support may fail without this bundle.
       export_exchange_bundle = true
+      # If true, reuse a previously generated mesh when its inputs (domain geometry, river constraint, lake/dam refinement, mesh and delineation configuration) are unchanged, instead of regenerating it. Gmsh is not reproducible run to run (it reseeds from the system clock), so regeneration yields a different mesh and makes results and calibration objectives irreproducible; caching pins the mesh. Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache.
+      cache = false
       # Pixel density used when rendering the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
       figure_dpi = 300
       # Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
@@ -534,6 +534,8 @@ Sub-models are linked back to their per-section page.
       batch_size = 1
       # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
       parallel = 1
+      # Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
+      warmup_periods = 0
       # Random seed for reproducibility.
       # seed = ...  # default = None
       # How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included).
@@ -568,6 +570,25 @@ Sub-models are linked back to their per-section page.
       # candidates_root = ...  # default = None
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
       # persistence = ...  # uses factory default
+
+.. dropdown:: ``[spinup]`` (SpinupConfig)
+   :icon: gear
+
+   See :doc:`spinup` for the full description.
+
+   .. code-block:: toml
+
+      [spinup]
+      # Maximum spin-up cycles before the loop stops without converging.
+      max_cycles = 10
+      # Head convergence tolerance [m]. The loop converges when the largest absolute head change between two cycles (L-inf over active cells) is below this.
+      tol_head = 0.01
+      # Lake-stage convergence tolerance [m]. The loop converges when the largest absolute stage change between two cycles, over every lake, is below this. Ignored when the model has no lake.
+      tol_stage = 0.01
+      # Cycle window start (ISO datetime, e.g. '2019-01-01'). The representative forcing period each cycle repeats. None reuses [simulation.time].
+      # window_start = ...  # default = None
+      # Cycle window end (ISO datetime). None reuses [simulation.time]. Set both window bounds to spin up on a shorter representative period than the production chronicle.
+      # window_end = ...  # default = None
 
 .. dropdown:: ``[testbed]`` (TestbedConfig)
    :icon: gear

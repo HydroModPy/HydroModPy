@@ -8,9 +8,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
     _CATCHMENT_STATION,
     _add_runoff_to_discharge_series,
+    _aggregate_from_lumped_budget,
     _aggregate_variable,
     _build_active_mask,
     _detect_n_timesteps,
@@ -560,3 +562,117 @@ class TestReadCatchmentArea:
         # _read_catchment_area_m2 uses store.connection first; confirm it works.
         assert catalog.connection is not None
         assert _read_catchment_area_m2(catalog, sid) == pytest.approx(1.0e6)
+
+
+class TestAggregateFromLumpedBudget:
+    """The fallback that keeps discharge alive once ``budget.spatial_fields`` is off.
+
+    With the per-cell budget unpersisted (the default), the catchment scalars
+    come from the lumped per-component ``budgets`` table instead of a Zarr
+    field, so this path is the one carrying discharge in a default run.
+    """
+
+    def _register(self, catalog, n_ts: int = 3) -> str:
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="modflow6",
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=n_ts,
+            period_start="2020-01-01",
+            period_end="2020-01-03",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
+        return sid
+
+    def _write_drain_budget(self, catalog, sid, values, *, component="drain"):
+        for timestep, flux_out in values.items():
+            catalog.write_budget(
+                sid,
+                timestep=timestep,
+                zone_id="total",
+                component=component,
+                flux_in=0.0,
+                flux_out=flux_out,
+            )
+
+    def test_drain_component_gives_discharge(self, catalog):
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 10.0, 1: 8.0, 2: 4.0})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drain", "abs_sum", 3)
+
+        assert values == pytest.approx([10.0, 8.0, 4.0])
+
+    def test_alternative_component_name_is_resolved(self, catalog):
+        # store_var carries alternatives ("drains|drain"): the first match wins.
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 2.0, 1: 3.0, 2: 5.0})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drains|drain", "abs_sum", 3)
+
+        assert values == pytest.approx([2.0, 3.0, 5.0])
+
+    def test_signed_reducer_returns_in_minus_out(self, catalog):
+        sid = self._register(catalog)
+        catalog.write_budget(
+            sid, timestep=0, zone_id="total", component="well", flux_in=1.0, flux_out=4.0
+        )
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "well", "sum", 1)
+
+        assert values == pytest.approx([-3.0])
+
+    def test_missing_timestep_is_nan_not_zero(self, catalog):
+        # A gap must stay missing: a zero would bias the metrics toward a null flux.
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 10.0, 2: 4.0})
+
+        values = _aggregate_from_lumped_budget(catalog, sid, "drain", "abs_sum", 3)
+
+        assert values[0] == pytest.approx(10.0)
+        assert np.isnan(values[1])
+        assert values[2] == pytest.approx(4.0)
+
+    def test_unknown_component_returns_none(self, catalog):
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 1.0})
+
+        assert _aggregate_from_lumped_budget(catalog, sid, "river", "abs_sum", 1) is None
+
+    def test_unsupported_reducer_returns_none(self, catalog):
+        sid = self._register(catalog)
+        self._write_drain_budget(catalog, sid, {0: 1.0})
+
+        assert _aggregate_from_lumped_budget(catalog, sid, "drain", "mean_active", 1) is None
+
+    def test_unreadable_budgets_table_raises(self, catalog):
+        sid = self._register(catalog)
+
+        class _BrokenConnection:
+            def execute(self, *args, **kwargs):
+                raise RuntimeError("budgets table is unreadable")
+
+        class _BrokenStore:
+            connection = _BrokenConnection()
+
+        with pytest.raises(ExtractError, match="lumped budget"):
+            _aggregate_from_lumped_budget(_BrokenStore(), sid, "drain", "abs_sum", 1)
+
+    def test_end_to_end_discharge_without_spatial_budget(self, catalog):
+        # No drain Zarr field at all: the lumped budget alone must produce the
+        # catchment discharge series, which is what a default run relies on.
+        sid = self._register(catalog)
+        for t in range(3):
+            catalog.write_field(
+                sid, "head", t, np.full((1, 4), 5.0), n_timesteps=3 if t == 0 else None
+            )
+        self._write_drain_budget(catalog, sid, {0: 10.0, 1: 8.0, 2: 4.0})
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [10.0, 8.0, 4.0])

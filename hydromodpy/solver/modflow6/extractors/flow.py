@@ -15,6 +15,7 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
+from hydromodpy.solver.modflow6.build import mf6_safe_name
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
@@ -30,6 +31,17 @@ def _seconds_per_time_unit(time_units: str) -> float:
     if token in ("", "UNKNOWN"):
         return 1.0
     return factor_to_seconds(token)
+
+
+def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
+    """Return the model listing file MF6 wrote for ``model_name``.
+
+    MF6 names the listing after the model name it was given, which
+    ``mf6_safe_name`` truncates past 16 characters, while the head and budget
+    files keep the full run name. Deriving the listing from the raw name loses
+    the mass balance on every long ``[simulation] name``.
+    """
+    return Path(solver_output_dir) / f"{mf6_safe_name(model_name)}.lst"
 
 
 def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
@@ -171,7 +183,6 @@ class Modflow6OutputAdapter:
                     for t in range(t0, t1):
                         head = head_file.get_data(totim=times[t])
                         slab[t - t0] = head.reshape(nlay, n_cells)
-                    slab[np.abs(slab) > 1e20] = np.nan
                     store.write_field_stack(
                         sim_id,
                         "head",
@@ -194,7 +205,7 @@ class Modflow6OutputAdapter:
                     seconds_per_time_unit=seconds_per_time_unit,
                 )
 
-            lst_path = solver_output_dir / f"{model_name}.lst"
+            lst_path = _listing_path(solver_output_dir, model_name)
             if lst_path.exists():
                 self._extract_mass_balance(
                     sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit

@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 from flopy.utils import postprocessing as pp
 
+from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
+
 from ._models import NODATA
 
 
@@ -21,8 +23,8 @@ def compute_watertable_elevation(head: np.ndarray) -> np.ndarray:
     wt = pp.get_water_table(head, hdry=-1e30, hnoflo=1e30)
     wt = np.ma.filled(np.ma.asarray(wt), np.nan)
     wt = np.asarray(wt, dtype=float).reshape(-1)
-    # |value| > 1e20 catches both +1e30 (HNOFLO) and -1e30 (HDRY).
-    missing = ~np.isfinite(wt) | (np.abs(wt) > 1e20)
+    # The threshold catches both +1e30 (HNOFLO) and -1e30 (HDRY).
+    missing = ~np.isfinite(wt) | (np.abs(wt) > SENTINEL_ABS_THRESHOLD)
     wt[missing] = float(NODATA)
     return wt
 

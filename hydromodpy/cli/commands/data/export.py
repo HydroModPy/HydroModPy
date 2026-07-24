@@ -299,21 +299,26 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _exportable_fields(catalog, sim_id: str, selected: list[str] | None = None) -> list[str]:
-    """Registered field names present in the run's Zarr store.
+    """Registered field names a run can export, persisted or rebuilt on read.
 
     Whitelists against the field registry so Zarr groups that are not fields
-    (``geographic``, ``mesh``, ``crs``, ``time``, ``budget`` ...) are skipped.
+    (``geographic``, ``mesh``, ``crs``, ``time``, ``budget`` ...) are skipped,
+    and adds the virtual fields the store can rebuild (water-table
+    elevation/depth, seepage mask, drain outflow): a default run persists only
+    the head, yet those are readable, so they must be exportable too.
     When ``selected`` is given, keep only those requested names that exist.
     """
     from hydromodpy.results import field_registry
+    from hydromodpy.results.derive.virtual_fields import available_virtual_fields
 
     sz = catalog.open_zarr(sim_id)
     try:
         grp = sz.root
         present = list(grp.keys()) + list((grp.get("derived") or {}).keys())
+        present.extend(available_virtual_fields(grp))
     finally:
         sz.close()
-    fields = [v for v in present if field_registry.has(v)]
+    fields = list(dict.fromkeys(v for v in present if field_registry.has(v)))
     if selected:
         return [v for v in selected if v in fields]
     return fields

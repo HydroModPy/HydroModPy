@@ -47,7 +47,12 @@ Defined under ``workflow/steps/`` and re-exported from
 ``ValidateStep``, ``ResolveStep``, ``LoadDataStep``,
 ``BuildGeographicStep``, ``BuildMeshStep``,
 ``SetupProcessStep``, ``PrepareSolverStep``, ``RunSolverStep``,
-``ExtractStep``, ``DeriveStep``, ``ExportStep``, ``DisplayStep``.
+``ExtractStep``, ``DeriveStep``, ``DisplayStep``, ``ExportStep``.
+
+``DisplayStep`` runs before ``ExportStep``: figures are the last reader
+of a run, so they draw from the open store while the intermediate fields
+are still there. ``ExportStep`` then drops what reconciliation forced on
+(the per-cell budget) and seals the store.
 
 Step contract
 -------------

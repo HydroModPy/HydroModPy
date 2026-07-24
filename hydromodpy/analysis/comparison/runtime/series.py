@@ -149,7 +149,6 @@ def _store_variable_mapping(variable_name: str) -> str | None:
         "release_flux": "release_flux",
         "release_accumulation_flux": "release_accumulation_flux",
         "outflow_drain": "outflow_drain",
-        "groundwater_flux": "groundwater_flux",
         "outlet_discharge_east_side_m3_s": "outlet_discharge_east_side_m3_s",
         "drainage_flux_history_m3_s": "drainage_flux_history_m3_s",
         "drainage_flux_m3_s": "drainage_flux_m3_s",
@@ -158,6 +157,33 @@ def _store_variable_mapping(variable_name: str) -> str | None:
         "mass_accumulated": "mass_accumulated",
     }
     return mapping.get(variable_name.strip().lower())
+
+
+def _virtual_field_slices(
+    store: Catalog,
+    sim_id: str,
+    store_field: str,
+    n_slices: int,
+    elapsed_by_index: list,
+    has_initial_state: bool,
+) -> tuple[TimeSlice, ...]:
+    """Build per-timestep slices for an unpersisted field via ``query_field``."""
+    slices: list[TimeSlice] = []
+    for t in range(int(n_slices)):
+        try:
+            values = np.asarray(store.query_field(sim_id, store_field, t), dtype=float).ravel()
+        except Exception:
+            return ()
+        slices.append(
+            TimeSlice(
+                time_key=t,
+                time_index=t,
+                values=values,
+                elapsed_seconds=elapsed_by_index[t] if t < len(elapsed_by_index) else None,
+                is_initial_state=has_initial_state and t == 0,
+            )
+        )
+    return tuple(slices)
 
 
 def _load_store_series(
@@ -177,6 +203,7 @@ def _load_store_series(
         grp = sz.root
     except (KeyError, Exception):
         return None
+    virtual_field = False
     try:
         arr = None
         for loc in (grp, grp.get("derived"), grp.get("budget")):
@@ -184,15 +211,24 @@ def _load_store_series(
                 arr = loc[store_field]
                 break
         if arr is None:
-            return None
+            # Derived fields (watertable_elevation/depth, seepage_mask) are off by
+            # default: recompute them on the fly from the stored head so the
+            # comparison series survives an unpersisted derived group.
+            from hydromodpy.results.derive.virtual_fields import VIRTUAL_FIELDS
 
-        try:
-            data = arr[:]
-        except Exception:
-            return None
-        if data.ndim == 0:
-            return None
-        n_slices = 1 if data.ndim == 1 else int(data.shape[0])
+            if store_field not in VIRTUAL_FIELDS or "head" not in grp:
+                return None
+            virtual_field = True
+            data = None
+            n_slices = int(grp["head"].shape[0])
+        else:
+            try:
+                data = arr[:]
+            except Exception:
+                return None
+            if data.ndim == 0:
+                return None
+            n_slices = 1 if data.ndim == 1 else int(data.shape[0])
         elapsed_by_index, has_initial_state = _time_axis_from_store_root(
             grp,
             n_slices=n_slices,
@@ -200,6 +236,19 @@ def _load_store_series(
     finally:
         if sz is not None:
             sz.close()
+
+    if virtual_field:
+        slices = _virtual_field_slices(
+            store, sim_id, store_field, n_slices, elapsed_by_index, has_initial_state
+        )
+        if not slices:
+            return None
+        return VariableSeries(
+            variable_name=variable_name,
+            source_path=_store_source_path(store, sim_id),
+            slices=slices,
+            cell_ids=None,
+        )
 
     if data.ndim == 1:
         slices = (

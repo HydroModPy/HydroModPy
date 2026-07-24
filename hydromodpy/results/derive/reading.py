@@ -71,11 +71,17 @@ def _read_field(
     layer: int | None,
     bbox: tuple[float, float, float, float] | None,
 ) -> Any:
-    """Field read: eager ndarray for a single timestep, lazy DataArray otherwise."""
+    """Field read: eager ndarray for a single timestep, lazy DataArray otherwise.
+
+    ``time`` is ignored for a field with no time dimension (topography, layer
+    thickness), the same way the store reader ignores a timestep on a static
+    array: every field a run reports as available reads back with or without
+    a time selector.
+    """
     if isinstance(time, int):
         return run.field(var, timestep=time, layer=layer, bbox=bbox)
     da = run.array.to_xarray_batch((var,), bbox=bbox)[var]
-    if isinstance(time, slice):
+    if isinstance(time, slice) and "time" in da.dims:
         da = da.isel(time=time)
     if layer is not None and "layer" in da.dims:
         da = da.isel(layer=layer)
