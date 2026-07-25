@@ -32,8 +32,8 @@ Delivery status
        and per-run Parquet directory under ``simulations/``; id-only
        storage basename; opt-in persistence of heavy fields (budget and
        derived); on-disk run heartbeats under ``.hmp/running/``; trash,
-       ``gc`` and single-run ``adopt`` from the on-disk
-       ``simulation.parquet`` snapshot; ``runs/``, ``sessions/`` and
+       ``gc`` and ``hmp catalog reindex``, which rebuilds the whole index
+       from the run directories; ``runs/``, ``sessions/`` and
        ``share/`` ignored by git.
    * - Being built
      - Runs-first folder layout (``runs/<name>/`` with a human name);
@@ -106,7 +106,7 @@ class; a value that a code path reads is, even if it is rarely hit.
      - calibration resume, best promotion, calibration report
 
 Part of this class already lands on disk: a run's Parquet directory
-holds ``simulation.parquet`` (the one-row snapshot ``adopt`` reads),
+holds ``simulation.parquet`` (the one-row snapshot the rebuild reads),
 ``metrics.parquet``, ``provenance.parquet``, ``timeseries.parquet``,
 ``budgets.parquet``, ``mass_balance.parquet`` and the GeoParquet
 features. Parameters, geographic metadata, run environment, workflow
@@ -248,7 +248,7 @@ Layout in place today:
    `-- simulations/
        |-- <basename>.zarr/  or .zarr.zip
        `-- <basename>.parquet.d/
-           |-- simulation.parquet         one-row snapshot read by adopt
+           |-- simulation.parquet         one-row snapshot read by reindex
            |-- timeseries.parquet
            |-- budgets.parquet
            |-- mass_balance.parquet
@@ -382,7 +382,7 @@ inside use ``.parquet``, so a plain ``glob`` is never ambiguous.
    * - ``provenance.parquet``
      - input provenance rows of the run
    * - ``simulation.parquet``
-     - one-row snapshot of the run's index entry, read by ``adopt``
+     - one-row snapshot of the run's index entry, read by ``reindex``
    * - ``geographic_*.parquet``
      - GeoParquet 1.1 vector layers (catchment outline, buffered box,
        drainage network)

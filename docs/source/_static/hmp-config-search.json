@@ -32,7 +32,7 @@
     "section": "workspace",
     "anchor": "workspace-project-root",
     "page": "workspace.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L82",
     "description": "Path to the project directory. Required in TOML configs.",
     "examples": [
       "\".\""
@@ -47,7 +47,7 @@
     "section": "workspace",
     "anchor": "workspace-root",
     "page": "workspace.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L80",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L87",
     "description": "Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.",
     "examples": [
       "\"../..\""
@@ -62,8 +62,8 @@
     "section": "workspace",
     "anchor": "workspace-catalog-path",
     "page": "workspace.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L89",
-    "description": "Explicit path to the project catalog.duckdb. Defaults to <project_root>/catalog.duckdb."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L96",
+    "description": "Explicit path to the project index database. Defaults to <project_root>/.hmp/index.duckdb."
   },
   {
     "path": "workspace.data_dir",
@@ -74,20 +74,20 @@
     "section": "workspace",
     "anchor": "workspace-data-dir",
     "page": "workspace.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L104",
     "description": "Explicit path to the workspace data directory. Defaults to <root>/data."
   },
   {
-    "path": "workspace.simulations_dir",
-    "name": "simulations_dir",
+    "path": "workspace.runs_dir",
+    "name": "runs_dir",
     "type": "Path | None",
     "profile": "dev",
     "stability": "stable",
     "section": "workspace",
-    "anchor": "workspace-simulations-dir",
+    "anchor": "workspace-runs-dir",
     "page": "workspace.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L102",
-    "description": "Explicit path to the simulations Zarr directory. Defaults to <project_root>/simulations."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L109",
+    "description": "Explicit path to the directory holding one sub-directory per run. Defaults to <project_root>/runs."
   },
   {
     "path": "workspace.output_root",
@@ -98,8 +98,8 @@
     "section": "workspace",
     "anchor": "workspace-output-root",
     "page": "workspace.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L110",
-    "description": "Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L117",
+    "description": "Root directory for per-project outputs (.hmp/scratch/, share/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.",
     "examples": [
       "\"outputs/run_a\""
     ]
@@ -14866,7 +14866,7 @@
     "section": "display",
     "anchor": "display-enabled",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L26",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L25",
     "description": "Master switch. When False, no figure is rendered or saved."
   },
   {
@@ -14878,7 +14878,7 @@
     "section": "display",
     "anchor": "display-backend",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L30",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L29",
     "description": "Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show`` is enabled."
   },
   {
@@ -14890,7 +14890,7 @@
     "section": "display",
     "anchor": "display-preset",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L37",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L36",
     "description": "Named theme applied before rendering any figure."
   },
   {
@@ -14902,7 +14902,7 @@
     "section": "display",
     "anchor": "display-show",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L40",
     "description": "Open an interactive window via ``matplotlib.pyplot.show``."
   },
   {
@@ -14914,20 +14914,20 @@
     "section": "display",
     "anchor": "display-save",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L45",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L44",
     "description": "Write rendered figures to disk under ``output_dir``."
   },
   {
     "path": "display.output_dir",
     "name": "output_dir",
-    "type": "Path",
+    "type": "str",
     "profile": "user",
     "stability": "stable",
     "section": "display",
     "anchor": "display-output-dir",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L49",
-    "description": "Directory (relative to project root) for saved figures."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L48",
+    "description": "Name of the figures directory inside the run directory (<project>/runs/<run>/<output_dir>/). Declared as a name, not a path, so it stays anchored to the run it describes."
   },
   {
     "path": "display.dpi",
@@ -14938,7 +14938,7 @@
     "section": "display",
     "anchor": "display-dpi",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L56",
     "description": "DPI used when saving raster figures."
   },
   {
@@ -14950,7 +14950,7 @@
     "section": "display",
     "anchor": "display-cmap",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L58",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L61",
     "description": "Default sequential colormap for spatial figures."
   },
   {
@@ -14962,7 +14962,7 @@
     "section": "display",
     "anchor": "display-figures",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L62",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L65",
     "description": "Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skippe"
   },
   {
@@ -14974,7 +14974,7 @@
     "section": "display",
     "anchor": "display-on-error",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L77",
     "description": "Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed."
   },
   {
@@ -14986,7 +14986,7 @@
     "section": "display",
     "anchor": "display-overrides",
     "page": "display.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L86",
     "description": "Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``)."
   },
   {
@@ -16439,7 +16439,7 @@
     "anchor": "analysis-capability-gallery-assets",
     "page": "analysis.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/capability_gallery.py#L70",
-    "description": "Asset filenames. Each ``<name>.png`` is first rendered through the injected render callback when a Run is available, otherwise copied from one of the standard figure subdirs of the run folder."
+    "description": "Asset filenames. Each ``<name>.png`` is first rendered through the injected render callback when a Run is available, otherwise copied from the run's own figures directory."
   },
   {
     "path": "analysis.comparison",

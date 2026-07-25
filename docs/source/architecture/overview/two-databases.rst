@@ -103,12 +103,13 @@ here.
      - Out of the results scope. Repopulated from the input cache and
        the data loaders
 
-Rebuild status: single-run re-registration exists today
-(``hmp catalog adopt``, which reads the on-disk ``simulation.parquet``
-snapshot of an orphan store). A project-wide ``hmp reindex`` and the
-on-disk homes for parameters, geographic metadata, run environment,
-workflow trace, config and tags are still being built. Until they land,
-deleting a project index still loses those rows.
+Rebuild status: ``hmp catalog reindex`` rebuilds the whole index from
+the run directories. It reads each ``manifest.json`` as the seal of a
+complete run, then its ``simulation.parquet``, ``parameters.parquet``,
+``metrics.parquet``, ``provenance.parquet``, GeoParquet features and
+``provenance.json``. The rebuild fills a staging database and publishes
+it atomically, so the current index stays readable throughout. The
+losable class above is what a rebuild does not bring back.
 
 Provenance bridge
 -----------------

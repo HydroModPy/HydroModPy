@@ -41,13 +41,13 @@ Sub-models are linked back to their per-section page.
       # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
       # example: root = "../.."
       # root = ...  # default = None
-      # Explicit path to the project catalog.duckdb. Defaults to <project_root>/catalog.duckdb.
+      # Explicit path to the project index database. Defaults to <project_root>/.hmp/index.duckdb.
       # catalog_path = ...  # default = None
       # Explicit path to the workspace data directory. Defaults to <root>/data.
       # data_dir = ...  # default = None
-      # Explicit path to the simulations Zarr directory. Defaults to <project_root>/simulations.
-      # simulations_dir = ...  # default = None
-      # Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
+      # Explicit path to the directory holding one sub-directory per run. Defaults to <project_root>/runs.
+      # runs_dir = ...  # default = None
+      # Root directory for per-project outputs (.hmp/scratch/, share/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
       # example: output_root = "outputs/run_a"
       # output_root = ...  # default = None
 
@@ -355,7 +355,7 @@ Sub-models are linked back to their per-section page.
       show = false
       # Write rendered figures to disk under ``output_dir``.
       save = true
-      # Directory (relative to project root) for saved figures.
+      # Name of the figures directory inside the run directory (<project>/runs/<run>/<output_dir>/). Declared as a name, not a path, so it stays anchored to the run it describes.
       output_dir = "figures"
       # DPI used when saving raster figures.
       dpi = 150

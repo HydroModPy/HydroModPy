@@ -39,7 +39,7 @@
 <polygon fill="none" stroke="black" points="18.88,-131 18.88,-153.5 81.12,-153.5 81.12,-131 18.88,-131"/>
 <text xml:space="preserve" text-anchor="start" x="21.88" y="-137.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_dir</text>
 <polygon fill="none" stroke="black" points="81.12,-131 81.12,-153.5 247.62,-153.5 247.62,-131 81.12,-131"/>
-<text xml:space="preserve" text-anchor="start" x="152.38" y="-137.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path</text>
+<text xml:space="preserve" text-anchor="start" x="157.62" y="-137.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="18.88,-108.5 18.88,-131 81.12,-131 81.12,-108.5 18.88,-108.5"/>
 <text xml:space="preserve" text-anchor="start" x="41.38" y="-114.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dpi</text>
 <polygon fill="none" stroke="black" points="81.12,-108.5 81.12,-131 247.62,-131 247.62,-108.5 81.12,-108.5"/>

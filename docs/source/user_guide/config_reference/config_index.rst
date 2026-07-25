@@ -37,37 +37,37 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `workspace <workspace.html#workspace-project-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L75>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L82>`__
    * - ``workspace.root``
      - ``Path | UPath | None``
      - user
      - -
      - `workspace <workspace.html#workspace-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L80>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L87>`__
    * - ``workspace.catalog_path``
      - ``Path | None``
      - dev
      - -
      - `workspace <workspace.html#workspace-catalog-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L89>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L96>`__
    * - ``workspace.data_dir``
      - ``Path | None``
      - dev
      - -
      - `workspace <workspace.html#workspace-data-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L97>`__
-   * - ``workspace.simulations_dir``
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L104>`__
+   * - ``workspace.runs_dir``
      - ``Path | None``
      - dev
      - -
-     - `workspace <workspace.html#workspace-simulations-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L102>`__
+     - `workspace <workspace.html#workspace-runs-dir>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L109>`__
    * - ``workspace.output_root``
      - ``Path | None``
      - user
      - -
      - `workspace <workspace.html#workspace-output-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L110>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/workspace/config.py#L117>`__
    * - ``geographic.source_mode``
      - ``Literal['standard', 'synthetic']``
      - user
@@ -7375,67 +7375,67 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `display <display.html#display-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L26>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L25>`__
    * - ``display.backend``
      - ``Literal['agg', 'qt5agg', 'auto']``
      - dev
      - -
      - `display <display.html#display-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L30>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L29>`__
    * - ``display.preset``
      - ``Literal['default', 'print', 'dark']``
      - user
      - -
      - `display <display.html#display-preset>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L37>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L36>`__
    * - ``display.show``
      - ``bool``
      - user
      - -
      - `display <display.html#display-show>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L40>`__
    * - ``display.save``
      - ``bool``
      - user
      - -
      - `display <display.html#display-save>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L45>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L44>`__
    * - ``display.output_dir``
-     - ``Path``
+     - ``str``
      - user
      - -
      - `display <display.html#display-output-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L48>`__
    * - ``display.dpi``
      - ``int``
      - dev
      - -
      - `display <display.html#display-dpi>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L53>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L56>`__
    * - ``display.cmap``
      - ``str``
      - user
      - -
      - `display <display.html#display-cmap>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L58>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L61>`__
    * - ``display.figures``
      - ``list[str]``
      - user
      - -
      - `display <display.html#display-figures>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L62>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L65>`__
    * - ``display.on_error``
      - ``Literal['warn', 'raise']``
      - user
      - -
      - `display <display.html#display-on-error>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L77>`__
    * - ``display.overrides``
      - ``dict[str, dict]``
      - expert
      - -
      - `display <display.html#display-overrides>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L86>`__
    * - ``export.netcdf``
      - ``bool``
      - user

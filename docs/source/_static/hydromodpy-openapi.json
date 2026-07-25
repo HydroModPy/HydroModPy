@@ -1693,7 +1693,7 @@
               "water_budget.png",
               "watershed_id_card.png"
             ],
-            "description": "Asset filenames. Each ``<name>.png`` is first rendered through the injected render callback when a Run is available, otherwise copied from one of the standard figure subdirs of the run folder.",
+            "description": "Asset filenames. Each ``<name>.png`` is first rendered through the injected render callback when a Run is available, otherwise copied from the run's own figures directory.",
             "items": {
               "type": "string"
             },
@@ -4040,11 +4040,10 @@
           },
           "output_dir": {
             "default": "figures",
-            "description": "Directory (relative to project root) for saved figures.",
+            "description": "Name of the figures directory inside the run directory (<project>/runs/<run>/<output_dir>/). Declared as a name, not a path, so it stays anchored to the run it describes.",
             "examples": [
-              "data/input.csv"
+              "figures"
             ],
-            "format": "path",
             "title": "Output Dir",
             "type": "string",
             "x-hmp-profile": "user"
@@ -17727,10 +17726,10 @@
             "x-hmp-profile": "dev"
           },
           "solver_scratch": {
-            "default": ".solver_scratch",
+            "default": ".hmp/scratch",
             "description": "Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC.",
             "examples": [
-              ".solver_scratch"
+              ".hmp/scratch"
             ],
             "title": "Solver Scratch",
             "type": "string",
@@ -21906,7 +21905,7 @@
       },
       "WorkspaceConfig": {
         "additionalProperties": false,
-        "description": "Strict-binary workspace configuration.\n\nThe canonical workspace layout is::\n\n    <workspace>/\n        workspace.toml\n        data/\n            cache.duckdb\n        projects/\n            <name>/\n                hydromodpy.toml   <- TOML lives here when using scaffold\n                catalog.duckdb\n                simulations/\n                    <basename>.zarr/ or <basename>.zarr.zip\n\nFields under ``[workspace]``:\n\n``project_root`` (required)\n    Directory of the project TOML. Usually auto-derived from the TOML\n    location by the loader.\n\n``root`` (explicit workspace override)\n    When set, the shared data workspace root. Derives ``data_dir``\n    unless it is explicitly overridden.\n\n``catalog_path`` / ``data_dir`` / ``simulations_dir``\n    Per-component explicit overrides. ``catalog_path`` and\n    ``simulations_dir`` are project-local by default.\n\n``output_root``\n    Optional redirect for heavy outputs (``.solver_scratch/`` and\n    per-run ``figures/``). Defaults to ``project_root``.",
+        "description": "Strict-binary workspace configuration.\n\nThe canonical workspace layout is::\n\n    <workspace>/\n        workspace.toml\n        data/\n            cache.duckdb\n        projects/\n            <name>/\n                hydromodpy.toml   <- TOML lives here when using scaffold\n                runs/<run>/\n                share/\n                .hmp/index.duckdb\n\nFields under ``[workspace]``:\n\n``project_root`` (required)\n    Directory of the project TOML. Usually auto-derived from the TOML\n    location by the loader.\n\n``root`` (explicit workspace override)\n    When set, the shared data workspace root. Derives ``data_dir``\n    unless it is explicitly overridden.\n\n``catalog_path`` / ``data_dir`` / ``runs_dir``\n    Per-component explicit overrides. ``catalog_path`` and ``runs_dir``\n    are project-local by default.\n\n``output_root``\n    Optional redirect for heavy outputs (``.hmp/scratch/`` and the\n    published ``share/`` tree). Defaults to ``project_root``.",
         "properties": {
           "project_root": {
             "anyOf": [
@@ -22017,7 +22016,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit path to the project catalog.duckdb. Defaults to <project_root>/catalog.duckdb.",
+            "description": "Explicit path to the project index database. Defaults to <project_root>/.hmp/index.duckdb.",
             "title": "Catalog Path",
             "x-hmp-profile": "dev"
           },
@@ -22036,7 +22035,7 @@
             "title": "Data Dir",
             "x-hmp-profile": "dev"
           },
-          "simulations_dir": {
+          "runs_dir": {
             "anyOf": [
               {
                 "format": "path",
@@ -22047,8 +22046,8 @@
               }
             ],
             "default": null,
-            "description": "Explicit path to the simulations Zarr directory. Defaults to <project_root>/simulations.",
-            "title": "Simulations Dir",
+            "description": "Explicit path to the directory holding one sub-directory per run. Defaults to <project_root>/runs.",
+            "title": "Runs Dir",
             "x-hmp-profile": "dev"
           },
           "output_root": {
@@ -22062,7 +22061,7 @@
               }
             ],
             "default": null,
-            "description": "Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.",
+            "description": "Root directory for per-project outputs (.hmp/scratch/, share/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.",
             "examples": [
               "outputs/run_a"
             ],

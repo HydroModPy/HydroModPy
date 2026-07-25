@@ -87,6 +87,14 @@ Command inventory
      - Workspace audit log
      - ``list`` prints recent events. ``verify`` replays the hash chain
        (placeholder until the chain is wired).
+   * - ``hmp config``
+     - Configuration authoring and validation
+     - ``template`` writes a starter TOML, ``check`` validates a config
+       against the schema, ``schema`` exports the JSON Schema.
+   * - ``hmp spinup``
+     - Cyclic spin-up
+     - Restarts a simulation cycle after cycle until heads and lake stage
+       converge, then promotes the converged state as a run.
 
 Workflow execution flags
 ------------------------
