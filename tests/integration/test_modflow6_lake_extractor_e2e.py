@@ -33,7 +33,13 @@ from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 
 
 class _RecordingStore:
-    """Minimal SimulationStore double capturing the extractor's writes."""
+    """Minimal SimulationStore double capturing the extractor's writes.
+
+    ``save_zarr`` is False: the extractor then skips every array-store write
+    (spatial mesh, lake restart state), which is out of scope here.
+    """
+
+    save_zarr = False
 
     def __init__(self) -> None:
         self.timeseries: list[dict] = []
@@ -62,8 +68,8 @@ class _RecordingStore:
         self.timeseries.extend(records)
 
     def open_zarr(self, sim_id):
-        # The spatial-mesh export path is out of scope here; make it a no-op by
-        # refusing to open a Zarr store (the extractor swallows the failure).
+        # Never reached: ``save_zarr`` is False, so the extractor must not ask
+        # for an array store. Raising proves the guard is honoured.
         raise RuntimeError("zarr export disabled in this test")
 
 

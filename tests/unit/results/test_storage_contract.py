@@ -1,8 +1,10 @@
 """Storage-contract constants that every layer must agree on.
 
-The catalog filename, project TOML filename, and workspace TOML filename
-live in :mod:`hydromodpy.core.state.paths`. Every consumer (cli, results,
-data) must import them from there - no duplicate string literals.
+The catalog filename, the project marker filename and the workspace TOML
+filename live in :mod:`hydromodpy.core.state.paths`. Every consumer (cli,
+results, data) must import them from there - no duplicate string literals.
+``project.toml`` plays one single role: it is both the project configuration
+and the marker anchoring the project root.
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ from hydromodpy.core.state.paths import (
     INDEX_FILENAME,
     INTERNAL_DIRNAME,
     PROJECT_MARKER_FILENAME,
-    PROJECT_TOML_FILENAME,
     RUNS_DIRNAME,
     SHARE_DIRNAME,
     WORKSPACE_TOML_FILENAME,
@@ -39,10 +40,6 @@ def test_project_path_helpers_build_the_runs_first_tree(tmp_path):
     assert share_dir_for(tmp_path) == tmp_path / "share"
 
 
-def test_project_toml_filename_is_canonical():
-    assert PROJECT_TOML_FILENAME == "hydromodpy.toml"
-
-
 def test_workspace_toml_filename_is_canonical():
     assert WORKSPACE_TOML_FILENAME == "workspace.toml"
 
@@ -59,6 +56,6 @@ def test_storage_contract_module_does_not_redefine_catalog_filename():
 
 
 def test_no_legacy_hydromodpy_duckdb_in_filename_constants():
-    for name in (CATALOG_FILENAME, PROJECT_TOML_FILENAME, WORKSPACE_TOML_FILENAME):
+    for name in (CATALOG_FILENAME, WORKSPACE_TOML_FILENAME):
         assert name != "hydromodpy.duckdb"
-        assert name != "project.toml"
+        assert name != PROJECT_MARKER_FILENAME

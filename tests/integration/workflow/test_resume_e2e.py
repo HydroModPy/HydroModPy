@@ -15,7 +15,9 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import StepError
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.tracking.journal import WorkflowJournal
 from hydromodpy.workflow.tracking.resume import ResumePlanner
@@ -54,6 +56,7 @@ class _ArtifactStep:
 
 
 def _register_running_sim(catalog: Catalog, sim_id: str) -> None:
+    run_name = "x"
     catalog.connection.execute(
         """
         INSERT INTO simulations
@@ -64,7 +67,7 @@ def _register_running_sim(catalog: Catalog, sim_id: str) -> None:
                 (SELECT id FROM statuses WHERE code = 'running'),
                 ?, ?)
         """,
-        [sim_id, "simulations/x.zarr", "x"],
+        [sim_id, f"{RUNS_DIRNAME}/{run_name}/{FIELDS_STORE_NAME}", run_name],
     )
 
 

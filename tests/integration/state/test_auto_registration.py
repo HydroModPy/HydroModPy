@@ -186,7 +186,7 @@ def test_step_setup_registers_workspace_in_global_index(
         workspace=SimpleNamespace(project_root=project_root),
         geographic=SimpleNamespace(uses_synthetic_geographic=lambda: False),
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(run_id="test", rng_seed=None),
+        simulation=SimpleNamespace(name="demo_run", run_id="test", rng_seed=None),
     )
     run_state = WorkflowContext(
         cfg=cfg,

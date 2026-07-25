@@ -3,8 +3,9 @@
 Walks the chain a new user would follow:
 1. ``hmp workspace init`` to scaffold a workspace.
 2. Inspect ``workspace.toml`` and the scaffolded layout.
-3. ``hmp data fetch`` for a variable that does not require network (the
-   sub-verb writes a deterministic placeholder + sidecar).
+3. Get a DEM into the workspace: the unimplemented ``hmp data get`` stays
+   gated, then ``hmp data check`` + ``hmp data add`` ingest a local file
+   dropped in ``data/dem/`` under the naming convention.
 4. Seed a minimal simulation via the public Python API so the catalog
    carries a real Zarr field. This stands in for a full solver run on the
    ``simulation_regression`` fixture, which is exercised by the regression
@@ -19,7 +20,7 @@ what an end user actually triggers.
 
 from __future__ import annotations
 
-import json
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -31,6 +32,8 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for
+
+_FIXTURE_DEM = Path(__file__).resolve().parents[1] / "data" / "sfr_cheze" / "dem_valley.tif"
 
 
 def _run_hmp(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -127,7 +130,9 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     for variable in ("dem", "piezometry", "hydrometry"):
         assert (workspace / "data" / variable).is_dir(), f"data/{variable} missing"
 
-    # ----- Step 4: hmp data get writes a flat file + sidecar (no network) ---
+    # ----- Step 4a: the upstream fetch is gated, and says what to do instead --
+    # HydroModPy has no provider download; ``hmp data get`` must fail loudly
+    # rather than write a placeholder that looks like checksummed real data.
     fetch = _run_hmp(
         "data",
         "get",
@@ -136,18 +141,29 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         "--workspace",
         str(workspace),
     )
-    assert fetch.returncode == 0, (
-        f"`hmp data get dem` failed.\nstdout:\n{fetch.stdout}\nstderr:\n{fetch.stderr}"
+    assert fetch.returncode != 0, "`hmp data get` must stay gated while unimplemented"
+    assert "hmp data add" in fetch.stderr, (
+        f"the gate must point at the supported path.\nstderr:\n{fetch.stderr}"
     )
+
+    # ----- Step 4b: the supported path - drop zone + hmp data add -----------
     dem_dir = workspace / "data" / "dem"
-    assert dem_dir.is_dir(), "hmp data get must write into data/<variable>/"
-    raw_files = list(dem_dir.glob("dem_*.tif"))
-    assert raw_files, "no fetched DEM placeholder under data/dem/"
-    sidecar = raw_files[0].with_suffix(raw_files[0].suffix + ".json")
-    assert sidecar.is_file(), "sidecar JSON missing next to fetched file"
-    sidecar_payload = json.loads(sidecar.read_text(encoding="utf-8"))
-    assert "sha256" in sidecar_payload
-    assert sidecar_payload.get("bbox") == [-1.17, 48.4, -1.0, 48.5]
+    assert dem_dir.is_dir(), "hmp workspace init must scaffold data/<variable>/"
+    dem_file = dem_dir / "dem_custom_valley.tif"
+    shutil.copyfile(_FIXTURE_DEM, dem_file)
+
+    check = _run_hmp("data", "check", "--variable", "dem", "--workspace", str(workspace))
+    assert check.returncode == 0, f"`hmp data check` failed.\nstderr:\n{check.stderr}"
+    assert "OK" in check.stdout
+
+    added = _run_hmp("data", "add", str(dem_file), "--type", "dem", "--workspace", str(workspace))
+    assert added.returncode == 0, f"`hmp data add` failed.\nstderr:\n{added.stderr}"
+    blob = workspace / "data" / "blobs" / "dem" / "custom" / dem_file.name
+    assert blob.is_file(), "hmp data add must pivot the raster into data/blobs/"
+
+    listed = _run_hmp("data", "ls", "--workspace", str(workspace))
+    assert listed.returncode == 0, f"`hmp data ls` failed.\nstderr:\n{listed.stderr}"
+    assert dem_file.name in listed.stdout
 
     # ----- Step 5: seed a minimal simulation via the Python API -------------
     # We do not invoke the solver here. A real ``hmp run`` on

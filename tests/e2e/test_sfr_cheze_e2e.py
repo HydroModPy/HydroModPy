@@ -80,6 +80,11 @@ streambed_k_unit = "m/s"
 streambed_thickness = "1 m"
 manning = 0.035
 outflow_to_lake = 1
+# Scaled to this compressed fixture (2.5 km DEM, 82.5 m mesh cells): the dam
+# sits AT the catchment outlet, so the terminal feeder reach stops ~200 m from
+# it. The 1000 m default would read that feeder as the below-dam discharge
+# reach and route its flow out of the model instead of into the reservoir.
+outlet_keepout = "100 m"
 
 # The routed surface runoff entering the network (distributed per reach by
 # length); the catchment baseflow adds to it through the streambed exchange.

@@ -160,11 +160,19 @@ class TestZarrPattern:
         assert ds["head"].sizes["time"] == 3
         assert ds["head"].attrs.get("units") == "m"
 
-    def test_run_to_xarray_batch_unknown_field_raises(self, catalog):
+    def test_run_to_xarray_batch_absent_field_raises(self, catalog):
+        """A registered field that is neither stored nor derivable raises."""
         sid = _seed_run(catalog, project="ml_p4b", name="r1", objective="exploratory")
         run = catalog[sid]
         with pytest.raises(KeyError, match="not found"):
-            run.array.to_xarray_batch(("watertable_depth",))
+            run.array.to_xarray_batch(("concentration",))
+
+    def test_run_to_xarray_batch_derives_virtual_field(self, catalog):
+        """``watertable_depth`` is not persisted but is rebuilt from head + top."""
+        sid = _seed_run(catalog, project="ml_p4c", name="r1", objective="exploratory")
+        run = catalog[sid]
+        ds = run.array.to_xarray_batch(("watertable_depth",))
+        assert ds["watertable_depth"].sizes["time"] == 3
 
 
 class TestScientificObjective:

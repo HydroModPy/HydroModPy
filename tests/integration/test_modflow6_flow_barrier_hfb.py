@@ -20,7 +20,7 @@ from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 _N = 11  # cells in a single row; the interior face at x = 5 carries the wall.
 _TOP = 10.0
-_WALL_FACE_X = 5  # face between cell 4 and cell 5
+_WALL_FACE_X = 5.0  # face between cell 4 and cell 5
 
 
 def _row_solver_mesh() -> SolverMesh:
@@ -86,9 +86,12 @@ def _build_and_run(tmp_path, *, hfb_rows) -> tuple[np.ndarray, float]:
 @pytest.mark.integration
 def test_hfb_wall_blocks_cross_wall_flow(tmp_path) -> None:
     sm = _row_solver_mesh()
+    # The trace runs ACROSS the row: the builder bars a face when the line
+    # crosses the segment joining the two cell centroids, so a wall drawn along
+    # that segment (both centroids sit at y = 0.5) would bar nothing.
     rows = build_flow_barrier_hfb(
         sm,
-        line=LineString([(_WALL_FACE_X - 0.5, 0.5), (_WALL_FACE_X + 0.5, 0.5)]),
+        line=LineString([(_WALL_FACE_X, -0.5), (_WALL_FACE_X, 1.5)]),
         depths=[_TOP],
         hydchr=1e-9,
     )

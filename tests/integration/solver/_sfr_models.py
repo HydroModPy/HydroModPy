@@ -162,6 +162,12 @@ def run_standalone_sfr_model(ws: Path, *, connected: bool):
 
 COUPLED_MODEL_NAME = "sfrlak"
 
+# Hillslope drain cells of the coupled model, as (row, col) on the 8x8 grid:
+# (5,4), (6,4), (6,3) and (7,3). The top tilts down towards the north, so their
+# steepest-descent path runs up the columns and meets a reach cell before any
+# lake cell. Drains further north would reach the lake directly instead.
+DRAIN_CELLS: tuple[int, ...] = (44, 52, 51, 59)
+
 
 def _coupled_mesh_and_lake() -> tuple[SolverMesh, list[int]]:
     """8x8 / 2-layer mesh with a 3x3 lake footprint in the low (south-east) corner."""
@@ -233,6 +239,7 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
     )
     from hydromodpy.solver.modflow6.builders.sfr import (
         build_drainage_mover_records,
+        build_sfr_mover_records,
         remove_drain_cells,
         sfr_drain_cells_to_drop,
     )
@@ -259,9 +266,11 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
     )
     networks = resolve_sfr_networks(model, solver_mesh=mesh)
 
-    # Static drains away from the stream, below the ambient head so they flow;
-    # with route_drainage their discharge converges to the nearest reach.
-    drn_spd: dict[int, list[list[float]]] = {0: [[0, cid, 92.5, 1e-4] for cid in (9, 10, 17, 18)]}
+    # Static drains away from the stream, below the ambient head so they flow.
+    # They sit SOUTH of the channel, so their steepest-descent path on the tilted
+    # top meets a reach cell before it could reach the lake: with route_drainage
+    # their discharge lands on the network, then rides it down to the lake.
+    drn_spd: dict[int, list[list[float]]] = {0: [[0, cid, 92.5, 1e-4] for cid in DRAIN_CELLS]}
     drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(networks))
     drainage_movers = build_drainage_mover_records(
         networks,
@@ -269,11 +278,23 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
         cell_centroids=mesh.cell_centroids(),
         mesh_top=mesh.top,
         cell_adjacency=build_planar_cell_adjacency(mesh.planar_mesh, int(mesh.n_cells)),
+        lake_cells_by_number={0: list(lake_cells)},
     )
 
-    args = build_sfr_package_args(model, networks=networks, external_mover=bool(drainage_movers))
+    # Same order as ``build.py``: the SFR-owned mover records are compiled on
+    # their own, then only their presence is handed to the package builder.
+    mover_records = build_sfr_mover_records(
+        networks,
+        lake_cells_by_number={0: list(lake_cells)},
+        cell_centroids=mesh.cell_centroids(),
+    )
+    args = build_sfr_package_args(
+        model,
+        networks=networks,
+        external_mover=bool(drainage_movers),
+        has_mover_records=bool(mover_records),
+    )
     assert args is not None
-    mover_records = args.pop("mover_records")
     obs_continuous = args.pop("obs_continuous")
     sfr_obs_meta = args.pop("sfr_obs_meta")
     args.pop("ts_specs", None)

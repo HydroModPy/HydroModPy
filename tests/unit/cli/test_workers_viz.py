@@ -188,8 +188,9 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
     assert paths == [expected_dir / "head.png", expected_dir / "budget.png"]
     assert calls["project_root"] == tmp_path
     assert calls["display_raw"] == {"show": True}
+    # Project-relative, never absolute: a copied project must recognise its runs.
     assert calls["list_kwargs"] == {
-        "config_source": str(config.resolve()),
+        "config_source": config.name,
         "order_by": "created_at DESC",
     }
     assert calls["selected_sim_id"] == "ABCD1234"
