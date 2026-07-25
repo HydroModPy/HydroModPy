@@ -591,13 +591,13 @@ class SimulationComparisonLauncher:
         """Infer one existing run folder from a simulation config path."""
         try:
             cfg = get_root_config_provider().from_toml(config_path)
-            scratch_folder = getattr(cfg.workspace, "solver_scratch_folder", None)
-            run_id = getattr(cfg.simulation, "run_id", None)
+            scratch_folder = cfg.workspace.solver_scratch_folder
+            run_name = cfg.simulation.name
         except Exception:
             return Path(config_path).expanduser().resolve().parent
-        if scratch_folder in (None, "") or run_id in (None, ""):
+        if not run_name:
             return Path(config_path).expanduser().resolve().parent
-        base_folder = Path(scratch_folder) / str(run_id)
+        base_folder = Path(scratch_folder) / run_name
         return SimulationComparisonLauncher._resolve_existing_run_folder(
             base_folder,
             solver_name=solver_name,

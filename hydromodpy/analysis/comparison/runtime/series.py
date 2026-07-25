@@ -463,10 +463,8 @@ def _load_store_surface_excess_total_series(
 
 
 def _store_source_path(store: Catalog, sim_id: str) -> Path:
-    zarr_path_for = getattr(store, "zarr_path_for", None)
-    if callable(zarr_path_for):
-        return Path(zarr_path_for(sim_id))
-    return Path(getattr(store, "zarr_path", ""))
+    """Return the Zarr directory store backing one run."""
+    return store.fields_path_for(sim_id)
 
 
 def _load_store_dry_deficit_total_series(

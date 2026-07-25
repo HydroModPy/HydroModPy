@@ -46,14 +46,14 @@ def _completed_run_with_same_config(project: Any) -> tuple[str | None, str] | No
     import hashlib
     import json
 
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
 
     try:
         config_dict = project.config.model_dump(mode="json")
         config_hash = hashlib.sha256(json.dumps(config_dict, sort_keys=True).encode()).hexdigest()
         root = Path(project.config.workspace.project_root)
-        if not (root / CATALOG_FILENAME).exists():
+        if not (catalog_path_for(root)).exists():
             return None
         with Catalog(root, read_only=True) as catalog:
             matches = catalog.find(config_hash=config_hash, status="completed")

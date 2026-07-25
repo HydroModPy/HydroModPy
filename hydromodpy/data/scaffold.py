@@ -457,12 +457,11 @@ Then run it:
 
 PROJECT_GITIGNORE = """\
 # HydroModPy generated artefacts - do not edit or commit.
-# Internal runtime (catalog, backups, logs) lives under .hmp/.
+# Internal runtime (index, trash, scratch, logs) lives under .hmp/.
 .hmp/
-*.duckdb
-*.duckdb.*
-simulations/
-exports/
+runs/
+sessions/
+share/
 """
 
 

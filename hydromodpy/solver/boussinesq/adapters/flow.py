@@ -17,6 +17,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverError
+from hydromodpy.core.state.paths import share_dir_for
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -174,7 +175,7 @@ class BoussinesqFlowAdapter:
         except json.JSONDecodeError:
             return
         run_id = str(getattr(ctx.state.setup, "run_id", "") or ctx.run.id)
-        diagnostics_dir = Path(project_root) / "exports" / run_id / "solver_diagnostics"
+        diagnostics_dir = share_dir_for(Path(project_root)) / run_id / "solver_diagnostics"
         write_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
         write_ts_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
 

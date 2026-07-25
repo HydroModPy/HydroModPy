@@ -294,7 +294,9 @@ def discover_result_store(
     try:
         from hydromodpy.results.catalog import Catalog
 
-        catalog = Catalog(workspace_root)
+        # Discovery only reads; a writable open would create an empty index
+        # in whatever directory the child config happens to point at.
+        catalog = Catalog(workspace_root, read_only=True)
         sims = catalog.list_simulations()
         if sims.empty:
             catalog.close()

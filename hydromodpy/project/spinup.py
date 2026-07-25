@@ -143,7 +143,7 @@ def run_spinup(
             run = project.simulate(name=f"{name_prefix}_{index}")
             if run is None:
                 raise RuntimeError(f"spin-up cycle {index} produced no run")
-            zarr_path = str(project._catalog.store.zarr_path_for(run.sim_id))
+            zarr_path = str(project._catalog.store.fields_path_for(run.sim_id))
 
             d_head: float | None = None
             d_stage: float | None = None

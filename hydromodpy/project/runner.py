@@ -79,7 +79,7 @@ def _resolve_resume_step_index(
 ) -> int:
     """Locate the next step index to execute for a previously interrupted run.
 
-    The workflow journal in ``catalog.duckdb`` is the single source of truth:
+    The workflow journal in the project index is the single source of truth:
     when no row exists for ``run_id`` the run is treated as fresh and starts
     from step 0.
     """
