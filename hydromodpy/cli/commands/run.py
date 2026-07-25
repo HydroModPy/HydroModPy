@@ -193,7 +193,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     journal-driven machinery as ``hmp run config.toml --resume NAME`` (the
     journal is keyed by the run name, so no extra identity plumbing is needed).
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.display.banner import print_hydromodpy
     from hydromodpy.project import Project
     from hydromodpy.results.catalog import (
@@ -203,7 +203,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     )
 
     workspace = resolve_project_root(Path.cwd().resolve())
-    if not (workspace / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace)).exists():
         print(
             f"No catalog at {workspace}; run --resume REF must be invoked from a "
             "workspace, or pass a TOML config explicitly.",
@@ -466,7 +466,7 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     Best-effort: looks for a catalog next to the config and, failing that,
     walks up to find a workspace. Any exception is swallowed.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
@@ -474,7 +474,7 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
         workspace = resolve_project_root(config_path.parent)
     except Exception:
         return
-    catalog_path = workspace / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace)
     if not catalog_path.is_file():
         return
     try:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.geographic.core.river_network import (
     build_river_network_products,
     resolve_stream_threshold_cells,
@@ -166,7 +167,7 @@ def test_build_river_network_products_skips_empty_vector_export(
         }
     )
     backend = _EmptyVectorBackend()
-    network_shp = tmp_path / ".solver_scratch/_preprocessing" / "geographic" / "river_network.shp"
+    network_shp = tmp_path / PREPROCESSING_DIR / "geographic" / "river_network.shp"
     stale_dbf = network_shp.with_suffix(".dbf")
     stale_dbf.parent.mkdir(parents=True, exist_ok=True)
     network_shp.touch()
@@ -193,28 +194,25 @@ def test_build_river_network_products_skips_empty_vector_export(
         dem_correc_path=tmp_path / "dem_correc.tif",
         d8_pointer_path=tmp_path / "dem_direc.tif",
         watershed_shp=tmp_path / "watershed.shp",
-        geographic_dir=tmp_path / ".solver_scratch/_preprocessing" / "geographic",
-        correcflow_dir=tmp_path / ".solver_scratch/_preprocessing" / "demcorrecflow",
+        geographic_dir=tmp_path / PREPROCESSING_DIR / "geographic",
+        correcflow_dir=tmp_path / PREPROCESSING_DIR / "demcorrecflow",
         dem_res_m=50.0,
-        streams_tif_path=tmp_path
-        / ".solver_scratch/_preprocessing"
-        / "geographic"
-        / "river_streams.tif",
+        streams_tif_path=tmp_path / PREPROCESSING_DIR / "geographic" / "river_streams.tif",
         streams_pruned_tif_path=tmp_path
-        / ".solver_scratch/_preprocessing"
+        / PREPROCESSING_DIR
         / "geographic"
         / "river_streams_pruned.tif",
         stream_order_strahler_tif_path=tmp_path
-        / ".solver_scratch/_preprocessing"
+        / PREPROCESSING_DIR
         / "geographic"
         / "river_stream_order_strahler.tif",
         stream_link_id_tif_path=tmp_path
-        / ".solver_scratch/_preprocessing"
+        / PREPROCESSING_DIR
         / "geographic"
         / "river_stream_link_id.tif",
         network_shp_path=network_shp,
         summary_json_path=tmp_path
-        / ".solver_scratch/_preprocessing"
+        / PREPROCESSING_DIR
         / "geographic"
         / "river_network_summary.json",
         backend=backend,

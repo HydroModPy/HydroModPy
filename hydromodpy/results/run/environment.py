@@ -78,6 +78,27 @@ def _git_head(cwd: Path) -> str | None:
     return out.strip() or None
 
 
+@cache
+def _git_dirty(cwd: Path) -> bool | None:
+    """Return True when tracked files are modified at ``cwd``, None if not a repo.
+
+    A dirty tree means the recorded commit does not describe the code that
+    ran, so provenance must say so. Untracked files are ignored: they never
+    take part in the executed code path.
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=str(cwd),
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+        )
+    except (subprocess.SubprocessError, OSError, FileNotFoundError):
+        return None
+    return bool(out.strip())
+
+
 def _hydromodpy_root() -> Path:
     """Return the on-disk root of the installed ``hydromodpy`` package."""
     return Path(__file__).resolve().parent.parent.parent
@@ -251,6 +272,7 @@ def capture_environment(
         "cpu_info": dict(_cpu_info()),
         "memory_gb": _memory_gb(),
         "git_commit": _git_head(_hydromodpy_root()),
+        "git_dirty": _git_dirty(_hydromodpy_root()),
         "project_git_commit": _git_head(Path(project_root)) if project_root else None,
         "solver_name": solver_name,
         "solver_binary_path": binary_path_str,

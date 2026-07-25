@@ -16,7 +16,7 @@ from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "query"
-HELP: str = "Run a SQL statement against the workspace catalog.duckdb"
+HELP: str = "Run a SQL statement against the project index database"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

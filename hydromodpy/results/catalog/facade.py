@@ -27,7 +27,7 @@ from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import INTERNAL_DIRNAME, catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
@@ -40,7 +40,6 @@ from hydromodpy.results.catalog.schema import SchemaDiscoveryMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.catalog.writes import WritesMixin
-from hydromodpy.results.storage.contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -194,7 +193,12 @@ class Catalog(
 
     Backed by DuckDB for tabular state (simulations, parameters, metrics,
     provenance, calibration sessions) and by Zarr / Parquet for field arrays
-    and timeseries written under ``<workspace>/simulations/``.
+    and timeseries written under ``<project>/runs/<run>/``.
+
+    Inspecting is reading: every caller that only reads (listings, ``show``,
+    SQL queries, figures, reports) opens with ``read_only=True``, which
+    installs no schema, runs no migration and leaves the index file byte for
+    byte as it found it. A writable handle is for code that produces runs.
 
     The facade owns four pieces of state:
 
@@ -202,7 +206,7 @@ class Catalog(
       while idle, re-acquired with retry on contention).
     - ``_workspace``: the project catalog root.
     - ``_paths``: a :class:`StoragePathResolver` translating simulation ids to
-      on-disk basenames and Parquet/Zarr paths.
+      run directories and the Parquet/Zarr paths they hold.
     - ``_open_zarr_handles``: live :class:`SimulationZarr` handles, tracked
       so ``finalize`` and ``close`` can release them deterministically.
 
@@ -212,10 +216,13 @@ class Catalog(
         Workspace directory, or direct path to a ``.duckdb`` catalog file.
     catalog_path
         Optional explicit catalog database path.
-    simulations_dir
-        Optional directory containing simulation Zarr and Parquet stores.
+    runs_dir
+        Optional directory containing the per-run directories.
     persistence
         Storage policy for packed or unpacked field arrays.
+    read_only
+        Open the index read-only. The database file must already exist: an
+        inspection never creates a phantom index.
 
     Raises
     ------
@@ -244,30 +251,31 @@ class Catalog(
         workspace_path: Path | str,
         *,
         catalog_path: Path | str | None = None,
-        simulations_dir: Path | str | None = None,
+        runs_dir: Path | str | None = None,
         persistence: PersistenceConfig | None = None,
         read_only: bool = False,
     ) -> None:
         root = Path(workspace_path).expanduser()
         if catalog_path is None and root.suffix == ".duckdb":
             catalog = root.resolve()
-            root = catalog.parent
+            parent = catalog.parent
+            root = parent.parent if parent.name == INTERNAL_DIRNAME else parent
         else:
             root = root.resolve()
             catalog = (
                 Path(catalog_path).expanduser().resolve()
                 if catalog_path is not None
-                else root / CATALOG_FILENAME
+                else catalog_path_for(root)
             )
 
         self._read_only = read_only
         self._workspace = root
         self._persistence = persistence or PersistenceConfig()
         self._db_path = catalog
-        self._simulations_dir = (
-            Path(simulations_dir).expanduser().resolve()
-            if simulations_dir is not None
-            else self._workspace / SIMULATIONS_DIRNAME
+        self._runs_dir = (
+            Path(runs_dir).expanduser().resolve()
+            if runs_dir is not None
+            else runs_dir_for(self._workspace)
         )
 
         if read_only:
@@ -293,22 +301,22 @@ class Catalog(
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
             self._db = CatalogConnection(self._db_path, block_size=HMP_DUCKDB_BLOCK_SIZE)
             self._backend = DuckDBBackend.from_connection(self._db, path=self._db_path)
-            self._simulations_dir.mkdir(parents=True, exist_ok=True)
+            self._runs_dir.mkdir(parents=True, exist_ok=True)
 
         self._open_zarr_handles: list[SimulationZarr] = []
-        self._paths = StoragePathResolver(self._backend, self._simulations_dir)
+        self._paths = StoragePathResolver(self._backend, self._runs_dir)
 
         if not read_only:
             # Write-mode views are plain DDL: they are stored in the file and
             # survive an idle release, so they are installed once.
             self._backend.ensure_schema()
-            ensure_parquet_views(self._db, self._simulations_dir)
+            ensure_parquet_views(self._db, self._runs_dir)
             ensure_views(self._db)
         _IDLE_SWEEPER.track(self._db)
 
     def _install_session_views(self, connection: duckdb.DuckDBPyConnection) -> None:
         """Install the TEMPORARY read-only views on a freshly opened session."""
-        ensure_parquet_views(connection, self._simulations_dir, temporary=True)
+        ensure_parquet_views(connection, self._runs_dir, temporary=True)
         ensure_views(connection, temporary=True)
 
     def _require_schema_current(self) -> None:
@@ -337,7 +345,7 @@ class Catalog(
         ----------
         workspace
             Object exposing ``project_root``, ``catalog_path``, and
-            ``simulations_dir``.
+            ``runs_dir``.
         persistence
             Optional storage policy.
 
@@ -349,7 +357,7 @@ class Catalog(
         return cls(
             Path(workspace.project_root),
             catalog_path=Path(workspace.catalog_path),
-            simulations_dir=Path(workspace.simulations_dir),
+            runs_dir=Path(workspace.runs_dir),
             persistence=persistence,
         )
 
@@ -377,7 +385,7 @@ class Catalog(
         return cls(
             Path(workspace.project_root),
             catalog_path=Path(workspace.catalog_path),
-            simulations_dir=Path(workspace.simulations_dir),
+            runs_dir=Path(workspace.runs_dir),
             persistence=persistence,
         )
 
@@ -466,26 +474,30 @@ class Catalog(
 
     @property
     def catalog_path(self) -> Path:
-        """Path to the ``catalog.duckdb`` catalog file."""
+        """Path to the project index database."""
         return self._db_path
 
     @property
-    def simulations_dir(self) -> Path:
-        """Directory where simulation stores are written."""
-        return self._simulations_dir
+    def runs_dir(self) -> Path:
+        """Directory holding one sub-directory per run."""
+        return self._runs_dir
 
     @property
     def project_path(self) -> Path:
         """Alias for ``workspace_path`` kept for protocol integrations."""
         return self._workspace
 
-    def zarr_path_for(self, sim_id: str | UUID) -> Path:
-        """Return the Zarr artefact path on disk (``.zarr.zip`` if packed)."""
-        return self._paths.zarr_path_for(sim_id)
+    def run_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the run directory ``runs/<name>`` (public accessor)."""
+        return self._paths.run_dir_for(sim_id)
 
-    def parquet_dir_for(self, sim_id: str | UUID) -> Path:
-        """Return the per-simulation Parquet directory (public accessor)."""
-        return self._paths.parquet_dir_for(sim_id)
+    def fields_path_for(self, sim_id: str | UUID) -> Path:
+        """Return the run's Zarr directory store (public accessor)."""
+        return self._paths.fields_path_for(sim_id)
+
+    def tables_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the run's Parquet payload directory (public accessor)."""
+        return self._paths.tables_dir_for(sim_id)
 
     def load_dataset(
         self,

@@ -4,7 +4,7 @@ Runs after :class:`DeriveStep` and before :class:`ExportStep`. Figures are
 the last reader of the run: they draw from the still-open store, so they see
 the intermediate fields (the raw per-cell budget) that the export step drops
 right before sealing. Each figure declared in the TOML is written into
-``<project_root>/<display.output_dir>/<run_name>/``.
+``<project_root>/runs/<run>/<display.output_dir>/``.
 
 Skipped silently when ``display.enabled`` is false, when ``display.figures``
 is empty, or when the pipeline was set to headless via

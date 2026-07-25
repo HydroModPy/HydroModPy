@@ -6,11 +6,13 @@ import uuid
 
 import pytest
 
+from hydromodpy.core.state.paths import share_dir_for
 from hydromodpy.results.catalog import (
     AmbiguousReferenceError,
     DuplicateSimulationNameError,
 )
 from hydromodpy.results.catalog.lifecycle import PinnedRunError
+from hydromodpy.results.storage.contract import TABLES_DIRNAME
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -296,10 +298,10 @@ def test_find_excludes_trashed_by_default(catalog):
 
 def _give_storage(catalog, sid):
     """Create real Parquet + Zarr storage for a sim and wire its zarr_path."""
-    pq = catalog.parquet_dir_for(sid)
+    pq = catalog.tables_dir_for(sid)
     pq.mkdir(parents=True, exist_ok=True)
     (pq / "data.parquet").write_bytes(b"x")
-    zz = catalog.zarr_path_for(sid)
+    zz = catalog.fields_path_for(sid)
     zz.mkdir(parents=True, exist_ok=True)
     (zz / ".zgroup").write_text("{}")
     rel = zz.relative_to(catalog._workspace)
@@ -401,7 +403,7 @@ def test_record_export_logs_artifact_with_checksum(catalog):
 
 def test_record_export_is_noop_when_persistence_off(catalog):
     sid = _register(catalog, "r")
-    artifact = catalog.project_path / "exports" / "r" / "x.csv"
+    artifact = share_dir_for(catalog.project_path) / "r" / "x.csv"
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_text("x\n")
     catalog._persistence.save_catalog = False
@@ -413,52 +415,16 @@ def test_record_export_is_noop_when_persistence_off(catalog):
 
 
 # ---------------------------------------------------------------------------
-# Orphan adoption (finalize snapshot -> re-register)
+# Index-row snapshot (what a rebuilt index reads back)
 # ---------------------------------------------------------------------------
 
 
-def test_finalize_writes_snapshot_and_store_can_be_adopted(catalog):
+def test_finalize_writes_the_index_row_snapshot(catalog):
     sid = _register(catalog, "r")
     catalog.finalize(sid, status="completed", duration_s=1.0)
-    parquet_dir = catalog.parquet_dir_for(sid)
-    assert (parquet_dir / "simulation.parquet").exists()
+    snapshot = catalog.run_dir_for(sid) / TABLES_DIRNAME / "simulation.parquet"
 
-    # orphan the catalog row, keep the storage on disk
-    catalog._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
-    assert catalog._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
-
-    assert catalog.adopt(parquet_dir) == sid
-    row = catalog._backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
-    assert row[0] == "r"
-
-
-def test_adopt_without_snapshot_raises(catalog):
-    with pytest.raises(FileNotFoundError):
-        catalog.adopt(catalog._simulations_dir / "missing__deadbeef.parquet.d")
-
-
-def test_adopt_already_registered_raises(catalog):
-    sid = _register(catalog, "r")
-    catalog.finalize(sid, status="completed", duration_s=1.0)
-    with pytest.raises(ValueError, match="already registered"):
-        catalog.adopt(catalog.parquet_dir_for(sid))
-
-
-def test_adopt_survives_schema_drift_new_column(catalog):
-    # Snapshot written, then the table gains a column the snapshot lacks: adopt
-    # must still work (explicit common-column INSERT), the new column defaulting.
-    sid = _register(catalog, "r")
-    catalog.finalize(sid, status="completed", duration_s=1.0)
-    parquet_dir = catalog.parquet_dir_for(sid)
-    catalog._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
-    catalog._backend.execute("ALTER TABLE simulations ADD COLUMN drift_marker VARCHAR")
-
-    assert catalog.adopt(parquet_dir) == sid
-    row = catalog._backend.fetch_one(
-        "SELECT name, drift_marker FROM simulations WHERE sim_id = ?", [sid]
-    )
-    assert row[0] == "r"
-    assert row[1] is None
+    assert snapshot.is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -482,7 +448,7 @@ def test_auto_export_package_writes_hmp_and_logs_it(catalog):
         save_catalog=True,
         run_id="shareme",
     )
-    archive = catalog.project_path / "exports" / "shareme" / "shareme.hmp"
+    archive = share_dir_for(catalog.project_path) / "shareme" / "shareme.hmp"
     assert archive.is_file()
     assert "hmp" in [e["kind"] for e in catalog.list_exports(sid)]
 

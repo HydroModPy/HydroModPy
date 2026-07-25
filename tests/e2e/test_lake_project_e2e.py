@@ -134,7 +134,7 @@ def _config_body(*, active_bc: list[str], flow_extra: str, data_toml: str) -> st
     lives in tmp_path. ``active_bc`` and any lake-specific ``flow.*`` subtables
     are injected into the single ``[flow]`` table (TOML forbids declaring it
     twice). Uses one aligned 30-day period and a small 30x30 / 1-layer DISV grid
-    to keep the mf6 run fast; ``keep_solver_files`` retains ``.solver_scratch`` so
+    to keep the mf6 run fast; ``keep_solver_files`` retains ``.hmp/scratch`` so
     the LAK package file can be asserted on disk.
     """
     active_bc_toml = ", ".join(f'"{name}"' for name in active_bc)

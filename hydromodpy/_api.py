@@ -5,10 +5,11 @@ execute the same workflow. Kept as a private module so the package facade
 stays minimal.
 
 The run-management CLI verbs (``hmp catalog trash/restore/tag/note/rename/
-rerun/diff/adopt/gc/watch``) are intentionally not mirrored as top-level
+rerun/diff/reindex/gc/watch``) are intentionally not mirrored as top-level
 ``hmp.*`` symbols. Their Python surface is the :class:`Catalog` handle returned
 by :func:`open`: ``cat.trash(ref)``, ``cat.restore(ref)``, ``cat.add_tag(...)``,
-``cat.rename_simulation(...)``, ``cat.diff(...)``, ``cat.adopt(...)``. The
+``cat.rename_simulation(...)``, ``cat.diff(...)``, plus
+:func:`hydromodpy.results.catalog.reindex.rebuild_index`. The
 ``hmp.cli._workers`` package is a CLI-private implementation detail, not a
 public API.
 """
@@ -42,7 +43,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
 
     The single door to a workspace catalog: returns a
     :class:`hydromodpy.results.catalog.Catalog` backed by
-    ``catalog.duckdb``. It exposes object access (``latest``, ``best``,
+    ``<project>/.hmp/index.duckdb``. It exposes object access (``latest``, ``best``,
     ``find``, ``cat[ref]``), tabular access (``frame``, ``sql``,
     ``list_simulations``), schema discovery (``describe``, ``tables``,
     ``columns``, ``variables``, ``metrics``, ``stations``), and per-id reads
@@ -57,8 +58,8 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
     Parameters
     ----------
     workspace
-        Project directory holding ``catalog.duckdb`` (or a direct path to the
-        ``.duckdb`` file).
+        Project directory holding ``.hmp/index.duckdb`` (or a direct path to
+        the ``.duckdb`` file).
     create
         ``False`` (default) raises :class:`FileNotFoundError` when no catalog
         exists yet (no phantom catalog is created). ``True`` opens a writable
@@ -75,7 +76,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
     Raises
     ------
     FileNotFoundError
-        If no ``catalog.duckdb`` is found and ``create`` is ``False``.
+        If no index database is found and ``create`` is ``False``.
     hydromodpy.core.exceptions.CatalogError
         If the DuckDB catalog file is locked, corrupted, or unreadable.
 
@@ -90,14 +91,14 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
     hydromodpy.index
         Machine-wide federation across registered workspaces.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog import Catalog
 
     ws = Path(workspace).expanduser().resolve()
     if ws.suffix == ".duckdb":
         catalog_file = ws
     else:
-        catalog_file = resolve_project_root(ws) / CATALOG_FILENAME
+        catalog_file = catalog_path_for(resolve_project_root(ws))
     if not create and not catalog_file.is_file():
         raise FileNotFoundError(
             f"No catalog at {catalog_file.parent}. Run a workflow there first, "
@@ -480,7 +481,7 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     promoted best run, as printed by ``hmp catalog ls``); the run reference is
     mapped to its parent session. ``None`` falls back to the most recently
     started session. ``workspace`` defaults to the nearest ancestor of the
-    current working directory containing ``catalog.duckdb``.
+    current working directory holding a project index database.
 
     When ``workspace`` is a workspace root, the lookup federates across every
     ``projects/<name>`` catalog, matching how ``hmp catalog ls`` lists runs.
@@ -512,14 +513,14 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     >>> hmp.report("ab12cd34", workspace="~/hmp_workspace")  # doctest: +SKIP
     """
     from hydromodpy.calibration.report import resolve_session_in_workspace
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
     if workspace is None:
         workspace_root = Path.cwd()
         for parent in [workspace_root] + list(workspace_root.parents):
-            if (parent / CATALOG_FILENAME).exists():
+            if (catalog_path_for(parent)).exists():
                 workspace_root = parent
                 break
     else:
@@ -749,16 +750,16 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
     Raises
     ------
     FileNotFoundError
-        If the workspace does not host a ``catalog.duckdb``.
+        If the workspace does not host an index database.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import apply_retention
 
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    catalog_path = workspace_root / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace_root)
     if not catalog_path.is_file():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
     with Catalog(workspace_root) as catalog:

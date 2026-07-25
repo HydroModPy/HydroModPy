@@ -19,9 +19,10 @@ from hydromodpy.core import progress
 from hydromodpy.workflow.steps.display import step_render_figures
 from hydromodpy.workflow.steps.export import (
     step_cleanup_scratch,
+    step_close_store,
     step_drop_intermediate_budget,
-    step_finalize_store,
     step_save_run_artifacts,
+    step_seal_store,
 )
 from hydromodpy.workflow.steps.extract import step_ingest_observations
 from hydromodpy.workflow.steps.planning import (
@@ -307,26 +308,30 @@ def cleanup_run(
             dump_cached_rasters_to_disk(geo)
         cleanup_stable_folder(geo)
 
-    # Package while the store is still open: step_finalize_store closes it.
-    if ctx.store is not None and status == "completed":
-        from hydromodpy.simulation.extraction.post_run import auto_export_package
-
-        results_cfg = effective or ctx.cfg.simulation.results
-        auto_export_package(
-            sim_id=sim_id,
-            store=ctx.store,
-            export_config=ctx.cfg.export,
-            save_catalog=bool(results_cfg.persistence.save_catalog),
-            run_id=ctx.setup.run_id,
-        )
-
     if status == "completed":
         step_drop_intermediate_budget(ctx)
 
-    if close_store:
-        step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)
-    elif ctx.store is not None:
-        ctx.store.finalize(sim_id, status=status, duration_s=wall_seconds)
+    if ctx.store is None:
+        return
+
+    # Seal first, package second: the .hmp archive must carry the manifest and
+    # the provenance that sealing writes into the run directory.
+    try:
+        step_seal_store(ctx, wall_seconds=wall_seconds, status=status)
+        if status == "completed":
+            from hydromodpy.simulation.extraction.post_run import auto_export_package
+
+            results_cfg = effective or ctx.cfg.simulation.results
+            auto_export_package(
+                sim_id=sim_id,
+                store=ctx.store,
+                export_config=ctx.cfg.export,
+                save_catalog=bool(results_cfg.persistence.save_catalog),
+                run_id=ctx.setup.run_id,
+            )
+    finally:
+        if close_store:
+            step_close_store(ctx)
 
 
 def standard_steps() -> tuple:

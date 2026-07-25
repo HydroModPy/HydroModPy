@@ -8,7 +8,7 @@ import sys
 from hydromodpy.cli.helpers import EXIT_OK
 
 NAME: str = "prune"
-HELP: str = "Drop registrations whose catalog.duckdb is missing"
+HELP: str = "Drop registrations whose index database is missing"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

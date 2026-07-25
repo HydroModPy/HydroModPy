@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from tests.e2e.test_lake_project_e2e import (
     _write_lake_abacus_fixture,
     _write_lake_config,
@@ -67,7 +68,7 @@ def test_spinup_e2e_converges_and_restarts_each_cycle(tmp_path: Path) -> None:
     # Multiple real cycles ran and the loop converged to a reusable state.
     assert result.n_cycles >= 2, f"expected >= 2 cycles, got {result.n_cycles}"
     assert result.converged, "spin-up did not converge on the equilibrium model"
-    assert result.restart_from.endswith((".zarr", ".zarr.zip"))
+    assert result.restart_from.endswith(FIELDS_STORE_NAME)
     assert Path(result.restart_from).exists()
 
     # Restart correctness: cycle 1 starts exactly where cycle 0 ended, and that

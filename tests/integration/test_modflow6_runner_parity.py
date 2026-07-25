@@ -80,12 +80,14 @@ class _ShimModel:
     """Minimal model double honouring the run_processing contract.
 
     Carries the attributes ``run_processing`` reads: a loaded flopy ``sim`` for
-    the subprocess leg, ``full_path`` for the api leg, and the api callback /
-    lib-path hooks. ``flow_regime`` is None so the steady-init branch is skipped.
+    the subprocess leg, ``nper`` for the solve progress bar, ``full_path`` for
+    the api leg, and the api callback / lib-path hooks. ``flow_regime`` is None
+    so the steady-init branch is skipped.
     """
 
     def __init__(self, sim: Any, full_path: Path) -> None:
         self.sim = sim
+        self.nper = int(sim.tdis.nper.get_data())
         self.full_path = str(full_path)
         self.flow = None
         self.flow_regime: str | None = None

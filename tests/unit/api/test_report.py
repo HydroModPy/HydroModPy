@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.core.state.paths import catalog_path_for
 from tests._helpers.api_doubles import make_capturing_catalog
 
 pytestmark = pytest.mark.fast
@@ -45,7 +46,8 @@ def test_report_with_explicit_workspace(monkeypatch, tmp_path: Path) -> None:
 
 def test_report_default_workspace_uses_cwd(monkeypatch, tmp_path: Path) -> None:
     """When ``workspace`` is ``None``, the helper walks up from cwd."""
-    catalog_file = tmp_path / "catalog.duckdb"
+    catalog_file = catalog_path_for(tmp_path)
+    catalog_file.parent.mkdir(parents=True, exist_ok=True)
     catalog_file.touch()
     monkeypatch.chdir(tmp_path)
     captured: dict = {}

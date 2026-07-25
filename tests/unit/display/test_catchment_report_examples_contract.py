@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import runs_dir_for
 from hydromodpy.display.catchment_report import (
     GENERIC_REPORT_PRESET,
     CatchmentReportConfig,
@@ -14,6 +15,7 @@ from hydromodpy.display.catchment_report import (
 )
 from hydromodpy.display.catchment_report.artifacts import DEFAULT_ARTIFACT_SPECS
 from hydromodpy.display.catchment_report.block_specs import DEFAULT_BLOCK_SPECS
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NANCON_EXAMPLE_DIR = REPO_ROOT / "examples" / "projects" / "16_nancon_natural_calibration"
@@ -202,7 +204,7 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
         inputs.simulation_workspace_dir == inputs.watershed_project_dir / "outputs" / "selune_nwt"
     )
     assert inputs.simulation_figures == (
-        inputs.simulation_workspace_dir / "figures" / "selune_nwt_report"
+        runs_dir_for(inputs.simulation_workspace_dir) / "selune_nwt_report" / RUN_FIGURES_DIRNAME
     )
     assert not hasattr(inputs, "simulation_export")
     assert inputs.observed_discharge_station_id == "I922102001"

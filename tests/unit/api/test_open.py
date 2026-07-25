@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.core.state.paths import catalog_path_for
 
 pytestmark = pytest.mark.fast
 
@@ -15,7 +16,7 @@ def test_open_missing_catalog_raises(tmp_path: Path) -> None:
     """``hmp.open`` on an empty directory fails fast, no phantom catalog."""
     with pytest.raises(FileNotFoundError):
         hmp.open(tmp_path)
-    assert not (tmp_path / "catalog.duckdb").exists()
+    assert not catalog_path_for(tmp_path).exists()
 
 
 def test_open_create_returns_simulation_catalog(tmp_path: Path) -> None:

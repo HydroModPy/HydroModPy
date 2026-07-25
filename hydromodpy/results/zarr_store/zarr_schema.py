@@ -20,7 +20,6 @@ import zarr
 from upath import UPath
 
 from hydromodpy.core.version import __version__ as _HMP_VERSION
-from hydromodpy.results.storage.contract import ZARR_ZIP_SUFFIX
 from hydromodpy.results.zarr_store.constants import (
     _SUBGROUPS,
     CF_CONVENTIONS,
@@ -68,8 +67,8 @@ class RetryingLocalStore(zarr.storage.LocalStore):
 
 
 def is_zip_store_path(path: Path) -> bool:
-    """Return True for paths that resolve to a packed ``.zarr.zip`` archive."""
-    return path.suffix == ".zip" or str(path).endswith(ZARR_ZIP_SUFFIX)
+    """Return True for a zipped Zarr archive (a portable package member)."""
+    return path.suffix == ".zip"
 
 
 def windows_long_path(path: Path) -> Path:

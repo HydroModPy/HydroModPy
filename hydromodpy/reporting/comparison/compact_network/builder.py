@@ -257,7 +257,7 @@ class CompactNetworkSynthesisBuilder:
                     continue
                 catalog = None
                 try:
-                    catalog = Catalog(resolve_recorded_path(run_folder))
+                    catalog = Catalog(resolve_recorded_path(run_folder), read_only=True)
                     run = catalog[str(sim_id)]
                     if not run.has_field(variable):
                         log_missing_field(
@@ -336,7 +336,7 @@ class CompactNetworkSynthesisBuilder:
                 continue
             catalog = None
             try:
-                catalog = Catalog(resolve_recorded_path(run_folder))
+                catalog = Catalog(resolve_recorded_path(run_folder), read_only=True)
                 run = catalog[str(sim_id)]
                 maps.render_topographic_context_figure(
                     run,
@@ -388,7 +388,7 @@ class CompactNetworkSynthesisBuilder:
                 continue
             catalog = None
             try:
-                catalog = Catalog(resolve_recorded_path(run_folder))
+                catalog = Catalog(resolve_recorded_path(run_folder), read_only=True)
                 run = catalog[str(sim_id)]
                 for variable, title in (
                     ("release_flux", "Emergences avant routage - intensite moyenne positive"),

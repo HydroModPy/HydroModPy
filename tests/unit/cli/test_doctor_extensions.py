@@ -39,7 +39,6 @@ def _make_workspace_with_catalog(tmp_path: Path) -> Path:
     workspace.mkdir()
     project = workspace / "projects" / "demo"
     project.mkdir(parents=True)
-    (project / "simulations").mkdir()
     (workspace / "data").mkdir()
     with Catalog(project):
         pass

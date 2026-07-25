@@ -57,7 +57,7 @@ class DuckDBBackend:
     Parameters
     ----------
     path
-        Path to the ``catalog.duckdb`` file. When ``None``, ``connection``
+        Path to the index database file. When ``None``, ``connection``
         must be provided via :meth:`from_connection`.
     """
 

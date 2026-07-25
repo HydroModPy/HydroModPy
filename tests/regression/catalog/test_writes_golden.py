@@ -161,7 +161,7 @@ def test_writes_golden(tmp_path: Path) -> None:
     try:
         sid = _run_standard_writes(catalog)
         state = _capture_state(catalog, sid)
-        ts_path = catalog._paths.parquet_path_for(sid, "timeseries")
+        ts_path = catalog._paths.table_path_for(sid, "timeseries")
         ts_sha = _table_data_sha256(ts_path)
     finally:
         catalog.close()

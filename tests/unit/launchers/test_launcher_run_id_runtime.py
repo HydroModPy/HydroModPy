@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.workflow.steps.mesh import step_mesh_input
 
@@ -33,7 +34,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.solver_scratch_folder = self.project_root / ".solver_scratch"
+            self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
         def __init__(self, config, workspace) -> None:
@@ -163,7 +164,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.solver_scratch_folder = self.project_root / ".solver_scratch"
+            self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
     class _DummyRunGeographic:
         def __init__(self, config, workspace) -> None:

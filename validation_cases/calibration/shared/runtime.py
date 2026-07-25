@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.state.paths import internal_dir, runs_dir_for, share_dir_for
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     ObservationNoiseSpec,
@@ -134,14 +135,6 @@ def _prune_benchmark_artifacts(
         raise ValueError(f"Unsupported calibration benchmark artifact_retention '{retention}'.")
 
     removed: list[str] = []
-    for top_level_path in (
-        benchmark_root / "simulations",
-        benchmark_root / "exports",
-        benchmark_root / "catalog.duckdb",
-        benchmark_root / "catalog.duckdb.wal",
-    ):
-        _remove_artifact_path(top_level_path, removed=removed)
-
     data_root = benchmark_root / "data"
     for data_artifact in (
         data_root / "cache.duckdb",
@@ -153,11 +146,15 @@ def _prune_benchmark_artifacts(
 
     for project_name in ("project", "project_truth"):
         project_root = benchmark_root / project_name
+        # Everything a run produces lives inside the project: runs/ holds the
+        # run directories, share/ the published exports, .hmp/ the rebuildable
+        # index plus the solver scratch and the trash.
         for project_artifact in (
-            project_root / "results_simulations",
+            runs_dir_for(project_root),
+            share_dir_for(project_root),
+            internal_dir(project_root),
             project_root / "results_stable",
             project_root / "hydromodpy_debug.log",
-            project_root / ".solver_scratch",
         ):
             _remove_artifact_path(project_artifact, removed=removed)
         calibration_roots = project_root / "calibrations"

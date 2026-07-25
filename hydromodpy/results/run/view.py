@@ -68,6 +68,34 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.catalog import Catalog
 
+_WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = (
+    "catalog_path",
+    "runs_dir",
+    "solver_scratch_folder",
+    "share_folder",
+)
+"""``[workspace]`` members that derive from ``project_root`` and name outputs."""
+
+
+def _reanchor_workspace(payload: dict, project_root: Path) -> dict:
+    """Point the ``[workspace]`` output paths of a snapshot at ``project_root``.
+
+    The snapshot froze absolute paths resolved on the machine that produced the
+    run. Replaying it verbatim on a project that was copied or moved would
+    write into the original directory. The project that holds the run is the
+    only honest anchor, so ``project_root`` is rewritten and every output path
+    that derives from it is dropped: re-validating the payload rebuilds them.
+    Input paths (``root``, ``data_dir``) are left untouched, shared data does
+    not travel with the project.
+    """
+    workspace = payload.get("workspace")
+    if not isinstance(workspace, dict):
+        return payload
+    rebound = {k: v for k, v in workspace.items() if k not in _WORKSPACE_OUTPUT_KEYS}
+    rebound["project_root"] = str(project_root)
+    payload["workspace"] = rebound
+    return payload
+
 
 class Run(
     RunGeographicMixin,
@@ -268,15 +296,15 @@ class Run(
         """Raw config payload stored in the catalog as a dict.
 
         Returns the JSON-decoded snapshot persisted at registration time
-        (full ``HydroModPyConfig.model_dump(mode='json')``). Use
-        :attr:`hydromodpy_config` for a validated Pydantic instance.
+        (full ``HydroModPyConfig.model_dump(mode='json')``), re-anchored on the
+        project that holds this run. Use :attr:`hydromodpy_config` for a
+        validated Pydantic instance.
         """
         val = self._load_row().get("config_snapshot")
         if val is None:
             return None
-        if isinstance(val, str):
-            return _json.loads(val)
-        return val
+        payload = _json.loads(val) if isinstance(val, str) else dict(val)
+        return _reanchor_workspace(payload, Path(self._catalog.workspace_path))
 
     @property
     def hydromodpy_config(self) -> BaseModel:

@@ -89,7 +89,7 @@ def _populate(catalog: DataCatalogDuckDB, files: dict) -> None:
 
 def test_catalog_table_contents_match_golden(tmp_path):
     """Snapshot test pinning the V1 catalog write side effects."""
-    db_path = tmp_path / "cache" / "catalog.duckdb"
+    db_path = tmp_path / "data" / "cache.duckdb"
     files = {
         "A": tmp_path / "station_A.csv",
         "B": tmp_path / "station_B.csv",

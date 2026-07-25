@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.solver.modflow_common import ensure_platform_executable
 from tests._helpers.tolerances import tol
 
@@ -802,34 +803,32 @@ def resolve_model_workspace(
     out_path: Path,
     *,
     watershed_name: str | None = None,
-    results_folder_name: str = "results_simulations",
     model_name: str | None = None,
     model_name_prefix: str | None = None,
 ) -> tuple[Path, Path, Path]:
     """
-    Resolve generated workspace folders for a completed example run.
+    Resolve the solver working folders of a completed example run.
 
-    Searches ``results_folder_name`` first, then falls back to
-    ``.solver_scratch/`` (new DB-only layout).
+    Raw solver files live in the disposable scratch of the project
+    (``<project>/.hmp/scratch``), one directory per solved model, possibly
+    nested one level under the run name.
 
     Returns
     -------
     tuple
         (model_ws, postprocess_dir, particles_dir)
     """
-    # Try new layout first (.solver_scratch), then legacy (results_simulations).
-    for folder_name in (".solver_scratch", results_folder_name):
-        results_dir = out_path / folder_name
-        if not results_dir.is_dir():
-            continue
-
-        if model_name is not None:
-            model_ws = results_dir / model_name
-            if model_ws.is_dir():
-                postprocess_dir = model_ws / "_postprocess"
-                particles_dir = postprocess_dir / "_particles"
-                return model_ws, postprocess_dir, particles_dir
-        else:
+    scratch_root = scratch_dir_for(out_path)
+    if scratch_root.is_dir():
+        search_roots = [scratch_root, *(p for p in sorted(scratch_root.iterdir()) if p.is_dir())]
+        for results_dir in search_roots:
+            if model_name is not None:
+                model_ws = results_dir / model_name
+                if model_ws.is_dir():
+                    postprocess_dir = model_ws / "_postprocess"
+                    particles_dir = postprocess_dir / "_particles"
+                    return model_ws, postprocess_dir, particles_dir
+                continue
             model_dirs = sorted(
                 p
                 for p in results_dir.iterdir()
@@ -843,11 +842,7 @@ def resolve_model_workspace(
                 particles_dir = postprocess_dir / "_particles"
                 return model_ws, postprocess_dir, particles_dir
 
-    # Neither layout found - give a clear error.
-    raise AssertionError(
-        f"Results folder not found in {out_path} "
-        f"(checked .solver_scratch/ and {results_folder_name}/)"
-    )
+    raise AssertionError(f"No solver working folder found under {scratch_root}")
 
 
 def update_or_assert_goldens(

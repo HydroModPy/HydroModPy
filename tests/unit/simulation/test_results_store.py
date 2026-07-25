@@ -10,6 +10,7 @@ import pytest
 
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.storage.array_fingerprint import fingerprint
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -99,8 +100,9 @@ class TestFullCycle:
 
         catalog.finalize(sid, status="completed", duration_s=1.0)
 
-        zarr_path = catalog.zarr_path_for(sid)
-        assert zarr_path.suffix == ".zip"
+        zarr_path = catalog.fields_path_for(sid)
+        assert zarr_path.name == FIELDS_STORE_NAME
+        assert zarr_path.is_dir()
 
         sz = catalog.open_zarr(sid)
         try:
@@ -305,14 +307,16 @@ class TestDeleteSimulation:
         catalog.write_field(sid, "head", 0, np.zeros((2, 4)), n_timesteps=1)
         catalog.finalize(sid, status="completed")
 
-        zarr_zip = catalog.zarr_path_for(sid)
-        assert zarr_zip.exists()
-        assert zarr_zip.suffix == ".zip"
+        run_dir = catalog.run_dir_for(sid)
+        fields_path = catalog.fields_path_for(sid)
+        assert fields_path.is_dir()
+        assert fields_path.name == FIELDS_STORE_NAME
 
         catalog.delete(sid)
 
         assert len(catalog.list_simulations()) == 0
-        assert not zarr_zip.exists()
+        assert not fields_path.exists()
+        assert not run_dir.exists()
 
 
 class TestCompare:

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.export.context import AssetEntry, FairExportContext
 from hydromodpy.results.export.stac import (
     STAC_VERSION,
@@ -22,6 +23,7 @@ from hydromodpy.results.export.stac import (
     build_stac_item,
     validate_item,
 )
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
 
 def _make_context(
@@ -171,8 +173,8 @@ class TestBuildStacItem:
     def test_top_level_structure(self):
         zarr_asset = AssetEntry(
             key="zarr",
-            relative_path="sim-001/fields.zarr.zip",
-            media_type="application/zip",
+            relative_path=f"{RUNS_DIRNAME}/demo_run/{FIELDS_STORE_NAME}",
+            media_type="application/x.zarr-store",
             roles=("data", "fields"),
             sha256="deadbeef",
             size_bytes=42,
@@ -198,10 +200,11 @@ class TestBuildStacItem:
         assert props["hydromodpy:simId"] == "sim-001"
         assert props["created_by"] == "Jane Doe"
 
-        # The Zarr asset is keyed and gets the zarr-specific media type.
+        # The Zarr asset is keyed and carries the directory-store media type.
         assert "zarr" in item["assets"]
         zarr = item["assets"]["zarr"]
-        assert zarr["type"] == "application/zip; application=zarr"
+        assert zarr["href"] == f"{RUNS_DIRNAME}/demo_run/{FIELDS_STORE_NAME}"
+        assert zarr["type"] == "application/x.zarr-store"
         assert zarr["roles"] == ["data", "fields"]
         # file:checksum is a sha2-256 multihash (0x12 0x20 + digest), not bare hex.
         assert zarr["file:checksum"] == "1220deadbeef"

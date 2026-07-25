@@ -22,22 +22,21 @@ def purge_simulation(
     import hashlib
     import json
 
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_deletion_tombstone
 
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
     with Catalog(workspace_root) as catalog:
         sid = catalog.resolve(sim_ref)
         snapshot = _purge_collect_snapshot(catalog, sid)
-        zarr_path = catalog.zarr_path_for(sid)
-        parquet_dir = catalog.parquet_dir_for(sid)
-        existing = [str(p) for p in (zarr_path, parquet_dir) if p.exists()]
+        run_dir = catalog.run_dir_for(sid)
+        existing = [str(run_dir)] if run_dir.is_dir() else []
         sha256_snapshot = hashlib.sha256(
             json.dumps(snapshot, sort_keys=True, default=str).encode("utf-8")
         ).hexdigest()
@@ -163,8 +162,9 @@ def _purge_prune_orphan_geographic_cache(workspace: Path) -> list[str]:
         _gc_iter_project_roots,
         _gc_referenced_geographic_fingerprints,
     )
+    from hydromodpy.results.geographic_cache import CACHE_DIRNAME
 
-    cache_dir = workspace / "geographic"
+    cache_dir = workspace / CACHE_DIRNAME
     if not cache_dir.is_dir():
         return []
     referenced = _gc_referenced_geographic_fingerprints(_gc_iter_project_roots(workspace))

@@ -15,12 +15,12 @@ def audit_list(
     """Return recent audit log entries as a DataFrame."""
     import duckdb
 
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    catalog_path = workspace_root / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace_root)
     if not catalog_path.exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
     sql = "SELECT * FROM audit_log"
@@ -47,13 +47,13 @@ def audit_verify(workspace: Any = None, *, strict: bool = False) -> dict:
     """
     import duckdb
 
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog.audit import verify_chain
 
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    catalog_path = workspace_root / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace_root)
     if not catalog_path.exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
     conn = duckdb.connect(str(catalog_path), read_only=True)

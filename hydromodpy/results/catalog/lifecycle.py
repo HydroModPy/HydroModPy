@@ -1,22 +1,30 @@
 """Simulation lifecycle helpers (open / finalize / delete / cleanup / close).
 
-Open Zarr handles are tracked on the facade so a ``finalize`` that packs
-the live store to ``.zarr.zip`` can release them first, and so ``close``
-guarantees no leaked file descriptors at workspace shutdown.
+Open Zarr handles are tracked on the facade so ``finalize`` can release them
+before sealing the store, and so ``close`` guarantees no leaked file
+descriptors at project shutdown. Deleting a run deletes one directory:
+``runs/<name>`` holds every byte the run produced.
+
+``finalize`` closes a completed run by sealing its directory through
+:mod:`hydromodpy.results.manifest`: the run parameters, ``provenance.json``
+and finally ``manifest.json``. A run directory without a manifest never
+finished.
 """
 
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
-from hydromodpy.results.storage.contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX, ZARR_ZIP_SUFFIX
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -40,7 +48,7 @@ class LifecycleMixin:
     driving every SQL read/write and the transaction context manager),
     ``self._db`` (raw DuckDB connection still used by audit.emit so the
     hash chain shares the same session), ``self._workspace``,
-    ``self._simulations_dir``, ``self._paths``, and ``self._open_zarr_handles``.
+    ``self._runs_dir``, ``self._paths``, and ``self._open_zarr_handles``.
     """
 
     def _track_zarr_handle(self, handle: SimulationZarr) -> SimulationZarr:
@@ -65,16 +73,12 @@ class LifecycleMixin:
                 logger.warning("Could not close SimulationZarr handle", exc_info=True)
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
-        basename = self._paths.basename_for(sim_id)
-        zarr_zip = self._simulations_dir / f"{basename}{ZARR_ZIP_SUFFIX}"
-        if zarr_zip.exists():
-            return self._track_zarr_handle(SimulationZarr(zarr_zip))
-        zarr_dir = self._simulations_dir / f"{basename}{ZARR_SUFFIX}"
-        if not zarr_dir.exists():
-            zarr_dir.parent.mkdir(parents=True, exist_ok=True)
-            staged = SimulationZarr.create(zarr_dir, n_cells=0, n_layers=1)
-            staged.close()
-        return self._track_zarr_handle(SimulationZarr(zarr_dir))
+        fields = self._paths.fields_path_for(sim_id)
+        if not fields.exists():
+            fields.parent.mkdir(parents=True, exist_ok=True)
+            created = SimulationZarr.create(fields, n_cells=0, n_layers=1)
+            created.close()
+        return self._track_zarr_handle(SimulationZarr(fields))
 
     def _fetch_simulation_row(self, sim_id: str) -> dict | None:
         """Return the ``simulations`` row as a plain dict for ACDD composition."""
@@ -174,15 +178,12 @@ class LifecycleMixin:
     ) -> None:
         sid = str(sim_id)
         rel_zarr_path: str | None = None
-        zarr_packed = False
         if status == "completed":
-            basename = self._paths.basename_for(sid)
-            zarr_dir = self._simulations_dir / f"{basename}{ZARR_SUFFIX}"
-            packed_zip = self._simulations_dir / f"{basename}{ZARR_ZIP_SUFFIX}"
-            if zarr_dir.is_dir():
+            fields = self._paths.fields_path_for(sid)
+            if fields.is_dir():
                 try:
                     self._close_open_zarr_handles()
-                    sz = SimulationZarr(zarr_dir)
+                    sz = SimulationZarr(fields)
                     try:
                         sim_row = self._fetch_simulation_row(sid)
                         runs_env = self._fetch_runs_environment_row(sid)
@@ -191,11 +192,11 @@ class LifecycleMixin:
                             runs_env=runs_env,
                         )
                         sz.consolidate_metadata()
-                        zip_path = sz.pack_to_zip()
-                        rel_zarr_path = f"{SIMULATIONS_DIRNAME}/{zip_path.name}"
-                        zarr_packed = True
                     finally:
                         sz.close()
+                    rel_zarr_path = (
+                        f"{RUNS_DIRNAME}/{self._paths.dirname_for(sid)}/{FIELDS_STORE_NAME}"
+                    )
                 except Exception as exc:
                     # Wrap the partial transition in a transaction and record it
                     # in the audit log: the @audited decorator only fires on a
@@ -215,16 +216,9 @@ class LifecycleMixin:
                             self._db,
                             event_type="sim.finalize",
                             sim_id=sid,
-                            payload={"status": "partial", "error": "zarr_pack_failed"},
+                            payload={"status": "partial", "error": "zarr_seal_failed"},
                         )
-                    raise RuntimeError(f"Could not pack Zarr store for sim {sid}") from exc
-            elif packed_zip.is_file():
-                # Recovery: a prior finalize packed the store (which removes the
-                # .zarr dir) but crashed before committing zarr_path. Point the
-                # row at the existing .zip so a re-run converges instead of
-                # leaving a stale zarr_path with zarr_packed=false.
-                rel_zarr_path = f"{SIMULATIONS_DIRNAME}/{packed_zip.name}"
-                zarr_packed = True
+                    raise RuntimeError(f"Could not seal Zarr store for sim {sid}") from exc
 
         # Transactional block driven by the backend port (BEGIN/COMMIT/ROLLBACK
         # are routed through CatalogBackend.transaction() so the same code
@@ -253,11 +247,10 @@ class LifecycleMixin:
                           SET status_id = (SELECT id FROM statuses WHERE code = ?),
                               duration_s = ?,
                               zarr_path = ?,
-                              zarr_packed = ?,
                               ended_at = current_timestamp,
                               updated_at = current_timestamp
                         WHERE sim_id = ?""",
-                    [status, duration_s, rel_zarr_path, zarr_packed, sid],
+                    [status, duration_s, rel_zarr_path, sid],
                 )
             else:
                 self._backend.execute(
@@ -272,29 +265,53 @@ class LifecycleMixin:
 
         if status == "completed":
             self._write_simulation_snapshot(sid)
+            self._seal_run_directory(sid)
+
+    def _seal_run_directory(self, sid: str) -> None:
+        """Write ``parameters.parquet``, ``provenance.json`` and ``manifest.json``.
+
+        The manifest lands last and atomically, so its presence certifies a
+        complete run directory. A failure here leaves the run unsealed, which
+        is exactly the signal a reader needs: log it, never mask it by
+        pretending the seal exists.
+        """
+        from hydromodpy.results.manifest import seal_run
+
+        try:
+            seal_run(self, sid)
+        except Exception as exc:
+            logger.error(
+                "Could not seal run directory for sim %s; it stays readable but "
+                "unsealed and will not be re-indexable from disk alone: %s",
+                sid[:8],
+                exc,
+                exc_info=True,
+            )
 
     def _write_simulation_snapshot(self, sid: str) -> None:
-        """Write a one-row ``simulation.parquet`` so an orphan store stays adoptable.
+        """Write a one-row ``simulation.parquet``: the index row, on disk.
 
-        Dropped next to the per-sim Parquet views. The view builder only globs
+        Dropped next to the per-run Parquet views. The view builder only globs
         the named views (``PARQUET_VIEW_NAMES``), so this extra file is inert.
+        It is what :func:`hydromodpy.results.catalog.reindex.rebuild_index`
+        reads back to restore the ``simulations`` row of this run.
         """
         try:
-            parquet_dir = self._paths.parquet_dir_for(sid)
-            parquet_dir.mkdir(parents=True, exist_ok=True)
-            dest_sql = (parquet_dir / "simulation.parquet").as_posix().replace("'", "''")
+            tables_dir = self._paths.tables_dir_for(sid)
+            tables_dir.mkdir(parents=True, exist_ok=True)
+            dest_sql = (tables_dir / "simulation.parquet").as_posix().replace("'", "''")
             sid_sql = str(sid).replace("'", "''")
             self._backend.execute(
                 f"COPY (SELECT * FROM simulations WHERE sim_id = '{sid_sql}') "
                 f"TO '{dest_sql}' (FORMAT PARQUET)"
             )
         except Exception as exc:
-            # Surface this: the run is complete but its store will not be
-            # adoptable if it later orphans. We do not fail finalize over a
-            # best-effort recovery aid, but it must be visible, not silent.
+            # Surface this: the run is complete but a rebuilt index will not be
+            # able to see it. We do not fail finalize over a recovery aid, but
+            # it must be visible, not silent.
             logger.warning(
-                "Could not write adoption snapshot for sim %s; the store will not "
-                "be re-adoptable if it orphans: %s",
+                "Could not write the index-row snapshot for sim %s; the run will "
+                "not be re-indexable from disk: %s",
                 sid[:8],
                 exc,
             )
@@ -318,7 +335,7 @@ class LifecycleMixin:
         (``sim.delete`` for routine deletes, ``sim.purge`` for
         ``hmp privacy purge``). Because the simulation row survives until
         that last commit, no delete/crash sequence can leave a byte under
-        ``simulations/`` unreachable: any interrupted purge leaves a
+        ``runs/`` unreachable: any interrupted purge leaves a
         ``purge_journal`` row that :meth:`replay_purge_journal` finishes.
 
         With ``remove_storage`` false there is nothing on disk to orphan, so
@@ -375,43 +392,33 @@ class LifecycleMixin:
         )
         self._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
-    def _remove_sim_storage(self, parquet_dir, zarr_abs) -> None:
-        """Idempotently remove the per-sim Parquet dir and Zarr store."""
-        if parquet_dir is not None and parquet_dir.is_dir():
-            try:
-                shutil.rmtree(parquet_dir)
-            except OSError as exc:
-                raise RuntimeError(f"Could not remove Parquet directory: {parquet_dir}") from exc
-            # Refresh views so a workspace whose last per-sim Parquet file
-            # was just removed drops back to the empty-typed view form.
-            ensure_parquet_views(self._db, self._simulations_dir)
-        if zarr_abs is not None:
-            if zarr_abs.is_file():
-                zarr_abs.unlink(missing_ok=True)
-            elif zarr_abs.is_dir():
-                try:
-                    shutil.rmtree(zarr_abs)
-                except OSError as exc:
-                    raise RuntimeError(f"Could not remove Zarr directory: {zarr_abs}") from exc
+    def _remove_run_directory(self, run_dir: Path) -> None:
+        """Idempotently remove one run directory (fields, tables, figures)."""
+        if not run_dir.is_dir():
+            return
+        try:
+            shutil.rmtree(run_dir)
+        except OSError as exc:
+            raise RuntimeError(f"Could not remove run directory: {run_dir}") from exc
+        # Refresh views so a project whose last per-run Parquet file was just
+        # removed drops back to the empty-typed view form.
+        ensure_parquet_views(self._db, self._runs_dir)
 
     def _purge_with_journal(
         self, sid: str, audit_event_type: str, audit_payload: dict | None
     ) -> None:
         """Crash-safe two-phase hard purge (journal -> rmtree -> cascade)."""
-        row = self._backend.fetch_one(
-            "SELECT zarr_path, project FROM simulations WHERE sim_id = ?", [sid]
-        )
+        row = self._backend.fetch_one("SELECT project FROM simulations WHERE sim_id = ?", [sid])
         if row is None:
             # Row already gone: clear any dangling journal entry and stop.
             with self._backend.transaction():
                 self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
             return
 
-        # Resolve artefact paths while the row still exists so basename lookup
-        # works; clearing the cache first would miss the real folder.
-        parquet_dir = self._paths.parquet_dir_for(sid)
-        zarr_abs = self._workspace / row[0] if row[0] else None
-        project_name = row[1]
+        # Resolve the run directory while the row still exists so the name
+        # lookup works; clearing the cache first would miss the real folder.
+        run_dir = self._paths.run_dir_for(sid)
+        project_name = row[0]
         payload: dict = {"remove_storage": True}
         if audit_payload:
             payload.update(audit_payload)
@@ -439,7 +446,7 @@ class LifecycleMixin:
                 )
 
         # Phase 2: remove the bytes (idempotent) and mark the journal.
-        self._remove_sim_storage(parquet_dir, zarr_abs)
+        self._remove_run_directory(run_dir)
         with self._backend.transaction():
             self._backend.execute(
                 "UPDATE purge_journal SET phase = 'rmtree_done' WHERE sim_id = ?", [sid]
@@ -470,17 +477,16 @@ class LifecycleMixin:
         resolved: list[str] = []
         for sid, phase in rows:
             sim_row = self._backend.fetch_one(
-                "SELECT zarr_path, project FROM simulations WHERE sim_id = ?", [sid]
+                "SELECT project FROM simulations WHERE sim_id = ?", [sid]
             )
             if sim_row is None:
                 with self._backend.transaction():
                     self._backend.execute("DELETE FROM purge_journal WHERE sim_id = ?", [sid])
                 resolved.append(sid)
                 continue
-            parquet_dir = self._paths.parquet_dir_for(sid)
-            zarr_abs = self._workspace / sim_row[0] if sim_row[0] else None
+            run_dir = self._paths.run_dir_for(sid)
             if phase != "rmtree_done":
-                self._remove_sim_storage(parquet_dir, zarr_abs)
+                self._remove_run_directory(run_dir)
             self._paths.forget(sid)
             with self._backend.transaction():
                 self._cascade_delete_rows(sid)
@@ -489,7 +495,7 @@ class LifecycleMixin:
                     self._db,
                     event_type="sim.purge.commit",
                     sim_id=sid,
-                    project=sim_row[1],
+                    project=sim_row[0],
                     payload={"replayed": True},
                 )
             resolved.append(sid)
@@ -549,6 +555,7 @@ class LifecycleMixin:
         before that column existed.
         """
         from hydromodpy.results.catalog.registration import _resolve_registration_name
+        from hydromodpy.results.catalog.storage_paths import run_dirname
 
         sid = str(sim_id)
         row = self._backend.fetch_one(
@@ -571,12 +578,23 @@ class LifecycleMixin:
             final_name, name_stem, version_int, _ = _resolve_registration_name(
                 self._backend, project, original_name or sid[:8], "version"
             )
+            dirname = run_dirname(final_name)
+            self._paths.move(sid, dirname)
             self._backend.execute(
                 "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
+                "storage_basename = ?, zarr_path = ?, "
                 "original_name = NULL, trashed_at = NULL, original_status_id = NULL, "
                 "status_id = (SELECT id FROM statuses WHERE code = ?), "
                 "updated_at = current_timestamp WHERE sim_id = ?",
-                [final_name, name_stem, version_int, restored_status, sid],
+                [
+                    final_name,
+                    name_stem,
+                    version_int,
+                    dirname,
+                    f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
+                    restored_status,
+                    sid,
+                ],
             )
             emit_audit_event(
                 self._db,
@@ -660,8 +678,8 @@ class LifecycleMixin:
         )
         return {str(r[0]) for r in rows}
 
-    def list_storage_basenames(self) -> set[str]:
-        """Return every known on-disk store basename."""
+    def list_run_dirnames(self) -> set[str]:
+        """Return the directory name of every known run."""
         rows = self._backend.fetch_all(
             "SELECT storage_basename FROM simulations WHERE storage_basename IS NOT NULL"
         )

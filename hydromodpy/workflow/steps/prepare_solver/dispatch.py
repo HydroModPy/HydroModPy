@@ -110,6 +110,18 @@ def _write_zarr_time(ctx: WorkflowContext, sim_id: str) -> None:
     )
 
 
+def _freeze_run_config(ctx: WorkflowContext, sim_id: str) -> None:
+    """Write the resolved configuration into the run directory."""
+    from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+
+    try:
+        run_dir = ctx.store.run_dir_for(sim_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        ctx.cfg.to_toml(run_dir / RUN_CONFIG_FILENAME, profile="expert")
+    except Exception:
+        logger.exception("Failed to freeze the resolved config for sim %s", sim_id[:8])
+
+
 def step_register_simulation(
     ctx: WorkflowContext,
     sim_id: str,
@@ -143,6 +155,7 @@ def step_register_simulation(
         logger.info("Run '%s' stored [%s]", final_name, short)
     if registration.zarr is not None:
         registration.zarr.close()
+    _freeze_run_config(ctx, sim_id)
     _write_zarr_time(ctx, sim_id)
     _write_zarr_crs(ctx, sim_id)
 
@@ -227,6 +240,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
         ctx.setup.run_id = registration.name
     if registration.zarr is not None:
         registration.zarr.close()
+    _freeze_run_config(ctx, ctx.sim_id)
     _write_zarr_time(ctx, ctx.sim_id)
     _write_zarr_crs(ctx, ctx.sim_id)
 

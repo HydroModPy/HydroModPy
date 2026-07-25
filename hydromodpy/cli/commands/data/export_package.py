@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, EXIT_OK
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "export-package"
 HELP: str = "Export a simulation as a portable .hmp archive (tar.zst with RO-Crate manifest)"
@@ -49,7 +49,7 @@ def run(args: argparse.Namespace) -> None:
     )
 
     workspace_root = Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    db_path = workspace_root / CATALOG_FILENAME
+    db_path = catalog_path_for(workspace_root)
     if not db_path.exists():
         print(f"No catalog found at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

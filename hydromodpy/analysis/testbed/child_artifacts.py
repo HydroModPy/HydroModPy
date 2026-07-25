@@ -54,8 +54,8 @@ def extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
 
     paths = WorkspacePathRegistry.from_config(cfg.workspace)
     run_id = str(cfg.simulation.name or config_path.stem)
-    run_folder = paths.run_folder(run_id).resolve()
-    simulations_root = paths.solver_scratch_folder.resolve()
+    scratch_root = paths.solver_scratch_folder.resolve()
+    run_folder = paths.solver_scratch_run_folder(run_id).resolve()
     artifacts.update(
         {
             "child_artifact_status": "resolved",
@@ -80,7 +80,7 @@ def extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
         )
 
     summary_candidates = sorted(
-        simulations_root.rglob("_boussinesq_summary.json"),
+        scratch_root.rglob("_boussinesq_summary.json"),
         key=lambda item: item.stat().st_mtime,
         reverse=True,
     )

@@ -15,7 +15,7 @@ import duckdb
 import pytest
 
 from hydromodpy.core.state.global_index import GlobalIndex, WorkspaceRecord
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.results.catalog.migrations import ensure_schema as _ensure_catalog
 
 
@@ -24,14 +24,14 @@ def _seed_workspace(
     *,
     rows: list[tuple[str, str, str]] | None = None,
 ) -> Path:
-    """Create a V1 ``catalog.duckdb`` with rows in the ``simulations`` table.
+    """Create a project index with rows in the ``simulations`` table.
 
     Each ``rows`` tuple is ``(sim_id, description, solver_code)``. ``sim_id``
     may be a short opaque label, it is hashed into a UUID before insertion
     so the catalog UUID column stays well-formed.
     """
-    workspace.mkdir(parents=True, exist_ok=True)
-    catalog_path = workspace / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
     conn = duckdb.connect(str(catalog_path))
     try:
         _ensure_catalog(conn)
@@ -150,7 +150,7 @@ def test_prune_removes_dead_workspaces(tmp_path: Path) -> None:
     ws_b = tmp_path / "ws_b"
     _seed_workspace(ws_a, rows=[("s_a", "live", "modflow6")])
     _seed_workspace(ws_b, rows=[("s_b", "dead", "modflow6")])
-    catalog_b = ws_b / CATALOG_FILENAME
+    catalog_b = catalog_path_for(ws_b)
 
     with GlobalIndex(_index_db(tmp_path)) as index:
         id_a = index.register_workspace(str(ws_a))
@@ -184,8 +184,9 @@ def test_search_fts_finds_term(tmp_path: Path) -> None:
 def test_workspace_without_v_simulation_summary_is_skipped(tmp_path: Path) -> None:
     """A workspace without the V1 view must be skipped, not crash."""
     ws = tmp_path / "ws_empty"
-    ws.mkdir(parents=True)
-    conn = duckdb.connect(str(ws / CATALOG_FILENAME))
+    catalog_path = catalog_path_for(ws)
+    catalog_path.parent.mkdir(parents=True)
+    conn = duckdb.connect(str(catalog_path))
     conn.execute("CREATE TABLE other_table (x INTEGER)")
     conn.close()
 

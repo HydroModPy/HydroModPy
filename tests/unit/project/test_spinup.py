@@ -75,7 +75,7 @@ class _StubProject:
         self.tags: list[tuple[str, str]] = []
         self._catalog = SimpleNamespace(
             store=SimpleNamespace(
-                zarr_path_for=lambda sid: self._by_sid[sid],
+                fields_path_for=lambda sid: self._by_sid[sid],
                 add_tag=lambda sid, tag: self.tags.append((str(sid), tag)),
             )
         )

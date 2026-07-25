@@ -166,14 +166,15 @@ def resolve_run_output_dir(
 ) -> Path:
     """Return the directory where figures for one run should be saved.
 
-    Layout: ``<project_root>/<display.output_dir>/<run_label>/`` where
-    ``run_label`` is the run name when available, falling back to the
-    short sim_id. Keeping one folder per run prevents figures from
-    different runs overwriting each other.
+    Layout: ``<project_root>/runs/<run>/<display.output_dir>/``. Figures
+    live inside the run they describe, so moving or deleting a run takes
+    them along.
     """
-    base = project_root / display_cfg.output_dir
+    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.results.catalog.storage_paths import run_dirname
+
     label = run_name if run_name else sim_id[:8]
-    return base / label
+    return runs_dir_for(project_root) / run_dirname(label) / display_cfg.output_dir
 
 
 def render_figures_for_run(

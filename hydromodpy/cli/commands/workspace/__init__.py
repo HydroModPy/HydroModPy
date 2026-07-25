@@ -7,7 +7,7 @@ Sub-actions:
 - ``hmp workspace register <uri>``: register a workspace in the global index.
 - ``hmp workspace search <term>``: full-text search across registered workspaces.
 - ``hmp workspace forget <workspace_id>``: drop a workspace registration.
-- ``hmp workspace prune``: drop registrations whose catalog.duckdb is missing.
+- ``hmp workspace prune``: drop registrations whose index database is missing.
 - ``hmp workspace clean [--dry-run]``: remove generated workspace artefacts.
 """
 

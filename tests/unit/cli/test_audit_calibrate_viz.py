@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for
 
 
 def _load_main():
@@ -175,7 +175,9 @@ def test_report_compare_filters_metric_name_without_changing_api_call(
 ) -> None:
     import hydromodpy as hmp
 
-    (tmp_path / CATALOG_FILENAME).write_bytes(b"")
+    catalog_path = catalog_path_for(tmp_path)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_bytes(b"")
     calls: dict[str, object] = {}
 
     def fake_compare_pair(ref_a: str, ref_b: str, *, workspace: Path):

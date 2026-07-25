@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.export.context import (
     AssetEntry,
     FairExportContext,
@@ -24,6 +25,9 @@ from hydromodpy.results.export.rocrate import (
     build_ro_crate,
     loads,
 )
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+
+_ZARR_HREF = f"projects/demo/{RUNS_DIRNAME}/demo_run/{FIELDS_STORE_NAME}"
 
 
 def _make_context() -> FairExportContext:
@@ -47,8 +51,8 @@ def _make_context() -> FairExportContext:
     assets = (
         AssetEntry(
             key="zarr",
-            relative_path="projects/demo/sim-123/fields.zarr.zip",
-            media_type="application/zip",
+            relative_path=_ZARR_HREF,
+            media_type="application/x.zarr-store",
             roles=("data", "fields"),
             sha256="a" * 64,
             size_bytes=4096,
@@ -159,7 +163,7 @@ def test_root_dataset_haspart_resolves_to_every_asset(crate):
     ds = next(n for n in graph if n.get("@id") == "./")
     haspart_ids = {ref["@id"] for ref in ds["hasPart"]}
     asset_ids = {
-        "projects/demo/sim-123/fields.zarr.zip",
+        _ZARR_HREF,
         "projects/demo/hydromodpy.lock",
     }
     assert haspart_ids == asset_ids
@@ -171,10 +175,10 @@ def test_root_dataset_haspart_resolves_to_every_asset(crate):
 @pytest.mark.fast
 def test_asset_nodes_have_file_type_and_metadata(crate):
     graph = crate["@graph"]
-    zarr = next(n for n in graph if n.get("@id") == "projects/demo/sim-123/fields.zarr.zip")
+    zarr = next(n for n in graph if n.get("@id") == _ZARR_HREF)
     assert zarr["@type"] == "File"
-    assert zarr["name"] == "fields.zarr.zip"
-    assert zarr["encodingFormat"] == "application/zip"
+    assert zarr["name"] == FIELDS_STORE_NAME
+    assert zarr["encodingFormat"] == "application/x.zarr-store"
     assert zarr["hydromodpy:assetKey"] == "zarr"
     assert zarr["hydromodpy:simId"] == "sim-123"
     assert zarr["sha256"] == "a" * 64
@@ -258,7 +262,7 @@ def test_one_node_per_asset_and_input(crate):
         n["@id"] for n in graph if n.get("@type") == "File" and "hydromodpy:assetKey" in n
     }
     assert asset_file_ids == {
-        "projects/demo/sim-123/fields.zarr.zip",
+        _ZARR_HREF,
         "projects/demo/hydromodpy.lock",
     }
     input_file_ids = {

@@ -29,7 +29,7 @@ def export_csv(
     Parameters
     ----------
     conn : duckdb.DuckDBPyConnection
-        Open connection to ``catalog.duckdb``.
+        Open connection to the project index database.
     sim_id : str
         Simulation UUID.
     output_path : str or Path

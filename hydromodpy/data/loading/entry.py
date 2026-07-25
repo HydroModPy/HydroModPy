@@ -38,8 +38,8 @@ class DataEntry:
     ) -> list[str]:
         """Return the sim_ids that referenced this entry via the SHA-256 bridge.
 
-        Each path in ``project_catalogs`` points to a project
-        ``catalog.duckdb`` file. The cache DB ATTACHes each catalog
+        Each path in ``project_catalogs`` points to a project index
+        database. The cache DB ATTACHes each catalog
         read-only and joins ``tracked_files.sha256`` with this entry's
         ``checksum``. When ``checksum`` is missing or no catalog is
         provided, the result is an empty list (no false positives).

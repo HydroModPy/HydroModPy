@@ -3,7 +3,7 @@
 Consumes the structural payload produced by
 :func:`hydromodpy.calibration.report.load_session_report_data` and turns
 it into a self-contained HTML report at
-``<workspace>/reports/<session_id>/report.html``. Renders the six
+``<project>/share/reports/<session_id>/report.html``. Renders the six
 calibration figures registered in :mod:`hydromodpy.display.figures`
 plus a best-run obs-vs-sim panel when a promoted run is available.
 
@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import reports_dir_for
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import names as _figure_names
 from hydromodpy.results.derive.time_alignment import (
@@ -103,7 +104,7 @@ def render_session(
         six built-in ``calibration_*`` figures.
     output_dir
         Directory the report is written into. Defaults to
-        ``<session_data.workspace_root>/reports/<session_id>``.
+        ``<session_data.workspace_root>/share/reports/<session_id>``.
 
     Returns
     -------
@@ -115,7 +116,7 @@ def render_session(
     out_dir = (
         Path(output_dir)
         if output_dir is not None
-        else session_data.workspace_root / "reports" / session_data.session_id
+        else reports_dir_for(session_data.workspace_root) / session_data.session_id
     )
     figures_dir = out_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)

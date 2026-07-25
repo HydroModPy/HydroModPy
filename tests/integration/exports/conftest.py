@@ -10,14 +10,14 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import Catalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def fair_catalog(tmp_path: Path) -> Catalog:
-    """A live :class:`Catalog` with one finalised simulation row."""
-    cat = Catalog(tmp_path / "ws")
-    yield cat
-    cat.close()
+    """A live :class:`Catalog` over a fresh project root."""
+    with simulation_catalog(tmp_path / "ws") as cat:
+        yield cat
 
 
 def populate_simulation(catalog: Catalog, *, project: str = "test") -> str:

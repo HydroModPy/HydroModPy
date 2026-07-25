@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 from hydromodpy.spatial.mesh.launcher import runtime as mesh_runtime
 
@@ -101,7 +102,7 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
     )
     local_workspace = _DummyWorkspace(workspace_cfg)
 
-    _stable = workspace_cfg.project_root / ".solver_scratch/_preprocessing"
+    _stable = workspace_cfg.project_root / PREPROCESSING_DIR
 
     def _fake_run_case(config_toml, **kwargs):
         (_stable / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)

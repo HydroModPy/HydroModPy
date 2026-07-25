@@ -9,6 +9,10 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from hydromodpy.core.state.paths import RUNS_DIRNAME, catalog_path_for, runs_dir_for
+from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, TABLES_DIRNAME
+
 
 def _load_main():
     return importlib.import_module("hydromodpy.cli.main")
@@ -44,11 +48,20 @@ def _make_project_with_catalog(workspace: Path, project_name: str = "demo") -> P
 
     project = workspace / "projects" / project_name
     project.mkdir(parents=True)
-    (project / "simulations").mkdir()
     # touch a catalog by opening it once
     with Catalog(project):
         pass
     return project
+
+
+def _make_orphan_run(project: Path, name: str) -> Path:
+    """Create an aged run directory that no index row claims."""
+    run_dir = runs_dir_for(project) / name
+    (run_dir / FIELDS_STORE_NAME).mkdir(parents=True)
+    (run_dir / FIELDS_STORE_NAME / ".zgroup").write_text("{}")
+    _age_path(run_dir / FIELDS_STORE_NAME)
+    _age_path(run_dir)
+    return run_dir
 
 
 def test_gc_help_displays(monkeypatch, capsys) -> None:
@@ -117,7 +130,7 @@ def test_gc_marks_stale_running_simulation(monkeypatch, tmp_path) -> None:
     project = _make_project_with_catalog(workspace, "demo")
 
     # Force a running sim with an old event-stream heartbeat.
-    cat_path = project / "catalog.duckdb"
+    cat_path = catalog_path_for(project)
     conn = duckdb.connect(str(cat_path))
     try:
         conn.execute(
@@ -135,7 +148,7 @@ def test_gc_marks_stale_running_simulation(monkeypatch, tmp_path) -> None:
                 "00000000-0000-0000-0000-000000000001",
                 "stale",
                 "demo",
-                "simulations/stale.zarr",
+                f"{RUNS_DIRNAME}/stale/{FIELDS_STORE_NAME}",
                 "stale",
             ],
         )
@@ -221,61 +234,59 @@ def test_gc_purges_expired_trash_but_keeps_pinned(monkeypatch, tmp_path) -> None
 
 
 def test_gc_quarantines_orphan_store(monkeypatch, tmp_path) -> None:
-    """An orphan store leaves ``simulations/`` for the trash, bytes intact."""
+    """An orphan run directory leaves ``runs/`` for the trash, bytes intact."""
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
-    orphan = project / "simulations" / "demo__deadbeef.zarr"
-    orphan.mkdir(parents=True)
-    (orphan / ".zgroup").write_text("{}")
-    _age_path(orphan)
+    orphan = _make_orphan_run(project, "ghost_run")
 
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
     assert code == 0
     assert not orphan.exists()
-    quarantined = sorted((project / ".hmp" / "trash").glob("*/demo__deadbeef.zarr"))
+    quarantined = sorted((project / ".hmp" / "trash").glob("*/ghost_run"))
     assert len(quarantined) == 1
-    assert (quarantined[0] / ".zgroup").read_text() == "{}"
+    assert (quarantined[0] / FIELDS_STORE_NAME / ".zgroup").read_text() == "{}"
 
 
 def test_gc_plan_keeps_orphan_store_in_place(monkeypatch, tmp_path, capsys) -> None:
-    """Without ``--apply`` the orphan store is only listed, never moved."""
+    """Without ``--apply`` the orphan run is only listed, never moved."""
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
-    orphan = project / "simulations" / "demo__deadbeef.zarr"
-    orphan.mkdir(parents=True)
-    (orphan / ".zgroup").write_text("{}")
-    _age_path(orphan)
+    orphan = _make_orphan_run(project, "ghost_run")
 
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace)])
     assert code == 0
     assert orphan.exists()
     assert not (project / ".hmp" / "trash").exists()
     out = capsys.readouterr().out
-    assert "demo__deadbeef.zarr" in out
+    assert "ghost_run" in out
     assert "never deleted" in out
 
 
 def test_gc_keeps_recent_orphan_store(monkeypatch, tmp_path) -> None:
-    """A fresh (in-flight) store is never swept: the mtime grace guard protects it."""
+    """A fresh (in-flight) run is never swept: the mtime grace guard protects it."""
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
-    fresh = project / "simulations" / "demo__cafebabe.zarr"
-    fresh.mkdir(parents=True)
-    (fresh / ".zgroup").write_text("{}")  # freshly written -> young mtime
+    fresh = runs_dir_for(project) / "fresh_run"
+    (fresh / FIELDS_STORE_NAME).mkdir(parents=True)
+    (fresh / FIELDS_STORE_NAME / ".zgroup").write_text("{}")  # young mtime
 
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
     assert code == 0
     assert fresh.exists()
 
 
-def test_gc_keeps_adoptable_store(monkeypatch, tmp_path) -> None:
-    """A store carrying a simulation.parquet adoption snapshot is preserved."""
+def test_gc_keeps_a_sealed_orphan_run(monkeypatch, tmp_path) -> None:
+    """A sealed run is re-indexable, so gc leaves it where reindex will find it."""
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
-    store = project / "simulations" / "demo__adopt123.parquet"
-    store.mkdir(parents=True)
-    (store / "simulation.parquet").write_bytes(b"snapshot")
-    _age_path(store / "simulation.parquet")
+    store = runs_dir_for(project) / "sealed_run"
+    tables = store / TABLES_DIRNAME
+    tables.mkdir(parents=True)
+    (tables / "simulation.parquet").write_bytes(b"snapshot")
+    (store / RUN_MANIFEST_FILENAME).write_text("{}")
+    _age_path(store / RUN_MANIFEST_FILENAME)
+    _age_path(tables / "simulation.parquet")
+    _age_path(tables)
     _age_path(store)
 
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])

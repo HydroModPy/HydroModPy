@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, share_dir_for
 from tests._helpers.cli_runner import CliRunner
 
 
@@ -25,7 +26,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
     assert new.ok, new.stderr
     project_dir = workspace / "projects" / "demo"
     assert project_dir.is_dir()
-    assert (project_dir / "hydromodpy.toml").is_file()
+    assert (project_dir / PROJECT_MARKER_FILENAME).is_file()
 
     listed = runner.invoke(["hmp", "project", "list", "--workspace", str(workspace)])
     assert listed.ok, listed.stderr
@@ -34,7 +35,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
     shown = runner.invoke(["hmp", "project", "show", "demo", "--workspace", str(workspace)])
     assert shown.ok, shown.stderr
     assert "demo" in shown.stdout
-    assert "hydromodpy.toml" in shown.stdout
+    assert PROJECT_MARKER_FILENAME in shown.stdout
 
     deleted = runner.invoke(
         ["hmp", "project", "delete", "demo", "--workspace", str(workspace), "-y"]
@@ -47,8 +48,9 @@ def test_workspace_clean_dry_run_lists_targets(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     runner = CliRunner()
     runner.invoke(["hmp", "workspace", "init", "--path", str(workspace)])
-    (workspace / "exports").mkdir(exist_ok=True)
-    (workspace / "exports" / "stale.txt").write_text("artifact")
+    share = share_dir_for(workspace)
+    share.mkdir(exist_ok=True)
+    (share / "stale.txt").write_text("artifact")
 
     result = runner.invoke(
         [
@@ -57,10 +59,11 @@ def test_workspace_clean_dry_run_lists_targets(tmp_path: Path) -> None:
             "clean",
             "--workspace",
             str(workspace),
-            "--exports",
+            "--share",
             "--dry-run",
         ]
     )
     assert result.ok, result.stderr
     assert "Dry-run" in result.stdout
-    assert (workspace / "exports").is_dir()
+    assert str(share) in result.stdout
+    assert share.is_dir()

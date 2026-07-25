@@ -1,12 +1,14 @@
-"""Filesystem path resolution for catalog artefacts.
+"""Filesystem path resolution for run artefacts.
 
-A simulation's on-disk state lives at ``simulations/<basename>.zarr`` and
-``simulations/<basename>.parquet`` where ``<basename>`` is ``<project>__<id8>``
-(id-only, immutable: the mutable human name lives only in the catalog). Older
-workspaces written before this scheme used the bare ``sim_id`` or the legacy
-``<project>__<name>__<id8>`` form; the basename is read from the stored
-``storage_basename`` column, so legacy mixed basenames keep resolving with no
-migration.
+A run owns one directory, ``runs/<name>``, named after the run itself
+(``cheze_demo``, ``cheze_demo.v2`` ...). Everything the run produced lives
+inside it: ``fields.zarr``, ``tables.parquet/<view>.parquet``,
+``config.toml``, ``figures/``. The layout is therefore readable without the
+index, and deleting a run is deleting one directory.
+
+The run name is mutable: renaming a run moves its directory, so the index
+and the tree never disagree. :meth:`StoragePathResolver.move` performs that
+move and is the only place allowed to do so.
 """
 
 from __future__ import annotations
@@ -18,21 +20,22 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hydromodpy.results.storage.contract import (
-    PARQUET_DIR_SUFFIX,
+    FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    ZARR_SUFFIX,
-    ZARR_ZIP_SUFFIX,
+    RUN_CONFIG_FILENAME,
+    RUN_FIGURES_DIRNAME,
+    TABLES_DIRNAME,
 )
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog.ports import CatalogBackend
 
-_SAFE_CHAR_RE = re.compile(r"[^a-z0-9_-]+")
+_UNSAFE_CHAR_RE = re.compile(r"[^A-Za-z0-9._-]+")
 _COLLAPSE_UNDERSCORE_RE = re.compile(r"_+")
+_SAFE_CHAR_RE = re.compile(r"[^a-z0-9_-]+")
 
 MAX_SEGMENT_LEN = 32
-SHORT_ID_LEN = 8
-SEPARATOR = "__"
+MAX_DIRNAME_LEN = 96
 UNNAMED = "unnamed"
 
 
@@ -55,85 +58,110 @@ def sanitize_segment(value: str | None, *, max_len: int = MAX_SEGMENT_LEN) -> st
     return slug[:max_len].rstrip("_-") or UNNAMED
 
 
-def short_uuid(sim_id: str | UUID) -> str:
-    """Return the first :data:`SHORT_ID_LEN` hex characters of ``sim_id``."""
-    return str(sim_id).replace("-", "")[:SHORT_ID_LEN]
+def run_dirname(name: str | None) -> str:
+    """Return the directory name of a run from its human name.
 
-
-def build_storage_basename(
-    project: str | None,
-    sim_id: str | UUID,
-) -> str:
-    """Build the immutable on-disk basename for a simulation's artefacts.
-
-    The format is ``{project}__{id8}`` where ``id8`` is the first 8 hex of the
-    ``sim_id``. The basename is id-only and never embeds the mutable human name:
-    renaming, versioning and replacing a run are pure catalog UPDATEs that do
-    not touch the filesystem. ``project`` falls back to ``"unnamed"`` and the
-    short id guarantees uniqueness within the workspace.
+    Case is preserved (the directory is meant to be recognised at a glance)
+    and the ``.vN`` version suffix survives; only characters a filesystem
+    cannot carry are folded to ASCII and replaced by an underscore.
     """
-    return SEPARATOR.join(
-        (
-            sanitize_segment(project),
-            short_uuid(sim_id),
-        )
-    )
+    if not name:
+        return UNNAMED
+    folded = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode("ascii")
+    cleaned = _UNSAFE_CHAR_RE.sub("_", folded.strip())
+    cleaned = _COLLAPSE_UNDERSCORE_RE.sub("_", cleaned).strip("._-")
+    if not cleaned:
+        return UNNAMED
+    return cleaned[:MAX_DIRNAME_LEN].rstrip("._-") or UNNAMED
 
 
 class StoragePathResolver:
-    """Resolve and cache on-disk paths for a simulation's artefacts.
+    """Resolve and cache the on-disk directory of each run.
 
-    Holds the ``simulations/`` root and an in-memory ``sim_id → basename``
-    cache so per-simulation Parquet and Zarr paths can be computed without
-    a fresh DuckDB lookup on every access.
+    Holds the ``runs/`` root and an in-memory ``sim_id → dirname`` cache so
+    per-run paths can be computed without a fresh DuckDB lookup on every
+    access.
     """
 
-    def __init__(self, backend: CatalogBackend, simulations_dir: Path) -> None:
+    def __init__(self, backend: CatalogBackend, runs_dir: Path) -> None:
         self._backend = backend
-        self._simulations_dir = simulations_dir
-        self._basename_cache: dict[str, str] = {}
+        self._runs_dir = runs_dir
+        self._dirname_cache: dict[str, str] = {}
 
-    def basename_for(self, sim_id: str | UUID) -> str:
-        """Return the on-disk basename for ``sim_id``.
+    @property
+    def runs_dir(self) -> Path:
+        """Root directory holding one sub-directory per run."""
+        return self._runs_dir
 
-        Reads ``simulations.storage_basename`` through the catalog backend
-        port. ``ensure_schema`` guarantees the column is non-NULL for any
-        registered row, so the only fallback is for unknown ``sim_id``
-        lookups, where the raw string is returned to keep path computation
-        total.
+    def dirname_for(self, sim_id: str | UUID) -> str:
+        """Return the directory name of ``sim_id``.
+
+        Reads the run name through the catalog backend port. A trashed run
+        has a NULL ``name`` (the bare name is freed on trash) but keeps
+        ``original_name``, so its directory stays resolvable and deletable.
+        An unknown ``sim_id`` falls back to its short id, which keeps path
+        computation total.
         """
         sid = str(sim_id)
-        cached = self._basename_cache.get(sid)
+        cached = self._dirname_cache.get(sid)
         if cached is not None:
             return cached
         row = self._backend.fetch_one(
-            "SELECT storage_basename FROM simulations WHERE sim_id = ?",
+            "SELECT COALESCE(name, original_name) FROM simulations WHERE sim_id = ?",
             [sid],
         )
-        basename = row[0] if row else sid
-        self._basename_cache[sid] = basename
-        return basename
+        name = row[0] if row and row[0] else sid[:8]
+        dirname = run_dirname(name)
+        self._dirname_cache[sid] = dirname
+        return dirname
 
-    def cache_basename(self, sim_id: str | UUID, basename: str) -> None:
-        """Pre-populate the basename cache for a freshly registered simulation."""
-        self._basename_cache[str(sim_id)] = basename
+    def cache_dirname(self, sim_id: str | UUID, dirname: str) -> None:
+        """Pre-populate the cache for a freshly registered run."""
+        self._dirname_cache[str(sim_id)] = dirname
 
     def forget(self, sim_id: str | UUID) -> None:
-        """Drop the cached basename for ``sim_id`` (used on delete)."""
-        self._basename_cache.pop(str(sim_id), None)
+        """Drop the cached directory name for ``sim_id`` (used on delete)."""
+        self._dirname_cache.pop(str(sim_id), None)
 
-    def parquet_dir_for(self, sim_id: str | UUID) -> Path:
-        """Return the per-simulation Parquet directory (may not yet exist)."""
-        return self._simulations_dir / f"{self.basename_for(sim_id)}{PARQUET_DIR_SUFFIX}"
+    def move(self, sim_id: str | UUID, new_dirname: str) -> Path:
+        """Move the run directory to ``new_dirname`` and return the new path.
 
-    def parquet_path_for(self, sim_id: str | UUID, view_name: str) -> Path:
-        """Return the Parquet file path for ``view_name`` under ``sim_id``."""
-        return self.parquet_dir_for(sim_id) / f"{view_name}{PARQUET_FILE_SUFFIX}"
+        Called by a rename so the tree follows the name. A missing source
+        directory is not an error (the run has not written anything yet);
+        an already-taken destination is, since two runs must never share a
+        directory.
+        """
+        source = self.run_dir_for(sim_id)
+        target = self._runs_dir / new_dirname
+        if source != target:
+            if target.exists():
+                raise FileExistsError(f"Run directory already exists: {target}")
+            if source.is_dir():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                source.rename(target)
+        self.cache_dirname(sim_id, new_dirname)
+        return target
 
-    def zarr_path_for(self, sim_id: str | UUID) -> Path:
-        """Return the Zarr artefact path on disk (``.zarr.zip`` if packed)."""
-        basename = self.basename_for(sim_id)
-        zipped = self._simulations_dir / f"{basename}{ZARR_ZIP_SUFFIX}"
-        if zipped.exists():
-            return zipped
-        return self._simulations_dir / f"{basename}{ZARR_SUFFIX}"
+    def run_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the run directory (may not yet exist)."""
+        return self._runs_dir / self.dirname_for(sim_id)
+
+    def fields_path_for(self, sim_id: str | UUID) -> Path:
+        """Return the Zarr directory store of the run."""
+        return self.run_dir_for(sim_id) / FIELDS_STORE_NAME
+
+    def tables_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the directory holding the run's Parquet payloads."""
+        return self.run_dir_for(sim_id) / TABLES_DIRNAME
+
+    def table_path_for(self, sim_id: str | UUID, view_name: str) -> Path:
+        """Return the Parquet payload path for ``view_name``."""
+        return self.tables_dir_for(sim_id) / f"{view_name}{PARQUET_FILE_SUFFIX}"
+
+    def config_path_for(self, sim_id: str | UUID) -> Path:
+        """Return the frozen configuration path of the run."""
+        return self.run_dir_for(sim_id) / RUN_CONFIG_FILENAME
+
+    def figures_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the figures directory of the run."""
+        return self.run_dir_for(sim_id) / RUN_FIGURES_DIRNAME

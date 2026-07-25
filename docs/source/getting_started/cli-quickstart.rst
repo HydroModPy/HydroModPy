@@ -20,8 +20,8 @@ A standard first session looks like this:
 
    hmp workspace init .                                  # scaffold this directory as a workspace
    hmp project new my_basin --workspace .                # create projects/my_basin
-   hmp config template projects/my_basin/hydromodpy.toml --profile user
-   hmp run projects/my_basin/hydromodpy.toml             # execute the run
+   hmp config template projects/my_basin/project.toml --profile user
+   hmp run projects/my_basin/project.toml             # execute the run
    hmp catalog ls                    # browse simulation results
    hmp catalog show <sim_id>         # inspect one simulation
 
@@ -62,7 +62,7 @@ variants.
    hmp project new my_basin                              # uses ~/hydromodpy/
    hmp project new my_basin --workspace /mnt/shared/hmp  # custom workspace
 
-The command writes ``projects/my_basin/hydromodpy.toml`` (the project
+The command writes ``projects/my_basin/project.toml`` (the project
 config validated by ``HydroModPyConfig``) and an empty
 ``projects/my_basin/catalog.duckdb`` deployed through the schema
 migration runner. See :doc:`../user_guide/concepts/project-vs-run` for the
@@ -115,7 +115,7 @@ level (``[workflow].mode = "simulation"``, ``"overview"``, ``"testbed"``,
 
 .. code-block:: bash
 
-   hmp run projects/my_basin/hydromodpy.toml
+   hmp run projects/my_basin/project.toml
    hmp run projects/my_basin/calibration_run.toml
 
 The catalog updates after every successful run.
@@ -188,7 +188,7 @@ Where to look next
 - :doc:`../user_guide/concepts/workspace-layout` documents the
   workspace > project > run hierarchy and the resolution rules.
 - :doc:`../user_guide/concepts/project-vs-run` explains the project
-  vs run distinction and the ``hydromodpy.toml`` contract.
+  vs run distinction and the ``project.toml`` contract.
 - :doc:`../user_guide/workflows/index` lists the seven supported
   user APIs (CLI, TOML, Python, notebook).
 - :doc:`../user_guide/config_reference/index` is the deep reference for

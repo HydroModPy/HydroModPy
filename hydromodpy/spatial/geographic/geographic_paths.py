@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME,
     HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME,
@@ -60,7 +61,7 @@ def build_geographic_paths(
 
     return GeographicPaths(
         stable_folder=str(stable),
-        simulations_folder=str(out_dir / ".solver_scratch"),
+        simulations_folder=str(scratch_dir_for(out_dir)),
         geographic_path=str(geographic_path),
         correcflow_path=str(correcflow_path),
         watershed=str(geographic_path / "watershed.tif"),

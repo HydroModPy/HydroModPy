@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
@@ -175,9 +176,7 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
     def _fake_build_geographic_derived_features(**kwargs):
         runtime_root = Path(kwargs["workspace"].project_root)
         captured["runtime_workspace_project_root"] = runtime_root
-        (runtime_root / ".solver_scratch/_preprocessing" / "geographic").mkdir(
-            parents=True, exist_ok=True
-        )
+        (runtime_root / PREPROCESSING_DIR / "geographic").mkdir(parents=True, exist_ok=True)
         (runtime_root / "results_simulations").mkdir(parents=True, exist_ok=True)
         (runtime_root / "results_calibration").mkdir(parents=True, exist_ok=True)
         return _DummyGeographicFeatures()
@@ -210,7 +209,7 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
         expected_root.parent / "_mesh_runtime" / expected_root.name
     )
     assert not runtime_workspace_project_root.exists()
-    assert not (expected_root / ".solver_scratch/_preprocessing").exists()
+    assert not (expected_root / PREPROCESSING_DIR).exists()
     assert not (expected_root / "results_simulations").exists()
     assert not (expected_root / "results_calibration").exists()
 

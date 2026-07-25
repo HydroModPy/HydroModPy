@@ -106,7 +106,7 @@ class ResultsConfig(HydroModelBase):
         description="Keep raw solver output files (.hds, .cbc, .lst) after ingestion.",
     )
     solver_scratch: Annotated[str, Profile.DEV] = Field(
-        default=".solver_scratch",
+        default=".hmp/scratch",
         description=(
             "Directory for temporary solver files, relative to the project. "
             "Use an absolute path (e.g. /scratch/$USER/hmp) for HPC."

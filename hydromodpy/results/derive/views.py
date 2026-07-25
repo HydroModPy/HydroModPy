@@ -106,7 +106,7 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
     Opens the Zarr store once and reads every timestep from it. The previous
     implementation called ``Run.field`` per timestep, and each call reopened and
     closed the store, so a long run triggered thousands of open/close round-trips
-    per figure (very costly on packed ``.zarr.zip`` stores).
+    per figure.
 
     A field absent from the store is not an error: derived fields are off by
     default and are rebuilt on read, so the miss falls back to ``Run.field``

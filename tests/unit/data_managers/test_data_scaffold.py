@@ -69,7 +69,7 @@ def test_creates_projects_and_data_dirs(ws):
 def test_creates_example_project_and_projects_readme(ws):
     assert (ws / "projects" / "README.md").exists()
     example = ws / "projects" / "example"
-    assert (example / "hydromodpy.toml").exists()
+    assert (example / "project.toml").exists()
     assert (example / "run_demo.toml").exists()
 
 

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for
 
 if TYPE_CHECKING:
     from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
@@ -26,7 +26,7 @@ DISCHARGE_VARIABLE = "discharge"
 
 def catalog_file(inputs: CatchmentReportInputs) -> Path:
     """Return the catalog holding the simulation the report describes."""
-    return Path(inputs.simulation_workspace_dir) / CATALOG_FILENAME
+    return catalog_path_for(Path(inputs.simulation_workspace_dir))
 
 
 @contextmanager
@@ -53,7 +53,7 @@ def simulation_run_exists(inputs: CatchmentReportInputs) -> bool:
 
 def simulation_parquet_dir(run: Run) -> Path | None:
     """Return the run's Parquet directory when it exists on disk."""
-    parquet_dir = run._catalog.parquet_dir_for(run.sim_id)
+    parquet_dir = run._catalog.tables_dir_for(run.sim_id)
     return parquet_dir if parquet_dir.is_dir() else None
 
 

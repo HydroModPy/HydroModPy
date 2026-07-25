@@ -12,6 +12,7 @@ from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
     PROJECT_MARKER_FILENAME,
+    RUNS_DIRNAME,
     cache_dir,
     resolve_project_root,
     resolve_workspace,
@@ -88,7 +89,7 @@ def test_resolve_workspace_gs_raises_not_implemented() -> None:
 
 def _project(tmp_path: Path) -> Path:
     root = tmp_path / "cheze"
-    (root / "simulations").mkdir(parents=True)
+    (root / RUNS_DIRNAME).mkdir(parents=True)
     (root / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
     return root
 
@@ -97,7 +98,7 @@ def test_resolve_project_root_walks_up_to_the_marker(tmp_path: Path) -> None:
     """Any directory under the project resolves to the marker directory."""
     root = _project(tmp_path)
     assert resolve_project_root(root) == root
-    assert resolve_project_root(root / "simulations") == root
+    assert resolve_project_root(root / RUNS_DIRNAME) == root
 
 
 def test_resolve_project_root_ignores_a_missing_catalog(tmp_path: Path) -> None:
@@ -105,17 +106,17 @@ def test_resolve_project_root_ignores_a_missing_catalog(tmp_path: Path) -> None:
     root = _project(tmp_path)
     catalog = root / CATALOG_FILENAME
     catalog.write_bytes(b"")
-    assert resolve_project_root(root / "simulations") == root
+    assert resolve_project_root(root / RUNS_DIRNAME) == root
     catalog.unlink()
-    assert resolve_project_root(root / "simulations") == root
+    assert resolve_project_root(root / RUNS_DIRNAME) == root
 
 
 def test_resolve_project_root_is_not_anchored_by_a_catalog(tmp_path: Path) -> None:
     """A catalog without a marker never anchors a root above the start."""
     root = tmp_path / "legacy"
-    (root / "simulations").mkdir(parents=True)
+    (root / RUNS_DIRNAME).mkdir(parents=True)
     (root / CATALOG_FILENAME).write_bytes(b"")
-    assert resolve_project_root(root / "simulations") == root / "simulations"
+    assert resolve_project_root(root / RUNS_DIRNAME) == root / RUNS_DIRNAME
 
 
 def test_resolve_project_root_defaults_to_the_start_directory(tmp_path: Path) -> None:

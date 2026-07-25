@@ -10,6 +10,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
@@ -18,7 +19,7 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path(config.project_root)
-        self.solver_scratch_folder = self.project_root / ".solver_scratch"
+        self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
 
 class _DummyBatchWorkspace:
@@ -26,7 +27,7 @@ class _DummyBatchWorkspace:
         self.config = config
         self.project_root = Path(config.project_root)
         self.catch_name = str(config.catch_name)
-        self.solver_scratch_folder = self.project_root / ".solver_scratch"
+        self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
 
 class _DummyDomainGeographic:

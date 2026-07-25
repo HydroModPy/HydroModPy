@@ -3,7 +3,7 @@
 The global index lives at ``<state_dir>/hydromodpy/index.duckdb`` and keeps
 a single table ``workspaces`` of registered workspace URIs. On
 :meth:`GlobalIndex.refresh_federation` it ATTACHes each registered
-workspace ``catalog.duckdb`` in READ_ONLY mode and rebuilds the federated
+project index database in READ_ONLY mode and rebuilds the federated
 view ``all_simulations``. Cross-workspace queries then hit the federated
 view from one process without copying any data.
 """
@@ -26,8 +26,8 @@ from hydromodpy.core.io.db_retry import _is_lock_contention, connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.migrations import ensure_schema as _ensure_index_schema
 from hydromodpy.core.state.paths import (
-    CATALOG_FILENAME,
     INDEX_FILENAME,
+    catalog_path_for,
     resolve_workspace,
     state_dir,
 )
@@ -81,7 +81,7 @@ class WorkspaceRecord(BaseModel):
 
 
 class GlobalIndex:
-    """Machine-wide global index over N workspace ``catalog.duckdb`` files.
+    """Machine-wide global index over N project index databases.
 
     Parameters
     ----------
@@ -310,7 +310,7 @@ class GlobalIndex:
         return records
 
     def prune(self) -> list[str]:
-        """Remove workspaces whose ``catalog.duckdb`` no longer exists.
+        """Remove workspaces whose index database no longer exists.
 
         Returns
         -------
@@ -325,7 +325,7 @@ class GlobalIndex:
         self._check_writable("prune")
         removed: list[str] = []
         for record in self.list_workspaces():
-            catalog_path = _resolve_local_path(record.workspace_uri) / CATALOG_FILENAME
+            catalog_path = catalog_path_for(_resolve_local_path(record.workspace_uri))
             if not catalog_path.is_file():
                 self._conn.execute(
                     "DELETE FROM workspaces WHERE workspace_id = ?", [record.workspace_id]
@@ -353,7 +353,7 @@ class GlobalIndex:
 
         attached_parts: list[tuple[str, str]] = []
         for record in self.list_workspaces():
-            catalog_path = _resolve_local_path(record.workspace_uri) / CATALOG_FILENAME
+            catalog_path = catalog_path_for(_resolve_local_path(record.workspace_uri))
             if not catalog_path.is_file():
                 logger.warning(
                     "Skipping workspace %s: catalog file missing at %s",

@@ -191,6 +191,20 @@ def load_case_tolerances(case_dir: Path, solver: str | None = None) -> dict:
     return _load_toml(case_dir / "tolerances.toml")
 
 
+def _reshape_to_expected(
+    values: np.ndarray,
+    expected_shape: tuple[int, ...] | None,
+) -> np.ndarray:
+    """Reshape a flat cell vector onto ``expected_shape`` when the size matches."""
+    if (
+        expected_shape is not None
+        and tuple(values.shape) != tuple(expected_shape)
+        and values.size == int(np.prod(expected_shape))
+    ):
+        return values.reshape(tuple(expected_shape))
+    return values
+
+
 def _load_last_array_from_store(
     *,
     observable_name: str,
@@ -198,7 +212,13 @@ def _load_last_array_from_store(
     sim_id: str | None,
     expected_shape: tuple[int, ...] | None = None,
 ) -> tuple[int, np.ndarray]:
-    """Return ``(timestep, values)`` for the last stored timestep."""
+    """Return ``(timestep, values)`` for the last stored timestep.
+
+    A field that is not persisted (the derived ones are opt-in) is rebuilt on
+    the fly through ``query_field``, exactly like :func:`load_field_from_store`,
+    so a validation case never has to opt a heavy Zarr field back in just to
+    read its observable.
+    """
     if store is None or sim_id is None:
         raise ValueError(f"Cannot load '{observable_name}': no store/sim_id provided.")
 
@@ -217,17 +237,8 @@ def _load_last_array_from_store(
                 data = data[:, 0, :]
             n_ts = int(data.shape[0])
             last_values = np.asarray(data[n_ts - 1], dtype=float)
-            eff_shape = expected_shape
-            if (
-                eff_shape is not None
-                and tuple(last_values.shape) != tuple(eff_shape)
-                and last_values.size == int(np.prod(eff_shape))
-            ):
-                last_values = last_values.reshape(tuple(eff_shape))
-            return n_ts - 1, last_values
-        raise KeyError(
-            f"Variable '{observable_name}' not found in result store for sim_id={sim_id}."
-        )
+            return n_ts - 1, _reshape_to_expected(last_values, expected_shape)
+        n_timesteps = int(grp["head"].shape[0]) if "head" in grp else 0
     except Exception as exc:
         raise RuntimeError(
             f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
@@ -235,6 +246,22 @@ def _load_last_array_from_store(
     finally:
         if sz is not None:
             sz.close()
+
+    if n_timesteps == 0:
+        raise RuntimeError(
+            f"Variable '{observable_name}' is neither stored nor derivable for "
+            f"sim_id={sim_id}: the store holds no head stack to rebuild it from."
+        )
+    try:
+        raw = store.query_field(sim_id, observable_name, n_timesteps - 1)
+    except Exception as exc:
+        raise RuntimeError(
+            f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
+        ) from exc
+    values = np.asarray(raw, dtype=float)
+    if values.ndim == 2 and values.shape[0] == 1:
+        values = values[0]
+    return n_timesteps - 1, _reshape_to_expected(values, expected_shape)
 
 
 def load_field_on_expected_grid(
@@ -478,6 +505,16 @@ def load_time_series_fields(
             if loc is not None and observable_name in loc:
                 arr = loc[observable_name][:]
                 break
+        if arr is None and "head" in grp:
+            # Not persisted (derived fields are opt-in): rebuild the whole
+            # history on the fly, one timestep at a time, like the readers in
+            # ``hydromodpy.results.run.array`` do.
+            arr = np.stack(
+                [
+                    np.asarray(store.query_field(sim_id, observable_name, step), dtype=float)
+                    for step in range(int(grp["head"].shape[0]))
+                ]
+            )
         if arr is not None:
             data = np.asarray(arr, dtype=float)
             # Zarr shape is (n_timesteps, n_layers, n_cells) or (n_timesteps, n_cells).

@@ -8,6 +8,7 @@ import cycles between the per-sink mixin modules.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -93,6 +94,40 @@ def _normalize_geometry_kind(geom_type: str | None) -> str | None:
         "MultiPolygon": "multipolygon",
     }
     return mapping.get(geom_type, "polygon")
+
+
+def geographic_feature_description(gdf: Any) -> tuple[str | None, str, dict[str, Any]]:
+    """Return ``(geometry_kind, crs, properties)`` describing a feature layer.
+
+    Shared by the writer and by the index rebuild, so one GeoParquet file
+    always yields the same catalog row whether it was described when written
+    or read back from disk afterwards. The CRS is rendered through
+    ``to_string()``: a layer read back from GeoParquet carries its CRS as
+    PROJJSON, and only the canonical form matches the authority code the
+    writer saw in memory.
+    """
+    from shapely.ops import unary_union
+
+    union_geom = unary_union([g for g in gdf.geometry if g is not None and not g.is_empty])
+    geometry_kind = _normalize_geometry_kind(union_geom.geom_type)
+    if gdf.crs is None:
+        raise ValueError("Geographic feature CRS is required.")
+    crs = gdf.crs.to_string()
+    schema_payload = {
+        "columns": [str(col) for col in gdf.columns if col != gdf.geometry.name],
+        "geometry_kind": geometry_kind,
+        "crs": crs,
+    }
+    properties = {
+        "n_features": int(len(gdf)),
+        "bbox": [float(value) for value in gdf.total_bounds],
+        "geometry_encoding": "WKB",
+        "schema_sha256": hashlib.sha256(
+            json.dumps(schema_payload, sort_keys=True).encode("utf-8")
+        ).hexdigest(),
+        "geoparquet_version": "1.1.0",
+    }
+    return geometry_kind, crs, properties
 
 
 def _epsg_from_crs(crs: str | None) -> int | None:
@@ -259,4 +294,5 @@ __all__ = [
     "_sha256_streaming",
     "_table_from_columns",
     "_table_from_records",
+    "geographic_feature_description",
 ]

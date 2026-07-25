@@ -12,7 +12,7 @@ import rasterio
 from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
@@ -64,7 +64,7 @@ def restore_seepage_raster_from_store(
         return False
 
     project_root = Path(project_root)
-    catalog_root = project_root if (project_root / CATALOG_FILENAME).exists() else None
+    catalog_root = project_root if (catalog_path_for(project_root)).exists() else None
     workspace_root = catalog_root or locate_workspace_root(project_root) or project_root
 
     seepage_tif = Path(seepage_tif_path)

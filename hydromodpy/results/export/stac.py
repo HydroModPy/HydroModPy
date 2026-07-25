@@ -104,12 +104,9 @@ def _midpoint(start: str | None, end: str | None) -> str:
 
 
 def _asset_dict(asset: AssetEntry) -> dict[str, Any]:
-    media_type = asset.media_type
-    if media_type == "application/zip" and asset.relative_path.endswith(".zarr.zip"):
-        media_type = "application/zip; application=zarr"
     payload: dict[str, Any] = {
         "href": asset.relative_path,
-        "type": media_type,
+        "type": asset.media_type,
         "roles": list(asset.roles),
     }
     if asset.description:

@@ -7,8 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.storage.contract import SIMULATIONS_DIRNAME, ZARR_ZIP_SUFFIX
+from hydromodpy.results.exporters.hmp_package import ZARR_ARCHIVE_NAME
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -77,7 +79,7 @@ class TestExportSimulation:
             expected = {
                 f"{sid}/manifest.json",
                 f"{sid}/catalog_snapshot.duckdb",
-                f"{sid}/simulation.zarr.zip",
+                f"{sid}/{ZARR_ARCHIVE_NAME}",
                 f"{sid}/README.md",
             }
             assert expected <= set(names)
@@ -162,7 +164,7 @@ class TestImportSimulation:
         ).fetchone()[0]
         assert count == 1
 
-    def test_import_updates_zarr_path(self, tmp_path):
+    def test_import_unpacks_fields_into_the_run_directory(self, tmp_path):
         ws1 = tmp_path / "ws1"
         ws2 = tmp_path / "ws2"
 
@@ -174,11 +176,13 @@ class TestImportSimulation:
 
         cat2 = Catalog(ws2)
         cat2.import_package(pkg)
-        zarr_path, basename = cat2.connection.execute(
+        zarr_path, dirname = cat2.connection.execute(
             "SELECT zarr_path, storage_basename FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
-        assert basename  # non-null basename populated on import
-        assert zarr_path == f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_ZIP_SUFFIX}"
-        assert (ws2 / zarr_path).exists()
+        assert dirname  # run directory name populated on import
+        assert zarr_path == f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}"
+        unpacked = ws2 / zarr_path
+        assert unpacked.is_dir()
+        assert cat2.fields_path_for(sid) == unpacked
         cat2.close()

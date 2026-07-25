@@ -5,6 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+CLEAN_GROUPS: tuple[str, ...] = (
+    "results",
+    "data_cache",
+    "runtime",
+    "share",
+    "scratch",
+    "figures",
+)
+"""Artefact families ``clean_workspace`` knows how to remove."""
+
 
 def init_workspace(
     path: Any = None,
@@ -48,16 +58,16 @@ def list_workspaces() -> Any:
 
 
 def register_workspace(uri: str, *, label: str | None = None) -> str:
-    """Register a workspace ``catalog.duckdb`` in the global index.
+    """Register a workspace index database in the global index.
 
     Returns the assigned ``workspace_id``.
     """
     from hydromodpy.core.state.global_index import GlobalIndex
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for
     from hydromodpy.core.state.paths import resolve_workspace as _resolve
 
     local = _resolve(uri)
-    catalog = Path(local) / CATALOG_FILENAME
+    catalog = catalog_path_for(Path(local))
     if not catalog.is_file():
         raise FileNotFoundError(f"Workspace {uri!r} has no {CATALOG_FILENAME} at {catalog}.")
     with GlobalIndex() as gi:
@@ -84,7 +94,7 @@ def forget_workspace(workspace_id: str) -> None:
 
 
 def prune_workspaces() -> list[str]:
-    """Drop registrations whose ``catalog.duckdb`` is missing."""
+    """Drop registrations whose index database is missing."""
     from hydromodpy.core.state.global_index import GlobalIndex
 
     with GlobalIndex() as gi:
@@ -97,17 +107,24 @@ def clean_workspace(
     groups: set[str] | None = None,
     dry_run: bool = True,
 ) -> dict:
-    """Remove generated workspace artefacts.
+    """Remove generated project artefacts.
 
-    ``groups`` selects which artefact families to remove. Default is empty
-    (the caller is expected to pass at least one of ``results``,
-    ``data_cache``, ``runtime``, ``exports``, ``scratch``, ``figures``, or
-    use ``{"all"}``).
+    ``groups`` selects which artefact families to remove: ``results`` (the
+    index database and the ``runs/`` tree), ``data_cache``, ``runtime``
+    (``.hmp/``), ``share`` (the published tree), ``scratch``
+    (``.hmp/scratch``) and ``figures`` (``share/figures``). Default is empty
+    (the caller passes at least one group, or ``{"all"}``).
     """
     import shutil
 
     from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import (
+        CATALOG_FILENAME,
+        catalog_path_for,
+        runs_dir_for,
+        scratch_dir_for,
+        share_dir_for,
+    )
 
     start = Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     workspace_root = find_workspace_root(start)
@@ -116,7 +133,7 @@ def clean_workspace(
 
     selected = set(groups or set())
     if "all" in selected or selected == {"all"}:
-        selected = {"results", "data_cache", "runtime", "exports", "scratch", "figures"}
+        selected = set(CLEAN_GROUPS)
     if not selected:
         raise ValueError("Select at least one cleanup group, or pass groups={'all'}.")
 
@@ -124,18 +141,18 @@ def clean_workspace(
     if "results" in selected:
         targets.extend(
             [
-                workspace_root / CATALOG_FILENAME,
-                workspace_root / f"{CATALOG_FILENAME}.wal",
-                workspace_root / "simulations",
+                catalog_path_for(workspace_root),
+                catalog_path_for(workspace_root).with_name(f"{CATALOG_FILENAME}.wal"),
+                runs_dir_for(workspace_root),
             ]
         )
         for project_dir in sorted(workspace_root.glob("projects/*")):
             if project_dir.is_dir():
                 targets.extend(
                     [
-                        project_dir / CATALOG_FILENAME,
-                        project_dir / f"{CATALOG_FILENAME}.wal",
-                        project_dir / "simulations",
+                        catalog_path_for(project_dir),
+                        catalog_path_for(project_dir).with_name(f"{CATALOG_FILENAME}.wal"),
+                        runs_dir_for(project_dir),
                     ]
                 )
     if "data_cache" in selected:
@@ -148,13 +165,17 @@ def clean_workspace(
         )
     if "runtime" in selected:
         targets.append(workspace_root / ".hmp")
-    if "exports" in selected:
-        targets.append(workspace_root / "exports")
+    if "share" in selected:
+        targets.append(share_dir_for(workspace_root))
+        targets.extend(share_dir_for(p) for p in sorted(workspace_root.glob("projects/*")))
     if "scratch" in selected:
-        targets.extend(sorted(workspace_root.glob("projects/*/.solver_scratch")))
-        targets.append(workspace_root / ".solver_scratch")
+        targets.extend(scratch_dir_for(p) for p in sorted(workspace_root.glob("projects/*")))
+        targets.append(scratch_dir_for(workspace_root))
     if "figures" in selected:
-        targets.extend(sorted(workspace_root.glob("projects/*/figures")))
+        targets.extend(
+            share_dir_for(p) / "figures" for p in sorted(workspace_root.glob("projects/*"))
+        )
+        targets.append(share_dir_for(workspace_root) / "figures")
 
     seen: set[Path] = set()
     unique: list[Path] = []

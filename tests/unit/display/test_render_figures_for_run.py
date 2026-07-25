@@ -6,8 +6,9 @@ These tests exercise policy, not rendering:
     * Unknown figure names are rejected by the config, not at render time.
     * A figure whose requirements the run does not meet is skipped.
     * Written files land in ``<output_dir>/<figure>.png``.
-    * ``resolve_run_output_dir`` picks the run name when available and
-      falls back to a short sim_id otherwise.
+    * ``resolve_run_output_dir`` nests figures in ``runs/<run>/figures``,
+      naming the run directory after the run and falling back to a short
+      sim_id otherwise.
 """
 
 from __future__ import annotations
@@ -18,8 +19,10 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import FigureSpec
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 
 class _StubRun:
@@ -153,7 +156,7 @@ def _skip_config(*figures: str) -> DisplayConfig:
         on_error="warn",
         cmap="viridis",
         overrides={},
-        output_dir=Path("figures"),
+        output_dir=RUN_FIGURES_DIRNAME,
         figures=list(figures),
     )
 
@@ -245,26 +248,26 @@ def test_figure_names_override_shadows_config(tmp_path, patched_registry, runs_m
     assert [p.name for p in report.written] == ["hydrograph.png"]
 
 
-def test_resolve_run_output_dir_prefers_run_name(tmp_path, runs_module):
-    cfg = DisplayConfig(output_dir=Path("figures"))
+def test_resolve_run_output_dir_nests_figures_inside_the_run(tmp_path, runs_module):
+    cfg = DisplayConfig(output_dir=RUN_FIGURES_DIRNAME)
     path = runs_module.resolve_run_output_dir(
         cfg,
         project_root=tmp_path,
         run_name="calib_best",
         sim_id="abcdef1234567890",
     )
-    assert path == tmp_path / "figures" / "calib_best"
+    assert path == tmp_path / RUNS_DIRNAME / "calib_best" / RUN_FIGURES_DIRNAME
 
 
 def test_resolve_run_output_dir_falls_back_to_short_sim_id(tmp_path, runs_module):
-    cfg = DisplayConfig(output_dir=Path("figures"))
+    cfg = DisplayConfig(output_dir=RUN_FIGURES_DIRNAME)
     path = runs_module.resolve_run_output_dir(
         cfg,
         project_root=tmp_path,
         run_name=None,
         sim_id="abcdef1234567890",
     )
-    assert path == tmp_path / "figures" / "abcdef12"
+    assert path == tmp_path / RUNS_DIRNAME / "abcdef12" / RUN_FIGURES_DIRNAME
 
 
 def test_summary_names_every_requested_figure_that_produced_nothing(
