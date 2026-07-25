@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "watch"
 HELP: str = "Show running simulations with heartbeat age and staleness"
@@ -46,7 +47,7 @@ def _age(age_s: float | None) -> str:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import watch_running
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:

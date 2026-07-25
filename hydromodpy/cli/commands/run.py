@@ -26,11 +26,11 @@ from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     auto_scan_workspace,
-    find_catalog_root,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
 )
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "run"
 HELP: str = "Run a workflow from a TOML config"
@@ -202,7 +202,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
         SimulationNotFoundError,
     )
 
-    workspace = find_catalog_root(Path.cwd().resolve())
+    workspace = resolve_project_root(Path.cwd().resolve())
     if not (workspace / CATALOG_FILENAME).exists():
         print(
             f"No catalog at {workspace}; run --resume REF must be invoked from a "
@@ -466,13 +466,12 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     Best-effort: looks for a catalog next to the config and, failing that,
     walks up to find a workspace. Any exception is swallowed.
     """
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     try:
-        workspace = find_catalog_root(config_path.parent)
+        workspace = resolve_project_root(config_path.parent)
     except Exception:
         return
     catalog_path = workspace / CATALOG_FILENAME

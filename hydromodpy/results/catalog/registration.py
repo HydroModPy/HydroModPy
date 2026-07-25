@@ -161,55 +161,53 @@ def _resolve_registration_name(
     """Resolve the final ``(name, name_stem, version_int, replaced_sid)``.
 
     Versioning is keyed on ``name_stem`` (the requested name with any trailing
-    ``.vN`` stripped), so collisions never rely on the buggy ``LIKE`` scan.
-    Only live (non-trashed) rows count as collisions.
+    ``.vN`` stripped). A registered name belongs to its run for good: a sealed
+    run is never renamed, so the bare stem *is* version 1 forever and every
+    later run of that stem gets the next free ``stem.vN``.
 
-    - ``version`` (default): mint the next free version. A bare original still
-      holding the clean stem is demoted to ``stem.v1`` so the bare name always
-      resolves to the latest version of the stem.
-    - ``replace``: trash the colliding predecessor (name freed, ``original_name``
-      kept, restorable) and let the new run take the requested name.
-    - ``fail``: raise :class:`DuplicateSimulationNameError`.
+    - ``version`` (default): mint the next free version behind the live runs of
+      the stem.
+    - ``replace``: trash the colliding predecessor, which keeps its name and
+      version (its stored run stays addressable and restorable), then mint the
+      next free version for the incoming run.
+    - ``fail``: raise :class:`DuplicateSimulationNameError` when a live run
+      already holds the stem.
+
+    Trashed rows still count when minting a version, because a trashed run may
+    keep its name and ``UNIQUE (project, name)`` spans every row.
     """
     stem, requested_version = _split_stem_version(requested)
     rows = backend.fetch_all(
-        "SELECT CAST(sim_id AS VARCHAR), name, version_int FROM simulations "
-        "WHERE project = ? AND name_stem = ? "
-        "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed')",
+        "SELECT CAST(sim_id AS VARCHAR), name, version_int, "
+        "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+        "FROM simulations WHERE project = ? AND name_stem = ?",
         [project, stem],
     )
-    if not rows:
+    live = [r for r in rows if not r[3]]
+    taken = {r[1] for r in rows if r[1]}
+    if not live and requested not in taken:
         return requested, stem, (requested_version or 1), None
 
-    if if_exists == "fail":
-        raise DuplicateSimulationNameError(project, requested, str(rows[0][0]))
+    if if_exists == "fail" and live:
+        raise DuplicateSimulationNameError(project, requested, str(live[0][0]))
 
-    if if_exists == "replace":
-        target = next((r for r in rows if r[1] == requested), None)
+    replaced_sid: str | None = None
+    if if_exists == "replace" and live:
+        target = next((r for r in live if r[1] == requested), None)
         if target is None:
-            target = max(rows, key=lambda r: r[2] or 1)
+            target = max(live, key=lambda r: r[2] or 1)
         backend.execute(
-            "UPDATE simulations SET name = NULL, original_name = ?, "
+            "UPDATE simulations SET original_name = COALESCE(original_name, name), "
             "original_status_id = COALESCE(original_status_id, status_id), "
             "trashed_at = current_timestamp, updated_at = current_timestamp, "
             "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
             "WHERE sim_id = ?",
-            [target[1], target[0]],
+            [target[0]],
         )
-        return requested, stem, (requested_version or 1), str(target[0])
+        replaced_sid = str(target[0])
 
-    # version (default): demote a bare original, then mint the next version.
-    # Skip the demote when ``stem.v1`` already exists (a rename may have poisoned
-    # the accounting) so the UNIQUE (project, name) constraint never trips.
-    existing_names = {name_x for _, name_x, _ in rows}
-    for sid_x, name_x, _ in rows:
-        if name_x == stem and f"{stem}.v1" not in existing_names:
-            backend.execute(
-                "UPDATE simulations SET name = ?, version_int = 1 WHERE sim_id = ?",
-                [f"{stem}.v1", sid_x],
-            )
     next_version = max((r[2] or 1) for r in rows) + 1
-    return f"{stem}.v{next_version}", stem, next_version, None
+    return f"{stem}.v{next_version}", stem, next_version, replaced_sid
 
 
 def _epsg_from_crs(crs: str) -> int | None:
@@ -253,14 +251,14 @@ class RegistrationResult:
     sim_id
         UUID of the newly registered simulation.
     name
-        Final name assigned to the simulation (may differ from the requested
-        name when ``if_exists='version'`` auto-suffixes it).
+        Final name assigned to the simulation (differs from the requested name
+        whenever the stem is already taken and a ``.vN`` is minted).
     zarr
         The freshly created :class:`SimulationZarr`, or ``None`` when mesh
         dimensions are not yet known at registration time.
     replaced_sim_id
-        UUID of a previously named simulation whose name was cleared by a
-        soft-replace. ``None`` when no collision occurred.
+        UUID of the predecessor trashed by ``if_exists='replace'``. It keeps
+        its own name and version. ``None`` when no collision occurred.
     """
 
     sim_id: str
@@ -335,9 +333,10 @@ class RegistrationMixin:
                 )
                 if replaced_sid is not None:
                     logger.info(
-                        "Hard-replacing '%s' in project '%s' (previous sim %s trashed)",
+                        "Replacing '%s' in project '%s' with '%s' (previous sim %s trashed)",
                         requested_name,
                         project,
+                        final_name,
                         _short_id(replaced_sid),
                     )
                 elif final_name != requested_name:

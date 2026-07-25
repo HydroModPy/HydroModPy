@@ -12,8 +12,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.state.paths import find_catalog_root
-
 # ---------------------------------------------------------------------------
 # Standardised exit codes for the hmp CLI. The shared grammar that emits them
 # lives in ``hydromodpy/cli/_conventions.py``. Typed codes 10..19 map onto
@@ -313,7 +311,6 @@ __all__ = (
     "EXIT_SIGINT",
     "exit_code_for",
     "find_project_root",
-    "find_catalog_root",
     "find_workspace_root",
     "find_data_workspace",
     "resolve_workspace",

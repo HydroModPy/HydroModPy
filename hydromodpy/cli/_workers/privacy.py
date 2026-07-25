@@ -22,12 +22,11 @@ def purge_simulation(
     import hashlib
     import json
 
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import emit_deletion_tombstone
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
     if not (workspace_root / CATALOG_FILENAME).exists():

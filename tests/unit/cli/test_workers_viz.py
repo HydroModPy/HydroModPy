@@ -39,12 +39,14 @@ def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path
             calls["plot"] = {"sim": sim.name, "save_path": save_path}
             save_path.write_bytes(b"png")
 
-    def fake_find_catalog_root(start: Path) -> Path:
+    def fake_resolve_project_root(start: Path) -> Path:
         calls["catalog_search_start"] = start
         return catalog_root
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("hydromodpy.cli.helpers.find_catalog_root", fake_find_catalog_root)
+    monkeypatch.setattr(
+        "hydromodpy.core.state.paths.resolve_project_root", fake_resolve_project_root
+    )
     monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
     monkeypatch.setattr("hydromodpy.display.get", lambda name: FakeFigure())
 

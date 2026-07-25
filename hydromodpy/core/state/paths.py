@@ -20,6 +20,8 @@ from urllib.request import url2pathname
 import platformdirs
 from upath import UPath
 
+from hydromodpy.core.exceptions import ConfigError
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -29,6 +31,12 @@ _APP_NAME = "hydromodpy"
 
 CATALOG_FILENAME = "catalog.duckdb"
 """Per-project catalog DuckDB file living at ``<project>/catalog.duckdb``."""
+
+PROJECT_MARKER_FILENAME = "project.toml"
+"""Marker anchoring a project root at ``<project>/project.toml``."""
+
+CONFIGS_DIRNAME = "configs"
+"""Reserved sub-directory holding the config variants of a project."""
 
 PROJECT_TOML_FILENAME = "hydromodpy.toml"
 """Per-project HydroModPy config file living at ``<project>/hydromodpy.toml``."""
@@ -80,12 +88,26 @@ def state_dir() -> Path | UPath:
 # Workspace-relative path helpers ------------------------------------------
 
 
-def find_catalog_root(project_dir: Path) -> Path:
-    """Walk up from ``project_dir`` to find a project-local catalog."""
-    for parent in [project_dir] + list(project_dir.parents):
-        if (parent / CATALOG_FILENAME).exists():
+def resolve_project_root(start: Path) -> Path:
+    """Walk up from ``start`` to the directory holding ``project.toml``.
+
+    The anchor is the project config file, never a database file: the catalog
+    is a rebuildable index and may be absent. Without a marker the starting
+    directory is the root, so a flat project directory still resolves. A
+    ``configs/`` directory is the exception: anchoring there would scatter the
+    project outputs under the sub-directory, so it raises instead.
+    """
+    base = Path(start)
+    for parent in [base, *base.parents]:
+        if (parent / PROJECT_MARKER_FILENAME).is_file():
             return parent
-    return project_dir
+    if base.name == CONFIGS_DIRNAME:
+        raise ConfigError(
+            f"No {PROJECT_MARKER_FILENAME} found above {base}. A config stored in "
+            f"{CONFIGS_DIRNAME}/ cannot anchor a project root: add "
+            f"{PROJECT_MARKER_FILENAME} to {base.parent}."
+        )
+    return base
 
 
 def to_workspace_relative(workspace: Path | UPath, target: Path | UPath) -> str:
@@ -210,15 +232,17 @@ def resolve_workspace(uri: str | Path | UPath) -> Path:
 
 __all__: Iterable[str] = (
     "CATALOG_FILENAME",
+    "CONFIGS_DIRNAME",
     "INDEX_FILENAME",
+    "PROJECT_MARKER_FILENAME",
     "PROJECT_TOML_FILENAME",
     "WORKSPACE_TOML_FILENAME",
     "cache_dir",
     "decode_workspace_path",
     "encode_workspace_path",
-    "find_catalog_root",
     "from_workspace_relative",
     "is_under_workspace",
+    "resolve_project_root",
     "resolve_workspace",
     "running_sidecar_dir",
     "running_sidecar_path",

@@ -14,11 +14,11 @@ def render_figure(
     output: Any = None,
 ) -> Path:
     """Render one registered figure for a simulation. Returns the output path."""
-    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.display import get as get_figure
     from hydromodpy.results.catalog import Catalog
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
     with Catalog(workspace_root) as catalog:

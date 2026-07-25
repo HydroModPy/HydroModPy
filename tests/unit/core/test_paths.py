@@ -7,7 +7,16 @@ from pathlib import Path
 import platformdirs
 import pytest
 
-from hydromodpy.core.state.paths import cache_dir, resolve_workspace, state_dir
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.state.paths import (
+    CATALOG_FILENAME,
+    CONFIGS_DIRNAME,
+    PROJECT_MARKER_FILENAME,
+    cache_dir,
+    resolve_project_root,
+    resolve_workspace,
+    state_dir,
+)
 
 
 def test_cache_dir_defaults_to_platformdirs(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -75,3 +84,56 @@ def test_resolve_workspace_gs_raises_not_implemented() -> None:
     """``gs://`` URIs are accepted at the type level but rejected at runtime."""
     with pytest.raises(NotImplementedError, match="gs"):
         resolve_workspace("gs://bucket/foo")
+
+
+def _project(tmp_path: Path) -> Path:
+    root = tmp_path / "cheze"
+    (root / "simulations").mkdir(parents=True)
+    (root / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    return root
+
+
+def test_resolve_project_root_walks_up_to_the_marker(tmp_path: Path) -> None:
+    """Any directory under the project resolves to the marker directory."""
+    root = _project(tmp_path)
+    assert resolve_project_root(root) == root
+    assert resolve_project_root(root / "simulations") == root
+
+
+def test_resolve_project_root_ignores_a_missing_catalog(tmp_path: Path) -> None:
+    """Deleting the DuckDB index leaves the root resolution untouched."""
+    root = _project(tmp_path)
+    catalog = root / CATALOG_FILENAME
+    catalog.write_bytes(b"")
+    assert resolve_project_root(root / "simulations") == root
+    catalog.unlink()
+    assert resolve_project_root(root / "simulations") == root
+
+
+def test_resolve_project_root_is_not_anchored_by_a_catalog(tmp_path: Path) -> None:
+    """A catalog without a marker never anchors a root above the start."""
+    root = tmp_path / "legacy"
+    (root / "simulations").mkdir(parents=True)
+    (root / CATALOG_FILENAME).write_bytes(b"")
+    assert resolve_project_root(root / "simulations") == root / "simulations"
+
+
+def test_resolve_project_root_defaults_to_the_start_directory(tmp_path: Path) -> None:
+    """A flat directory without a marker is its own root."""
+    assert resolve_project_root(tmp_path) == tmp_path
+
+
+def test_resolve_project_root_rejects_an_unanchored_configs_dir(tmp_path: Path) -> None:
+    """A config variant under ``configs/`` must not anchor the root there."""
+    configs = tmp_path / "orphan" / CONFIGS_DIRNAME
+    configs.mkdir(parents=True)
+    with pytest.raises(ConfigError, match=PROJECT_MARKER_FILENAME):
+        resolve_project_root(configs)
+
+
+def test_resolve_project_root_accepts_a_configs_dir_under_a_marker(tmp_path: Path) -> None:
+    """``configs/`` inside a real project resolves to the project root."""
+    root = _project(tmp_path)
+    configs = root / CONFIGS_DIRNAME
+    configs.mkdir()
+    assert resolve_project_root(configs) == root

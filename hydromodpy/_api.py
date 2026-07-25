@@ -90,14 +90,14 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
     hydromodpy.index
         Machine-wide federation across registered workspaces.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
     from hydromodpy.results.catalog import Catalog
 
     ws = Path(workspace).expanduser().resolve()
     if ws.suffix == ".duckdb":
         catalog_file = ws
     else:
-        catalog_file = find_catalog_root(ws) / CATALOG_FILENAME
+        catalog_file = resolve_project_root(ws) / CATALOG_FILENAME
     if not create and not catalog_file.is_file():
         raise FileNotFoundError(
             f"No catalog at {catalog_file.parent}. Run a workflow there first, "
@@ -734,7 +734,7 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
     ----------
     workspace
         Path to a workspace or project directory. Resolved via
-        :func:`hydromodpy.cli.helpers.find_catalog_root` so any path under
+        :func:`hydromodpy.core.state.paths.resolve_project_root` so any path under
         the project tree works. ``None`` resolves to the current directory.
     apply
         ``False`` (default) counts rows that would be removed without
@@ -751,11 +751,11 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
     FileNotFoundError
         If the workspace does not host a ``catalog.duckdb``.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.audit import apply_retention
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
     catalog_path = workspace_root / CATALOG_FILENAME
