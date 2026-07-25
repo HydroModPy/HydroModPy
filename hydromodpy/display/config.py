@@ -11,7 +11,6 @@ persisted, not from a second layer of per-family booleans.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
@@ -46,9 +45,13 @@ class DisplayConfig(HydroModelBase):
         default=True,
         description="Write rendered figures to disk under ``output_dir``.",
     )
-    output_dir: Annotated[Path, Profile.USER] = Field(
-        default=Path("figures"),
-        description="Directory (relative to project root) for saved figures.",
+    output_dir: Annotated[str, Profile.USER] = Field(
+        default="figures",
+        description=(
+            "Name of the figures directory inside the run directory "
+            "(<project>/runs/<run>/<output_dir>/). Declared as a name, not a "
+            "path, so it stays anchored to the run it describes."
+        ),
     )
     dpi: Annotated[int, Profile.DEV] = Field(
         default=150,

@@ -30,9 +30,9 @@ from hydromodpy.results.catalog.parquet_views import ensure_parquet_views, view_
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.catalog.writes_helpers import (
     _merge_with_existing,
-    _normalize_geometry_kind,
     _table_from_columns,
     _table_from_records,
+    geographic_feature_description,
 )
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
@@ -96,7 +96,7 @@ class WritesMixinParquet:
             )
         ]
         self._write_parquet_records(
-            target=self._paths.parquet_path_for(sid, "timeseries"),
+            target=self._paths.table_path_for(sid, "timeseries"),
             records=records,
             schema=TIMESERIES_SCHEMA,
             pk_cols=("sim_id", "station_id", "variable", "timestep"),
@@ -132,7 +132,7 @@ class WritesMixinParquet:
             row.setdefault("qflag", "simulated")
             normalised.append(row)
         self._write_parquet_records(
-            target=self._paths.parquet_path_for(sid, "timeseries"),
+            target=self._paths.table_path_for(sid, "timeseries"),
             records=normalised,
             schema=TIMESERIES_SCHEMA,
             pk_cols=("sim_id", "station_id", "variable", "timestep"),
@@ -165,7 +165,7 @@ class WritesMixinParquet:
         if table.num_rows == 0:
             return
         self._write_parquet_table(
-            target=self._paths.parquet_path_for(sid, "timeseries"),
+            target=self._paths.table_path_for(sid, "timeseries"),
             new_table=table,
             pk_cols=("sim_id", "station_id", "variable", "timestep"),
             sim_id=sid,
@@ -280,7 +280,7 @@ class WritesMixinParquet:
             row["timestep"] = int(row["timestep"])
             normalised.append(row)
         self._write_parquet_records(
-            target=self._paths.parquet_path_for(sid, "budgets"),
+            target=self._paths.table_path_for(sid, "budgets"),
             records=normalised,
             schema=BUDGETS_SCHEMA,
             pk_cols=("sim_id", "timestep", "zone_id", "component"),
@@ -335,7 +335,7 @@ class WritesMixinParquet:
             row["timestep"] = int(row["timestep"])
             normalised.append(row)
         self._write_parquet_records(
-            target=self._paths.parquet_path_for(sid, "mass_balance"),
+            target=self._paths.table_path_for(sid, "mass_balance"),
             records=normalised,
             schema=MASS_BALANCE_SCHEMA,
             pk_cols=("sim_id", "timestep", "quantity"),
@@ -355,13 +355,7 @@ class WritesMixinParquet:
             return
         if gdf.empty:
             return
-        from shapely.ops import unary_union
-
-        union_geom = unary_union([g for g in gdf.geometry if g is not None and not g.is_empty])
-        geom_kind = _normalize_geometry_kind(union_geom.geom_type)
-        crs_str = str(gdf.crs) if gdf.crs else None
-        if crs_str is None:
-            raise ValueError("Geographic feature CRS is required.")
+        geom_kind, crs_str, properties = geographic_feature_description(gdf)
         sid = str(sim_id)
         target = self._geographic_feature_parquet_path(
             sid,
@@ -370,22 +364,6 @@ class WritesMixinParquet:
         )
         rel_path = _encode_workspace_path(self._workspace, target)
         write_geoparquet_atomic(gdf, target)
-        bounds = [float(value) for value in gdf.total_bounds]
-        schema_payload = {
-            "columns": [str(col) for col in gdf.columns if col != gdf.geometry.name],
-            "geometry_kind": geom_kind,
-            "crs": crs_str,
-        }
-        schema_hash = hashlib.sha256(
-            json.dumps(schema_payload, sort_keys=True).encode("utf-8")
-        ).hexdigest()
-        properties = {
-            "n_features": int(len(gdf)),
-            "bbox": bounds,
-            "geometry_encoding": "WKB",
-            "schema_sha256": schema_hash,
-            "geoparquet_version": "1.1.0",
-        }
         self._backend.execute(
             """INSERT INTO geographic_features
                (sim_id, feature_name, geometry_kind, crs_wkt,
@@ -420,12 +398,10 @@ class WritesMixinParquet:
             path = Path(geoparquet_path)
             return path if path.is_absolute() else self._workspace / path
         safe_name = sanitize_segment(feature_name)
-        target = (
-            self._paths.parquet_dir_for(sim_id) / f"geographic_{safe_name}{PARQUET_FILE_SUFFIX}"
-        )
+        target = self._paths.tables_dir_for(sim_id) / f"geographic_{safe_name}{PARQUET_FILE_SUFFIX}"
         if _os.name == "nt" and len(str(target.resolve())) >= 240:
             digest = hashlib.sha1(safe_name.encode("utf-8")).hexdigest()[:16]
-            return self._paths.parquet_dir_for(sim_id) / f"geographic_{digest}{PARQUET_FILE_SUFFIX}"
+            return self._paths.tables_dir_for(sim_id) / f"geographic_{digest}{PARQUET_FILE_SUFFIX}"
         return target
 
     def _refresh_parquet_view(self, view_name: str) -> None:
@@ -434,7 +410,7 @@ class WritesMixinParquet:
         Idempotent. Writes go through this so newly created or emptied per-sim
         Parquet files are reflected in the workspace-wide view.
         """
-        ensure_parquet_views(self._db, self._simulations_dir)
+        ensure_parquet_views(self._db, self._runs_dir)
 
     def _drop_parquet_view_before_write(self, view_name: str) -> None:
         """Drop a DuckDB Parquet view before replacing its backing file.

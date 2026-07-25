@@ -9,7 +9,7 @@ Thin facade over four single-concern modules:
 * :mod:`hydromodpy.results.zarr_store.zarr_reader` — every ``read_*`` and
   the root-attribute readers.
 * :mod:`hydromodpy.results.zarr_store.zarr_finalizer` — write lock,
-  ``consolidate_metadata``, ``pack_to_zip``, ``close``.
+  ``consolidate_metadata``, ``close``.
 
 Refer to ``reports_db/03_zarr_stores.md`` and
 ``reports_db/99_target_architecture.md`` §5 for the layout contract.
@@ -411,10 +411,6 @@ class SimulationZarr:
     def drop_group(self, name: str) -> int:
         """Delete a top-level group; returns the bytes freed on disk."""
         return zarr_finalizer.drop_group(self, name)
-
-    def pack_to_zip(self) -> Path:
-        """Compact the directory-based Zarr store into a ``.zarr.zip`` file."""
-        return zarr_finalizer.pack_to_zip(self)
 
     def close(self) -> None:
         zarr_finalizer.close(self)

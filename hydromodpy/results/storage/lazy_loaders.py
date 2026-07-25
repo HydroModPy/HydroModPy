@@ -1,4 +1,4 @@
-"""Lazy loaders for the per-simulation Parquet and Zarr stores.
+"""Lazy loaders for the per-run Parquet and Zarr stores.
 
 Returns
 -------
@@ -18,13 +18,12 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from hydromodpy.core.state.paths import runs_dir_for
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.storage.contract import (
-    PARQUET_DIR_SUFFIX,
+    FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    SIMULATIONS_DIRNAME,
-    ZARR_SUFFIX,
-    ZARR_ZIP_SUFFIX,
+    TABLES_DIRNAME,
 )
 
 if TYPE_CHECKING:
@@ -36,43 +35,33 @@ class _CatalogLike(Protocol):
     """Minimal contract for a catalog passed to the loaders."""
 
     @property
-    def simulations_dir(self) -> Path: ...
+    def runs_dir(self) -> Path: ...
 
     @property
     def workspace_path(self) -> Path: ...
 
 
 def list_parquet_paths(catalog: _CatalogLike, view: str) -> list[Path]:
-    """Return existing ``<view>.parquet`` paths across the workspace.
+    """Return existing ``<view>.parquet`` paths across every run.
 
     ``view`` must be one of :data:`PARQUET_VIEW_NAMES`. Missing files are
     silently skipped so the result is always a usable input for a scanner.
     """
     if view not in PARQUET_VIEW_NAMES:
         raise ValueError(f"Unknown Parquet view {view!r}. Allowed: {sorted(PARQUET_VIEW_NAMES)}")
-    base = Path(catalog.simulations_dir)
+    base = Path(catalog.runs_dir)
     if not base.is_dir():
         return []
-    # ``*.parquet`` matches both container directories and single-file payloads
-    # (same suffix per storage_contract). The trailing ``<view>.parquet`` is the
-    # single-file payload; filter with ``is_file()`` to drop any directory that
-    # happens to share the name.
-    pattern = f"*{PARQUET_DIR_SUFFIX}/{view}{PARQUET_FILE_SUFFIX}"
+    pattern = f"*/{TABLES_DIRNAME}/{view}{PARQUET_FILE_SUFFIX}"
     return sorted(p for p in base.glob(pattern) if p.is_file())
 
 
 def list_field_paths(catalog: _CatalogLike) -> list[Path]:
-    """Return every per-simulation Zarr store path."""
-    base = Path(catalog.simulations_dir)
+    """Return the Zarr store path of every run."""
+    base = Path(catalog.runs_dir)
     if not base.is_dir():
         return []
-    paths: list[Path] = []
-    for entry in sorted(base.iterdir()):
-        if entry.is_dir() and entry.name.endswith(ZARR_SUFFIX):
-            paths.append(entry)
-        elif entry.is_file() and entry.name.endswith(ZARR_ZIP_SUFFIX):
-            paths.append(entry)
-    return paths
+    return sorted(p for p in base.glob(f"*/{FIELDS_STORE_NAME}") if p.is_dir())
 
 
 def scan_timeseries(
@@ -148,14 +137,12 @@ def scan_field(catalog: _CatalogLike) -> pa_dataset.Dataset:
     return pa_dataset_mod.dataset(table)
 
 
-def iter_parquet_paths(workspace: Path | str) -> Iterable[Path]:
-    """Yield every Parquet payload under ``workspace/simulations/``."""
-    base = Path(workspace) / SIMULATIONS_DIRNAME
+def iter_parquet_paths(project_root: Path | str) -> Iterable[Path]:
+    """Yield every Parquet payload under ``<project>/runs/``."""
+    base = runs_dir_for(Path(project_root))
     if not base.is_dir():
         return
-    # Trailing segment must be a file; ``*.parquet`` directories carry the same
-    # suffix and would otherwise leak into the iterator.
-    for path in base.glob(f"*{PARQUET_DIR_SUFFIX}/*{PARQUET_FILE_SUFFIX}"):
+    for path in base.glob(f"*/{TABLES_DIRNAME}/*{PARQUET_FILE_SUFFIX}"):
         if path.is_file():
             yield path
 

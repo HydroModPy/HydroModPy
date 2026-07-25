@@ -1,7 +1,7 @@
 """PyArrow schemas for every per-simulation Parquet view.
 
 One declared :class:`pa.Schema` per file under
-``simulations/<basename>.parquet/``. These schemas are the single source of
+``runs/<name>/tables.parquet/``. These schemas are the single source of
 truth for column names, Arrow types, nullability, primary keys, and field-level
 metadata (units, descriptions, allowed values). The catalog write path casts
 incoming records to the matching schema before handing them to
@@ -301,6 +301,61 @@ METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
 """Per-simulation calibration and validation metrics."""
 
 
+PARAMETERS_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "param_name",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Parameter name as the solver builder knows it"),
+        ),
+        pa.field(
+            "zone_id",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Zone the value applies to, or __global__"),
+        ),
+        pa.field(
+            "value",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(description="Numerical parameter value"),
+        ),
+        pa.field(
+            "unit",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Physical unit of the value"),
+        ),
+        pa.field(
+            "parameterization",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                description="How the value was obtained (uniform, zonal, calibrated, ...)"
+            ),
+        ),
+        pa.field(
+            "valid_from",
+            pa.timestamp("ms", tz="UTC"),
+            nullable=True,
+            metadata=_field_meta(description="Timestamp the value became current, UTC"),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "parameters",
+        pk=("sim_id", "param_name", "zone_id"),
+    ),
+)
+"""Per-run parameter values, mirroring the ``parameters`` index table.
+
+Written once at seal time by :mod:`hydromodpy.results.manifest`, not appended
+to during the run, so it is not a Parquet *view*: it stays out of
+:data:`VIEW_SCHEMAS` and of ``PARQUET_VIEW_NAMES``.
+"""
+
+
 PROVENANCE_SCHEMA: Final[pa.Schema] = pa.schema(
     [
         pa.field("sim_id", pa.string(), nullable=False),
@@ -452,6 +507,7 @@ __all__ = [
     "CF_CONVENTIONS",
     "MASS_BALANCE_SCHEMA",
     "METRICS_SCHEMA",
+    "PARAMETERS_SCHEMA",
     "PARQUET_SCHEMA_VERSION",
     "PROVENANCE_SCHEMA",
     "ParquetSchemaVersionError",

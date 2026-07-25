@@ -1,31 +1,26 @@
-"""Shared result-storage layout contract.
+"""Result-storage layout contract: what one run directory holds.
 
-HydroModPy keeps one workspace-level catalog database and per-simulation
-artefacts below the workspace ``simulations`` directory. This module centralises
-that vocabulary so path builders, documentation-oriented tests, and public
-facades do not drift back toward ambiguous "one database per run" language.
+A project keeps one index database and one directory per run::
 
-The catalog filename itself lives in
-:mod:`hydromodpy.core.state.paths` so every layer (core, results, cli, data)
-shares one canonical definition.
+    <project>/.hmp/index.duckdb          index, rebuildable from the runs
+    <project>/runs/<name>/               one run, named after the run itself
+        fields.zarr/                     array store (always a directory)
+        tables.parquet/<view>.parquet    tabular payloads
+        config.toml                      frozen resolved configuration
+        provenance.json                  environment, versions, git
+        figures/                         figures of this run
+        run.log                          run journal
 
-Parquet naming
---------------
-Two distinct shapes coexist on disk, with DISTINCT suffixes so a plain
-``glob`` is never ambiguous:
+The run directory name is the human run name (with its ``.vN`` version
+suffix), so the tree is readable without the index. The directory names of
+the project itself (``runs``, ``share``, ``.hmp`` ...) live in
+:mod:`hydromodpy.core.state.paths`; this module owns the names *inside* a
+run directory so path builders, exporters and documentation share one
+vocabulary.
 
-* **Container directory** (``PARQUET_DIR_SUFFIX`` = ``.parquet.d``): the
-  per-simulation folder ``<basename>.parquet.d/`` that groups every view
-  payload for one run. The ``.d`` marks it as a directory, so external tools
-  cannot mistake it for a single Parquet file.
-* **Single-file payload** (``PARQUET_FILE_SUFFIX`` = ``.parquet``): the
-  individual ``<view>.parquet`` files placed inside the container directory
-  (read directly by ``read_parquet`` / ``geopandas``).
-
-``PARQUET_DATASET_MARKER`` is reserved for the future Hive-partitioned dataset
-layout. It is not used by the current contract; new partitioned datasets must
-place this subdirectory marker at their root so directory-walking code can
-detect them without a heuristic.
+There is no packed form: ``fields.zarr`` is a directory that readers open
+directly while the run is still solving, and the tabular payloads are plain
+``.parquet`` files. No suffix ever marks a container.
 """
 
 from __future__ import annotations
@@ -33,17 +28,30 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
 
-StorageScope = Literal["workspace", "simulation"]
+StorageScope = Literal["project", "run"]
 
-SIMULATIONS_DIRNAME = "simulations"
+FIELDS_STORE_NAME = "fields.zarr"
+"""Zarr directory store of one run."""
 
-ZARR_SUFFIX = ".zarr"
-ZARR_ZIP_SUFFIX = ".zarr.zip"
-PARQUET_DIR_SUFFIX = ".parquet.d"
+TABLES_DIRNAME = "tables.parquet"
+"""Directory grouping the Parquet payloads of one run."""
+
 PARQUET_FILE_SUFFIX = ".parquet"
-PARQUET_DATASET_MARKER = "_dataset"
+"""Suffix of a single Parquet payload inside :data:`TABLES_DIRNAME`."""
+
+RUN_CONFIG_FILENAME = "config.toml"
+"""Frozen resolved configuration of one run."""
+
+RUN_PROVENANCE_FILENAME = "provenance.json"
+"""Environment, versions and git state of one run."""
+
+RUN_FIGURES_DIRNAME = "figures"
+"""Figures rendered for one run."""
+
+RUN_LOG_FILENAME = "run.log"
+"""Journal of one run."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,45 +67,43 @@ class ResultStorageLayer:
 RESULT_STORAGE_LAYERS: tuple[ResultStorageLayer, ...] = (
     ResultStorageLayer(
         "catalog",
-        "workspace",
-        f"<workspace>/{CATALOG_FILENAME}",
-        "Workspace-level DuckDB index for simulations, metadata, metrics, and provenance.",
+        "project",
+        f"<project>/{INTERNAL_DIRNAME}/{CATALOG_FILENAME}",
+        "Project-level DuckDB index for runs, metadata, metrics, and provenance.",
     ),
     ResultStorageLayer(
         "zarr",
-        "simulation",
-        f"<workspace>/{SIMULATIONS_DIRNAME}/<basename>{ZARR_SUFFIX}",
-        "Per-simulation array store for meshes, spatial fields, forcings, and rasters.",
+        "run",
+        f"<project>/{RUNS_DIRNAME}/<run>/{FIELDS_STORE_NAME}",
+        "Per-run array store for meshes, spatial fields, forcings, and rasters.",
     ),
     ResultStorageLayer(
         "parquet",
-        "simulation",
-        (
-            f"<workspace>/{SIMULATIONS_DIRNAME}/"
-            f"<basename>{PARQUET_DIR_SUFFIX}/<view>{PARQUET_FILE_SUFFIX}"
-        ),
-        "Per-simulation tabular payloads exposed through DuckDB views.",
+        "run",
+        f"<project>/{RUNS_DIRNAME}/<run>/{TABLES_DIRNAME}/<view>{PARQUET_FILE_SUFFIX}",
+        "Per-run tabular payloads exposed through DuckDB views.",
     ),
 )
 
-WORKSPACE_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
-    layer.name for layer in RESULT_STORAGE_LAYERS if layer.scope == "workspace"
+PROJECT_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
+    layer.name for layer in RESULT_STORAGE_LAYERS if layer.scope == "project"
 )
-SIMULATION_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
-    layer.name for layer in RESULT_STORAGE_LAYERS if layer.scope == "simulation"
+RUN_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
+    layer.name for layer in RESULT_STORAGE_LAYERS if layer.scope == "run"
 )
 
 
 __all__ = [
-    "PARQUET_DATASET_MARKER",
-    "PARQUET_DIR_SUFFIX",
+    "FIELDS_STORE_NAME",
     "PARQUET_FILE_SUFFIX",
+    "PROJECT_STORAGE_LAYER_NAMES",
     "RESULT_STORAGE_LAYERS",
+    "RUN_CONFIG_FILENAME",
+    "RUN_FIGURES_DIRNAME",
+    "RUN_LOG_FILENAME",
+    "RUN_PROVENANCE_FILENAME",
+    "RUN_STORAGE_LAYER_NAMES",
     "ResultStorageLayer",
-    "SIMULATION_STORAGE_LAYER_NAMES",
-    "SIMULATIONS_DIRNAME",
     "StorageScope",
-    "WORKSPACE_STORAGE_LAYER_NAMES",
-    "ZARR_SUFFIX",
-    "ZARR_ZIP_SUFFIX",
+    "TABLES_DIRNAME",
 ]

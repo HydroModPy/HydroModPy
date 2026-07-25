@@ -1,8 +1,8 @@
-"""Diagnostics for the workspace result-storage layout.
+"""Diagnostics for the project result-storage layout.
 
 The checks here are intentionally read-only. They are used by ``hmp doctor``
-to report drift between the DuckDB catalog and per-simulation artefacts under
-``simulations/`` without mutating old or locked workspaces.
+to report drift between the DuckDB index and the run directories under
+``runs/`` without mutating locked projects.
 """
 
 from __future__ import annotations
@@ -11,13 +11,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
 from hydromodpy.results.storage.contract import (
-    PARQUET_DIR_SUFFIX,
+    FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    SIMULATIONS_DIRNAME,
-    ZARR_SUFFIX,
-    ZARR_ZIP_SUFFIX,
+    TABLES_DIRNAME,
 )
 
 DiagnosticStatus = Literal["OK", "WARN", "KO"]
@@ -43,36 +41,30 @@ class StorageDiagnostic:
 @dataclass(frozen=True, slots=True)
 class _SimulationRow:
     sim_id: str
-    basename: str
-    storage_basename: str | None
+    dirname: str
     status: str | None
     zarr_path: str | None
 
 
 def diagnose_result_storage(
-    workspace: Path | str,
+    project_root: Path | str,
     *,
     catalog_path: Path | str | None = None,
-    simulations_dir: Path | str | None = None,
+    runs_dir: Path | str | None = None,
 ) -> list[StorageDiagnostic]:
-    """Return read-only diagnostics for one project result catalog.
+    """Return read-only diagnostics for one project result index.
 
     Parameters
     ----------
-    workspace
-        Project catalog root. By default the catalog is expected at
-        ``<workspace>/catalog.duckdb`` and artefacts below
-        ``<workspace>/simulations``.
-    catalog_path, simulations_dir
+    project_root
+        Project root. By default the index is expected at
+        ``<project>/.hmp/index.duckdb`` and the runs below ``<project>/runs``.
+    catalog_path, runs_dir
         Optional overrides for callers that resolved a TOML workspace config.
     """
-    root = Path(workspace).expanduser().resolve()
-    db = Path(catalog_path).expanduser().resolve() if catalog_path else root / CATALOG_FILENAME
-    sims_dir = (
-        Path(simulations_dir).expanduser().resolve()
-        if simulations_dir
-        else root / SIMULATIONS_DIRNAME
-    )
+    root = Path(project_root).expanduser().resolve()
+    db = Path(catalog_path).expanduser().resolve() if catalog_path else catalog_path_for(root)
+    run_root = Path(runs_dir).expanduser().resolve() if runs_dir else runs_dir_for(root)
     if not db.is_file():
         return []
 
@@ -129,15 +121,14 @@ def diagnose_result_storage(
             )
         )
 
-    zarr_by_basename, parquet_by_basename = _scan_simulation_artefacts(sims_dir)
-    tmp_files = _scan_tmp_parquet_files(sims_dir)
-    registered = {row.basename for row in rows}
+    run_dirs = _scan_run_dirs(run_root)
+    tmp_files = _scan_tmp_parquet_files(run_root)
+    registered = {row.dirname for row in rows}
 
     missing_zarr = [
         row
         for row in rows
-        if row.status == "completed"
-        and not _row_zarr_exists(row, workspace=root, simulations_dir=sims_dir)
+        if row.status == "completed" and not _row_zarr_exists(row, root=root, runs_dir=run_root)
     ]
     if missing_zarr:
         first = missing_zarr[0]
@@ -145,33 +136,20 @@ def diagnose_result_storage(
             StorageDiagnostic(
                 "results:missing_zarr",
                 "WARN",
-                f"{len(missing_zarr)} completed catalog row(s) without a Zarr artefact",
-                f"first: {first.sim_id} ({first.basename})",
+                f"{len(missing_zarr)} completed index row(s) without a Zarr store",
+                f"first: {first.sim_id} ({first.dirname})",
             )
         )
 
-    orphan_zarr = sorted(set(zarr_by_basename) - registered)
-    if orphan_zarr:
-        paths = tuple(str(zarr_by_basename[basename]) for basename in orphan_zarr)
+    orphan_runs = sorted(set(run_dirs) - registered)
+    if orphan_runs:
+        paths = tuple(str(run_dirs[dirname]) for dirname in orphan_runs)
         diagnostics.append(
             StorageDiagnostic(
-                "results:orphan_zarr",
+                "results:orphan_runs",
                 "WARN",
-                f"{len(orphan_zarr)} Zarr artefact(s) without a catalog row",
-                f"first: {orphan_zarr[0]}",
-                paths,
-            )
-        )
-
-    orphan_parquet = sorted(set(parquet_by_basename) - registered)
-    if orphan_parquet:
-        paths = tuple(str(parquet_by_basename[basename]) for basename in orphan_parquet)
-        diagnostics.append(
-            StorageDiagnostic(
-                "results:orphan_parquet",
-                "WARN",
-                f"{len(orphan_parquet)} Parquet dir(s) without a catalog row",
-                f"first: {orphan_parquet[0]}",
+                f"{len(orphan_runs)} run director(y|ies) without an index row",
+                f"first: {orphan_runs[0]}",
                 paths,
             )
         )
@@ -192,35 +170,17 @@ def diagnose_result_storage(
             StorageDiagnostic(
                 "results:layout",
                 "OK",
-                (
-                    f"{len(rows)} catalog row(s), "
-                    f"{len(zarr_by_basename)} Zarr artefact(s), "
-                    f"{len(parquet_by_basename)} Parquet dir(s)"
-                ),
+                f"{len(rows)} index row(s), {len(run_dirs)} run director(y|ies)",
             )
         )
     return diagnostics
 
 
-def storage_artefact_kind(path: Path) -> str | None:
-    """Return the result artefact kind represented by ``path``."""
-    name = path.name
-    if name.endswith(ZARR_ZIP_SUFFIX) and path.is_file():
-        return "zarr.zip"
-    if name.endswith(ZARR_SUFFIX) and path.is_dir():
-        return "zarr"
-    if name.endswith(PARQUET_DIR_SUFFIX) and path.is_dir():
-        return "parquet-dir"
-    return None
-
-
-def storage_artefact_basename(path: Path) -> str:
-    """Return the storage basename for a Zarr or Parquet artefact path."""
-    name = path.name
-    for suffix in (ZARR_ZIP_SUFFIX, ZARR_SUFFIX, PARQUET_DIR_SUFFIX):
-        if name.endswith(suffix):
-            return name[: -len(suffix)]
-    return name
+def is_run_directory(path: Path) -> bool:
+    """Return True when ``path`` looks like a run directory."""
+    if not path.is_dir():
+        return False
+    return (path / FIELDS_STORE_NAME).exists() or (path / TABLES_DIRNAME).is_dir()
 
 
 def _base_tables(conn) -> set[str]:
@@ -245,12 +205,7 @@ def _table_columns(conn, table: str) -> set[str]:
 
 
 def _simulation_rows(conn, columns: set[str]) -> list[_SimulationRow]:
-    storage_expr = (
-        "COALESCE(s.storage_basename, CAST(s.sim_id AS VARCHAR))"
-        if "storage_basename" in columns
-        else "CAST(s.sim_id AS VARCHAR)"
-    )
-    storage_raw_expr = "s.storage_basename" if "storage_basename" in columns else "NULL"
+    storage_expr = "COALESCE(s.storage_basename, CAST(s.sim_id AS VARCHAR))"
     # v2 resolves the status code through the statuses dim table.
     if "status_id" in columns:
         status_expr = "st.code"
@@ -264,8 +219,7 @@ def _simulation_rows(conn, columns: set[str]) -> list[_SimulationRow]:
     zarr_expr = "s.zarr_path" if "zarr_path" in columns else "NULL"
     rows = conn.execute(
         "SELECT CAST(s.sim_id AS VARCHAR) AS sim_id, "
-        f"{storage_expr} AS storage_basename, "
-        f"{storage_raw_expr} AS raw_storage_basename, "
+        f"{storage_expr} AS dirname, "
         f"{status_expr} AS status, "
         f"{zarr_expr} AS zarr_path "
         f"FROM simulations s {status_join}"
@@ -273,55 +227,39 @@ def _simulation_rows(conn, columns: set[str]) -> list[_SimulationRow]:
     return [
         _SimulationRow(
             sim_id=str(sim_id),
-            basename=str(basename),
-            storage_basename=str(raw_basename) if raw_basename else None,
+            dirname=str(dirname),
             status=str(status) if status is not None else None,
             zarr_path=str(zarr_path) if zarr_path else None,
         )
-        for sim_id, basename, raw_basename, status, zarr_path in rows
+        for sim_id, dirname, status, zarr_path in rows
     ]
 
 
-def _scan_simulation_artefacts(sims_dir: Path) -> tuple[dict[str, Path], dict[str, Path]]:
-    zarr: dict[str, Path] = {}
-    parquet: dict[str, Path] = {}
-    if not sims_dir.is_dir():
-        return zarr, parquet
-    for path in sorted(sims_dir.iterdir()):
-        kind = storage_artefact_kind(path)
-        if kind is None:
-            continue
-        basename = storage_artefact_basename(path)
-        if kind.startswith("zarr"):
-            zarr[basename] = path
-        elif kind == "parquet-dir":
-            parquet[basename] = path
-    return zarr, parquet
+def _scan_run_dirs(runs_dir: Path) -> dict[str, Path]:
+    if not runs_dir.is_dir():
+        return {}
+    return {path.name: path for path in sorted(runs_dir.iterdir()) if is_run_directory(path)}
 
 
-def _scan_tmp_parquet_files(sims_dir: Path) -> list[str]:
-    if not sims_dir.is_dir():
+def _scan_tmp_parquet_files(runs_dir: Path) -> list[str]:
+    if not runs_dir.is_dir():
         return []
     pattern = f"*{PARQUET_FILE_SUFFIX}.tmp"
-    return [str(path) for path in sorted(sims_dir.rglob(pattern)) if path.is_file()]
+    return [str(path) for path in sorted(runs_dir.rglob(pattern)) if path.is_file()]
 
 
-def _row_zarr_exists(row: _SimulationRow, *, workspace: Path, simulations_dir: Path) -> bool:
+def _row_zarr_exists(row: _SimulationRow, *, root: Path, runs_dir: Path) -> bool:
     if row.zarr_path:
         path = Path(row.zarr_path)
         if not path.is_absolute():
-            path = workspace / path
+            path = root / path
         if path.exists():
             return True
-    return (
-        simulations_dir.joinpath(f"{row.basename}{ZARR_SUFFIX}").exists()
-        or simulations_dir.joinpath(f"{row.basename}{ZARR_ZIP_SUFFIX}").exists()
-    )
+    return (runs_dir / row.dirname / FIELDS_STORE_NAME).exists()
 
 
 __all__ = [
     "StorageDiagnostic",
     "diagnose_result_storage",
-    "storage_artefact_basename",
-    "storage_artefact_kind",
+    "is_run_directory",
 ]

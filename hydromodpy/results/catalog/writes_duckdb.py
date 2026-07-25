@@ -58,11 +58,13 @@ class WritesMixinDuckDB:
         sim_id: str | UUID,
         new_name: str,
     ) -> None:
-        """Rename a simulation row in-place.
+        """Rename a run: move its directory, then update the row.
 
-        The rename routes through the same stem-versioning accounting as
-        registration: the resulting ``(name_stem, version_int)`` slot must be
-        free among live rows, otherwise a
+        The run directory is named after the run, so a rename is a move on
+        disk plus an index update. The rename routes through the same
+        stem-versioning accounting as registration: the resulting
+        ``(name_stem, version_int)`` slot must be free among live rows,
+        otherwise a
         :class:`~hydromodpy.results.catalog.registration.DuplicateSimulationNameError`
         is raised. A bare stem takes version 1, so renaming into a stem that
         already owns ``.v1`` is rejected rather than creating a duplicate
@@ -70,10 +72,13 @@ class WritesMixinDuckDB:
         """
         if not self._persistence.save_catalog:
             return
+        from hydromodpy.core.state.paths import RUNS_DIRNAME
         from hydromodpy.results.catalog.registration import (
             DuplicateSimulationNameError,
-            _split_stem_version,
+            split_stem_version,
         )
+        from hydromodpy.results.catalog.storage_paths import run_dirname
+        from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
         sid = str(sim_id)
         if not new_name or not str(new_name).strip():
@@ -82,7 +87,7 @@ class WritesMixinDuckDB:
         if row is None:
             raise KeyError(f"No simulation with sim_id={sid[:8]}")
         project = row[0]
-        stem, requested_version = _split_stem_version(str(new_name))
+        stem, requested_version = split_stem_version(str(new_name))
         target_version = requested_version or 1
         clash = self._backend.fetch_one(
             "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
@@ -92,10 +97,20 @@ class WritesMixinDuckDB:
         )
         if clash is not None:
             raise DuplicateSimulationNameError(str(project), str(new_name), str(clash[0]))
+        dirname = run_dirname(str(new_name))
+        self._paths.move(sid, dirname)
         self._backend.execute(
             "UPDATE simulations SET name = ?, name_stem = ?, version_int = ?, "
+            "storage_basename = ?, zarr_path = ?, "
             "updated_at = current_timestamp WHERE sim_id = ?",
-            [str(new_name), stem, target_version, sid],
+            [
+                str(new_name),
+                stem,
+                target_version,
+                dirname,
+                f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
+                sid,
+            ],
         )
 
     @audited("sim.tag_add", payload_keys=("tag",))
@@ -377,11 +392,11 @@ class WritesMixinDuckDB:
             """INSERT INTO runs_environment
                (sim_id, python_version, hydromodpy_version, platform,
                 hostname, user_name, cpu_info, memory_gb,
-                git_commit, project_git_commit,
+                git_commit, git_dirty, project_git_commit,
                 solver_name, solver_binary_path,
                 solver_binary_sha256, solver_version_text,
                 conda_env_hash, env_packages, rng_seed)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid,
                 snap.get("python_version"),
@@ -392,6 +407,7 @@ class WritesMixinDuckDB:
                 json.dumps(snap.get("cpu_info") or {}),
                 snap.get("memory_gb"),
                 snap.get("git_commit"),
+                snap.get("git_dirty"),
                 snap.get("project_git_commit"),
                 snap.get("solver_name"),
                 snap.get("solver_binary_path"),
@@ -586,7 +602,7 @@ class WritesMixinDuckDB:
                 }
             ]
             self._write_parquet_records(
-                target=self._paths.parquet_path_for(sid, "metrics"),
+                target=self._paths.table_path_for(sid, "metrics"),
                 records=records,
                 schema=METRICS_SCHEMA,
                 pk_cols=("sim_id", "station_id", "variable", "metric"),
@@ -686,7 +702,7 @@ class WritesMixinDuckDB:
                 }
             ]
             self._write_parquet_records(
-                target=self._paths.parquet_path_for(sid, "provenance"),
+                target=self._paths.table_path_for(sid, "provenance"),
                 records=records,
                 schema=PROVENANCE_SCHEMA,
                 pk_cols=("sim_id", "variable", "source_ref"),

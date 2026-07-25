@@ -27,16 +27,45 @@ if TYPE_CHECKING:
 
 _APP_NAME = "hydromodpy"
 
-# Workspace filenames -------------------------------------------------------
-
-CATALOG_FILENAME = "catalog.duckdb"
-"""Per-project catalog DuckDB file living at ``<project>/catalog.duckdb``."""
+# Project layout -----------------------------------------------------------
+#
+# A project root is::
+#
+#     project.toml            configuration, and the marker of the root
+#     configs/                config variants (user-managed, never created)
+#     runs/<name>/            one directory per run, named after the run
+#     sessions/<name>/        calibration and spin-up sessions
+#     share/                  on-demand exports, reports and portable packages
+#     .hmp/                   disposable internals (index, trash, scratch, ...)
+#
+# Every directory name of that layout is declared here so no layer has to
+# hard-code a literal. The names of the files *inside* one run directory
+# belong to the result-storage contract
+# (:mod:`hydromodpy.results.storage.contract`).
 
 PROJECT_MARKER_FILENAME = "project.toml"
 """Marker anchoring a project root at ``<project>/project.toml``."""
 
 CONFIGS_DIRNAME = "configs"
 """Reserved sub-directory holding the config variants of a project."""
+
+RUNS_DIRNAME = "runs"
+"""Directory holding one sub-directory per run at ``<project>/runs/<name>``."""
+
+SESSIONS_DIRNAME = "sessions"
+"""Directory holding calibration and spin-up sessions."""
+
+SHARE_DIRNAME = "share"
+"""Directory holding on-demand exports and portable packages."""
+
+REPORTS_DIRNAME = "reports"
+"""Report sub-directory of :data:`SHARE_DIRNAME`."""
+
+INTERNAL_DIRNAME = ".hmp"
+"""Disposable internals: index database, trash, scratch, logs, cache."""
+
+CATALOG_FILENAME = "index.duckdb"
+"""Project index database living at ``<project>/.hmp/index.duckdb``."""
 
 PROJECT_TOML_FILENAME = "hydromodpy.toml"
 """Per-project HydroModPy config file living at ``<project>/hydromodpy.toml``."""
@@ -48,6 +77,36 @@ INDEX_FILENAME = "index.duckdb"
 """Machine-wide global index file living under ``state_dir()``."""
 
 
+def internal_dir(project_root: Path) -> Path:
+    """Return ``<project>/.hmp``, the disposable internals directory."""
+    return Path(project_root) / INTERNAL_DIRNAME
+
+
+def catalog_path_for(project_root: Path) -> Path:
+    """Return the project index database ``<project>/.hmp/index.duckdb``."""
+    return internal_dir(project_root) / CATALOG_FILENAME
+
+
+def runs_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/runs``, the parent of every run directory."""
+    return Path(project_root) / RUNS_DIRNAME
+
+
+def share_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/share``, where on-demand outputs are published."""
+    return Path(project_root) / SHARE_DIRNAME
+
+
+def reports_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/share/reports``."""
+    return share_dir_for(project_root) / REPORTS_DIRNAME
+
+
+def scratch_dir_for(output_root: Path) -> Path:
+    """Return ``<root>/.hmp/scratch``, the solver working directory."""
+    return internal_dir(output_root) / "scratch"
+
+
 def running_sidecar_dir(workspace: Path) -> Path:
     """Directory of live-run heartbeat sidecars under a project root.
 
@@ -55,7 +114,7 @@ def running_sidecar_dir(workspace: Path) -> Path:
     ``hmp watch`` and ``gc`` can read liveness from a file, never the DuckDB
     catalog (which a live solve holds locked).
     """
-    return Path(workspace) / ".hmp" / "running"
+    return internal_dir(workspace) / "running"
 
 
 def running_sidecar_path(workspace: Path, sim_id: str) -> Path:
@@ -234,18 +293,29 @@ __all__: Iterable[str] = (
     "CATALOG_FILENAME",
     "CONFIGS_DIRNAME",
     "INDEX_FILENAME",
+    "INTERNAL_DIRNAME",
     "PROJECT_MARKER_FILENAME",
     "PROJECT_TOML_FILENAME",
+    "REPORTS_DIRNAME",
+    "RUNS_DIRNAME",
+    "SESSIONS_DIRNAME",
+    "SHARE_DIRNAME",
     "WORKSPACE_TOML_FILENAME",
     "cache_dir",
+    "catalog_path_for",
     "decode_workspace_path",
     "encode_workspace_path",
     "from_workspace_relative",
+    "internal_dir",
     "is_under_workspace",
+    "reports_dir_for",
     "resolve_project_root",
     "resolve_workspace",
     "running_sidecar_dir",
     "running_sidecar_path",
+    "runs_dir_for",
+    "scratch_dir_for",
+    "share_dir_for",
     "state_dir",
     "to_workspace_relative",
     "to_workspace_uri",

@@ -15,6 +15,7 @@ from typing import Any
 
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import share_dir_for
 from hydromodpy.simulation.planning.export_config import ExportConfig
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -321,8 +322,8 @@ def auto_export_package(
     """Write the portable ``.hmp`` archive when ``[export].package`` is set.
 
     Called while the store is still open (just before ``step_finalize_store``
-    closes it). The ``.hmp`` exporter repacks the live Zarr itself, so it does
-    not need the finalized ``.zarr.zip``.
+    closes it). The ``.hmp`` exporter packs the live Zarr directory itself, so
+    it does not need the store to be finalized first.
     """
     if not save_catalog or not export_config.package:
         return
@@ -331,7 +332,7 @@ def auto_export_package(
     base_dir = (
         Path(export_config.output_dir)
         if export_config.output_dir
-        else store.project_path / "exports"
+        else share_dir_for(store.project_path)
     )
     output_dir = base_dir / label
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -407,13 +408,13 @@ def _auto_export(
 ) -> None:
     """Run automated exports based on the top-level ``[export]`` config.
 
-    Exports are written to ``exports/{export_label}/`` so that the
-    directory tree is organized by human-readable run name, not UUID.
+    Exports are written to ``share/{export_label}/`` so that the published
+    tree is organized by human-readable run name, not UUID.
     """
     from hydromodpy.core.config_kit.export_spec import ExportSpec
 
     label = export_label or sim_id[:8]
-    base_dir = Path(export.output_dir) if export.output_dir else store.project_path / "exports"
+    base_dir = Path(export.output_dir) if export.output_dir else share_dir_for(store.project_path)
     output_dir = base_dir / label
 
     specs: list[ExportSpec] = []

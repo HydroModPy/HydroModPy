@@ -12,8 +12,10 @@ containing:
   the ``simulations`` row plus per-sim data (parameters, timeseries,
   budgets, metrics, provenance, geographic features / metadata, tags,
   runs_environment).
-* ``simulation.zarr.zip`` - the simulation's Zarr store, packed to a
-  deterministic ``zip`` file (already BLOSC-compressed internally).
+* ``fields.zarr.zip`` - the run's Zarr store, packed to a deterministic
+  ``zip`` file (already BLOSC-compressed internally) so the manifest keeps
+  one checksum for the whole store. Import unpacks it back to the directory
+  store at ``runs/<name>/fields.zarr``; nothing on disk stays zipped.
 * ``geographic/`` (optional) - the workspace-level content-addressable
   raster cache materialised for the simulation's ``geographic_fingerprint``,
   so the archive is self-contained on a fresh workspace.
@@ -37,17 +39,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import decode_workspace_path
+from hydromodpy.core.state.paths import RUNS_DIRNAME, decode_workspace_path
 from hydromodpy.results.geographic_cache import (
     CACHE_DIRNAME,
     MANIFEST_FILENAME,
     GeographicCache,
 )
 from hydromodpy.results.storage.contract import (
-    PARQUET_DIR_SUFFIX,
+    FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    SIMULATIONS_DIRNAME,
-    ZARR_ZIP_SUFFIX,
 )
 
 if TYPE_CHECKING:
@@ -58,7 +58,7 @@ logger = get_logger(__name__)
 MANIFEST_NAME = "manifest.json"
 README_NAME = "README.md"
 CATALOG_SNAPSHOT_NAME = "catalog_snapshot.duckdb"
-ZARR_ARCHIVE_NAME = f"simulation{ZARR_ZIP_SUFFIX}"
+ZARR_ARCHIVE_NAME = "fields.zarr.zip"
 GEOGRAPHIC_SUBDIR = "geographic"
 INPUTS_SUBDIR = "inputs"
 INPUTS_MANIFEST_NAME = "manifest.json"
@@ -152,15 +152,21 @@ def _dematerialise_parquet(
 _ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
 
 
+def _unpack_zarr(archive: Path, dst: Path) -> None:
+    """Extract a packed Zarr archive into the run's ``fields.zarr`` directory."""
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.mkdir(parents=True)
+    with zipfile.ZipFile(str(archive), "r") as zf:
+        zf.extractall(str(dst))
+
+
 def _pack_zarr(zarr_src: Path, dst: Path) -> None:
-    """Pack a zarr directory (or copy an already-zipped zarr) to ``dst``.
+    """Pack the run's ``fields.zarr`` directory into ``dst``.
 
     Member timestamps and permissions are normalized so the archive is
     reproducible: the on-disk mtime is not stamped into the ZIP.
     """
-    if zarr_src.is_file():
-        shutil.copy2(zarr_src, dst)
-        return
     if not zarr_src.is_dir():
         raise FileNotFoundError(f"Zarr store not found at {zarr_src}")
     with zipfile.ZipFile(str(dst), "w", compression=zipfile.ZIP_STORED) as zf:
@@ -593,14 +599,14 @@ def export_hmp_package(
         )
 
     row = catalog.backend.fetch_one(
-        "SELECT zarr_path, geographic_fingerprint, project FROM simulations WHERE sim_id = ?",
+        "SELECT geographic_fingerprint, project FROM simulations WHERE sim_id = ?",
         [sid],
     )
     if row is None:
         raise KeyError(f"Simulation '{sid}' not found")
-    zarr_rel, geo_fp, project_name = row
+    geo_fp, project_name = row
     workspace = catalog.workspace_path
-    zarr_src = workspace / zarr_rel
+    zarr_src = catalog.fields_path_for(sid)
 
     with tempfile.TemporaryDirectory(prefix="hmp_export_") as tmpdir:
         staging = Path(tmpdir) / sid
@@ -613,7 +619,7 @@ def export_hmp_package(
         )
         _pack_zarr(zarr_src, staging / ZARR_ARCHIVE_NAME)
         _materialise_geographic(workspace, geo_fp, staging)
-        _materialise_parquet(catalog.parquet_dir_for(sid), staging)
+        _materialise_parquet(catalog.tables_dir_for(sid), staging)
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
         _write_ro_crate(catalog, sid, staging)
         _write_readme(
@@ -850,42 +856,28 @@ def import_hmp_package(
             _rewrite_snapshot_project(snap_path, as_project)
         _rewrite_snapshot_paths(snap_path, rewrites)
 
-        from hydromodpy.results.catalog.storage_paths import build_storage_basename
-
         with catalog.backend.transaction():
             # _restore_catalog_snapshot still takes a raw DuckDB connection
             # because the snapshot file is a transient one-sim DuckDB and is
             # DuckDB-only by construction (.hmp archive contract).
             _restore_catalog_snapshot(catalog.connection, snap_path)
             workspace = catalog.workspace_path
-            row = catalog.backend.fetch_one(
-                "SELECT project FROM simulations WHERE sim_id = ?",
-                [sid],
-            )
-            project_final = row[0] if row else None
-            basename = build_storage_basename(project_final, sid)
-            zarr_path = f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_ZIP_SUFFIX}"
+            # The restored row carries the run name, so the path resolver names
+            # the run directory exactly as a local run would.
+            dirname = catalog.run_dir_for(sid).name
             catalog.backend.execute(
                 "UPDATE simulations SET zarr_path = ?, storage_basename = ? WHERE sim_id = ?",
-                [zarr_path, basename, sid],
+                [f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}", dirname, sid],
             )
 
-        catalog._paths.cache_basename(sid, basename)
-
-        dst = workspace / zarr_path
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(pkg / ZARR_ARCHIVE_NAME, dst)
-
-        _dematerialise_parquet(
-            pkg,
-            workspace / SIMULATIONS_DIRNAME / f"{basename}{PARQUET_DIR_SUFFIX}",
-        )
+        _unpack_zarr(pkg / ZARR_ARCHIVE_NAME, catalog.fields_path_for(sid))
+        _dematerialise_parquet(pkg, catalog.tables_dir_for(sid))
         # Refresh Parquet views so the freshly-materialised files become
         # visible to subsequent ``SELECT ... FROM <view>`` calls on the
         # caller's catalog connection.
         from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 
-        ensure_parquet_views(catalog.connection, catalog.simulations_dir)
+        ensure_parquet_views(catalog.connection, catalog.runs_dir)
 
         _dematerialise_geographic(
             pkg,

@@ -26,18 +26,18 @@ def iter_project_catalog_roots(workspace_root: Path | str) -> list[Path]:
 
     The canonical workspace federation layout: a catalog may sit directly at
     the workspace root and under each ``projects/<name>/`` directory. A root is
-    included only when it carries a ``catalog.duckdb`` file. Sorted, root first.
+    included only when it carries an index database. Sorted, root first.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
 
     root = Path(workspace_root).expanduser().resolve()
     roots: list[Path] = []
-    if (root / CATALOG_FILENAME).is_file():
+    if (catalog_path_for(root)).is_file():
         roots.append(root)
     projects_dir = root / "projects"
     if projects_dir.is_dir():
         for entry in sorted(projects_dir.iterdir()):
-            if entry.is_dir() and (entry / CATALOG_FILENAME).is_file():
+            if entry.is_dir() and (catalog_path_for(entry)).is_file():
                 roots.append(entry)
     return roots
 

@@ -142,7 +142,7 @@ def _store_sim_artifacts(ctx: WorkflowContext, sim_id: str) -> tuple[str, ...]:
         return ()
     found: list[str] = []
     try:
-        zarr_path = store.zarr_path_for(sim_id)
+        zarr_path = store.fields_path_for(sim_id)
     except Exception:
         zarr_path = None
     if zarr_path is not None and zarr_path.exists():
@@ -150,7 +150,7 @@ def _store_sim_artifacts(ctx: WorkflowContext, sim_id: str) -> tuple[str, ...]:
         if rel is not None:
             found.append(rel)
     try:
-        parquet_dir = store.parquet_dir_for(sim_id)
+        parquet_dir = store.tables_dir_for(sim_id)
     except Exception:
         parquet_dir = None
     if parquet_dir is not None and parquet_dir.exists():

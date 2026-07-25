@@ -1,22 +1,22 @@
 """Simulation registration into the catalog.
 
 ``register_simulation`` is the entry point that allocates a new ``sim_id``
-row, applies on-collision rules (replace / fail / version), computes a
-human-readable storage basename, and creates the initial :class:`SimulationZarr`
-when mesh dimensions are known. The rest of the write surface
-(``write_parameters``, ``write_timeseries`` ...) lives in
+row, applies on-collision rules (replace / fail / version), derives the run
+directory from the final run name, and creates the initial
+:class:`SimulationZarr` in it when mesh dimensions are known. The rest of the
+write surface (``write_parameters``, ``write_timeseries`` ...) lives in
 :mod:`hydromodpy.results.catalog.writes`.
+
+The Zarr store is created at its final path, never staged: readers open
+``runs/<name>/fields.zarr`` while the run is still solving.
 """
 
 from __future__ import annotations
 
-import gc
 import hashlib
 import json
-import os
 import re
 import shutil
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -24,6 +24,7 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
@@ -32,27 +33,18 @@ from hydromodpy.results.catalog.constants import (
     validate_solver_code as _validate_solver_code,
 )
 from hydromodpy.results.catalog.ports import CatalogBackend
-from hydromodpy.results.catalog.storage_paths import build_storage_basename
-from hydromodpy.results.storage.contract import (
-    PARQUET_DIR_SUFFIX,
-    PARQUET_FILE_SUFFIX,
-    SIMULATIONS_DIRNAME,
-    ZARR_SUFFIX,
-    ZARR_ZIP_SUFFIX,
-)
+from hydromodpy.results.catalog.storage_paths import run_dirname
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 
 logger = get_logger(__name__)
 
 IfExistsMode = Literal["replace", "fail", "version"]
 
-STAGED_ZARR_RENAME_ATTEMPTS = 8
-STAGED_ZARR_RENAME_BASE_DELAY_SECONDS = 0.05
-
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
 
 
-def _split_stem_version(name: str) -> tuple[str, int | None]:
+def split_stem_version(name: str) -> tuple[str, int | None]:
     """Split ``cheze_baseline.v3`` into ``("cheze_baseline", 3)``.
 
     A bare name returns ``(name, None)``.
@@ -126,32 +118,6 @@ def _coerce_timestamp(value: Any) -> Any:
     return str(value)
 
 
-def _is_retryable_staged_zarr_rename_error(exc: BaseException) -> bool:
-    """Return True for transient Windows directory promotion failures."""
-    if os.name != "nt" or not isinstance(exc, PermissionError):
-        return False
-    winerror = getattr(exc, "winerror", None)
-    return winerror in (None, 5, 32)
-
-
-def _promote_staged_zarr(source: Path, target: Path) -> None:
-    """Atomically promote a staged Zarr directory to its final location."""
-    source_io = _windows_long_path(source)
-    target_io = _windows_long_path(target)
-    for attempt in range(STAGED_ZARR_RENAME_ATTEMPTS):
-        try:
-            source_io.rename(target_io)
-            return
-        except PermissionError as exc:
-            if (
-                not _is_retryable_staged_zarr_rename_error(exc)
-                or attempt == STAGED_ZARR_RENAME_ATTEMPTS - 1
-            ):
-                raise
-            gc.collect()
-            time.sleep(STAGED_ZARR_RENAME_BASE_DELAY_SECONDS * (attempt + 1))
-
-
 def _resolve_registration_name(
     backend: CatalogBackend,
     project: str,
@@ -176,7 +142,7 @@ def _resolve_registration_name(
     Trashed rows still count when minting a version, because a trashed run may
     keep its name and ``UNIQUE (project, name)`` spans every row.
     """
-    stem, requested_version = _split_stem_version(requested)
+    stem, requested_version = split_stem_version(requested)
     rows = backend.fetch_all(
         "SELECT CAST(sim_id AS VARCHAR), name, version_int, "
         "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
@@ -314,12 +280,11 @@ class RegistrationMixin:
         replaced_sid: str | None = None
         requested_name = name if name else _memorable_name(sid)
         final_name = requested_name
-        name_stem, _ = _split_stem_version(requested_name)
+        name_stem, _ = split_stem_version(requested_name)
         version_int = 1
         zarr_obj: SimulationZarr | None = None
-        zarr_tmp: Path | None = None
         zarr_final: Path | None = None
-        storage_basename: str | None = None
+        dirname: str | None = None
 
         try:
             # Transactional block driven by the backend port. The surrounding
@@ -372,28 +337,24 @@ class RegistrationMixin:
                 p_start = _coerce_timestamp(period_start)
                 p_end = _coerce_timestamp(period_end)
 
-                storage_basename = build_storage_basename(project, sid)
-                zarr_path = f"{SIMULATIONS_DIRNAME}/{storage_basename}{ZARR_SUFFIX}"
+                dirname = run_dirname(final_name)
+                zarr_path = f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}"
                 parent_sid = str(parent_sim_id) if parent_sim_id else None
                 config_source_str = str(config_source) if config_source is not None else None
 
                 if n_cells is not None and n_layers is not None:
                     zarr_final = self._workspace / zarr_path
-                    _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
-                    zarr_tmp = zarr_final.with_name(f".{_short_id(sid)}.staging.zarr")
                     if zarr_final.exists():
                         raise FileExistsError(f"Zarr store already exists: {zarr_final}")
-                    if zarr_tmp.exists():
-                        shutil.rmtree(_windows_long_path(zarr_tmp))
-                    staged = SimulationZarr.create(
-                        zarr_tmp,
+                    _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
+                    created = SimulationZarr.create(
+                        zarr_final,
                         n_cells=n_cells,
                         n_layers=n_layers,
                         cell_types=cell_types,
                         geographic_fingerprint=geographic_fingerprint,
                     )
-                    staged.close()
-                    _promote_staged_zarr(zarr_tmp, zarr_final)
+                    created.close()
 
                 self._backend.execute(
                     """INSERT INTO simulations
@@ -446,7 +407,7 @@ class RegistrationMixin:
                         config_hash,
                         config_source_str,
                         zarr_path,
-                        storage_basename,
+                        dirname,
                         parent_sid,
                         mesh_hash,
                         geographic_fingerprint,
@@ -493,14 +454,12 @@ class RegistrationMixin:
             # still removes the promoted-but-uncommitted Zarr store instead of
             # leaving it for the gc orphan sweep to delete.
             self._paths.forget(sid)
-            if zarr_tmp is not None and zarr_tmp.exists():
-                shutil.rmtree(zarr_tmp)
             if zarr_final is not None and zarr_final.exists():
                 shutil.rmtree(zarr_final)
             raise
 
-        if storage_basename is not None:
-            self._paths.cache_basename(sid, storage_basename)
+        if dirname is not None:
+            self._paths.cache_dirname(sid, dirname)
         if zarr_final is not None:
             zarr_obj = self._track_zarr_handle(SimulationZarr(zarr_final))
         return RegistrationResult(
@@ -509,74 +468,3 @@ class RegistrationMixin:
             zarr=zarr_obj,
             replaced_sim_id=replaced_sid,
         )
-
-    @with_lock_retry()
-    def adopt(self, store_path: Path | str) -> str:
-        """Re-register an orphan store from its ``simulation.parquet`` snapshot.
-
-        *store_path* may point at any of the run's stores (``.zarr``,
-        ``.zarr.zip`` or ``.parquet``); the one-row snapshot is read from the
-        matching Parquet store directory. Returns the adopted ``sim_id``.
-
-        Raises
-        ------
-        FileNotFoundError
-            When no snapshot is present (the run predates snapshot adoption).
-        ValueError
-            When the store name is unrecognised, the run is already
-            registered, or the snapshot is empty.
-        """
-        name = Path(store_path).name
-        basename: str | None = None
-        # Longest suffix first so .zarr.zip wins over .zarr and .parquet.d over
-        # a hypothetical .parquet.
-        for suffix in (ZARR_ZIP_SUFFIX, PARQUET_DIR_SUFFIX, ZARR_SUFFIX):
-            if name.endswith(suffix):
-                basename = name[: -len(suffix)]
-                break
-        if basename is None:
-            raise ValueError(
-                f"{name!r} is not a recognised store "
-                f"({ZARR_SUFFIX}/{ZARR_ZIP_SUFFIX}/{PARQUET_DIR_SUFFIX})"
-            )
-        snapshot = (
-            self._simulations_dir
-            / f"{basename}{PARQUET_DIR_SUFFIX}"
-            / f"simulation{PARQUET_FILE_SUFFIX}"
-        )
-        if not snapshot.exists():
-            raise FileNotFoundError(
-                f"No simulation.parquet snapshot for {basename!r}; this run predates "
-                "snapshot-based adoption and cannot be re-registered."
-            )
-        posix = snapshot.as_posix().replace("'", "''")
-        row = self._backend.fetch_one(
-            f"SELECT CAST(sim_id AS VARCHAR), project FROM read_parquet('{posix}')"
-        )
-        if row is None:
-            raise ValueError(f"Empty snapshot at {snapshot}")
-        sid, project = row[0], row[1]
-        if self._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is not None:
-            raise ValueError(f"Run {sid[:8]} is already registered")
-        # Insert only the columns common to the live table and the snapshot, in
-        # table order, so a snapshot written under an older or newer schema still
-        # adopts cleanly (removed columns are skipped; new columns take their
-        # default) instead of failing on a ``SELECT *`` column-count mismatch.
-        table_cols = [r[0] for r in self._backend.fetch_all("DESCRIBE simulations")]
-        snap_cols = {
-            r[0] for r in self._backend.fetch_all(f"DESCRIBE SELECT * FROM read_parquet('{posix}')")
-        }
-        col_list = ", ".join(f'"{c}"' for c in table_cols if c in snap_cols)
-        with self._backend.transaction():
-            self._backend.execute(
-                f"INSERT INTO simulations ({col_list}) "
-                f"SELECT {col_list} FROM read_parquet('{posix}')"
-            )
-            emit_audit_event(
-                self._db,
-                event_type="import",
-                sim_id=sid,
-                project=project,
-                payload={"adopted_from": str(store_path)},
-            )
-        return sid
