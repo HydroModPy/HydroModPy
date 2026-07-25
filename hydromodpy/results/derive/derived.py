@@ -24,7 +24,6 @@ else:
 
 __all__ = [
     "fluxes_from_budget",
-    "seepage_mask",
     "watertable_depth",
     "watertable_elevation",
 ]
@@ -35,9 +34,10 @@ def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
 
     ``head`` is an N-D array shaped ``(..., n_cells)`` (or ``(n_layers, n_cells)``
     for multilayer models). ``top`` is accepted for API symmetry with
-    :func:`watertable_depth` and :func:`seepage_mask` but is not used: the
-    water table is the head itself, never clipped to the surface. Cells where
-    head exceeds the surface are flagged separately by :func:`seepage_mask`.
+    :func:`watertable_depth` but is not used: the water table is the head
+    itself, never clipped to the surface. Cells where head exceeds the surface
+    are flagged separately by
+    :func:`hydromodpy.core.field_routing.seepage_mask`.
     """
     del top  # accepted for API symmetry, unused
     if _is_data_array(head):
@@ -63,14 +63,6 @@ def watertable_depth(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     wt = watertable_elevation(head, top)
     top_arr = np.asarray(top, dtype=float)
     return np.maximum(top_arr - wt, 0.0)
-
-
-def seepage_mask(head: ArrayLike, top: ArrayLike) -> ArrayLike:
-    """Boolean cells where the water table reaches or exceeds the surface."""
-    if _is_data_array(head):
-        return (head >= top).astype("int8")
-    wt = watertable_elevation(head, top)
-    return (np.asarray(wt) >= np.asarray(top)).astype("int8")
 
 
 def fluxes_from_budget(

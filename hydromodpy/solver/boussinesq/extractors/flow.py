@@ -33,6 +33,7 @@ class BoussinesqOutputAdapter:
         solver_output_dir: Path,
         store: Any,
         *,
+        budget_spatial_fields: bool = False,
         start_datetime: object | None = None,
     ) -> None:
         """Read .npz state history and write head fields to the store."""
@@ -86,14 +87,15 @@ class BoussinesqOutputAdapter:
             store.write_field_stack(sim_id, "head", head_stack)
 
             self._persist_state_history(sim_id, store, payload)
-            self._write_budget_fields(
-                sim_id,
-                store,
-                payload,
-                n_timesteps=n_timesteps,
-                n_cells=n_cells,
-                cell_area_m2=cell_area_m2,
-            )
+            if budget_spatial_fields:
+                self._write_budget_fields(
+                    sim_id,
+                    store,
+                    payload,
+                    n_timesteps=n_timesteps,
+                    n_cells=n_cells,
+                    cell_area_m2=cell_area_m2,
+                )
 
         self._write_surface_elevation(
             sim_id,
@@ -128,7 +130,12 @@ class BoussinesqOutputAdapter:
         n_cells: int,
         cell_area_m2: np.ndarray | None,
     ) -> None:
-        """Write canonical Boussinesq budget fields with solver units."""
+        """Write canonical Boussinesq budget fields with solver units.
+
+        Gated by ``budget_spatial_fields``: the per-cell budget group, and the
+        seepage fields derived from its surface-excess component, are opt-in
+        like on the MODFLOW backends.
+        """
         area = None if cell_area_m2 is None else np.asarray(cell_area_m2, dtype=float).reshape(-1)
         if area is not None and area.size != int(n_cells):
             raise ValueError(
@@ -275,7 +282,7 @@ class BoussinesqOutputAdapter:
         store: Any,
         config: dict | None = None,
     ) -> None:
-        """Compute solver-adjacent derived fields (seepage areas, etc.).
+        """Compute derived variables from stored head fields.
 
         Watertable elevation/depth are produced by the workflow registry
         (:class:`DeriveStep`); this hook only handles fields that the
@@ -284,14 +291,4 @@ class BoussinesqOutputAdapter:
         from hydromodpy.simulation.extraction.derivation.derived import compute_derived
 
         cfg = config or {}
-        boussinesq_cfg = {
-            "seepage_areas": cfg.get("seepage_areas", False),
-            "groundwater_flux": False,
-            "release_flux": cfg.get("release_flux", True),
-            "accumulation_flux": False,
-            "release_accumulation_flux": cfg.get("release_accumulation_flux", False),
-            "concentration_seepage": False,
-            "mass_seepage": False,
-            "mass_accumulated": False,
-        }
-        compute_derived(sim_id, store, boussinesq_cfg)
+        compute_derived(sim_id, store, cfg)

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.derive.config_flags import log_missing_field
 
 from .base import (
     CELL_FIELD_ACTIVE_METRICS_FIELDS,
@@ -200,6 +201,9 @@ def write_simulated_active_network_metrics_export(
         try:
             run = store[str(sim_id)]
             if not run.has_field(variable):
+                log_missing_field(
+                    logger, run, variable, f"active cell-field metrics for {simulation_id}"
+                )
                 skipped_simulations.append(
                     {
                         "simulation_id": simulation_id,
@@ -377,6 +381,7 @@ def _write_cell_field_network_metrics_export(
                 )
                 continue
             if not run.has_field(variable):
+                log_missing_field(logger, run, variable, f"network metrics for {simulation_id}")
                 skipped_simulations.append(
                     {
                         "simulation_id": simulation_id,

@@ -57,6 +57,11 @@ class WorkflowContext:
     postprocess_runner: Any = field(default=None, repr=False)
     effective_results_config: Any = field(default=None, repr=False)
 
+    # Dotted results-config paths the planning reconciliation turned on by
+    # itself (never a user choice). Finalization reads them to tell a computed
+    # intermediate apart from a requested output.
+    forced_results_flags: tuple[str, ...] = ()
+
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""
         return self.execution.models_by_run_id[run_id]

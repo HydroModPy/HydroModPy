@@ -107,9 +107,11 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
     implementation called ``Run.field`` per timestep, and each call reopened and
     closed the store, so a long run triggered thousands of open/close round-trips
     per figure (very costly on packed ``.zarr.zip`` stores).
-    """
-    from hydromodpy.results.errors import FieldNotFoundError
 
+    A field absent from the store is not an error: derived fields are off by
+    default and are rebuilt on read, so the miss falls back to ``Run.field``
+    (the single virtual-aware read path) instead of failing.
+    """
     n = sim.n_timesteps or 1
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
@@ -120,15 +122,39 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
                 frames = [
                     np.asarray(sz.read_field(variable, t, layer=None)).ravel() for t in range(n)
                 ]
-            except KeyError as exc:
-                raise FieldNotFoundError(
-                    f"Field '{variable}' not found in simulation '{sim._sim_id}'",
-                    sim_id=sim._sim_id,
-                    variable=variable,
-                ) from exc
+            except KeyError:
+                frames = None
     finally:
         sz.close()
+    if frames is None:
+        frames = _stack_virtual_field(sim, variable, n)
     return np.stack(frames)
+
+
+def _stack_virtual_field(sim: Run, variable: str, n: int) -> list[np.ndarray]:
+    """Stack a non-persisted field through the virtual-derivation fallback.
+
+    Raises :class:`~hydromodpy.results.errors.FieldNotFoundError` when the
+    variable is neither stored nor derivable. When a ``[simulation.results]``
+    option would have kept it, the message names that option: the field is
+    written during the run, so reading it back needs a new solve.
+    """
+    from hydromodpy.results.derive.config_flags import config_option_for, enable_options_hint
+    from hydromodpy.results.errors import FieldNotFoundError
+
+    try:
+        with progress.status(f"Deriving {variable}"):
+            return [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
+    except FieldNotFoundError:
+        option = config_option_for(variable)
+        if option is None:
+            raise
+        raise FieldNotFoundError(
+            f"Field '{variable}' is not in the store of simulation '{sim.sim_id}' and "
+            f"cannot be rebuilt from what the run kept. {enable_options_hint([option])}",
+            sim_id=sim.sim_id,
+            variable=variable,
+        ) from None
 
 
 def _stack_field_with_mask(sim: Run, variable: str) -> tuple[np.ndarray, np.ndarray]:

@@ -14,7 +14,7 @@ from hydromodpy.simulation.planning.export_config import (
 class TestExportConfig:
     def test_defaults(self):
         cfg = ExportConfig()
-        assert cfg.csv_timeseries is True
+        assert cfg.csv_timeseries is False
         assert cfg.netcdf is False
         assert cfg.package is False
         assert cfg.times == "last"

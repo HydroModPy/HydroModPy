@@ -7,6 +7,10 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 # Canonical public name of the drain budget field. Both MODFLOW backends
 # normalize their record name (DRN / DRAINS) through
 # ``solver.modflow_common.budget_components.canonical_budget_component``
@@ -92,6 +96,64 @@ def active_surface_mask(topography: Any, *, nodata_floor: float = -9000.0) -> np
     """Return True for cells with a finite, non-nodata surface elevation."""
     surface = np.asarray(topography, dtype=float).reshape(-1)
     return np.isfinite(surface) & (surface > float(nodata_floor))
+
+
+def seepage_mask(
+    *,
+    watertable: Any | None = None,
+    topography: Any | None = None,
+    surface_excess: Any | None = None,
+) -> np.ndarray:
+    """Canonical seepage criterion, shared by every reader and writer.
+
+    ``surface_excess`` is the solver-declared surface release flux. When a
+    backend produces it (Boussinesq constrained formulations) it wins: those
+    formulations clamp the head at the surface over broad areas while the real
+    seepage flows through that flux, so the geometric test over-reports. Without
+    it (MODFLOW 6, MODFLOW-NWT) the mask is ``watertable >= topography``.
+
+    Accepts a single timestep ``(n_cells,)`` or a stack ``(time, n_cells)`` and
+    returns a float mask of the same shape.
+    """
+    if surface_excess is not None:
+        return (np.asarray(surface_excess, dtype=float) > 0.0).astype("float64")
+    if watertable is None or topography is None:
+        raise ValueError("seepage_mask needs either surface_excess or watertable + topography")
+    wt = np.asarray(watertable, dtype=float)
+    top = np.asarray(topography, dtype=float).reshape(-1)
+    if wt.ndim == 2:
+        top = top[None, :]
+    return (wt >= top).astype("float64")
+
+
+# Zarr group the Boussinesq adapter writes for every run it extracts. Its
+# presence identifies a backend whose seepage is a surface-release flux, so a
+# store holding it but no ``budget/surface_excess`` lost that signal.
+SURFACE_EXCESS_STATE_GROUP = "boussinesq_state"
+
+
+def warn_on_geometric_seepage_fallback(root: Any, *, sim_id: str) -> None:
+    """Warn when a surface-excess run falls back to the geometric criterion.
+
+    Call it right before building a seepage mask without ``surface_excess``.
+    On MODFLOW backends the geometric test is the criterion and nothing is
+    logged; on a solver that releases water through a flux it is a physics
+    degradation the user must see.
+    """
+    try:
+        degraded = SURFACE_EXCESS_STATE_GROUP in root
+    except TypeError:
+        return
+    if not degraded:
+        return
+    logger.warning(
+        "Seepage mask for sim %s falls back to the geometric criterion "
+        "(water table >= surface): this solver releases seepage through "
+        "budget/surface_excess, which the store does not hold, so the mask "
+        "over-reports the seepage extent. Set [simulation.results.budget] "
+        "spatial_fields = true to keep that flux.",
+        sim_id,
+    )
 
 
 def cell_adjacency_from_face_connectivity(
@@ -265,4 +327,5 @@ __all__ = [
     "drain_budget_stack_to_positive_outflow",
     "drain_budget_to_positive_outflow",
     "find_drain_budget_key",
+    "seepage_mask",
 ]

@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for, find_catalog_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "export"
 HELP: str = "Export a run as a portable .hmp archive (config, provenance, fields, timeseries)"
@@ -47,7 +48,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import export_package_run, export_package_runs
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:

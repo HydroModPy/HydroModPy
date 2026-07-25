@@ -15,10 +15,9 @@ def audit_list(
     """Return recent audit log entries as a DataFrame."""
     import duckdb
 
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
     catalog_path = workspace_root / CATALOG_FILENAME
@@ -48,11 +47,10 @@ def audit_verify(workspace: Any = None, *, strict: bool = False) -> dict:
     """
     import duckdb
 
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
     from hydromodpy.results.catalog.audit import verify_chain
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
     catalog_path = workspace_root / CATALOG_FILENAME

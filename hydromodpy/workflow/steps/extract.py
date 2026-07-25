@@ -128,10 +128,16 @@ class ExtractStep:
         if plan is None:
             raise ConfigError("ExtractStep requires execution.simulation_plan to be set")
 
-        results_cfg = getattr(ctx, "effective_results_config", None) or step_configure_results(
-            ctx.cfg.simulation.results,
-            plan,
-        )
+        results_cfg = getattr(ctx, "effective_results_config", None)
+        if results_cfg is None:
+            reconciled = step_configure_results(
+                ctx.cfg.simulation.results,
+                plan,
+                ctx.cfg.display,
+                display_active=not bool(state.get("skip_display")),
+            )
+            results_cfg = reconciled.config
+            ctx.forced_results_flags = reconciled.forced_flags
         ctx.effective_results_config = results_cfg
 
         extracted = 0

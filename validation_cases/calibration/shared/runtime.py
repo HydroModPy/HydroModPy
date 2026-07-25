@@ -1495,8 +1495,8 @@ def synthesize_truth_observations_via_project_api(
     runs :class:`hydromodpy.Project` on the resulting overlay, and pulls
     each observable through :func:`extract_outputs`.
     """
-    from hydromodpy.calibration.runners.materialize import materialize_candidate
     from hydromodpy.calibration.optim.parameters import ParameterSpace
+    from hydromodpy.calibration.runners.materialize import materialize_candidate
     from hydromodpy.project import Project as _Project
 
     if definition.parameter_targets is None:

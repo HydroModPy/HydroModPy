@@ -236,146 +236,150 @@
 <g id="node7" class="node">
 <title>hydromodpy.calibration.config.CalibrationConfig</title>
 <g id="a_node7"><a xlink:title="hydromodpy.calibration.config.CalibrationConfig&#10;&#10;Top&#45;level ``[calibration]`` section.&#10;&#10;The config selects the optimizer, iteration budget, candidate persistence&#10;policy, parameter declarations, observable outputs, and objective blocks.&#10;It is the stable user&#45;facing schema used by CLI calibration and&#10;``Project.calibrate``.&#10;&#10;When no explicit objective block is declared, HydroModPy can synthesize one&#10;from ``objective`` and ``variable`` if the matching output exists.&#10;">
-<polygon fill="none" stroke="black" points="0,-1094.25 0,-1116.75 636.75,-1116.75 636.75,-1094.25 0,-1094.25"/>
-<text xml:space="preserve" text-anchor="start" x="265.5" y="-1101.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">CalibrationConfig</text>
-<polygon fill="none" stroke="black" points="0,-1071.75 0,-1094.25 151.5,-1094.25 151.5,-1071.75 0,-1071.75"/>
-<text xml:space="preserve" text-anchor="start" x="55.12" y="-1077.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">method</text>
-<polygon fill="none" stroke="black" points="151.5,-1071.75 151.5,-1094.25 636.75,-1094.25 636.75,-1071.75 151.5,-1071.75"/>
-<text xml:space="preserve" text-anchor="start" x="387.38" y="-1077.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
-<polygon fill="none" stroke="black" points="0,-1049.25 0,-1071.75 151.5,-1071.75 151.5,-1049.25 0,-1049.25"/>
-<text xml:space="preserve" text-anchor="start" x="51.38" y="-1055.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">max_iter</text>
-<polygon fill="none" stroke="black" points="151.5,-1049.25 151.5,-1071.75 636.75,-1071.75 636.75,-1049.25 151.5,-1049.25"/>
-<text xml:space="preserve" text-anchor="start" x="387" y="-1055.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="0,-1026.75 0,-1049.25 151.5,-1049.25 151.5,-1026.75 0,-1026.75"/>
-<text xml:space="preserve" text-anchor="start" x="47.25" y="-1032.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">batch_size</text>
-<polygon fill="none" stroke="black" points="151.5,-1026.75 151.5,-1049.25 636.75,-1049.25 636.75,-1026.75 151.5,-1026.75"/>
-<text xml:space="preserve" text-anchor="start" x="387" y="-1032.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="0,-1004.25 0,-1026.75 151.5,-1026.75 151.5,-1004.25 0,-1004.25"/>
-<text xml:space="preserve" text-anchor="start" x="55.5" y="-1010.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">parallel</text>
-<polygon fill="none" stroke="black" points="151.5,-1004.25 151.5,-1026.75 636.75,-1026.75 636.75,-1004.25 151.5,-1004.25"/>
-<text xml:space="preserve" text-anchor="start" x="387" y="-1010.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="0,-981.75 0,-1004.25 151.5,-1004.25 151.5,-981.75 0,-981.75"/>
-<text xml:space="preserve" text-anchor="start" x="63.75" y="-987.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">seed</text>
-<polygon fill="none" stroke="black" points="151.5,-981.75 151.5,-1004.25 636.75,-1004.25 636.75,-981.75 151.5,-981.75"/>
-<text xml:space="preserve" text-anchor="start" x="367.12" y="-987.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
-<polygon fill="none" stroke="black" points="0,-959.25 0,-981.75 151.5,-981.75 151.5,-959.25 0,-959.25"/>
-<text xml:space="preserve" text-anchor="start" x="48.75" y="-965.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">save_runs</text>
-<polygon fill="none" stroke="black" points="151.5,-959.25 151.5,-981.75 636.75,-981.75 636.75,-959.25 151.5,-959.25"/>
-<text xml:space="preserve" text-anchor="start" x="319.88" y="-965.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;none&#39;, &#39;best_n&#39;, &#39;all&#39;]</text>
-<polygon fill="none" stroke="black" points="0,-936.75 0,-959.25 151.5,-959.25 151.5,-936.75 0,-936.75"/>
-<text xml:space="preserve" text-anchor="start" x="42.75" y="-942.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">save_best_n</text>
-<polygon fill="none" stroke="black" points="151.5,-936.75 151.5,-959.25 636.75,-959.25 636.75,-936.75 151.5,-936.75"/>
-<text xml:space="preserve" text-anchor="start" x="387" y="-942.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="0,-914.25 0,-936.75 151.5,-936.75 151.5,-914.25 0,-914.25"/>
-<text xml:space="preserve" text-anchor="start" x="48" y="-920.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">use_cache</text>
-<polygon fill="none" stroke="black" points="151.5,-914.25 151.5,-936.75 636.75,-936.75 636.75,-914.25 151.5,-914.25"/>
-<text xml:space="preserve" text-anchor="start" x="382.12" y="-920.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-891.75 0,-914.25 151.5,-914.25 151.5,-891.75 0,-891.75"/>
-<text xml:space="preserve" text-anchor="start" x="14.62" y="-897.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">lightweight_extraction</text>
-<polygon fill="none" stroke="black" points="151.5,-891.75 151.5,-914.25 636.75,-914.25 636.75,-891.75 151.5,-891.75"/>
-<text xml:space="preserve" text-anchor="start" x="382.12" y="-897.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-869.25 0,-891.75 151.5,-891.75 151.5,-869.25 0,-869.25"/>
-<text xml:space="preserve" text-anchor="start" x="51" y="-875.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">objective</text>
-<polygon fill="none" stroke="black" points="151.5,-869.25 151.5,-891.75 636.75,-891.75 636.75,-869.25 151.5,-869.25"/>
-<text xml:space="preserve" text-anchor="start" x="387.38" y="-875.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
-<polygon fill="none" stroke="black" points="0,-846.75 0,-869.25 151.5,-869.25 151.5,-846.75 0,-846.75"/>
-<text xml:space="preserve" text-anchor="start" x="54" y="-852.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">variable</text>
-<polygon fill="none" stroke="black" points="151.5,-846.75 151.5,-869.25 636.75,-869.25 636.75,-846.75 151.5,-846.75"/>
-<text xml:space="preserve" text-anchor="start" x="387.38" y="-852.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
-<polygon fill="none" stroke="black" points="0,-824.25 0,-846.75 151.5,-846.75 151.5,-824.25 0,-824.25"/>
-<text xml:space="preserve" text-anchor="start" x="26.62" y="-830.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">optimizer_kwargs</text>
-<polygon fill="none" stroke="black" points="151.5,-824.25 151.5,-846.75 636.75,-846.75 636.75,-824.25 151.5,-824.25"/>
-<text xml:space="preserve" text-anchor="start" x="358.12" y="-830.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, Any]</text>
-<polygon fill="none" stroke="black" points="0,-801.75 0,-824.25 151.5,-824.25 151.5,-801.75 0,-801.75"/>
-<text xml:space="preserve" text-anchor="start" x="45.75" y="-807.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">parameters</text>
-<polygon fill="none" stroke="black" points="151.5,-801.75 151.5,-824.25 636.75,-824.25 636.75,-801.75 151.5,-801.75"/>
-<text xml:space="preserve" text-anchor="start" x="314.25" y="-807.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, CalibParameterDecl]</text>
-<polygon fill="none" stroke="black" points="0,-779.25 0,-801.75 151.5,-801.75 151.5,-779.25 0,-779.25"/>
-<text xml:space="preserve" text-anchor="start" x="55.88" y="-785.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">outputs</text>
-<polygon fill="none" stroke="black" points="151.5,-779.25 151.5,-801.75 636.75,-801.75 636.75,-779.25 151.5,-779.25"/>
-<text xml:space="preserve" text-anchor="start" x="154.5" y="-785.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake]</text>
-<polygon fill="none" stroke="black" points="0,-756.75 0,-779.25 151.5,-779.25 151.5,-756.75 0,-756.75"/>
-<text xml:space="preserve" text-anchor="start" x="30" y="-762.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">objective_blocks</text>
-<polygon fill="none" stroke="black" points="151.5,-756.75 151.5,-779.25 636.75,-779.25 636.75,-756.75 151.5,-756.75"/>
-<text xml:space="preserve" text-anchor="start" x="311.62" y="-762.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[CalibObjectiveBlockDecl]</text>
-<polygon fill="none" stroke="black" points="0,-734.25 0,-756.75 151.5,-756.75 151.5,-734.25 0,-734.25"/>
-<text xml:space="preserve" text-anchor="start" x="13.88" y="-740.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">persist_iteration_detail</text>
-<polygon fill="none" stroke="black" points="151.5,-734.25 151.5,-756.75 636.75,-756.75 636.75,-734.25 151.5,-734.25"/>
-<text xml:space="preserve" text-anchor="start" x="309" y="-740.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;none&#39;, &#39;summary&#39;, &#39;full&#39;]</text>
-<polygon fill="none" stroke="black" points="0,-711.75 0,-734.25 151.5,-734.25 151.5,-711.75 0,-711.75"/>
-<text xml:space="preserve" text-anchor="start" x="3" y="-717.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">persist_model_distribution</text>
-<polygon fill="none" stroke="black" points="151.5,-711.75 151.5,-734.25 636.75,-734.25 636.75,-711.75 151.5,-711.75"/>
-<text xml:space="preserve" text-anchor="start" x="382.12" y="-717.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-689.25 0,-711.75 151.5,-711.75 151.5,-689.25 0,-689.25"/>
-<text xml:space="preserve" text-anchor="start" x="8.62" y="-695.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">rerun_best_with_outputs</text>
-<polygon fill="none" stroke="black" points="151.5,-689.25 151.5,-711.75 636.75,-711.75 636.75,-689.25 151.5,-689.25"/>
-<text xml:space="preserve" text-anchor="start" x="382.12" y="-695.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-666.75 0,-689.25 151.5,-689.25 151.5,-666.75 0,-666.75"/>
-<text xml:space="preserve" text-anchor="start" x="13.5" y="-672.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">materialize_candidates</text>
-<polygon fill="none" stroke="black" points="151.5,-666.75 151.5,-689.25 636.75,-689.25 636.75,-666.75 151.5,-666.75"/>
-<text xml:space="preserve" text-anchor="start" x="382.12" y="-672.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
-<polygon fill="none" stroke="black" points="0,-644.25 0,-666.75 151.5,-666.75 151.5,-644.25 0,-644.25"/>
-<text xml:space="preserve" text-anchor="start" x="33" y="-650.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">candidates_root</text>
-<polygon fill="none" stroke="black" points="151.5,-644.25 151.5,-666.75 636.75,-666.75 636.75,-644.25 151.5,-644.25"/>
-<text xml:space="preserve" text-anchor="start" x="334.88" y="-650.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">PurePosixPath | None</text>
-<polygon fill="none" stroke="black" points="0,-621.75 0,-644.25 151.5,-644.25 151.5,-621.75 0,-621.75"/>
-<text xml:space="preserve" text-anchor="start" x="45.75" y="-627.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">persistence</text>
-<polygon fill="none" stroke="black" points="151.5,-621.75 151.5,-644.25 636.75,-644.25 636.75,-621.75 151.5,-621.75"/>
-<text xml:space="preserve" text-anchor="start" x="345" y="-627.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">PersistenceConfig</text>
+<polygon fill="none" stroke="black" points="0,-1116.5 0,-1139 636.75,-1139 636.75,-1116.5 0,-1116.5"/>
+<text xml:space="preserve" text-anchor="start" x="265.5" y="-1123.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">CalibrationConfig</text>
+<polygon fill="none" stroke="black" points="0,-1094 0,-1116.5 151.5,-1116.5 151.5,-1094 0,-1094"/>
+<text xml:space="preserve" text-anchor="start" x="55.12" y="-1100.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">method</text>
+<polygon fill="none" stroke="black" points="151.5,-1094 151.5,-1116.5 636.75,-1116.5 636.75,-1094 151.5,-1094"/>
+<text xml:space="preserve" text-anchor="start" x="387.38" y="-1100.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<polygon fill="none" stroke="black" points="0,-1071.5 0,-1094 151.5,-1094 151.5,-1071.5 0,-1071.5"/>
+<text xml:space="preserve" text-anchor="start" x="51.38" y="-1077.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">max_iter</text>
+<polygon fill="none" stroke="black" points="151.5,-1071.5 151.5,-1094 636.75,-1094 636.75,-1071.5 151.5,-1071.5"/>
+<text xml:space="preserve" text-anchor="start" x="387" y="-1077.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="0,-1049 0,-1071.5 151.5,-1071.5 151.5,-1049 0,-1049"/>
+<text xml:space="preserve" text-anchor="start" x="47.25" y="-1055.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">batch_size</text>
+<polygon fill="none" stroke="black" points="151.5,-1049 151.5,-1071.5 636.75,-1071.5 636.75,-1049 151.5,-1049"/>
+<text xml:space="preserve" text-anchor="start" x="387" y="-1055.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="0,-1026.5 0,-1049 151.5,-1049 151.5,-1026.5 0,-1026.5"/>
+<text xml:space="preserve" text-anchor="start" x="55.5" y="-1032.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">parallel</text>
+<polygon fill="none" stroke="black" points="151.5,-1026.5 151.5,-1049 636.75,-1049 636.75,-1026.5 151.5,-1026.5"/>
+<text xml:space="preserve" text-anchor="start" x="387" y="-1032.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="0,-1004 0,-1026.5 151.5,-1026.5 151.5,-1004 0,-1004"/>
+<text xml:space="preserve" text-anchor="start" x="30" y="-1010.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">warmup_periods</text>
+<polygon fill="none" stroke="black" points="151.5,-1004 151.5,-1026.5 636.75,-1026.5 636.75,-1004 151.5,-1004"/>
+<text xml:space="preserve" text-anchor="start" x="387" y="-1010.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="0,-981.5 0,-1004 151.5,-1004 151.5,-981.5 0,-981.5"/>
+<text xml:space="preserve" text-anchor="start" x="63.75" y="-987.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">seed</text>
+<polygon fill="none" stroke="black" points="151.5,-981.5 151.5,-1004 636.75,-1004 636.75,-981.5 151.5,-981.5"/>
+<text xml:space="preserve" text-anchor="start" x="367.12" y="-987.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
+<polygon fill="none" stroke="black" points="0,-959 0,-981.5 151.5,-981.5 151.5,-959 0,-959"/>
+<text xml:space="preserve" text-anchor="start" x="48.75" y="-965.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">save_runs</text>
+<polygon fill="none" stroke="black" points="151.5,-959 151.5,-981.5 636.75,-981.5 636.75,-959 151.5,-959"/>
+<text xml:space="preserve" text-anchor="start" x="319.88" y="-965.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;none&#39;, &#39;best_n&#39;, &#39;all&#39;]</text>
+<polygon fill="none" stroke="black" points="0,-936.5 0,-959 151.5,-959 151.5,-936.5 0,-936.5"/>
+<text xml:space="preserve" text-anchor="start" x="42.75" y="-942.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">save_best_n</text>
+<polygon fill="none" stroke="black" points="151.5,-936.5 151.5,-959 636.75,-959 636.75,-936.5 151.5,-936.5"/>
+<text xml:space="preserve" text-anchor="start" x="387" y="-942.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="0,-914 0,-936.5 151.5,-936.5 151.5,-914 0,-914"/>
+<text xml:space="preserve" text-anchor="start" x="48" y="-920.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">use_cache</text>
+<polygon fill="none" stroke="black" points="151.5,-914 151.5,-936.5 636.75,-936.5 636.75,-914 151.5,-914"/>
+<text xml:space="preserve" text-anchor="start" x="382.12" y="-920.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-891.5 0,-914 151.5,-914 151.5,-891.5 0,-891.5"/>
+<text xml:space="preserve" text-anchor="start" x="14.62" y="-897.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">lightweight_extraction</text>
+<polygon fill="none" stroke="black" points="151.5,-891.5 151.5,-914 636.75,-914 636.75,-891.5 151.5,-891.5"/>
+<text xml:space="preserve" text-anchor="start" x="382.12" y="-897.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-869 0,-891.5 151.5,-891.5 151.5,-869 0,-869"/>
+<text xml:space="preserve" text-anchor="start" x="51" y="-875.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">objective</text>
+<polygon fill="none" stroke="black" points="151.5,-869 151.5,-891.5 636.75,-891.5 636.75,-869 151.5,-869"/>
+<text xml:space="preserve" text-anchor="start" x="387.38" y="-875.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<polygon fill="none" stroke="black" points="0,-846.5 0,-869 151.5,-869 151.5,-846.5 0,-846.5"/>
+<text xml:space="preserve" text-anchor="start" x="54" y="-852.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">variable</text>
+<polygon fill="none" stroke="black" points="151.5,-846.5 151.5,-869 636.75,-869 636.75,-846.5 151.5,-846.5"/>
+<text xml:space="preserve" text-anchor="start" x="387.38" y="-852.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<polygon fill="none" stroke="black" points="0,-824 0,-846.5 151.5,-846.5 151.5,-824 0,-824"/>
+<text xml:space="preserve" text-anchor="start" x="26.62" y="-830.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">optimizer_kwargs</text>
+<polygon fill="none" stroke="black" points="151.5,-824 151.5,-846.5 636.75,-846.5 636.75,-824 151.5,-824"/>
+<text xml:space="preserve" text-anchor="start" x="358.12" y="-830.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, Any]</text>
+<polygon fill="none" stroke="black" points="0,-801.5 0,-824 151.5,-824 151.5,-801.5 0,-801.5"/>
+<text xml:space="preserve" text-anchor="start" x="45.75" y="-807.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">parameters</text>
+<polygon fill="none" stroke="black" points="151.5,-801.5 151.5,-824 636.75,-824 636.75,-801.5 151.5,-801.5"/>
+<text xml:space="preserve" text-anchor="start" x="314.25" y="-807.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, CalibParameterDecl]</text>
+<polygon fill="none" stroke="black" points="0,-779 0,-801.5 151.5,-801.5 151.5,-779 0,-779"/>
+<text xml:space="preserve" text-anchor="start" x="55.88" y="-785.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">outputs</text>
+<polygon fill="none" stroke="black" points="151.5,-779 151.5,-801.5 636.75,-801.5 636.75,-779 151.5,-779"/>
+<text xml:space="preserve" text-anchor="start" x="154.5" y="-785.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dict[str, CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake]</text>
+<polygon fill="none" stroke="black" points="0,-756.5 0,-779 151.5,-779 151.5,-756.5 0,-756.5"/>
+<text xml:space="preserve" text-anchor="start" x="30" y="-762.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">objective_blocks</text>
+<polygon fill="none" stroke="black" points="151.5,-756.5 151.5,-779 636.75,-779 636.75,-756.5 151.5,-756.5"/>
+<text xml:space="preserve" text-anchor="start" x="311.62" y="-762.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[CalibObjectiveBlockDecl]</text>
+<polygon fill="none" stroke="black" points="0,-734 0,-756.5 151.5,-756.5 151.5,-734 0,-734"/>
+<text xml:space="preserve" text-anchor="start" x="13.88" y="-740.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">persist_iteration_detail</text>
+<polygon fill="none" stroke="black" points="151.5,-734 151.5,-756.5 636.75,-756.5 636.75,-734 151.5,-734"/>
+<text xml:space="preserve" text-anchor="start" x="309" y="-740.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;none&#39;, &#39;summary&#39;, &#39;full&#39;]</text>
+<polygon fill="none" stroke="black" points="0,-711.5 0,-734 151.5,-734 151.5,-711.5 0,-711.5"/>
+<text xml:space="preserve" text-anchor="start" x="3" y="-717.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">persist_model_distribution</text>
+<polygon fill="none" stroke="black" points="151.5,-711.5 151.5,-734 636.75,-734 636.75,-711.5 151.5,-711.5"/>
+<text xml:space="preserve" text-anchor="start" x="382.12" y="-717.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-689 0,-711.5 151.5,-711.5 151.5,-689 0,-689"/>
+<text xml:space="preserve" text-anchor="start" x="8.62" y="-695.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">rerun_best_with_outputs</text>
+<polygon fill="none" stroke="black" points="151.5,-689 151.5,-711.5 636.75,-711.5 636.75,-689 151.5,-689"/>
+<text xml:space="preserve" text-anchor="start" x="382.12" y="-695.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-666.5 0,-689 151.5,-689 151.5,-666.5 0,-666.5"/>
+<text xml:space="preserve" text-anchor="start" x="13.5" y="-672.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">materialize_candidates</text>
+<polygon fill="none" stroke="black" points="151.5,-666.5 151.5,-689 636.75,-689 636.75,-666.5 151.5,-666.5"/>
+<text xml:space="preserve" text-anchor="start" x="382.12" y="-672.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<polygon fill="none" stroke="black" points="0,-644 0,-666.5 151.5,-666.5 151.5,-644 0,-644"/>
+<text xml:space="preserve" text-anchor="start" x="33" y="-650.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">candidates_root</text>
+<polygon fill="none" stroke="black" points="151.5,-644 151.5,-666.5 636.75,-666.5 636.75,-644 151.5,-644"/>
+<text xml:space="preserve" text-anchor="start" x="334.88" y="-650.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">PurePosixPath | None</text>
+<polygon fill="none" stroke="black" points="0,-621.5 0,-644 151.5,-644 151.5,-621.5 0,-621.5"/>
+<text xml:space="preserve" text-anchor="start" x="45.75" y="-627.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">persistence</text>
+<polygon fill="none" stroke="black" points="151.5,-621.5 151.5,-644 636.75,-644 636.75,-621.5 151.5,-621.5"/>
+<text xml:space="preserve" text-anchor="start" x="345" y="-627.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">PersistenceConfig</text>
 </a>
 </g>
 </g>
 <!-- hydromodpy.calibration.config.CalibrationConfig&#45;&gt;hydromodpy.calibration.config.CalibObjectiveBlockDecl -->
 <g id="edge1" class="edge">
 <title>hydromodpy.calibration.config.CalibrationConfig:e&#45;&gt;hydromodpy.calibration.config.CalibObjectiveBlockDecl:w</title>
-<path fill="none" stroke="black" d="M646.5,-767.63C815.85,-754.13 601.97,-380.82 763.18,-359.68"/>
-<polyline fill="none" stroke="black" points="636.75,-768 641.75,-767.81"/>
-<polyline fill="none" stroke="black" points="641.75,-767.81 646.74,-767.62"/>
+<path fill="none" stroke="black" d="M646.49,-767.38C815.75,-753.89 602.06,-380.8 763.19,-359.68"/>
+<polyline fill="none" stroke="black" points="636.75,-767.75 641.75,-767.56"/>
+<polyline fill="none" stroke="black" points="641.75,-767.56 646.74,-767.37"/>
 <polygon fill="black" stroke="black" points="767.94,-359.39 778.19,-363.26 773.26,-359.06 777.58,-358.79 777.58,-358.79 777.58,-358.79 773.26,-359.06 777.64,-354.28 767.94,-359.39"/>
 <polyline fill="none" stroke="black" points="766.72,-359.46 761.73,-359.77"/>
 </g>
 <!-- hydromodpy.calibration.config.CalibrationConfig&#45;&gt;hydromodpy.calibration.config.CalibOutputBoundary -->
 <g id="edge2" class="edge">
 <title>hydromodpy.calibration.config.CalibrationConfig:e&#45;&gt;hydromodpy.calibration.config.CalibOutputBoundary:w</title>
-<path fill="none" stroke="black" d="M646.71,-790.87C830.35,-805.07 562.99,-1221.88 737.92,-1243.85"/>
-<polyline fill="none" stroke="black" points="636.75,-790.5 641.75,-790.69"/>
-<polyline fill="none" stroke="black" points="641.75,-790.69 646.74,-790.87"/>
+<path fill="none" stroke="black" d="M646.72,-790.62C830.45,-804.83 562.89,-1221.87 737.91,-1243.85"/>
+<polyline fill="none" stroke="black" points="636.75,-790.25 641.75,-790.44"/>
+<polyline fill="none" stroke="black" points="641.75,-790.44 646.74,-790.62"/>
 <polygon fill="black" stroke="black" points="742.81,-1244.14 752.53,-1249.22 748.13,-1244.45 752.46,-1244.71 752.46,-1244.71 752.46,-1244.71 748.13,-1244.45 753.06,-1240.24 742.81,-1244.14"/>
 <polyline fill="none" stroke="black" points="741.59,-1244.07 736.6,-1243.77"/>
 </g>
 <!-- hydromodpy.calibration.config.CalibrationConfig&#45;&gt;hydromodpy.calibration.config.CalibOutputCell -->
 <g id="edge3" class="edge">
 <title>hydromodpy.calibration.config.CalibrationConfig:e&#45;&gt;hydromodpy.calibration.config.CalibOutputCell:w</title>
-<path fill="none" stroke="black" d="M646.59,-791.07C751.49,-803.97 640.51,-1029.79 737.95,-1050.05"/>
-<polyline fill="none" stroke="black" points="636.75,-790.5 641.74,-790.79"/>
-<polyline fill="none" stroke="black" points="641.74,-790.79 646.73,-791.08"/>
+<path fill="none" stroke="black" d="M646.59,-790.83C751.58,-803.73 640.43,-1029.77 737.94,-1050.05"/>
+<polyline fill="none" stroke="black" points="636.75,-790.25 641.74,-790.54"/>
+<polyline fill="none" stroke="black" points="641.74,-790.54 646.73,-790.83"/>
 <polygon fill="black" stroke="black" points="742.84,-1050.52 752.36,-1055.95 748.15,-1051.02 752.46,-1051.44 752.46,-1051.44 752.46,-1051.44 748.15,-1051.02 753.22,-1046.99 742.84,-1050.52"/>
 <polyline fill="none" stroke="black" points="741.62,-1050.4 736.65,-1049.92"/>
 </g>
 <!-- hydromodpy.calibration.config.CalibrationConfig&#45;&gt;hydromodpy.calibration.config.CalibOutputLake -->
 <g id="edge4" class="edge">
 <title>hydromodpy.calibration.config.CalibrationConfig:e&#45;&gt;hydromodpy.calibration.config.CalibOutputLake:w</title>
-<path fill="none" stroke="black" d="M646.56,-790.5C685.4,-790.53 701.18,-790.7 737.92,-790.74"/>
-<polyline fill="none" stroke="black" points="636.75,-790.5 641.75,-790.5"/>
-<polyline fill="none" stroke="black" points="641.75,-790.5 646.75,-790.5"/>
-<polygon fill="black" stroke="black" points="742.79,-790.74 752.79,-795.25 748.13,-790.75 752.46,-790.75 752.46,-790.75 752.46,-790.75 748.13,-790.75 752.79,-786.25 742.79,-790.74"/>
-<polyline fill="none" stroke="black" points="741.57,-790.74 736.57,-790.74"/>
+<path fill="none" stroke="black" d="M646.56,-790.26C685.4,-790.31 701.18,-790.66 737.92,-790.73"/>
+<polyline fill="none" stroke="black" points="636.75,-790.25 641.75,-790.25"/>
+<polyline fill="none" stroke="black" points="641.75,-790.25 646.75,-790.26"/>
+<polygon fill="black" stroke="black" points="742.79,-790.74 752.79,-795.25 748.13,-790.74 752.46,-790.75 752.46,-790.75 752.46,-790.75 748.13,-790.74 752.8,-786.25 742.79,-790.74"/>
+<polyline fill="none" stroke="black" points="741.57,-790.74 736.57,-790.73"/>
 </g>
 <!-- hydromodpy.calibration.config.CalibrationConfig&#45;&gt;hydromodpy.calibration.config.CalibOutputPoint -->
 <g id="edge5" class="edge">
 <title>hydromodpy.calibration.config.CalibrationConfig:e&#45;&gt;hydromodpy.calibration.config.CalibOutputPoint:w</title>
-<path fill="none" stroke="black" d="M646.66,-789.8C726.36,-777.89 664.62,-617.76 737.82,-599.03"/>
-<polyline fill="none" stroke="black" points="636.75,-790.5 641.74,-790.15"/>
-<polyline fill="none" stroke="black" points="641.74,-790.15 646.73,-789.8"/>
+<path fill="none" stroke="black" d="M646.65,-789.55C726.28,-777.66 664.7,-617.73 737.84,-599.03"/>
+<polyline fill="none" stroke="black" points="636.75,-790.25 641.74,-789.9"/>
+<polyline fill="none" stroke="black" points="641.74,-789.9 646.73,-789.55"/>
 <polygon fill="black" stroke="black" points="742.86,-598.45 753.31,-601.76 748.16,-597.83 752.46,-597.33 752.46,-597.33 752.46,-597.33 748.16,-597.83 752.27,-592.82 742.86,-598.45"/>
 <polyline fill="none" stroke="black" points="741.65,-598.59 736.68,-599.17"/>
 </g>
 <!-- hydromodpy.calibration.config.CalibrationConfig&#45;&gt;hydromodpy.calibration.config.CalibParameterDecl -->
 <g id="edge6" class="edge">
 <title>hydromodpy.calibration.config.CalibrationConfig:e&#45;&gt;hydromodpy.calibration.config.CalibParameterDecl:w</title>
-<path fill="none" stroke="black" d="M646.37,-813.24C915.29,-827.21 493.09,-1437.7 751.95,-1460.35"/>
-<polyline fill="none" stroke="black" points="636.75,-813 641.75,-813.13"/>
-<polyline fill="none" stroke="black" points="641.75,-813.13 646.75,-813.25"/>
+<path fill="none" stroke="black" d="M646.37,-812.99C915.39,-826.96 492.99,-1437.69 751.95,-1460.35"/>
+<polyline fill="none" stroke="black" points="636.75,-812.75 641.75,-812.88"/>
+<polyline fill="none" stroke="black" points="641.75,-812.88 646.75,-813"/>
 <polygon fill="black" stroke="black" points="757.05,-1460.57 766.85,-1465.48 762.38,-1460.79 766.71,-1460.97 766.71,-1460.97 766.71,-1460.97 762.38,-1460.79 767.23,-1456.49 757.05,-1460.57"/>
 <polyline fill="none" stroke="black" points="755.83,-1460.52 750.84,-1460.31"/>
 </g>
@@ -415,9 +419,9 @@
 <!-- hydromodpy.calibration.config.CalibrationConfig&#45;&gt;hydromodpy.core.config_kit.persistence.PersistenceConfig -->
 <g id="edge7" class="edge">
 <title>hydromodpy.calibration.config.CalibrationConfig:e&#45;&gt;hydromodpy.core.config_kit.persistence.PersistenceConfig:w</title>
-<path fill="none" stroke="black" d="M646.66,-632.64C835.36,-618.4 549.53,-187.05 730,-165.58"/>
-<polyline fill="none" stroke="black" points="636.75,-633 641.75,-632.82"/>
-<polyline fill="none" stroke="black" points="641.75,-632.82 646.74,-632.64"/>
+<path fill="none" stroke="black" d="M646.66,-632.39C835.26,-618.15 549.62,-187.04 730,-165.58"/>
+<polyline fill="none" stroke="black" points="636.75,-632.75 641.75,-632.57"/>
+<polyline fill="none" stroke="black" points="641.75,-632.57 646.74,-632.39"/>
 <polyline fill="none" stroke="black" points="744.75,-164.75 739.76,-165.03"/>
 <polygon fill="black" stroke="black" points="738.48,-160.09 739.04,-170.08 737.04,-170.19 736.48,-160.21 738.48,-160.09"/>
 <polyline fill="none" stroke="black" points="739.76,-165.03 734.77,-165.31"/>

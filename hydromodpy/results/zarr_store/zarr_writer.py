@@ -17,6 +17,7 @@ import numpy as np
 import zarr
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.results import field_registry
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
 from hydromodpy.results.zarr_store.chunks import (
@@ -56,10 +57,35 @@ def attrs_for_field(name: str, dtype: np.dtype) -> dict[str, object]:
     else:
         attrs = dict(field_registry.cf_attrs(name))
     if np.issubdtype(dtype, np.floating):
+        # CF convention: both _FillValue and missing_value carry the sentinel so
+        # xarray auto-masks it on load. MODFLOW sentinels are converted to NaN at
+        # write (see mask_sentinels), so the missing value is NaN.
         attrs["_FillValue"] = float(np.nan)
+        attrs["missing_value"] = float(np.nan)
     elif np.issubdtype(dtype, np.integer):
         attrs["_FillValue"] = int(np.iinfo(dtype).min)
+        attrs["missing_value"] = int(np.iinfo(dtype).min)
     return attrs
+
+
+def mask_sentinels(values: np.ndarray) -> np.ndarray:
+    """Replace MODFLOW dry/no-flow head sentinels with NaN in a float array.
+
+    HDRY/HNOFLO (~ +-1e30) and -6e30 are orders of magnitude above any physical
+    head; masking them here, at the field write, means every transient field
+    reaches Zarr already NaN-clean and CF ``_FillValue`` == NaN holds on read.
+    A non-float array is returned untouched (NaN is invalid for integers).
+    """
+    if not np.issubdtype(values.dtype, np.floating):
+        return values
+    # Two comparisons instead of np.abs(): the slab can reach hundreds of MiB
+    # and a materialised absolute copy would double the write-side peak.
+    sentinel = (values > SENTINEL_ABS_THRESHOLD) | (values < -SENTINEL_ABS_THRESHOLD)
+    if not sentinel.any():
+        return values
+    cleaned = values.copy()
+    cleaned[sentinel] = np.nan
+    return cleaned
 
 
 def ensure_child_dir(store_obj: SimulationZarr, target: zarr.Group, name: str) -> None:
@@ -122,6 +148,7 @@ def attach_field_attrs(target: zarr.Group, variable: str) -> None:
             fill = _fill_value_for_dtype(np.dtype(arr.dtype))
             if fill is not None:
                 attrs["_FillValue"] = fill
+                attrs["missing_value"] = fill
             update_attrs(arr, attrs)
         return
     arr = target[variable]
@@ -469,7 +496,7 @@ def write_field(
     """Append one timestep slice to ``variable`` under ``subgroup`` or root."""
     with store_obj._guard_write():
         target = _field_target(store_obj, subgroup)
-        values = np.asarray(values)
+        values = mask_sentinels(np.asarray(values))
         if values.ndim not in (1, 2):
             raise ValueError(f"Expected 1D or 2D values, got shape {values.shape}")
 
@@ -511,7 +538,7 @@ def write_field_stack(
     """
     with store_obj._guard_write():
         target = _field_target(store_obj, subgroup)
-        values = np.asarray(values)
+        values = mask_sentinels(np.asarray(values))
         if values.ndim not in (2, 3):
             raise ValueError(f"Expected a (time, ...) stack, got shape {values.shape}")
 

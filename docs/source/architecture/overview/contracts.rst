@@ -127,10 +127,10 @@ Versioned schema constants
        ``hydromodpy/results/zarr_store/constants.py``.
    * - ``PARQUET_SCHEMA_VERSION``
      - Pinned to ``"v2"`` in
-       ``hydromodpy/results/parquet_schemas.py``.
+       ``hydromodpy/results/storage/parquet_schemas.py``.
    * - ``GEOPARQUET_SCHEMA_VERSION``
      - Pinned to ``"1.1.0"`` in
-       ``hydromodpy/results/geoparquet_io.py``.
+       ``hydromodpy/core/io/geoparquet.py``.
 
 For the migration runner mechanics, see :doc:`schema-evolution`.
 
@@ -152,6 +152,11 @@ requires:
   ``GEOPARQUET_SCHEMA_VERSION``);
 - a docs update on this page and on
   :doc:`/architecture/storage-layout`.
+
+The project index is the exception being built: because it is rebuilt
+from the run directories, its schema is meant to evolve by replacing the
+initial DDL and rebuilding, not by chaining migrations. See
+:doc:`schema-evolution` and :doc:`/architecture/storage-layout`.
 
 See also
 --------

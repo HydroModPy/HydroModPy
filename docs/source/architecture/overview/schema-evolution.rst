@@ -27,6 +27,13 @@ Covered:
 Out of scope: user TOML files. Their versioning is handled by Pydantic
 v2 with ``ConfigDict(extra="forbid")``.
 
+Exception being built: the project ``catalog.duckdb`` is an index over
+the run directories, so its schema is meant to evolve by replacing the
+initial DDL and rebuilding the index from disk rather than by chaining
+migrations. Until the rebuild command ships, the runner below remains
+the only path for that scope too. The doctrine and the rebuild
+invariants are stated in :doc:`../storage-layout`.
+
 Migration runner
 ----------------
 

@@ -258,6 +258,28 @@ class TestRunTrialLight:
         for step in steps[6:9]:
             assert step.calls == 1, f"step {step.name} did not run"
 
+    def test_trial_runs_with_rendering_off(self, tmp_path: Path) -> None:
+        # A trial draws nothing, so it must carry the same switch as
+        # `hmp run --no-display`: no figure gets to turn a derived flag on,
+        # and no derivation forces the per-cell budget no trial step drops.
+        trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
+        seen: list[object] = []
+        original = steps[6].run
+
+        def _capture(state: PipelineState) -> PipelineState:
+            seen.append(state.get("skip_display"))
+            return original(state)
+
+        steps[6].run = _capture
+
+        run_trial_light(
+            trial_ctx,
+            {"K": 1.0},
+            metric_fn=lambda ctx, *, objective, variable: (0.0, {}),
+        )
+
+        assert seen == [True]
+
     def test_trial_writes_no_files(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
         before = _snapshot_files(tmp_path)

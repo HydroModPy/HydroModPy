@@ -109,7 +109,8 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
         registration.zarr.close()
 
     try:
-        BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog)
+        # The per-cell budget group is opt-in, like on the MODFLOW backends.
+        BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog, budget_spatial_fields=True)
         zarr_store = catalog.open_zarr(sim_id)
         try:
             mesh = zarr_store.root["mesh"]
@@ -136,6 +137,47 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
                 derived["seepage_mask"][:],
                 np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=float),
             )
+        finally:
+            zarr_store.close()
+    finally:
+        catalog.close()
+
+
+def test_boussinesq_extractor_skips_budget_group_by_default(tmp_path: Path) -> None:
+    """Default extraction writes head only: the budget group is opt-in."""
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    np.savez(
+        output_dir / "_boussinesq_state_history.npz",
+        head_history_m=np.asarray([[5.0, 6.0]], dtype=float),
+        snapshot_elapsed_seconds=np.asarray([0.0], dtype=float),
+        recharge_rate_history_m_s=np.asarray([[1.0e-8, 2.0e-8]], dtype=float),
+        saturation_excess_history_m_s=np.asarray([[1.0e-9, 0.0]], dtype=float),
+        z_top_m=np.asarray([10.0, 12.0], dtype=float),
+        z_bottom_m=np.asarray([0.0, 1.0], dtype=float),
+        cell_area_m2=np.asarray([100.0, 200.0], dtype=float),
+    )
+
+    catalog = Catalog(tmp_path / "workspace")
+    sim_id = str(uuid4())
+    registration = catalog.register_simulation(
+        sim_id,
+        project="test",
+        solver="boussinesq",
+        n_cells=2,
+        n_layers=1,
+        n_timesteps=1,
+    )
+    if registration.zarr is not None:
+        registration.zarr.close()
+
+    try:
+        BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog)
+        zarr_store = catalog.open_zarr(sim_id)
+        try:
+            assert "head" in zarr_store.root
+            assert "budget" not in zarr_store.root
+            assert "derived" not in zarr_store.root
         finally:
             zarr_store.close()
     finally:

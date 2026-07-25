@@ -1,7 +1,7 @@
-"""Cheze lake performance + two-lake dynamics figures from an exported run.
+"""Cheze lake performance + two-lake dynamics figures from a catalog run.
 
-Reads the HydroModPy long-format timeseries export (datetime, station_id,
-variable, value, unit) for a lake run and the observed reservoir levels, then
+Reads the simulated lake series straight from the project catalog (the canonical
+timeseries source, no export needed) plus the observed reservoir levels, then
 draws:
 
 * diag_lake_performance  reservoir simulated vs observed stage + KGE/NSE/RMSE/
@@ -15,13 +15,15 @@ draws:
 
 Usage:
     python tools/diagnostics/cheze_lake_performance.py \
-        <timeseries.csv> <observed_levels.csv> <out_dir> \
-        [--warmup-days N] [--sill 86.93] [--spillway 87.57] [--start YYYY-MM-DD]
+        <project_dir> <observed_levels.csv> <out_dir> \
+        [--run REF] [--warmup-days N] [--sill 86.93] [--spillway 87.57]
+        [--start YYYY-MM-DD]
 
-<timeseries.csv> is the HMP export (exports/<run>/timeseries.csv). The observed
-CSV has columns datetime,value (m NGF). --start clips the plotted/scored window
-(e.g. skip the first spin-up year); --warmup-days additionally drops the leading
-N days from the metric to exclude the steady warm-up.
+<project_dir> is the HydroModPy project holding the catalog; --run selects a run
+by id, unique prefix or name (default: the latest run). The observed CSV has
+columns datetime,value (m NGF). --start clips the plotted/scored window (e.g.
+skip the first spin-up year); --warmup-days additionally drops the leading N days
+from the metric to exclude the steady warm-up.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
+import hydromodpy as hmp  # noqa: E402
 from hydromodpy.core.metrics import (  # noqa: E402
     bias,
     kge,
@@ -48,14 +51,19 @@ PRE_STATION = "lake:preretenue_cheze"
 RES, PRE, OBSC = "#0b6e8a", "#e08e00", "#111111"
 
 
-def _load_series(ts_csv: str, station: str, variable: str) -> pd.Series:
+def _open_run(project_dir: str, ref: str | None):
+    """Return the Run to diagnose: an explicit reference, or the latest one."""
+    catalog = hmp.open(project_dir)
+    return catalog[ref] if ref else catalog.latest()
+
+
+def _load_series(run, station: str, variable: str) -> pd.Series:
     """Return a datetime-indexed float series for one station/variable."""
-    df = pd.read_csv(ts_csv)
-    sub = df[(df["station_id"] == station) & (df["variable"] == variable)]
-    if sub.empty:
+    try:
+        s = run.timeseries(variable, station=station)
+    except KeyError:
         return pd.Series(dtype=float)
-    t = pd.to_datetime(sub["datetime"], utc=True).dt.tz_localize(None)
-    s = pd.Series(sub["value"].to_numpy(), index=t.to_numpy()).sort_index()
+    s = s.sort_index()
     return s[~s.index.duplicated(keep="last")]
 
 
@@ -163,10 +171,10 @@ def performance_figure(sim_res, obs, out_dir, warmup_days=0):
     return metrics
 
 
-def two_lake_figure(ts_csv, obs, out_dir, sill=86.93, spillway=87.57):
+def two_lake_figure(run, obs, out_dir, sill=86.93, spillway=87.57):
     """Both lake stages vs the crests + the reservoir water-balance terms."""
-    res = _load_series(ts_csv, RES_STATION, "stage")
-    pre = _load_series(ts_csv, PRE_STATION, "stage")
+    res = _load_series(run, RES_STATION, "stage")
+    pre = _load_series(run, PRE_STATION, "stage")
     if res.empty:
         print("two_lake: no reservoir stage, skipped")
         return
@@ -200,7 +208,7 @@ def two_lake_figure(ts_csv, obs, out_dir, sill=86.93, spillway=87.57):
         ("ext_inflow", "#7b2fbe", "apport externe"),
     ]
     for var, col, lab in terms:
-        s = _load_series(ts_csv, RES_STATION, var)
+        s = _load_series(run, RES_STATION, var)
         if s.empty:
             continue
         s = s.replace([3e30, -3e30], np.nan).resample("7D").mean()
@@ -221,9 +229,10 @@ def two_lake_figure(ts_csv, obs, out_dir, sill=86.93, spillway=87.57):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("timeseries_csv")
+    ap.add_argument("project_dir", help="project directory holding the catalog")
     ap.add_argument("observed_csv")
     ap.add_argument("out_dir")
+    ap.add_argument("--run", default=None, help="run id, unique prefix or name (default: latest)")
     ap.add_argument("--warmup-days", type=int, default=0)
     ap.add_argument("--sill", type=float, default=86.93)
     ap.add_argument("--spillway", type=float, default=87.57)
@@ -231,17 +240,18 @@ def main():
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
-    sim_res = _load_series(args.timeseries_csv, RES_STATION, "stage")
+    run = _open_run(args.project_dir, args.run)
+    sim_res = _load_series(run, RES_STATION, "stage")
     obs = _load_observed(args.observed_csv)
     if args.start:
         cut = pd.Timestamp(args.start)
         sim_res = sim_res[sim_res.index >= cut]
         obs = obs[obs.index >= cut]
     if sim_res.empty:
-        raise SystemExit(f"no simulated reservoir stage in {args.timeseries_csv}")
+        raise SystemExit(f"no simulated reservoir stage for run {run.sim_id}")
 
     performance_figure(sim_res, obs, args.out_dir, warmup_days=args.warmup_days)
-    two_lake_figure(args.timeseries_csv, obs, args.out_dir, sill=args.sill, spillway=args.spillway)
+    two_lake_figure(run, obs, args.out_dir, sill=args.sill, spillway=args.spillway)
     print("DONE")
 
 

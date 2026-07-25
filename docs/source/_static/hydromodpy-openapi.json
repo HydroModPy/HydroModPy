@@ -157,6 +157,19 @@
             "description": "Optional calibration settings loaded from the [calibration] section.  When present, triggers the calibration workflow.",
             "x-hmp-profile": "user"
           },
+          "spinup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpinupConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional cyclic spin-up settings loaded from the [spinup] section. Drives 'hmp spinup': repeat a forcing window, restart each cycle from the previous state, until the heads and the lake stage converge.",
+            "x-hmp-profile": "user"
+          },
           "testbed": {
             "anyOf": [
               {
@@ -649,10 +662,10 @@
         "description": "Budget extraction configuration.",
         "properties": {
           "spatial_fields": {
-            "default": true,
-            "description": "Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.",
+            "default": false,
+            "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it.",
             "examples": [
-              true
+              false
             ],
             "title": "Spatial Fields",
             "type": "boolean",
@@ -1415,6 +1428,17 @@
             "title": "Parallel",
             "type": "integer",
             "x-hmp-profile": "dev"
+          },
+          "warmup_periods": {
+            "default": 0,
+            "description": "Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.",
+            "examples": [
+              0
+            ],
+            "minimum": 0,
+            "title": "Warmup Periods",
+            "type": "integer",
+            "x-hmp-profile": "user"
           },
           "seed": {
             "anyOf": [
@@ -3109,6 +3133,16 @@
             "title": "Path",
             "type": "string",
             "x-hmp-profile": "user"
+          },
+          "default_crs": {
+            "default": "EPSG:2154",
+            "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+            "examples": [
+              "EPSG:2154"
+            ],
+            "title": "Default Crs",
+            "type": "string",
+            "x-hmp-profile": "user"
           }
         },
         "required": [
@@ -3139,6 +3173,16 @@
             ],
             "format": "path",
             "title": "Path",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "default_crs": {
+            "default": "EPSG:2154",
+            "description": "Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+            "examples": [
+              "EPSG:2154"
+            ],
+            "title": "Default Crs",
             "type": "string",
             "x-hmp-profile": "user"
           }
@@ -3668,63 +3712,53 @@
       },
       "DerivedConfig": {
         "additionalProperties": false,
-        "description": "Toggle flags for derived variable computation.",
+        "description": "Toggle flags for derived variable computation.\n\nThere is no ``groundwater_flux`` flag: no backend stores the intercell\nface flows it would need. MODFLOW 6 filters FLOW-JA-FACE out of the\nper-cell budget (it is an antisymmetric vector record, not a scalar\nstress term), Boussinesq has no face record at all, and the derivation\ncould only ever fail after the solve. The flag was removed with its\ncomputation rather than kept as a run-killing option.",
         "properties": {
           "watertable_elevation": {
-            "default": true,
-            "description": "Compute water-table elevation from uppermost saturated layer.",
+            "default": false,
+            "description": "Persist water-table elevation (uppermost saturated layer) as a Zarr field. Off by default: figures recompute it on the fly from the stored head.",
             "examples": [
-              true
+              false
             ],
             "title": "Watertable Elevation",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
           "watertable_depth": {
-            "default": true,
-            "description": "Compute water-table depth (surface minus water-table elevation).",
+            "default": false,
+            "description": "Persist water-table depth (surface minus water-table elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.",
             "examples": [
-              true
+              false
             ],
             "title": "Watertable Depth",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
           "seepage_areas": {
-            "default": true,
-            "description": "Identify seepage areas where water table >= surface elevation.",
+            "default": false,
+            "description": "Persist the seepage mask (water table >= surface elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.",
             "examples": [
-              true
+              false
             ],
             "title": "Seepage Areas",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
-          "groundwater_flux": {
-            "default": false,
-            "description": "Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
-            "examples": [
-              false
-            ],
-            "title": "Groundwater Flux",
-            "type": "boolean",
-            "x-hmp-profile": "dev"
-          },
           "release_flux": {
-            "default": true,
+            "default": false,
             "description": "Positive total groundwater release flux from drains and surface excess.",
             "examples": [
-              true
+              false
             ],
             "title": "Release Flux",
             "type": "boolean",
             "x-hmp-profile": "dev"
           },
           "accumulation_flux": {
-            "default": true,
+            "default": false,
             "description": "Drain flux routed on the drainage network.",
             "examples": [
-              true
+              false
             ],
             "title": "Accumulation Flux",
             "type": "boolean",
@@ -3741,10 +3775,10 @@
             "x-hmp-profile": "dev"
           },
           "outflow_drain": {
-            "default": true,
+            "default": false,
             "description": "Positive per-cell drain outflow summed over layers.",
             "examples": [
-              true
+              false
             ],
             "title": "Outflow Drain",
             "type": "boolean",
@@ -4037,12 +4071,26 @@
             "x-hmp-profile": "user"
           },
           "figures": {
-            "description": "Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp display`). Empty list disables auto-rendering; figures can still be produced later with `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.",
+            "description": "Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.",
             "items": {
               "type": "string"
             },
             "title": "Figures",
             "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "on_error": {
+            "default": "warn",
+            "description": "Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.",
+            "enum": [
+              "warn",
+              "raise"
+            ],
+            "examples": [
+              "warn"
+            ],
+            "title": "On Error",
+            "type": "string",
             "x-hmp-profile": "user"
           },
           "overrides": {
@@ -4054,238 +4102,9 @@
             "title": "Overrides",
             "type": "object",
             "x-hmp-profile": "expert"
-          },
-          "flow": {
-            "$ref": "#/components/schemas/DisplayFlowConfig",
-            "description": "Flow figure switches.",
-            "x-hmp-profile": "user"
-          },
-          "particles": {
-            "$ref": "#/components/schemas/DisplayParticlesConfig",
-            "description": "Particle figure switches.",
-            "x-hmp-profile": "user"
-          },
-          "transport": {
-            "$ref": "#/components/schemas/DisplayTransportConfig",
-            "description": "Transport figure switches.",
-            "x-hmp-profile": "user"
           }
         },
         "title": "DisplayConfig",
-        "type": "object"
-      },
-      "DisplayFlowConfig": {
-        "additionalProperties": false,
-        "description": "Display switches for flow figures.",
-        "properties": {
-          "enabled": {
-            "default": true,
-            "description": "Master switch for flow figures.",
-            "examples": [
-              true
-            ],
-            "title": "Enabled",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "cross_section": {
-            "default": true,
-            "description": "Render the flow cross-section plot.",
-            "examples": [
-              true
-            ],
-            "title": "Cross Section",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "streamflow": {
-            "default": true,
-            "description": "Render the streamflow comparison plot.",
-            "examples": [
-              true
-            ],
-            "title": "Streamflow",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "piezometry": {
-            "default": true,
-            "description": "Render the piezometry plot.",
-            "examples": [
-              true
-            ],
-            "title": "Piezometry",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "watertable_map": {
-            "default": true,
-            "description": "Render water-table maps.",
-            "examples": [
-              true
-            ],
-            "title": "Watertable Map",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "dem_map": {
-            "default": true,
-            "description": "Render a DEM overview map.",
-            "examples": [
-              true
-            ],
-            "title": "Dem Map",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "budget": {
-            "default": false,
-            "description": "Render groundwater budget figures.",
-            "examples": [
-              false
-            ],
-            "title": "Budget",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "hydrography": {
-            "default": true,
-            "description": "Render hydrography maps.",
-            "examples": [
-              true
-            ],
-            "title": "Hydrography",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "boussinesq_state": {
-            "default": true,
-            "description": "Render the Boussinesq state figure.",
-            "examples": [
-              true
-            ],
-            "title": "Boussinesq State",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "boussinesq_diagnostics": {
-            "default": true,
-            "description": "Render Boussinesq diagnostics.",
-            "examples": [
-              true
-            ],
-            "title": "Boussinesq Diagnostics",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "boussinesq_mass_balance": {
-            "default": true,
-            "description": "Render Boussinesq mass-balance diagnostics.",
-            "examples": [
-              true
-            ],
-            "title": "Boussinesq Mass Balance",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "boussinesq_probes": {
-            "default": true,
-            "description": "Render Boussinesq probe time series.",
-            "examples": [
-              true
-            ],
-            "title": "Boussinesq Probes",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "boussinesq_edge_flux": {
-            "default": true,
-            "description": "Render final Boussinesq edge fluxes.",
-            "examples": [
-              true
-            ],
-            "title": "Boussinesq Edge Flux",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          }
-        },
-        "title": "DisplayFlowConfig",
-        "type": "object"
-      },
-      "DisplayParticlesConfig": {
-        "additionalProperties": false,
-        "description": "Display switches for particle figures.",
-        "properties": {
-          "enabled": {
-            "default": true,
-            "description": "Master switch for particle figures.",
-            "examples": [
-              true
-            ],
-            "title": "Enabled",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "pathlines": {
-            "default": false,
-            "description": "Render particle pathlines.",
-            "examples": [
-              false
-            ],
-            "title": "Pathlines",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          }
-        },
-        "title": "DisplayParticlesConfig",
-        "type": "object"
-      },
-      "DisplayTransportConfig": {
-        "additionalProperties": false,
-        "description": "Display switches for transport figures.",
-        "properties": {
-          "enabled": {
-            "default": true,
-            "description": "Master switch for transport figures.",
-            "examples": [
-              true
-            ],
-            "title": "Enabled",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "concentration": {
-            "default": false,
-            "description": "Render concentration plots.",
-            "examples": [
-              false
-            ],
-            "title": "Concentration",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "gif": {
-            "default": false,
-            "description": "Export concentration GIF animation.",
-            "examples": [
-              false
-            ],
-            "title": "Gif",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "web_animation": {
-            "default": false,
-            "description": "Export browser-friendly concentration animation.",
-            "examples": [
-              false
-            ],
-            "title": "Web Animation",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          }
-        },
-        "title": "DisplayTransportConfig",
         "type": "object"
       },
       "DomainConfig": {
@@ -4689,10 +4508,10 @@
             "x-hmp-profile": "user"
           },
           "csv_timeseries": {
-            "default": true,
-            "description": "Export time series to CSV.",
+            "default": false,
+            "description": "Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.",
             "examples": [
-              true
+              false
             ],
             "title": "Csv Timeseries",
             "type": "boolean",
@@ -4819,6 +4638,7 @@
           "netcdf",
           "geotiff",
           "shapefile",
+          "geopackage",
           "vtu",
           "hmp"
         ],
@@ -6056,6 +5876,20 @@
             "unit": "-",
             "widget_type": "checkbox",
             "x-hmp-profile": "user"
+          },
+          "restart_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic].",
+            "title": "Restart From",
+            "x-hmp-profile": "user"
           }
         },
         "title": "FlowConfig",
@@ -7102,7 +6936,7 @@
       },
       "FlowLakeOutletMover": {
         "additionalProperties": false,
-        "description": "A controlled LAK transfer for one outlet, routed through MVR.\n\nThe outlet keeps ``lakeout = 0`` (external) and this spec sends its discharge\nto a receiver through a MODFLOW 6 MVR record. The receiver is either ``lake``\n(1-based downstream lake number, LAK -> LAK) or ``reach`` (1-based downstream\nSFR reach, LAK -> SFR spillway release); exactly one must be set. ``mvrtype``\npicks how much water moves: ``FACTOR`` (a fraction ``value`` of the provider\nflow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above ``value``) or\n``THRESHOLD`` (all-or-nothing above ``value``).",
+        "description": "A controlled LAK transfer for one outlet, routed through MVR.\n\nThe outlet keeps ``lakeout = 0`` (external) and this spec sends its discharge\nto a receiver through a MODFLOW 6 MVR record. The receiver is one of ``lake``\n(1-based downstream lake number, LAK -> LAK), ``reach`` (1-based downstream SFR\nreach, LAK -> SFR spillway release), or ``to_downstream_reach`` (auto-resolve the\ndownstream reach on the mesh, robust to remeshing); exactly one must be set.\n``mvrtype`` picks how much water moves: ``FACTOR`` (a fraction ``value`` of the\nprovider flow), ``UPTO`` (capped at ``value``), ``EXCESS`` (only above ``value``)\nor ``THRESHOLD`` (all-or-nothing above ``value``).",
         "properties": {
           "lake": {
             "anyOf": [
@@ -7133,6 +6967,40 @@
             "description": "Downstream receiving SFR reach (1-based) for a LAK -> SFR transfer.",
             "title": "Reach",
             "x-hmp-profile": "user"
+          },
+          "to_downstream_reach": {
+            "default": false,
+            "description": "Auto-resolve the LAK -> SFR receiver: route the spillway to the SFR reach at the foot of the dam (the channel is extended to it if needed). Robust to remeshing, unlike a fixed reach number. Keep lakeout = 0.",
+            "examples": [
+              false
+            ],
+            "title": "To Downstream Reach",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "discharge_xy": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional explicit spillway discharge point [x, y] in the project CRS. With to_downstream_reach, the dam foot is located nearest this point instead of inferred from the domain outlet. Use it when the spillway is not on the outlet-facing shore, or for a lake away from the catchment outlet.",
+            "title": "Discharge Xy",
+            "x-hmp-profile": "expert"
           },
           "mvrtype": {
             "default": "FACTOR",
@@ -8116,6 +7984,96 @@
             "title": "Outflow Value",
             "type": "number",
             "x-hmp-profile": "user"
+          },
+          "lake_feeder_snap": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "default": "300 m",
+            "description": "Max distance from a lake shoreline within which a dead-end reach is snapped to that lake via MVR (a real feeder the DEM fell short of). Scale it to the catchment: too large teleports an unrelated reach into the lake.",
+            "examples": [
+              "300 m"
+            ],
+            "title": "Lake Feeder Snap",
+            "x-hmp-profile": "expert"
+          },
+          "outlet_keepout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
+            ],
+            "default": "1000 m",
+            "description": "Min distance from the model outlet a terminal reach must keep to count as a lake feeder. A terminal closer than this is the below-dam discharge reach (the lake feeds it and it leaves the model), so it is not routed into the lake.",
+            "examples": [
+              "1000 m"
+            ],
+            "title": "Outlet Keepout",
+            "x-hmp-profile": "expert"
+          },
+          "rectify_on_mesh": {
+            "default": false,
+            "description": "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the steepest descent of the (conditioned) mesh top is traced one face-neighbour at a time until it reaches a lake, the domain edge, or an already-traced cell; a residual pit or flat spill is crossed by stepping to the lowest unvisited rim. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), face-continuous (no geometric gap), following the true thalweg (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). Requires [modflow6.sgrid] condition_top = true so every cell has a descending path.",
+            "examples": [
+              false
+            ],
+            "title": "Rectify On Mesh",
+            "type": "boolean",
+            "x-hmp-profile": "expert"
+          },
+          "rectify_stub_max_upstream": {
+            "default": 2,
+            "description": "When rectify_on_mesh is set, demote a low-order parallel stub to hillslope drainage (DRN -> SFR) to thin braided bands: a reach cell with at most this many reach cells upstream of it that runs beside a reach carrying strictly more (the true channel) is dropped from SFR, keeping a one-thread channel; its water still reaches the network as routed drainage. 0 demotes only headwater leaves, a negative value keeps every traced cell. Default 2 removes stubs up to ~3 cells.",
+            "examples": [
+              2
+            ],
+            "title": "Rectify Stub Max Upstream",
+            "type": "integer",
+            "x-hmp-profile": "expert"
+          },
+          "rectify_min_component_cells": {
+            "default": 2,
+            "description": "When rectify_on_mesh is set, drop a whole reach component smaller than this many cells (a lone one-cell stream that just touches a lake or the outlet is hillslope drainage, not a channel, and reads as a spurious SFR -> lake entry). Its water still reaches the network as routed DRN. Default 2 drops single-cell components; 1 keeps every component.",
+            "examples": [
+              2
+            ],
+            "title": "Rectify Min Component Cells",
+            "type": "integer",
+            "x-hmp-profile": "expert"
           }
         },
         "title": "FlowReachNetworkConfig",
@@ -11072,6 +11030,29 @@
             "title": "Capture Radius M",
             "type": "number",
             "x-hmp-profile": "user"
+          },
+          "capture_max_streams": {
+            "default": 8,
+            "description": "Capture pass: cap on how many near-miss stream terminals are carved to lakes per pass (kept by decreasing flow accumulation).",
+            "examples": [
+              8
+            ],
+            "minimum": 1,
+            "title": "Capture Max Streams",
+            "type": "integer",
+            "x-hmp-profile": "expert"
+          },
+          "capture_min_acc_fraction": {
+            "default": 0.3,
+            "description": "Capture pass: keep only near-miss terminals whose flow accumulation is at least this fraction of the largest, so a tiny rivulet is not carved.",
+            "examples": [
+              0.3
+            ],
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Capture Min Acc Fraction",
+            "type": "number",
+            "x-hmp-profile": "expert"
           }
         },
         "title": "LakeEnforcementConfig",
@@ -12418,6 +12399,16 @@
               true
             ],
             "title": "Export Exchange Bundle",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "cache": {
+            "default": false,
+            "description": "If true, reuse a previously generated mesh when its inputs (domain geometry, river constraint, lake/dam refinement, mesh and delineation configuration) are unchanged, instead of regenerating it. Gmsh is not reproducible run to run (it reseeds from the system clock), so regeneration yields a different mesh and makes results and calibration objectives irreproducible; caching pins the mesh. Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache.",
+            "examples": [
+              false
+            ],
+            "title": "Cache",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
@@ -13893,6 +13884,27 @@
             ],
             "title": "Mf6 Newton Under Relaxation",
             "type": "boolean",
+            "x-hmp-profile": "expert"
+          },
+          "mf6_ats": {
+            "default": false,
+            "description": "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each stress period starts at its full length and MF6 subdivides only the periods the solver cannot converge in one step (e.g. littoral wet/dry under Newton), instead of carrying budget error at nstp=1. When on, OC saves per period end so the extraction still sees one record per period. Default off (baseline).",
+            "examples": [
+              false
+            ],
+            "title": "Mf6 Ats",
+            "type": "boolean",
+            "x-hmp-profile": "expert"
+          },
+          "mf6_ats_dtmin_s": {
+            "default": 60.0,
+            "description": "Minimum ATS time step in seconds (only used when mf6_ats is true).",
+            "examples": [
+              60.0
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Mf6 Ats Dtmin S",
+            "type": "number",
             "x-hmp-profile": "expert"
           },
           "mf6_enable_xt3d": {
@@ -19176,6 +19188,75 @@
           }
         },
         "title": "SpatialSelectionConfig",
+        "type": "object"
+      },
+      "SpinupConfig": {
+        "additionalProperties": false,
+        "description": "Settings for the cyclic spin-up loop (``[spinup]``).",
+        "properties": {
+          "max_cycles": {
+            "default": 10,
+            "description": "Maximum spin-up cycles before the loop stops without converging.",
+            "examples": [
+              10
+            ],
+            "minimum": 1,
+            "title": "Max Cycles",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "tol_head": {
+            "default": 0.01,
+            "description": "Head convergence tolerance [m]. The loop converges when the largest absolute head change between two cycles (L-inf over active cells) is below this.",
+            "examples": [
+              0.01
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Tol Head",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "tol_stage": {
+            "default": 0.01,
+            "description": "Lake-stage convergence tolerance [m]. The loop converges when the largest absolute stage change between two cycles, over every lake, is below this. Ignored when the model has no lake.",
+            "examples": [
+              0.01
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Tol Stage",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cycle window start (ISO datetime, e.g. '2019-01-01'). The representative forcing period each cycle repeats. None reuses [simulation.time].",
+            "title": "Window Start",
+            "x-hmp-profile": "user"
+          },
+          "window_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cycle window end (ISO datetime). None reuses [simulation.time]. Set both window bounds to spin up on a shorter representative period than the production chronicle.",
+            "title": "Window End",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "SpinupConfig",
         "type": "object"
       },
       "StationInfluenceCriteriaConfig": {

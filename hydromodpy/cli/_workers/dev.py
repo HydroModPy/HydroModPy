@@ -31,10 +31,10 @@ def rank_simulations(
     n: int = 5,
 ) -> Any:
     """Rank simulations of one project by a metric. Returns a DataFrame."""
-    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.results.catalog import Catalog
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
     with Catalog(workspace_root) as catalog:

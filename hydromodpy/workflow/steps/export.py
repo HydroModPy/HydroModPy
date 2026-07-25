@@ -76,6 +76,43 @@ def step_save_run_artifacts(
 
 
 # ---------------------------------------------------------------------------
+# Intermediate cleanup
+# ---------------------------------------------------------------------------
+
+
+def step_drop_intermediate_budget(ctx: WorkflowContext) -> None:
+    """Drop the per-cell budget group when reconciliation forced it on.
+
+    Computing is not persisting. A user who writes
+    ``[simulation.results.budget] spatial_fields = true`` keeps the group.
+    A user who only asked for a figure gets what the figure needs, not the
+    raw per-cell budget consumed on the way: that one is written, read by
+    the derive phase and by the figures, then removed. It runs last in the
+    export step, after every consumer of the run and just before the store
+    is sealed.
+    """
+    from hydromodpy.workflow.steps.planning import BUDGET_SPATIAL_FLAG
+
+    if BUDGET_SPATIAL_FLAG not in tuple(getattr(ctx, "forced_results_flags", ())):
+        return
+    store = ctx.store
+    sim_id = ctx.sim_id
+    if store is None or sim_id is None:
+        return
+    sz = store.open_zarr(sim_id)
+    try:
+        freed = sz.drop_group("budget")
+    finally:
+        sz.close()
+    if freed:
+        logger.info(
+            "Dropped the intermediate per-cell budget from the store (%.2f MB freed). "
+            "Set [simulation.results.budget] spatial_fields = true to keep it.",
+            freed / 1e6,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Store finalization
 # ---------------------------------------------------------------------------
 
@@ -216,7 +253,7 @@ class ExportStep:
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:
-        return ("derive",)
+        return ("display",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
@@ -265,6 +302,7 @@ class ExportStep:
                     save_catalog=save_catalog,
                     run_id=ctx.setup.run_id,
                 )
+            step_drop_intermediate_budget(ctx)
             step_finalize_store(ctx, wall_seconds=wall_seconds)
         step_cleanup_scratch(
             ctx,

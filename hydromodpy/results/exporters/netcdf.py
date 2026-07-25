@@ -146,17 +146,19 @@ def export_netcdf(
             descriptor = descriptors[var_name]
             arr = _resolve_zarr_path(grp, descriptor.zarr_path)
             if arr is None:
-                logger.warning(
-                    "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
-                    var_name,
-                    descriptor.zarr_path,
-                    sim_id,
-                )
-                continue
-
-            data = arr[:]
-            ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
-            data = data[ts_idx]
+                data = _derive_stack(sz, sim_id, var_name, timesteps, zarr_time)
+                if data is None:
+                    logger.warning(
+                        "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
+                        var_name,
+                        descriptor.zarr_path,
+                        sim_id,
+                    )
+                    continue
+            else:
+                data = arr[:]
+                ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
+                data = data[ts_idx]
 
             attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
             if data.ndim == 3:
@@ -202,6 +204,26 @@ def export_netcdf(
     ds.to_netcdf(output_path, engine="netcdf4", format="NETCDF4", encoding=encoding)
     logger.info("Exported NetCDF: %s", output_path)
     return output_path
+
+
+def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.ndarray | None:
+    """Rebuild a non-persisted field over the exported timesteps, or None.
+
+    Water-table elevation/depth, seepage mask and drain outflow are computed
+    on read rather than stored, so an export must rebuild them to stay
+    faithful to what ``hmp read`` returns.
+    """
+    from hydromodpy.results.derive.virtual_fields import derive_field_stack
+
+    n_time = None
+    if zarr_time is not None:
+        n_time = int(len(zarr_time))
+    elif "head" in sz.root:
+        n_time = int(sz.root["head"].shape[0])
+    if n_time is None:
+        return None
+    indices = list(range(n_time)) if timesteps is None else [int(t) % n_time for t in timesteps]
+    return derive_field_stack(sz, sim_id, variable, indices)
 
 
 def _resolve_zarr_path(grp, zarr_path: str):

@@ -553,7 +553,7 @@ Calibration storage flow, by container:
      - ``simulations/<basename>.zarr/``
      - Spatial fields written **only** for promoted trials.
    * - Filesystem
-     - ``simulations/<basename>.parquet/``
+     - ``simulations/<basename>.parquet.d/``
      - Detailed timeseries, budgets, mass balance for promoted
        trials only.
    * - Filesystem
@@ -591,7 +591,7 @@ Parquet only for promoted runs.**
      - ``simulations/<basename>.zarr/`` or ``.zarr.zip``
      - **Only** via ``promote_trial``
    * - Detailed timeseries (head, Q)
-     - ``simulations/<basename>.parquet/timeseries.parquet``
+     - ``simulations/<basename>.parquet.d/timeseries.parquet``
      - **Only** via ``promote_trial``
    * - Figures (PNG)
      - ``<workspace>/projects/<name>/figures/<session_id>/``

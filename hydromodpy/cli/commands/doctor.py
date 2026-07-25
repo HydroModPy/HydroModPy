@@ -116,8 +116,8 @@ def run(args: argparse.Namespace) -> None:
 
 def _migrate_catalogs(workspace_arg: str | None) -> None:
     """Upgrade the catalog schema of every project under the workspace."""
-    from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
     from hydromodpy.results.catalog.migrations import apply_migrations
 
     base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
@@ -129,7 +129,7 @@ def _migrate_catalogs(workspace_arg: str | None) -> None:
         )
     else:
         try:
-            root = find_catalog_root(base)
+            root = resolve_project_root(base)
         except FileNotFoundError:
             root = None
         if root is not None and (root / CATALOG_FILENAME).is_file():
@@ -169,13 +169,12 @@ def _fix_config(toml_path: str) -> None:
 
 def _restore_backup(workspace_arg: str | None, timestamp: str) -> None:
     """Restore the catalog from a pre-migration backup tagged ``timestamp``."""
-    from hydromodpy.cli.helpers import find_catalog_root
     from hydromodpy.core.migrations.auto_boot import backup_path_for, restore_backup
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
 
     base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
     try:
-        workspace_root = find_catalog_root(base)
+        workspace_root = resolve_project_root(base)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)

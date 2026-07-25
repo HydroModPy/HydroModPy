@@ -29,7 +29,7 @@ def workspace_parser() -> argparse.ArgumentParser:
     """Parent parser exposing the shared ``-w/--workspace`` selector.
 
     Accepts a workspace root OR a project directory; commands resolve it
-    through :func:`hydromodpy.core.state.paths.find_catalog_root`.
+    through :func:`hydromodpy.core.state.paths.resolve_project_root`.
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(

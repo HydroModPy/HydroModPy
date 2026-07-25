@@ -11,6 +11,13 @@ with three guarantees that the bare runner does not provide:
 - a rolling history of at most ``MAX_BACKUPS`` snapshots per database
   (oldest removed on overflow).
 
+Two databases are worth that backup: the source-data cache
+(``cache.duckdb``, not reconstructible) and the machine-wide index. The
+per-project catalog is not: it is an index rebuilt from the run stores, so
+its component is listed in :data:`NO_BACKUP_COMPONENTS` and skips the
+snapshot entirely. A database that holds no table yet is never backed up
+either: copying it produces an empty shell that restores nothing.
+
 The opt-out ``HMP_AUTO_MIGRATE=0`` raises :class:`AutoMigrationDisabled`
 when a pending migration is detected, leaving the on-disk file untouched.
 """
@@ -49,6 +56,11 @@ MAX_BACKUPS = 5
 BACKUP_SUFFIX = ".bak-"
 _BACKUP_TS_RE = re.compile(r"^(?P<stem>.+)\.bak-(?P<ts>\d{8}T\d{6}Z)$")
 _ENV_OPT_OUT = "HMP_AUTO_MIGRATE"
+
+# Components whose database is a reconstructible index rather than a primary
+# record. Backing them up before a migration protects nothing that a reindex
+# cannot rebuild, so they opt out.
+NO_BACKUP_COMPONENTS = frozenset({"catalog"})
 
 
 class AutoMigrationDisabled(MigrationError):
@@ -161,6 +173,41 @@ def _copy_backup(
         _copy_backup_from_connection(connection, backup)
 
 
+def _base_table_count(connection: duckdb.DuckDBPyConnection) -> int:
+    """Return how many base tables the main schema of ``connection`` holds."""
+    row = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema = 'main' AND table_type = 'BASE TABLE'"
+    ).fetchone()
+    return int(row[0]) if row is not None else 0
+
+
+def _should_backup(
+    connection: duckdb.DuckDBPyConnection,
+    db_path: Path,
+    *,
+    component: str,
+) -> bool:
+    """Return whether a pre-migration snapshot of ``db_path`` is worth writing."""
+    if component in NO_BACKUP_COMPONENTS:
+        logger.debug(
+            "No pre-migration backup for component %r at %s (reconstructible index).",
+            component,
+            db_path,
+        )
+        return False
+    if not db_path.is_file():
+        return False
+    if _base_table_count(connection) == 0:
+        logger.warning(
+            "Refusing to write an empty pre-migration backup of %s: the database "
+            "holds no table yet, so the snapshot would restore nothing.",
+            db_path,
+        )
+        return False
+    return True
+
+
 def restore_backup(db_path: Path, backup: Path) -> None:
     """Restore ``db_path`` from ``backup`` overwriting the current file.
 
@@ -219,9 +266,10 @@ def ensure_schema_safe(
 
     - acquires a :class:`filelock.FileLock` on ``<db_path>.lock`` so concurrent
       processes serialise their migrations against the same file.
-    - when migrations are pending and ``db_path`` is non-empty, writes a
-      backup ``<db_path>.bak-<ISO8601Z>`` first, then calls
-      :func:`ensure_schema`.
+    - when migrations are pending, writes a backup
+      ``<db_path>.bak-<ISO8601Z>`` first, then calls :func:`ensure_schema`.
+      Components in :data:`NO_BACKUP_COMPONENTS` and databases that hold no
+      table yet are skipped: the snapshot would restore nothing.
     - on success prunes old backups so at most :data:`MAX_BACKUPS` remain.
     - on failure restores the backup (file-level copy) and re-raises.
     - when ``HMP_AUTO_MIGRATE=0`` (and ``allow_auto`` is True), pending
@@ -256,7 +304,7 @@ def ensure_schema_safe(
             )
 
         backup: Path | None = None
-        if db_path.is_file():
+        if _should_backup(connection, db_path, component=component):
             backup = backup_path_for(db_path)
             _copy_backup(db_path, backup, connection=connection)
             logger.debug("Pre-migration backup written: %s", backup)
@@ -292,6 +340,7 @@ __all__ = [
     "AutoMigrationDisabled",
     "BACKUP_SUFFIX",
     "MAX_BACKUPS",
+    "NO_BACKUP_COMPONENTS",
     "backup_path_for",
     "ensure_schema_safe",
     "list_backups",

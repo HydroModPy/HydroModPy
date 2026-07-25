@@ -12,30 +12,43 @@ from hydromodpy.core.config_kit.profile import Profile
 
 
 class DerivedConfig(HydroModelBase):
-    """Toggle flags for derived variable computation."""
+    """Toggle flags for derived variable computation.
+
+    There is no ``groundwater_flux`` flag: no backend stores the intercell
+    face flows it would need. MODFLOW 6 filters FLOW-JA-FACE out of the
+    per-cell budget (it is an antisymmetric vector record, not a scalar
+    stress term), Boussinesq has no face record at all, and the derivation
+    could only ever fail after the solve. The flag was removed with its
+    computation rather than kept as a run-killing option.
+    """
 
     watertable_elevation: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Compute water-table elevation from uppermost saturated layer.",
+        default=False,
+        description=(
+            "Persist water-table elevation (uppermost saturated layer) as a Zarr field. "
+            "Off by default: figures recompute it on the fly from the stored head."
+        ),
     )
     watertable_depth: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Compute water-table depth (surface minus water-table elevation).",
+        default=False,
+        description=(
+            "Persist water-table depth (surface minus water-table elevation) as a Zarr "
+            "field. Off by default: recomputed on the fly from head at render time."
+        ),
     )
     seepage_areas: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Identify seepage areas where water table >= surface elevation.",
-    )
-    groundwater_flux: Annotated[bool, Profile.DEV] = Field(
         default=False,
-        description="Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
+        description=(
+            "Persist the seepage mask (water table >= surface elevation) as a Zarr field. "
+            "Off by default: recomputed on the fly from head at render time."
+        ),
     )
     release_flux: Annotated[bool, Profile.DEV] = Field(
-        default=True,
+        default=False,
         description="Positive total groundwater release flux from drains and surface excess.",
     )
     accumulation_flux: Annotated[bool, Profile.DEV] = Field(
-        default=True,
+        default=False,
         description="Drain flux routed on the drainage network.",
     )
     release_accumulation_flux: Annotated[bool, Profile.DEV] = Field(
@@ -43,7 +56,7 @@ class DerivedConfig(HydroModelBase):
         description="Release flux routed on surface drainage paths.",
     )
     outflow_drain: Annotated[bool, Profile.DEV] = Field(
-        default=True,
+        default=False,
         description="Positive per-cell drain outflow summed over layers.",
     )
     concentration_seepage: Annotated[bool, Profile.DEV] = Field(
@@ -64,8 +77,12 @@ class BudgetConfig(HydroModelBase):
     """Budget extraction configuration."""
 
     spatial_fields: Annotated[bool, Profile.DEV] = Field(
-        default=True,
-        description="Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.",
+        default=False,
+        description=(
+            "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: "
+            "the lumped per-component budget still lands in the budgets table, and the "
+            "catchment scalars (discharge, well pumping) are derived from it."
+        ),
     )
 
 

@@ -168,13 +168,21 @@ class RunArrayProvider:
 
         Mirrors ``read_field`` resolution: a name is listed when it is a
         direct key of the store root or of the ``state`` / ``derived`` /
-        ``budget`` subgroups. Reads only the store layout, never the arrays.
+        ``budget`` / ``mesh`` subgroups, plus the virtual fields this store
+        can rebuild on the fly. Reads only the store layout, never the
+        arrays.
         """
+        from hydromodpy.results.derive.virtual_fields import available_virtual_fields
+
         run = self._run
         sz = run._catalog.open_zarr(run._sim_id)
         try:
-            groups = [sz.root, *(sz.root.get(g) for g in ("state", "derived", "budget"))]
+            groups = [
+                sz.root,
+                *(sz.root.get(g) for g in ("state", "derived", "budget", "mesh")),
+            ]
             present = {key for group in groups if group is not None for key in group.keys()}
+            present.update(available_virtual_fields(sz.root))
             return sorted(name for name in field_registry.FIELD_REGISTRY if name in present)
         finally:
             sz.close()
@@ -195,6 +203,11 @@ class RunArrayProvider:
         is an optional ``slice`` object applied to the time dimension.
         ``bbox`` restricts the dataset to cells whose centroid lies within
         the bounding box.
+
+        A variable that is not persisted but is derivable on the fly
+        (water-table elevation/depth, seepage mask, drain outflow) is
+        rebuilt timestep by timestep and loaded eagerly, so ``has_field``
+        and this reader agree on what a run exposes.
         """
         import xarray as xr
 
@@ -206,12 +219,14 @@ class RunArrayProvider:
             for name in variables:
                 desc = field_registry.get(name)
                 arr = lookup_zarr_path(sz.root, desc.zarr_path)
-                if arr is None:
+                derived = _virtual_field_stack(run, sz, name) if arr is None else None
+                if arr is None and derived is None:
                     raise FieldNotFoundError(
                         f"Field '{name}' not found in simulation '{run._sim_id}'",
                         sim_id=run._sim_id,
                         variable=name,
                     )
+                source = arr if derived is None else derived
                 shape = desc.shape
                 if shape == field_registry.SHAPE_TIME_FACE:
                     dims = ("time", "cell")
@@ -222,8 +237,10 @@ class RunArrayProvider:
                 elif shape == field_registry.SHAPE_FACE:
                     dims = ("cell",)
                 else:
-                    dims = tuple(f"d{i}" for i in range(arr.ndim))
-                if da is None:
+                    dims = tuple(f"d{i}" for i in range(source.ndim))
+                if derived is not None:
+                    values = derived
+                elif da is None:
                     values = np.asarray(arr)
                 else:
                     chunks = arr.chunks if arr.chunks else "auto"
@@ -246,6 +263,30 @@ class RunArrayProvider:
         if bbox is not None:
             ds = _bbox_select_flat(ds, run, bbox)
         return ds
+
+
+def _virtual_field_stack(run, sz, name: str) -> np.ndarray | None:
+    """Rebuild a non-persisted field as a ``(time, cell)`` array, or ``None``.
+
+    Reuses the already-open Zarr handle so a whole-run stack costs one
+    open instead of one per timestep.
+    """
+    from hydromodpy.results.derive.virtual_fields import (
+        ZarrFieldSource,
+        available_virtual_fields,
+        read_field_or_virtual,
+    )
+
+    if name not in available_virtual_fields(sz.root):
+        return None
+    source = ZarrFieldSource(sz, run._sim_id)
+    n_steps = int(run.n_timesteps or 1)
+    return np.stack(
+        [
+            np.asarray(read_field_or_virtual(source, run._sim_id, name, t)).ravel()
+            for t in range(n_steps)
+        ]
+    )
 
 
 def _bbox_select_ugrid(ds, grid, bbox, face_dim):

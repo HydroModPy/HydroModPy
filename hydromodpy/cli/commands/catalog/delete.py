@@ -11,8 +11,8 @@ from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     EXIT_USAGE,
-    find_catalog_root,
 )
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "delete"
 HELP: str = "Move a simulation to the trash (reversible); --now to purge permanently"
@@ -45,7 +45,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import delete_simulation, trash_simulation
     from hydromodpy.cli.helpers import exit_code_for
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
 

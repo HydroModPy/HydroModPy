@@ -310,6 +310,7 @@ def prepare_trials(
             "cfg": cfg,
             "config_path": cfg_path,
             "raw_toml": raw_toml,
+            "skip_display": True,
             "requested_spatial_support_ids": requested_support_ids,
             "requested_domain_supports": requested_domain_supports,
             "spatial_support_registry": spatial_support_registry,
@@ -436,7 +437,9 @@ def run_trial_light(
             )
 
         # Trials only run [earliest..8]. Derive/export/display are reserved
-        # for promotion (steps 09-11).
+        # for promotion (steps 09-11). ``skip_display`` says so to results
+        # reconciliation: a trial draws nothing, so no figure gets to turn a
+        # derived flag on and force the per-cell budget no step would drop.
         downstream_slice = forked.downstream_steps[forked.earliest : 9]
         state = provider.make_state(
             "calibration-trial",
@@ -445,6 +448,7 @@ def run_trial_light(
                 "config_path": forked.cfg_path,
                 "raw_toml": dict(forked.raw_toml),
                 "ctx": forked.ctx,
+                "skip_display": True,
                 **dict(forked.mesh_runtime_sections),
             },
         )

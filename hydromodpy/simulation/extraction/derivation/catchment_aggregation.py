@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -81,6 +82,12 @@ def aggregate_catchment_timeseries(
             values = _aggregate_variable(
                 store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
             )
+            if values is None:
+                # budget.spatial_fields is off by default: the per-cell field is
+                # not persisted, but the lumped per-component budget still is.
+                values = _aggregate_from_lumped_budget(
+                    store, sim_id, store_var, reducer, n_timesteps
+                )
             if values is None:
                 continue
             pending.append((output_var, values))
@@ -351,6 +358,56 @@ def _aggregate_variable(
             values.append(_reduce(field, active_mask, reducer))
 
     return values
+
+
+def _aggregate_from_lumped_budget(
+    store: Any,
+    sim_id: str,
+    store_var: str,
+    reducer: str,
+    n_timesteps: int,
+) -> list[float] | None:
+    """Catchment scalar from the lumped per-component budget table.
+
+    Fallback for when ``budget.spatial_fields`` is off (the default): the spatial
+    per-cell field is absent, but the lumped in/out fluxes (m3/s) still land in the
+    ``budgets`` table. For a single-sign outflow term the spatial ``abs_sum`` (drain)
+    equals ``flux_out``; a signed term's spatial ``sum`` (well) equals
+    ``flux_in - flux_out``. Returns None for other reducers or when no component
+    row matches.
+    """
+    if reducer not in ("abs_sum", "sum"):
+        return None
+    conn = store.connection
+    for candidate in (s.strip() for s in store_var.split("|")):
+        try:
+            rows = conn.execute(
+                "SELECT timestep, SUM(flux_in), SUM(flux_out) FROM budgets "
+                "WHERE sim_id = ? AND component = ? GROUP BY timestep",
+                [str(sim_id), candidate],
+            ).fetchall()
+        except Exception as exc:
+            # The lumped budget is the only source left once the per-cell
+            # budget stopped being persisted: an unreadable table silently
+            # empties discharge, so it must fail loudly.
+            raise ExtractError(
+                f"Cannot read the lumped budget of component '{candidate}' for sim "
+                f"{sim_id}: the catchment '{store_var}' series cannot be built ({exc})."
+            ) from exc
+        if not rows:
+            continue
+        # NaN, not zero, for timesteps with no budget row: a gap must stay
+        # missing instead of biasing the metrics toward a null flux.
+        values = [float("nan")] * n_timesteps
+        for timestep, flux_in, flux_out in rows:
+            t = int(timestep)
+            if not (0 <= t < n_timesteps):
+                continue
+            fout = float(flux_out or 0.0)
+            fin = float(flux_in or 0.0)
+            values[t] = fout if reducer == "abs_sum" else fin - fout
+        return values
+    return None
 
 
 def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.DatetimeIndex:

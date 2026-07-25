@@ -46,7 +46,7 @@ context_outputs_dir = "context"
     )
     assert inputs.transient_config == tmp_path / "run_transient_nwt.toml"
     assert inputs.overview_config == tmp_path / "config_overview.toml"
-    assert inputs.simulation_export == tmp_path / "exports" / "transient_nwt" / "timeseries.csv"
+    assert not hasattr(inputs, "simulation_export")
 
 
 def test_inputs_from_toml_delegate_to_settings() -> None:

@@ -5,10 +5,19 @@ It owns the DuckDB connection, the workspace layout, the open-Zarr-handle
 tracker, and a :class:`StoragePathResolver`. Domain operations live in
 sibling modules (writes, reads, discovery, package_io, lifecycle) and
 are mixed in here via plain inheritance.
+
+The connection is a :class:`CatalogConnection`: DuckDB holds its file lock for
+the whole life of a connection object, so a catalog kept open across a solve
+would lock out every concurrent reader for the entire run. The handle drops
+the lock once the catalog has been idle for :data:`IDLE_RELEASE_SECONDS` and
+reopens transparently on the next statement.
 """
 
 from __future__ import annotations
 
+import threading
+import time
+import weakref
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +26,7 @@ import duckdb
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
@@ -34,9 +44,141 @@ from hydromodpy.results.storage.contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from uuid import UUID
 
     import xarray as xr
+
+logger = get_logger(__name__)
+
+IDLE_RELEASE_SECONDS = 2.0
+_IDLE_SWEEP_SECONDS = 0.5
+# Statements that open (resp. close) a scope spanning several statements. The
+# connection must not be recycled inside one, so they pin it.
+_SCOPE_OPEN_KEYWORDS = frozenset({"begin", "start", "attach"})
+_SCOPE_CLOSE_KEYWORDS = frozenset({"commit", "rollback", "end", "detach"})
+
+
+class CatalogConnection:
+    """DuckDB connection that closes itself while the catalog sits idle.
+
+    Forwards every statement to a live :class:`duckdb.DuckDBPyConnection`, so
+    it is a drop-in for the raw connection the facade used to expose. The
+    underlying connection is opened on first use, released by
+    :class:`_CatalogConnectionSweeper` after ``IDLE_RELEASE_SECONDS`` without a
+    statement, and reopened on the next one. ``BEGIN``/``COMMIT`` and
+    ``ATTACH``/``DETACH`` scopes pin it until they close.
+    """
+
+    def __init__(
+        self,
+        db_path: Path,
+        *,
+        read_only: bool = False,
+        block_size: int | None = None,
+        on_open: Callable[[duckdb.DuckDBPyConnection], None] | None = None,
+    ) -> None:
+        self._db_path = db_path
+        self._read_only = read_only
+        self._block_size = block_size
+        self._on_open = on_open
+        self._lock = threading.RLock()
+        self._conn: duckdb.DuckDBPyConnection | None = None
+        self._scope_depth = 0
+        self._last_use = time.monotonic()
+        self._closed = False
+
+    def acquire(self) -> duckdb.DuckDBPyConnection:
+        """Return the live connection, opening it when it was released."""
+        with self._lock:
+            if self._closed:
+                raise duckdb.ConnectionException("Connection already closed")
+            if self._conn is None:
+                kwargs: dict[str, Any] = {}
+                if self._read_only:
+                    kwargs["read_only"] = True
+                if self._block_size is not None:
+                    kwargs["block_size"] = self._block_size
+                self._conn = connect_with_retry(str(self._db_path), **kwargs)
+                # Callers reach DuckDB through this wrapper, so a DataFrame
+                # referenced by name in SQL lives one frame further up than
+                # the single-frame replacement scan looks by default.
+                self._conn.execute("SET python_scan_all_frames=true")
+                if self._on_open is not None:
+                    self._on_open(self._conn)
+            self._last_use = time.monotonic()
+            return self._conn
+
+    def execute(self, sql: str, *args: Any, **kwargs: Any) -> duckdb.DuckDBPyConnection:
+        """Run one statement on the live connection and track scope keywords."""
+        with self._lock:
+            result = self.acquire().execute(sql, *args, **kwargs)
+            head = sql.split(maxsplit=1)
+            keyword = head[0].lower() if head else ""
+            if keyword in _SCOPE_OPEN_KEYWORDS:
+                self._scope_depth += 1
+            elif keyword in _SCOPE_CLOSE_KEYWORDS:
+                self._scope_depth = max(0, self._scope_depth - 1)
+            return result
+
+    def release_if_idle(self, idle_seconds: float) -> bool:
+        """Close the connection when nothing used it for ``idle_seconds``."""
+        with self._lock:
+            if self._closed or self._conn is None or self._scope_depth > 0:
+                return False
+            if (time.monotonic() - self._last_use) < idle_seconds:
+                return False
+            conn, self._conn = self._conn, None
+            try:
+                conn.close()
+            except Exception:
+                logger.debug("catalog.idle_release_failed path=%s", self._db_path, exc_info=True)
+            return True
+
+    def close(self) -> None:
+        """Close for good: further statements raise like a closed connection."""
+        with self._lock:
+            self._closed = True
+            conn, self._conn = self._conn, None
+        if conn is not None:
+            conn.close()
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return getattr(self.acquire(), name)
+
+
+class _CatalogConnectionSweeper:
+    """Daemon sweeper releasing the file lock of idle catalog connections."""
+
+    def __init__(self) -> None:
+        self._handles: weakref.WeakSet[CatalogConnection] = weakref.WeakSet()
+        self._lock = threading.Lock()
+        self._thread: threading.Thread | None = None
+
+    def track(self, handle: CatalogConnection) -> None:
+        """Register ``handle`` and start the sweeper on first use."""
+        with self._lock:
+            self._handles.add(handle)
+            if self._thread is None:
+                self._thread = threading.Thread(
+                    target=self._sweep_forever,
+                    name="hmp-catalog-idle-release",
+                    daemon=True,
+                )
+                self._thread.start()
+
+    def _sweep_forever(self) -> None:
+        while True:
+            time.sleep(_IDLE_SWEEP_SECONDS)
+            with self._lock:
+                handles = list(self._handles)
+            for handle in handles:
+                handle.release_if_idle(IDLE_RELEASE_SECONDS)
+
+
+_IDLE_SWEEPER = _CatalogConnectionSweeper()
 
 
 class Catalog(
@@ -56,7 +198,8 @@ class Catalog(
 
     The facade owns four pieces of state:
 
-    - ``_db``: the DuckDB connection (re-acquired with retry on contention).
+    - ``_db``: a :class:`CatalogConnection` (lazy DuckDB connection released
+      while idle, re-acquired with retry on contention).
     - ``_workspace``: the project catalog root.
     - ``_paths``: a :class:`StoragePathResolver` translating simulation ids to
       on-disk basenames and Parquet/Zarr paths.
@@ -129,13 +272,18 @@ class Catalog(
 
         if read_only:
             # Inspection path: open read-only, never mutate. No mkdir, no
-            # migration, no DDL persisted; views are session-local TEMPORARY.
+            # migration, no DDL persisted; views are session-local TEMPORARY,
+            # so they are reinstalled every time the handle reopens.
             if not self._db_path.is_file():
                 raise FileNotFoundError(
                     f"No catalog at {self._db_path} to open read-only. "
                     f"Run a workflow there first, or open writable with create."
                 )
-            self._db = connect_with_retry(str(self._db_path), read_only=True)
+            self._db = CatalogConnection(
+                self._db_path,
+                read_only=True,
+                on_open=self._install_session_views,
+            )
             self._backend = DuckDBBackend.from_connection(
                 self._db, path=self._db_path, read_only=True
             )
@@ -143,20 +291,25 @@ class Catalog(
         else:
             self._workspace.mkdir(parents=True, exist_ok=True)
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._db = connect_with_retry(str(self._db_path), block_size=HMP_DUCKDB_BLOCK_SIZE)
+            self._db = CatalogConnection(self._db_path, block_size=HMP_DUCKDB_BLOCK_SIZE)
             self._backend = DuckDBBackend.from_connection(self._db, path=self._db_path)
             self._simulations_dir.mkdir(parents=True, exist_ok=True)
 
         self._open_zarr_handles: list[SimulationZarr] = []
         self._paths = StoragePathResolver(self._backend, self._simulations_dir)
 
-        if read_only:
-            ensure_parquet_views(self._db, self._simulations_dir, temporary=True)
-            ensure_views(self._db, temporary=True)
-        else:
+        if not read_only:
+            # Write-mode views are plain DDL: they are stored in the file and
+            # survive an idle release, so they are installed once.
             self._backend.ensure_schema()
             ensure_parquet_views(self._db, self._simulations_dir)
             ensure_views(self._db)
+        _IDLE_SWEEPER.track(self._db)
+
+    def _install_session_views(self, connection: duckdb.DuckDBPyConnection) -> None:
+        """Install the TEMPORARY read-only views on a freshly opened session."""
+        ensure_parquet_views(connection, self._simulations_dir, temporary=True)
+        ensure_views(connection, temporary=True)
 
     def _require_schema_current(self) -> None:
         """Raise when a read-only open hits a catalog whose schema is behind."""
@@ -297,8 +450,8 @@ class Catalog(
         return cls.from_workspace_config(cfg.workspace)
 
     @property
-    def connection(self) -> duckdb.DuckDBPyConnection:
-        """Return the DuckDB connection for protocol-based integrations."""
+    def connection(self) -> CatalogConnection:
+        """Return the DuckDB connection handle for protocol-based integrations."""
         return self._db
 
     @property

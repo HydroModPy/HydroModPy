@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for, find_catalog_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "tag"
 HELP: str = "Add or remove tags on a simulation (reserved tag: pinned)"
@@ -48,7 +49,7 @@ def run(args: argparse.Namespace) -> None:
         print("Nothing to do: pass tags to add or --rm TAG to remove.", file=sys.stderr)
         sys.exit(EXIT_USAGE)
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:

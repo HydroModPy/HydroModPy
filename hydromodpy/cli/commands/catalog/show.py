@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import add_sim_ref, format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for, find_catalog_root
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
 
 NAME: str = "show"
 HELP: str = "Show simulation metadata, metrics, parameters, and storage layout"
@@ -44,7 +44,7 @@ def run(args: argparse.Namespace) -> None:
         SimulationNotFoundError,
     )
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     if not (workspace_root / CATALOG_FILENAME).exists():

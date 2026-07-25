@@ -129,38 +129,60 @@ class TestRegisterAndFinalize:
     def test_if_exists_version_is_default(self, catalog):
         """``if_exists='version'`` (default) mints ``stem.vN`` and keeps every run.
 
-        The bare original is demoted to ``stem.v1`` so the bare name always
-        resolves to the latest version of the stem.
+        The bare name is version 1 for good: the first run is never renamed,
+        so the stem grows as ``r1``, ``r1.v2``, ``r1.v3``.
         """
+        sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
         _register(catalog, name="r1", n_cells=10, n_layers=1)
-        sid2, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
         sid3, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
         count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 3
         names = {
             r[0] for r in catalog.connection.execute("SELECT name FROM simulations").fetchall()
         }
-        assert names == {"r1.v1", "r1.v2", "r1.v3"}
+        assert names == {"r1", "r1.v2", "r1.v3"}
+        first = catalog.connection.execute(
+            "SELECT name, version_int FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
+            [sid1],
+        ).fetchone()
+        assert first == ("r1", 1)
         latest = catalog.connection.execute(
             "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = 'r1.v3'"
         ).fetchone()
         assert latest[0] == sid3
 
+    def test_registering_a_second_run_leaves_the_first_untouched(self, catalog):
+        """A sealed run keeps its name, version and ``updated_at``."""
+        sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
+        before = catalog.connection.execute(
+            "SELECT name, version_int, updated_at FROM simulations "
+            "WHERE CAST(sim_id AS VARCHAR) = ?",
+            [sid1],
+        ).fetchone()
+        _register(catalog, name="r1", n_cells=10, n_layers=1)
+        after = catalog.connection.execute(
+            "SELECT name, version_int, updated_at FROM simulations "
+            "WHERE CAST(sim_id AS VARCHAR) = ?",
+            [sid1],
+        ).fetchone()
+        assert after == before
+
     def test_if_exists_replace_trashes_predecessor(self, catalog):
-        """``if_exists='replace'`` trashes the predecessor and takes the name."""
+        """``if_exists='replace'`` trashes the predecessor, name and version kept."""
         sid1, _ = _register(catalog, name="solo", n_cells=10, n_layers=1)
         sid2, _ = _register(catalog, name="solo", if_exists="replace", n_cells=10, n_layers=1)
-        current = catalog.connection.execute(
-            "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = 'solo'"
+        successor = catalog.connection.execute(
+            "SELECT name, version_int FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
+            [sid2],
         ).fetchone()
-        assert current[0] == sid2
+        assert successor == ("solo.v2", 2)
         predecessor = catalog.connection.execute(
-            "SELECT s.name, st.code, s.original_name "
+            "SELECT s.name, s.version_int, st.code, s.original_name "
             "FROM simulations s JOIN statuses st ON s.status_id = st.id "
             "WHERE CAST(s.sim_id AS VARCHAR) = ?",
             [sid1],
         ).fetchone()
-        assert predecessor == (None, "trashed", "solo")
+        assert predecessor == ("solo", 1, "trashed", "solo")
 
     def test_if_exists_fail_raises(self, catalog):
         _register(catalog, name="solo", n_cells=10, n_layers=1)

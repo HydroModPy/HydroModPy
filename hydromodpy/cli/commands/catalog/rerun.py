@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import add_sim_ref, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for, find_catalog_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "rerun"
 HELP: str = "Re-launch a run from its config snapshot with --set path=value overrides"
@@ -62,7 +63,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import rerun_simulation
 
     overrides = _parse_overrides(args.overrides)
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:

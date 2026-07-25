@@ -203,6 +203,15 @@ Sections
       Optional calibration settings loaded from the [calibration] section.  When present, triggers the calibration workflow.
 
    .. grid-item-card::
+      :link: spinup
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[spinup]**
+      ^^^
+      Optional cyclic spin-up settings loaded from the [spinup] section. Drives 'hmp spinup': repeat a forcing window, restart each cycle from the previous state, until the heads and the lake stage converge.
+
+   .. grid-item-card::
       :link: testbed
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -255,6 +264,7 @@ Sections
    mesh_catchment
    mesh_input
    calibration
+   spinup
    testbed
    site_selection
    hydrometry

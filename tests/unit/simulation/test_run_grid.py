@@ -234,7 +234,9 @@ class TestFields:
         run = Run(sid, catalog)
 
         fields = run.array.list_fields()
-        assert fields == ["head", "watertable_depth"]
+        # Persisted names plus the head-derived fields rebuilt on read. This
+        # store has no surface elevation, so depth and seepage stay out.
+        assert fields == ["head", "watertable_depth", "watertable_elevation"]
         # every listed name is readable through run.field
         for name in fields:
             assert run.field(name, timestep=0).size == n_cells

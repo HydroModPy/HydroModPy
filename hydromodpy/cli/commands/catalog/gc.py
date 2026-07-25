@@ -1,8 +1,10 @@
 """``hmp catalog gc`` - the single workspace maintenance verb.
 
-Plans by default; ``--apply`` purges expired trash, removes orphan stores,
-replays interrupted purges, marks stale running runs failed, cleans orphan
-caches and tmp parquet, and compacts DuckDB + Zarr (the absorbed ``vacuum``).
+Plans by default; ``--apply`` purges expired trash, quarantines orphan
+stores, replays interrupted purges, marks stale running runs failed, cleans
+orphan caches and tmp parquet, and compacts DuckDB + Zarr (the absorbed
+``vacuum``). An orphan store is never destroyed: it is moved to
+``<project>/.hmp/trash/<stamp>/`` because it may be the last copy of a run.
 """
 
 from __future__ import annotations
@@ -14,7 +16,9 @@ from hydromodpy.cli._conventions import format_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "gc"
-HELP: str = "Maintenance: expire trash, drop orphan stores, replay purges, compact DuckDB + Zarr"
+HELP: str = (
+    "Maintenance: expire trash, quarantine orphan stores, replay purges, compact DuckDB + Zarr"
+)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -57,6 +61,8 @@ def run(args: argparse.Namespace) -> None:
         print(f"{label}{key}: {len(items)} candidate(s)")
         for item in items:
             print(f"  - {item}")
+        if key == "orphan_stores" and items:
+            print("  (moved to <project>/.hmp/trash/<stamp>/, never deleted)")
     if dry_run:
         print("\nPlan only. Re-run with --apply to execute.")
         sys.exit(EXIT_OK)

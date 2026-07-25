@@ -22,10 +22,9 @@ from hydromodpy.cli._conventions import workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
-    find_catalog_root,
 )
 from hydromodpy.core import progress
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
 from hydromodpy.display.catchment_report.cli import add_catchment_report_arguments
 
 NAME: str = "report"
@@ -108,7 +107,7 @@ def _cmd_render(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
     from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 
-    workspace_root = args.workspace or find_catalog_root(Path.cwd())
+    workspace_root = args.workspace or resolve_project_root(Path.cwd())
     try:
         with progress.status("Rendering calibration report"):
             out_path = hmp.report(args.sim_ref, workspace=workspace_root)
@@ -132,7 +131,7 @@ def _cmd_compare(args: argparse.Namespace) -> None:
         SimulationNotFoundError,
     )
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     if not (workspace_root / CATALOG_FILENAME).exists():

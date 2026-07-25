@@ -19,6 +19,7 @@ from hydromodpy.core import progress
 from hydromodpy.workflow.steps.display import step_render_figures
 from hydromodpy.workflow.steps.export import (
     step_cleanup_scratch,
+    step_drop_intermediate_budget,
     step_finalize_store,
     step_save_run_artifacts,
 )
@@ -117,7 +118,13 @@ def prepare_run(
         solver=solver,
     )
 
-    ctx.effective_results_config = step_configure_results(ctx.cfg.simulation.results, plan)
+    reconciled = step_configure_results(
+        ctx.cfg.simulation.results,
+        plan,
+        ctx.cfg.display,
+    )
+    ctx.effective_results_config = reconciled.config
+    ctx.forced_results_flags = reconciled.forced_flags
     if properties is not None:
         ctx.setup.flow_runtime_overrides = {
             "source": "project_run",
@@ -171,10 +178,15 @@ def execute_run(
     from hydromodpy.simulation.planning.plan import RunContext
 
     plan = ctx.execution.simulation_plan
-    results_cfg = ctx.effective_results_config or step_configure_results(
-        ctx.cfg.simulation.results,
-        plan,
-    )
+    results_cfg = ctx.effective_results_config
+    if results_cfg is None:
+        reconciled = step_configure_results(
+            ctx.cfg.simulation.results,
+            plan,
+            ctx.cfg.display,
+        )
+        results_cfg = reconciled.config
+        ctx.forced_results_flags = reconciled.forced_flags
     ctx.effective_results_config = results_cfg
 
     def _after_run(run, result, state):
@@ -268,6 +280,8 @@ def cleanup_run(
 ) -> None:
     """Finalize the simulation row and remove the scratch directory.
 
+    Call it last: it drops the intermediate per-cell budget, so every reader
+    of the run (:func:`render_run` included) must have run before.
     ``close_store=False`` leaves the catalog open so the caller can keep using
     it (Project lifetime). ``status`` selects the final DuckDB status and is
     usually "completed"; pass "failed" when the run raised.
@@ -306,6 +320,9 @@ def cleanup_run(
             run_id=ctx.setup.run_id,
         )
 
+    if status == "completed":
+        step_drop_intermediate_budget(ctx)
+
     if close_store:
         step_finalize_store(ctx, wall_seconds=wall_seconds, status=status)
     elif ctx.store is not None:
@@ -318,7 +335,9 @@ def standard_steps() -> tuple:
     Order matches the shared phase contract in
     :mod:`hydromodpy.workflow.phases`: build the geographic/domain runtime,
     load data into that runtime, build/import the mesh, bind processes, then
-    prepare and run the solver.
+    prepare and run the solver. The tail is extract, derive, display, export:
+    figures are the last reader of the run, so they draw before the export
+    step drops the intermediate fields and seals the store.
     """
     from hydromodpy.workflow.steps import (
         BuildGeographicStep,
@@ -346,8 +365,8 @@ def standard_steps() -> tuple:
         RunSolverStep(),
         ExtractStep(),
         DeriveStep(),
-        ExportStep(),
         DisplayStep(),
+        ExportStep(),
     )
 
 

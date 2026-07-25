@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "trash"
 HELP: str = "List trashed runs, or permanently empty the trash with --empty"
@@ -38,7 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import empty_trashed, list_trashed
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
 

@@ -348,7 +348,6 @@ project_results.zarr/
     |   +-- watertable_elevation           # (ntimesteps, ncells) float64 - 2D
     |   +-- watertable_depth               # (ntimesteps, ncells) float64 - 2D
     |   +-- seepage_areas                  # (ntimesteps, ncells) bool - 2D
-    |   +-- groundwater_flux               # (ntimesteps, nlayers, ncells) float64
     |   +-- accumulation_flux              # (ntimesteps, ncells) float64 - 2D
     |   +-- concentration_seepage          # (ntimesteps, ncells) float64 - 2D
     |   +-- mass_seepage                   # (ntimesteps, ncells) float64 - 2D
@@ -827,7 +826,6 @@ Calculees a partir des sorties brutes, stockees dans Zarr `derived/` :
 | `watertable_elevation` | `flopy.utils.postprocessing.get_water_table(head)` | head |
 | `watertable_depth` | `SolverMesh.top - watertable_elevation` | head, mesh |
 | `seepage_areas` | `watertable_elevation >= SolverMesh.top` (booleen) | head, mesh |
-| `groundwater_flux` | magnitude des flux inter-cellules (right/front/lower face) | budget |
 | `accumulation_flux` | routage des flux de drain sur le reseau hydrographique | budget (DRN) |
 | `concentration_seepage` | concentration aux cellules de suintement uniquement | concentration, seepage |
 | `mass_seepage` | flux de masse au suintement | concentration, budget |
@@ -970,9 +968,8 @@ keep_solver_files = false          # garder les fichiers proprietaires du solver
 watertable_elevation = true
 watertable_depth = true
 seepage_areas = true
-groundwater_flux = false           # volumineux (3D x temps)
 accumulation_flux = false          # necessite le reseau de drainage
-concentration_seepage = false      # necessite transport
+concentration_seepage = false      # necessite un transport de solute
 mass_seepage = false
 mass_accumulated = false
 
