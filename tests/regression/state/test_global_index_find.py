@@ -15,13 +15,14 @@ from pathlib import Path
 import duckdb
 
 from hydromodpy.core.state.global_index import GlobalIndex
+from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.results.catalog.migrations import ensure_schema as _ensure_catalog
 
 
 def _seed_real_catalog(workspace: Path, *, solver_code: str, project: str) -> str:
     """Materialise a real catalog DB with one simulation under ``solver_code``."""
-    catalog_path = workspace / "catalog.duckdb"
-    workspace.mkdir(parents=True, exist_ok=True)
+    catalog_path = catalog_path_for(workspace)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
     sim_id = str(uuid.uuid4())
     connection = duckdb.connect(str(catalog_path))
     try:
@@ -79,8 +80,8 @@ def test_find_filters_on_solver_code(tmp_path: Path) -> None:
 
 def _seed_row(workspace: Path, *, name: str, status_code: str, nse: float | None = None) -> str:
     """Insert one simulation row (and optional nse metric) into a catalog."""
-    catalog_path = workspace / "catalog.duckdb"
-    workspace.mkdir(parents=True, exist_ok=True)
+    catalog_path = catalog_path_for(workspace)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
     sim_id = str(uuid.uuid4())
     connection = duckdb.connect(str(catalog_path))
     try:

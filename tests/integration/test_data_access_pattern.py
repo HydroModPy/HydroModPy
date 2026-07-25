@@ -119,7 +119,7 @@ class TestParquetPattern:
 
     def test_parquet_with_kv_metadata(self, catalog):
         sid = _seed_run(catalog, project="ml_p3", name="r1", objective="exploratory")
-        target = catalog.parquet_dir_for(sid) / "timeseries.parquet"
+        target = catalog.tables_dir_for(sid) / "timeseries.parquet"
         assert target.is_file()
 
         # Read via DuckDB (no pyarrow dependency); equivalent to

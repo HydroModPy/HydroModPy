@@ -25,10 +25,11 @@ def _run(monkeypatch, argv: list[str]) -> int:
 
 def _seed_workspace_with_catalog(workspace: Path) -> None:
     """Create a workspace with an empty v2 catalog so ``register`` accepts it."""
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
 
-    workspace.mkdir(parents=True, exist_ok=True)
-    conn = duckdb.connect(str(workspace / CATALOG_FILENAME))
+    catalog_path = catalog_path_for(workspace)
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = duckdb.connect(str(catalog_path))
     try:
         conn.execute(
             "CREATE TABLE simulations ("
@@ -113,13 +114,15 @@ def test_register_workspace_via_cli(monkeypatch, capsys, tmp_path, isolated_stat
 def test_register_missing_catalog_exits_not_found(
     monkeypatch, capsys, tmp_path, isolated_state
 ) -> None:
-    """Registering a path without ``catalog.duckdb`` returns EXIT_NOT_FOUND."""
+    """Registering a path without ``.hmp/index.duckdb`` returns EXIT_NOT_FOUND."""
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
     ws = tmp_path / "empty_ws"
     ws.mkdir()
     code = _run(monkeypatch, ["hmp", "workspace", "register", str(ws)])
     assert code == 10
     err = capsys.readouterr().err
-    assert "catalog.duckdb" in err
+    assert CATALOG_FILENAME in err
 
 
 def test_register_help_mentions_workspace_uri(monkeypatch, capsys) -> None:

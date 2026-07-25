@@ -8,7 +8,6 @@ mapping, schema version checks, and the topography/particles renames.
 from __future__ import annotations
 
 import os
-import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +15,7 @@ import pytest
 import zarr
 
 import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import (
     BALANCED_TARGET_BYTES,
     HIGHLY_RECOMMENDED,
@@ -171,14 +171,20 @@ def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows long-path regression")
-def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
+def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
     long_dir = tmp_path
     idx = 0
     while (
         len(
             str(
                 (
-                    long_dir / "sim.zarr" / "derived" / "watertable_elevation" / "c" / "0" / "0"
+                    long_dir
+                    / FIELDS_STORE_NAME
+                    / "derived"
+                    / "watertable_elevation"
+                    / "c"
+                    / "0"
+                    / "0"
                 ).resolve()
             )
         )
@@ -188,7 +194,8 @@ def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path
         idx += 1
 
     values = np.array([220.0, 221.0, 222.0, 223.0], dtype="float64")
-    sz = SimulationZarr.create(long_dir / "sim.zarr", n_cells=4, n_layers=1)
+    store_path = long_dir / FIELDS_STORE_NAME
+    sz = SimulationZarr.create(store_path, n_cells=4, n_layers=1)
     try:
         sz.write_field(
             "watertable_elevation",
@@ -197,16 +204,14 @@ def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path
             n_timesteps=1,
             subgroup="derived",
         )
-        zip_path = sz.pack_to_zip()
     finally:
         sz.close()
 
-    with zipfile.ZipFile(str(zip_path), "r") as zf:
-        names = set(zf.namelist())
-    assert "derived/watertable_elevation/zarr.json" in names
-    assert any(name.startswith("derived/watertable_elevation/c/") for name in names)
+    array_dir = store_path / "derived" / "watertable_elevation"
+    assert (array_dir / "zarr.json").is_file()
+    assert any(path.is_file() for path in (array_dir / "c").rglob("*"))
 
-    reopened = SimulationZarr(zip_path)
+    reopened = SimulationZarr(store_path)
     try:
         np.testing.assert_allclose(
             reopened.root["derived"]["watertable_elevation"][0],

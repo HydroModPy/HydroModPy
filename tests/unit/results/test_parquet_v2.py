@@ -155,7 +155,7 @@ class TestKvMetadataEnriched:
         with Catalog(tmp_path) as cat:
             sid = _register(cat, name="rich")
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            target = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
+            target = cat.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
         md = read_kv_metadata(target)
         assert md.get("hmp.schema_version") == PARQUET_SCHEMA_VERSION
         assert md.get("hmp.schema") == "timeseries"
@@ -171,7 +171,7 @@ class TestSchemaVersion:
         with Catalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            target = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
+            target = cat.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
         md = read_kv_metadata(target)
         check_schema_version(md)
         assert md["hmp.schema_version"] == PARQUET_SCHEMA_VERSION

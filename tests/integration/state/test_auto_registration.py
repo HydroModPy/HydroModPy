@@ -17,6 +17,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.state.global_index import GlobalIndex, auto_register_workspace
+from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.core.state.run_state import WorkflowContext
 
 
@@ -25,7 +26,7 @@ class _DummyWorkspace:
         self.config = config
         self.project_root = Path(getattr(config, "project_root", "workspace"))
         self.project_root.mkdir(parents=True, exist_ok=True)
-        self.solver_scratch_folder = self.project_root / ".solver_scratch"
+        self.solver_scratch_folder = scratch_dir_for(self.project_root)
         self.catch_name = self.project_root.name
 
 

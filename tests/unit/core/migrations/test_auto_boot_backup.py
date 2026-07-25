@@ -11,6 +11,7 @@ import pytest
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.migrations import ensure_schema_safe, list_backups
 from hydromodpy.core.migrations.auto_boot import NO_BACKUP_COMPONENTS
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 _CACHE_COMPONENT = "data_cache"
 
@@ -90,7 +91,7 @@ def test_populated_database_keeps_its_backup(tmp_path: Path, versions_dir: Path)
 def test_catalog_component_skips_backup(tmp_path: Path, versions_dir: Path) -> None:
     """The project catalog is a reconstructible index: no snapshot, even populated."""
     assert "catalog" in NO_BACKUP_COMPONENTS
-    db_path = tmp_path / "catalog.duckdb"
+    db_path = tmp_path / CATALOG_FILENAME
     conn = duckdb.connect(str(db_path))
     try:
         conn.execute("CREATE TABLE payload (id INTEGER)")

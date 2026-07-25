@@ -11,18 +11,22 @@ import pytest
 
 from hydromodpy.cli._workers import viz as viz_worker
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.display.runs import FigureRenderReport, SkippedFigure
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 from tests._helpers.cli_runner import CliRunner
 
 
-def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path) -> None:
+def test_render_figure_defaults_to_the_figures_dir_of_the_run(monkeypatch, tmp_path) -> None:
     workspace = tmp_path / "workspace"
     catalog_root = tmp_path / "catalog"
+    run_dir = catalog_root / RUNS_DIRNAME / "sim_a"
     calls: dict[str, object] = {}
 
     class FakeCatalog:
-        def __init__(self, root: Path) -> None:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
             calls["catalog_root"] = root
+            calls["read_only"] = read_only
 
         def __enter__(self):
             return self
@@ -30,8 +34,16 @@ def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path
         def __exit__(self, *exc_info: object) -> None:
             calls["closed"] = True
 
-        def __getitem__(self, sim_ref: str) -> SimpleNamespace:
+        def resolve(self, sim_ref: str) -> str:
             calls["sim_ref"] = sim_ref
+            return "sim-001"
+
+        def run_dir_for(self, sid: str) -> Path:
+            calls["run_dir_for"] = sid
+            return run_dir
+
+        def __getitem__(self, sid: str) -> SimpleNamespace:
+            calls["sim_id"] = sid
             return SimpleNamespace(name="sim-a")
 
     class FakeFigure:
@@ -52,12 +64,15 @@ def test_render_figure_resolves_catalog_and_default_output(monkeypatch, tmp_path
 
     output = viz_worker.render_figure("abc123", "head_map", workspace=workspace)
 
-    expected_output = tmp_path / "figures" / "head_map.png"
+    expected_output = run_dir / RUN_FIGURES_DIRNAME / "head_map.png"
     assert output == expected_output
     assert calls == {
         "catalog_search_start": workspace.resolve(),
         "catalog_root": catalog_root,
+        "read_only": True,
         "sim_ref": "abc123",
+        "run_dir_for": "sim-001",
+        "sim_id": "sim-001",
         "plot": {"sim": "sim-a", "save_path": expected_output},
         "closed": True,
     }
@@ -89,8 +104,9 @@ def test_render_gallery_selects_sim_prefix_and_forwards_display_options(
             return cls(raw)
 
     class FakeCatalog:
-        def __init__(self, root: Path) -> None:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
             calls["project_root"] = root
+            calls["read_only"] = read_only
 
         def __enter__(self):
             return self
@@ -206,8 +222,9 @@ def test_render_gallery_summarizes_a_figure_it_could_not_produce(monkeypatch, tm
             return cls()
 
     class FakeCatalog:
-        def __init__(self, root: Path) -> None:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
             self.root = root
+            self.read_only = read_only
 
         def __enter__(self):
             return self
@@ -276,8 +293,9 @@ def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> N
             return cls()
 
     class FakeCatalog:
-        def __init__(self, root: Path) -> None:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
             self.root = root
+            self.read_only = read_only
 
         def __enter__(self):
             return self

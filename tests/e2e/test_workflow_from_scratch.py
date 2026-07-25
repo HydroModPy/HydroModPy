@@ -30,6 +30,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for
+
 
 def _run_hmp(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run ``python -m hydromodpy <args>`` and return the completed process."""
@@ -81,7 +83,7 @@ def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> t
         )
         catalog.write_metric(sim_id, station_id="P01", metric_name="nse", value=0.91)
         catalog.finalize(sim_id, status="completed", duration_s=0.1)
-        return catalog.zarr_path_for(sim_id), catalog.parquet_dir_for(sim_id)
+        return catalog.fields_path_for(sim_id), catalog.tables_dir_for(sim_id)
 
 
 @pytest.mark.e2e
@@ -159,8 +161,8 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     zarr_path, parquet_dir = _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
 
     # ----- Step 6: catalog + artefacts on disk are visible ------------------
-    catalog_db = workspace / "catalog.duckdb"
-    assert catalog_db.is_file(), "catalog.duckdb must be created in the workspace"
+    catalog_db = catalog_path_for(workspace)
+    assert catalog_db.is_file(), f"{CATALOG_FILENAME} must be created in the project"
     assert zarr_path.exists(), f"Zarr store missing at {zarr_path}"
     assert parquet_dir.exists(), f"Parquet directory missing at {parquet_dir}"
 
@@ -291,8 +293,8 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
             f"data or extra binaries). Stderr tail:\n{completed.stderr[-2000:]}"
         )
 
-    catalog_db = out_path / "catalog.duckdb"
-    assert catalog_db.is_file(), "catalog.duckdb missing after hmp run"
+    catalog_db = catalog_path_for(out_path)
+    assert catalog_db.is_file(), f"{CATALOG_FILENAME} missing after hmp run"
 
     import hydromodpy as hmp
 
@@ -300,7 +302,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
         sims = catalog.list_simulations()
         assert not sims.empty, "no simulation row recorded after hmp run"
         sim_id = str(sims.iloc[0]["sim_id"])
-        zarr_path = catalog.zarr_path_for(sim_id)
-        parquet_dir = catalog.parquet_dir_for(sim_id)
+        zarr_path = catalog.fields_path_for(sim_id)
+        parquet_dir = catalog.tables_dir_for(sim_id)
     assert zarr_path.exists(), "Zarr artefact missing"
     assert parquet_dir.exists(), "Parquet directory missing"

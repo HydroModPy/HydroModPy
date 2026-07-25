@@ -19,6 +19,8 @@ from unittest.mock import MagicMock
 
 import hydromodpy.display.runs as display_runs
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.display import DisplayStep
 
@@ -39,7 +41,7 @@ def _make_ctx(
         figures=figures,
         save=True,
         dpi=150,
-        output_dir=Path("figures"),
+        output_dir=RUN_FIGURES_DIRNAME,
     )
     cfg = SimpleNamespace(display=display)
     setup = SimpleNamespace(workspace=workspace)
@@ -102,7 +104,8 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
     )
     state = PipelineState(run_id="r", data={"ctx": ctx})
 
-    written = tmp_path / "figures" / "baseline" / "piezometric_map.png"
+    expected_dir = runs_dir_for(tmp_path) / "baseline" / RUN_FIGURES_DIRNAME
+    written = expected_dir / "piezometric_map.png"
     renderer = MagicMock(
         return_value=display_runs.FigureRenderReport(
             requested=("piezometric_map",),
@@ -115,7 +118,7 @@ def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path):
     final = DisplayStep().run(state)
     renderer.assert_called_once()
     _, kwargs = renderer.call_args
-    assert kwargs["output_dir"] == tmp_path / "figures" / "baseline"
+    assert kwargs["output_dir"] == expected_dir
     assert final.get("rendered_figures") == [written]
 
 
@@ -161,7 +164,7 @@ def test_display_step_summary_names_a_figure_the_run_could_not_produce(monkeypat
     messages = [r.getMessage() for r in records if "figure(s)" in r.getMessage()]
     assert messages == [
         "Rendered 0/1 figure(s) -> "
-        f"{tmp_path / 'figures' / 'baseline'}; 1 skipped: "
+        f"{runs_dir_for(tmp_path) / 'baseline' / RUN_FIGURES_DIRNAME}; 1 skipped: "
         "calibration_convergence (missing catalog table(s): calibration_trials)"
     ]
     assert [r.levelname for r in records if "figure(s)" in r.getMessage()] == ["WARNING"]

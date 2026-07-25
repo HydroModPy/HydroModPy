@@ -4,12 +4,21 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import runs_dir_for, share_dir_for
 from hydromodpy.display.catchment_report import pipeline as pipeline_module
 from hydromodpy.display.catchment_report.pipeline import (
     CatchmentReportPipelineResult,
     run_catchment_report_pipeline,
 )
 from hydromodpy.display.catchment_report.preflight import CatchmentReportPreflightError
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
+
+
+def _make_run_figures_dir(workspace: Path, run_name: str) -> Path:
+    """Create ``<workspace>/runs/<run>/figures``, where the report reads them."""
+    figures = runs_dir_for(workspace) / run_name / RUN_FIGURES_DIRNAME
+    figures.mkdir(parents=True, exist_ok=True)
+    return figures
 
 
 class _CompletedRun:
@@ -110,7 +119,7 @@ def test_run_simulation_accepts_expected_report_outputs(monkeypatch, tmp_path) -
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
     _write_catalog_run(tmp_path / "sim_workspace", "test_run")
-    (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
+    _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
 
     monkeypatch.setattr(
         "hydromodpy.display.catchment_report.pipeline.subprocess.run",
@@ -146,7 +155,7 @@ no_lock = false
     )
     _write_transient_config(tmp_path)
     _write_catalog_run(tmp_path / "sim_workspace", "test_run")
-    (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
+    _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
     calls = []
 
     def fake_run(command, **kwargs):
@@ -185,7 +194,7 @@ stream_run_logs = true
     )
     _write_transient_config(tmp_path)
     _write_catalog_run(tmp_path / "sim_workspace", "test_run")
-    (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
+    _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
     calls = []
 
     def fake_run(command, **kwargs):
@@ -223,7 +232,7 @@ build_report_html = false
     _write_overview_config(tmp_path)
     _write_transient_config(tmp_path)
     _write_catalog_run(tmp_path / "sim_workspace", "test_run")
-    (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
+    _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
     calls = []
 
     def fake_run(command, **kwargs):
@@ -278,8 +287,8 @@ def test_preflight_reports_missing_context_for_report_only(tmp_path) -> None:
     config_path = tmp_path / "catchment_report.toml"
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
-    (tmp_path / "figures" / "overview").mkdir(parents=True)
-    (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
+    (share_dir_for(tmp_path) / "figures" / "overview").mkdir(parents=True)
+    _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
 
     with pytest.raises(CatchmentReportPreflightError) as exc_info:
         run_catchment_report_pipeline(
@@ -354,8 +363,8 @@ def test_pipeline_writes_postflight_report_after_html(
         encoding="utf-8",
     )
     (tmp_path / "context" / "web" / "assets").mkdir(parents=True)
-    (tmp_path / "figures" / "overview").mkdir(parents=True)
-    (tmp_path / "sim_workspace" / "figures" / "test_run").mkdir(parents=True)
+    (share_dir_for(tmp_path) / "figures" / "overview").mkdir(parents=True)
+    _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
     html_path = tmp_path / "report" / "web" / "index.html"
     postflight_path = tmp_path / "report" / "block_report_postflight.json"
     captured = {}

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.group import RunSet
@@ -101,8 +102,8 @@ class TestSimulationGroup:
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",
             project_root=project_root,
-            catalog_path=project_root / "catalog.duckdb",
-            simulations_dir=project_root / "simulations",
+            catalog_path=catalog_path_for(project_root),
+            runs_dir=runs_dir_for(project_root),
         )
         ctx = SimpleNamespace(
             setup=SimpleNamespace(

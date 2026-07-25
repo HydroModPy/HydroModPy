@@ -9,6 +9,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.workflow.steps.setup import step_setup
 
 from ._launcher_run_id_builders import (
@@ -162,10 +163,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     assert run_state.setup.geographic is synthetic_runtime
     assert captured["config"] is geographic_cfg.synthetic
     assert captured["workspace"] is run_state.setup.workspace
-    assert (
-        captured["output_dir"]
-        == Path("workspace") / ".solver_scratch/_preprocessing" / "geographic"
-    )
+    assert captured["output_dir"] == Path("workspace") / PREPROCESSING_DIR / "geographic"
 
 
 def test_process_launcher_rejects_embedded_mesh_catchment_batch_section() -> None:

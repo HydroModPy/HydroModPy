@@ -10,13 +10,33 @@ from __future__ import annotations
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     INDEX_FILENAME,
+    INTERNAL_DIRNAME,
+    PROJECT_MARKER_FILENAME,
     PROJECT_TOML_FILENAME,
+    RUNS_DIRNAME,
+    SHARE_DIRNAME,
     WORKSPACE_TOML_FILENAME,
+    catalog_path_for,
+    runs_dir_for,
+    share_dir_for,
 )
 
 
 def test_catalog_filename_is_canonical():
-    assert CATALOG_FILENAME == "catalog.duckdb"
+    assert CATALOG_FILENAME == "index.duckdb"
+
+
+def test_project_directory_names_are_canonical():
+    assert PROJECT_MARKER_FILENAME == "project.toml"
+    assert RUNS_DIRNAME == "runs"
+    assert SHARE_DIRNAME == "share"
+    assert INTERNAL_DIRNAME == ".hmp"
+
+
+def test_project_path_helpers_build_the_runs_first_tree(tmp_path):
+    assert catalog_path_for(tmp_path) == tmp_path / ".hmp" / "index.duckdb"
+    assert runs_dir_for(tmp_path) == tmp_path / "runs"
+    assert share_dir_for(tmp_path) == tmp_path / "share"
 
 
 def test_project_toml_filename_is_canonical():

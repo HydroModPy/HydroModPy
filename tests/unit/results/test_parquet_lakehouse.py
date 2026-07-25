@@ -33,7 +33,7 @@ class TestAtomicWrite:
         with Catalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            target = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
+            target = cat.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
         assert target.is_file()
         assert not target.with_name(target.name + ".tmp").exists()
 
@@ -106,7 +106,7 @@ class TestDelete:
                     }
                 ],
             )
-            parquet_dir = cat.parquet_dir_for(sid)
+            parquet_dir = cat.tables_dir_for(sid)
             assert parquet_dir.is_dir()
             cat.delete(sid)
             assert not parquet_dir.exists()
@@ -154,7 +154,7 @@ class TestAtomicInterruption:
         with Catalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            stray = cat.parquet_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}.tmp"
+            stray = cat.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}.tmp"
             stray.write_bytes(b"corrupted")
             count = cat.connection.execute(
                 "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]

@@ -18,6 +18,7 @@ import pandas as pd
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.core.state.paths import catalog_path_for
 
 
 def _register_demo_sim(catalog, *, project: str, nse: float, sim_name: str):
@@ -51,7 +52,7 @@ def test_catalog_supports_context_manager(tmp_path: Path) -> None:
     ws = tmp_path / "workspace"
     with hmp.open(ws, create=True) as catalog:
         assert catalog.workspace_path == ws
-    assert (ws / "catalog.duckdb").is_file()
+    assert catalog_path_for(ws).is_file()
 
 
 def test_register_write_query_roundtrip(tmp_path: Path) -> None:

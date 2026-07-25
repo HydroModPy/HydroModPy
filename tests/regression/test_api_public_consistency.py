@@ -29,6 +29,7 @@ _DIRECT_EXPORTS = frozenset(
         "catalog",
         "read",
         "export",
+        "figure",
         "run",
         "calibrate",
         "spinup",

@@ -31,35 +31,30 @@ def _register(catalog, sim_id=None, **kwargs):
     return sid, reg.zarr
 
 
-def test_staged_zarr_promotion_retries_transient_permission_error(tmp_path, monkeypatch):
-    source = tmp_path / ".staging.zarr"
-    target = tmp_path / "final.zarr"
-    source.mkdir()
-    (source / "marker").write_text("ok", encoding="utf-8")
-    original_rename = Path.rename
-    calls = 0
-
-    def flaky_rename(self, target_path):
-        nonlocal calls
-        if self == source and calls == 0:
-            calls += 1
-            raise PermissionError(5, "Access denied")
-        return original_rename(self, target_path)
-
-    monkeypatch.setattr(registration_mod, "_windows_long_path", lambda path: path)
-    monkeypatch.setattr(
-        registration_mod,
-        "_is_retryable_staged_zarr_rename_error",
-        lambda exc: True,
+def test_zarr_is_created_at_its_final_path_without_staging(catalog):
+    """The store is written where readers expect it: no staging, no promotion."""
+    sid = _sim_id()
+    reg = catalog.register_simulation(
+        sid,
+        project="test_project",
+        solver="modflow6",
+        name="direct_write",
+        n_cells=8,
+        n_layers=1,
     )
-    monkeypatch.setattr(registration_mod.time, "sleep", lambda _delay: None)
-    monkeypatch.setattr(Path, "rename", flaky_rename)
+    assert reg.zarr is not None
+    try:
+        run_dir = catalog.run_dir_for(sid)
+        fields_path = catalog.fields_path_for(sid)
 
-    registration_mod._promote_staged_zarr(source, target)
+        assert Path(reg.zarr.path) == fields_path
+        assert fields_path.is_dir()
+        assert fields_path.parent == run_dir
+        assert not any(child.name.startswith(".staging") for child in run_dir.iterdir())
+    finally:
+        reg.zarr.close()
 
-    assert calls == 1
-    assert not source.exists()
-    assert (target / "marker").read_text(encoding="utf-8") == "ok"
+    assert catalog.fields_path_for(sid).is_dir()
 
 
 _V2_SIM_SELECT = (
@@ -84,7 +79,7 @@ class TestRegisterAndFinalize:
         sid, sz = _register(catalog, n_cells=50, n_layers=2)
         assert sz is not None
         assert "mesh" in sz.root
-        zarr_dir = catalog.zarr_path_for(sid)
+        zarr_dir = catalog.fields_path_for(sid)
         assert zarr_dir.exists()
         sz.close()
 
@@ -356,7 +351,7 @@ class TestDelete:
         catalog.write_metric(sid, "P01", "nse", 0.8)
         catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))
 
-        zarr_dir = catalog.zarr_path_for(sid)
+        zarr_dir = catalog.fields_path_for(sid)
         assert zarr_dir.exists()
 
         catalog.delete(sid)

@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import runs_dir_for
 from tests.regression.golden_utils import (
     _open_result_store,
     _resolve_sim_id,
@@ -63,8 +64,8 @@ def test_sfr_figures_render_from_the_real_store(sfr_run: Path, tmp_path: Path) -
     try:
         sim_id = _resolve_sim_id(store)
         run = Run(sim_id, store)
-        simulations_dir = sfr_run / "simulations"
-        before = _tree_fingerprint(simulations_dir)
+        runs_dir = runs_dir_for(sfr_run)
+        before = _tree_fingerprint(runs_dir)
 
         for name, opts in (
             ("sfr_reach_timeseries", {}),
@@ -90,7 +91,7 @@ def test_sfr_figures_render_from_the_real_store(sfr_run: Path, tmp_path: Path) -
             plt.close(mpl_figure)
 
         # Read-only contract: rendering wrote NOTHING into the store tree.
-        after = _tree_fingerprint(simulations_dir)
+        after = _tree_fingerprint(runs_dir)
         assert after == before, "display rendering modified the store tree"
     finally:
         store.close()
