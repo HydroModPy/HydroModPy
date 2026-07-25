@@ -9,7 +9,7 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
-    PROJECT_TOML_FILENAME,
+    PROJECT_MARKER_FILENAME,
 )
 
 NAME: str = "show"
@@ -36,7 +36,7 @@ def run(args: argparse.Namespace) -> None:
     print(f"# project: {payload['name']}")
     print(f"# path   : {payload['path']}")
     state = "present" if payload["has_project_toml"] else "missing"
-    print(f"  {PROJECT_TOML_FILENAME:<24} {state}")
+    print(f"  {PROJECT_MARKER_FILENAME:<24} {state}")
     runs = payload["run_tomls"]
     if runs:
         print(f"  run TOMLs ({len(runs)}):")

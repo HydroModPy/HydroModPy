@@ -47,7 +47,7 @@ def list_projects(workspace: Any = None) -> list[dict]:
     import os
 
     from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME
+    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
     from hydromodpy.data.scaffold import DEFAULT_ROOT
 
     if workspace:
@@ -74,7 +74,7 @@ def list_projects(workspace: Any = None) -> list[dict]:
             {
                 "name": project_dir.name,
                 "path": str(project_dir),
-                "has_project_toml": (project_dir / PROJECT_TOML_FILENAME).is_file(),
+                "has_project_toml": (project_dir / PROJECT_MARKER_FILENAME).is_file(),
                 "run_tomls": [p.name for p in project_dir.glob("run_*.toml")],
             }
         )
@@ -86,7 +86,7 @@ def show_project(name: str, *, workspace: Any = None) -> dict:
     import os
 
     from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME, catalog_path_for
+    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, catalog_path_for
     from hydromodpy.data.scaffold import DEFAULT_ROOT
 
     if workspace:
@@ -108,7 +108,7 @@ def show_project(name: str, *, workspace: Any = None) -> dict:
     payload: dict = {
         "name": name,
         "path": str(project_dir),
-        "has_project_toml": (project_dir / PROJECT_TOML_FILENAME).is_file(),
+        "has_project_toml": (project_dir / PROJECT_MARKER_FILENAME).is_file(),
         "run_tomls": [p.name for p in sorted(project_dir.glob("run_*.toml"))],
         "simulations": [],
     }

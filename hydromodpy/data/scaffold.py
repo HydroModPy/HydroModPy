@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME
+from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
 
 DEFAULT_ROOT = Path.home() / "hydromodpy"
 
@@ -356,7 +356,7 @@ PROJECT_TOML_TEMPLATE = """\
 # geographic support, domain, data sources, and flow parameters.
 #
 # Run files (run_*.toml) inherit from this file via:
-#   base_config = "hydromodpy.toml"
+#   base_config = "project.toml"
 # ===========================================================================
 
 
@@ -404,10 +404,10 @@ RUN_TOML_TEMPLATE = """\
 # HydroModPy - Run configuration
 # ===========================================================================
 # Run : {run_name}
-# Inherits from : hydromodpy.toml
+# Inherits from : project.toml
 # ===========================================================================
 
-base_config = "hydromodpy.toml"
+base_config = "project.toml"
 
 [workflow]
 mode = "simulation"
@@ -441,7 +441,7 @@ work *inside* a project folder, never directly in `projects/`.
 
 A project folder holds:
 
-- `hydromodpy.toml` - shared settings (geographic, domain, data, flow).
+- `project.toml` - shared settings (geographic, domain, data, flow).
 - `run_*.toml`      - one runnable configuration each, inheriting the above.
 
 Create a new project:
@@ -484,7 +484,7 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
         |-- projects/
         |   |-- README.md                 (how projects are organised)
         |   |-- example/                  (ready-to-run synthetic demo project)
-        |   |   |-- hydromodpy.toml
+        |   |   |-- project.toml
         |   |   |-- run_demo.toml
 
     Each ``data/<variable>/`` folder ships a README plus one example file per
@@ -538,7 +538,7 @@ def create_project(workspace_root: Path, name: str) -> Path:
     Structure::
 
         projects/<name>/
-            hydromodpy.toml   <- base template
+            project.toml   <- base template
             run_demo.toml     <- executable template
 
     Returns the project directory path.
@@ -547,7 +547,7 @@ def create_project(workspace_root: Path, name: str) -> Path:
     project_dir = workspace_root / "projects" / name
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    project_toml = project_dir / PROJECT_TOML_FILENAME
+    project_toml = project_dir / PROJECT_MARKER_FILENAME
     if not project_toml.exists():
         project_toml.write_text(
             PROJECT_TOML_TEMPLATE.format(project_name=name),

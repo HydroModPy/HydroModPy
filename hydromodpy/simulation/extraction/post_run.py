@@ -321,9 +321,9 @@ def auto_export_package(
 ) -> None:
     """Write the portable ``.hmp`` archive when ``[export].package`` is set.
 
-    Called while the store is still open (just before ``step_finalize_store``
-    closes it). The ``.hmp`` exporter packs the live Zarr directory itself, so
-    it does not need the store to be finalized first.
+    Called on a *sealed* run, while the store is still open: the archive
+    bundles the run seal (manifest, provenance, frozen config) and the packer
+    still needs the index and the live Zarr directory.
     """
     if not save_catalog or not export_config.package:
         return

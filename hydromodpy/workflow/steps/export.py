@@ -9,6 +9,7 @@ from __future__ import annotations
 import gc
 import shutil
 import time
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
@@ -17,6 +18,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.results.run import Run
 
@@ -108,13 +111,46 @@ def step_drop_intermediate_budget(ctx: WorkflowContext) -> None:
 # ---------------------------------------------------------------------------
 
 
+def step_seal_store(
+    ctx: WorkflowContext,
+    *,
+    wall_seconds: float = 0.0,
+    status: str = "completed",
+) -> None:
+    """Finalize the simulation in the store, leaving the store open.
+
+    Sealing is what writes ``manifest.json`` and ``provenance.json`` into the
+    run directory. Whatever reads the *complete* run - the portable package
+    first of all - must therefore run after this call and before
+    :func:`step_close_store`.
+    """
+    if ctx.store is None:
+        return
+    ctx.store.finalize(
+        ctx.sim_id,
+        status=status,
+        duration_s=wall_seconds,
+    )
+    _log_run_epilogue(ctx, wall_seconds=wall_seconds, status=status)
+
+
+def step_close_store(ctx: WorkflowContext) -> None:
+    """Close the store and detach it from the context."""
+    if ctx.store is None:
+        return
+    try:
+        ctx.store.close()
+    finally:
+        ctx.store = None
+
+
 def step_finalize_store(
     ctx: WorkflowContext,
     *,
     wall_seconds: float = 0.0,
     status: str = "completed",
 ) -> None:
-    """Finalize the simulation in the store and close it.
+    """Seal the simulation in the store and close it.
 
     After this step ``ctx.store`` is ``None``.
     """
@@ -122,15 +158,9 @@ def step_finalize_store(
         return
 
     try:
-        ctx.store.finalize(
-            ctx.sim_id,
-            status=status,
-            duration_s=wall_seconds,
-        )
-        _log_run_epilogue(ctx, wall_seconds=wall_seconds, status=status)
+        step_seal_store(ctx, wall_seconds=wall_seconds, status=status)
     finally:
-        ctx.store.close()
-        ctx.store = None
+        step_close_store(ctx)
 
 
 def _log_run_epilogue(ctx: WorkflowContext, *, wall_seconds: float, status: str) -> None:
@@ -232,10 +262,14 @@ class ExportStep:
 
     Composed of four concerns: gallery publication
     (:func:`step_save_run_artifacts`), automatic format export
-    (``auto_export_results``), store finalisation
-    (:func:`step_finalize_store`) and scratch cleanup
+    (``auto_export_results``), sealing and closing the store
+    (:func:`step_seal_store`, :func:`step_close_store`) and scratch cleanup
     (:func:`step_cleanup_scratch`). Each remains addressable from
     notebooks via its function-based helper.
+
+    The portable ``.hmp`` package is written between the seal and the close,
+    never before: an archive built on an unsealed run carries neither the
+    manifest nor the provenance.
     """
 
     name = "export"
@@ -258,6 +292,7 @@ class ExportStep:
             step_save_run_artifacts(ctx, wall_seconds)
             plan = ctx.execution.simulation_plan
             packaged = plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None
+            export_package: Callable[[], None] | None = None
             if packaged:
                 from hydromodpy.simulation.extraction.post_run import (
                     auto_export_package,
@@ -283,10 +318,8 @@ class ExportStep:
                         results_config=results_cfg,
                         keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
                     )
-                # Package while the store is still open. ``step_finalize_store``
-                # closes it (sets ctx.store = None); the .hmp exporter repacks
-                # the live Zarr itself, so pre-finalize is correct.
-                auto_export_package(
+                export_package = partial(
+                    auto_export_package,
                     sim_id=ctx.sim_id,
                     store=ctx.store,
                     export_config=export_cfg,
@@ -294,7 +327,17 @@ class ExportStep:
                     run_id=ctx.setup.run_id,
                 )
             step_drop_intermediate_budget(ctx)
-            step_finalize_store(ctx, wall_seconds=wall_seconds)
+            if export_package is None:
+                step_finalize_store(ctx, wall_seconds=wall_seconds)
+            else:
+                # Seal first, package second: the archive must carry the
+                # manifest and the provenance the seal writes. The store stays
+                # open for the packer, which reads the index and the live Zarr.
+                try:
+                    step_seal_store(ctx, wall_seconds=wall_seconds)
+                    export_package()
+                finally:
+                    step_close_store(ctx)
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),

@@ -85,6 +85,7 @@ from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
     RUN_LOG_FILENAME,
+    RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
     TABLES_DIRNAME,
 )
@@ -95,9 +96,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog.facade import Catalog
 
 logger = get_logger(__name__)
-
-RUN_MANIFEST_FILENAME = "manifest.json"
-"""Seal of a complete run directory. Absent means the run did not finish."""
 
 MANIFEST_SCHEMA_VERSION = 1
 """Generation of the seal files (``manifest.json`` and ``provenance.json``).
@@ -228,7 +226,7 @@ def _parameter_records(catalog: Catalog, sid: str) -> list[dict[str, Any]]:
             "value": None if row[2] is None else float(row[2]),
             "unit": None if row[3] is None else str(row[3]),
             "parameterization": None if row[4] is None else str(row[4]),
-            "valid_from": row[5],
+            "valid_from": _utc_instant(row[5]),
         }
         for row in rows
     ]
@@ -670,6 +668,23 @@ def _coerce(value: Any, value_type: str) -> Any:
     return text
 
 
+def _utc_instant(value: Any) -> datetime | None:
+    """Return a timestamp column as a UTC-aware instant.
+
+    ``valid_from`` is declared ``timestamp[ms, tz=UTC]`` in the Parquet schema
+    and pyarrow *labels* whatever it receives: hand it a naive datetime and the
+    wall clock it carries is stamped as UTC, shifting the instant by the local
+    offset. ``astimezone`` reads a naive value as local time - which is what a
+    bare ``datetime`` out of a driver means - and converts it, so the file
+    always holds the real instant.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(UTC)
+    return datetime.fromisoformat(str(value)).astimezone(UTC)
+
+
 def _int_or_none(value: Any) -> int | None:
     return None if value is None else int(value)
 
@@ -693,7 +708,6 @@ __all__ = [
     "KEY_PACKAGES",
     "MANIFEST_SCHEMA_VERSION",
     "PARAMETERS_TABLE_NAME",
-    "RUN_MANIFEST_FILENAME",
     "build_manifest",
     "build_provenance",
     "is_sealed",

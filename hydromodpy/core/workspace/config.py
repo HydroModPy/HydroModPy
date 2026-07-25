@@ -8,7 +8,7 @@ Resolution order (first match wins):
 2. **Env var** - ``HMP_WORKSPACE`` is set and points to a
    directory used as the shared data workspace.
 3. **Scaffold** - the TOML lives at
-   ``<workspace>/projects/<name>/hydromodpy.toml`` and the grand-grand-parent
+   ``<workspace>/projects/<name>/project.toml`` and the grand-grand-parent
    contains a ``data/`` directory.
 4. **Standalone project** - the project directory itself is used as the
    shared data workspace.
@@ -32,7 +32,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
-    PROJECT_TOML_FILENAME,
+    PROJECT_MARKER_FILENAME,
     catalog_path_for,
     runs_dir_for,
     scratch_dir_for,
@@ -55,7 +55,7 @@ class WorkspaceConfig(HydroModelBase):
                 cache.duckdb
             projects/
                 <name>/
-                    hydromodpy.toml   <- TOML lives here when using scaffold
+                    project.toml   <- TOML lives here when using scaffold
                     runs/<run>/
                     share/
                     .hmp/index.duckdb
@@ -273,7 +273,7 @@ def _format_hint(project_root: Path) -> str:
         f"Cannot locate a HydroModPy workspace for project at {project_root}.\n"
         "Pick one of:\n"
         "  (a) scaffold: run `hmp workspace init <workspace-dir>` then place\n"
-        f"      this TOML at <workspace>/projects/<name>/{PROJECT_TOML_FILENAME}\n"
+        f"      this TOML at <workspace>/projects/<name>/{PROJECT_MARKER_FILENAME}\n"
         "  (b) env var:  export HMP_WORKSPACE=/path/to/workspace\n"
         "  (c) explicit: add to [workspace]:\n"
         "          root = '/path/to/workspace'\n"

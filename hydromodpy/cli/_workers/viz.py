@@ -63,6 +63,7 @@ def render_gallery(
         resolve_run_output_dir,
     )
     from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.registration import portable_config_source
 
     target_path = Path(config_toml).expanduser()
     if not target_path.is_file() or target_path.suffix != ".toml":
@@ -73,7 +74,9 @@ def render_gallery(
     if no_show:
         display_cfg.show = False
     project_dir = target_path.parent.resolve()
-    config_source = str(target_path.resolve())
+    # The index stores the config path relative to the project, so a copied or
+    # moved project still recognises the runs it owns.
+    config_source = portable_config_source(project_dir, target_path)
 
     written_paths: list[Path] = []
     with Catalog(project_dir, read_only=True) as catalog:

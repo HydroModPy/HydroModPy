@@ -78,10 +78,11 @@ from hydromodpy.results.catalog.writes_helpers import (
     _python_value_type,
     geographic_feature_description,
 )
-from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME, read_manifest
+from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
+    RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
     TABLES_DIRNAME,
 )

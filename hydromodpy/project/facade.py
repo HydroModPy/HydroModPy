@@ -28,7 +28,7 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Project("hydromodpy.toml")  # cheap: validates config
+    project = hmp.Project("project.toml")  # cheap: validates config
     run = project.simulate(Sy=0.05, K=5e-5, name="baseline")  # builds, then runs
     wt = run.field("watertable_depth", timestep=12)
 
@@ -116,7 +116,7 @@ class Project:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> project = hmp.Project("hydromodpy.toml")  # doctest: +SKIP
+    >>> project = hmp.Project("project.toml")  # doctest: +SKIP
     >>> run = project.simulate(Sy=0.05)  # doctest: +SKIP
     >>> project.close()  # doctest: +SKIP
     """

@@ -535,10 +535,9 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
     Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
     The caller is responsible for closing the store when done.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
 
-    db_path = project_path / CATALOG_FILENAME
-    if not db_path.exists():
+    if not catalog_path_for(project_path).exists():
         return None, None
     from hydromodpy.results.catalog import Catalog
 

@@ -9,6 +9,18 @@ write surface (``write_parameters``, ``write_timeseries`` ...) lives in
 
 The Zarr store is created at its final path, never staged: readers open
 ``runs/<name>/fields.zarr`` while the run is still solving.
+
+Steady period convention
+------------------------
+A steady flow run may legitimately declare no ``[simulation.time]`` window:
+its solution is time-invariant, so there is nothing to span. Leaving the
+period empty would make it indistinguishable from a transient run whose
+bounds were lost, and would leave the manifest with an empty period block.
+Such a run is therefore registered with the degenerate period
+``period_start == period_end == started_at``: zero length says "no simulated
+duration", and the reference date is the only date the run can honestly
+claim, the instant it was computed. A steady run that *does* declare a
+window keeps the window it declared.
 """
 
 from __future__ import annotations
@@ -24,7 +36,7 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.paths import RUNS_DIRNAME, to_workspace_relative
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
@@ -40,6 +52,9 @@ from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 logger = get_logger(__name__)
 
 IfExistsMode = Literal["replace", "fail", "version"]
+
+STEADY_FLOW_REGIME = "steady"
+"""Flow regime whose runs may carry a degenerate period (see module docstring)."""
 
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
 
@@ -116,6 +131,23 @@ def _coerce_timestamp(value: Any) -> Any:
     if hasattr(value, "isoformat"):
         return value
     return str(value)
+
+
+def portable_config_source(project_root: Path, config_source: str | Path | None) -> str | None:
+    """Return ``config_source`` as stored in the index: portable when it can be.
+
+    A configuration that lives inside the project is recorded relative to the
+    project root (``project.toml``, ``configs/winter.toml``), so a project that
+    is copied or moved still recognises its own runs. A configuration kept
+    outside the project has no project-relative form and is recorded as the
+    absolute path it is; the leading separator tells the two apart.
+    """
+    if config_source is None:
+        return None
+    try:
+        return to_workspace_relative(project_root, config_source)
+    except ValueError:
+        return str(config_source)
 
 
 def _resolve_registration_name(
@@ -340,7 +372,7 @@ class RegistrationMixin:
                 dirname = run_dirname(final_name)
                 zarr_path = f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}"
                 parent_sid = str(parent_sim_id) if parent_sim_id else None
-                config_source_str = str(config_source) if config_source is not None else None
+                config_source_str = portable_config_source(self._workspace, config_source)
 
                 if n_cells is not None and n_layers is not None:
                     zarr_final = self._workspace / zarr_path
@@ -421,6 +453,14 @@ class RegistrationMixin:
                         outlet_y,
                     ],
                 )
+                if p_start is None and p_end is None and flow_regime == STEADY_FLOW_REGIME:
+                    self._backend.execute(
+                        """UPDATE simulations
+                              SET period_start = started_at, period_end = started_at
+                            WHERE sim_id = ?""",
+                        [sid],
+                    )
+
                 if replaced_sid is not None:
                     try:
                         emit_audit_event(

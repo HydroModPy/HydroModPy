@@ -16,6 +16,11 @@ containing:
   ``zip`` file (already BLOSC-compressed internally) so the manifest keeps
   one checksum for the whole store. Import unpacks it back to the directory
   store at ``runs/<name>/fields.zarr``; nothing on disk stays zipped.
+* ``run/`` - the seal of the run directory (``manifest.json``,
+  ``provenance.json``, frozen ``config.toml``), copied verbatim. The archive
+  is therefore built on a *sealed* run: packing before the seal would ship a
+  run nobody can read back without an index. It lives in a sub-directory
+  because the archive root already owns a ``manifest.json`` of its own.
 * ``geographic/`` (optional) - the workspace-level content-addressable
   raster cache materialised for the simulation's ``geographic_fingerprint``,
   so the archive is self-contained on a fresh workspace.
@@ -48,6 +53,9 @@ from hydromodpy.results.geographic_cache import (
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
+    RUN_CONFIG_FILENAME,
+    RUN_MANIFEST_FILENAME,
+    RUN_PROVENANCE_FILENAME,
 )
 
 if TYPE_CHECKING:
@@ -63,8 +71,14 @@ GEOGRAPHIC_SUBDIR = "geographic"
 INPUTS_SUBDIR = "inputs"
 INPUTS_MANIFEST_NAME = "manifest.json"
 PARQUET_SUBDIR = "parquet"
+RUN_SEAL_SUBDIR = "run"
+RUN_SEAL_FILENAMES: tuple[str, ...] = (
+    RUN_MANIFEST_FILENAME,
+    RUN_PROVENANCE_FILENAME,
+    RUN_CONFIG_FILENAME,
+)
 RO_CRATE_METADATA_NAME = "ro-crate-metadata.json"
-HMP_FORMAT_VERSION = "1.3"
+HMP_FORMAT_VERSION = "1.4"
 HMP_MAGIC = "hydromodpy/hmp"
 SHAPEFILE_SIDECAR_EXTS = (".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx")
 
@@ -100,26 +114,67 @@ def _materialise_parquet(
     src_dir: Path,
     staging: Path,
 ) -> list[str]:
-    """Copy per-sim Parquet files into the archive staging area.
+    """Copy the run's Parquet payloads into the archive staging area.
+
+    Every ``.parquet`` file of the run travels, not only the DuckDB-backed
+    views: ``parameters`` and ``simulation`` are written by the seal and are
+    exactly what a disk-only rebuild reads back, so an archive without them
+    would import a run that cannot be re-indexed.
 
     Returns the list of file base names that were bundled (empty when the
     simulation was registered but never had any per-sim rows, e.g. an
     overview-only run).
     """
-    from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-
     if not src_dir.is_dir():
         return []
     dst_dir = staging / PARQUET_SUBDIR
     copied: list[str] = []
-    for view in PARQUET_VIEW_NAMES:
-        src = src_dir / f"{view}{PARQUET_FILE_SUFFIX}"
+    for src in sorted(src_dir.glob(f"*{PARQUET_FILE_SUFFIX}")):
         if not src.is_file():
             continue
         dst_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst_dir / src.name)
         copied.append(src.name)
     return copied
+
+
+def _materialise_run_seal(run_dir: Path, staging: Path) -> list[str]:
+    """Copy the run seal into ``run/`` inside the archive.
+
+    The seal is what makes a run directory readable without the index:
+    ``manifest.json``, ``provenance.json`` and the frozen ``config.toml``.
+    They travel in a sub-directory because the archive root already owns a
+    ``manifest.json`` of its own (the checksum header). Returns the file
+    names that were bundled; empty when the run was never sealed.
+    """
+    if not run_dir.is_dir():
+        return []
+    dst_dir = staging / RUN_SEAL_SUBDIR
+    copied: list[str] = []
+    for name in RUN_SEAL_FILENAMES:
+        src = run_dir / name
+        if not src.is_file():
+            continue
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst_dir / name)
+        copied.append(name)
+    return copied
+
+
+def _dematerialise_run_seal(pkg: Path, run_dir: Path) -> list[str]:
+    """Restore the run seal from the archive into the run directory."""
+    src_dir = pkg / RUN_SEAL_SUBDIR
+    if not src_dir.is_dir():
+        return []
+    run_dir.mkdir(parents=True, exist_ok=True)
+    restored: list[str] = []
+    for name in RUN_SEAL_FILENAMES:
+        src = src_dir / name
+        if not src.is_file():
+            continue
+        shutil.copy2(src, run_dir / name)
+        restored.append(name)
+    return restored
 
 
 def _dematerialise_parquet(
@@ -620,6 +675,15 @@ def export_hmp_package(
         _pack_zarr(zarr_src, staging / ZARR_ARCHIVE_NAME)
         _materialise_geographic(workspace, geo_fp, staging)
         _materialise_parquet(catalog.tables_dir_for(sid), staging)
+        sealed = _materialise_run_seal(catalog.run_dir_for(sid), staging)
+        if RUN_MANIFEST_FILENAME not in sealed:
+            logger.warning(
+                "Run %s is not sealed: %s carries no %s, so the archive cannot "
+                "be read back without an index.",
+                sid[:8],
+                output.name,
+                RUN_MANIFEST_FILENAME,
+            )
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
         _write_ro_crate(catalog, sid, staging)
         _write_readme(
@@ -872,6 +936,7 @@ def import_hmp_package(
 
         _unpack_zarr(pkg / ZARR_ARCHIVE_NAME, catalog.fields_path_for(sid))
         _dematerialise_parquet(pkg, catalog.tables_dir_for(sid))
+        _dematerialise_run_seal(pkg, catalog.run_dir_for(sid))
         # Refresh Parquet views so the freshly-materialised files become
         # visible to subsequent ``SELECT ... FROM <view>`` calls on the
         # caller's catalog connection.

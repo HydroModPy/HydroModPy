@@ -44,7 +44,12 @@ _APP_NAME = "hydromodpy"
 # (:mod:`hydromodpy.results.storage.contract`).
 
 PROJECT_MARKER_FILENAME = "project.toml"
-"""Marker anchoring a project root at ``<project>/project.toml``."""
+"""The project configuration file, and the marker of a project root.
+
+One file plays both roles: ``<project>/project.toml`` holds the shared
+settings of the project and anchors :func:`resolve_project_root`. Creating a
+project writes it, so a scaffolded project is anchored from its first day.
+"""
 
 CONFIGS_DIRNAME = "configs"
 """Reserved sub-directory holding the config variants of a project."""
@@ -66,9 +71,6 @@ INTERNAL_DIRNAME = ".hmp"
 
 CATALOG_FILENAME = "index.duckdb"
 """Project index database living at ``<project>/.hmp/index.duckdb``."""
-
-PROJECT_TOML_FILENAME = "hydromodpy.toml"
-"""Per-project HydroModPy config file living at ``<project>/hydromodpy.toml``."""
 
 WORKSPACE_TOML_FILENAME = "workspace.toml"
 """Workspace-wide metadata file living at ``<workspace>/workspace.toml``."""
@@ -295,7 +297,6 @@ __all__: Iterable[str] = (
     "INDEX_FILENAME",
     "INTERNAL_DIRNAME",
     "PROJECT_MARKER_FILENAME",
-    "PROJECT_TOML_FILENAME",
     "REPORTS_DIRNAME",
     "RUNS_DIRNAME",
     "SESSIONS_DIRNAME",

@@ -276,9 +276,15 @@ def discover_result_store(
         return None, None
     config_path_resolved = Path(config_path).expanduser().resolve()
 
-    def _normalize_catalog_path(raw_path: object) -> str:
+    def _normalize_catalog_path(raw_path: object, anchor: Path) -> str:
+        """Resolve a stored ``config_source`` against the catalog it came from.
+
+        The index records the path relative to the project when the config
+        lives inside it, so the comparison must resolve it against that same
+        project instead of the current working directory.
+        """
         try:
-            return str(Path(str(raw_path)).expanduser().resolve()).casefold()
+            return str((anchor / Path(str(raw_path)).expanduser()).resolve()).casefold()
         except Exception:
             return str(raw_path or "").strip().replace("\\", "/").casefold()
 
@@ -317,7 +323,12 @@ def discover_result_store(
                 return catalog, str(matches.iloc[-1]["sim_id"])
         if "config_source" in sims.columns:
             config_key = str(config_path_resolved).casefold()
-            config_sources = completed_sims["config_source"].fillna("").map(_normalize_catalog_path)
+            anchor = Path(catalog.workspace_path)
+            config_sources = (
+                completed_sims["config_source"]
+                .fillna("")
+                .map(lambda raw: _normalize_catalog_path(raw, anchor))
+            )
             matches = completed_sims.loc[config_sources == config_key]
             if not matches.empty:
                 return catalog, str(matches.iloc[-1]["sim_id"])
