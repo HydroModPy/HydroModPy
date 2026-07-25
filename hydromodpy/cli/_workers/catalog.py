@@ -6,6 +6,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def delete_simulation_artifacts(
     catalog: Any,
@@ -274,8 +278,12 @@ def query_catalog(
         conn.close()
 
 
-def gc(workspace: Any = None, *, dry_run: bool = False) -> dict:
+def gc(workspace: Any = None, *, dry_run: bool = True) -> dict:
     """Garbage-collect orphan caches, tmp parquet, and stale running sims.
+
+    Plans by default: nothing is touched unless the caller passes
+    ``dry_run=False``. Orphan run stores are never destroyed, only moved to
+    ``<project>/.hmp/trash/<stamp>/``.
 
     Returns a dict with ``plan`` (mapping category -> candidate list) and
     ``summary`` (mapping category -> applied count, empty when ``dry_run``).
@@ -923,6 +931,35 @@ def _gc_tmp_parquet_files(workspace: Path) -> list[str]:
     return found
 
 
+def _gc_trash_stamp() -> str:
+    """UTC stamp naming one gc sweep in the project trash."""
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _gc_quarantine_orphan_store(store: Path, *, stamp: str) -> bool:
+    """Move an orphan store to ``<project>/.hmp/trash/<stamp>/``.
+
+    An orphan store is the only remaining copy of a run's outputs, so gc
+    never deletes one: it quarantines it where a human can inspect, adopt or
+    finally remove it. Returns True when the store was moved.
+    """
+    if not store.exists():
+        return False
+    # Orphan stores are collected from ``<project>/simulations/<store>``.
+    trash_dir = store.parent.parent / ".hmp" / "trash" / stamp
+    destination = trash_dir / store.name
+    try:
+        trash_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(store), str(destination))
+    except OSError as exc:
+        logger.warning("gc could not quarantine orphan store %s: %s", store, exc)
+        return False
+    logger.info("gc moved orphan store %s to %s", store.name, trash_dir)
+    return True
+
+
 def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int]:
 
     summary: dict[str, int] = dict.fromkeys(plan, 0)
@@ -950,17 +987,10 @@ def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int
                 summary["tmp_parquet"] += 1
         except OSError:
             continue
+    stamp = _gc_trash_stamp()
     for path_str in plan["orphan_stores"]:
-        path = Path(path_str)
-        try:
-            if path.is_file():
-                path.unlink(missing_ok=True)
-                summary["orphan_stores"] += 1
-            elif path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-                summary["orphan_stores"] += 1
-        except OSError:
-            continue
+        if _gc_quarantine_orphan_store(Path(path_str), stamp=stamp):
+            summary["orphan_stores"] += 1
     summary["expired_trash"], summary["pending_purges"] = _gc_apply_per_project_purges(
         workspace, plan["expired_trash"], plan["pending_purges"]
     )

@@ -220,7 +220,8 @@ def test_gc_purges_expired_trash_but_keeps_pinned(monkeypatch, tmp_path) -> None
         )
 
 
-def test_gc_removes_orphan_store(monkeypatch, tmp_path) -> None:
+def test_gc_quarantines_orphan_store(monkeypatch, tmp_path) -> None:
+    """An orphan store leaves ``simulations/`` for the trash, bytes intact."""
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
     orphan = project / "simulations" / "demo__deadbeef.zarr"
@@ -231,6 +232,27 @@ def test_gc_removes_orphan_store(monkeypatch, tmp_path) -> None:
     code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
     assert code == 0
     assert not orphan.exists()
+    quarantined = sorted((project / ".hmp" / "trash").glob("*/demo__deadbeef.zarr"))
+    assert len(quarantined) == 1
+    assert (quarantined[0] / ".zgroup").read_text() == "{}"
+
+
+def test_gc_plan_keeps_orphan_store_in_place(monkeypatch, tmp_path, capsys) -> None:
+    """Without ``--apply`` the orphan store is only listed, never moved."""
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    orphan = project / "simulations" / "demo__deadbeef.zarr"
+    orphan.mkdir(parents=True)
+    (orphan / ".zgroup").write_text("{}")
+    _age_path(orphan)
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace)])
+    assert code == 0
+    assert orphan.exists()
+    assert not (project / ".hmp" / "trash").exists()
+    out = capsys.readouterr().out
+    assert "demo__deadbeef.zarr" in out
+    assert "never deleted" in out
 
 
 def test_gc_keeps_recent_orphan_store(monkeypatch, tmp_path) -> None:
