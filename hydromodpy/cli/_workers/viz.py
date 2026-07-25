@@ -13,20 +13,27 @@ def render_figure(
     workspace: Any = None,
     output: Any = None,
 ) -> Path:
-    """Render one registered figure for a simulation. Returns the output path."""
+    """Render one registered figure for a simulation. Returns the output path.
+
+    Without an explicit ``output`` the figure is written inside the run it
+    describes, at ``runs/<run>/figures/<figure>.png``. The index is opened
+    read-only: rendering a figure reads a run, it never rewrites its index.
+    """
     from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.display import get as get_figure
     from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with Catalog(workspace_root) as catalog:
-        sim = catalog[sim_ref]
+    with Catalog(workspace_root, read_only=True) as catalog:
+        sid = catalog.resolve(sim_ref)
+        sim = catalog[sid]
         save = (
             Path(output).expanduser().resolve()
             if output
-            else Path.cwd() / "figures" / f"{figure}.png"
+            else catalog.run_dir_for(sid) / RUN_FIGURES_DIRNAME / f"{figure}.png"
         )
         save.parent.mkdir(parents=True, exist_ok=True)
         get_figure(figure).plot(sim, save_path=save)
@@ -69,7 +76,7 @@ def render_gallery(
     config_source = str(target_path.resolve())
 
     written_paths: list[Path] = []
-    with Catalog(project_dir) as catalog:
+    with Catalog(project_dir, read_only=True) as catalog:
         sims = catalog.list_simulations(config_source=config_source, order_by="created_at DESC")
         if sims.empty:
             sims = catalog.list_simulations(project=project_dir.name, order_by="created_at DESC")

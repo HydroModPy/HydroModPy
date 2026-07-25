@@ -8,7 +8,7 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 from hydromodpy.core.config_kit.export_spec import ExportSpec
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for, share_dir_for
 
 NAME: str = "export"
 HELP: str = "Export geographic data or simulation results from the project store"
@@ -64,7 +64,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--output", default=None, help="Output directory (default: exports/<name>/ in the project)"
+        "--output",
+        default=None,
+        help="Output directory (default: share/<name>/ in the project)",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -80,7 +82,7 @@ def run(args: argparse.Namespace) -> None:
 
     project_dir = Path(args.project).expanduser().resolve()
     project_name = project_dir.name
-    db_path = project_dir / CATALOG_FILENAME
+    db_path = catalog_path_for(project_dir)
     if not db_path.exists():
         print(f"No catalog found at {project_dir}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -128,7 +130,7 @@ def run(args: argparse.Namespace) -> None:
     exported: list[Path] = []
 
     if args.raster or args.feature:
-        geo_dir = output_dir or (project_dir / "exports" / "geographic")
+        geo_dir = output_dir or (share_dir_for(project_dir) / "geographic")
         geo_dir.mkdir(parents=True, exist_ok=True)
 
         # Honor --sim for geographic exports; fall back to the latest run.
@@ -214,7 +216,7 @@ def run(args: argparse.Namespace) -> None:
         ).fetchone()
         label = (row[0] if row and row[0] else None) or short_id(sim_id)
 
-        sim_dir = output_dir or (project_dir / "exports" / label)
+        sim_dir = output_dir or (share_dir_for(project_dir) / label)
         sim_dir.mkdir(parents=True, exist_ok=True)
 
         any_format = args.csv or args.netcdf or args.geotiff or args.vtu

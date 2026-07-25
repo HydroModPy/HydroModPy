@@ -37,7 +37,7 @@ def rank_simulations(
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with Catalog(workspace_root) as catalog:
+    with Catalog(workspace_root, read_only=True) as catalog:
         order = "DESC" if top else "ASC"
         sql = (
             "SELECT s.sim_id, s.name, s.solver, m.metric_name, m.value "

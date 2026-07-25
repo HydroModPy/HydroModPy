@@ -117,7 +117,7 @@ def run(args: argparse.Namespace) -> None:
 def _migrate_catalogs(workspace_arg: str | None) -> None:
     """Upgrade the catalog schema of every project under the workspace."""
     from hydromodpy.cli.helpers import EXIT_NOT_FOUND
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog.migrations import apply_migrations
 
     base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
@@ -125,15 +125,15 @@ def _migrate_catalogs(workspace_arg: str | None) -> None:
     projects = base / "projects"
     if projects.is_dir():
         catalogs = sorted(
-            p / CATALOG_FILENAME for p in projects.iterdir() if (p / CATALOG_FILENAME).is_file()
+            catalog_path_for(p) for p in projects.iterdir() if (catalog_path_for(p)).is_file()
         )
     else:
         try:
             root = resolve_project_root(base)
         except FileNotFoundError:
             root = None
-        if root is not None and (root / CATALOG_FILENAME).is_file():
-            catalogs = [root / CATALOG_FILENAME]
+        if root is not None and (catalog_path_for(root)).is_file():
+            catalogs = [catalog_path_for(root)]
 
     if not catalogs:
         print(f"No catalog found under {base}", file=sys.stderr)
@@ -170,7 +170,7 @@ def _fix_config(toml_path: str) -> None:
 def _restore_backup(workspace_arg: str | None, timestamp: str) -> None:
     """Restore the catalog from a pre-migration backup tagged ``timestamp``."""
     from hydromodpy.core.migrations.auto_boot import backup_path_for, restore_backup
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
     base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
     try:
@@ -178,7 +178,7 @@ def _restore_backup(workspace_arg: str | None, timestamp: str) -> None:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)
-    catalog_path = workspace_root / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace_root)
     backup = backup_path_for(catalog_path, timestamp=timestamp)
     if not backup.is_file():
         print(f"No backup found at {backup}", file=sys.stderr)
@@ -382,7 +382,7 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
 
 def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dict]:
     try:
-        from hydromodpy.core.state.paths import CATALOG_FILENAME
+        from hydromodpy.core.state.paths import catalog_path_for
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.core.workspace.exceptions import WorkspaceError
         from hydromodpy.data.scaffold import DEFAULT_ROOT
@@ -422,14 +422,18 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
             "hint": None,
         },
         _path_check("data_dir", ws / "data"),
-        _path_check("projects_dir", ws / "projects"),
-        _path_check("data_cache", cache, required=False),
     ]
     project_roots = []
     projects_dir = ws / "projects"
+    standalone = not projects_dir.is_dir() and (catalog_path_for(ws)).is_file()
+    if not standalone:
+        # A standalone project owns its index at the root and has no
+        # ``projects/`` tree, so reporting one as missing would be noise.
+        checks.append(_path_check("projects_dir", projects_dir))
+    checks.append(_path_check("data_cache", cache, required=False))
     if projects_dir.is_dir():
         project_roots.extend(p for p in sorted(projects_dir.iterdir()) if p.is_dir())
-    elif (ws / CATALOG_FILENAME).is_file():
+    elif standalone:
         project_roots.append(ws)
     for project_root in project_roots:
         checks.extend(_probe_result_storage(project_root))
@@ -440,7 +444,7 @@ def _probe_result_storage(
     ws: Path,
     *,
     catalog_path: Path | None = None,
-    simulations_dir: Path | None = None,
+    runs_dir: Path | None = None,
 ) -> list[dict]:
     """Report on the catalog/Zarr/Parquet storage layout."""
     try:
@@ -459,7 +463,7 @@ def _probe_result_storage(
         for diagnostic in diagnose_result_storage(
             ws,
             catalog_path=catalog_path,
-            simulations_dir=simulations_dir,
+            runs_dir=runs_dir,
         )
     ]
 
@@ -486,7 +490,7 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             "root",
             "catalog_path",
             "data_dir",
-            "simulations_dir",
+            "runs_dir",
             "output_root",
         ):
             if key in workspace_section and workspace_section[key] is not None:
@@ -524,13 +528,13 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
         _path_check("workspace_root", cfg.root),
         _path_check("catalog_path", cfg.catalog_path),
         _path_check("data_dir", cfg.data_dir),
-        _path_check("simulations_dir", cfg.simulations_dir),
+        _path_check("runs_dir", cfg.runs_dir),
     ]
     checks.extend(
         _probe_result_storage(
             cfg.project_root,
             catalog_path=cfg.catalog_path,
-            simulations_dir=cfg.simulations_dir,
+            runs_dir=cfg.runs_dir,
         )
     )
     return checks
@@ -549,15 +553,15 @@ def _path_check(name: str, path: Path, *, required: bool = True) -> dict:
 
 
 def _iter_project_catalogs(workspace: Path) -> list[Path]:
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
 
     catalogs: list[Path] = []
-    if (workspace / CATALOG_FILENAME).is_file():
-        catalogs.append(workspace / CATALOG_FILENAME)
+    if (catalog_path_for(workspace)).is_file():
+        catalogs.append(catalog_path_for(workspace))
     projects_dir = workspace / "projects"
     if projects_dir.is_dir():
         for entry in sorted(projects_dir.iterdir()):
-            cat = entry / CATALOG_FILENAME
+            cat = catalog_path_for(entry)
             if cat.is_file():
                 catalogs.append(cat)
     return catalogs

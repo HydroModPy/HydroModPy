@@ -86,7 +86,7 @@ def show_project(name: str, *, workspace: Any = None) -> dict:
     import os
 
     from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, PROJECT_TOML_FILENAME
+    from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME, catalog_path_for
     from hydromodpy.data.scaffold import DEFAULT_ROOT
 
     if workspace:
@@ -112,12 +112,12 @@ def show_project(name: str, *, workspace: Any = None) -> dict:
         "run_tomls": [p.name for p in sorted(project_dir.glob("run_*.toml"))],
         "simulations": [],
     }
-    db_path = project_dir / CATALOG_FILENAME
+    db_path = catalog_path_for(project_dir)
     if db_path.exists():
         from hydromodpy.results.catalog import Catalog, short_id
 
         try:
-            with Catalog(project_dir) as catalog:
+            with Catalog(project_dir, read_only=True) as catalog:
                 sims = catalog.list_simulations(order_by="created_at DESC")
             payload["simulations"] = [
                 {

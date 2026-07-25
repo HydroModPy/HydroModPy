@@ -3,6 +3,10 @@
 Tabular ``query_*``, ``list_*``, ``read_geographic_*`` accessors plus a
 DataFrame property over ``simulations`` and the ``export`` dispatch. All
 methods are pure reads and never mutate DuckDB or the on-disk artefacts.
+
+Everything here therefore works on a catalog opened with ``read_only=True``,
+and that is how inspection paths open one: listing, showing, querying or
+plotting a project leaves its index file untouched.
 """
 
 from __future__ import annotations
@@ -125,7 +129,7 @@ class ReadsMixin:
     (CatalogBackend port), ``self._db`` (DuckDB connection, kept for
     exporters that take a raw cursor), and ``self._paths``
     (StoragePathResolver), plus ``self.open_zarr`` and
-    ``self.zarr_path_for`` for field reads / exports.
+    ``self.fields_path_for`` for field reads / exports.
     """
 
     def query_field(
@@ -373,7 +377,7 @@ class ReadsMixin:
             var = None if (isinstance(spec.var, str) and spec.var == "*") else spec.var_list[0]
             return export_csv(self._db, sid, dest, variable=var)
 
-        zarr_path = str(self.zarr_path_for(sid))
+        zarr_path = str(self.fields_path_for(sid))
 
         if fmt is ExportFormat.netcdf:
             from hydromodpy.results.exporters.netcdf import export_netcdf

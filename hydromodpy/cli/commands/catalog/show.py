@@ -12,7 +12,7 @@ from pathlib import Path
 
 from hydromodpy.cli._conventions import add_sim_ref, format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
-from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
 NAME: str = "show"
 HELP: str = "Show simulation metadata, metrics, parameters, and storage layout"
@@ -47,7 +47,7 @@ def run(args: argparse.Namespace) -> None:
     workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 

@@ -8,7 +8,7 @@ Sub-actions:
 - ``hmp catalog gc``: the one maintenance verb. Plans by default; ``--apply``
   purges expired trash, removes orphan stores, replays interrupted purges,
   marks stale runs failed, and compacts DuckDB + Zarr (absorbed ``vacuum``).
-- ``hmp catalog adopt <store-dir>``: re-register an orphan store into the catalog.
+- ``hmp catalog reindex``: rebuild the index from the run directories.
 - ``hmp catalog delete <sim_ref>``: move a run to the trash (``--now`` to purge).
 - ``hmp catalog restore <sim_ref>``: bring a trashed run back.
 - ``hmp catalog trash [--empty]``: list trashed runs or empty the trash.
@@ -28,7 +28,6 @@ import argparse
 
 from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.catalog import (
-    adopt,
     delete,
     diff,
     export,
@@ -37,6 +36,7 @@ from hydromodpy.cli.commands.catalog import (
     ls,
     note,
     query,
+    reindex,
     rename,
     rerun,
     restore,
@@ -54,7 +54,7 @@ ACTIONS = (
     query,
     show,
     gc,
-    adopt,
+    reindex,
     delete,
     restore,
     trash,

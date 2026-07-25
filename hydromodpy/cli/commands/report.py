@@ -24,7 +24,7 @@ from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
 )
 from hydromodpy.core import progress
-from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_project_root
+from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 from hydromodpy.display.catchment_report.cli import add_catchment_report_arguments
 
 NAME: str = "report"
@@ -134,7 +134,7 @@ def _cmd_compare(args: argparse.Namespace) -> None:
     workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 

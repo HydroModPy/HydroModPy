@@ -23,15 +23,14 @@ def delete_simulation_artifacts(
     sims inside a single catalog session. ``delete_simulation`` is the
     open-and-delete variant exposed via ``hmp catalog delete``.
     """
-    zarr_path = catalog.zarr_path_for(sid)
-    parquet_dir = catalog.parquet_dir_for(sid)
-    existing_paths = [path for path in (zarr_path, parquet_dir) if path.exists()]
-    freed = sum(_path_size(p) for p in existing_paths) if remove_storage else 0
+    run_dir = catalog.run_dir_for(sid)
+    removed = [run_dir] if remove_storage and run_dir.is_dir() else []
+    freed = sum(_path_size(p) for p in removed)
     catalog.delete(sid, remove_storage=remove_storage)
     return {
         "sim_id": sid,
         "freed_bytes": freed,
-        "removed_paths": [str(p) for p in existing_paths] if remove_storage else [],
+        "removed_paths": [str(p) for p in removed],
     }
 
 
@@ -47,40 +46,34 @@ def list_simulations(
 ) -> Any:
     """List simulations recorded in a workspace catalog.
 
-    Iterates over per-project ``catalog.duckdb`` files inside ``workspace``
-    and returns a concatenated DataFrame of simulation rows ordered by
-    ``created_at DESC``. Filters apply as substring matches on ``solver``
-    and ``catchment``, exact match on ``project``.
+    Iterates over the per-project index databases (``<project>/.hmp/index.duckdb``)
+    reachable from ``workspace`` and returns a concatenated DataFrame of
+    simulation rows ordered by ``created_at DESC``. A standalone project (its
+    own index at the root) lists as well as a workspace holding a ``projects/``
+    tree. Filters apply as substring matches on ``solver`` and ``catchment``,
+    exact match on ``project``.
 
     Parameters
     ----------
     workspace
-        Workspace directory containing a ``projects/`` tree.
+        Project root, or a workspace directory holding a ``projects/`` tree.
     project, solver, catchment, limit
         Optional filters.
 
     Returns
     -------
     pandas.DataFrame
-        Combined simulation rows. Empty when the workspace has no project
-        catalog or no row matches the filters.
+        Combined simulation rows. Empty when nothing is indexed under
+        ``workspace`` or no row matches the filters.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog, iter_project_catalog_roots
 
     workspace_root = Path(workspace).expanduser().resolve()
-    projects_dir = workspace_root / "projects"
-    if not projects_dir.is_dir():
-        import pandas as pd
-
-        return pd.DataFrame()
-
     if project:
-        project_roots = [projects_dir / project]
+        project_roots = [workspace_root / "projects" / project]
     else:
-        project_roots = [
-            root for root in iter_project_catalog_roots(workspace_root) if root != workspace_root
-        ]
+        project_roots = iter_project_catalog_roots(workspace_root)
 
     import pandas as pd
 
@@ -88,7 +81,7 @@ def list_simulations(
 
     frames: list[pd.DataFrame] = []
     for project_dir in project_roots:
-        if not (project_dir / CATALOG_FILENAME).exists():
+        if not (catalog_path_for(project_dir)).exists():
             continue
         tagged_ids: set[str] | None = None
         try:
@@ -191,15 +184,15 @@ def show_simulation(
     Raises
     ------
     FileNotFoundError
-        If the workspace has no ``catalog.duckdb``.
+        If the workspace has no project index database.
     hydromodpy.results.catalog.SimulationNotFoundError
         If ``sim_ref`` cannot be resolved.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
     with Catalog(workspace_root, read_only=True) as catalog:
@@ -217,7 +210,7 @@ def show_simulation(
             "exports": catalog.list_exports(sid),
         }
         if detail:
-            zarr_path = catalog.zarr_path_for(sid)
+            zarr_path = catalog.fields_path_for(sid)
             payload["zarr_path"] = str(zarr_path)
             payload["zarr_exists"] = zarr_path.exists()
             groups: list[str] = []
@@ -255,16 +248,16 @@ def query_catalog(
     Raises
     ------
     FileNotFoundError
-        If the workspace has no ``catalog.duckdb``.
+        If the workspace has no project index database.
     duckdb.Error
         If the SQL statement is invalid or the catalog rejects it.
     """
     import duckdb
 
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
 
     workspace_root = Path(workspace).expanduser().resolve()
-    catalog_path = workspace_root / CATALOG_FILENAME
+    catalog_path = catalog_path_for(workspace_root)
     if not catalog_path.exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
@@ -321,21 +314,22 @@ def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
             catalog.close()
 
 
-def adopt_store(store_path: Any, *, workspace: Any) -> dict:
-    """Re-register an orphan store into the workspace catalog.
+def reindex_project(workspace: Any) -> dict:
+    """Rebuild the project index from its run directories.
 
-    Returns ``{"sim_id": ...}``. Raises ``FileNotFoundError`` when the
-    catalog or the snapshot is missing, ``ValueError`` on a bad store.
+    Returns ``{"index": ..., "indexed": [...], "skipped": [...], "rows": {...}}``.
+    Idempotent: the index is rebuilt from what the runs declare on disk, so
+    running it twice describes the same project twice.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.reindex import rebuild_index
 
-    workspace_root = Path(workspace).expanduser().resolve()
-    if not (workspace_root / CATALOG_FILENAME).exists():
-        raise FileNotFoundError(f"No catalog at {workspace_root}")
-
-    with Catalog(workspace_root) as catalog:
-        return {"sim_id": catalog.adopt(store_path)}
+    report = rebuild_index(Path(workspace).expanduser().resolve())
+    return {
+        "index": str(report.index_path),
+        "indexed": list(report.indexed),
+        "skipped": [{"run": item.run, "reason": item.reason} for item in report.skipped],
+        "rows": dict(report.rows),
+    }
 
 
 def delete_simulation(
@@ -344,38 +338,29 @@ def delete_simulation(
     workspace: Any,
     keep_storage: bool = False,
 ) -> dict:
-    """Delete one simulation row and (optionally) its Zarr / Parquet store.
+    """Delete one simulation row and (optionally) its run directory.
 
     Returns a dict with ``sim_id``, ``freed_bytes``, ``removed_paths``.
     """
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
     with Catalog(workspace_root) as catalog:
         sid = catalog.resolve(sim_ref)
-        zarr_path = catalog.zarr_path_for(sid)
-        parquet_dir = catalog.parquet_dir_for(sid)
-        existing = [path for path in (zarr_path, parquet_dir) if path.exists()]
-        freed_bytes = sum(_path_size(path) for path in existing) if not keep_storage else 0
-        catalog.delete(sid, remove_storage=not keep_storage)
-        return {
-            "sim_id": sid,
-            "freed_bytes": freed_bytes,
-            "removed_paths": [str(p) for p in existing] if not keep_storage else [],
-        }
+        return delete_simulation_artifacts(catalog, sid, remove_storage=not keep_storage)
 
 
 def _open_project_catalog(workspace: Any, *, read_only: bool = False) -> Any:
     """Open the project catalog at ``workspace`` or raise."""
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
 
     root = Path(workspace).expanduser().resolve()
-    if not (root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(root)).exists():
         raise FileNotFoundError(f"No catalog at {root}")
     return Catalog(root, read_only=read_only)
 
@@ -645,7 +630,7 @@ def _gc_resolve_workspace(workspace: Any) -> Path:
     import os
 
     from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.data.scaffold import DEFAULT_ROOT
 
     if workspace is not None:
@@ -657,7 +642,7 @@ def _gc_resolve_workspace(workspace: Any) -> Path:
     # than defaulting straight to ~/hydromodpy: walk up to the workspace root,
     # or stay on a bare project directory that carries its own catalog.
     start = Path(os.environ.get("HMP_WORKSPACE") or Path.cwd()).expanduser().resolve()
-    if (start / CATALOG_FILENAME).is_file():
+    if (catalog_path_for(start)).is_file():
         return start
     found = find_workspace_root(start)
     if (found / "projects").is_dir() or (found / "data").is_dir():
@@ -742,8 +727,8 @@ def _gc_pending_purges(project_root: Path) -> list[str]:
     return [f"{project_root.name}:{sid}" for sid in sids]
 
 
-# Staging artefacts younger than this are assumed to belong to a live write and
-# are never swept (atomic parquet .tmp-* and promoted .staging.zarr stores).
+# Artefacts younger than this are assumed to belong to a live write and are
+# never swept (atomic parquet .tmp-* files and run directories being written).
 _GC_STAGING_MIN_AGE_S = 3600
 
 
@@ -758,64 +743,42 @@ def _gc_recent(path: Path, min_age_s: float) -> bool:
 
 
 def _gc_orphan_stores(project_root: Path) -> list[str]:
-    """Zarr/Parquet stores on disk with no matching ``storage_basename`` row.
+    """Run directories on disk with no matching index row.
 
-    Skips adoptable stores (a ``.parquet`` dir with a ``simulation.parquet``
-    adoption snapshot left by ``delete --keep-storage``), dotfile-prefixed
-    staging entries, and any store younger than the staging grace window so an
-    in-flight registration is never swept.
+    Skips sealed runs (a ``manifest.json`` makes the run re-indexable by
+    ``hmp catalog reindex``, so it is missing from the index, never lost),
+    dotfile-prefixed entries, and any directory younger than the staging
+    grace window so an in-flight registration is never swept.
     """
-    simulations_dir = project_root / "simulations"
-    if not simulations_dir.is_dir():
+    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.results.manifest import is_sealed
+    from hydromodpy.results.storage.diagnostics import is_run_directory
+
+    runs_dir = runs_dir_for(project_root)
+    if not runs_dir.is_dir():
         return []
     catalog = _read_only_catalog(project_root)
     if catalog is None:
         return []
     try:
-        known = catalog.list_storage_basenames()
+        known = catalog.list_run_dirnames()
     except Exception:
         known = set()
     finally:
         catalog.close()
 
     orphans: list[str] = []
-    for entry in sorted(simulations_dir.iterdir()):
-        # A registering run promotes ``.{id8}.staging.zarr`` before the INSERT
-        # commits; a read-only probe cannot see the pending row, so skip these
-        # dotfile-prefixed staging stores outright.
-        if entry.name.startswith("."):
+    for entry in sorted(runs_dir.iterdir()):
+        if entry.name.startswith(".") or not is_run_directory(entry):
             continue
-        basename = _gc_store_basename(entry.name)
-        if basename is None or basename in known:
+        if entry.name in known:
             continue
-        if _gc_store_is_adoptable(entry):
+        if is_sealed(entry):
             continue
         if _gc_recent(entry, _GC_STAGING_MIN_AGE_S):
             continue
         orphans.append(str(entry))
     return orphans
-
-
-def _gc_store_is_adoptable(entry: Path) -> bool:
-    """Return True when a store carries a ``simulation.parquet`` adoption snapshot.
-
-    Such stores are the deliberate product of ``delete --keep-storage`` and can
-    be re-registered with ``hmp catalog adopt``; gc must not destroy them.
-    """
-    if entry.name.endswith(".parquet"):
-        return (entry / "simulation.parquet").is_file()
-    basename = _gc_store_basename(entry.name)
-    if basename is None:
-        return False
-    return (entry.parent / f"{basename}.parquet" / "simulation.parquet").is_file()
-
-
-def _gc_store_basename(entry_name: str) -> str | None:
-    """Strip a store suffix (.zarr / .zarr.zip / .parquet) to its basename."""
-    for suffix in (".zarr.zip", ".zarr", ".parquet"):
-        if entry_name.endswith(suffix):
-            return entry_name[: -len(suffix)]
-    return None
 
 
 def _gc_orphan_calibration_sessions(project_root: Path) -> list[str]:
@@ -880,7 +843,9 @@ def _gc_stale_running_simulations(project_root: Path) -> list[str]:
 
 
 def _gc_orphan_geographic_cache(workspace: Path, project_roots: list[Path]) -> list[str]:
-    cache_dir = workspace / "geographic"
+    from hydromodpy.results.geographic_cache import CACHE_DIRNAME
+
+    cache_dir = workspace / CACHE_DIRNAME
     if not cache_dir.is_dir():
         return []
     referenced = _gc_referenced_geographic_fingerprints(project_roots)
@@ -939,16 +904,18 @@ def _gc_trash_stamp() -> str:
 
 
 def _gc_quarantine_orphan_store(store: Path, *, stamp: str) -> bool:
-    """Move an orphan store to ``<project>/.hmp/trash/<stamp>/``.
+    """Move an orphan run directory to ``<project>/.hmp/trash/<stamp>/``.
 
-    An orphan store is the only remaining copy of a run's outputs, so gc
-    never deletes one: it quarantines it where a human can inspect, adopt or
-    finally remove it. Returns True when the store was moved.
+    An orphan run directory is the only remaining copy of a run's outputs, so
+    gc never deletes one: it quarantines it where a human can inspect it and
+    finally remove it. Returns True when the directory was moved.
     """
+    from hydromodpy.core.state.paths import internal_dir
+
     if not store.exists():
         return False
-    # Orphan stores are collected from ``<project>/simulations/<store>``.
-    trash_dir = store.parent.parent / ".hmp" / "trash" / stamp
+    # Orphan run directories are collected from ``<project>/runs/<name>``.
+    trash_dir = internal_dir(store.parent.parent) / "trash" / stamp
     destination = trash_dir / store.name
     try:
         trash_dir.mkdir(parents=True, exist_ok=True)
@@ -1036,12 +1003,12 @@ def _gc_apply_per_project_purges(
 
 
 def _gc_project_root_by_name(workspace: Path, project_name: str) -> Path | None:
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
 
     candidate = workspace / "projects" / project_name
-    if candidate.is_dir() and (candidate / CATALOG_FILENAME).is_file():
+    if candidate.is_dir() and (catalog_path_for(candidate)).is_file():
         return candidate
-    if workspace.name == project_name and (workspace / CATALOG_FILENAME).is_file():
+    if workspace.name == project_name and (catalog_path_for(workspace)).is_file():
         return workspace
     return None
 
@@ -1073,10 +1040,10 @@ def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) 
 
 
 def _vacuum_iter_catalog_files(workspace: Path) -> list[Path]:
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import iter_project_catalog_roots
 
-    return [root / CATALOG_FILENAME for root in iter_project_catalog_roots(workspace)]
+    return [catalog_path_for(root) for root in iter_project_catalog_roots(workspace)]
 
 
 def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
@@ -1129,14 +1096,17 @@ def _vacuum_consolidate_zarr_stores(workspace: Path) -> int:
         import zarr  # noqa: F401
     except ImportError:
         return 0
+    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
     from hydromodpy.results.zarr_store import SimulationZarr
 
     count = 0
-    for sim_dir in workspace.rglob("simulations"):
-        if not sim_dir.is_dir():
+    for project_root in _gc_iter_project_roots(workspace):
+        runs_dir = runs_dir_for(project_root)
+        if not runs_dir.is_dir():
             continue
-        for entry in sorted(sim_dir.iterdir()):
-            if entry.is_dir() and entry.suffix == ".zarr":
+        for entry in sorted(runs_dir.glob(f"*/{FIELDS_STORE_NAME}")):
+            if entry.is_dir():
                 try:
                     sz = SimulationZarr(entry)
                     try:

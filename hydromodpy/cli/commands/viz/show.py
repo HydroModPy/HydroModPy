@@ -17,7 +17,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument("sim_ref", help="Simulation reference: full UUID, prefix, or name")
     parser.add_argument("figure", help="Figure name (e.g. watertable_map)")
     parser.add_argument("--workspace", default=None, help="Project catalog root")
-    parser.add_argument("--output", default=None, type=Path, help="Output file path")
+    parser.add_argument(
+        "--output",
+        default=None,
+        type=Path,
+        help="Output file path (default: runs/<run>/figures/<figure>.png)",
+    )
     parser.set_defaults(_handler=run)
     return parser
 

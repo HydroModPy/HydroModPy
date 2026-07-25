@@ -8,7 +8,7 @@ import sys
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "register"
-HELP: str = "Register a workspace catalog.duckdb in the global index"
+HELP: str = "Register a workspace index database in the global index"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

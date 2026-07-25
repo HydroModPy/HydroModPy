@@ -244,11 +244,11 @@ def export_simulation_package(
     project: str | None = None,
 ) -> Path:
     """Export a simulation as a portable ``.hmp`` archive."""
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
-    if not (workspace_root / CATALOG_FILENAME).exists():
+    if not (catalog_path_for(workspace_root)).exists():
         raise FileNotFoundError(f"No catalog found at {workspace_root}")
     output_path = Path(output).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
