@@ -18,7 +18,7 @@ still missing from the declared plan.
 
    import hydromodpy as hmp
 
-   with hmp.Project("hydromodpy.toml") as p:
+   with hmp.Project("project.toml") as p:
        df = p.data.list()          # variables loaded in cache
        todo = p.data.missing()     # variables declared but not loaded
 
@@ -49,7 +49,7 @@ The accessor exposes four common queries:
 
 .. code-block:: python
 
-   with hmp.Project("hydromodpy.toml") as p:
+   with hmp.Project("project.toml") as p:
        p.simulate(Sy=0.05, name="probe-1")
        p.simulate(Sy=0.08, name="probe-2")
 

@@ -22,11 +22,11 @@ Three levels
        machine global index ``index.duckdb``.
    * - N
      - **Project**
-     - One ``projects/<name>/hydromodpy.toml`` plus the per-project
+     - One ``projects/<name>/project.toml`` plus the per-project
        ``catalog.duckdb`` and ``simulations/`` folder. Open with
        :class:`hmp.Project <hydromodpy.project.Project>` for a
        setup-once / run-many Python session, or fire-and-forget with
-       ``hmp run hydromodpy.toml``.
+       ``hmp run project.toml``.
    * - N
      - **Run**
      - One simulation result in the project catalog, identified by
@@ -42,7 +42,7 @@ Programmatic flow
 
    import hydromodpy as hmp
 
-   project = hmp.Project("~/ws/projects/canut/hydromodpy.toml")
+   project = hmp.Project("~/ws/projects/canut/project.toml")
 
    # Setup-once / run-many: share the context between runs
    baseline = project.simulate(K=5e-5, name="baseline")
@@ -64,7 +64,7 @@ CLI equivalents
 
    * - CLI
      - Python
-   * - ``hmp run hydromodpy.toml``
+   * - ``hmp run project.toml``
      - ``hmp.Project(toml).simulate()``
    * - ``hmp catalog ls``
      - ``hmp.open(project).frame``

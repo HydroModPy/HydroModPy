@@ -21,7 +21,7 @@ The canonical workspace layout is::
             cache.duckdb
         projects/
             <name>/
-                hydromodpy.toml   <- TOML lives here when using scaffold
+                project.toml   <- TOML lives here when using scaffold
                 runs/<run>/
                 share/
                 .hmp/index.duckdb
