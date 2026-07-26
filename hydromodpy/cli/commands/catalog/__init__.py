@@ -14,7 +14,7 @@ Sub-actions:
 - ``hmp catalog trash [--empty]``: list trashed runs or empty the trash.
 - ``hmp catalog tag <sim_ref> TAG... [--rm TAG]``: add/remove tags.
 - ``hmp catalog note <sim_ref> "<text>"``: append a timestamped note.
-- ``hmp catalog rename <sim_ref> <new_name>``: rename a run (storage never moves).
+- ``hmp catalog rename <sim_ref> <new_name>``: rename a run (its directory moves).
 - ``hmp catalog diff <ref_a> <ref_b>``: compare two runs' params and outlet metrics.
 - ``hmp catalog watch``: show running runs with heartbeat staleness.
 - ``hmp catalog export <sim_ref> [-o FILE]``: write a portable ``.hmp`` archive.

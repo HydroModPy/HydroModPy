@@ -11,8 +11,8 @@ per calibration session::
         provenance.json                  environment, versions, git
         manifest.json                    seal, written last
         annotations.json                 tags and notes, mutable after the seal
+        trash.json                       present while the run sits in the trash
         figures/                         figures of this run
-        run.log                          run journal
     <project>/sessions/<name>/           one calibration session
         session.json                     identity, search space, best trial
         trials.jsonl                     one line per evaluated trial
@@ -23,6 +23,11 @@ the project itself (``runs``, ``sessions``, ``share``, ``.hmp`` ...) live in
 :mod:`hydromodpy.core.state.paths`; this module owns the names *inside* a
 run or session directory so path builders, exporters and documentation share
 one vocabulary.
+
+A run directory holds results, not diagnostics: the pipeline log stays in
+``<project>/.hmp/logs/``, which is disposable, while everything listed above
+is sealed by ``manifest.json`` with its size. A log still open when the seal
+is written could not carry an honest size, so it is not a run artefact.
 
 There is no packed form: ``fields.zarr`` is a directory that readers open
 directly while the run is still solving, and the tabular payloads are plain
@@ -57,13 +62,13 @@ RUN_MANIFEST_FILENAME = "manifest.json"
 """Seal of a complete run directory. Absent means the run did not finish."""
 
 RUN_ANNOTATIONS_FILENAME = "annotations.json"
-"""Tags and notes of one run. The only run file that changes after the seal."""
+"""Tags and notes of one run. Written after the seal, like the trash marker."""
+
+RUN_TRASH_FILENAME = "trash.json"
+"""Trash marker of one run. Present means trashed; absent means live."""
 
 RUN_FIGURES_DIRNAME = "figures"
 """Figures rendered for one run."""
-
-RUN_LOG_FILENAME = "run.log"
-"""Journal of one run."""
 
 SESSION_DESCRIPTOR_FILENAME = "session.json"
 """Identity, search space, objective and best trial of one calibration session."""
@@ -118,10 +123,10 @@ __all__ = [
     "RESULT_STORAGE_LAYERS",
     "RUN_CONFIG_FILENAME",
     "RUN_FIGURES_DIRNAME",
-    "RUN_LOG_FILENAME",
     "RUN_MANIFEST_FILENAME",
     "RUN_PROVENANCE_FILENAME",
     "RUN_STORAGE_LAYER_NAMES",
+    "RUN_TRASH_FILENAME",
     "SESSION_DESCRIPTOR_FILENAME",
     "SESSION_TRIALS_FILENAME",
     "ResultStorageLayer",

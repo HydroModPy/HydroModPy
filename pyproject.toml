@@ -153,10 +153,9 @@ dev = [
 hmp = "hydromodpy.cli:main"
 hydromodpy = "hydromodpy.cli:main"
 
-[project.entry-points."hydromodpy.solver"]
-flow_modflownwt = "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter"
-flow_modflow6 = "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter"
-flow_boussinesq = "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter"
+# The "hydromodpy.solver" and "hydromodpy.solver.extractor" entry-point groups
+# are the out-of-tree plugin surface. In-tree backends are declared once, in
+# hydromodpy.solver.base.registry, so a backend never carries two names.
 
 [project.urls]
 Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"

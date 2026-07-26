@@ -74,7 +74,7 @@ import json
 import os
 import uuid
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -129,9 +129,15 @@ def sessions_dir_for(project_root: Path | str) -> Path:
 
 
 def session_dir_name(session_id: str, method: str, started_at: datetime) -> str:
-    """Return the directory name of one session, sortable and readable."""
+    """Return the directory name of one session, sortable and readable.
+
+    An aware ``started_at`` is stamped in UTC, so the name a reader rebuilds
+    from the index (which hands back the instant in local time) is the name
+    the journal wrote.
+    """
+    stamp = started_at.astimezone(UTC) if started_at.tzinfo is not None else started_at
     short = str(session_id).replace("-", "")[:8]
-    return f"{started_at:%Y%m%d-%H%M%S}-{method}-{short}"
+    return f"{stamp:%Y%m%d-%H%M%S}-{method}-{short}"
 
 
 def session_dirs_for(project_root: Path | str) -> list[Path]:

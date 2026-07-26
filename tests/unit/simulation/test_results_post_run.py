@@ -15,6 +15,7 @@ from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -32,8 +33,9 @@ def _build_run_context(
 ) -> RunContext:
     """Build a minimal RunContext for post_run_results tests.
 
-    The state only carries ``execution.output_dirs_by_run_id`` because that is
-    the only attribute the ``adapter.cleanup(ctx)`` path consults.
+    The state carries ``execution.output_dirs_by_run_id`` for the
+    ``adapter.cleanup(ctx)`` path, plus the ``cfg`` the extraction phase reads
+    to hand the configured dry-cell sentinels to the extractor.
     """
     run = ProcessRun(
         id=f"{process_type}_main::{solver_name}",
@@ -45,7 +47,10 @@ def _build_run_context(
     output_dirs: dict[str, Path] = {}
     if solver_output_dir is not None:
         output_dirs[run.id] = solver_output_dir
-    state = SimpleNamespace(execution=SimpleNamespace(output_dirs_by_run_id=output_dirs))
+    state = SimpleNamespace(
+        cfg=SimpleNamespace(modflownwt=ModflowConfig()),
+        execution=SimpleNamespace(output_dirs_by_run_id=output_dirs),
+    )
     return RunContext(plan=plan, run=run, state=state)
 
 

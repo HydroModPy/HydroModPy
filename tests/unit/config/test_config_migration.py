@@ -86,6 +86,30 @@ def test_export_promotion_skips_when_top_level_exists(tmp_path: Path) -> None:
     assert "export" not in parsed.get("simulation", {}).get("results", {})
 
 
+def test_drops_the_two_options_that_never_drove_anything(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        '[simulation]\nname = "cheze"\n\n'
+        '[simulation.results]\nsolver_scratch = ".hmp/scratch"\nkeep_solver_files = true\n\n'
+        "[simulation.results.persistence]\nsave_lock = true\nsave_zarr = true\n\n"
+        "[persistence]\nsave_lock = false\n\n"
+        "[calibration.persistence]\nsave_lock = true\n",
+    )
+    changes = fix_config_file(path)
+    assert any("solver_scratch dropped" in c for c in changes)
+    assert sum("save_lock dropped" in c for c in changes) == 3
+
+    parsed = tomllib.loads(path.read_text())
+    results = parsed["simulation"]["results"]
+    assert "solver_scratch" not in results
+    assert results["keep_solver_files"] is True
+    assert "save_lock" not in results["persistence"]
+    assert results["persistence"]["save_zarr"] is True
+    assert "save_lock" not in parsed["persistence"]
+    assert "save_lock" not in parsed["calibration"]["persistence"]
+    assert fix_config_file(path) == []
+
+
 def test_missing_file_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         fix_config_file(tmp_path / "absent.toml")

@@ -31,8 +31,8 @@ from hydromodpy.results.storage.contract import (
     RUN_ANNOTATIONS_FILENAME,
     RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
-    RUN_LOG_FILENAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_TRASH_FILENAME,
     TABLES_DIRNAME,
 )
 
@@ -46,8 +46,8 @@ ALLOWED_RUN_ENTRIES = REQUIRED_RUN_ENTRIES | {
     RUN_PROVENANCE_FILENAME,
     RUN_MANIFEST_FILENAME,
     RUN_ANNOTATIONS_FILENAME,
+    RUN_TRASH_FILENAME,
     RUN_FIGURES_DIRNAME,
-    RUN_LOG_FILENAME,
 }
 """Every name a run directory may carry: nothing else is a run artefact."""
 

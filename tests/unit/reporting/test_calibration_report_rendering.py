@@ -10,6 +10,7 @@ import pytest
 @dataclass
 class _Payload:
     session_id: str
+    session_name: str
     session: dict
     iterations: list[dict]
     workspace_root: Path
@@ -28,6 +29,7 @@ class _Figure:
 def _payload(tmp_path: Path) -> _Payload:
     return _Payload(
         session_id="abcdef123456",
+        session_name="20260726-101500-grid-abcdef12",
         session={"session_id": "abcdef123456", "method": "grid"},
         iterations=[
             {

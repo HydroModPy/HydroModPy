@@ -3,7 +3,7 @@
 Subparsers:
   - ``hmp config template [OUTPUT]``  : generate a TOML template
   - ``hmp config check FILE.toml``    : validate a TOML against the Pydantic schema
-  - ``hmp config schema ...``         : export the JSON Schema (alias of ``hmp schema``)
+  - ``hmp config schema ...``         : export the JSON Schema (same as ``hmp dev schema``)
   - ``hmp config wizard``             : stdin-driven wizard
 """
 

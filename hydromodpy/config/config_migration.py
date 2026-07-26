@@ -5,6 +5,9 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 - ``on_collision`` -> ``if_exists``
 - ``run_id`` -> ``name`` (when ``name`` is not already set)
 - ``[simulation.results.export]`` -> top-level ``[export]``
+- ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
+  nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
+  the lockfile is written on every run.
 
 This is a migration tool, not a backward-compat shim: it changes a file on disk
 once. The runtime itself never accepts the old keys (``extra="forbid"``).
@@ -39,15 +42,17 @@ def fix_config_file(path: str | Path) -> list[str]:
 def migrate_config_doc(doc: Any) -> list[str]:
     """Apply the legacy ``[simulation]`` key migrations to a parsed doc in place.
 
-    Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document, so the
-    same migration drives both ``fix_config_file`` (on disk) and in-memory
-    loading. Returns the list of human-readable changes applied.
+    Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document, so
+    ``fix_config_file`` can rewrite a file while a caller holding a parsed
+    payload migrates it in memory. The runtime loader does **not** call this:
+    ``extra="forbid"`` rejects a legacy key until ``hmp doctor --fix-config``
+    has run. Returns the list of human-readable changes applied.
     """
+    changes: list[str] = _drop_dead_result_options(doc)
+
     simulation = doc.get("simulation")
     if simulation is None:
-        return []
-
-    changes: list[str] = []
+        return changes
 
     if "on_collision" in simulation:
         value = simulation["on_collision"]
@@ -68,6 +73,31 @@ def migrate_config_doc(doc: Any) -> list[str]:
         del simulation["run_id"]
 
     changes.extend(_promote_export(doc, simulation))
+    return changes
+
+
+def _persistence_tables(doc: Any) -> list[tuple[str, Any]]:
+    """Return every ``(path, table)`` pair holding a persistence section."""
+    results = (doc.get("simulation") or {}).get("results")
+    candidates = [
+        ("persistence", doc.get("persistence")),
+        ("simulation.results.persistence", (results or {}).get("persistence")),
+        ("calibration.persistence", (doc.get("calibration") or {}).get("persistence")),
+    ]
+    return [(path, table) for path, table in candidates if table is not None]
+
+
+def _drop_dead_result_options(doc: Any) -> list[str]:
+    """Remove the two result options that never drove anything."""
+    changes: list[str] = []
+    results = (doc.get("simulation") or {}).get("results")
+    if results is not None and "solver_scratch" in results:
+        del results["solver_scratch"]
+        changes.append("simulation.results.solver_scratch dropped (never read)")
+    for path, persistence in _persistence_tables(doc):
+        if "save_lock" in persistence:
+            del persistence["save_lock"]
+            changes.append(f"{path}.save_lock dropped (never read)")
     return changes
 
 

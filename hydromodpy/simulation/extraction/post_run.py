@@ -151,6 +151,9 @@ def extract_run_outputs(
     start_datetime = _resolve_run_start_datetime(ctx)
     if start_datetime is not None and _accepts_kwarg(extractor.extract, "start_datetime"):
         extract_kwargs["start_datetime"] = start_datetime
+    for keyword, value in _dry_cell_sentinels(ctx).items():
+        if _accepts_kwarg(extractor.extract, keyword):
+            extract_kwargs[keyword] = value
     extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
 
     _finalize_run_provenance(ctx=ctx, sim_id=sim_id, store=store)
@@ -237,6 +240,18 @@ def _resolve_run_grid_metadata(model: Any) -> dict | None:
     except Exception:
         pass
     return meta
+
+
+def _dry_cell_sentinels(ctx: RunContext) -> dict[str, float]:
+    """Return the head sentinels the solver was configured to write.
+
+    MODFLOW-NWT stamps dry cells with ``[modflownwt.runtime.upw] hdry`` and
+    inactive cells with ``[modflownwt.runtime.bas] hnoflo``; the extractor
+    masks exactly those values to NaN. Reading them back from defaults would
+    keep -100 and -9999 in the heads of anyone who changed them.
+    """
+    runtime = ctx.state.cfg.modflownwt.runtime
+    return {"hdry": float(runtime.upw.hdry), "hnoflo": float(runtime.bas.hnoflo)}
 
 
 def _resolve_run_start_datetime(ctx: RunContext) -> str | None:

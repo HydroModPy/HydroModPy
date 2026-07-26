@@ -296,3 +296,91 @@ def test_non_contention_io_error_propagates(
 
     with pytest.raises(_duckdb.IOException):
         GlobalIndex(index_db)
+
+
+def test_a_stale_schema_ledger_is_rebuilt_not_fatal(tmp_path: Path) -> None:
+    """The registry is reconstructible: an unmigratable ledger must not block boot."""
+    ws = tmp_path / "ws_a"
+    _seed_workspace(ws, rows=[("alpha", "first run", "modflow6")])
+    index_db = _index_db(tmp_path)
+    with GlobalIndex(index_db) as writer:
+        writer.register_workspace(str(ws), label="lab")
+
+    conn = duckdb.connect(str(index_db))
+    conn.execute("UPDATE schema_migrations SET checksum = 'stale' WHERE component = 'index'")
+    conn.execute("CREATE TABLE dropped_by_an_older_version (x INTEGER)")
+    conn.close()
+
+    with GlobalIndex(index_db) as gi:
+        assert gi.read_only is False
+        assert [(w.workspace_uri, w.label) for w in gi.list_workspaces()] == [(str(ws), "lab")]
+        assert len(gi.find()) == 1
+        tables = {row[0] for row in gi.connection.execute("SHOW TABLES").fetchall()}
+        assert "dropped_by_an_older_version" not in tables
+
+
+def test_a_failed_auto_registration_is_reported_not_hidden(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A silent DEBUG made 'workspace list' answer from stale rows without a word."""
+    import logging
+
+    from hydromodpy.core.logging import get_logger
+    from hydromodpy.core.state import global_index as gi_mod
+
+    def _boom(*_args: object, **_kwargs: object) -> GlobalIndex:
+        raise RuntimeError("index unavailable")
+
+    monkeypatch.setattr(gi_mod, "GlobalIndex", _boom)
+
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    # The ``hydromodpy`` logger does not propagate, so caplog never sees it.
+    parent = get_logger("hydromodpy")
+    handler = _Capture(level=logging.WARNING)
+    parent.addHandler(handler)
+    try:
+        assert gi_mod.auto_register_workspace(tmp_path / "ws") is None
+    finally:
+        parent.removeHandler(handler)
+
+    warnings = [r.getMessage() for r in records if r.levelno >= logging.WARNING]
+    assert any("global index" in message.lower() for message in warnings)
+
+
+def test_a_read_only_open_says_the_index_is_stale(tmp_path: Path) -> None:
+    """A read-only handle never migrates: silence would pass stale rows off as fact."""
+    import logging
+
+    from hydromodpy.core.logging import get_logger
+
+    ws = tmp_path / "ws_a"
+    _seed_workspace(ws)
+    index_db = _index_db(tmp_path)
+    with GlobalIndex(index_db) as writer:
+        writer.register_workspace(str(ws))
+
+    conn = duckdb.connect(str(index_db))
+    conn.execute("UPDATE schema_migrations SET checksum = 'stale' WHERE component = 'index'")
+    conn.close()
+
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    parent = get_logger("hydromodpy")
+    handler = _Capture(level=logging.WARNING)
+    parent.addHandler(handler)
+    try:
+        with GlobalIndex(index_db, read_only=True) as reader:
+            assert reader.read_only is True
+    finally:
+        parent.removeHandler(handler)
+
+    assert any("stale" in record.getMessage().lower() for record in records)

@@ -52,23 +52,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Surface lifecycle issues (orphan sims, tmp parquet, stale running rows)",
     )
     parser.add_argument(
-        "--restore-backup",
-        default=None,
-        metavar="TS",
-        help=(
-            "Restore the workspace catalog from a pre-migration backup. "
-            "TS is the ISO 8601 timestamp suffix of the backup file "
-            "(e.g. 20260520T143015Z)."
-        ),
-    )
-    parser.add_argument(
         "--fix-config",
         default=None,
         metavar="FILE.toml",
         help=(
             "Migrate a project TOML to the current schema in place "
             "(simulation.on_collision -> if_exists, run_id -> name, "
-            "[simulation.results.export] -> [export]). "
+            "[simulation.results.export] -> [export], and drop the dead "
+            "solver_scratch / save_lock options). "
             "Preserves comments and layout."
         ),
     )
@@ -89,11 +80,6 @@ def run(args: argparse.Namespace) -> None:
 
     if getattr(args, "migrate", False):
         _migrate_catalogs(args.workspace)
-        return
-
-    restore_ts = getattr(args, "restore_backup", None)
-    if restore_ts is not None:
-        _restore_backup(args.workspace, restore_ts)
         return
 
     report = _build_report(args.workspace, toml=args.toml)
@@ -165,30 +151,6 @@ def _fix_config(toml_path: str) -> None:
     print(f"Migrated {path}:")
     for change in changes:
         print(f"  - {change}")
-
-
-def _restore_backup(workspace_arg: str | None, timestamp: str) -> None:
-    """Restore the catalog from a pre-migration backup tagged ``timestamp``."""
-    from hydromodpy.core.migrations.auto_boot import backup_path_for, restore_backup
-    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
-
-    base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
-    try:
-        workspace_root = resolve_project_root(base)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(1)
-    catalog_path = catalog_path_for(workspace_root)
-    backup = backup_path_for(catalog_path, timestamp=timestamp)
-    if not backup.is_file():
-        print(f"No backup found at {backup}", file=sys.stderr)
-        sys.exit(1)
-    try:
-        restore_backup(catalog_path, backup)
-    except Exception as exc:  # noqa: BLE001 - surface to the user
-        print(f"Restore failed: {exc}", file=sys.stderr)
-        sys.exit(1)
-    print(f"Restored {catalog_path} from {backup}")
 
 
 def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict:
@@ -641,7 +603,7 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
                 "name": "cross_catalog:index_open",
                 "status": "KO",
                 "detail": f"{exc}",
-                "hint": "Re-create the global index via hmp index search/forget/prune",
+                "hint": "Re-register the workspaces with 'hmp workspace register <ws>'",
             }
         ]
 
@@ -658,7 +620,7 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
                 if workspace_ids_local
                 else "workspace not registered in the global index"
             ),
-            "hint": "Register via the manage verb if needed",
+            "hint": "Run 'hmp workspace register <ws>' to register it",
         }
     )
     checks.append(
@@ -679,7 +641,7 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
             "detail": (
                 f"{len(index_sim_ids)} sim(s) in index, {len(only_in_index)} missing from projects"
             ),
-            "hint": "Run 'hmp index prune' to drop stale registrations",
+            "hint": "Run 'hmp workspace prune' to drop stale registrations",
         }
     )
     return checks
@@ -782,19 +744,19 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
             "name": "lifecycle:stale_running_sims",
             "status": "OK" if stale_running == 0 else "WARN",
             "detail": f"{stale_running} sim(s) running >{STALE_HEARTBEAT_MINUTES} min without heartbeat",
-            "hint": "Run 'hmp gc --workspace <ws>' to mark them failed",
+            "hint": "Run 'hmp catalog gc -w <ws> --apply' to mark them failed",
         },
         {
             "name": "lifecycle:orphan_calibration_sessions",
             "status": "OK" if orphan_sessions == 0 else "WARN",
             "detail": f"{orphan_sessions} calibration session(s) reference a missing best_sim_id",
-            "hint": "Run 'hmp gc --workspace <ws>' to drop them",
+            "hint": "Run 'hmp catalog gc -w <ws> --apply' to drop them",
         },
         {
             "name": "lifecycle:tmp_parquet",
             "status": "OK" if tmp_parquet == 0 else "WARN",
             "detail": f"{tmp_parquet} stale tmp-* artefact(s) on disk",
-            "hint": "Run 'hmp gc --workspace <ws>' to clean them up",
+            "hint": "Run 'hmp catalog gc -w <ws> --apply' to clean them up",
         },
         {
             "name": "lifecycle:workflow_steps_running",

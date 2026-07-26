@@ -229,6 +229,9 @@ def test_the_calibration_report_finds_its_session_again(project, session_id):
     assert data.session["method"] == "optuna"
     assert len(data.iterations) == 3
     assert data.variable == "head"
+    # The report names the session exactly as the disk does: no second
+    # vocabulary, no opaque 32-character identifier.
+    assert data.session_name == session_dirs_for(project)[0].name
 
 
 def test_an_interrupted_session_is_indexed_with_the_trials_on_disk(tmp_path, session_id):

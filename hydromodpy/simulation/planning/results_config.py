@@ -76,12 +76,14 @@ class DerivedConfig(HydroModelBase):
 class BudgetConfig(HydroModelBase):
     """Budget extraction configuration."""
 
-    spatial_fields: Annotated[bool, Profile.DEV] = Field(
+    spatial_fields: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: "
             "the lumped per-component budget still lands in the budgets table, and the "
-            "catchment scalars (discharge, well pumping) are derived from it."
+            "catchment scalars (discharge, well pumping) are derived from it. Turn it on "
+            "to map or export a per-cell flux, at the cost of the heaviest arrays a run "
+            "can hold."
         ),
     )
 
@@ -98,25 +100,18 @@ class ResultsConfig(HydroModelBase):
         default_factory=PersistenceConfig,
         description=(
             "Simulation-run persistence switch passed to the result catalog "
-            "(DuckDB rows, Zarr fields, Parquet tables, lockfile)."
+            "(DuckDB rows, Zarr fields, Parquet tables)."
         ),
     )
     keep_solver_files: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Keep raw solver output files (.hds, .cbc, .lst) after ingestion.",
     )
-    solver_scratch: Annotated[str, Profile.DEV] = Field(
-        default=".hmp/scratch",
-        description=(
-            "Directory for temporary solver files, relative to the project. "
-            "Use an absolute path (e.g. /scratch/$USER/hmp) for HPC."
-        ),
-    )
     derived: Annotated[DerivedConfig, Profile.USER] = Field(
         default_factory=DerivedConfig,
         description="Derived variable computation toggles.",
     )
-    budget: Annotated[BudgetConfig, Profile.DEV] = Field(
+    budget: Annotated[BudgetConfig, Profile.USER] = Field(
         default_factory=BudgetConfig,
         description="Budget extraction configuration.",
     )

@@ -58,12 +58,29 @@ def sanitize_segment(value: str | None, *, max_len: int = MAX_SEGMENT_LEN) -> st
     return slug[:max_len].rstrip("_-") or UNNAMED
 
 
+class RunNameTooLongError(ValueError):
+    """A run name maps to a directory name longer than the filesystem budget."""
+
+    def __init__(self, name: str, length: int) -> None:
+        super().__init__(
+            f"Run name {name!r} maps to a {length}-character directory name; "
+            f"the maximum is {MAX_DIRNAME_LEN} characters. Shorten the name."
+        )
+        self.name = name
+        self.length = length
+
+
 def run_dirname(name: str | None) -> str:
     """Return the directory name of a run from its human name.
 
     Case is preserved (the directory is meant to be recognised at a glance)
     and the ``.vN`` version suffix survives; only characters a filesystem
     cannot carry are folded to ASCII and replaced by an underscore.
+
+    A name that would need more than :data:`MAX_DIRNAME_LEN` characters is
+    refused with :class:`RunNameTooLongError` rather than truncated: two names
+    sharing a prefix would otherwise resolve to the same directory and the
+    second run would die on a collision it never asked for.
     """
     if not name:
         return UNNAMED
@@ -72,7 +89,9 @@ def run_dirname(name: str | None) -> str:
     cleaned = _COLLAPSE_UNDERSCORE_RE.sub("_", cleaned).strip("._-")
     if not cleaned:
         return UNNAMED
-    return cleaned[:MAX_DIRNAME_LEN].rstrip("._-") or UNNAMED
+    if len(cleaned) > MAX_DIRNAME_LEN:
+        raise RunNameTooLongError(str(name), len(cleaned))
+    return cleaned
 
 
 class StoragePathResolver:

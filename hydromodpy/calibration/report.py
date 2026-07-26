@@ -160,6 +160,9 @@ class SessionReportData:
     ----------
     session_id
         Canonical hex session identifier.
+    session_name
+        Readable name of the session directory on disk
+        (``<date>-<method>-<id8>``), so the report sits under the same name.
     session
         Row from ``calibration_sessions`` as a dict.
     iterations
@@ -179,6 +182,7 @@ class SessionReportData:
     """
 
     session_id: str
+    session_name: str
     session: dict[str, Any]
     iterations: list[dict[str, Any]]
     workspace_root: Path
@@ -384,6 +388,7 @@ def load_session_report_data(
             sim_df, obs_df = _load_best_discharge(catalog, sid)
     return SessionReportData(
         session_id=session_id,
+        session_name=_session_name(session_row, session_id),
         session=session_row,
         iterations=iterations,
         workspace_root=Path(workspace_root),
@@ -392,6 +397,22 @@ def load_session_report_data(
         obs_timeseries=obs_df,
         variable=variable,
     )
+
+
+def _session_name(session_row: dict, session_id: str) -> str:
+    """Return the on-disk directory name of the session.
+
+    Rebuilt from the same ``(method, started_at)`` pair the journal used, so
+    a report never invents a second vocabulary for one session.
+    """
+    from datetime import datetime
+
+    from hydromodpy.results.session_journal import session_dir_name
+
+    started_at = session_row["started_at"]
+    if not isinstance(started_at, datetime):
+        started_at = datetime.fromisoformat(str(started_at))
+    return session_dir_name(session_id, str(session_row["method"]), started_at)
 
 
 # ---------------------------------------------------------------------------

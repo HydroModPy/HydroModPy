@@ -17,11 +17,11 @@ mid-write leaves the previous lockfile untouched.
 
 Verification has two modes:
 
-- ``verify_frozen`` (used by ``hmp lock verify`` and the frozen-mode catalog)
+- ``verify_frozen`` (used by ``hmp dev lock verify`` and the frozen-mode catalog)
   walks every entry and reports :class:`LockMismatch` records (one per kind:
   ``"missing"``, ``"sha256"``).
 - ``verify_inputs_strict`` returns the same kind of report but is consumed by
-  ``hmp lock verify --strict`` to map ``sha256`` mismatches to a non-zero
+  ``hmp dev lock verify --strict`` to map ``sha256`` mismatches to a non-zero
   exit.
 """
 
@@ -182,7 +182,9 @@ def _resolve_artifact_path(
     return candidates[0]
 
 
-def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArtifact | None:
+def _entry_to_locked(
+    row: dict[str, Any], *, base_dir: Path | None, fetched_at: str
+) -> LockedArtifact | None:
     path = _resolve_artifact_path(row["file_path"], base_dir, variable=row.get("variable"))
     if not path.is_file():
         return None
@@ -201,7 +203,7 @@ def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArt
         if row.get("file_mtime") is not None
         else None,
         size_bytes=size,
-        fetched_at=_now_iso(),
+        fetched_at=fetched_at,
     )
 
 
@@ -257,8 +259,14 @@ def _collect_binaries(*, solvers: dict[str, Path] | None) -> dict[str, dict[str,
 
 def _inputs_section(
     catalog: DataCatalogDuckDB,
+    *,
+    fetched_at: str,
 ) -> tuple[list[LockedArtifact], dict[str, dict[str, Any]]]:
-    """Return (locked artefacts, inputs-by-path mapping)."""
+    """Return (locked artefacts, inputs-by-path mapping).
+
+    ``fetched_at`` is read once per snapshot and stamped on every artefact,
+    so one lockfile carries one instant instead of one clock read per row.
+    """
     rows = catalog.backend.query(
         "SELECT variable, source, station_id, file_path, file_mtime, sha256 "
         "FROM entries ORDER BY variable, source, station_id, file_path"
@@ -267,7 +275,7 @@ def _inputs_section(
     locked: list[LockedArtifact] = []
     inputs: dict[str, dict[str, Any]] = {}
     for row in rows:
-        la = _entry_to_locked(row, base_dir=base_dir)
+        la = _entry_to_locked(row, base_dir=base_dir, fetched_at=fetched_at)
         if la is None:
             continue
         locked.append(la)
@@ -312,6 +320,9 @@ def write_lockfile(
 
     zarr_ver = zarr_schema_version or ZARR_SCHEMA_VERSION_DEFAULT
     parquet_ver = parquet_schema_version or PARQUET_SCHEMA_VERSION_DEFAULT
+    # One snapshot, one instant: every timestamp in the file comes from here,
+    # so a write that straddles a second boundary stays internally coherent.
+    stamped_at = _now_iso()
 
     doc = tomlkit.document()
 
@@ -328,7 +339,7 @@ def write_lockfile(
     hmp_table.add("catalog_schema_version", _cache_target_version())
     hmp_table.add("zarr_schema_version", zarr_ver)
     hmp_table.add("parquet_schema_version", parquet_ver)
-    hmp_table.add("generated_at", _now_iso())
+    hmp_table.add("generated_at", stamped_at)
     doc.add("hydromodpy", hmp_table)
 
     binaries_table = tomlkit.table()
@@ -353,7 +364,7 @@ def write_lockfile(
         schema_table.add("config_sha256", schema_sha256)
     doc.add("schema", schema_table)
 
-    locked_list, inputs_payload = _inputs_section(catalog)
+    locked_list, inputs_payload = _inputs_section(catalog, fetched_at=stamped_at)
 
     inputs_table = tomlkit.table()
     for rel_path, payload in inputs_payload.items():
@@ -535,7 +546,7 @@ def verify_inputs_strict(
 ) -> list[LockMismatch]:
     """Return only ``sha256`` mismatches found in the ``[inputs]`` section.
 
-    Used by ``hmp lock verify --strict`` to fail with exit 1 when any tracked
+    Used by ``hmp dev lock verify --strict`` to fail with exit 1 when any tracked
     input changed. Missing artefacts are reported with ``kind="missing"``.
     """
     expected = read_lockfile_inputs(lockfile)

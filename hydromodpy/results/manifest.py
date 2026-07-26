@@ -85,9 +85,9 @@ from hydromodpy.results.storage.contract import (
     RUN_ANNOTATIONS_FILENAME,
     RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
-    RUN_LOG_FILENAME,
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_TRASH_FILENAME,
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.parquet_io import write_table_atomic
@@ -132,7 +132,6 @@ _ARTEFACT_ROLES: dict[str, str] = {
     RUN_CONFIG_FILENAME: "config",
     RUN_PROVENANCE_FILENAME: "provenance",
     RUN_MANIFEST_FILENAME: "manifest",
-    RUN_LOG_FILENAME: "log",
 }
 
 _GEOGRAPHIC_METADATA_TYPES: dict[str, str] = {
@@ -411,16 +410,17 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     as one entry, not walked. Sizes are reported for files only: hashing or
     walking a multi-gigabyte Zarr at seal time would cost more than the index
     it replaces. The manifest lists itself, without a size, since it cannot
-    know its own length before it is written. ``annotations.json`` is left out
-    entirely: tags and notes change after the seal, so any size recorded for it
-    would be wrong by the next ``hmp catalog tag``.
+    know its own length before it is written. ``annotations.json`` and
+    ``trash.json`` are left out entirely: both change after the seal, so any
+    size recorded for them would be wrong by the next ``hmp catalog tag`` or
+    ``hmp catalog trash``.
     """
     entries: list[dict[str, Any]] = [
         {"path": RUN_MANIFEST_FILENAME, "role": "manifest", "format": "json"}
     ]
     for path in sorted(run_dir.iterdir()):
         name = path.name
-        if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME):
+        if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME, RUN_TRASH_FILENAME):
             continue
         if name == FIELDS_STORE_NAME:
             entries.append({"path": name, "role": "fields", "format": "zarr"})

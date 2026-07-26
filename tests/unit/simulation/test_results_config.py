@@ -18,7 +18,6 @@ class TestResultsConfigDefaults:
         assert cfg.persistence.save_catalog is True
         assert cfg.persistence.save_zarr is True
         assert cfg.persistence.save_parquet is True
-        assert cfg.persistence.save_lock is True
         assert cfg.keep_solver_files is False
         # Persistence off by default: derived fields recomputed on the
         # fly, budget spatial fields opt-in. Scalars still land in the tables.

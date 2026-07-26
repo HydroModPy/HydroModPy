@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
+
 from hydromodpy.core.state.paths import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.catalog.storage_paths import run_dirname
+from hydromodpy.results.catalog.storage_paths import (
+    MAX_DIRNAME_LEN,
+    RunNameTooLongError,
+    run_dirname,
+)
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
@@ -69,6 +75,35 @@ def test_index_is_project_scoped_and_artefacts_live_in_the_run_directory(tmp_pat
             f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
             dirname,
         )
+
+
+def test_an_over_long_name_is_refused_instead_of_truncated():
+    too_long = "a" * (MAX_DIRNAME_LEN + 1)
+
+    with pytest.raises(RunNameTooLongError) as excinfo:
+        run_dirname(too_long)
+
+    assert str(MAX_DIRNAME_LEN) in str(excinfo.value)
+    assert run_dirname("a" * MAX_DIRNAME_LEN) == "a" * MAX_DIRNAME_LEN
+
+
+def test_registration_refuses_two_long_names_sharing_a_prefix(tmp_path):
+    """Truncation used to map both names onto one directory: the second died."""
+    project = tmp_path / "project"
+    stem = "cheze_preretenue_chronicle_" * 4
+
+    with Catalog(project) as catalog:
+        for suffix in ("alpha", "beta"):
+            with pytest.raises(RunNameTooLongError):
+                catalog.register_simulation(
+                    "00000000-0000-4000-8000-00000000000" + suffix[0],
+                    project="Cheze",
+                    solver="modflow6",
+                    name=f"{stem}{suffix}",
+                    n_cells=1,
+                    n_layers=1,
+                )
+        assert not (catalog.runs_dir).exists() or list(catalog.runs_dir.iterdir()) == []
 
 
 def test_run_directory_is_named_after_the_run_not_after_an_opaque_id(tmp_path):

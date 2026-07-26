@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import tomllib
+from pathlib import Path
+
 import pytest
 
 from hydromodpy.solver.base import registry
 from hydromodpy.solver.base.solver_config import SolverConfig
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class FakeAdapter:
@@ -67,6 +72,33 @@ def _clean_registry():
         registry._BUILTIN_EXTRACTOR_PATHS.update(extractor_lazy)
         registry._PLUGINS_LOADED = plugins_loaded
         registry._EXTRACTOR_PLUGINS_LOADED = extractor_plugins_loaded
+
+
+def test_every_declared_backend_has_an_extractor() -> None:
+    """A backend the config can select must still be readable after the solve.
+
+    An adapter without an extractor solves, then loses the run at ingestion.
+    """
+    orphans = sorted(
+        pair for pair in registry.list_pairs() if pair not in registry.list_extractor_pairs()
+    )
+    assert orphans == []
+
+
+def test_no_entry_point_gives_a_backend_a_second_name() -> None:
+    """In-tree backends are declared once, in the registry, never as plugins.
+
+    ``flow_modflownwt`` split into ``flow/modflownwt`` (the loader cuts the
+    name at the first underscore), a pair with an adapter but no extractor.
+    """
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = pyproject["project"].get("entry-points", {}).get(registry.ENTRY_POINT_GROUP, {})
+    for name in declared:
+        process_type, _, solver_name = name.partition("_")
+        assert (process_type, solver_name) in registry.list_extractor_pairs(), (
+            f"entry-point {name!r} declares {process_type}/{solver_name}, "
+            "a pair no extractor can read back"
+        )
 
 
 def test_register_and_get_returns_cls() -> None:

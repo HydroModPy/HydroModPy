@@ -7,7 +7,7 @@ never from pickle blobs. The ``workflow_steps`` journal is the single
 source of truth for resume decisions: every step records its
 ``inputs_hash``, ``outputs_hash`` and ``artifact_uris`` rows there. A
 :class:`HeartbeatPulse` emits ``heartbeat`` events on ``workflow_events``
-while a step executes so ``hmp gc`` can detect zombie runs.
+while a step executes so ``hmp catalog gc`` can detect zombie runs.
 
 Two-phase execution
 -------------------
