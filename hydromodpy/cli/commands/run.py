@@ -62,7 +62,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=(
             "Resume a simulation from its last journalled checkpoint. With a TOML "
             "config, REF is the run name/id to resume; without a config, REF is a "
-            "catalog reference and the config is rebuilt from its snapshot."
+            "catalog reference and the run replays its own runs/<name>/config.toml."
         ),
     )
     from_arg = parser.add_argument(
@@ -186,21 +186,21 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
-    """Resume an interrupted run by catalog reference; config from its snapshot.
+    """Resume an interrupted run from the config frozen in its own run directory.
 
-    Resolves REF in the catalog discovered from the current directory, rebuilds
-    the run's config from its stored snapshot, and resumes it through the same
-    journal-driven machinery as ``hmp run config.toml --resume NAME`` (the
-    journal is keyed by the run name, so no extra identity plumbing is needed).
+    Resolves REF in the catalog discovered from the current directory and
+    replays ``runs/<name>/config.toml`` - the resolved configuration the run
+    was executed with - through the exact same path as
+    ``hmp run config.toml --resume NAME``. The journal is keyed by the run
+    name, so no extra identity plumbing is needed.
     """
     from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.display.banner import print_hydromodpy
-    from hydromodpy.project import Project
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
         Catalog,
         SimulationNotFoundError,
     )
+    from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
     workspace = resolve_project_root(Path.cwd().resolve())
     if not (catalog_path_for(workspace)).exists():
@@ -215,33 +215,25 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
         with Catalog(workspace, read_only=True) as catalog:
             sid = catalog.resolve(ref)
             run_obj = catalog[sid]
-            snapshot = run_obj.config_snapshot
             name = run_obj.name
+            config_path = catalog.run_dir_for(sid) / RUN_CONFIG_FILENAME
     except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    if snapshot is None:
-        print(f"Run {sid[:8]} has no config snapshot; cannot resume.", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
     if not name:
         print(f"Run {sid[:8]} has no name; cannot resume by reference.", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
-
-    print_hydromodpy()
-    project = Project(dict(snapshot))
-    try:
-        project.simulate(
-            name=name,
-            resume=name,
-            from_step=getattr(args, "from_step", None),
-            until_step=getattr(args, "until_step", None),
-            no_display=bool(getattr(args, "no_display", False)),
-            parallel=not bool(getattr(args, "no_parallel", False)),
-            dry_run=bool(getattr(args, "dry_run", False)),
+    if not config_path.is_file():
+        print(
+            f"Run '{name}' [{sid[:8]}] has no frozen {RUN_CONFIG_FILENAME} in "
+            f"{config_path.parent}; pass the TOML config explicitly to resume it.",
+            file=sys.stderr,
         )
-    except KeyboardInterrupt:
-        sys.exit(EXIT_SIGINT)
+        sys.exit(EXIT_NOT_FOUND)
+
+    args.resume = name
+    _run_toml(config_path, args=args)
 
 
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:

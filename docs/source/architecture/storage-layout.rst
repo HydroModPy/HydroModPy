@@ -33,16 +33,17 @@ Delivery status
        storage basename; opt-in persistence of heavy fields (budget and
        derived); on-disk run heartbeats under ``.hmp/running/``; trash,
        ``gc`` and ``hmp catalog reindex``, which rebuilds the whole index
-       from the run directories; ``runs/``, ``sessions/`` and
-       ``share/`` ignored by git.
+       from the run **and session** directories; ``sessions/<name>/`` with
+       its session descriptor and its trials journal, written live by every
+       calibration; ``runs/``, ``sessions/`` and ``share/`` ignored by git.
    * - Being built
      - Runs-first folder layout (``runs/<name>/`` with a human name);
        ``manifest.json`` written last; parameters, geographic metadata,
        run environment, workflow trace, frozen config and functional
-       tags written into the run folder; ``sessions/<id>/`` with a trials
-       journal; ``hmp reindex``; read-only index opening generalised to
-       every inspection command (several already do it);
-       ``project.toml`` as project-root marker.
+       tags written into the run folder; spin-up sessions joining
+       calibration sessions under ``sessions/``; ``hmp reindex``;
+       read-only index opening generalised to every inspection command
+       (several already do it); ``project.toml`` as project-root marker.
 
 Three classes of data
 ---------------------
@@ -102,15 +103,19 @@ class; a value that a code path reads is, even if it is rarely hit.
      - ``runs/<name>/provenance.json``
      - workflow resume, ``hmp doctor``
    * - Calibration sessions and trials
-     - ``sessions/<id>/`` (session manifest plus a trials journal)
+     - ``sessions/<name>/session.json`` and
+       ``sessions/<name>/trials.jsonl``
      - calibration resume, best promotion, calibration report
 
 Part of this class already lands on disk: a run's Parquet directory
 holds ``simulation.parquet`` (the one-row snapshot the rebuild reads),
 ``metrics.parquet``, ``provenance.parquet``, ``timeseries.parquet``,
 ``budgets.parquet``, ``mass_balance.parquet`` and the GeoParquet
-features. Parameters, geographic metadata, run environment, workflow
-steps, tags, the frozen config and the calibration trace are still
+features. The calibration history landed too: every session writes its
+descriptor and its trials journal as it optimises, and
+``hmp catalog reindex`` reads both back into ``calibration_sessions``
+and ``calibration_iterations``. Parameters, geographic metadata, run
+environment, workflow steps, tags and the frozen config are still
 SQL-only today. Closing that gap is the precondition for a rebuildable
 index, not an optimisation.
 
@@ -182,8 +187,9 @@ writes. The target contract covers every artefact of a project.
      - one directory per run, human name, every file declared in the
        manifest
    * - Sessions
-     - ``sessions/<id>/``
-     - calibration and spinup sessions, trials journal on disk
+     - ``sessions/<name>/``
+     - one directory per calibration session, descriptor plus trials
+       journal on disk
    * - Exchange packages
      - ``share/``
      - ``.hmp`` archives and exports produced on demand
@@ -227,7 +233,7 @@ Target layout of a project root:
    |-- runs/
    |   `-- <run_name>/      one directory per run (see below)
    |-- sessions/
-   |   `-- <session_id>/    calibration and spinup sessions
+   |   `-- <session_name>/  one directory per calibration session
    |-- share/               .hmp packages and exchange exports
    `-- .hmp/                technical cache, regenerable
        |-- index.duckdb     the index rebuilt from runs/ and sessions/
@@ -293,11 +299,33 @@ live readers depend on.
 A session folder
 ----------------
 
-A calibration or spinup session keeps its own directory under
-``sessions/<id>/`` with a session manifest, the frozen search space and
-objective, and a trials journal written as it goes. Today the trial
-history exists only in the project index, which is precisely why a
-rebuild would currently lose a calibration.
+A calibration session keeps its own directory under ``sessions/<name>/``,
+named after the instant it started, its method and the first eight
+characters of its identifier:
+
+.. code-block:: text
+
+   sessions/20260726-014233-optuna-3f2a1b7c/
+   |-- session.json         identity, project, frozen search space,
+   |                        objective, dates, status, best trial
+   `-- trials.jsonl         one JSON object per trial, appended live
+
+Both files are written **while the calibration runs**: the descriptor
+before the first trial, one line per trial as it completes, and the
+descriptor once more at the end with the outcome. An interrupted
+calibration therefore keeps every trial it had time to evaluate, and
+stays in the index as a ``running`` session with the trials it ran.
+
+The format is declared by
+``hydromodpy/results/session_journal.py``. It lives in ``results``, not
+in ``calibration``, because the rebuild reads it and may not import the
+``calibration`` layer. A trial number written twice is one trial written
+twice: the last line wins, exactly like the upsert the index does on
+``(session_id, iteration)``, so two rebuilds never duplicate a trial.
+
+Spin-up sessions do not write a descriptor yet; a directory under
+``sessions/`` without ``session.json`` is simply not a calibration and
+the rebuild ignores it.
 
 Naming and identity
 -------------------

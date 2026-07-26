@@ -56,6 +56,7 @@ def _seed_session(
             project=project,
             method="optuna",
             objective_name="nse",
+            search_space={"K": {"bounds": [1e-5, 1e-3]}},
             config={"max_iter": len(sim_ids)},
         )
         for i, sim_hex in enumerate(sim_ids):

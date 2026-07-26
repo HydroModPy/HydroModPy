@@ -282,7 +282,7 @@ def test_verify_state_accepts_matching_state(tmp_path):
     workspace = tmp_path / "ws"
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=workspace)
     # Same state, same steps, same workspace: no exception.
-    manifest.verify_state(state, _steps(), workspace)
+    manifest.verify_state(state, _steps())
 
 
 def test_verify_state_rejects_unknown_schema():
@@ -290,7 +290,7 @@ def test_verify_state_rejects_unknown_schema():
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
     bad = replace(manifest, schema_version="hydromodpy.resolved_run_manifest.v999")
     with pytest.raises(ResumeError, match="Unsupported run manifest schema"):
-        bad.verify_state(state, _steps(), None)
+        bad.verify_state(state, _steps())
 
 
 def test_verify_state_rejects_run_id_mismatch():
@@ -298,31 +298,29 @@ def test_verify_state_rejects_run_id_mismatch():
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
     other = _make_state(run_id="B", raw_toml={"k": 1})
     with pytest.raises(ResumeError, match="run_id mismatch"):
-        manifest.verify_state(other, _steps(), None)
+        manifest.verify_state(other, _steps())
 
 
-def test_verify_state_rejects_changed_steps():
+def test_verify_state_rejects_reordered_steps():
     state = _make_state(raw_toml={"k": 1})
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
-    changed = [_Step("validate"), _Step("resolve")]  # one step dropped
+    changed = [_Step("validate"), _Step("transform"), _Step("setup")]
     with pytest.raises(ResumeError, match="Pipeline steps changed"):
-        manifest.verify_state(state, changed, None)
+        manifest.verify_state(state, changed)
 
 
-def test_verify_state_rejects_workspace_mismatch(tmp_path):
+def test_verify_state_accepts_truncated_steps():
+    """A checkpoint written by ``--until`` records a prefix, not a divergence."""
     state = _make_state(raw_toml={"k": 1})
-    ws_a = tmp_path / "a"
-    manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=ws_a)
-    with pytest.raises(ResumeError, match="Workspace mismatch"):
-        manifest.verify_state(state, _steps(), tmp_path / "b")
+    partial = ResolvedRunManifest.from_state(state, _steps()[:2], workspace=None)
+    partial.verify_state(state, _steps())
 
 
-def test_verify_state_ignores_workspace_when_manifest_has_none():
+def test_verify_state_accepts_a_moved_project(tmp_path):
+    """The recorded workspace is provenance: a copied project still resumes."""
     state = _make_state(raw_toml={"k": 1})
-    manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
-    assert manifest.workspace is None
-    # A current workspace is allowed when the manifest never recorded one.
-    manifest.verify_state(state, _steps(), None)
+    manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=tmp_path / "a")
+    manifest.verify_state(state, _steps())
 
 
 def test_verify_state_rejects_changed_config_hash():
@@ -330,7 +328,7 @@ def test_verify_state_rejects_changed_config_hash():
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
     mutated = _make_state(raw_toml={"k": 2})
     with pytest.raises(ResumeError, match="Resolved configuration changed"):
-        manifest.verify_state(mutated, _steps(), None)
+        manifest.verify_state(mutated, _steps())
 
 
 def test_workflow_profile_does_not_change_config_hash():
@@ -343,8 +341,8 @@ def test_workflow_profile_does_not_change_config_hash():
     m_profiled = ResolvedRunManifest.from_state(profiled, _steps(), workspace=None)
     assert m_base.config_sha256 == m_profiled.config_sha256
     # Resume works across the toggle, in both directions.
-    m_base.verify_state(profiled, _steps(), None)
-    m_profiled.verify_state(base, _steps(), None)
+    m_base.verify_state(profiled, _steps())
+    m_profiled.verify_state(base, _steps())
 
 
 def test_workflow_mode_change_still_invalidates_resume():
@@ -352,7 +350,7 @@ def test_workflow_mode_change_still_invalidates_resume():
     b = _make_state(raw_toml={"workflow": {"mode": "overview", "profile": True}})
     manifest = ResolvedRunManifest.from_state(a, _steps(), workspace=None)
     with pytest.raises(ResumeError, match="Resolved configuration changed"):
-        manifest.verify_state(b, _steps(), None)
+        manifest.verify_state(b, _steps())
 
 
 def test_verify_state_skips_hash_when_manifest_hash_none():
@@ -362,7 +360,7 @@ def test_verify_state_skips_hash_when_manifest_hash_none():
     assert manifest.config_sha256 is None
     mutated = _make_state(raw_toml={"k": 99}, config_path=None)
     # Should not raise even though the current state now carries a config.
-    manifest.verify_state(mutated, _steps(), None)
+    manifest.verify_state(mutated, _steps())
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +374,7 @@ def test_with_state_preserves_created_at_and_advances_step():
         original_state, _steps(), workspace=None, created_at="2019-05-05T00:00:00+00:00"
     )
     advanced_state = _make_state(step_index=2, step_name="setup", raw_toml={"k": 1})
-    updated = manifest.with_state(advanced_state, _steps())
+    updated = manifest.with_state(advanced_state, _steps(), None)
 
     assert updated.created_at == "2019-05-05T00:00:00+00:00"
     assert updated.step_index == 2
@@ -392,7 +390,7 @@ def test_with_state_keeps_existing_config_provenance_over_new():
 
     # New state carries a different config; with_state must keep the original.
     new_state = _make_state(raw_toml={"k": 2}, config_path="/new/path.toml")
-    updated = manifest.with_state(new_state, _steps())
+    updated = manifest.with_state(new_state, _steps(), None)
     assert updated.config_sha256 == manifest.config_sha256
     assert updated.config_path == "/old/path.toml"
 
@@ -404,7 +402,7 @@ def test_with_state_fills_missing_config_provenance():
     assert manifest.config_sha256 is None
 
     populated = _make_state(raw_toml={"k": 7}, config_path="/cfg.toml")
-    updated = manifest.with_state(populated, _steps())
+    updated = manifest.with_state(populated, _steps(), None)
     assert updated.config_sha256 is not None
     assert updated.config_path == "/cfg.toml"
 
@@ -415,7 +413,7 @@ def test_with_state_roundtrips_after_write(tmp_path):
     state1 = _make_state(step_index=1, step_name="resolve", raw_toml={"k": 1})
     manifest = ResolvedRunManifest.from_state(state1, _steps(), workspace=workspace)
     state2 = _make_state(step_index=2, step_name="setup", raw_toml={"k": 1})
-    updated = manifest.with_state(state2, _steps())
+    updated = manifest.with_state(state2, _steps(), workspace)
     # workspace was preserved through with_state.
     assert updated.workspace == str(workspace)
 

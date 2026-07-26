@@ -17,28 +17,53 @@ from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_fo
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.simulation.planning.plan import SimulationPlan
+    from hydromodpy.solver.modflow_common.binaries import SolverEngine
 
 logger = get_logger(__name__)
 
-# Catalog solver code -> canonical binary name for provenance lookup.
-_SOLVER_BINARY_NAMES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
 
+def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
+    """Return the solve dispatch this run selected: 'subprocess' or 'api'.
 
-def _resolve_solver_binary_path(solver_name: str | None) -> str | None:
-    """Resolve the cached solver binary path for provenance, or None.
-
-    Failures (unknown solver, binary not yet installed) are swallowed so a
-    provenance lookup never breaks simulation registration.
+    Only MODFLOW 6 offers a second dispatch (``libmf6`` through the BMI
+    wrappers); every other backend runs its executable.
     """
-    binary = _SOLVER_BINARY_NAMES.get(str(solver_name or ""))
-    if binary is None:
-        return None
-    try:
-        from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+    if str(solver_name or "") != "modflow6":
+        return "subprocess"
+    runtime = getattr(getattr(ctx.cfg, "modflow6", None), "runtime", None)
+    return "api" if getattr(runtime, "mf6_runner", "subprocess") == "api" else "subprocess"
 
-        return str(ensure_solver_binary(binary))
-    except Exception:
-        return None
+
+def _resolve_solver_engine(ctx: WorkflowContext, solver_name: str | None) -> SolverEngine | None:
+    """Resolve the engine this run executes, or None when it has no binary.
+
+    Recording the mf6 executable for a run solved through ``libmf6`` is a lie:
+    the sha256 and the version then describe a file the solve never opened. The
+    engine follows the dispatch instead, so provenance names what actually ran.
+    """
+    from hydromodpy.solver.modflow_common.binaries import resolve_solver_engine
+
+    workspace = getattr(ctx.setup, "workspace", None)
+    return resolve_solver_engine(
+        str(solver_name or ""),
+        execution_mode=_execution_mode(ctx, solver_name),
+        bin_path=getattr(workspace, "bin_path", None),
+    )
+
+
+def _write_run_environment(ctx: WorkflowContext, sim_id: str, solver_name: str | None) -> None:
+    """Persist the host environment plus the engine identity for one run."""
+    engine = _resolve_solver_engine(ctx, solver_name)
+    ctx.store.write_run_environment(
+        sim_id,
+        project_root=getattr(getattr(ctx.setup, "workspace", None), "project_root", None),
+        solver_name=solver_name,
+        solver_binary_path=None if engine is None else engine.path,
+        solver_engine=None if engine is None else engine.kind,
+        solver_execution_mode=_execution_mode(ctx, solver_name),
+        solver_version_text=None if engine is None else engine.version,
+        rng_seed=getattr(ctx.cfg.simulation, "rng_seed", None),
+    )
 
 
 def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
@@ -160,15 +185,7 @@ def step_register_simulation(
     _write_zarr_crs(ctx, sim_id)
 
     try:
-        project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
-        rng_seed = getattr(ctx.cfg.simulation, "rng_seed", None)
-        ctx.store.write_run_environment(
-            sim_id,
-            project_root=project_root,
-            solver_name=primary_solver,
-            solver_binary_path=_resolve_solver_binary_path(primary_solver),
-            rng_seed=rng_seed,
-        )
+        _write_run_environment(ctx, sim_id, primary_solver)
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", short)
     return final_name
@@ -245,15 +262,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
     _write_zarr_crs(ctx, ctx.sim_id)
 
     try:
-        project_root = getattr(workspace, "project_root", None)
-        rng_seed = getattr(ctx.cfg.simulation, "rng_seed", None)
-        ctx.store.write_run_environment(
-            ctx.sim_id,
-            project_root=project_root,
-            solver_name=primary_solver,
-            solver_binary_path=_resolve_solver_binary_path(primary_solver),
-            rng_seed=rng_seed,
-        )
+        _write_run_environment(ctx, ctx.sim_id, primary_solver)
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
 

@@ -59,6 +59,7 @@ from hydromodpy.solver.modflow6.builders import (
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
+from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
 from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
 from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
@@ -544,6 +545,9 @@ def run_pre_processing(  # noqa: PLR0915
     flow_runtime_overrides: Mapping[str, object] | None = None,
 ) -> None:
     """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations."""
+    # Concurrent calibration trials build one MFSimulation each; the flopy DFN
+    # singleton must be fully loaded before any of them constructs a package.
+    warm_flopy_structure()
     install_flopy_header_cache()
     model.flow = flow
     model.domain = domain

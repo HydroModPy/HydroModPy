@@ -40,7 +40,6 @@ def test_promotion_module_exposes_helpers() -> None:
     assert callable(promotion.promote_iterations)
     assert callable(promotion.select_iterations_to_promote)
     assert callable(promotion.update_iter_sim_id)
-    assert callable(promotion.update_best_sim_id)
     assert callable(promotion.stored_parameter_value)
 
 

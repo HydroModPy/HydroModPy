@@ -94,7 +94,13 @@ class CalibrationEngine:
     cache_context: Mapping[str, Any] | None = None
     progress: ProgressReporter | None = None
     session_id: str | None = None
-    on_iteration: Callable[[EvaluationResult], None] | None = None
+    on_iteration: Callable[[ParamSuggestion, EvaluationResult], None] | None = None
+    """Called once per evaluated suggestion, cache hits included.
+
+    Takes the suggestion alongside its result: a cache hit never reaches the
+    evaluator, so the caller has no other way to know which parameters the
+    iteration carried, and the row it persists would be dropped.
+    """
 
     def run(self) -> CalibrationSession:
         sid = self.session_id or uuid.uuid4().hex
@@ -117,7 +123,7 @@ class CalibrationEngine:
                     session.history.append(result)
                     reporter.update(sugg.trial_id, result)
                     if self.on_iteration is not None:
-                        self.on_iteration(result)
+                        self.on_iteration(sugg, result)
                 self.optimizer.tell(results)
                 n_done += len(results)
                 if self.optimizer.converged():

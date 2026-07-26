@@ -225,6 +225,25 @@ def step_cleanup_scratch(
             ) from last_error
 
 
+def step_cleanup_preprocessing(ctx: WorkflowContext) -> int:
+    """Remove the geographic preprocessing tree and return the bytes freed.
+
+    ``.hmp/scratch/_preprocessing`` hangs off the *project root*, while the
+    solver scratch follows ``workspace.output_root`` when one is set: with a
+    redirected output root, :func:`step_cleanup_scratch` never reaches it. It
+    is dropped here unless ``[geographic] write_intermediates`` asked to keep
+    the rasters on disk.
+    """
+    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+
+    geographic = getattr(getattr(ctx, "setup", None), "geographic", None)
+    if geographic is None:
+        return 0
+    geographic_cfg = getattr(ctx.cfg, "geographic", None)
+    keep = bool(getattr(geographic_cfg, "write_intermediates", False))
+    return cleanup_stable_folder(geographic, keep=keep)
+
+
 def _release_cleanup_handles(ctx: WorkflowContext) -> None:
     """Release best-effort runtime handles before deleting scratch files."""
     store = getattr(ctx, "store", None)
@@ -264,8 +283,8 @@ class ExportStep:
     (:func:`step_save_run_artifacts`), automatic format export
     (``auto_export_results``), sealing and closing the store
     (:func:`step_seal_store`, :func:`step_close_store`) and scratch cleanup
-    (:func:`step_cleanup_scratch`). Each remains addressable from
-    notebooks via its function-based helper.
+    (:func:`step_cleanup_scratch`, :func:`step_cleanup_preprocessing`). Each
+    remains addressable from notebooks via its function-based helper.
 
     The portable ``.hmp`` package is written between the seal and the close,
     never before: an archive built on an unsealed run carries neither the
@@ -342,6 +361,7 @@ class ExportStep:
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
         )
+        step_cleanup_preprocessing(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,

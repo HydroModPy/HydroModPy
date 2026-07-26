@@ -333,27 +333,41 @@ def _xy_from_record(record: Any) -> tuple[float, float] | None:
 def find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
     """Return the closest ``(layer, row, col)`` to ``(x, y)`` on layer 0.
 
-    Tries cell centroids from ``setup.mesh_planar`` first, then falls back to
-    a MODFLOW-NWT structured grid lookup.
+    The lookup runs on the mesh the solver actually wrote: the flow model's
+    ``solver_mesh`` (MODFLOW 6, structured or Voronoi), then the MODFLOW-NWT
+    structured grid. ``setup.mesh_planar`` is not used, because on a Voronoi
+    grid it holds the seed triangulation whose cell order is not the DISV one.
     """
-    mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
-    if mesh is not None:
-        centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
-        if centroids is not None:
-            try:
-                arr = np.asarray(centroids, dtype=float)
-            except Exception:
-                arr = None
-            if arr is not None and arr.ndim == 2 and arr.shape[1] >= 2:
-                deltas = arr[:, :2] - np.array([x, y], dtype=float)
-                distances = np.einsum("ij,ij->i", deltas, deltas)
-                idx = int(np.argmin(distances))
-                nrow = int(getattr(mesh, "nrow", 0) or 0)
-                ncol = int(getattr(mesh, "ncol", 0) or 0)
-                if nrow > 0 and ncol > 0 and idx < nrow * ncol:
-                    return (0, idx // ncol, idx % ncol)
-
+    cell = _find_cell_in_solver_mesh(ctx, x, y)
+    if cell is not None:
+        return cell
     return _find_cell_in_modflow_grid(ctx, x, y)
+
+
+def _find_cell_in_solver_mesh(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
+    """Locate a cell on the flow model's solver mesh by nearest centroid.
+
+    Returns ``(0, row, col)`` on a structured mesh and ``(0, 0, cell_id)`` on an
+    unstructured one, which is the flat DISV selector the MODFLOW 6 head
+    extractor reads as ``head[layer, 0, cell_id]``.
+    """
+    resolved = resolve_flow_adapter(ctx)
+    if resolved is None:
+        return None
+    _adapter, run_ctx = resolved
+    model = run_ctx.state.execution.models_by_run_id.get(run_ctx.run.id)
+    mesh = getattr(model, "solver_mesh", None)
+    if mesh is None:
+        return None
+    centroids = np.asarray(mesh.cell_centroids(), dtype=float)
+    if centroids.ndim != 2 or centroids.shape[0] == 0 or centroids.shape[1] < 2:
+        return None
+    deltas = centroids[:, :2] - np.array([x, y], dtype=float)
+    idx = int(np.argmin(np.einsum("ij,ij->i", deltas, deltas)))
+    if not mesh.is_structured:
+        return (0, 0, idx)
+    ncol = int(mesh.ncol)
+    return (0, idx // ncol, idx % ncol)
 
 
 def _find_cell_in_modflow_grid(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:

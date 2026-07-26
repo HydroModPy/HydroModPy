@@ -97,6 +97,23 @@ class WhiteboxRasterBackend:
                 finally:
                     os.close(stdout_fd)
 
+    @contextmanager
+    def single_threaded(self):
+        """Pin the Whitebox environment to one worker for the enclosed call.
+
+        Whitebox resolves flats and equal-cost ties in worker-completion order,
+        so its parallel depression removal returns a different corrected DEM on
+        every identical call. Every flow product derives from that DEM, down to
+        the catchment area, so those tools must run on a single worker to be
+        reproducible.
+        """
+        previous = self._env.max_procs
+        self._env.max_procs = 1
+        try:
+            yield
+        finally:
+            self._env.max_procs = previous
+
     def _run_env_operation(self, operation, *args, **kwargs):
         op_name = getattr(operation, "__name__", "operation").replace("_", " ")
         with progress.status(f"Whitebox: {op_name}"), self._silence_stdio():
@@ -489,6 +506,11 @@ class _WhiteboxComponent:
 
     def _write_vector(self, vector, path: str) -> None:
         self._raster._write_vector(vector, path)
+
+    def _run_single_threaded(self, operation, *args, **kwargs):
+        """Run one operation on a single Whitebox worker (reproducible output)."""
+        with self._raster.single_threaded():
+            return self._raster._run_env_operation(operation, *args, **kwargs)
 
 
 __all__ = ["WhiteboxRasterBackend", "_WhiteboxComponent"]

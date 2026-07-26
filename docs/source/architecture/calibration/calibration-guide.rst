@@ -67,12 +67,17 @@ End-to-end workflow
      - Runs pipeline steps ``[0..earliest)`` once. Builds the prepared
        ``WorkflowContext`` consumed by the ask/tell loop.
    * - Ask/tell loop (``run_trial_light``)
-     - Each trial reads the prepared context, writes one row to DuckDB
+     - Each trial reads the prepared context, appends one line to
+       ``sessions/<name>/trials.jsonl`` and writes one row to DuckDB
        (``calibration_iterations``). After the loop ends, control passes
        to ``promote_trial``.
+   * - Session journal (``sessions/<name>/``)
+     - The history on disk: ``session.json`` (identity, search space,
+       objective, dates, best trial) and ``trials.jsonl``. Read back by
+       ``hmp catalog reindex``.
    * - DuckDB (``calibration_sessions`` + ``calibration_iterations``)
-     - Stores trial fingerprints and session metadata. Read by
-       ``hmp report``.
+     - Indexes trial fingerprints and session metadata. Read by
+       ``hmp report``, rebuilt from the session journal.
    * - ``promote_trial`` (top-N)
      - Replays the chosen trials through the full pipeline. Writes
        Zarr + Parquet + ``simulations`` rows and back-fills
@@ -104,9 +109,16 @@ Node by node:
   ``[earliest..8]`` in **lightweight** mode (no disk writes beyond the
   solver's own scratch files), extracts the scalar objective from RAM,
   and tells the optimizer. Repeat up to ``max_iter``.
+- **Session journal**: the session owns ``sessions/<name>/`` at the
+  project root. ``session.json`` is written before the first trial and
+  rewritten with the outcome at the end; ``trials.jsonl`` gains one line
+  per trial as it completes, so an interrupted calibration keeps its
+  history. See :doc:`/architecture/storage-layout`.
 - **DuckDB**: every trial adds one row to ``calibration_iterations``
   (``sim_id`` stays ``NULL``). The session metadata lives in one row
-  of ``calibration_sessions`` finalized at the end.
+  of ``calibration_sessions`` finalized at the end. Both tables are an
+  index over the session journal: ``hmp catalog reindex`` rebuilds them
+  from it.
 - **``promote_trial`` (top-N)**: if ``save_runs != "none"``, the
   chosen trials are replayed through the *full* pipeline (steps
   ``00..11``) by ``hydromodpy.Project(cfg_path).simulate(**values)``. Each

@@ -21,6 +21,7 @@ import pandas as pd
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
+from hydromodpy.results.annotations import RunAnnotations, RunNote, write_annotations
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.writes_helpers import (
@@ -138,6 +139,7 @@ class WritesMixinDuckDB:
             "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
             [sid, str(tag)],
         )
+        self._mirror_annotations(sid)
         return True
 
     def write_tags(self, sim_id: str | UUID, tags: list[str]) -> None:
@@ -145,6 +147,35 @@ class WritesMixinDuckDB:
         for tag in tags:
             if tag and str(tag).strip():
                 self.add_tag(sim_id, str(tag).strip())
+
+    def _mirror_annotations(self, sim_id: str | UUID) -> None:
+        """Rewrite ``runs/<name>/annotations.json`` from the index rows.
+
+        Tags and notes are the only run metadata a human edits after the seal,
+        and no other file carries them, so an index rebuild would drop them.
+        The sidecar is rewritten in full from the rows that just changed, which
+        keeps the file a projection of the index rather than a second truth.
+        A run whose directory does not exist yet (registration in flight) is
+        left alone: its next annotation writes the file.
+        """
+        sid = str(sim_id)
+        run_dir = self._paths.run_dir_for(sid)
+        if not run_dir.is_dir():
+            return
+        tags = tuple(
+            str(row[0])
+            for row in self._backend.fetch_all(
+                "SELECT tag FROM tags WHERE sim_id = ? ORDER BY added_at, tag", [sid]
+            )
+        )
+        notes = tuple(
+            RunNote(note=str(row[0]), added_at=str(row[1]), added_by=row[2])
+            for row in self._backend.fetch_all(
+                "SELECT note, added_at, added_by FROM sim_notes WHERE sim_id = ? ORDER BY added_at",
+                [sid],
+            )
+        )
+        write_annotations(run_dir, RunAnnotations(tags=tags, notes=notes), sim_id=sid)
 
     @audited("note.add")
     @with_lock_retry()
@@ -163,6 +194,7 @@ class WritesMixinDuckDB:
             "VALUES (gen_random_uuid(), ?, ?, ?)",
             [str(sim_id), str(note), added_by],
         )
+        self._mirror_annotations(sim_id)
 
     def record_export(self, sim_id: str | UUID, *, kind: str, path: str | Path) -> None:
         """Record one emitted export artefact in ``export_log`` (best-effort).
@@ -233,6 +265,7 @@ class WritesMixinDuckDB:
             "DELETE FROM tags WHERE sim_id = ? AND tag = ?",
             [sid, str(tag)],
         )
+        self._mirror_annotations(sid)
         return True
 
     @audited("param.write")
@@ -365,6 +398,9 @@ class WritesMixinDuckDB:
         project_root: Path | str | None = None,
         solver_name: str | None = None,
         solver_binary_path: Path | str | None = None,
+        solver_engine: str | None = None,
+        solver_execution_mode: str | None = None,
+        solver_version_text: str | None = None,
         rng_seed: int | None = None,
     ) -> None:
         """Capture and persist the host environment snapshot for ``sim_id``.
@@ -372,6 +408,12 @@ class WritesMixinDuckDB:
         Idempotent: re-calling overwrites the previous row. Heavy collection
         steps (``pip list``, ``cpuinfo``) tolerate failures and fall back
         to partial values rather than raising.
+
+        ``solver_binary_path`` is the engine the solve used, executable or
+        shared library; ``solver_engine`` says which of the two it is and
+        ``solver_execution_mode`` how it was driven. ``solver_version_text``
+        overrides the probed banner: a shared library reports no ``--version``,
+        so its caller resolves the version and passes it here.
 
         ``rng_seed`` is the master seed driving ``RngManager``. Pass the
         same value to reproduce stochastic stages (mesh sampling, random
@@ -393,10 +435,11 @@ class WritesMixinDuckDB:
                (sim_id, python_version, hydromodpy_version, platform,
                 hostname, user_name, cpu_info, memory_gb,
                 git_commit, git_dirty, project_git_commit,
-                solver_name, solver_binary_path,
+                solver_name, solver_engine, solver_execution_mode,
+                solver_binary_path,
                 solver_binary_sha256, solver_version_text,
                 conda_env_hash, env_packages, rng_seed)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid,
                 snap.get("python_version"),
@@ -410,9 +453,11 @@ class WritesMixinDuckDB:
                 snap.get("git_dirty"),
                 snap.get("project_git_commit"),
                 snap.get("solver_name"),
+                solver_engine,
+                solver_execution_mode,
                 snap.get("solver_binary_path"),
                 snap.get("solver_binary_sha256"),
-                snap.get("solver_version_text"),
+                solver_version_text or snap.get("solver_version_text"),
                 snap.get("conda_env_hash"),
                 json.dumps(snap.get("env_packages") or []),
                 None if rng_seed is None else int(rng_seed),
@@ -474,10 +519,15 @@ class WritesMixinDuckDB:
         *,
         solver_binary_path: Path | str | None,
     ) -> None:
-        """Refine the recorded binary identity with the path the solver ran.
+        """Refine the recorded executable identity with the path the solver ran.
 
         Registration records a best-guess managed-cache binary; this overwrites
         it with the exact binary used, honouring a custom ``mf6_executable_name``.
+
+        Runs whose engine is a shared library are left alone. Their model object
+        still carries an ``exe`` attribute (the api runner never opens it), so
+        refining from it would replace the library that solved with an
+        executable that did not.
         """
         if not self._persistence.save_catalog or solver_binary_path is None:
             return
@@ -489,7 +539,8 @@ class WritesMixinDuckDB:
                    solver_binary_path = ?,
                    solver_binary_sha256 = COALESCE(?, solver_binary_sha256),
                    solver_version_text = COALESCE(?, solver_version_text)
-               WHERE sim_id = ?""",
+               WHERE sim_id = ?
+                 AND (solver_engine IS NULL OR solver_engine = 'executable')""",
             [str(solver_binary_path), sha256, version_text, str(sim_id)],
         )
 

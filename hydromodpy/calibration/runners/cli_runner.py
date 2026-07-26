@@ -40,10 +40,8 @@ from hydromodpy.calibration.optim.optimizer import (
     build_optimizer,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
-from hydromodpy.calibration.optim.promotion import (
-    promote_iterations,
-    update_best_sim_id,
-)
+from hydromodpy.calibration.optim.promotion import promote_iterations
+from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
     build_cache_context,
@@ -145,6 +143,23 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
                 ) from exc
 
 
+def _search_space_payload(space: ParameterSpace) -> dict[str, Any]:
+    """Return the searched bounds, one entry per parameter, as plain data.
+
+    Written into the session journal so the frozen search space is readable
+    next to the trials it produced, without opening the index.
+    """
+    return {
+        param.name: {
+            "bounds": [param.lower, param.upper],
+            "transform": param.transform,
+            "target": param.effective_path,
+            "units": param.units,
+        }
+        for param in space
+    }
+
+
 def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) -> None:
     """Store the calibration observations so the report can draw obs-vs-sim.
 
@@ -173,6 +188,28 @@ def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) ->
 # ---------------------------------------------------------------------------
 # Core loop (caller-agnostic)
 # ---------------------------------------------------------------------------
+
+
+def _release_session_scratch(trial_ctx: TrialContext) -> None:
+    """Drop the preprocessing tree the session shared across its trials.
+
+    Trials skip the setup steps and read the tree built once for the session,
+    so no trial may delete it; and only a *promoted* run reaches the export
+    step that normally does. A session that promotes nothing therefore used to
+    leave hundreds of MB of DEM and flow rasters under ``.hmp/scratch``. This
+    runs on every exit path (success, failure, SIGINT) and never raises.
+    """
+    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+
+    geographic = getattr(getattr(trial_ctx.ctx, "setup", None), "geographic", None)
+    if geographic is None:
+        return
+    geographic_cfg = getattr(getattr(trial_ctx, "base_cfg", None), "geographic", None)
+    keep = keep_trial_scratch() or bool(getattr(geographic_cfg, "write_intermediates", False))
+    try:
+        cleanup_stable_folder(geographic, keep=keep)
+    except Exception:  # noqa: BLE001 - cleanup never decides the session outcome
+        logger.warning("Could not remove the calibration session scratch", exc_info=True)
 
 
 def run_calibration_core(
@@ -205,7 +242,9 @@ def run_calibration_core(
 
     factory = store_factory or default_store_factory
     catalog = factory(workspace, cfg.persistence)
-    persistence = CalibrationPersistence(catalog, persistence=cfg.persistence)
+    persistence = CalibrationPersistence(
+        catalog, persistence=cfg.persistence, project_root=workspace
+    )
 
     engine_cache: ParamsHashCache | None = None
     if cfg.use_cache:
@@ -238,6 +277,7 @@ def run_calibration_core(
         project=project_label,
         method=cfg.method,
         objective_name=cfg.objective,
+        search_space=_search_space_payload(space),
         config=cfg.model_dump(),
     )
 
@@ -255,8 +295,6 @@ def run_calibration_core(
         objective_entrypoint=objective,
     )
 
-    last_suggestion: dict[int, ParamSuggestion] = {}
-
     materialize_root: Path | None = None
     if cfg.materialize_candidates:
         if cfg.candidates_root is None:
@@ -273,7 +311,6 @@ def run_calibration_core(
         materialize_root.mkdir(parents=True, exist_ok=True)
 
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        last_suggestion[sugg.trial_id] = sugg
         from hydromodpy.calibration.runners.trial import run_trial_light
 
         result = run_trial_light(
@@ -321,10 +358,7 @@ def run_calibration_core(
             metadata=meta,
         )
 
-    def on_iteration(result: EvaluationResult) -> None:
-        sugg = last_suggestion.get(result.trial_id)
-        if sugg is None:
-            return
+    def on_iteration(sugg: ParamSuggestion, result: EvaluationResult) -> None:
         persistence.append_iteration(
             session_id,
             sugg,
@@ -414,6 +448,7 @@ def run_calibration_core(
         final_error = str(exc)
         raise
     finally:
+        _release_session_scratch(trial_ctx)
         elapsed = time.perf_counter() - t0
         n_iter = len(session.history) if session is not None else 0
         duration = session.duration_s if session is not None and session.duration_s else elapsed
@@ -424,9 +459,8 @@ def run_calibration_core(
             duration_s=duration,
             status=final_status,
             error=final_error,
+            best_sim_id=best_sim_id,
         )
-        if best_sim_id is not None:
-            update_best_sim_id(catalog, session_id, best_sim_id)
         close = getattr(catalog, "close", None)
         if close is not None:
             close()

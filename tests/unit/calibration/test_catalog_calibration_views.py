@@ -40,6 +40,7 @@ def seeded_session(catalog: Catalog) -> str:
         project="unit_test",
         method="optuna",
         objective_name="nse",
+        search_space={"K": {"bounds": [1e-5, 1e-3]}},
         config={"max_iter": 3},
     )
     for i in range(3):
@@ -110,6 +111,7 @@ class TestPersistIterationDetail:
             project="detail_test",
             method="optuna",
             objective_name="rmse",
+            search_space={"K": {"bounds": [1e-5, 1e-3]}},
             config={"max_iter": 1},
         )
         return sid

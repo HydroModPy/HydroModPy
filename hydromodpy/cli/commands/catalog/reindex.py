@@ -21,11 +21,11 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=HELP,
         parents=[workspace_parser(), format_parser()],
         description=(
-            "Read every sealed run under runs/ and rebuild .hmp/index.duckdb from it. "
-            "The current index stays readable until the new one is published in one "
-            "atomic step, and rebuilding twice yields the same index. What no run "
-            "directory carries is not rebuilt: audit history, tags, notes, export log "
-            "and calibration sessions."
+            "Read every sealed run under runs/ and every calibration session under "
+            "sessions/, and rebuild .hmp/index.duckdb from them. The current index "
+            "stays readable until the new one is published in one atomic step, and "
+            "rebuilding twice yields the same index. What no directory carries is not "
+            "rebuilt: audit history, export log and run-time tracked files."
         ),
         epilog="Example:\n  hmp catalog reindex",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -53,13 +53,17 @@ def run(args: argparse.Namespace) -> None:
         print("run,state,detail")
         for name in report["indexed"]:
             print(f"{name},indexed,")
+        for name in report["sessions"]:
+            print(f"{name},indexed_session,")
         for item in report["skipped"]:
             print(f"{item['run']},skipped,{item['reason']}")
         return
 
     print(f"index: {report['index']}")
-    print(f"indexed {len(report['indexed'])} run(s)")
+    print(f"indexed {len(report['indexed'])} run(s) and {len(report['sessions'])} session(s)")
     for name in report["indexed"]:
+        print(f"  {name}")
+    for name in report["sessions"]:
         print(f"  {name}")
     for table, count in sorted(report["rows"].items()):
         print(f"  {table}: {count} row(s)")
