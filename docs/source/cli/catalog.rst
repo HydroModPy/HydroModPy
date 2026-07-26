@@ -101,8 +101,9 @@ rename
 
 Synopsis: ``hmp catalog rename <ref> <new_name>``
 
-Rename a run. The on-disk storage basename is id-only and never moves, so a
-rename is a pure catalog update.
+Rename a run. The run directory is named after the run, so ``runs/<old>/`` is
+moved to ``runs/<new>/`` and the index is updated afterwards. The target name
+must be free: renaming onto a live run is refused rather than merged.
 
 Lifecycle
 ---------

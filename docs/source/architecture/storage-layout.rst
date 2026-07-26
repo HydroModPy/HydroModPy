@@ -287,7 +287,11 @@ Target contents, all paths relative to ``runs/<run_name>/``:
    |-- annotations.json     functional tags and free notes
    |-- fields.zarr/         array store (head by default)
    |-- tables.parquet/      tabular payloads
-   `-- run.log              bounded solver and pipeline log
+   `-- figures/             figures rendered for this run
+
+A run folder holds results, never diagnostics: the pipeline log stays under
+``<project>/.hmp/logs/``, which is disposable, so nothing sealed by the
+manifest can grow after the seal.
 
 ``manifest.json`` is written last, with a temporary file, an ``fsync``
 and a rename. That single atomic write is the crash-safety mechanism: a

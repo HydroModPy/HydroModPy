@@ -103,8 +103,9 @@ Data and storage
    **Cause.** ``hmp open <path>`` was pointed at a missing or moved
    ``.hmp`` archive.
 
-   **Fix.** Confirm the archive path. The path is logged at the end of
-   each ``hmp run`` if ``[persistence] save_lock = true``.
+   **Fix.** Confirm the archive path. ``hmp catalog export <ref> -o
+   <file>.hmp`` prints the archive it wrote; that path is the one
+   ``hmp open`` expects.
 
 .. dropdown:: ``CSV time series not found`` / ``NetCDF file not found``
    :icon: database

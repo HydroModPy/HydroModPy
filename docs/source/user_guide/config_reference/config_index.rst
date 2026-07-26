@@ -6403,61 +6403,49 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `simulation <simulation.html#simulation-results-persistence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L99>`__
    * - ``simulation.results.persistence.save_catalog``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-persistence-save-catalog>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28>`__
    * - ``simulation.results.persistence.save_zarr``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-persistence-save-zarr>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33>`__
    * - ``simulation.results.persistence.save_parquet``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-persistence-save-parquet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39>`__
-   * - ``simulation.results.persistence.save_lock``
-     - ``bool``
-     - user
-     - -
-     - `simulation <simulation.html#simulation-results-persistence-save-lock>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38>`__
    * - ``simulation.results.persistence.compression``
      - ``Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-persistence-compression>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
    * - ``simulation.results.persistence.compression_level``
      - ``int``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-persistence-compression-level>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
    * - ``simulation.results.keep_solver_files``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-keep-solver-files>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L104>`__
-   * - ``simulation.results.solver_scratch``
-     - ``str``
-     - dev
-     - -
-     - `simulation <simulation.html#simulation-results-solver-scratch>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106>`__
    * - ``simulation.results.derived``
      - ``DerivedConfig``
      - user
      - -
      - `simulation <simulation.html#simulation-results-derived>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110>`__
    * - ``simulation.results.derived.watertable_elevation``
      - ``bool``
      - user
@@ -6520,13 +6508,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L70>`__
    * - ``simulation.results.budget``
      - ``BudgetConfig``
-     - dev
+     - user
      - -
      - `simulation <simulation.html#simulation-results-budget>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L119>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114>`__
    * - ``simulation.results.budget.spatial_fields``
      - ``bool``
-     - dev
+     - user
      - -
      - `simulation <simulation.html#simulation-results-budget-spatial-fields>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L79>`__
@@ -7585,37 +7573,31 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `persistence <persistence.html#persistence-save-catalog>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28>`__
    * - ``persistence.save_zarr``
      - ``bool``
      - user
      - -
      - `persistence <persistence.html#persistence-save-zarr>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33>`__
    * - ``persistence.save_parquet``
      - ``bool``
      - user
      - -
      - `persistence <persistence.html#persistence-save-parquet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39>`__
-   * - ``persistence.save_lock``
-     - ``bool``
-     - user
-     - -
-     - `persistence <persistence.html#persistence-save-lock>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38>`__
    * - ``persistence.compression``
      - ``Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']``
      - dev
      - -
      - `persistence <persistence.html#persistence-compression>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
    * - ``persistence.compression_level``
      - ``int``
      - dev
      - -
      - `persistence <persistence.html#persistence-compression-level>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
    * - ``analysis.batch``
      - ``RegionalLabConfig | None``
      - user
@@ -9643,37 +9625,31 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-persistence-save-catalog>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28>`__
    * - ``calibration.persistence.save_zarr``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-persistence-save-zarr>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33>`__
    * - ``calibration.persistence.save_parquet``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-persistence-save-parquet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39>`__
-   * - ``calibration.persistence.save_lock``
-     - ``bool``
-     - user
-     - -
-     - `calibration <calibration.html#calibration-persistence-save-lock>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38>`__
    * - ``calibration.persistence.compression``
      - ``Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']``
      - dev
      - -
      - `calibration <calibration.html#calibration-persistence-compression>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
    * - ``calibration.persistence.compression_level``
      - ``int``
      - dev
      - -
      - `calibration <calibration.html#calibration-persistence-compression-level>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
    * - ``spinup.max_cycles``
      - ``int``
      - user

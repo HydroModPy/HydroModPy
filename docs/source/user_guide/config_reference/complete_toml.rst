@@ -413,8 +413,6 @@ Sub-models are linked back to their per-section page.
       save_zarr = true
       # Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
       save_parquet = true
-      # Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.
-      save_lock = true
       # Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
       compression = "zstd"
       # Compression level (codec-dependent). Ignored when compression='none'.

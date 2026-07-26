@@ -463,9 +463,9 @@ Fields
               <code class="hmp-field-toml">[simulation.results.persistence]</code>
             </div>
 
-         :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L97>`__
+         :bdg-primary:`PersistenceConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L99>`__
 
-            Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables, lockfile).
+            Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables).
 
          .. dropdown:: Fields of ``PersistenceConfig``
             :icon: list-unordered
@@ -482,7 +482,7 @@ Fields
                     <code class="hmp-field-name">save_catalog</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28>`__
 
                   Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
 
@@ -496,7 +496,7 @@ Fields
                     <code class="hmp-field-name">save_zarr</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33>`__
 
                   Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
 
@@ -510,23 +510,9 @@ Fields
                     <code class="hmp-field-name">save_parquet</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38>`__
 
                   Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: simulation-results-persistence-save-lock
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="simulation.results.persistence.save_lock">
-                    <code class="hmp-field-name">save_lock</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44>`__
-
-                  Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -538,7 +524,7 @@ Fields
                     <code class="hmp-field-name">compression</code>
                   </div>
 
-               :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49>`__
+               :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
 
                   Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
 
@@ -552,7 +538,7 @@ Fields
                     <code class="hmp-field-name">compression_level</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
 
                   Compression level (codec-dependent). Ignored when compression='none'.
 
@@ -568,23 +554,9 @@ Fields
               <code class="hmp-field-name">keep_solver_files</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L104>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106>`__
 
             Keep raw solver output files (.hds, .cbc, .lst) after ingestion.
-
-
-      .. container:: hmp-field hmp-field-level-dev
-         :name: simulation-results-solver-scratch
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="simulation.results.solver_scratch">
-              <code class="hmp-field-name">solver_scratch</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-secondary:`default = ".hmp/scratch"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L108>`__
-
-            Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC.
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -598,7 +570,7 @@ Fields
               <code class="hmp-field-toml">[simulation.results.derived]</code>
             </div>
 
-         :bdg-primary:`DerivedConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L115>`__
+         :bdg-primary:`DerivedConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110>`__
 
             Derived variable computation toggles.
 
@@ -750,7 +722,7 @@ Fields
 
 
 
-      .. container:: hmp-field hmp-field-level-dev
+      .. container:: hmp-field hmp-field-level-user
          :name: simulation-results-budget
 
          .. raw:: html
@@ -761,7 +733,7 @@ Fields
               <code class="hmp-field-toml">[simulation.results.budget]</code>
             </div>
 
-         :bdg-primary:`BudgetConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L119>`__
+         :bdg-primary:`BudgetConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114>`__
 
             Budget extraction configuration.
 
@@ -771,7 +743,7 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            .. container:: hmp-field hmp-field-level-dev
+            .. container:: hmp-field hmp-field-level-user
                :name: simulation-results-budget-spatial-fields
 
                .. raw:: html
@@ -780,9 +752,9 @@ Fields
                     <code class="hmp-field-name">spatial_fields</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L79>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L79>`__
 
-                  Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it.
+                  Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it. Turn it on to map or export a per-cell flux, at the cost of the heaviest arrays a run can hold.
 
 
 
