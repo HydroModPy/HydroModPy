@@ -19,7 +19,6 @@ import hydromodpy as hmp
 
 HERE = Path(__file__).resolve().parent
 CONFIG = HERE / "project.toml"
-OUT = HERE / "figures" / "from_python"
 
 # Hydraulic conductivities to explore, m/s (log-spaced, low to high).
 K_VALUES = [1e-7, 1e-6, 1e-5, 1e-4]
@@ -37,12 +36,17 @@ print(f"parameters      : {run.params}")
 
 # %% ---- K SWEEP
 
-# One simulation per K, overriding the single homogeneous K field.
+# One simulation per K, overriding the single homogeneous K field. Each
+# figure lands in the run it describes, exactly where `hmp run` puts it:
+# <project>/runs/<run>/figures/. The project root stays clean.
+catalog = project.store
 runs = {}
+figure_dirs = {}
 for k in K_VALUES:
     name = f"canut_K_{k:.0e}"
     runs[k] = project.simulate(name=name, K=k)
-    hmp.figure(runs[k], "simulated_active_network", save=OUT / name)
+    figure_dirs[k] = catalog.run_dir_for(runs[k].sim_id) / "figures"
+    hmp.figure(runs[k], "simulated_active_network", save=figure_dirs[k])
     print(f"K = {k:.0e} m/s -> sim {runs[k].sim_id}")
 
 # %% ---- COMPARE THE ACTIVE NETWORK EXTENT
@@ -54,4 +58,6 @@ for k in K_VALUES:
     active = hmp.read(runs[k], "accumulation_flux", time=0)
     print(f"  K = {k:.0e} m/s : {int((active > 0).sum())} cells")
 
-print(f"\nPer-K figures written under {OUT}")
+print("\nPer-K figures:")
+for k in K_VALUES:
+    print(f"  K = {k:.0e} m/s : {figure_dirs[k]}")

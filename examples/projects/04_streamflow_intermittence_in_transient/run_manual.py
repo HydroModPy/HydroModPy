@@ -22,7 +22,6 @@ import hydromodpy as hmp
 
 HERE = Path(__file__).resolve().parent
 CONFIG = HERE / "project.toml"
-OUT = HERE / "figures" / "from_python"
 
 # %% ---- RUN
 
@@ -46,6 +45,11 @@ print(f"driest month     : {index[dry]:%Y-%m} ({counts[dry]} cells)")
 print(f"intermittent part: {counts.max() - counts.min()} cells switch on/off over the record")
 
 # %% ---- RENDER THE EXTREMES
+
+# Figures belong to the run, exactly where `hmp run` puts them:
+# <project>/runs/<run>/figures/. The project root stays clean.
+with hmp.open(HERE) as catalog:
+    OUT = catalog.run_dir_for(run.sim_id) / "figures" / "from_python"
 
 # Same figure, two timesteps: the network at its widest and its narrowest.
 hmp.figure(run, "seepage_map", save=OUT / "wettest", timestep=wet)

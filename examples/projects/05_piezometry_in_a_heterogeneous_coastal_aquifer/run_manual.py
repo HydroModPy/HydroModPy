@@ -21,7 +21,6 @@ import hydromodpy as hmp
 
 HERE = Path(__file__).resolve().parent
 CONFIG = HERE / "project.toml"
-OUT = HERE / "figures" / "from_python"
 
 # %% ---- RUN
 
@@ -36,12 +35,21 @@ print(f"parameters : {run.params}")
 # level; recharge lifts it inland. The spread is the coastal head gradient.
 head = np.asarray(hmp.read(run, "watertable_elevation", time=0), dtype="float64")
 finite = head[np.isfinite(head)]
-print(f"\nWater-table elevation (active cells): {finite.min():.2f} m (shore) to {finite.max():.2f} m (inland)")
+print(
+    f"\nWater-table elevation (active cells): {finite.min():.2f} m (shore) to {finite.max():.2f} m (inland)"
+)
 
 seepage = np.asarray(hmp.read(run, "seepage_mask", time=0))
-print(f"Seepage/sea cells at surface       : {int(np.nansum(seepage))} / {int(np.isfinite(head).sum())} active")
+print(
+    f"Seepage/sea cells at surface       : {int(np.nansum(seepage))} / {int(np.isfinite(head).sum())} active"
+)
 
 # %% ---- RENDER FIGURES
+
+# Figures belong to the run, exactly where `hmp run` puts them:
+# <project>/runs/<run>/figures/. The project root stays clean.
+with hmp.open(HERE) as catalog:
+    OUT = catalog.run_dir_for(run.sim_id) / "figures" / "from_python"
 
 # The west-east section cuts from the sea into the aquifer.
 hmp.figure(run, "cross_section", save=OUT, orientation="we")
