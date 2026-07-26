@@ -14,42 +14,46 @@ share the same subcommands. The pages below use ``hmp`` for brevity.
    hmp --help              # list every subcommand
    hmp <subcommand> --help # detailed help for one subcommand
 
-A standard first session looks like this:
+A standard first session:
 
 .. code-block:: bash
 
-   hmp workspace init .                                  # scaffold this directory as a workspace
-   hmp project new my_basin --workspace .                # create projects/my_basin
-   hmp config template projects/my_basin/project.toml --profile user
-   hmp run projects/my_basin/project.toml             # execute the run
-   hmp catalog ls                    # browse simulation results
-   hmp catalog show <sim_id>         # inspect one simulation
+   hmp workspace init .                              # scaffold this directory
+   hmp project new my_basin --workspace .            # create projects/my_basin
+   hmp run projects/my_basin/run_demo.toml           # execute the run
+   hmp catalog ls                                    # browse the results
+   hmp catalog show demo --detail                    # inspect one run
 
 The rest of this page explains each step.
 
 1. Initialize a workspace
 -------------------------
 
-A workspace is a directory that owns the simulation catalog, the data
-cache, and one or more projects.
+A workspace owns the shared input-data cache and hosts one or more
+projects.
 
 .. code-block:: bash
 
    hmp workspace init                          # default: ~/hydromodpy/
    hmp workspace init /mnt/shared/hmp          # custom path
-   hmp workspace init --force                  # overwrite an existing workspace
+   hmp workspace init . --force                # overwrite an existing workspace
 
-The command creates the canonical layout:
+The command creates:
 
 .. code-block:: text
 
    <workspace>/
-   |-- workspace.toml         # metadata of the research workspace
-   |-- data/                  # cache.duckdb + cached input data (one folder per variable)
-   `-- projects/              # one folder per project, each owns its catalog.duckdb
+   ├── workspace.toml         name, contact, licence, geographic scope
+   ├── data/                  one folder per variable, with a README and examples
+   └── projects/
+       └── example/           a ready-to-run synthetic demo project
 
-See :doc:`../user_guide/concepts/workspace-layout` for the resolution rules and the role of
-each folder.
+Each ``data/<variable>/`` ships a README and one example file per accepted
+format, so you can copy the naming convention for your own files. The
+``cache.duckdb`` index appears in ``data/`` on the first run.
+
+See :doc:`../user_guide/concepts/workspace-layout` for the resolution rules
+and the role of each folder.
 
 2. Create a project
 -------------------
@@ -62,38 +66,49 @@ variants.
    hmp project new my_basin                              # uses ~/hydromodpy/
    hmp project new my_basin --workspace /mnt/shared/hmp  # custom workspace
 
-The command writes ``projects/my_basin/project.toml`` (the project
-config validated by ``HydroModPyConfig``) and an empty
-``projects/my_basin/catalog.duckdb`` deployed through the schema
-migration runner. See :doc:`../user_guide/concepts/project-vs-run` for the
-project / run distinction.
+It writes three files under ``projects/my_basin/``:
 
-3. Generate a configuration template
-------------------------------------
+- ``project.toml``, the shared settings. It is also the marker that anchors
+  the project root.
+- ``run_demo.toml``, an executable run inheriting from it through
+  ``base_config = "project.toml"``.
+- ``.gitignore``, which excludes the generated ``runs/``, ``sessions/``,
+  ``share/`` and ``.hmp/``.
 
-Use ``hmp config template`` to bootstrap a TOML file with every field
-documented inline. Each line carries the type, the default, and the
-constraint.
+No database is created at that point. See
+:doc:`../user_guide/concepts/project-vs-run` for the project / run
+distinction.
+
+3. Edit or generate a configuration
+-----------------------------------
+
+The scaffolded ``project.toml`` and ``run_demo.toml`` are meant to be
+edited. To discover the fields available in a section, generate a
+documented template into a **separate** file:
 
 .. code-block:: bash
 
-   hmp config template config.toml                         # all modules
-   hmp config template config.toml --profile user          # minimal
-   hmp config template config.toml --profile expert        # all knobs
-   hmp config template config.toml --modules geographic flow modflownwt
+   hmp config template template.toml                       # every module
+   hmp config template template.toml --profile user        # user-facing fields only
+   hmp config template template.toml --profile expert      # every knob
+   hmp config template template.toml --modules geographic flow modflownwt
    hmp config template --list-modules                      # available modules
 
-The generated file is meant to be edited. Validation against the
-Pydantic schema is available with:
+Each generated line carries the type, the default and the constraint. The
+template is a field catalogue to copy from, not a runnable config: it has no
+``[workspace].project_root``, so validating it reports what is still
+missing. Validate the real config instead:
 
 .. code-block:: bash
 
    hmp config check projects/my_basin/run_demo.toml
 
+There is also an interactive path, ``hmp config wizard <output.toml>``.
+
 4. Pre-fetch solver binaries (optional)
 ---------------------------------------
 
-MODFLOW, MODPATH, and MT3D-USGS binaries download on first use into a
+MODFLOW, MODPATH and MT3D-USGS binaries download on first use into a
 managed cache (``~/.cache/hydromodpy/bin/``). For CI, air-gapped
 environments, or before handing a laptop to a teammate, fetch them
 eagerly:
@@ -102,26 +117,34 @@ eagerly:
 
    hmp install-binaries                            # fetch everything
    hmp install-binaries --subset mf6,mfnwt         # subset only
-   hmp install-binaries --mf6-prt                  # mf6 for MODFLOW 6 PRT
+   hmp install-binaries --mf6-prt                  # mf6 build with the PRT model
    hmp install-binaries --bindir /opt/hmp_bin      # custom location
    hmp install-binaries --upgrade                  # force re-download
 
 5. Run a workflow
 -----------------
 
-``hmp run`` reads the TOML, picks the workflow declared at the top
-level (``[workflow].mode = "simulation"``, ``"overview"``, ``"testbed"``,
-``"calibration"``, or ``"comparison"``), and executes the full pipeline.
+``hmp run`` reads the TOML, picks the workflow declared at the top level
+(``[workflow].mode = "simulation"``, ``"overview"``, ``"calibration"``,
+``"comparison"``, ``"testbed"`` or ``"site_selection"``), and executes the
+pipeline.
 
 .. code-block:: bash
 
-   hmp run projects/my_basin/project.toml
-   hmp run projects/my_basin/calibration_run.toml
+   hmp run projects/my_basin/run_demo.toml
+   hmp run projects/my_basin/run_demo.toml --dry-run   # print the steps, run nothing
 
-The catalog updates after every successful run.
+``--dry-run`` prints the resolved workflow, the sections it found and the
+numbered pipeline steps. See :doc:`/cli/run` for the resume, overlay and
+override flags.
 
-Prototype Python scripts belong to the developer namespace, outside the
-stable ``hmp run`` reproducibility contract:
+The run lands in ``projects/my_basin/runs/<name>/``, named after
+``[simulation].name``. Launching an unchanged config again is a no-op:
+HydroModPy reports ``Config identical to completed run``. Add ``--force``
+to run it anyway; the result is versioned as ``<name>.v2``.
+
+Prototype Python scripts stay outside the ``hmp run`` reproducibility
+contract:
 
 .. code-block:: bash
 
@@ -130,57 +153,69 @@ stable ``hmp run`` reproducibility contract:
 6. Browse and inspect results
 -----------------------------
 
-The simulation catalog is queryable from the same CLI:
+.. code-block:: bash
+
+   hmp catalog ls                                  # every run of the project
+   hmp catalog ls --status completed --solver modflow6
+   hmp catalog show demo                           # metadata, metrics, parameters
+   hmp catalog show demo --detail                  # plus the Zarr store layout
+   hmp catalog diff demo demo.v2                   # only the keys that differ
+   hmp catalog query "SELECT name, solver, status FROM v_simulation_summary"
+   hmp report compare demo demo.v2                 # side-by-side metric table
+   hmp viz show demo piezometric_map               # render one figure
+   hmp viz list                                    # every registered figure name
+
+A run is addressed by name, by versioned name (``demo.v2``), by unique id
+prefix, or by selector (``@last``, ``@last~1``, ``@best:nse``,
+``@worst:rmse``, ``@running``).
+
+Query the ``v_simulation_summary`` view rather than the ``simulations``
+table: the table stores foreign keys (``solver_id``, ``status_id``), the
+view resolves them into readable columns.
+
+7. Rebuild the index
+--------------------
+
+The DuckDB file in ``.hmp/`` is an index over the run directories, not the
+source of truth.
 
 .. code-block:: bash
 
-   hmp catalog ls                              # all runs in the workspace
-   hmp catalog query "SELECT name, solver FROM simulations LIMIT 5"
-   hmp catalog show <sim_id>                   # metadata, metrics, params
-   hmp catalog show <sim_id> --detail          # files, mesh, status, Zarr groups
-   hmp rank --metric nse --top 1               # top-ranked run in project
-   hmp rank --metric nse --bottom 1            # bottom-ranked run in project
-   hmp report compare <sim_a> <sim_b>          # side-by-side comparison
-   hmp viz show <sim_id> <figure>              # render one figure
-   hmp viz gallery <config.toml>               # render the [display] gallery
+   hmp catalog reindex
 
-A ``sim_id`` accepts a unique prefix, so ``hmp catalog show ab12`` matches
-the single run starting with ``ab12``.
+It walks ``runs/`` and ``sessions/``, reads each ``manifest.json`` and
+``session.json``, and repopulates every table. Use it after moving a
+project, after restoring a backup, or whenever ``hmp doctor`` reports that
+the index row count and the run directory count disagree.
 
-7. Diagnose the environment
+8. Diagnose the environment
 ---------------------------
-
-Run ``hmp doctor`` when something breaks. It checks the Python version,
-the heavy dependencies, the solver binaries, the workspace layout, and
-the data/result caches.
 
 .. code-block:: bash
 
    hmp doctor
+   hmp doctor --toml projects/my_basin/run_demo.toml
 
-The output flags missing pieces and prints the exact command needed to
-fix each one (for example ``hmp install-binaries`` when a binary is
-absent). When a project catalog is present, it also reports result-storage
-drift such as completed catalog rows without Zarr artefacts, orphan
-Zarr/Parquet artefacts, and leftover ``*.parquet.tmp`` files.
+``hmp doctor`` checks the Python version, the heavy dependencies, the solver
+binaries, and prints the exact command needed to fix each gap (for example
+``hmp install-binaries``). With ``--toml`` it also reports how the workspace
+was resolved, the resolved paths, and whether the index matches the run
+directories on disk.
 
-8. Share a simulation
----------------------
-
-Package one run as a single archive that another workspace can import:
+9. Share a run
+--------------
 
 .. code-block:: bash
 
-   hmp export projects/my_basin --sim run_demo --output exports/run_demo
-   hmp add exports/run_demo.hmp
+   hmp catalog export demo -o share/demo.hmp
+   hmp catalog import share/demo.hmp
 
-The archive bundles the configuration, the inputs, and the results.
-``hmp add`` re-materializes them inside the target workspace.
+The ``.hmp`` archive bundles the frozen configuration, the provenance, the
+fields and the tables, with checksums verified on import. To export a single
+variable in a GIS or ParaView format instead, use ``hmp data export``; see
+:doc:`../user_guide/results-and-exports`.
 
-For the full set of commands (the ``project``, ``catalog``, ``workspace``,
-``viz``, ``audit``, and ``privacy`` families, plus ``data``, ``lock``,
-``manage``, ``report``, ``schema``, ``completion``, and every flag of the
-verbs shown above), see :doc:`../user_guide/cli-reference`.
+For the full command surface, see :doc:`/cli/index`.
 
 Where to look next
 ------------------
@@ -189,8 +224,7 @@ Where to look next
   workspace > project > run hierarchy and the resolution rules.
 - :doc:`../user_guide/concepts/project-vs-run` explains the project
   vs run distinction and the ``project.toml`` contract.
-- :doc:`../user_guide/workflows/index` lists the seven supported
-  user APIs (CLI, TOML, Python, notebook).
-- :doc:`../user_guide/config_reference/index` is the deep reference for
-  the configuration system, the workspace catalog schema, and the
-  Pydantic field declaration rules.
+- :doc:`../user_guide/results-and-exports` answers "where are my outputs".
+- :doc:`../user_guide/workflows/index` lists the supported workflow modes.
+- :doc:`../user_guide/config_reference/index` is the deep reference for the
+  configuration system and the Pydantic field declaration rules.

@@ -1,10 +1,15 @@
 hmp catalog
 ===========
 
-The :command:`hmp catalog` family inspects, queries, and maintains the
-DuckDB + Zarr catalog of a workspace. All actions auto-detect the catalog
-root by walking up from the current directory; pass ``--workspace`` to point
-at a different project.
+The :command:`hmp catalog` family inspects, queries and maintains the runs
+of a project. It reads the project index at ``<project>/.hmp/index.duckdb``
+and the run directories under ``<project>/runs/``. All actions auto-detect
+the project root by walking up from the current directory to the first
+``project.toml``; pass ``--workspace`` to point at a different project.
+
+The index is derived data. ``reindex`` rebuilds it from the run
+directories, so nothing a run needs in order to be read, replayed or
+compared lives only in SQL.
 
 A run is addressed by **reference**: its name (``cheze_baseline``), a versioned
 name (``cheze_baseline.v3``), a unique UUID prefix (``9c41aa02``), the full
@@ -17,9 +22,11 @@ Inspecting (read-only)
 ls
 ~~
 
-Synopsis: ``hmp catalog ls [--solver <name>] [--catchment <name>] [--project <label>] [--status <code>] [--tag <tag>] [--limit N] [--format table|json|csv]``
+Synopsis: ``hmp catalog ls [--solver <name>] [--catchment <name>]
+[--project <label>] [--status <code>] [--tag <tag>] [--limit N]
+[--format table|json|csv]``
 
-List simulations, one row per run with the name, short id, status, solver and
+List runs, one row each with the name, short id, solver, status and
 duration. Trashed runs are hidden unless ``--status trashed`` is given. The
 ``json``/``csv`` formats emit a stable 12-column projection (string ids, ISO
 dates, no config blobs).
@@ -67,12 +74,16 @@ query
 
 Synopsis: ``hmp catalog query "<SQL>"``
 
-Run a raw SQL statement against the catalog DuckDB, read-only, for ad-hoc
+Run a raw SQL statement against the index, read-only, for ad-hoc
 exploration beyond the canned filters.
+
+Query the ``v_simulation_summary`` view rather than the ``simulations``
+table: the table stores foreign keys (``solver_id``, ``status_id``), the
+view resolves them into readable columns.
 
 Example::
 
-   hmp catalog query "SELECT solver, COUNT(*) FROM simulations GROUP BY 1"
+   hmp catalog query "SELECT solver, COUNT(*) AS n FROM v_simulation_summary GROUP BY 1"
 
 Annotating
 ----------
@@ -113,13 +124,15 @@ delete
 
 Synopsis: ``hmp catalog delete <ref> [--now] [--force] [-y]``
 
-Move a run to the trash (reversible; storage stays in place). ``--now`` purges
-it permanently (cascade + storage removal); ``--force`` acts on a pinned run.
+Move a run to the trash (reversible; the run directory stays in place and
+is stamped with a ``trash.json`` marker). ``--now`` purges it permanently
+(cascade + storage removal); ``--force`` acts on a pinned run. No byte is
+freed until the trash is emptied.
 
 Example::
 
-   hmp catalog delete ksweep/trial-004 -y
-   hmp catalog delete ksweep/trial-004 --now -y
+   hmp catalog delete ksweep_trial_004 -y
+   hmp catalog delete ksweep_trial_004 --now -y
 
 restore
 ~~~~~~~
@@ -128,6 +141,15 @@ Synopsis: ``hmp catalog restore <ref>``
 
 Bring a trashed run back. If the original name was reused, the stem is
 version-bumped so the restore never collides.
+
+Address a trashed run by its id prefix: name resolution only sees live
+runs, so ``hmp catalog trash`` first, then restore with the short id it
+prints.
+
+Example::
+
+   hmp catalog trash
+   hmp catalog restore 56df62a9
 
 trash
 ~~~~~
@@ -142,11 +164,36 @@ gc
 
 Synopsis: ``hmp catalog gc [--apply]``
 
-Plan, by default, the garbage collection of orphan caches, tmp parquet and
-stale ``running`` rows. It only reports unless ``--apply`` is given (the safe
+Plan, by default, the garbage collection of orphan stores, tmp parquet,
+expired trash, stale ``running`` rows, pending purges and orphan
+calibration sessions. It only reports unless ``--apply`` is given (the safe
 inverse of the old destructive default). ``gc --apply`` also compacts the
-DuckDB file and consolidates Zarr metadata, the maintenance formerly exposed
-as the separate ``vacuum`` verb.
+DuckDB file and consolidates Zarr metadata, the maintenance formerly
+exposed as the separate ``vacuum`` verb.
+
+Example::
+
+   hmp catalog gc            # plan only
+   hmp catalog gc --apply    # execute the plan
+
+reindex
+~~~~~~~
+
+Synopsis: ``hmp catalog reindex [--workspace <path>] [--format table|json]``
+
+Rebuild the project index from what the run directories declare. It walks
+``runs/`` and ``sessions/``, reads each ``manifest.json`` and each
+``session.json``, and repopulates every table, reporting the run names, the
+session names and the row count per table.
+
+Use it after moving a project, after restoring a backup, or whenever
+``hmp doctor --toml`` reports that the index row count and the number of
+run directories disagree. Deleting ``.hmp/index.duckdb`` loses nothing that
+a rebuild cannot restore.
+
+Example::
+
+   hmp catalog reindex
 
 Sharing and re-running
 ----------------------
@@ -170,11 +217,13 @@ rerun
 
 Synopsis: ``hmp catalog rerun <ref> [--set PATH=VALUE ...] [--name <name>]``
 
-Re-launch a run from its stored config snapshot, applying dotted-path overrides.
+Re-launch a run from its frozen ``runs/<name>/config.toml``, applying
+dotted-path overrides. Without ``--name`` the result is versioned under the
+original stem.
 
 Example::
 
-   hmp catalog rerun cheze_baseline --set flow.hydraulic_conductivity=2e-4
+   hmp catalog rerun demo --set flow.param.K.field.value=2e-4 --name demo_k2
 
 Schema maintenance
 ------------------

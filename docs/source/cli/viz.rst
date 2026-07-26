@@ -1,29 +1,46 @@
 hmp viz
 =======
 
-The :command:`hmp viz` family groups the visualization helpers: one-shot
-figure render and full gallery render.
+The :command:`hmp viz` family groups the visualization helpers: figure
+discovery, one-shot render, and full gallery render.
+
+list
+----
+
+Synopsis: ``hmp viz list [--kind <kind>]``
+
+Print the figure names accepted by ``[display].figures``, with their kind
+(``spatial``, ``timeseries``, ``comparison``, ``section``, ``balance``) and
+the data each one requires.
+
+Example::
+
+   hmp viz list
+   hmp viz list --kind spatial
 
 show
 ----
 
-Synopsis: ``hmp viz show <sim_ref> <figure> [--workspace <path>] [--output <path>]``
+Synopsis: ``hmp viz show <ref> <figure> [--workspace <path>] [--output <path>]``
 
-Render a single registered figure for one simulation. The simulation
-reference accepts a full UUID, a unique prefix, or the simulation name.
+Render one registered figure for one run. Without ``--output`` the PNG
+lands in ``runs/<name>/figures/<figure>.png``. Use ``hmp viz list`` to get
+the exact figure name; an unknown name prints the full registry.
 
 Example::
 
-   hmp viz show baseline watertable_map --output figures/watertable.png
+   hmp viz show demo piezometric_map
+   hmp viz show demo watertable_depth_map --output /tmp/depth.png
 
 gallery
 -------
 
-Synopsis: ``hmp viz gallery <config.toml> [--run NAME | --sim UUID | --all | --latest N] [--only F1,F2]``
+Synopsis: ``hmp viz gallery <config.toml> [--run NAME | --sim UUID | --all |
+--latest N] [--only F1,F2] [--no-show]``
 
-Render the figures declared under ``[display]`` for the simulations
-produced by ``<config.toml>``. Selectors filter the runs (latest by
-default). Use ``--list`` to preview the matching runs without rendering.
+Render the figures declared under ``[display]`` for the runs produced by
+``<config.toml>``. The selectors filter which runs are rendered; the latest
+one is used by default.
 
 Example::
 

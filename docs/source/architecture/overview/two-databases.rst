@@ -23,14 +23,16 @@ Federates every registered workspace and answers cross-workspace queries
 through read-only ``ATTACH``. Recreated from the registered workspaces
 alone: it carries no science output of its own.
 
-One table, ``workspaces``, plus the federated view ``all_simulations``
-rebuilt on demand from each project's ``v_simulation_summary``.
+It stores one table, ``workspaces``, plus its migration ledger. The
+federated view ``all_simulations`` is not stored: it is rebuilt at attach
+time as a ``UNION ALL`` over each project's ``v_simulation_summary``, and
+a workspace whose index file is missing is skipped with a warning.
 
 Exposed through:
 
 - :class:`hydromodpy.core.state.global_index.GlobalIndex`
 - ``hmp.index()`` for machine-wide discovery
-- CLI verbs ``hmp workspace search / forget / prune``
+- CLI verbs ``hmp workspace register / list / search / forget / prune``
 
 Workspace input cache: ``<workspace>/data/cache.duckdb``
 ---------------------------------------------------------
@@ -52,13 +54,13 @@ Exposed through:
 Each row carries a workspace-relative POSIX ``file_path``, so a cache
 stays portable between machines.
 
-Project index: ``<project>/catalog.duckdb``
---------------------------------------------
+Project index: ``<project>/.hmp/index.duckdb``
+-----------------------------------------------
 
 Indexes the runs of one project: identity, parameters, metrics,
 provenance, calibration trace and workflow trace. It is the query layer
-over the project's run directories, not their owner. Deleting it must
-cost a rebuild, never a result.
+over ``runs/`` and ``sessions/``, not their owner. It lives under
+``.hmp/`` precisely because that directory is disposable.
 
 The project index is explicitly **not** a store of irreplaceable output.
 What a run needs in order to be read, replayed, resumed or compared is
@@ -74,11 +76,32 @@ Exposed through:
 - ``hmp.open(project_path)``, which returns the ``Catalog``
 - CLI verb ``hmp catalog ...``
 
+Rebuilding it
+~~~~~~~~~~~~~
+
+``hmp catalog reindex`` reads every sealed run under ``runs/`` and every
+calibration session under ``sessions/``, and rebuilds the index from
+them. Per run it reads ``manifest.json`` (the seal of a complete run),
+then ``tables.parquet/simulation.parquet``, ``parameters.parquet``,
+``metrics.parquet``, ``provenance.parquet``, the ``geographic_*.parquet``
+features, ``provenance.json``, ``annotations.json`` and ``trash.json``.
+Per session it reads ``session.json`` and ``trials.jsonl``. The rebuild
+fills a staging database and publishes it with one ``os.replace``, so the
+current index stays readable throughout and two rebuilds describe the
+project identically.
+
+The run **name comes from the directory**, never from the files: a
+rename moves the directory, so the tree is what the name is. A directory
+whose manifest names another run is reported and left out rather than
+indexed under a doubtful identity.
+
 What survives a rebuild
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 The rule is stated once, in :doc:`../storage-layout`, and summarised
-here.
+here. The authoritative list is the module docstring of
+``hydromodpy/results/catalog/reindex.py``, which is the code that
+performs the rebuild.
 
 .. list-table::
    :header-rows: 1
@@ -88,14 +111,16 @@ here.
      - Content
      - Rebuild behaviour
    * - Reconstructible
-     - Run identity and geometry, parameters, metrics, provenance, run
-       environment, declared artefacts, frozen config, functional tags,
-       workflow steps, calibration sessions and trials
+     - Run identity and geometry, catchment metadata, parameters,
+       metrics, input provenance, run environment, geographic features,
+       tags and notes, trash state, calibration sessions and trials.
+       The frozen ``config.toml`` stays in the run folder
      - Obligation: written in the run or session folder, restored
        identically by the rebuild
    * - Losable
-     - Audit log, export log, free notes, deletion tombstones, purge
-       resume state
+     - Audit log, export log, tracked files, observation points,
+       workflow journal, deletion tombstones, purge resume state, and
+       the promoted ``sim_id`` back-filled on a trial
      - Dropped, by an explicit decision. The runs, their results and
        their lineage are unaffected
    * - Input
@@ -103,21 +128,21 @@ here.
      - Out of the results scope. Repopulated from the input cache and
        the data loaders
 
-Rebuild status: ``hmp catalog reindex`` rebuilds the whole index from
-the run directories. It reads each ``manifest.json`` as the seal of a
-complete run, then its ``simulation.parquet``, ``parameters.parquet``,
-``metrics.parquet``, ``provenance.parquet``, GeoParquet features and
-``provenance.json``. The rebuild fills a staging database and publishes
-it atomically, so the current index stays readable throughout. The
-losable class above is what a rebuild does not bring back.
+Two consequences are worth naming. Losing ``tracked_files`` means
+``entry.used_by()`` stops linking a cache entry back to the runs that
+consumed it, although the reverse direction (``run.input_entries()``)
+still works from the restored ``provenance`` rows. Losing the workflow
+journal means an interrupted workflow replans from scratch instead of
+resuming.
 
 Provenance bridge
 -----------------
 
 Each run records, in its ``provenance`` rows, which input-cache entries
 it consumed. ``run.input_entries()`` walks the bridge to list them, and
-``entry.used_by()`` returns the runs that referenced a given entry.
-Cross-workspace lookups go through the machine index.
+``entry.used_by()`` returns the runs that referenced a given entry by
+joining ``tracked_files.sha256``. Cross-workspace lookups go through the
+machine index.
 
 Why three scopes
 ----------------

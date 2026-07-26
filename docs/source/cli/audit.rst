@@ -1,10 +1,11 @@
 hmp audit
 =========
 
-The :command:`hmp audit` family inspects the workspace audit log: the
-append-only ledger that records every catalog mutation (insert, update,
-delete) with a hash-chained entry. Both actions auto-detect the
-catalog; pass ``--workspace`` to point at a different project.
+The :command:`hmp audit` family inspects the audit log: the append-only
+ledger inside the project index that records every mutation (run
+registration, metric write, tag, trash, purge) as a hash-chained entry.
+Every action auto-detects the project; pass ``--workspace`` to point at a
+different one.
 
 list
 ----
@@ -25,10 +26,24 @@ verify
 
 Synopsis: ``hmp audit verify [--strict] [--workspace <path>]``
 
-Replay the audit chain hash and report any gap or mismatch. ``--strict``
-turns warnings into a non-zero exit code, suitable for CI gates that
-guard the integrity of an archived workspace.
+Replay the audit chain hash and report any gap or mismatch. On an intact
+log it prints ``audit_log hash chain verifies``. ``--strict`` turns
+warnings into a non-zero exit code, suitable for CI gates that guard the
+integrity of an archived project.
 
 Example::
 
    hmp audit verify --strict
+
+prune
+-----
+
+Synopsis: ``hmp audit prune [--dry-run] [--apply] [--workspace <path>]``
+
+Apply the ``retention_policies`` rows to ``audit_log``. Dry-run by default:
+it counts the rows that exceed their retention window without touching the
+table. ``--apply`` performs the deletion.
+
+Example::
+
+   hmp audit prune --dry-run

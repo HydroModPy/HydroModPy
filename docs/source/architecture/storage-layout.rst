@@ -3,16 +3,16 @@ Storage Layout
 
 **Disk is the truth. The database is an index rebuilt from disk.**
 
-A project keeps its results as ordinary directories. The DuckDB file next
-to them is a query index over those directories: it makes ``find``,
-``ls``, metric ranking and cross-project federation fast, and it can be
-deleted and rebuilt. Nothing a run needs in order to be read, replayed,
-resumed or compared may live only in SQL.
+A project keeps its results as ordinary directories, one per run. The
+DuckDB file under ``.hmp/`` is a query index over those directories: it
+makes ``ls``, ``show``, metric ranking and cross-project federation fast,
+and it can be deleted and rebuilt with ``hmp catalog reindex``. Nothing a
+run needs in order to be read, replayed, resumed or compared may live
+only in SQL.
 
-This page is the storage contract. It describes a target that is under
-construction: each section marks what is in place today and what is still
-being built. Nothing described here as "in place" is aspirational, and no
-mechanism is presented as existing before it ships.
+This page is the storage contract. It describes what the toolbox writes
+today. The last section lists what is *not* in place, so that nothing
+here is read as a promise.
 
 For the role of each database scope, see :doc:`overview/two-databases`.
 For the migration policy that applies to any change in this layout, see
@@ -28,246 +28,64 @@ Delivery status
    * - State
      - Items
    * - In place
-     - Per-project DuckDB index (``catalog.duckdb``); per-run Zarr store
-       and per-run Parquet directory under ``simulations/``; id-only
-       storage basename; opt-in persistence of heavy fields (budget and
-       derived); on-disk run heartbeats under ``.hmp/running/``; trash,
-       ``gc`` and ``hmp catalog reindex``, which rebuilds the whole index
-       from the run **and session** directories; ``sessions/<name>/`` with
-       its session descriptor and its trials journal, written live by every
-       calibration; ``runs/``, ``sessions/`` and ``share/`` ignored by git.
-   * - Being built
-     - Runs-first folder layout (``runs/<name>/`` with a human name);
-       ``manifest.json`` written last; parameters, geographic metadata,
-       run environment, workflow trace, frozen config and functional
-       tags written into the run folder; spin-up sessions joining
-       calibration sessions under ``sessions/``; ``hmp reindex``;
-       read-only index opening generalised to every inspection command
-       (several already do it); ``project.toml`` as project-root marker.
-
-Three classes of data
----------------------
-
-The classification is by consumer, not by table. It decides what must
-exist on disk before the index can be thrown away, and it is the part of
-this contract that is easiest to get wrong.
-
-Class 1: reconstructible (obligation)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Everything runtime code reads back. Each item below must be written into
-the run folder (or the session folder) so that a rebuilt index restores
-it identically. A value that only a human ever reads is not in this
-class; a value that a code path reads is, even if it is rarely hit.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 30 44
-
-   * - Data
-     - On-disk home (target)
-     - Read by
-   * - Run identity, status, solver, mesh and period summary
-     - ``runs/<name>/manifest.json``
-     - catalog reads, ``hmp catalog ls`` and ``show``, comparison
-       selection
-   * - Run parameters
-     - ``runs/<name>/tables.parquet/parameters.parquet``
-     - ``results/catalog/discovery.py`` (search by parameter),
-       ``dataset_loader``, comparison audit
-   * - Geographic metadata (catchment area, outlet coordinates)
-     - ``runs/<name>/manifest.json`` (geometry block)
-     - ``simulation/extraction/derivation/catchment_aggregation.py``;
-       a missing catchment area currently degrades catchment discharge
-       without an error
-   * - Run environment (Python, package versions, git commit, solver
-       binary fingerprint)
-     - ``runs/<name>/provenance.json``
-     - ``results/export/context.py``, ``dataset_loader``, rerun
-   * - Declared artefacts of the run
-     - ``runs/<name>/manifest.json`` (``artifacts[]``)
-     - file listing on ``Run``, input bridge, coverage invariant
-   * - Metrics
-     - ``runs/<name>/tables.parquet/metrics.parquet``
-     - ranking, comparison, calibration reporting
-   * - Input provenance rows
-     - ``runs/<name>/provenance.json``
-     - input bridge (``run.input_entries()``), frozen replay
-   * - Frozen resolved configuration
-     - ``runs/<name>/config.toml``
-     - ``hmp run --resume``, ``hmp catalog rerun``
-   * - Functional tags
-     - ``runs/<name>/annotations.json``
-     - tag search, spinup convergence gate
-   * - Workflow step trace
-     - ``runs/<name>/provenance.json``
-     - workflow resume, ``hmp doctor``
-   * - Calibration sessions and trials
-     - ``sessions/<name>/session.json`` and
-       ``sessions/<name>/trials.jsonl``
-     - calibration resume, best promotion, calibration report
-
-Part of this class already lands on disk: a run's Parquet directory
-holds ``simulation.parquet`` (the one-row snapshot the rebuild reads),
-``metrics.parquet``, ``provenance.parquet``, ``timeseries.parquet``,
-``budgets.parquet``, ``mass_balance.parquet`` and the GeoParquet
-features. The calibration history landed too: every session writes its
-descriptor and its trials journal as it optimises, and
-``hmp catalog reindex`` reads both back into ``calibration_sessions``
-and ``calibration_iterations``. Parameters, geographic metadata, run
-environment, workflow steps, tags and the frozen config are still
-SQL-only today. Closing that gap is the precondition for a rebuildable
-index, not an optimisation.
-
-Class 2: losable (explicit and assumed)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These rows are not mirrored on disk. A rebuild drops them, and that is a
-decision, not an oversight. Stating the consequence is part of the
-contract.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 24 76
-
-   * - Data
-     - Consequence of a rebuild
-   * - ``audit_log``
-     - the machine event history of the project is lost. Run identity,
-       results and lineage are unaffected because they come from the
-       manifests.
-   * - ``export_log``
-     - the record of which export artefacts were emitted is lost. The
-       artefacts themselves stay on disk.
-   * - ``sim_notes``
-     - free-text notes attached to a run are lost unless they were
-       written to ``runs/<name>/annotations.json``.
-   * - ``deletions``
-     - deletion tombstones are lost. The trash directory remains the
-       on-disk record of what was removed.
-   * - ``purge_journal``
-     - an interrupted hard purge is not resumed. The leftover directory
-       becomes an orphan that ``gc`` reports.
-
-The measured volume behind this decision, on the Cheze reservoir
-project: 194 machine audit events, 31 export rows, zero human note. No
-hash-chained ledger, no history lanes and no multi-machine journal are
-introduced to protect that content.
-
-Class 3: input (outside the results scope)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Observation series and station metadata are input data. They are
-repopulated from their source, that is the workspace input cache and the
-data loaders, exactly like a DEM or a climate series. A results rebuild
-never tries to recreate them and never treats their absence as a
-corrupted run.
-
-Tables not covered by the three classes are the static dimension tables
-seeded by the DDL (solvers, statuses, flow regimes, mesh topologies and
-the ``dim_*`` tables). A rebuild recreates them from the DDL.
-
-Contract coverage
------------------
-
-The machine-readable contract in
-``hydromodpy/results/storage/contract.py`` currently names three layers:
-``catalog``, ``zarr``, ``parquet``. That is one third of what a project
-writes. The target contract covers every artefact of a project.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 26 48
-
-   * - Area
-     - Path
-     - Rule
-   * - Run folders
-     - ``runs/<name>/``
-     - one directory per run, human name, every file declared in the
-       manifest
-   * - Sessions
-     - ``sessions/<name>/``
-     - one directory per calibration session, descriptor plus trials
-       journal on disk
-   * - Exchange packages
-     - ``share/``
-     - ``.hmp`` archives and exports produced on demand
-   * - Technical cache
-     - ``.hmp/``
-     - index, heartbeats, trash, solver scratch, logs. Entirely
-       regenerable, safe to delete
-   * - Project configuration
-     - ``project.toml`` plus ``configs/``
-     - the canonical config and its variants
-
-Testable invariants
-~~~~~~~~~~~~~~~~~~~
-
-Three invariants replace the current assertions of
-``tests/unit/results/test_result_storage_layout.py``, which pins the
-three layer names and the basename rule only.
-
-- **INV0, on-disk sufficiency.** For every table and column that runtime
-  code reads (the explicit list of class 1 above), the value is present
-  on disk and is read back identically after the index is deleted and
-  rebuilt.
-- **INV1, coverage.** The set of runs described on disk equals the set of
-  runs in the index: one manifest under ``runs/`` maps to exactly one
-  indexed run, and every artefact declared in a manifest exists on disk.
-  A run directory without a manifest is incomplete, therefore invisible
-  to the rebuild and eligible for ``gc``.
-- **INV2, idempotence.** Two consecutive rebuilds produce the same index,
-  modulo rebuild timestamps.
+     - Runs-first layout: ``runs/<name>/`` named after the run, with
+       ``manifest.json`` (written last, atomically), ``config.toml``,
+       ``provenance.json``, ``annotations.json``, ``trash.json``,
+       ``fields.zarr/``, ``tables.parquet/`` and ``figures/``.
+       ``sessions/<name>/`` with ``session.json`` and ``trials.jsonl``,
+       written live by every calibration. ``share/`` for exports and
+       reports. ``.hmp/`` for the index, logs, checkpoints, heartbeats,
+       solver scratch and the ``gc`` quarantine. ``project.toml`` as the
+       project-root marker. ``hmp catalog reindex``, which rebuilds the
+       whole index from ``runs/`` and ``sessions/``.
+   * - Removed
+     - ``simulations/``, ``exports/``, ``figures/`` and ``reports/`` at
+       the project root; ``.solver_scratch/``; ``catalog.duckdb`` at the
+       project root; the ``.parquet.d`` and ``.zarr.zip`` container
+       suffixes; the opaque ``<project>__<id8>`` storage basename; the
+       adoption verb. ``tests/unit/results/test_run_layout_contract.py``
+       fails if any of them reappears.
+   * - Not in place
+     - Reading one variable at one cell; declaring observation points
+       outside calibration; a retention policy for live runs; a
+       per-run replacement for the root ``hydromodpy.lock``. See
+       `What is not in place`_.
 
 Project layout
 --------------
 
-Target layout of a project root:
+Layout of a project root, as written today:
 
 .. code-block:: text
 
    <project>/
-   |-- project.toml         canonical config, project-root marker
-   |-- configs/             editable config variants
+   |-- project.toml         canonical config, and the marker of the root
+   |-- configs/             config variants (user-managed, never created)
+   |-- hydromodpy.lock      reproducibility lockfile, best effort
    |-- runs/
    |   `-- <run_name>/      one directory per run (see below)
    |-- sessions/
    |   `-- <session_name>/  one directory per calibration session
-   |-- share/               .hmp packages and exchange exports
-   `-- .hmp/                technical cache, regenerable
+   |-- share/               exports, reports and .hmp packages
+   `-- .hmp/                disposable internals
        |-- index.duckdb     the index rebuilt from runs/ and sessions/
+       |-- logs/            hydromodpy_debug.log
+       |-- checkpoints/     resolved workflow manifests, for resume
        |-- running/         live-run heartbeat sidecars
-       |-- trash/           deleted runs awaiting purge
-       `-- logs/
+       |-- scratch/         solver working directory
+       `-- trash/           orphan stores quarantined by gc
 
-Layout in place today:
+``runs/``, ``sessions/``, ``share/`` and ``.hmp/`` are ignored by git.
 
-.. code-block:: text
-
-   <project>/
-   |-- project.toml
-   |-- catalog.duckdb                     the index (project root)
-   |-- hydromodpy.lock                    reproducibility lockfile
-   |-- figures/  reports/  exports/       rendered outputs
-   |-- .hmp/running/                      live-run heartbeat sidecars
-   `-- simulations/
-       |-- <basename>.zarr/  or .zarr.zip
-       `-- <basename>.parquet.d/
-           |-- simulation.parquet         one-row snapshot read by reindex
-           |-- timeseries.parquet
-           |-- budgets.parquet
-           |-- mass_balance.parquet
-           |-- metrics.parquet
-           |-- provenance.parquet
-           `-- geographic_*.parquet       GeoParquet vector layers
-
-The project config file is ``project.toml``. Root discovery currently
-keys on the presence of ``catalog.duckdb``; the target keys it on
-``project.toml``, so a project stays a project after its index is
+The project config file is ``project.toml``, and
+:func:`~hydromodpy.core.state.paths.resolve_project_root` anchors on it,
+never on a database file: a project stays a project after its index is
 deleted. A workspace-level ``workspace.toml`` is optional metadata
-written by ``hmp workspace init``; it carries no part of this contract
-and no project in this repository relies on one.
+written by ``hmp workspace init``; it carries no part of this contract.
+
+``hydromodpy.lock`` is the one project-root entry the layout test does
+not cover, because it is written by a run and not by the catalog. Its
+per-run replacement does not exist yet.
 
 The machine-wide ``index.duckdb`` lives at ``$XDG_STATE_HOME/hydromodpy/``
 (``~/.local/state/hydromodpy/`` on Linux) and federates registered
@@ -276,29 +94,40 @@ workspaces through read-only ``ATTACH``.
 A run folder
 ------------
 
-Target contents, all paths relative to ``runs/<run_name>/``:
+All paths relative to ``runs/<run_name>/``:
 
 .. code-block:: text
 
    runs/<run_name>/
    |-- manifest.json        identity, geometry, artefacts. Written LAST
    |-- config.toml          exact resolved configuration, frozen
-   |-- provenance.json      environment, git, input fingerprints, steps
-   |-- annotations.json     functional tags and free notes
-   |-- fields.zarr/         array store (head by default)
+   |-- provenance.json      environment, git, solver, timing
+   |-- annotations.json     tags and notes, written after the seal
+   |-- trash.json           present only while the run sits in the trash
+   |-- fields.zarr/         array store
    |-- tables.parquet/      tabular payloads
    `-- figures/             figures rendered for this run
 
-A run folder holds results, never diagnostics: the pipeline log stays under
-``<project>/.hmp/logs/``, which is disposable, so nothing sealed by the
-manifest can grow after the seal.
+Those names are the whole vocabulary: they are declared in
+``hydromodpy/results/storage/contract.py`` and no other name is a run
+artefact. A run folder holds results, never diagnostics: the pipeline log
+stays under ``<project>/.hmp/logs/``, which is disposable, so nothing
+sealed by the manifest can grow after the seal.
 
-``manifest.json`` is written last, with a temporary file, an ``fsync``
-and a rename. That single atomic write is the crash-safety mechanism: a
-run directory without a manifest is incomplete by definition. The run is
-not staged elsewhere and moved into place, because the Zarr store is
-created at registration and appended to during the whole solve, which
-live readers depend on.
+``manifest.json`` is written last, through a temporary file and a
+rename. That single atomic write is the crash-safety mechanism: a run
+directory without a manifest is incomplete by definition, and the
+rebuild reports it instead of indexing it. The run is not staged
+elsewhere and moved into place, because the Zarr store is created at
+registration and appended to during the whole solve, which live readers
+depend on.
+
+The manifest carries five blocks (``run``, ``geometry``, ``period``,
+``config``, ``artifacts``) plus the run's ``parameters`` and ``metrics``
+summaries. ``geometry.catchment`` is the important one: the catchment
+area and the outlet live there, and a discharge derived from runoff is
+scaled by that area, so losing it yields a silently wrong series rather
+than an error.
 
 A session folder
 ----------------
@@ -327,79 +156,285 @@ in ``calibration``, because the rebuild reads it and may not import the
 twice: the last line wins, exactly like the upsert the index does on
 ``(session_id, iteration)``, so two rebuilds never duplicate a trial.
 
-Spin-up sessions do not write a descriptor yet; a directory under
-``sessions/`` without ``session.json`` is simply not a calibration and
-the rebuild ignores it.
+Spin-up sessions do not write a descriptor. A directory under
+``sessions/`` without ``session.json`` is simply not a calibration, and
+the rebuild reports it as skipped.
 
 Naming and identity
 -------------------
 
-The on-disk basename is built by ``StoragePathResolver``:
-
-.. code-block:: text
-
-   <basename> = "<project>__<id8>"
-
-where ``id8`` is the first eight hexadecimal characters of the run
-identifier. **The human name never appears in the path.** Renaming,
-versioning or replacing a run is a pure index update that touches no
-file. The target layout replaces the basename with a human-named
-directory under ``runs/``; the identifier stays the index key.
+The directory under ``runs/`` **is** the run name, with its ``.vN``
+version suffix. ``run_dirname`` folds accents to ASCII and replaces
+characters a filesystem cannot carry; it preserves case, and it raises
+``RunNameTooLongError`` rather than truncating a name past 96
+characters. No output path anywhere carries the ``sim_id`` or its first
+eight hex digits.
 
 Name collisions follow the ``.vN`` grammar: a bare name is version one
 for life, and the next run registered under the same stem becomes
-``<stem>.v2``. Replacing a run trashes the predecessor, which keeps its
-name and version and stays restorable. Trashing is a status flip today
-and becomes a move into ``.hmp/trash/`` with the runs-first layout.
+``<stem>.v2`` in a sibling directory. Renaming a run moves its
+directory, through the single ``StoragePathResolver.move`` call site, so
+the index and the tree never disagree.
+
+Trashing a run does not move bytes. It flips the index status and writes
+``runs/<name>/trash.json``, which holds the name and status the run must
+come back as. The marker is what makes the trash survive a rebuild: the
+directory is the truth, so a rebuilt index finds the run trashed instead
+of quietly resurrecting it. ``hmp catalog trash --empty`` is what
+actually frees the bytes.
+
+Three classes of data
+---------------------
+
+The classification is by consumer, not by table. It decides what must
+exist on disk before the index can be thrown away. The authoritative
+statement of the split is the module docstring of
+``hydromodpy/results/catalog/reindex.py``, which is the code that
+performs the rebuild.
+
+Class 1: reconstructible
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Written into the run or session directory, and restored identically by
+``hmp catalog reindex``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 34 36
+
+   * - Index table
+     - Rebuilt from
+     - Read by
+   * - ``simulations``
+     - ``tables.parquet/simulation.parquet``, with the name taken from
+       the directory
+     - catalog reads, ``hmp catalog ls`` and ``show``, comparison
+   * - ``parameters``
+     - ``tables.parquet/parameters.parquet``
+     - ``results/catalog/discovery.py``, ``dataset_loader``, calibration
+   * - ``metrics``
+     - ``tables.parquet/metrics.parquet``
+     - ranking, comparison, calibration reporting
+   * - ``provenance``
+     - ``tables.parquet/provenance.parquet``
+     - input bridge (``run.input_entries()``), frozen replay
+   * - ``geographic_features``
+     - ``tables.parquet/geographic_*.parquet``
+     - watershed and river figures
+   * - ``geographic_metadata``
+     - ``manifest.json``, ``geometry.catchment``
+     - ``simulation/extraction/derivation/catchment_aggregation.py``
+   * - ``runs_environment``
+     - ``provenance.json``
+     - ``results/export/context.py``, ``dataset_loader``, rerun
+   * - ``tags``, ``sim_notes``
+     - ``annotations.json``
+     - tag search, ``gc`` pinning, spinup convergence gate
+   * - trash state
+     - ``trash.json``
+     - ``hmp catalog trash`` and ``restore``
+   * - ``calibration_sessions``
+     - ``sessions/<name>/session.json``
+     - calibration resume, best promotion, calibration report
+   * - ``calibration_iterations``
+     - ``sessions/<name>/trials.jsonl``
+     - calibration resume, calibration report
+
+The frozen ``config.toml`` is not a table: it stays in the run directory,
+and ``hmp run --resume <ref>`` replays it straight from there.
+``hmp catalog rerun`` goes through ``simulations.config_snapshot``, which
+comes back with ``simulation.parquet``. ``timeseries``, ``budgets`` and
+``mass_balance`` are not tables either but DuckDB views over the Parquet
+payloads, so they come back with the files themselves.
+
+Class 2: losable
+~~~~~~~~~~~~~~~~
+
+Not mirrored on disk. A rebuild drops them, by decision. Stating the
+consequence is part of the contract.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Index table
+     - Consequence of a rebuild
+   * - ``audit_log``
+     - the machine event history of the project is lost. Run identity,
+       results and lineage are unaffected because they come from the
+       manifests. A fresh index writes one ``migrate`` row of its own.
+   * - ``export_log``
+     - the record of which artefacts were published under ``share/`` is
+       lost. The artefacts themselves stay on disk.
+   * - ``tracked_files``
+     - the portable file inventory of a run is lost, so
+       ``entry.used_by()`` stops linking a cache entry back to its runs.
+       The files stay on disk and the manifest still lists them under
+       ``artifacts[]``.
+   * - ``observation_points``
+     - the cell mapping of observation stations is lost. It is recorded
+       at run time only.
+   * - ``workflow_steps``, ``workflow_events``
+     - the workflow journal is lost, so an interrupted workflow replans
+       from scratch instead of resuming. The resolved manifests under
+       ``.hmp/checkpoints/`` are disposable for the same reason.
+   * - ``calibration_iterations.sim_id``
+     - promotion back-fills that column in the index after the trial is
+       journalled. The session keeps its ``best_sim_id`` and each
+       promoted run keeps its ``calibration:<session>`` tag on disk, so
+       the session-to-run link survives in both directions.
+   * - ``deletions``, ``purge_journal``
+     - tombstones and purge resume state are lost. An interrupted hard
+       purge is not replayed; the leftover directory becomes an orphan
+       that ``gc`` reports.
+
+Two bookkeeping columns have no home on disk:
+``runs_environment.recorded_at`` and ``provenance.valid_from``. The
+rebuild dates them from the seal time of their run
+(``manifest.json``, ``sealed_at``) rather than from the wall clock, so a
+rebuild stays reproducible instead of stamping itself into the data.
+
+Class 3: input
+~~~~~~~~~~~~~~
+
+Observation series and station metadata (``stations``, ``observations``)
+are input data. They are repopulated from their source, that is the
+workspace input cache and the data loaders, exactly like a DEM or a
+climate series. A results rebuild never tries to recreate them and never
+treats their absence as a corrupted run.
+
+Tables outside the three classes are the static dimension tables seeded
+by the DDL (``solvers``, ``statuses``, ``flow_regimes``,
+``mesh_topologies``, ``metric_definitions``, ``retention_policies`` and
+the ``dim_*`` tables). A rebuild recreates them from the DDL.
+
+Contract coverage
+-----------------
+
+``hydromodpy/results/storage/contract.py`` is the machine-readable half.
+It declares the three physical layers (``catalog``, ``zarr``,
+``parquet``) with their path templates, and every file name a run or
+session directory may carry. Path builders, exporters and this page
+share that one vocabulary.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 30 44
+
+   * - Area
+     - Path
+     - Rule
+   * - Index
+     - ``.hmp/index.duckdb``
+     - one per project, rebuildable, never at the project root
+   * - Run folders
+     - ``runs/<name>/``
+     - one directory per run, named after the run, every file declared
+       in the manifest
+   * - Sessions
+     - ``sessions/<name>/``
+     - one directory per calibration session, descriptor plus trials
+       journal
+   * - Exchange
+     - ``share/<label>/``
+     - configured exports, reports and ``.hmp`` packages
+   * - Technical cache
+     - ``.hmp/``
+     - index, logs, checkpoints, heartbeats, scratch, quarantine.
+       Entirely regenerable, safe to delete
+   * - Project configuration
+     - ``project.toml`` plus ``configs/``
+     - the canonical config and its variants
+
+Tested invariants
+~~~~~~~~~~~~~~~~~
+
+- **Layout.** ``tests/unit/results/test_run_layout_contract.py`` asserts
+  that one solved run produces exactly one directory named after the
+  run, that the tabular payloads are plain ``.parquet`` files in one
+  directory, that the project root grows none of the removed entries,
+  that no output path carries an opaque identifier, and that no path
+  ends in ``.parquet.d`` or ``.zarr.zip``.
+- **Naming.** ``tests/unit/results/test_result_storage_layout.py`` pins
+  the layer templates, refuses an over-long name instead of truncating
+  it, and checks a versioned rerun lands in a sibling directory.
+- **Rebuild.** ``tests/unit/results/test_reindex.py`` covers
+  coverage (every sealed run on disk is indexed, an unsealed one is
+  reported and left out, a manifest naming another run is refused),
+  sufficiency (what execution reads back is restored, the frozen config
+  stays readable, a trashed run stays trashed), idempotence (two
+  rebuilds produce the same index), and atomicity (the previous index
+  survives a failed rebuild, a reader keeps reading across the swap).
 
 Per-run Zarr store
 ------------------
 
-Zarr v2 root. The store is staged and promoted to its final path with a
-rename at registration, then appended to in place for the whole solve,
-under a cross-process file lock. It is not staged again at the end,
-because live readers follow that path while the run is solving. An
-optional finalisation packs the directory into a ``.zarr.zip``.
+Zarr **format 3** store, carrying HydroModPy's own
+``zarr_schema_version = "2"`` in its root attributes. The store is staged
+and promoted to its final path with a rename at registration, then
+appended to in place for the whole solve, under a cross-process file
+lock. It is not staged again at the end, because live readers follow that
+path while the run is solving, and there is no packed form: a container
+suffix would break those readers.
 
 .. code-block:: text
 
-   <run>/fields.zarr/
-   |-- meta/         ACDD root attributes and ZARR_SCHEMA_VERSION
-   |-- mesh/         topology, cell types, coordinates
-   |-- state/        head and other state fields
+   runs/<name>/fields.zarr/
+   |-- zarr.json     root attributes (ACDD) and consolidated metadata
+   |-- meta/         schema and store-level metadata
+   |-- mesh/         topology, cell types, coordinates, thicknesses
+   |-- state/        solver state fields
    |-- forcing/      recharge and other forcings
    |-- particles/    particle trajectories
    |-- derived/      created only when a derived field is opted in
-   `-- budget/       created only when budget.spatial_fields is on
+   |-- budget/       created only when budget.spatial_fields is on
+   |-- geographic/   created on demand for the geographic rasters
+   |-- head          root array, (time, layer, cell)
+   |-- time          root array, the CF time axis
+   `-- crs           root array, the CF grid mapping
 
-``derived/`` and ``budget/`` are not pre-created. Heavy fields are opt-in
+``meta``, ``mesh``, ``state``, ``particles`` and ``forcing`` are created
+at store init. ``derived``, ``budget`` and ``geographic`` are not
+pre-created: heavy fields are opt-in
 (``[simulation.results.derived]`` and
 ``[simulation.results.budget] spatial_fields``), so a default run carries
 neither group and the lumped budget still feeds the catchment scalars.
 
-Compression defaults to Blosc-zstd, each variable carries CF
-``standard_name`` and ``_FillValue`` attributes, consolidated metadata is
-strict, and ``ZARR_SCHEMA_VERSION`` is pinned to ``"2"``. Solver
-sentinel values are masked to NaN at write time.
+Compression defaults to Blosc-zstd with bitshuffle, each variable carries
+CF ``standard_name`` and ``_FillValue`` attributes where the CF table has
+one, consolidated metadata is written at the root, and solver sentinel
+values are masked to NaN at write time. Chunks target about 1 MiB.
+Sharding switches on when a variable's total footprint
+(``n_timesteps * layer_bytes_per_step``) exceeds 100 MiB, with shards
+capped near 64 MiB.
 
 Per-run Parquet directory
 -------------------------
 
-Parquet v2.6 files written through ``write_table_atomic`` (temporary file
-plus ``os.replace``) with ZSTD compression, 50 000-row groups, page index
-and bloom filters where available. Each file carries
-``hmp.schema_version = "v2"`` in its key-value metadata and is exposed as
-a DuckDB view named after the payload.
+Parquet format ``2.6`` written through ``write_table_atomic`` (temporary
+file plus ``os.replace``) with ZSTD level 5, 50 000-row groups, page
+index and bloom filters on the primary-key columns where the linked
+pyarrow build supports them. Each file carries
+``hmp.schema_version = "v2"`` plus its schema name, primary key and the
+run's identity in Parquet key-value metadata, and is exposed as a DuckDB
+view named after the payload.
 
-The container directory uses the ``.parquet.d`` suffix and the payloads
-inside use ``.parquet``, so a plain ``glob`` is never ambiguous.
+The container directory is ``tables.parquet/`` and the payloads inside
+are plain ``.parquet`` files. No suffix marks a container.
 
 .. list-table::
    :header-rows: 1
-   :widths: 26 74
+   :widths: 30 70
 
    * - Payload
-     - Columns
+     - Content
+   * - ``simulation.parquet``
+     - one-row snapshot of the run's index entry, read by ``reindex``
+   * - ``parameters.parquet``
+     - the run parameters, one row each
+   * - ``metrics.parquet``
+     - ``sim_id``, ``station_id``, ``variable``, ``metric``, ``value``,
+       ``n_samples``, validity window
    * - ``timeseries.parquet``
      - ``sim_id``, ``station_id``, ``variable``, ``datetime``,
        ``value``, ``unit``, ``qflag``
@@ -409,12 +444,8 @@ inside use ``.parquet``, so a plain ``glob`` is never ambiguous.
    * - ``mass_balance.parquet``
      - ``sim_id``, ``timestep``, ``total_in``, ``total_out``,
        ``storage_in``, ``storage_out``, ``percent_error``
-   * - ``metrics.parquet``
-     - one row per metric of the run
    * - ``provenance.parquet``
      - input provenance rows of the run
-   * - ``simulation.parquet``
-     - one-row snapshot of the run's index entry, read by ``reindex``
    * - ``geographic_*.parquet``
      - GeoParquet 1.1 vector layers (catchment outline, buffered box,
        drainage network)
@@ -428,75 +459,72 @@ Tables of the project index. The authoritative DDL is
 
 .. list-table::
    :header-rows: 1
-   :widths: 22 14 64
+   :widths: 24 18 58
 
    * - Table
      - Class
      - Key columns
    * - ``simulations``
-     - index
-     - ``sim_id`` (UUID v7), ``name``, ``name_stem``, ``version_int``,
-       ``project``, ``solver_id``, ``status_id``, ``mesh_hash``,
-       ``n_cells``, ``n_layers``, ``n_timesteps``, ``crs_wkt``,
-       ``bbox_*``, ``period_start/end``, ``config_snapshot``,
-       ``config_hash``, ``zarr_path``, ``storage_basename``,
-       ``duration_s``
+     - reconstructible
+     - ``sim_id`` (UUID), ``name``, ``name_stem``, ``version_int``,
+       ``original_name``, ``project``, ``solver_id``, ``status_id``,
+       ``mesh_hash``, ``n_cells``, ``n_layers``, ``n_timesteps``,
+       ``crs_wkt``, ``bbox_*``, ``period_start/end``,
+       ``config_snapshot``, ``config_hash``, ``zarr_path``,
+       ``storage_basename``, ``trashed_at``, ``duration_s``
    * - ``parameters``
-     - index
-     - ``sim_id``, ``param_name``, ``zone_id`` (default
-       ``"__global__"``), ``value``, ``unit``, ``parameterization``
+     - reconstructible
+     - ``sim_id``, ``param_name``, ``zone_id``, ``value``, ``unit``,
+       ``parameterization``
    * - ``metrics``
-     - index
-     - ``sim_id``, ``station_id`` (default ``"__outlet__"``),
-       ``metric_name``, ``value``, ``n_samples``
-   * - ``calibration_sessions``
-     - index
-     - ``session_id``, ``project``, ``method``, ``objective_name``,
-       ``n_iterations``, ``best_sim_id``, ``status``
-   * - ``calibration_iterations``
-     - index
-     - ``session_id``, ``iteration``, ``sim_id``, ``params_hash``,
-       ``parameters`` (JSON), ``objective_value``
+     - reconstructible
+     - ``sim_id``, ``station_id``, ``metric_name``, ``value``,
+       ``n_samples``
    * - ``provenance``
-     - index
+     - reconstructible
      - ``sim_id``, ``variable``, ``source_type``, ``source_ref``,
        ``source_sha256``, ``payload_sha256``, ``fetched_at``,
        ``n_records``
    * - ``runs_environment``
-     - index
+     - reconstructible
      - ``sim_id``, ``python_version``, ``hydromodpy_version``,
        ``platform``, ``git_commit``, ``solver_binary_sha256``,
-       ``rng_seed``
+       ``env_packages``, ``rng_seed``
    * - ``geographic_metadata``
-     - index
+     - reconstructible
      - ``sim_id``, ``key``, ``value``. Holds the catchment area and
        outlet coordinates used by catchment aggregation
    * - ``geographic_features``
-     - index
+     - reconstructible
      - ``sim_id``, ``feature_name``, ``geometry_kind``,
        ``geoparquet_path``
+   * - ``tags``, ``sim_notes``
+     - reconstructible
+     - ``sim_id``, ``tag`` / ``note``. Mirrored in ``annotations.json``
+   * - ``calibration_sessions``
+     - reconstructible
+     - ``session_id``, ``project``, ``method``, ``objective_name``,
+       ``n_iterations``, ``best_sim_id``, ``status_id``
+   * - ``calibration_iterations``
+     - reconstructible
+     - ``session_id``, ``iteration``, ``sim_id``, ``params_hash``,
+       ``parameters`` (JSON), ``objective_value``
    * - ``tracked_files``
-     - index
-     - ``sim_id``, ``role``, ``category``, ``original_path``
-       (project-relative), ``canonical_path``, ``sha256``,
-       ``size_bytes``. Becomes the manifest ``artifacts[]`` list
-   * - ``workflow_steps``, ``workflow_events``
-     - index
-     - workflow ledger: ``step_id``, ``sim_id``, ``step_name``,
-       ``status``, ``started_at``, ``ended_at``, ``payload``
-   * - ``tags``
-     - index
-     - ``sim_id``, ``tag``. Functional tags gate spinup convergence and
-       tag search
+     - losable
+     - ``sim_id``, ``role``, ``category``, ``original_path``,
+       ``canonical_path``, ``sha256``, ``size_bytes``
    * - ``observation_points``
-     - index
+     - losable
      - ``sim_id``, ``station_id``, ``x``, ``y``, ``cell_id``,
        ``layer``, ``crs_wkt``, ``crs_epsg``
-   * - ``audit_log``, ``export_log``, ``sim_notes``, ``deletions``,
-       ``purge_journal``
+   * - ``workflow_steps``, ``workflow_events``
      - losable
-     - machine event history, export bookkeeping, free notes,
-       tombstones, purge resume state
+     - workflow journal: ``step_id``, ``run_id``, ``step_name``,
+       ``status_id``, ``started_at``, ``ended_at``, ``payload``
+   * - ``audit_log``, ``export_log``, ``deletions``, ``purge_journal``
+     - losable
+     - machine event history, export bookkeeping, tombstones, purge
+       resume state
    * - ``stations``, ``observations``
      - input
      - station metadata and observation series, repopulated from the
@@ -505,16 +533,24 @@ Tables of the project index. The authoritative DDL is
        ``mesh_topologies``, ``dim_*``, ``metric_definitions``,
        ``retention_policies``
      - dimension
-     - static vocabularies seeded by the DDL
+     - static vocabularies seeded by the DDL. ``retention_policies``
+       sweeps ``audit_log`` only
    * - ``schema_migrations``
      - dimension
      - one row per applied migration: ``version``, ``component``,
        ``slug``, ``checksum``, ``applied_at``
+   * - ``parquet_files``
+     - unused
+     - declared by the DDL as a per-run Parquet manifest, written by no
+       code path today
 
-Companion views, created at runtime by
-``hydromodpy/results/catalog/views.py``: ``v_simulation_summary`` (the
-view the machine index federates), ``v_best_per_project``,
-``v_metrics_wide``, ``v_params_wide``.
+Views. ``v_workflow_heartbeats`` comes from the DDL.
+``v_simulation_summary`` (the view the machine index federates),
+``v_best_per_project``, ``v_metrics_wide``, ``v_params_long`` and
+``v_params_wide`` are created at runtime by
+``hydromodpy/results/catalog/views.py``. ``timeseries``, ``budgets``,
+``mass_balance``, ``metrics_parquet`` and ``provenance_parquet`` are
+views over the run's Parquet payloads.
 
 Backend abstraction
 -------------------
@@ -537,19 +573,23 @@ Concurrency and atomic writes
   surfacing as an error.
 - Zarr field writes hold a cross-process ``filelock`` on the store root
   and append in place. The store directory is promoted with a rename
-  when it is created, and packing to ``.zarr.zip`` writes and verifies a
-  temporary archive before the rename.
+  when it is created.
 - Parquet writes use a temporary file plus ``os.replace``.
+- ``manifest.json``, ``provenance.json``, ``annotations.json`` and
+  ``trash.json`` are written the same way: temporary file, then rename.
 - A solving run refreshes a heartbeat sidecar under ``.hmp/running/`` so
-  ``hmp catalog watch`` and ``gc`` read liveness from a file rather than
-  from a database a live solve holds locked.
+  ``hmp catalog watch`` and ``hmp catalog gc`` read liveness from a file
+  rather than from a database a live solve holds locked.
+- ``hmp catalog reindex`` fills a staging database next to the index and
+  publishes it with one ``os.replace``, so readers never see a partial
+  rebuild.
 
 Lockfile and reproducibility
 ----------------------------
 
 ``hydromodpy.lock`` is written best-effort at the project root when the
-run can reach the workspace input cache. It is written atomically
-(temporary file, ``fsync``, ``os.replace``) and pins:
+run can reach the workspace input cache. It is written atomically and
+pins:
 
 - the ``hydromodpy`` version, git commit, Python version and config
   schema fingerprint;
@@ -558,9 +598,9 @@ run can reach the workspace input cache. It is written atomically
 - input fingerprints (relative path, SHA-256, size, fetch date).
 
 ``hmp run --frozen`` refuses any source whose fingerprint changed since
-the lockfile was written. When no input cache is available, a normal run
-may complete without a lockfile; that is a reproducibility warning, not
-a failed run.
+the lockfile was written; ``hmp run --no-lock`` skips the post-run write.
+When no input cache is available, a normal run may complete without a
+lockfile; that is a reproducibility warning, not a failed run.
 
 Direct DuckDB exceptions
 ------------------------
@@ -582,11 +622,42 @@ with a rationale.
 Portable ``.hmp`` packages
 --------------------------
 
-``hmp catalog export <ref> -o run.hmp`` bundles the resolved config, the
-provenance, the index rows of the run and its Zarr and Parquet stores
-into one archive; several references produce a single multi-run
-container. ``hmp catalog import run.hmp`` verifies the checksums and
-re-materialises the runs in the target project.
+``hmp catalog export <ref> -o run.hmp`` bundles the run seal (manifest,
+provenance, frozen config), a one-simulation DuckDB snapshot and the
+Zarr and Parquet stores into one ``tar.zst`` archive with a SHA-256 per
+file; several references produce a single multi-run container. The Zarr
+store is packed to ``fields.zarr.zip`` **inside the archive only**, and
+import unpacks it back to a directory store, so nothing on disk ever
+stays zipped. Without ``-o`` the archive lands in the current directory,
+named after the run. A run whose config enables ``[export] package``
+writes its archive under ``share/<label>/`` instead.
+``hmp catalog import run.hmp`` verifies the magic and every checksum,
+then re-materialises the runs in the target project.
+
+What is not in place
+--------------------
+
+Stated here so that nothing above is read as a promise.
+
+- **Reading one cell.** There is no per-cell accessor. ``Run.field``
+  reads one timestep of a whole field, optionally clipped to a ``bbox``,
+  and ``Run.timeseries`` only serves the station series already
+  persisted in ``timeseries.parquet``. Building a series at an arbitrary
+  cell therefore reads the full field once per timestep, and no CLI verb
+  covers the case. The chunking policy that would make such a read cheap
+  is not implemented.
+- **Declared observation points.** ``observation_points`` can only be
+  filled by a calibration run. There is no config section that declares
+  them, and the table has no home on disk, so a rebuild would drop them
+  anyway. Both gaps have to close together.
+- **Retention for runs.** ``retention_policies`` only sweeps
+  ``audit_log``. ``hmp catalog gc`` expires the trash and quarantines
+  orphan stores; it has no notion of keeping the last N runs or expiring
+  a live run by age. Disk grows until a human deletes something.
+- **Per-run lockfile.** ``hydromodpy.lock`` is a project-root file
+  shared by every run. The manifest does not carry the input entry list,
+  so removing the lockfile today would lose the only per-project input
+  provenance outside ``provenance.parquet``.
 
 See also
 --------
