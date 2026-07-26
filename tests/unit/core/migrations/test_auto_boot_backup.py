@@ -88,10 +88,16 @@ def test_populated_database_keeps_its_backup(tmp_path: Path, versions_dir: Path)
     assert _backup_table_count(backups[0]) > 0
 
 
-def test_catalog_component_skips_backup(tmp_path: Path, versions_dir: Path) -> None:
-    """The project catalog is a reconstructible index: no snapshot, even populated."""
-    assert "catalog" in NO_BACKUP_COMPONENTS
-    db_path = tmp_path / CATALOG_FILENAME
+@pytest.mark.parametrize(
+    ("component", "filename"),
+    [("catalog", CATALOG_FILENAME), ("index", "index.duckdb")],
+)
+def test_an_index_component_skips_backup(
+    tmp_path: Path, versions_dir: Path, component: str, filename: str
+) -> None:
+    """An index is rebuilt, never restored: no snapshot, even populated."""
+    assert component in NO_BACKUP_COMPONENTS
+    db_path = tmp_path / filename
     conn = duckdb.connect(str(db_path))
     try:
         conn.execute("CREATE TABLE payload (id INTEGER)")
@@ -100,9 +106,15 @@ def test_catalog_component_skips_backup(tmp_path: Path, versions_dir: Path) -> N
             conn,
             db_path=db_path,
             versions_dir=versions_dir,
-            component="catalog",
+            component=component,
         )
     finally:
         conn.close()
 
     assert list_backups(db_path) == []
+
+
+def test_only_the_source_data_cache_is_backed_up() -> None:
+    """The cache is the one database a rebuild cannot reproduce."""
+    assert NO_BACKUP_COMPONENTS == frozenset({"catalog", "index"})
+    assert _CACHE_COMPONENT not in NO_BACKUP_COMPONENTS

@@ -59,7 +59,10 @@ class ProjectCatalog:
         """Close the Catalog and clean up preprocessing files.
 
         Reads the geographic object directly from the context (never triggers
-        a lazy build), so closing an unused Project stays cheap.
+        a lazy build), so closing an unused Project stays cheap. The
+        preprocessing tree survives when ``[geographic] write_intermediates``
+        asked for the rasters on disk: the option would otherwise write them
+        and lose them at the very next close.
         """
         project = self._project
         if project._phase != "uninitialized":
@@ -67,7 +70,11 @@ class ProjectCatalog:
                 cleanup_stable_folder,
             )
 
-            cleanup_stable_folder(project._ctx.setup.geographic)
+            geographic_cfg = getattr(project._ctx.cfg, "geographic", None)
+            cleanup_stable_folder(
+                project._ctx.setup.geographic,
+                keep=bool(getattr(geographic_cfg, "write_intermediates", False)),
+            )
         if project._store is not None:
             project._store.close()
             project._store = None

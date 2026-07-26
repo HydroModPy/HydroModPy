@@ -663,13 +663,13 @@
         "properties": {
           "spatial_fields": {
             "default": false,
-            "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it.",
+            "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it. Turn it on to map or export a per-cell flux, at the cost of the heaviest arrays a run can hold.",
             "examples": [
               false
             ],
             "title": "Spatial Fields",
             "type": "boolean",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           }
         },
         "title": "BudgetConfig",
@@ -15318,16 +15318,6 @@
             "type": "boolean",
             "x-hmp-profile": "user"
           },
-          "save_lock": {
-            "default": true,
-            "description": "Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.",
-            "examples": [
-              true
-            ],
-            "title": "Save Lock",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
           "compression": {
             "default": "zstd",
             "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.",
@@ -17712,7 +17702,7 @@
         "properties": {
           "persistence": {
             "$ref": "#/components/schemas/PersistenceConfig",
-            "description": "Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables, lockfile).",
+            "description": "Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables).",
             "x-hmp-profile": "user"
           },
           "keep_solver_files": {
@@ -17725,16 +17715,6 @@
             "type": "boolean",
             "x-hmp-profile": "dev"
           },
-          "solver_scratch": {
-            "default": ".hmp/scratch",
-            "description": "Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC.",
-            "examples": [
-              ".hmp/scratch"
-            ],
-            "title": "Solver Scratch",
-            "type": "string",
-            "x-hmp-profile": "dev"
-          },
           "derived": {
             "$ref": "#/components/schemas/DerivedConfig",
             "description": "Derived variable computation toggles.",
@@ -17742,7 +17722,7 @@
           },
           "budget": {
             "$ref": "#/components/schemas/BudgetConfig",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           }
         },
         "title": "ResultsConfig",

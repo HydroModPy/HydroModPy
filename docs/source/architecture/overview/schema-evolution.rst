@@ -15,24 +15,25 @@ Scope
 
 Covered:
 
-- DuckDB databases: project ``catalog.duckdb``, workspace
+- DuckDB databases: project ``.hmp/index.duckdb``, workspace
   ``data/cache.duckdb``, machine ``index.duckdb``.
-- Zarr v2 stores: ``simulations/<basename>.zarr/`` with
-  ``ZARR_SCHEMA_VERSION`` pinned in the root ACDD attributes.
-- Parquet v2.6 outputs with ``hmp.schema_version`` in KV metadata
+- Zarr stores: ``runs/<name>/fields.zarr/``, written in Zarr format 3 and
+  carrying HydroModPy's own ``zarr_schema_version`` in the root ACDD
+  attributes.
+- Parquet 2.6 outputs with ``hmp.schema_version`` in KV metadata
   (``PARQUET_SCHEMA_VERSION``).
-- Portable ``.hmp`` packages produced by
-  ``Catalog.export_package``.
+- Portable ``.hmp`` packages produced by ``Catalog.export_package``.
 
 Out of scope: user TOML files. Their versioning is handled by Pydantic
 v2 with ``ConfigDict(extra="forbid")``.
 
-Exception being built: the project ``catalog.duckdb`` is an index over
-the run directories, so its schema is meant to evolve by replacing the
-initial DDL and rebuilding the index from disk rather than by chaining
-migrations. Until the rebuild command ships, the runner below remains
-the only path for that scope too. The doctrine and the rebuild
-invariants are stated in :doc:`../storage-layout`.
+The project index is the exception to the chain-of-migrations model. It
+is an index over the run directories, so its schema evolves by replacing
+the initial DDL and rebuilding from disk with ``hmp catalog reindex``,
+which ships and is the supported path. The runner still deploys the DDL
+on a fresh index; it is simply not the way that scope is meant to move
+forward. The doctrine and the rebuild invariants are stated in
+:doc:`../storage-layout`.
 
 Migration runner
 ----------------
@@ -40,7 +41,7 @@ Migration runner
 Source: ``hydromodpy/core/migrations/runner.py`` plus per-component
 migration directories:
 
-- ``hydromodpy/results/catalog/migrations/`` for the project catalog;
+- ``hydromodpy/results/catalog/migrations/`` for the project index;
 - ``hydromodpy/data/registry/migrations/`` for the workspace cache;
 - ``hydromodpy/core/state/migrations/`` for the global index.
 
@@ -50,17 +51,29 @@ runner:
 
 1. ensures the ``schema_migrations`` ledger exists with columns
    ``version INTEGER``, ``component TEXT``, ``slug TEXT``,
-   ``checksum TEXT``, ``applied_at TIMESTAMP``;
+   ``checksum TEXT``, ``applied_at TIMESTAMP``, alongside a
+   ``_schema_version`` row per component;
 2. reads the max applied version for the requested component;
 3. applies every newer migration inside one transaction per file;
-4. records the migration with a SHA-256 checksum of the SQL payload so
-   a tampered migration is detected on re-runs.
+4. records the migration with a SHA-256 checksum of the SQL payload, and
+   refuses to proceed when a recorded checksum no longer matches the file
+   on disk.
 
 Calling ``ensure_schema()`` from a backend (``DuckDBBackend`` or any
 other adapter implementing the protocol) deploys the latest schema for
-that component.
-The facade ``hmp.read`` and ``hmp.open`` call ``ensure_schema()`` on
-first access so users never see a half-deployed catalog.
+that component. The facade ``hmp.read`` and ``hmp.open`` reach it on
+first access so users never see a half-deployed index.
+
+``hydromodpy/core/migrations/auto_boot.py`` wraps that runner for
+boot-time upgrades: a ``FileLock`` on ``<db>.lock``, an atomic
+``<db>.bak-<ISO8601Z>`` snapshot with restore-on-failure, and a rolling
+history of at most five snapshots. Only the workspace cache is backed
+up. The ``catalog`` and ``index`` components are listed in
+``NO_BACKUP_COMPONENTS`` and skip the snapshot, because an index is
+rebuilt, not restored: ``hmp catalog reindex`` for a project,
+``hmp workspace register`` for the machine scope. ``HMP_AUTO_MIGRATE=0``
+turns a pending migration into ``AutoMigrationDisabled`` and leaves the
+file untouched.
 
 Principles
 ----------
@@ -92,16 +105,18 @@ Principles
    a migration. Pure refactors that do not touch disk do not bump the
    version.
 
-6. **Export/import boundary.** ``.hmp`` packages embed the version of
-   every component in their manifest. The import path rejects packages
-   whose component versions exceed the local library and silently
-   migrates older ones through the registry.
+6. **Export/import boundary.** A ``.hmp`` archive carries ``format`` and
+   ``format_version`` in its own manifest, plus a SHA-256 for every file
+   it contains. Import verifies the magic and every checksum before
+   materialising anything. It does not currently gate on
+   ``format_version``, so a package written by a newer library is
+   detected only when a checked file fails to read.
 
 Anti-patterns
 -------------
 
 - **Do not** silently accept unknown tables or columns. The reader
-  rejects stores whose version exceeds the maximum it knows about.
+  rejects stores whose version differs from the one it knows.
 - **Do not** inject data from outside the migration. The function
   operates only on the SQL or store handle handed to it.
 - **Do not** couple SQL and field-store version numbers. Each evolves
@@ -119,26 +134,41 @@ Versions today
    * - Component
      - Version
      - Notes
-   * - Project catalog (``catalog.duckdb``)
+   * - Project index (``.hmp/index.duckdb``)
      - ``0001``
-     - Initial v2 DDL: simulations, parameters, metrics,
-       provenance, calibration, workflow_steps, schema_migrations.
-   * - Workspace cache (``cache.duckdb``)
+     - Initial v2 DDL: simulations, parameters, metrics, provenance,
+       calibration, workflow, tags, schema_migrations. Evolves by
+       replacing the DDL plus ``hmp catalog reindex``.
+   * - Workspace cache (``data/cache.duckdb``)
      - ``0001``
      - Entries with workspace-relative paths, provenance, failures,
        validation_reports.
    * - Machine global index (``index.duckdb``)
      - ``0001``
-     - Workspaces table plus federated views.
+     - Workspaces table; ``all_simulations`` is rebuilt at attach time.
    * - Zarr field store
      - ``ZARR_SCHEMA_VERSION = "2"``
-     - ACDD root attrs, CF ``_FillValue``, consolidated metadata strict.
+     - Zarr format 3, ACDD root attrs, CF ``_FillValue``, consolidated
+       metadata.
    * - Parquet tabular store
      - ``PARQUET_SCHEMA_VERSION = "v2"``
-     - pyarrow ``Schema`` + KV metadata mixin, version ``2.6``.
+     - pyarrow ``Schema`` + KV metadata mixin, format ``2.6``.
    * - GeoParquet
      - ``GEOPARQUET_SCHEMA_VERSION = "1.1.0"``
      - OGC 1.1, GeoArrow encoding.
+   * - Run seal
+     - ``MANIFEST_SCHEMA_VERSION = 1``
+     - ``manifest.json`` and ``provenance.json``, versioned together.
+   * - Session journal
+     - ``SESSION_JOURNAL_VERSION = 1``
+     - ``session.json`` and ``trials.jsonl``.
+   * - Trash marker
+     - ``TRASH_VERSION = 1``
+     - ``trash.json``.
+   * - Portable package
+     - ``HMP_FORMAT_VERSION = "1.4"``
+     - ``.hmp`` archive header, magic ``hydromodpy/hmp``. A multi-run
+       container declares ``format_version`` ``2.0``.
 
 See also
 --------

@@ -25,10 +25,12 @@ from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.trash_marker import TrashMarker, write_trash_marker
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
-    pass
+    from hydromodpy.results.catalog.ports import CatalogBackend
+    from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 
 logger = get_logger(__name__)
 
@@ -39,6 +41,35 @@ class PinnedRunError(Exception):
     def __init__(self, sim_id: str) -> None:
         self.sim_id = sim_id
         super().__init__(f"Run {sim_id[:8]} is pinned; pass force=True (CLI --force) to act on it.")
+
+
+def stamp_trash_marker(
+    backend: CatalogBackend,
+    paths: StoragePathResolver,
+    sim_id: str,
+) -> None:
+    """Project a freshly written trash row onto ``runs/<name>/trash.json``.
+
+    Called after the row is committed: the index stays authoritative while it
+    exists and the marker is its projection, exactly like ``annotations.json``.
+    """
+    row = backend.fetch_one(
+        "SELECT original_name, trashed_at, "
+        "(SELECT code FROM statuses WHERE id = s.original_status_id) "
+        "FROM simulations s WHERE sim_id = ?",
+        [sim_id],
+    )
+    if row is None or not row[0]:
+        return
+    write_trash_marker(
+        paths.run_dir_for(sim_id),
+        TrashMarker(
+            original_name=str(row[0]),
+            original_status=str(row[2] or "completed"),
+            trashed_at="" if row[1] is None else str(row[1]),
+        ),
+        sim_id=sim_id,
+    )
 
 
 class LifecycleMixin:
@@ -516,6 +547,10 @@ class LifecycleMixin:
         The row keeps its UUID and storage; its name is freed (saved in
         ``original_name``) so the bare name can be reused, and it stays
         listable and restorable. A ``pinned`` run is refused unless ``force``.
+
+        The state is also stamped on disk as ``runs/<name>/trash.json``: the
+        directory is the truth, so a rebuilt index must find the run trashed
+        instead of resurrecting it as the completed run it was.
         """
         sid = str(sim_id)
         if self._is_pinned(sid) and not force:
@@ -543,6 +578,7 @@ class LifecycleMixin:
                 project=row[1],
                 payload={"original_name": row[0]},
             )
+        stamp_trash_marker(self._backend, self._paths, sid)
 
     @with_lock_retry()
     def restore(self, sim_id: str | UUID) -> str:
@@ -556,6 +592,7 @@ class LifecycleMixin:
         """
         from hydromodpy.results.catalog.registration import _resolve_registration_name
         from hydromodpy.results.catalog.storage_paths import run_dirname
+        from hydromodpy.results.trash_marker import clear_trash_marker
 
         sid = str(sim_id)
         row = self._backend.fetch_one(
@@ -603,6 +640,7 @@ class LifecycleMixin:
                 project=project,
                 payload={"name": final_name},
             )
+        clear_trash_marker(self._paths.run_dir_for(sid))
         return final_name
 
     def list_trash(self) -> list[dict]:

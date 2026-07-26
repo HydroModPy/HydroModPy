@@ -16,7 +16,7 @@ Public API
   ``delete``).
 - :class:`RegistrationResult`: dataclass returned by ``register_simulation``.
 - Errors: :class:`SimulationNotFoundError`, :class:`AmbiguousReferenceError`,
-  :class:`DuplicateSimulationNameError`.
+  :class:`DuplicateSimulationNameError`, :class:`RunNameTooLongError`.
 - :func:`short_id`: Git-style short identifier (first 8 hex chars).
 """
 
@@ -31,12 +31,14 @@ from hydromodpy.results.catalog.registration import (
     DuplicateSimulationNameError,
     RegistrationResult,
 )
+from hydromodpy.results.catalog.storage_paths import RunNameTooLongError
 
 __all__ = [
     "AmbiguousReferenceError",
     "DuplicateSimulationNameError",
     "RegistrationResult",
     "Catalog",
+    "RunNameTooLongError",
     "SimulationNotFoundError",
     "iter_project_catalog_roots",
     "short_id",

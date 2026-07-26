@@ -13,6 +13,7 @@ from hydromodpy.results.catalog import (
 )
 from hydromodpy.results.catalog.lifecycle import PinnedRunError
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
+from hydromodpy.results.trash_marker import read_trash_marker
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -77,6 +78,20 @@ def _register_failed(catalog, name):
     catalog.register_simulation(sid, project="p", solver="modflow6", name=name)
     catalog.finalize(sid, status="failed")
     return sid
+
+
+def test_trash_marks_the_run_directory_and_restore_clears_it(catalog):
+    sid = _register(catalog, "baseline")
+    catalog.run_dir_for(sid).mkdir(parents=True, exist_ok=True)
+
+    catalog.trash(sid)
+    marker = read_trash_marker(catalog.run_dir_for(sid))
+    assert marker is not None
+    assert marker.original_name == "baseline"
+    assert marker.original_status == "completed"
+
+    catalog.restore(sid)
+    assert read_trash_marker(catalog.run_dir_for(sid)) is None
 
 
 def test_restore_preserves_failed_status(catalog):

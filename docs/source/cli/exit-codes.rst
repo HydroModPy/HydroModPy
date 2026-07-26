@@ -5,7 +5,7 @@ Every :command:`hmp` verb maps its outcome to a typed exit code defined
 in ``hydromodpy/cli/helpers.py``. The same mapping powers
 ``exit_code_for(exc)``, which routes Python exceptions to the matching
 code. Scripts and CI gates can rely on the table below; new failure
-categories will reuse codes 10..19 before introducing new ranges.
+categories reuse the 10..20 band before introducing new ranges.
 
 .. list-table::
    :header-rows: 1
@@ -54,6 +54,10 @@ categories will reuse codes 10..19 before introducing new ranges.
    * - 19
      - ``EXIT_MIGRATION_FAILED``
      - Workspace or catalog migration failed.
+   * - 20
+     - ``EXIT_AMBIGUOUS_REFERENCE``
+     - A run reference matched several runs. Lengthen the id prefix or use
+       the full name.
    * - 130
      - ``EXIT_SIGINT``
      - Interrupted by ``Ctrl+C`` (``KeyboardInterrupt``). POSIX
@@ -64,7 +68,8 @@ Exception mapping
 
 ``hydromodpy.cli.helpers.exit_code_for(exc)`` returns the typed code
 for an exception instance. ``KeyboardInterrupt`` always maps to 130;
-``FileNotFoundError`` maps to 10. Domain exceptions defined in
+``FileNotFoundError`` and an unresolved reference map to 10; an ambiguous
+reference maps to 20. Domain exceptions defined in
 ``hydromodpy.core.exceptions`` (``SchemaVersionMismatchError``,
 ``WriteConflictError``, ``ReadOnlyError``, ``ConfigError``,
 ``ConfigMissingError``, ``SolverError``, ``DataError``,

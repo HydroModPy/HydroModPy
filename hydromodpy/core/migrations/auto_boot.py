@@ -11,12 +11,14 @@ with three guarantees that the bare runner does not provide:
 - a rolling history of at most ``MAX_BACKUPS`` snapshots per database
   (oldest removed on overflow).
 
-Two databases are worth that backup: the source-data cache
-(``cache.duckdb``, not reconstructible) and the machine-wide index. The
-per-project catalog is not: it is an index rebuilt from the run stores, so
-its component is listed in :data:`NO_BACKUP_COMPONENTS` and skips the
-snapshot entirely. A database that holds no table yet is never backed up
-either: copying it produces an empty shell that restores nothing.
+One database is worth that backup: the source-data cache (``cache.duckdb``),
+which records downloads nothing on disk can reproduce. Every index is
+excluded, because an index is rebuilt, not restored: the per-project catalog
+comes back with ``hmp catalog reindex`` and the machine-wide index with
+``hmp workspace register``. Their components are listed in
+:data:`NO_BACKUP_COMPONENTS` and skip the snapshot entirely. A database that
+holds no table yet is never backed up either: copying it produces an empty
+shell that restores nothing.
 
 The opt-out ``HMP_AUTO_MIGRATE=0`` raises :class:`AutoMigrationDisabled`
 when a pending migration is detected, leaving the on-disk file untouched.
@@ -58,9 +60,9 @@ _BACKUP_TS_RE = re.compile(r"^(?P<stem>.+)\.bak-(?P<ts>\d{8}T\d{6}Z)$")
 _ENV_OPT_OUT = "HMP_AUTO_MIGRATE"
 
 # Components whose database is a reconstructible index rather than a primary
-# record. Backing them up before a migration protects nothing that a reindex
-# cannot rebuild, so they opt out.
-NO_BACKUP_COMPONENTS = frozenset({"catalog"})
+# record. Backing them up before a migration protects nothing that a rebuild
+# cannot produce, so they opt out.
+NO_BACKUP_COMPONENTS = frozenset({"catalog", "index"})
 
 
 class AutoMigrationDisabled(MigrationError):
@@ -208,12 +210,13 @@ def _should_backup(
     return True
 
 
-def restore_backup(db_path: Path, backup: Path) -> None:
+def _restore_backup(db_path: Path, backup: Path) -> None:
     """Restore ``db_path`` from ``backup`` overwriting the current file.
 
-    Raises ``FileNotFoundError`` when the backup is gone. The restore is a
-    file-level copy: callers are expected to have released the DuckDB
-    connection first.
+    Only the failure path of :func:`ensure_schema_safe` calls this: an index
+    is rebuilt rather than restored, so there is no user-facing restore verb.
+    The restore is a file-level copy, with the DuckDB connection released
+    first.
     """
     if not backup.is_file():
         raise FileNotFoundError(f"Backup file not found: {backup}")
@@ -323,7 +326,7 @@ def ensure_schema_safe(
                 except Exception:
                     pass
                 try:
-                    restore_backup(db_path, backup)
+                    _restore_backup(db_path, backup)
                     logger.warning("Migration failed; restored backup %s", backup)
                 except Exception as restore_exc:  # noqa: BLE001
                     logger.error(
@@ -344,5 +347,4 @@ __all__ = [
     "backup_path_for",
     "ensure_schema_safe",
     "list_backups",
-    "restore_backup",
 ]

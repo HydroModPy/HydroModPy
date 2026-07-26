@@ -304,9 +304,12 @@ def cleanup_run(
         )
 
         geo_cfg = getattr(ctx.cfg, "geographic", None)
-        if geo_cfg is not None and getattr(geo_cfg, "write_intermediates", False):
+        keep_intermediates = bool(getattr(geo_cfg, "write_intermediates", False))
+        if keep_intermediates:
             dump_cached_rasters_to_disk(geo)
-        cleanup_stable_folder(geo)
+        # Same flag on both calls: dumping the rasters and then deleting the
+        # folder that holds them would make the option write for nothing.
+        cleanup_stable_folder(geo, keep=keep_intermediates)
 
     if status == "completed":
         step_drop_intermediate_budget(ctx)

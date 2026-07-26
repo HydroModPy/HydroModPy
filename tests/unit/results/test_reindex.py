@@ -12,7 +12,11 @@ from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.reindex import rebuild_index
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME, is_sealed
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, TABLES_DIRNAME
+from hydromodpy.results.storage.contract import (
+    RUN_CONFIG_FILENAME,
+    RUN_TRASH_FILENAME,
+    TABLES_DIRNAME,
+)
 
 CATCHMENT = {
     "catch_area": "29.7",
@@ -255,6 +259,79 @@ def test_a_versioned_directory_keeps_its_version(tmp_path):
     with Catalog(root, read_only=True) as catalog:
         rows = dict(catalog.backend.fetch_all("SELECT name, version_int FROM simulations"))
         assert rows == {"alpha": 1, "alpha.v2": 2}
+
+
+def _name_and_status(catalog) -> list[tuple]:
+    """Return ``(name, original_name, status)`` per run, sorted."""
+    return sorted(
+        catalog.backend.fetch_all(
+            "SELECT COALESCE(name, ''), COALESCE(original_name, ''), st.code "
+            "FROM simulations s JOIN statuses st ON s.status_id = st.id"
+        )
+    )
+
+
+def test_a_trashed_run_stays_trashed_across_a_rebuild(project):
+    with Catalog(project) as catalog:
+        sid = catalog.resolve("beta")
+        catalog.trash(sid)
+        assert (catalog.run_dir_for(sid) / RUN_TRASH_FILENAME).is_file()
+        before = _name_and_status(catalog)
+    catalog_path_for(project).unlink()
+
+    report = rebuild_index(project)
+
+    assert set(report.indexed) == {"alpha", "beta"}
+    with Catalog(project, read_only=True) as catalog:
+        assert _name_and_status(catalog) == before
+        assert [entry["original_name"] for entry in catalog.list_trash()] == ["beta"]
+
+
+def test_a_restored_run_comes_back_live_across_a_rebuild(project):
+    with Catalog(project) as catalog:
+        sid = catalog.resolve("beta")
+        catalog.trash(sid)
+        catalog.restore(sid)
+        assert not (catalog.run_dir_for(sid) / RUN_TRASH_FILENAME).exists()
+    catalog_path_for(project).unlink()
+
+    rebuild_index(project)
+
+    with Catalog(project, read_only=True) as catalog:
+        assert _name_and_status(catalog) == [
+            ("alpha", "", "completed"),
+            ("beta", "", "completed"),
+        ]
+        assert catalog.list_trash() == []
+
+
+def test_a_trashed_failed_run_keeps_the_status_it_must_be_restored_to(project):
+    with Catalog(project) as catalog:
+        sid = catalog.resolve("beta")
+        catalog.finalize(sid, status="failed")
+        catalog.trash(sid)
+    catalog_path_for(project).unlink()
+
+    rebuild_index(project)
+
+    with Catalog(project) as catalog:
+        restored = catalog.restore(catalog.list_trash()[0]["sim_id"])
+        status = catalog.backend.fetch_one(
+            "SELECT st.code FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "WHERE name = ?",
+            [restored],
+        )
+        assert status[0] == "failed"
+
+
+def test_a_malformed_trash_marker_is_reported_not_ignored(project):
+    (runs_dir_for(project) / "beta" / RUN_TRASH_FILENAME).write_text("[]", encoding="utf-8")
+    catalog_path_for(project).unlink()
+
+    report = rebuild_index(project)
+
+    assert report.indexed == ("alpha",)
+    assert [entry.run for entry in report.skipped] == ["beta"]
 
 
 # -- the live index survives ------------------------------------------------

@@ -44,6 +44,7 @@ from hydromodpy.results.catalog.constants import (
 from hydromodpy.results.catalog.constants import (
     validate_solver_code as _validate_solver_code,
 )
+from hydromodpy.results.catalog.lifecycle import stamp_trash_marker
 from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
@@ -311,6 +312,9 @@ class RegistrationMixin:
         sid = str(sim_id)
         replaced_sid: str | None = None
         requested_name = name if name else _memorable_name(sid)
+        # Refuse an over-long name before any bookkeeping: the directory is
+        # named after the run, so a name the tree cannot carry is not a run.
+        run_dirname(requested_name)
         final_name = requested_name
         name_stem, _ = split_stem_version(requested_name)
         version_int = 1
@@ -498,6 +502,10 @@ class RegistrationMixin:
                 shutil.rmtree(zarr_final)
             raise
 
+        if replaced_sid is not None:
+            # ``replace`` trashed the predecessor: stamp its directory too, or a
+            # rebuilt index would bring it back live and duplicate the stem.
+            stamp_trash_marker(self._backend, self._paths, replaced_sid)
         if dirname is not None:
             self._paths.cache_dirname(sid, dirname)
         if zarr_final is not None:

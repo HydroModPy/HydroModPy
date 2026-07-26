@@ -24,6 +24,8 @@ from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.io.db_retry import _is_lock_contention, connect_with_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.migrations import INDEX_COMPONENT, SchemaIntegrityError
+from hydromodpy.core.state.migrations import discover_migrations as _discover_index_migrations
 from hydromodpy.core.state.migrations import ensure_schema as _ensure_index_schema
 from hydromodpy.core.state.paths import (
     INDEX_FILENAME,
@@ -129,13 +131,97 @@ class GlobalIndex:
         if self._read_only and not self._db_path.is_file():
             self._bootstrap_empty_db()
         self._conn: duckdb.DuckDBPyConnection = self._open_connection()
-        if not self._read_only:
-            _ensure_index_schema(self._conn)
+        if self._read_only:
+            self._warn_if_schema_is_stale()
+        else:
+            self._ensure_schema_or_rebuild()
         self._attached_aliases: set[str] = set()
         self._fts_loaded: bool = False
         self._ensure_fts_extension()
         if refresh_federation:
             self.refresh_federation()
+
+    def _ensure_schema_or_rebuild(self) -> None:
+        """Migrate the index, rebuilding it when its schema ledger disagrees.
+
+        The global index holds one registry of workspace URIs and federates
+        live: everything else it can show is read through the project catalogs
+        it attaches. So a schema it cannot migrate is not a loss to protect but
+        a file to redo, and refusing to boot on a stale checksum leaves every
+        federated query answering from a database nobody can write to.
+
+        The registered URIs are carried over, since they are the only rows the
+        rebuild cannot read back from anywhere else.
+        """
+        try:
+            _ensure_index_schema(self._conn)
+            return
+        except SchemaIntegrityError as exc:
+            logger.warning(
+                "Global index at %s carries a schema this version cannot migrate (%s); "
+                "rebuilding it and keeping the registered workspaces.",
+                self._db_path,
+                exc,
+            )
+        salvaged = self._salvage_workspace_rows()
+        self._conn.close()
+        self._db_path.unlink(missing_ok=True)
+        self._db_path.with_name(f"{self._db_path.name}.wal").unlink(missing_ok=True)
+        self._conn = self._open_connection()
+        _ensure_index_schema(self._conn)
+        for uri, label in salvaged:
+            self._conn.execute(
+                "INSERT INTO workspaces (workspace_uri, label) VALUES (?, ?) "
+                "ON CONFLICT DO NOTHING",
+                [uri, label],
+            )
+        logger.warning(
+            "Global index rebuilt at %s with %d registered workspace(s).",
+            self._db_path,
+            len(salvaged),
+        )
+
+    def _warn_if_schema_is_stale(self) -> None:
+        """Say so when a read-only handle opens an index it cannot migrate.
+
+        A read-only open never migrates, so without this the federated list
+        answers from whatever the old schema holds and looks healthy. The
+        first writable command rebuilds the file; until then, say it out loud.
+        """
+        if not self._has_view("schema_migrations"):
+            return
+        applied = {
+            int(version): str(checksum)
+            for version, checksum in self._conn.execute(
+                "SELECT version, checksum FROM schema_migrations WHERE component = ?",
+                [INDEX_COMPONENT],
+            ).fetchall()
+        }
+        stale = [
+            migration.version
+            for migration in _discover_index_migrations()
+            if applied.get(migration.version) not in (None, migration.checksum)
+        ]
+        if stale:
+            logger.warning(
+                "Global index at %s was written under another schema (migration %s); "
+                "what it lists is stale until a writable 'hmp' command rebuilds it.",
+                self._db_path,
+                ", ".join(f"{version:04d}" for version in stale),
+            )
+
+    def _salvage_workspace_rows(self) -> list[tuple[str, str | None]]:
+        """Return the ``(uri, label)`` pairs the unusable index still holds.
+
+        The schema of a file this version refuses to migrate is unknown by
+        definition, so a missing ``workspaces`` table is one possible answer
+        and simply means there is nothing to carry over.
+        """
+        try:
+            rows = self._conn.execute("SELECT workspace_uri, label FROM workspaces").fetchall()
+        except duckdb.Error:
+            return []
+        return [(str(row[0]), None if row[1] is None else str(row[1])) for row in rows]
 
     def _bootstrap_empty_db(self) -> None:
         """Create an empty DuckDB file with the index schema for read-only use."""
@@ -596,9 +682,11 @@ def auto_register_workspace(
     """Best-effort register ``workspace_root`` in the machine-wide global index.
 
     Idempotent thanks to the ``UNIQUE (workspace_uri)`` constraint on the
-    ``workspaces`` table: a duplicate registration is silently ignored. Any
-    other failure (read-only fallback, missing state dir, IO error) is logged
-    at DEBUG and swallowed so the surrounding workflow keeps running.
+    ``workspaces`` table: a duplicate registration is silently ignored, and so
+    is an index another process holds open for writing. Any other failure is
+    logged at WARNING and swallowed so the surrounding workflow keeps running:
+    a global index nobody can write to makes ``hmp workspace list`` answer from
+    stale rows, which must be said out loud rather than left to a debug log.
 
     Parameters
     ----------
@@ -632,7 +720,12 @@ def auto_register_workspace(
                 logger.debug("Workspace %s already registered in the global index", uri)
                 return None
     except Exception as exc:
-        logger.debug("Auto-registration of %s in the global index failed: %s", uri, exc)
+        logger.warning(
+            "Could not register workspace %s in the global index: %s. "
+            "'hmp workspace list' will not show it; run 'hmp doctor' to inspect the index.",
+            uri,
+            exc,
+        )
         return None
 
 

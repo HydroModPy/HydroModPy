@@ -31,6 +31,7 @@ geographic_features    ``tables.parquet/geographic_*.parquet``
 geographic_metadata    ``manifest.json``, ``geometry.catchment``
 runs_environment       ``provenance.json``
 tags, sim_notes        ``annotations.json``
+trash state            ``trash.json``
 =====================  ===========================================
 
 ``timeseries``, ``budgets`` and ``mass_balance`` are not tables but views
@@ -61,7 +62,6 @@ What no directory can give back (assumed loss)
 - ``audit_log``: the history of what happened to a run.
 - ``export_log``: which artefacts were published under ``share/``.
 - ``tracked_files`` and ``observation_points``: recorded at run time only.
-- trash state: a trashed run comes back as the completed run it was.
 - the promoted ``sim_id`` of a trial: promotion back-fills it in the index
   after the trial is journalled. The session keeps its ``best_sim_id``, and
   each promoted run keeps its ``calibration:<session>`` tag on disk, so the
@@ -110,6 +110,7 @@ from hydromodpy.results.storage.contract import (
     RUN_PROVENANCE_FILENAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.trash_marker import TrashMarker, read_trash_marker
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog.ports import CatalogBackend
@@ -355,7 +356,12 @@ def _insert_annotations(backend: CatalogBackend, sim_id: str, run_dir: Path) -> 
 
 
 def _insert_simulation(backend: CatalogBackend, run_dir: Path, snapshot: Path) -> int:
-    """Insert the ``simulations`` row, naming the run after its directory."""
+    """Insert the ``simulations`` row, naming the run after its directory.
+
+    A directory carrying ``trash.json`` comes back trashed: the marker holds
+    the name and status the run must be restored under, and the live ``name``
+    stays free exactly as :meth:`Catalog.trash` left it.
+    """
     dirname = run_dir.name
     stem, version = split_stem_version(dirname)
     overrides = {
@@ -365,6 +371,9 @@ def _insert_simulation(backend: CatalogBackend, run_dir: Path, snapshot: Path) -
         "storage_basename": _sql_text(dirname),
         "zarr_path": _sql_text(f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}"),
     }
+    marker = read_trash_marker(run_dir)
+    if marker is not None:
+        overrides.update(_trashed_overrides(marker))
     source = _sql_text(snapshot.as_posix())
     target_types = _column_types(backend, "simulations")
     available = set(_payload_columns(backend, source))
@@ -377,6 +386,25 @@ def _insert_simulation(backend: CatalogBackend, run_dir: Path, snapshot: Path) -
         f"INSERT INTO simulations ({column_sql}) SELECT {value_sql} FROM read_parquet({source})"
     )
     return 1
+
+
+def _trashed_overrides(marker: TrashMarker) -> dict[str, str]:
+    """Return the ``simulations`` columns that put a run back in the trash.
+
+    Mirrors what :meth:`Catalog.trash` writes: the live ``name`` is freed and
+    saved as ``original_name``, and the pre-trash status is kept so a restore
+    brings a failed run back failed.
+    """
+    stamped = marker.trashed_at.strip()
+    return {
+        "name": "NULL",
+        "original_name": _sql_text(marker.original_name),
+        "status_id": "(SELECT id FROM statuses WHERE code = 'trashed')",
+        "original_status_id": (
+            f"(SELECT id FROM statuses WHERE code = {_sql_text(marker.original_status)})"
+        ),
+        "trashed_at": f"CAST({_sql_text(stamped)} AS TIMESTAMPTZ)" if stamped else "NULL",
+    }
 
 
 def _copy_payload(

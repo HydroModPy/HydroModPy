@@ -113,7 +113,7 @@ def running_sidecar_dir(workspace: Path) -> Path:
     """Directory of live-run heartbeat sidecars under a project root.
 
     A solving run keeps ``<workspace>/.hmp/running/<id8>.json`` fresh so
-    ``hmp watch`` and ``gc`` can read liveness from a file, never the DuckDB
+    ``hmp catalog watch`` and ``hmp catalog gc`` read liveness from a file, never the DuckDB
     catalog (which a live solve holds locked).
     """
     return internal_dir(workspace) / "running"

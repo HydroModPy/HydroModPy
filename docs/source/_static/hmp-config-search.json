@@ -12922,8 +12922,8 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L97",
-    "description": "Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables, lockfile)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L99",
+    "description": "Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables)."
   },
   {
     "path": "simulation.results.persistence.save_catalog",
@@ -12934,7 +12934,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-save-catalog",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28",
     "description": "Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped."
   },
   {
@@ -12946,7 +12946,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-save-zarr",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33",
     "description": "Persist per-simulation field arrays (head, concentration, derived) into the Zarr store."
   },
   {
@@ -12958,20 +12958,8 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-save-parquet",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38",
     "description": "Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files."
-  },
-  {
-    "path": "simulation.results.persistence.save_lock",
-    "name": "save_lock",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "simulation",
-    "anchor": "simulation-results-persistence-save-lock",
-    "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44",
-    "description": "Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion."
   },
   {
     "path": "simulation.results.persistence.compression",
@@ -12982,7 +12970,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-compression",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
     "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression."
   },
   {
@@ -12994,7 +12982,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-compression-level",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48",
     "description": "Compression level (codec-dependent). Ignored when compression='none'."
   },
   {
@@ -13006,20 +12994,8 @@
     "section": "simulation",
     "anchor": "simulation-results-keep-solver-files",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L104",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106",
     "description": "Keep raw solver output files (.hds, .cbc, .lst) after ingestion."
-  },
-  {
-    "path": "simulation.results.solver_scratch",
-    "name": "solver_scratch",
-    "type": "str",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "simulation",
-    "anchor": "simulation-results-solver-scratch",
-    "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L108",
-    "description": "Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC."
   },
   {
     "path": "simulation.results.derived",
@@ -13030,7 +13006,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110",
     "description": "Derived variable computation toggles."
   },
   {
@@ -13157,25 +13133,25 @@
     "path": "simulation.results.budget",
     "name": "budget",
     "type": "BudgetConfig",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "simulation",
     "anchor": "simulation-results-budget",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L119",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114",
     "description": "Budget extraction configuration."
   },
   {
     "path": "simulation.results.budget.spatial_fields",
     "name": "spatial_fields",
     "type": "bool",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "simulation",
     "anchor": "simulation-results-budget-spatial-fields",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L79",
-    "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it."
+    "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it. Turn it on to map or expor"
   },
   {
     "path": "simulation.rng_seed",
@@ -15286,7 +15262,7 @@
     "section": "persistence",
     "anchor": "persistence-save-catalog",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28",
     "description": "Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped."
   },
   {
@@ -15298,7 +15274,7 @@
     "section": "persistence",
     "anchor": "persistence-save-zarr",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33",
     "description": "Persist per-simulation field arrays (head, concentration, derived) into the Zarr store."
   },
   {
@@ -15310,20 +15286,8 @@
     "section": "persistence",
     "anchor": "persistence-save-parquet",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38",
     "description": "Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files."
-  },
-  {
-    "path": "persistence.save_lock",
-    "name": "save_lock",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "persistence",
-    "anchor": "persistence-save-lock",
-    "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44",
-    "description": "Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion."
   },
   {
     "path": "persistence.compression",
@@ -15334,7 +15298,7 @@
     "section": "persistence",
     "anchor": "persistence-compression",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
     "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression."
   },
   {
@@ -15346,7 +15310,7 @@
     "section": "persistence",
     "anchor": "persistence-compression-level",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48",
     "description": "Compression level (codec-dependent). Ignored when compression='none'."
   },
   {
@@ -19402,7 +19366,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-save-catalog",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28",
     "description": "Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped."
   },
   {
@@ -19414,7 +19378,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-save-zarr",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L34",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33",
     "description": "Persist per-simulation field arrays (head, concentration, derived) into the Zarr store."
   },
   {
@@ -19426,20 +19390,8 @@
     "section": "calibration",
     "anchor": "calibration-persistence-save-parquet",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L39",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38",
     "description": "Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files."
-  },
-  {
-    "path": "calibration.persistence.save_lock",
-    "name": "save_lock",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "calibration",
-    "anchor": "calibration-persistence-save-lock",
-    "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L44",
-    "description": "Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion."
   },
   {
     "path": "calibration.persistence.compression",
@@ -19450,7 +19402,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-compression",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
     "description": "Codec used for Zarr field arrays and Parquet tables. 'none' disables compression."
   },
   {
@@ -19462,7 +19414,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-compression-level",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48",
     "description": "Compression level (codec-dependent). Ignored when compression='none'."
   },
   {

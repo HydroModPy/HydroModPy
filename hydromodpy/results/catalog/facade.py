@@ -219,7 +219,9 @@ class Catalog(
     runs_dir
         Optional directory containing the per-run directories.
     persistence
-        Storage policy for packed or unpacked field arrays.
+        Which sinks the catalog writes to (index rows, Zarr fields,
+        Parquet tables) and how they are compressed. Field arrays are
+        always a directory store: there is no packed form.
     read_only
         Open the index read-only. The database file must already exist: an
         inspection never creates a phantom index.

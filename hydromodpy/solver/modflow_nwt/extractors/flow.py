@@ -113,13 +113,20 @@ class ModflowNwtOutputAdapter:
         solver_output_dir: Path,
         store: Any,
         *,
+        hdry: float,
+        hnoflo: float,
         model_name: str | None = None,
         budget_spatial_fields: bool = False,
-        hdry: float = -100.0,
-        hnoflo: float = -9999.0,
         start_datetime: object | None = None,
     ) -> None:
-        """Read .hds and .cbc files and write fields into the store."""
+        """Read .hds and .cbc files and write fields into the store.
+
+        ``hdry`` and ``hnoflo`` are the sentinels the run was configured with
+        (``[modflownwt.runtime.upw] hdry`` and ``[modflownwt.runtime.bas]
+        hnoflo``). They carry no default here: masking a user's heads against
+        the stock -100 / -9999 would silently keep sentinel values in the
+        field, or blank out real heads that happen to sit near them.
+        """
         import flopy.utils.binaryfile as bf
 
         solver_output_dir = Path(solver_output_dir)

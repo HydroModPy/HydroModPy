@@ -1,4 +1,4 @@
-"""``hmp catalog rename`` - rename a simulation (pure catalog UPDATE)."""
+"""``hmp catalog rename`` - rename a run: move its directory, update the index."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "rename"
-HELP: str = "Rename a simulation (the storage basename is id-only and never moves)"
+HELP: str = "Rename a run: its directory under runs/ is moved, then the index is updated"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -19,7 +19,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser()],
-        epilog="Example:\n  hmp catalog rename ab12cd34 cheze_final",
+        epilog=(
+            "The run directory is named after the run, so a rename moves\n"
+            "runs/<old>/ to runs/<new>/ before updating the index. The new\n"
+            "name must be free: a collision with a live run is refused.\n"
+            "\n"
+            "Example:\n"
+            "  hmp catalog rename ab12cd34 cheze_final"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)

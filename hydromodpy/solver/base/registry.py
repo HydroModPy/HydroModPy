@@ -19,6 +19,12 @@ Built-in adapters and extractors shipped in-tree are declared as dotted
 paths and imported lazily on first lookup. That keeps
 ``hydromodpy.simulation`` free of eager imports of ``hydromodpy.solver``
 concrete backends at package-load time.
+
+The entry-point groups are the **out-of-tree** surface only. An in-tree
+backend declared there too would carry a second name: the loader splits an
+entry-point name at its first underscore, so ``flow_modflownwt`` used to mint
+``flow/modflownwt`` next to the real ``flow/modflow_nwt`` — a pair the config
+accepted, with an adapter but no extractor, losing the run after the solve.
 """
 
 from __future__ import annotations
