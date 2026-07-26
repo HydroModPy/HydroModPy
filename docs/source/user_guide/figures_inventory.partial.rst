@@ -17,11 +17,14 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - ``concentration_map``
      - Concentration
      - fields ``concentration``
+   * - ``mesh_map``
+     - Solver mesh
+     - fields ``topography``
    * - ``piezometric_map``
      - Water-table elevation
      - fields ``watertable_elevation``
    * - ``recharge_map``
-     - Recharge map
+     - Recharge
      - fields ``recharge``
    * - ``seepage_map``
      - Seepage areas
@@ -32,6 +35,9 @@ Mesh- or raster-backed scalar maps of one persisted field.
    * - ``simulated_active_network``
      - Simulated active network
      - fields ``accumulation_flux``
+   * - ``watertable_depth_map``
+     - Water-table depth
+     - fields ``watertable_depth``
 
 Cross-sections
 ~~~~~~~~~~~~~~
@@ -46,8 +52,8 @@ Vertical or transverse cuts through a persisted field.
      - Title
      - Required inputs
    * - ``cross_section``
-     - Head cross-section
-     - fields ``head``
+     - Cross-section
+     - fields ``watertable_elevation``, ``topography``
 
 Time series
 ~~~~~~~~~~~
@@ -98,6 +104,9 @@ Integrated budget or mass-balance summaries.
    * - Figure name
      - Title
      - Required inputs
+   * - ``flux_timeseries``
+     - Water-balance components
+     - tables ``budgets``
    * - ``water_budget``
      - Water budget
      - tables ``budgets``
@@ -142,6 +151,9 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``calibration_posterior``
      - Calibration parameter posteriors
      - tables ``calibration_iterations``
+   * - ``conditioning_impact_map``
+     - Conditioning impact on the DEM
+     - (no fixed input)
    * - ``difference_map``
      - Difference map
      - (no fixed input)
@@ -165,6 +177,9 @@ Multi-panel views combining one or several runs, observed data, or calibration t
      - (no fixed input)
    * - ``hydrographic_network_reference_missing_only``
      - Reference missing-only view
+     - (no fixed input)
+   * - ``lake_abacus_comparison``
+     - Lake abacus comparison
      - (no fixed input)
    * - ``piezo_timeseries_sim_obs``
      - Piezometric head (sim vs obs)
