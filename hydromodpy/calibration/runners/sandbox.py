@@ -29,8 +29,12 @@ KEEP_ENV_VAR = "HMP_KEEP_TRIAL_SCRATCH"
 _SAFE_NAME = re.compile(r"[^0-9A-Za-z._-]+")
 
 
-def _keep_requested() -> bool:
-    """Return True when the environment asks to retain trial scratch dirs."""
+def keep_trial_scratch() -> bool:
+    """Return True when the environment asks to retain calibration scratch dirs.
+
+    Covers both the per-trial solver folders and the session-wide preprocessing
+    tree: a debugging session that keeps one keeps the other.
+    """
     value = os.environ.get(KEEP_ENV_VAR)
     return value is not None and value.strip().lower() not in ("", "0", "false", "no")
 
@@ -65,7 +69,7 @@ class TrialSandbox:
         solver_scratch_folder: Path | str | None = None,
     ) -> None:
         self.model_name = f"{_sanitize(base_model_name)}_trial{int(trial_id):06d}"
-        self._keep = _keep_requested() if keep is None else bool(keep)
+        self._keep = keep_trial_scratch() if keep is None else bool(keep)
         self._execution: Any | None = None
         # Eager output dir: the trial writes into <scratch>/<model_name>/, so a
         # diverged / timed-out / crashed trial (which never records a success in
@@ -110,4 +114,4 @@ class TrialSandbox:
         return False
 
 
-__all__ = ["TrialSandbox", "KEEP_ENV_VAR"]
+__all__ = ["KEEP_ENV_VAR", "TrialSandbox", "keep_trial_scratch"]

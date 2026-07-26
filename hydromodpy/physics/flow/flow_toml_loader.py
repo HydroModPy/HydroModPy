@@ -13,6 +13,22 @@ from hydromodpy.physics.flow.boundary_conditions import DIRICHLET_BC_CANONICAL_D
 
 FlowConfigT = TypeVar("FlowConfigT", bound=BaseModel)
 
+# Keys this loader parses itself before validation. Every other declared key is
+# forwarded verbatim, so a new field on the flow model reaches it without any
+# edit here.
+_PREPARSED_KEYS = frozenset(
+    {
+        "param_list",
+        "param",
+        "param_values",
+        "ic",
+        "bc",
+        "sinks_sources",
+        "active_sinks_sources",
+        "active_bc",
+    }
+)
+
 
 def from_toml_section(
     flow_config_cls: type[FlowConfigT],
@@ -21,7 +37,12 @@ def from_toml_section(
     base_dir: Path,
     workspace_data_dir: Path | None = None,
 ) -> FlowConfigT:
-    """Build a validated flow config from one `[flow]` TOML section."""
+    """Build a validated flow config from one `[flow]` TOML section.
+
+    Keys listed in :data:`_PREPARSED_KEYS` are normalized here; every other
+    declared key is forwarded as-is to the model, which applies its own
+    defaults.
+    """
     if flow_section is None:
         return flow_config_cls()
     if not isinstance(flow_section, Mapping):
@@ -60,24 +81,11 @@ def from_toml_section(
         base_dir=base_dir,
         workspace_data_dir=workspace_data_dir,
     )
-    return flow_config_cls.model_validate(
+    payload: dict[str, object] = {
+        key: value for key, value in flow_section.items() if key not in _PREPARSED_KEYS
+    }
+    payload.update(
         {
-            "flow_regime": flow_section.get("flow_regime", "transient"),
-            "first_period_steady": flow_section.get("first_period_steady", True),
-            "runtime_backend": flow_section.get("runtime_backend", "local"),
-            "surface_interaction_model": flow_section.get("surface_interaction_model", "auto"),
-            "runtime_max_iterations": flow_section.get("runtime_max_iterations"),
-            "runtime_tol_residual_inf": flow_section.get("runtime_tol_residual_inf"),
-            "runtime_tol_state_update_inf": flow_section.get("runtime_tol_state_update_inf"),
-            "vi_substeps_per_period": flow_section.get("vi_substeps_per_period", 1),
-            "vi_substep_on_failure": flow_section.get("vi_substep_on_failure", False),
-            "vi_max_adaptive_substeps": flow_section.get("vi_max_adaptive_substeps"),
-            "ts_vi_steps_per_period": flow_section.get("ts_vi_steps_per_period", 4),
-            "ts_vi_adapt": flow_section.get("ts_vi_adapt", False),
-            "ts_vi_dt_min_fraction": flow_section.get("ts_vi_dt_min_fraction", 1.0 / 64.0),
-            "ts_vi_dt_max_fraction": flow_section.get("ts_vi_dt_max_fraction", 1.0 / 4.0),
-            "ts_vi_type": flow_section.get("ts_vi_type", "beuler"),
-            "ts_vi_snes_type": flow_section.get("ts_vi_snes_type", "vinewtonrsls"),
             "param_list": declared_param,
             "param": raw_param,
             "ic": raw_ic,
@@ -85,7 +93,10 @@ def from_toml_section(
             "sinks_sources": parsed_sinks_sources,
             "active_sinks_sources": list(raw_active_sinks_sources),
             "active_bc": list(raw_active_bc),
-        },
+        }
+    )
+    return flow_config_cls.model_validate(
+        payload,
         context={"base_dir": base_dir, "workspace_data_dir": workspace_data_dir},
     )
 

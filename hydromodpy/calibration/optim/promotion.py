@@ -3,7 +3,9 @@
 After the ask/tell loop converges, the runner promotes selected trials
 (top-N or all completed) into full simulations and back-fills the
 ``sim_id`` column on the iterations table. This module isolates that
-post-loop logic so the runners only deal with control flow.
+post-loop logic so the runners only deal with control flow. The promoted
+best run is returned to the runner, which records it when the session is
+closed by :class:`~hydromodpy.calibration.persistence.CalibrationPersistence`.
 """
 
 from __future__ import annotations
@@ -49,22 +51,6 @@ def update_iter_sim_id(catalog, session_id: str, iteration: int, sim_id: str) ->
              WHERE session_id = ? AND iteration = ?
             """,
             [sim_uuid, sid, int(iteration)],
-        )
-
-    _run()
-
-
-def update_best_sim_id(catalog, session_id: str, sim_id: str) -> None:
-    """Set ``best_sim_id`` on a finalized calibration session."""
-    from hydromodpy.core.io.db_retry import with_lock_retry
-
-    @with_lock_retry()
-    def _run() -> None:
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
-        sim_uuid = uuid.UUID(sim_id) if len(sim_id) == 32 else sim_id
-        catalog.connection.execute(
-            "UPDATE calibration_sessions SET best_sim_id = ? WHERE session_id = ?",
-            [sim_uuid, sid],
         )
 
     _run()
@@ -147,7 +133,6 @@ def promote_iterations(
 __all__ = [
     "stored_parameter_value",
     "update_iter_sim_id",
-    "update_best_sim_id",
     "select_iterations_to_promote",
     "promote_iterations",
 ]

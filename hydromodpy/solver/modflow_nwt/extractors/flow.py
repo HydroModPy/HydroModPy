@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -77,30 +78,30 @@ def _write_time_coordinate(
     writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
 
-def _budget_key(name: str) -> str:
-    """Normalize a MODFLOW listing budget column name."""
-    return str(name).upper().replace("-", "_").replace(" ", "_")
+def _listing_path(solver_output_dir: Path, model_name: str) -> Path:
+    """Return the listing file MODFLOW-NWT wrote for ``model_name``.
+
+    FloPy declares the LIST unit with the ``.list`` extension, so the listing
+    never shares the ``.lst`` suffix MODFLOW 6 uses. Deriving it from the
+    ``.hds`` stem with the wrong suffix silently skips the mass balance.
+    """
+    return Path(solver_output_dir) / f"{model_name}.list"
 
 
-def _budget_field_lookup(names: tuple[str, ...]) -> dict[str, str]:
-    """Map normalized listing field names to their native dtype names."""
-    return {_budget_key(name): name for name in names}
+def _budget_field(row: np.void, names: tuple[str, ...] | None, key: str) -> float:
+    """Return one listing-budget field, or 0.0 when the column is absent.
 
-
-def _budget_value(row: np.void, fields: dict[str, str], *candidates: str) -> float:
-    """Return a listing-budget value or NaN when the field is absent."""
-    for candidate in candidates:
-        native = fields.get(_budget_key(candidate))
-        if native is not None:
-            return float(row[native])
-    return float("nan")
+    FloPy already normalizes the listing column names (``TOTAL IN`` becomes
+    ``TOTAL_IN``), so the canonical key is the only spelling to look up.
+    """
+    return float(row[key]) if names is not None and key in names else 0.0
 
 
 class ModflowNwtOutputAdapter:
     """Read MODFLOW-NWT binary outputs and inject them into a Catalog.
 
     Expects a solver output directory containing ``{model_name}.hds``,
-    ``{model_name}.cbc``, and optionally ``{model_name}.lst``.
+    ``{model_name}.cbc``, and optionally ``{model_name}.list``.
     """
 
     solver_name = "modflow_nwt"
@@ -188,7 +189,7 @@ class ModflowNwtOutputAdapter:
                 flux_scale_to_m3_s=flux_scale_to_m3_s,
             )
 
-        lst_path = solver_output_dir / f"{model_name}.lst"
+        lst_path = _listing_path(solver_output_dir, model_name)
         if lst_path.exists():
             self._extract_mass_balance(sim_id, store, lst_path, flux_scale_to_m3_s)
 
@@ -314,50 +315,36 @@ class ModflowNwtOutputAdapter:
         lst_path: Path,
         flux_scale_to_m3_s: float,
     ) -> None:
-        """Parse MODFLOW listing file for mass balance summary."""
-        try:
-            from flopy.utils import MfListBudget
+        """Parse the MODFLOW-NWT listing file for the mass balance summary.
 
-            mf_list = MfListBudget(str(lst_path))
-            inc, cum = mf_list.get_budget_from_list()
-            del cum
-            if inc is not None:
-                records = []
-                fields = _budget_field_lookup(inc.dtype.names or ())
-                for t in range(len(inc)):
-                    row = inc[t]
-                    total_in = (
-                        _budget_value(row, fields, "TOTAL_IN", "TOTAL IN") * flux_scale_to_m3_s
-                    )
-                    total_out = (
-                        _budget_value(row, fields, "TOTAL_OUT", "TOTAL OUT") * flux_scale_to_m3_s
-                    )
-                    storage_in = (
-                        _budget_value(row, fields, "STORAGE_IN", "STORAGE IN") * flux_scale_to_m3_s
-                    )
-                    storage_out = (
-                        _budget_value(row, fields, "STORAGE_OUT", "STORAGE OUT")
-                        * flux_scale_to_m3_s
-                    )
-                    pct_err = _budget_value(
-                        row,
-                        fields,
-                        "PERCENT_DISCREPANCY",
-                        "PERCENT DISCREPANCY",
-                    )
-                    records.append(
-                        {
-                            "timestep": t,
-                            "total_in": total_in,
-                            "total_out": total_out,
-                            "storage_in": storage_in,
-                            "storage_out": storage_out,
-                            "percent_error": pct_err,
-                        }
-                    )
-                store.write_mass_balances(sim_id, records)
-        except Exception:
-            logger.warning("Could not parse listing file %s", lst_path, exc_info=True)
+        Volumetric rates scale to m3/s like the cell budget fluxes;
+        PERCENT_DISCREPANCY is unitless and must not be scaled.
+        """
+        from flopy.utils import MfListBudget
+
+        try:
+            incremental, _cumulative = MfListBudget(str(lst_path)).get_budget()
+        except Exception as exc:
+            raise ExtractError(
+                f"Cannot read the MODFLOW-NWT mass balance from {lst_path}: {exc}"
+            ) from exc
+        if incremental is None:
+            raise ExtractError(f"MODFLOW-NWT listing {lst_path} carries no volumetric budget.")
+
+        names = incremental.dtype.names
+        scale = float(flux_scale_to_m3_s)
+        records = [
+            {
+                "timestep": t,
+                "total_in": _budget_field(incremental[t], names, "TOTAL_IN") * scale,
+                "total_out": _budget_field(incremental[t], names, "TOTAL_OUT") * scale,
+                "storage_in": _budget_field(incremental[t], names, "STORAGE_IN") * scale,
+                "storage_out": _budget_field(incremental[t], names, "STORAGE_OUT") * scale,
+                "percent_error": _budget_field(incremental[t], names, "PERCENT_DISCREPANCY"),
+            }
+            for t in range(len(incremental))
+        ]
+        store.write_mass_balances(sim_id, records)
 
     def _write_surface_elevation(
         self,

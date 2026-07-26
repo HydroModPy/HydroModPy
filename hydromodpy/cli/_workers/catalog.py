@@ -315,11 +315,12 @@ def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
 
 
 def reindex_project(workspace: Any) -> dict:
-    """Rebuild the project index from its run directories.
+    """Rebuild the project index from its run and session directories.
 
-    Returns ``{"index": ..., "indexed": [...], "skipped": [...], "rows": {...}}``.
-    Idempotent: the index is rebuilt from what the runs declare on disk, so
-    running it twice describes the same project twice.
+    Returns ``{"index": ..., "indexed": [...], "sessions": [...],
+    "skipped": [...], "rows": {...}}``. Idempotent: the index is rebuilt from
+    what the runs and the calibration sessions declare on disk, so running it
+    twice describes the same project twice.
     """
     from hydromodpy.results.catalog.reindex import rebuild_index
 
@@ -327,6 +328,7 @@ def reindex_project(workspace: Any) -> dict:
     return {
         "index": str(report.index_path),
         "indexed": list(report.indexed),
+        "sessions": list(report.sessions),
         "skipped": [{"run": item.run, "reason": item.reason} for item in report.skipped],
         "rows": dict(report.rows),
     }

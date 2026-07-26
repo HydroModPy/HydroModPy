@@ -353,7 +353,14 @@ def test_provenance_records_the_solver_and_the_timing(sealed_run):
     provenance = json.loads((run_dir / RUN_PROVENANCE_FILENAME).read_text(encoding="utf-8"))
 
     assert provenance["solver"]["name"] == "modflow6"
-    assert set(provenance["solver"]) == {"name", "version", "binary_path", "binary_sha256"}
+    assert set(provenance["solver"]) == {
+        "name",
+        "engine",
+        "execution_mode",
+        "version",
+        "binary_path",
+        "binary_sha256",
+    }
     assert provenance["timing"]["duration_s"] == 42.0
     assert provenance["timing"]["started_at"] and provenance["timing"]["ended_at"]
 

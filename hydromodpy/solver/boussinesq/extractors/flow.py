@@ -87,14 +87,23 @@ class BoussinesqOutputAdapter:
             store.write_field_stack(sim_id, "head", head_stack)
 
             self._persist_state_history(sim_id, store, payload)
+            components = self._budget_components(
+                payload,
+                n_timesteps=n_timesteps,
+                n_cells=n_cells,
+                cell_area_m2=cell_area_m2,
+            )
+            # The lumped per-component budget is always persisted, like on the
+            # MODFLOW backends: the catchment scalars (discharge, well pumping)
+            # are derived from it when the per-cell group stays opt-in.
+            self._write_budget_table(sim_id, store, components, n_timesteps=n_timesteps)
             if budget_spatial_fields:
                 self._write_budget_fields(
                     sim_id,
                     store,
-                    payload,
+                    components,
                     n_timesteps=n_timesteps,
-                    n_cells=n_cells,
-                    cell_area_m2=cell_area_m2,
+                    surface_excess_rate_m_s=self._saturation_excess_rate(payload, n_timesteps),
                 )
 
         self._write_surface_elevation(
@@ -121,20 +130,30 @@ class BoussinesqOutputAdapter:
             sz.close()
 
     @staticmethod
-    def _write_budget_fields(
-        sim_id: str,
-        store: Any,
+    def _saturation_excess_rate(payload, n_timesteps: int) -> np.ndarray | None:
+        """Return the saturation-excess rate history in m/s, or None when absent."""
+        values = payload.get("saturation_excess_history_m_s")
+        if values is None:
+            return None
+        arr = np.asarray(values, dtype=float)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        return arr[:n_timesteps]
+
+    @staticmethod
+    def _budget_components(
         payload,
         *,
         n_timesteps: int,
         n_cells: int,
         cell_area_m2: np.ndarray | None,
-    ) -> None:
-        """Write canonical Boussinesq budget fields with solver units.
+    ) -> dict[str, np.ndarray]:
+        """Return the per-cell budget stacks in canonical solver orientation.
 
-        Gated by ``budget_spatial_fields``: the per-cell budget group, and the
-        seepage fields derived from its surface-excess component, are opt-in
-        like on the MODFLOW backends.
+        Each entry is ``(n_timesteps, n_cells)`` in m3/s and keeps the sign the
+        Boussinesq residual uses: ``recharge`` and ``well`` are positive when
+        water enters the aquifer, ``drain``, ``surface_excess`` and
+        ``constant_head`` are positive when water leaves it.
         """
         area = None if cell_area_m2 is None else np.asarray(cell_area_m2, dtype=float).reshape(-1)
         if area is not None and area.size != int(n_cells):
@@ -160,38 +179,82 @@ class BoussinesqOutputAdapter:
                 )
             return arr[:n_timesteps]
 
-        recharge_rate = _history("recharge_rate_history_m_s")
-        if recharge_rate is not None:
+        def _rate_to_flux(name: str, label: str) -> np.ndarray | None:
+            rate = _history(name)
+            if rate is None:
+                return None
             if area is None:
-                raise KeyError("Boussinesq recharge history requires cell_area_m2")
-            recharge_flux = recharge_rate * area.reshape(1, -1)
-            store.write_field_stack(sim_id, "recharge", recharge_flux, subgroup="budget")
+                raise KeyError(f"Boussinesq {label} history requires cell_area_m2")
+            return rate * area.reshape(1, -1)
 
-        drainage_flux = _history("drainage_flux_history_m3_s")
-        if drainage_flux is not None:
-            store.write_field_stack(sim_id, "drain", drainage_flux, subgroup="budget")
+        candidates = {
+            "recharge": _rate_to_flux("recharge_rate_history_m_s", "recharge"),
+            "drain": _history("drainage_flux_history_m3_s"),
+            "well": _history("well_flux_history_m3_s"),
+            "surface_excess": _rate_to_flux("saturation_excess_history_m_s", "saturation excess"),
+            "constant_head": _history("prescribed_head_flux_history_m3_s"),
+        }
+        return {name: stack for name, stack in candidates.items() if stack is not None}
 
-        well_flux = _history("well_flux_history_m3_s")
-        if well_flux is not None:
-            store.write_field_stack(
-                sim_id,
-                "well",
-                well_flux.reshape(well_flux.shape[0], 1, -1),
-                subgroup="budget",
+    # Components whose positive values leave the aquifer. The lumped budget
+    # follows the MODFLOW convention (flux_in = what enters the model), so
+    # these are flipped before the in/out split.
+    _OUTFLOW_POSITIVE_COMPONENTS = frozenset({"drain", "surface_excess", "constant_head"})
+
+    @staticmethod
+    def _write_budget_table(
+        sim_id: str,
+        store: Any,
+        components: dict[str, np.ndarray],
+        *,
+        n_timesteps: int,
+    ) -> None:
+        """Write the lumped per-component budget rows (m3/s) for every timestep."""
+        records: list[dict[str, Any]] = []
+        for name, stack in components.items():
+            signed = (
+                -stack if name in BoussinesqOutputAdapter._OUTFLOW_POSITIVE_COMPONENTS else stack
             )
+            for t in range(int(n_timesteps)):
+                step = signed[t]
+                records.append(
+                    {
+                        "timestep": t,
+                        "zone_id": "0",
+                        "component": name,
+                        "flux_in": float(np.maximum(step, 0.0).sum()),
+                        "flux_out": abs(float(np.minimum(step, 0.0).sum())),
+                        "unit": "m3/s",
+                    }
+                )
+        if records:
+            records.sort(key=lambda record: record["timestep"])
+            store.write_budgets(sim_id, records)
 
-        saturation_excess = _history("saturation_excess_history_m_s")
-        if saturation_excess is not None:
-            if area is None:
-                raise KeyError("Boussinesq saturation excess history requires cell_area_m2")
-            surface_excess_flux = saturation_excess * area.reshape(1, -1)
-            store.write_field_stack(
-                sim_id, "surface_excess", surface_excess_flux, subgroup="budget"
-            )
+    @staticmethod
+    def _write_budget_fields(
+        sim_id: str,
+        store: Any,
+        components: dict[str, np.ndarray],
+        *,
+        n_timesteps: int,
+        surface_excess_rate_m_s: np.ndarray | None,
+    ) -> None:
+        """Write the per-cell Boussinesq budget fields with solver units.
+
+        Gated by ``budget_spatial_fields``: the per-cell budget group, and the
+        seepage fields derived from its surface-excess component, are opt-in
+        like on the MODFLOW backends.
+        """
+        for name, stack in components.items():
+            values = stack.reshape(stack.shape[0], 1, -1) if name == "well" else stack
+            store.write_field_stack(sim_id, name, values, subgroup="budget")
+
+        if surface_excess_rate_m_s is not None:
             BoussinesqOutputAdapter._write_surface_excess_seepage_fields(
                 sim_id,
                 store,
-                saturation_excess,
+                surface_excess_rate_m_s,
                 n_timesteps=n_timesteps,
             )
 

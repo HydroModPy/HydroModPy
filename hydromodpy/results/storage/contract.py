@@ -1,23 +1,28 @@
-"""Result-storage layout contract: what one run directory holds.
+"""Result-storage layout contract: what one run and one session directory hold.
 
-A project keeps one index database and one directory per run::
+A project keeps one index database, one directory per run and one directory
+per calibration session::
 
-    <project>/.hmp/index.duckdb          index, rebuildable from the runs
+    <project>/.hmp/index.duckdb          index, rebuildable from the disk
     <project>/runs/<name>/               one run, named after the run itself
         fields.zarr/                     array store (always a directory)
         tables.parquet/<view>.parquet    tabular payloads
         config.toml                      frozen resolved configuration
         provenance.json                  environment, versions, git
         manifest.json                    seal, written last
+        annotations.json                 tags and notes, mutable after the seal
         figures/                         figures of this run
         run.log                          run journal
+    <project>/sessions/<name>/           one calibration session
+        session.json                     identity, search space, best trial
+        trials.jsonl                     one line per evaluated trial
 
 The run directory name is the human run name (with its ``.vN`` version
 suffix), so the tree is readable without the index. The directory names of
-the project itself (``runs``, ``share``, ``.hmp`` ...) live in
+the project itself (``runs``, ``sessions``, ``share``, ``.hmp`` ...) live in
 :mod:`hydromodpy.core.state.paths`; this module owns the names *inside* a
-run directory so path builders, exporters and documentation share one
-vocabulary.
+run or session directory so path builders, exporters and documentation share
+one vocabulary.
 
 There is no packed form: ``fields.zarr`` is a directory that readers open
 directly while the run is still solving, and the tabular payloads are plain
@@ -51,11 +56,20 @@ RUN_PROVENANCE_FILENAME = "provenance.json"
 RUN_MANIFEST_FILENAME = "manifest.json"
 """Seal of a complete run directory. Absent means the run did not finish."""
 
+RUN_ANNOTATIONS_FILENAME = "annotations.json"
+"""Tags and notes of one run. The only run file that changes after the seal."""
+
 RUN_FIGURES_DIRNAME = "figures"
 """Figures rendered for one run."""
 
 RUN_LOG_FILENAME = "run.log"
 """Journal of one run."""
+
+SESSION_DESCRIPTOR_FILENAME = "session.json"
+"""Identity, search space, objective and best trial of one calibration session."""
+
+SESSION_TRIALS_FILENAME = "trials.jsonl"
+"""Trial journal of one session, appended one JSON object per line as it runs."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +122,8 @@ __all__ = [
     "RUN_MANIFEST_FILENAME",
     "RUN_PROVENANCE_FILENAME",
     "RUN_STORAGE_LAYER_NAMES",
+    "SESSION_DESCRIPTOR_FILENAME",
+    "SESSION_TRIALS_FILENAME",
     "ResultStorageLayer",
     "StorageScope",
     "TABLES_DIRNAME",

@@ -241,6 +241,9 @@ class SimulationStore(Protocol):
         project_root: Path | str | None = None,
         solver_name: str | None = None,
         solver_binary_path: Path | str | None = None,
+        solver_engine: str | None = None,
+        solver_execution_mode: str | None = None,
+        solver_version_text: str | None = None,
         rng_seed: int | None = None,
     ) -> None:
         """Capture and persist host environment snapshot for ``sim_id``."""

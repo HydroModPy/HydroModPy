@@ -30,6 +30,7 @@ provenance             ``tables.parquet/provenance.parquet``
 geographic_features    ``tables.parquet/geographic_*.parquet``
 geographic_metadata    ``manifest.json``, ``geometry.catchment``
 runs_environment       ``provenance.json``
+tags, sim_notes        ``annotations.json``
 =====================  ===========================================
 
 ``timeseries``, ``budgets`` and ``mass_balance`` are not tables but views
@@ -40,15 +41,31 @@ moves the directory, so the tree is what the name is. The identity recorded
 in ``manifest.json`` must match the snapshot, otherwise the directory is
 reported and left out rather than indexed under a doubtful id.
 
-What no run directory can give back (assumed loss)
---------------------------------------------------
+What one session directory gives back
+-------------------------------------
+=======================  =========================================
+Index table              Rebuilt from
+=======================  =========================================
+calibration_sessions     ``sessions/<name>/session.json``
+calibration_iterations   ``sessions/<name>/trials.jsonl``
+=======================  =========================================
+
+A calibration evaluates far more trials than it promotes to runs, so its
+history has no home under ``runs/``. It is written as it goes by
+:mod:`hydromodpy.results.session_journal`, which also declares the format
+read here: the shape of a session belongs to ``results`` precisely because
+the rebuild may not import ``calibration``.
+
+What no directory can give back (assumed loss)
+----------------------------------------------
 - ``audit_log``: the history of what happened to a run.
-- ``tags`` and ``sim_notes``: annotations, mutable after the seal.
 - ``export_log``: which artefacts were published under ``share/``.
 - ``tracked_files`` and ``observation_points``: recorded at run time only.
 - trash state: a trashed run comes back as the completed run it was.
-- ``calibration_sessions`` and ``calibration_iterations``: a session has no
-  on-disk seal yet, so nothing under ``sessions/`` can be read back.
+- the promoted ``sim_id`` of a trial: promotion back-fills it in the index
+  after the trial is journalled. The session keeps its ``best_sim_id``, and
+  each promoted run keeps its ``calibration:<session>`` tag on disk, so the
+  link between a session and its runs survives in both directions.
 
 Two bookkeeping columns have no home on disk: ``runs_environment.recorded_at``
 and ``provenance.valid_from``. They are dated by the seal time of their run
@@ -63,7 +80,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -72,6 +89,7 @@ from hydromodpy.core.state.paths import (
     encode_workspace_path,
     runs_dir_for,
 )
+from hydromodpy.results.annotations import read_annotations
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.writes_helpers import (
@@ -79,6 +97,12 @@ from hydromodpy.results.catalog.writes_helpers import (
     geographic_feature_description,
 )
 from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.session_journal import (
+    SessionDescriptor,
+    read_descriptor,
+    read_trials,
+    session_dirs_for,
+)
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
@@ -105,7 +129,7 @@ _METRICS_COLUMN_SOURCES: dict[str, str] = {"metric_name": "metric"}
 
 @dataclass(frozen=True, slots=True)
 class SkippedRun:
-    """A run directory the rebuild left out, and why."""
+    """A run or session directory the rebuild left out, and why."""
 
     run: str
     reason: str
@@ -119,10 +143,11 @@ class ReindexReport:
     indexed: tuple[str, ...]
     skipped: tuple[SkippedRun, ...]
     rows: dict[str, int]
+    sessions: tuple[str, ...] = ()
 
 
 def rebuild_index(project_root: Path | str) -> ReindexReport:
-    """Rebuild ``<project>/.hmp/index.duckdb`` from ``<project>/runs``.
+    """Rebuild ``<project>/.hmp/index.duckdb`` from ``runs/`` and ``sessions/``.
 
     Fills a staging database, then publishes it atomically. The previous
     index stays readable for the whole rebuild and is replaced in one step.
@@ -130,13 +155,13 @@ def rebuild_index(project_root: Path | str) -> ReindexReport:
     Parameters
     ----------
     project_root
-        Project root holding ``runs/`` and ``.hmp/``.
+        Project root holding ``runs/``, ``sessions/`` and ``.hmp/``.
 
     Returns
     -------
     ReindexReport
-        Indexed run names, skipped directories with their reason, and the
-        number of rows written per index table.
+        Indexed run and session names, skipped directories with their
+        reason, and the number of rows written per index table.
     """
     root = Path(project_root).expanduser().resolve()
     index_path = catalog_path_for(root)
@@ -145,8 +170,14 @@ def rebuild_index(project_root: Path | str) -> ReindexReport:
     staging.parent.mkdir(parents=True, exist_ok=True)
 
     indexed: list[str] = []
+    sessions: list[str] = []
     skipped: list[SkippedRun] = []
     rows: dict[str, int] = {}
+
+    def _tally(counts: dict[str, int]) -> None:
+        for table, count in counts.items():
+            rows[table] = rows.get(table, 0) + count
+
     try:
         with Catalog(root, catalog_path=staging, runs_dir=runs_dir) as catalog:
             for run_dir in _run_directories(runs_dir):
@@ -157,20 +188,102 @@ def rebuild_index(project_root: Path | str) -> ReindexReport:
                     skipped.append(SkippedRun(run_dir.name, str(exc)))
                     continue
                 indexed.append(run_dir.name)
-                for table, count in counts.items():
-                    rows[table] = rows.get(table, 0) + count
+                _tally(counts)
+            for session_dir in session_dirs_for(root):
+                try:
+                    counts = _index_session(catalog.backend, session_dir)
+                except Exception as exc:  # noqa: BLE001 - one bad session never aborts a rebuild
+                    logger.warning("reindex left out session %s: %s", session_dir.name, exc)
+                    skipped.append(SkippedRun(session_dir.name, str(exc)))
+                    continue
+                sessions.append(session_dir.name)
+                _tally(counts)
             catalog.connection.execute("CHECKPOINT")
         os.replace(staging, index_path)
         _forget_write_ahead_log(index_path)
     finally:
         _discard(staging)
-    logger.info("reindexed %d run(s) into %s", len(indexed), index_path)
+    logger.info(
+        "reindexed %d run(s) and %d session(s) into %s", len(indexed), len(sessions), index_path
+    )
     return ReindexReport(
         index_path=index_path,
         indexed=tuple(indexed),
         skipped=tuple(skipped),
         rows=rows,
+        sessions=tuple(sessions),
     )
+
+
+# ---------------------------------------------------------------------------
+# One session directory
+# ---------------------------------------------------------------------------
+
+
+def _index_session(backend: CatalogBackend, session_dir: Path) -> dict[str, int]:
+    """Index one calibration session and return the rows written per table."""
+    descriptor = read_descriptor(session_dir)
+    trials = read_trials(session_dir)
+    _insert_session(backend, descriptor, n_trials=len(trials))
+    for trial in trials:
+        backend.execute(
+            """INSERT INTO calibration_iterations
+               (session_id, iteration, sim_id, params_hash, parameters,
+                objective_value, metrics, status, from_cache, duration_s)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                _as_uuid(descriptor.session_id),
+                trial.trial,
+                None if trial.sim_id is None else _as_uuid(trial.sim_id),
+                trial.params_hash,
+                json.dumps(trial.parameters),
+                trial.objective_value,
+                None if trial.metrics is None else json.dumps(trial.metrics),
+                trial.status,
+                trial.from_cache,
+                trial.duration_s,
+            ],
+        )
+    return {"calibration_sessions": 1, "calibration_iterations": len(trials)}
+
+
+def _insert_session(
+    backend: CatalogBackend, descriptor: SessionDescriptor, *, n_trials: int
+) -> None:
+    """Insert the ``calibration_sessions`` row of one session descriptor.
+
+    ``n_iterations`` is counted from the trial journal rather than read from
+    the descriptor: an interrupted session never wrote its closing count, and
+    the lines on disk are what the session actually evaluated.
+    """
+    backend.execute(
+        """INSERT INTO calibration_sessions
+           (session_id, project, method, objective_name, n_iterations,
+            best_sim_id, best_objective, config, started_at, ended_at,
+            duration_s, status_id, error_message)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                   (SELECT id FROM statuses WHERE code = ?), ?)""",
+        [
+            _as_uuid(descriptor.session_id),
+            descriptor.project,
+            descriptor.method,
+            descriptor.objective_name,
+            n_trials,
+            None if descriptor.best_sim_id is None else _as_uuid(descriptor.best_sim_id),
+            descriptor.best_objective,
+            json.dumps(descriptor.config),
+            descriptor.started_at,
+            descriptor.ended_at,
+            descriptor.duration_s,
+            descriptor.status,
+            descriptor.error_message,
+        ],
+    )
+
+
+def _as_uuid(value: str) -> UUID:
+    """Return an identifier as the UUID the index stores."""
+    return UUID(str(value))
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +331,27 @@ def _index_run(catalog: Catalog, run_dir: Path) -> dict[str, int]:
     counts["runs_environment"] = _insert_environment(
         catalog.backend, sim_id, run_dir, recorded_at=sealed_at
     )
+    counts.update(_insert_annotations(catalog.backend, sim_id, run_dir))
     return counts
+
+
+def _insert_annotations(backend: CatalogBackend, sim_id: str, run_dir: Path) -> dict[str, int]:
+    """Restore the tags and notes a human attached after the seal.
+
+    They live in ``annotations.json`` because nothing else on disk carries
+    them: a ``pinned`` tag gates ``gc``, and a ``calibration:<session>`` tag is
+    how a promoted run points back at the session that produced it.
+    """
+    annotations = read_annotations(run_dir)
+    for tag in annotations.tags:
+        backend.execute("INSERT INTO tags (sim_id, tag) VALUES (?, ?)", [sim_id, tag])
+    for note in annotations.notes:
+        backend.execute(
+            "INSERT INTO sim_notes (note_id, sim_id, note, added_at, added_by) "
+            "VALUES (gen_random_uuid(), ?, ?, ?, ?)",
+            [sim_id, note.note, note.added_at, note.added_by],
+        )
+    return {"tags": len(annotations.tags), "sim_notes": len(annotations.notes)}
 
 
 def _insert_simulation(backend: CatalogBackend, run_dir: Path, snapshot: Path) -> int:
@@ -341,10 +474,11 @@ def _insert_environment(
            (sim_id, python_version, hydromodpy_version, platform,
             hostname, user_name, cpu_info, memory_gb,
             git_commit, git_dirty, project_git_commit,
-            solver_name, solver_binary_path,
+            solver_name, solver_engine, solver_execution_mode,
+            solver_binary_path,
             solver_binary_sha256, solver_version_text,
             conda_env_hash, env_packages, rng_seed, recorded_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [
             sim_id,
             payload.get("python", {}).get("version"),
@@ -358,6 +492,8 @@ def _insert_environment(
             git.get("dirty"),
             git.get("project_commit"),
             solver.get("name"),
+            solver.get("engine"),
+            solver.get("execution_mode"),
             solver.get("binary_path"),
             solver.get("binary_sha256"),
             solver.get("version"),

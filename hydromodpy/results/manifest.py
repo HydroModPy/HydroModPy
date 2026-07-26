@@ -82,6 +82,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
+    RUN_ANNOTATIONS_FILENAME,
     RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
     RUN_LOG_FILENAME,
@@ -271,6 +272,8 @@ def build_provenance(catalog: Catalog, sim_id: str | UUID) -> dict[str, Any]:
         },
         "solver": {
             "name": env.get("solver_name"),
+            "engine": env.get("solver_engine"),
+            "execution_mode": env.get("solver_execution_mode"),
             "version": env.get("solver_version_text"),
             "binary_path": env.get("solver_binary_path"),
             "binary_sha256": env.get("solver_binary_sha256"),
@@ -301,6 +304,8 @@ def _environment_row(catalog: Catalog, sid: str) -> dict[str, Any]:
         "git_dirty",
         "project_git_commit",
         "solver_name",
+        "solver_engine",
+        "solver_execution_mode",
         "solver_binary_path",
         "solver_binary_sha256",
         "solver_version_text",
@@ -406,14 +411,16 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     as one entry, not walked. Sizes are reported for files only: hashing or
     walking a multi-gigabyte Zarr at seal time would cost more than the index
     it replaces. The manifest lists itself, without a size, since it cannot
-    know its own length before it is written.
+    know its own length before it is written. ``annotations.json`` is left out
+    entirely: tags and notes change after the seal, so any size recorded for it
+    would be wrong by the next ``hmp catalog tag``.
     """
     entries: list[dict[str, Any]] = [
         {"path": RUN_MANIFEST_FILENAME, "role": "manifest", "format": "json"}
     ]
     for path in sorted(run_dir.iterdir()):
         name = path.name
-        if name == RUN_MANIFEST_FILENAME:
+        if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME):
             continue
         if name == FIELDS_STORE_NAME:
             entries.append({"path": name, "role": "fields", "format": "zarr"})

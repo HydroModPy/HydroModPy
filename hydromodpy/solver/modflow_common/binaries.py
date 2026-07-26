@@ -39,8 +39,10 @@ import re
 import subprocess
 import sys
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
@@ -51,6 +53,9 @@ logger = get_logger(__name__)
 
 MANIFEST_FILENAME = ".manifest.json"
 DEFAULT_RELEASE = "23.0"
+
+SOLVER_EXECUTABLES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
+"""Catalog solver code -> canonical executable this module can fetch."""
 
 
 def managed_bin_dir() -> Path:
@@ -330,6 +335,69 @@ def solver_python_stack() -> str:
     return ", ".join(parts)
 
 
+@dataclass(frozen=True, slots=True)
+class SolverEngine:
+    """The binary a run actually executes, and how the run drives it.
+
+    ``kind`` says what the file is (a standalone executable, or a shared
+    library loaded in-process through the BMI/XMI wrappers) and
+    ``execution_mode`` says how it was driven. They move together today, but
+    provenance records both because a reader must not have to infer one from
+    the other.
+    """
+
+    solver: str
+    kind: Literal["executable", "library"]
+    execution_mode: Literal["subprocess", "api"]
+    path: Path
+    version: str | None
+
+
+def resolve_solver_engine(
+    solver: str,
+    *,
+    execution_mode: str = "subprocess",
+    bin_path: str | os.PathLike[str] | None = None,
+) -> SolverEngine | None:
+    """Return the engine a run executes, or ``None`` for a binary-less solver.
+
+    ``execution_mode`` is the dispatch the run selected: ``'api'`` loads the
+    MODFLOW 6 shared library, anything else runs the executable. Solvers with
+    no bundled binary (Boussinesq, GR4J) return ``None``. Resolution failures
+    (binary absent and not downloadable) also return ``None``: provenance must
+    never be the reason a run does not start.
+    """
+    if execution_mode == "api" and solver == "modflow6":
+        try:
+            lib = ensure_solver_library("libmf6", bin_path)
+        except Exception:  # noqa: BLE001 - provenance never breaks a run
+            logger.debug("Could not resolve libmf6 for provenance", exc_info=True)
+            return None
+        return SolverEngine(
+            solver=solver,
+            kind="library",
+            execution_mode="api",
+            path=lib,
+            version=libmf6_version(lib),
+        )
+
+    exe_name = SOLVER_EXECUTABLES.get(solver)
+    if exe_name is None:
+        return None
+    try:
+        exe = ensure_solver_binary(exe_name, bin_path)
+    except Exception:  # noqa: BLE001 - provenance never breaks a run
+        logger.debug("Could not resolve the %s executable for provenance", exe_name, exc_info=True)
+        return None
+    return SolverEngine(
+        solver=solver,
+        kind="executable",
+        execution_mode="subprocess",
+        path=exe,
+        version=mf6_executable_version(exe),
+    )
+
+
 def warn_on_mf6_version_mismatch(
     exe_path: str | os.PathLike[str], lib_path: str | os.PathLike[str]
 ) -> None:
@@ -374,6 +442,8 @@ def warn_on_mf6_version_mismatch(
 __all__ = [
     "DEFAULT_RELEASE",
     "MANIFEST_FILENAME",
+    "SOLVER_EXECUTABLES",
+    "SolverEngine",
     "available_solvers",
     "download_solver_binaries",
     "ensure_solver_binary",
@@ -384,6 +454,7 @@ __all__ = [
     "locate_solver_binary",
     "mf6_executable_version",
     "read_manifest",
+    "resolve_solver_engine",
     "solver_python_stack",
     "warn_on_mf6_version_mismatch",
 ]

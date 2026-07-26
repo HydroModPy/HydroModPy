@@ -327,6 +327,16 @@ CREATE TABLE runs_environment (
     git_dirty            BOOLEAN,
     project_git_commit   VARCHAR,
     solver_name          VARCHAR,
+    -- The engine the solve actually used: an executable driven as a
+    -- subprocess, or a shared library loaded in-process through the BMI
+    -- wrappers. path / sha256 / version_text always describe THAT file.
+    solver_engine        VARCHAR
+                         CHECK (solver_engine IS NULL OR solver_engine IN (
+                             'executable', 'library'
+                         )),
+    solver_execution_mode VARCHAR
+                         CHECK (solver_execution_mode IS NULL
+                                OR solver_execution_mode IN ('subprocess', 'api')),
     solver_binary_path   VARCHAR,
     solver_binary_sha256 VARCHAR,
     solver_version_text  VARCHAR,
