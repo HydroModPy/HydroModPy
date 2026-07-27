@@ -558,7 +558,7 @@ def _derive_child_workspace_path(
 
 
 def _workspace_stable_folder(workspace_like: object) -> Path:
-    """Return the canonical ``results_stable`` folder for one workspace-like object."""
+    """Return the canonical preprocessing folder for one workspace-like object."""
     output_root = getattr(workspace_like, "output_root", None)
     if output_root is not None:
         return Path(output_root) / PREPROCESSING_DIR

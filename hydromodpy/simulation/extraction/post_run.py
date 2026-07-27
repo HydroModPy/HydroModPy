@@ -309,6 +309,26 @@ def derive_run_outputs(
 
         aggregate_catchment_timeseries(sim_id, store)
 
+    sample_declared_observation_points(ctx=ctx, sim_id=sim_id, store=store)
+
+
+def sample_declared_observation_points(*, ctx: RunContext, sim_id: str, store: Any) -> int:
+    """Sample the ``[observation]`` points while the run still holds its fields.
+
+    A point known in advance costs nothing to read later: its series lands in
+    the run timeseries payload and its declaration in the run directory. A
+    failure here is logged, never fatal: the run's own results are already in.
+    """
+    observation = getattr(ctx.state.cfg, "observation", None)
+    declarations = observation.declarations() if observation is not None else []
+    if not declarations:
+        return 0
+    try:
+        return int(store.sample_observation_points(sim_id, declarations))
+    except Exception:
+        logger.warning("Could not sample the declared observation points", exc_info=True)
+        return 0
+
 
 def auto_export_results(
     *,

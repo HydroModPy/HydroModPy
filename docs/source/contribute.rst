@@ -259,7 +259,7 @@ Coding style
   retrying the commit.
 - Add a docstring on every public method and class. Keep parameter
   names consistent with the existing modules.
-- Reuse helpers from ``hydromodpy/core/tools/`` rather than
+- Reuse helpers from ``hydromodpy/core/io/`` rather than
   duplicating raster, folder, or path logic.
 
 Run the tests

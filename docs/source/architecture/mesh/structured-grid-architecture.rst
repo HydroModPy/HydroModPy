@@ -24,7 +24,7 @@ Code map
   field discretization helpers.
 - ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
   heterogeneous parameter mapping to solver arrays.
-- ``hydromodpy/solver/modflow_common/solver_mesh.py``: solver-side
+- ``hydromodpy/solver/modflow_grid/solver_mesh.py``: solver-side
   consumer of the resolved mesh contract.
 - ``hydromodpy/spatial/field/core/field_param.py``: upstream field
   parameter contract.

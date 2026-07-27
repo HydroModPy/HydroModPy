@@ -1,8 +1,8 @@
 hmp.open
 ========
 
-Open a workspace catalog backed by ``catalog.duckdb``. With the default
-``create=False`` it raises ``FileNotFoundError`` when no ``catalog.duckdb``
+Open a project catalog backed by ``.hmp/index.duckdb``. With the default
+``create=False`` it raises ``FileNotFoundError`` when no index
 exists; pass ``create=True`` to initialise an empty catalog.
 
 Signature

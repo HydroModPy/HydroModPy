@@ -105,7 +105,7 @@ Key public symbols
 
 - ``hydromodpy.display.{get, list_figures, names}``
 - ``hydromodpy.display.figure.{FigureSpec, BaseFigure}``
-- ``hydromodpy.display.catalog.register``
+- ``hydromodpy.display.figure_registry.register``
 - ``hydromodpy.display.theme.plot_params``
 - ``hydromodpy.display.config.DisplayConfig``
 - ``hydromodpy.display.report_blocks.{ReportBlock, ReportMetric,
@@ -117,7 +117,7 @@ Recommended reading path
 ------------------------
 
 1. ``hydromodpy/display/figure.py`` for the contract.
-2. ``hydromodpy/display/catalog.py`` for the registry.
+2. ``hydromodpy/display/figure_registry.py`` for the registry.
 3. ``hydromodpy/display/figures/__init__.py`` for the auto-discovery.
 4. One simple figure such as
    ``hydromodpy/display/figures/hydrograph.py``.

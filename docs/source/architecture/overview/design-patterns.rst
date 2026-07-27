@@ -12,7 +12,7 @@ and :doc:`code-reading-guide`.
 1. SolverAdapter Protocol
 -------------------------
 
-Location: ``hydromodpy/simulation/adapters/base.py``; concrete adapters
+Location: ``hydromodpy/solver/base/adapter_protocol.py``; concrete adapters
 sit next to each backend under ``hydromodpy/solver/<backend>/adapters/``
 (``solver/modflow_nwt/adapters/flow.py``,
 ``solver/modflow6/adapters/flow.py``,
@@ -108,7 +108,7 @@ placeholder.
 5. Data Manager
 ---------------
 
-Location: ``hydromodpy/data/base_manager.py`` with one subclass per
+Location: ``hydromodpy/data/managers/base_manager_variable.py`` with one subclass per
 variable under ``hydromodpy/data/variables/<variable>/``.
 
 Every input variable (hydrometry, piezometry, geology, hydrography,
@@ -120,7 +120,7 @@ climate) has a subclass of ``BaseVariableManager``:
        def load(self) -> LoadResult: ...
 
 ``LoadResult`` wraps the fetched data plus a fingerprint used for
-provenance. ``DataManagersPlanner`` (``hydromodpy/data/planner.py``)
+provenance. ``DataManagersPlanner`` (``hydromodpy/data/managers/planner.py``)
 resolves the explicit config and the inferred needs into an immutable
 ``DataLoadPlan``.
 
@@ -179,7 +179,7 @@ through a thin adapter.
 8. Objective
 ------------
 
-Location: ``hydromodpy/calibration/objective.py``.
+Location: ``hydromodpy/calibration/optim/objective.py``.
 
 An ``Objective`` aggregates one or more weighted ``Metric`` values into
 a scalar loss. Objectives are declarative (configured from TOML) and
@@ -196,9 +196,9 @@ piezo-discharge loss, multi-site mean) without touching the engine.
 9. Metric
 ---------
 
-Locations: ``hydromodpy/core/metrics/`` (canonical: NSE, KGE, RMSE,
+Locations: ``hydromodpy/core/metrics.py`` (canonical: NSE, KGE, RMSE,
 MAE, log-NSE, bias, pbias, correlation) and
-``hydromodpy/calibration/metrics.py`` (trial-side extractor
+``hydromodpy/calibration/metrics/composite.py`` (trial-side extractor
 ``build_metric_extractor``).
 
 A ``Metric`` is a callable that compares a simulated series to an

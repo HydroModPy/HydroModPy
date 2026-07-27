@@ -5,6 +5,34 @@ The CLI writes ``hydromodpy.lock`` after ``hmp run`` (see
 :class:`~hydromodpy.config.HydroModPyConfig`, so a Python-driven run
 (``hmp.run`` / :class:`~hydromodpy.project.Project`) records the same
 reproducibility provenance instead of silently skipping it.
+
+Why the file stays at the project root
+--------------------------------------
+The run manifest now carries the input provenance of each run: every file the
+configuration declares is hashed at setup time and sealed into
+``runs/<name>/manifest.json`` under ``inputs`` (path, SHA-256, size, origin).
+That is what the run needs to say which DEM, which climate series and which
+geometry produced its numbers, and it survives both an index loss and a move
+to another machine inside the ``.hmp`` package.
+
+``hydromodpy.lock`` is deliberately kept, because it answers a different
+question and answers it *before* anything runs:
+
+- Its scope is the **workspace data cache**, not one run: it freezes every
+  catalog entry with its digest, including files no run has consumed yet.
+- It is the surface ``hmp run --frozen`` verifies before launching, and the
+  reference ``hmp dev lock verify`` compares the cache against. A manifest is
+  written when a run ends, so it cannot gate one that has not started.
+- It is an input-side artefact, the sibling of ``project.toml`` and
+  ``configs/`` that a user commits next to them, exactly as ``poetry.lock``
+  sits next to ``pyproject.toml``. Moving it under ``.hmp/`` would file a
+  hand-readable reproducibility pin inside the internal area that
+  ``hmp catalog reindex`` is free to rebuild.
+
+So the project root keeps it, and the layout contract
+(``tests/unit/results/test_run_layout_contract.py``) declares it instead of
+tolerating it by accident. What the lockfile no longer has to carry is the
+per-run input list: that duplication is gone.
 """
 
 from __future__ import annotations

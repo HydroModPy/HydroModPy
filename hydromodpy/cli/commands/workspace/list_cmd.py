@@ -30,7 +30,11 @@ def run(args: argparse.Namespace) -> None:
         print(df.to_json(orient="records", date_format="iso", indent=2))
         sys.exit(EXIT_OK)
 
-    columns = [c for c in ("workspace_id", "label", "uri", "registered_at") if c in df.columns]
+    columns = [
+        c
+        for c in ("workspace_id", "label", "workspace_uri", "created_at", "last_scanned_at")
+        if c in df.columns
+    ]
     if not columns:
         columns = list(df.columns)
     print(df[columns].to_string(index=False))

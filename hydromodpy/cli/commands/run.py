@@ -106,8 +106,11 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help=(
-            "Run even if a completed run with an identical resolved config "
-            "already exists (default: skip the re-run and point to it)."
+            "Recompute even when a completed run with an identical resolved config "
+            "already exists. Without it such a run is not recomputed: the command "
+            "stops and names it. The comparison hashes the resolved config, so an "
+            "edit - or a hydromodpy version that resolves the same TOML differently "
+            "- makes it a new run. Simulation workflow only."
         ),
     )
     parser.add_argument(
@@ -323,6 +326,16 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         print(
             f"--from / --until are only supported for the "
             f"'simulation' workflow (detected '{workflow}').",
+            file=sys.stderr,
+        )
+        _cleanup_effective_toml(effective_path, source=config_path)
+        sys.exit(EXIT_CONFIG)
+
+    if force and workflow != "simulation":
+        print(
+            f"--force is only supported for the 'simulation' workflow "
+            f"(detected '{workflow}'), which is the only one that skips an "
+            f"identical completed run.",
             file=sys.stderr,
         )
         _cleanup_effective_toml(effective_path, source=config_path)

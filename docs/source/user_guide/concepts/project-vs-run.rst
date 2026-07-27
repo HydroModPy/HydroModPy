@@ -23,7 +23,8 @@ Three levels
    * - N
      - **Project**
      - One ``projects/<name>/project.toml`` plus the per-project
-       ``catalog.duckdb`` and ``simulations/`` folder. Open with
+       ``runs/``, ``sessions/`` and ``share/`` folders, indexed by
+       ``.hmp/index.duckdb``. Open with
        :class:`hmp.Project <hydromodpy.project.Project>` for a
        setup-once / run-many Python session, or fire-and-forget with
        ``hmp run project.toml``.

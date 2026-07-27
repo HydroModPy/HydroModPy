@@ -71,8 +71,8 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         return SimpleNamespace(
             summary={
                 "constraints_mode": "rivers_only",
-                "output_mesh": "workspace/results_stable/mesh/mesh_catchment.msh",
-                "output_summary_json": "workspace/results_stable/mesh/mesh_catchment_summary.json",
+                "output_mesh": "workspace/mesh/mesh_catchment.msh",
+                "output_summary_json": "workspace/mesh/mesh_catchment_summary.json",
             },
             mesh_planar=mesh_sentinel,
         )
@@ -139,10 +139,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         assert captured_mesh["domain_geographic"] is ctx.setup.domain_geographic
         assert ctx.setup.mesh_planar is mesh_sentinel
         assert ctx.setup.mesh_summary is not None
-        assert (
-            ctx.setup.mesh_summary["output_mesh"]
-            == "workspace/results_stable/mesh/mesh_catchment.msh"
-        )
+        assert ctx.setup.mesh_summary["output_mesh"] == "workspace/mesh/mesh_catchment.msh"
     finally:
         shutil.rmtree(workspace_root, ignore_errors=True)
 

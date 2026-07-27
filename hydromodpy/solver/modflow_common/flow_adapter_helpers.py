@@ -165,7 +165,7 @@ def _requires_mt3dms_link(ctx: RunContext) -> bool:
     )
 
 
-def _resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"]:
+def resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"]:
     """Return the solve dispatch ('subprocess' or 'api') for a flow model.
 
     Only the MODFLOW 6 backend exposes a ``mf6_runner`` runtime field. NWT and
@@ -173,6 +173,10 @@ def _resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api
     stay byte-for-byte unchanged. A model that built exposed-band (marnage) runoff
     coupling specs forces the in-process 'api' runner, because that coupling sets
     the LAK RUNOFF per timestep through the BMI API.
+
+    This is the single source of truth for the dispatch: provenance reads it
+    back from the built model so it records the engine that actually ran, not
+    the one the configuration asked for.
     """
     if getattr(model_modflow, "_exposed_band_runoff_specs", None):
         return "api"
@@ -213,7 +217,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             write_model=True,
             run_model=True,
             link_mt3dms=_requires_mt3dms_link(ctx),
-            runner=_resolve_modflow_runner(model_modflow),
+            runner=resolve_modflow_runner(model_modflow),
         )
     )
     if not success:

@@ -323,3 +323,216 @@ def test_gc_replays_pending_purge(monkeypatch, tmp_path) -> None:
     with Catalog(project) as cat:
         assert cat._backend.fetch_one("SELECT 1 FROM purge_journal WHERE sim_id = ?", [sid]) is None
         assert cat._backend.fetch_one("SELECT 1 FROM simulations WHERE sim_id = ?", [sid]) is None
+
+
+# ---------------------------------------------------------------------------
+# Retention policy
+# ---------------------------------------------------------------------------
+
+
+def _make_lineage(project: Path, stem: str, count: int) -> list[str]:
+    """Register and finalize ``count`` versions of one run name, oldest first.
+
+    Each version is sealed, so it owns a directory on disk: that is what a
+    trash marker needs to be written next to.
+    """
+    import uuid
+
+    from hydromodpy.results.catalog import Catalog
+
+    sids = [str(uuid.uuid4()) for _ in range(count)]
+    with Catalog(project) as cat:
+        for sid in sids:
+            reg = cat.register_simulation(sid, project="demo", solver="modflow6", name=stem)
+            if reg.zarr is not None:
+                reg.zarr.close()
+            cat.write_parameters(sid, [{"param_name": "K", "value": 1e-5}])
+            cat.finalize(sid, status="completed", duration_s=1.0)
+    return sids
+
+
+def _status_of(project: Path, sid: str) -> str:
+    from hydromodpy.results.catalog import Catalog
+
+    with Catalog(project, read_only=True) as cat:
+        row = cat._backend.fetch_one(
+            "SELECT st.code FROM simulations s JOIN statuses st ON s.status_id = st.id "
+            "WHERE s.sim_id = ?",
+            [sid],
+        )
+    return "" if row is None else str(row[0])
+
+
+def test_gc_plans_the_versions_beyond_the_retention_window(monkeypatch, tmp_path, capsys) -> None:
+    """Only the newest versions of a lineage survive the policy; the plan says so."""
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    sids = _make_lineage(project, "cheze", 5)
+
+    code = _run(
+        monkeypatch,
+        ["hmp", "catalog", "gc", "--workspace", str(workspace), "--keep-versions", "2"],
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "superseded_runs: 3 candidate(s)" in out
+    for sid in sids[:3]:
+        assert sid in out
+    for sid in sids[3:]:
+        assert sid not in out
+    # A plan changes nothing.
+    assert all(_status_of(project, sid) == "completed" for sid in sids)
+
+
+def test_gc_default_policy_keeps_a_short_lineage(monkeypatch, tmp_path, capsys) -> None:
+    """Prudent default: a lineage shorter than the window is never touched."""
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    _make_lineage(project, "cheze", 3)
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace)])
+    assert code == 0
+    assert "superseded_runs: 0 candidate(s)" in capsys.readouterr().out
+
+
+def test_gc_keep_versions_all_disables_the_rule(monkeypatch, tmp_path, capsys) -> None:
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    _make_lineage(project, "cheze", 6)
+
+    code = _run(
+        monkeypatch,
+        ["hmp", "catalog", "gc", "--workspace", str(workspace), "--keep-versions", "all"],
+    )
+    assert code == 0
+    assert "superseded_runs: 0 candidate(s)" in capsys.readouterr().out
+
+
+def test_gc_apply_moves_superseded_runs_to_the_trash(monkeypatch, tmp_path) -> None:
+    """Retention trashes, it does not delete: marker on disk, bytes still there."""
+    from hydromodpy.results.storage.contract import RUN_TRASH_FILENAME
+
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    sids = _make_lineage(project, "cheze", 4)
+
+    code = _run(
+        monkeypatch,
+        [
+            "hmp",
+            "catalog",
+            "gc",
+            "--workspace",
+            str(workspace),
+            "--keep-versions",
+            "2",
+            "--apply",
+        ],
+    )
+    assert code == 0
+    assert [_status_of(project, sid) for sid in sids] == [
+        "trashed",
+        "trashed",
+        "completed",
+        "completed",
+    ]
+    assert (runs_dir_for(project) / "cheze" / RUN_TRASH_FILENAME).is_file()
+    assert (runs_dir_for(project) / "cheze" / RUN_MANIFEST_FILENAME).is_file()
+    assert (runs_dir_for(project) / "cheze.v4").is_dir()
+    assert not (runs_dir_for(project) / "cheze.v4" / RUN_TRASH_FILENAME).exists()
+
+
+def test_gc_retention_spares_a_protected_run(monkeypatch, tmp_path) -> None:
+    """A ``pinned`` run survives every retention rule."""
+    from hydromodpy.results.catalog import Catalog
+
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    sids = _make_lineage(project, "cheze", 4)
+    with Catalog(project) as cat:
+        cat.add_tag(sids[0], "pinned")
+
+    code = _run(
+        monkeypatch,
+        [
+            "hmp",
+            "catalog",
+            "gc",
+            "--workspace",
+            str(workspace),
+            "--keep-versions",
+            "2",
+            "--apply",
+        ],
+    )
+    assert code == 0
+    assert _status_of(project, sids[0]) == "completed"
+    assert _status_of(project, sids[1]) == "trashed"
+
+
+def test_gc_expires_runs_past_the_age_limit(monkeypatch, tmp_path) -> None:
+    from hydromodpy.results.catalog import Catalog
+
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    old, recent = _make_lineage(project, "aged", 1)[0], _make_lineage(project, "fresh", 1)[0]
+    with Catalog(project) as cat:
+        cat._backend.execute(
+            "UPDATE simulations SET created_at = current_timestamp - INTERVAL '400 days' "
+            "WHERE sim_id = ?",
+            [old],
+        )
+
+    code = _run(
+        monkeypatch,
+        [
+            "hmp",
+            "catalog",
+            "gc",
+            "--workspace",
+            str(workspace),
+            "--max-age-days",
+            "365",
+            "--apply",
+        ],
+    )
+    assert code == 0
+    assert _status_of(project, old) == "trashed"
+    assert _status_of(project, recent) == "completed"
+
+
+def test_gc_quarantines_regenerable_figures_only_on_request(monkeypatch, tmp_path) -> None:
+    """Figures are rebuildable, so they may be swept, but only when asked."""
+    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
+
+    workspace = _make_minimal_workspace(tmp_path)
+    project = _make_project_with_catalog(workspace, "demo")
+    _make_lineage(project, "cheze", 1)
+    figures = runs_dir_for(project) / "cheze" / RUN_FIGURES_DIRNAME
+    figures.mkdir(parents=True)
+    (figures / "head.png").write_bytes(b"png")
+    _age_path(figures / "head.png")
+    _age_path(figures)
+
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--apply"])
+    assert code == 0
+    assert (figures / "head.png").is_file()
+
+    code = _run(
+        monkeypatch,
+        ["hmp", "catalog", "gc", "--workspace", str(workspace), "--purge-figures", "--apply"],
+    )
+    assert code == 0
+    assert not figures.exists()
+    quarantined = sorted((project / ".hmp" / "trash").glob(f"*/cheze/{RUN_FIGURES_DIRNAME}"))
+    assert len(quarantined) == 1
+    assert (quarantined[0] / "head.png").read_bytes() == b"png"
+
+
+def test_gc_rejects_a_retention_window_of_zero(monkeypatch, tmp_path) -> None:
+    workspace = _make_minimal_workspace(tmp_path)
+    code = _run(
+        monkeypatch,
+        ["hmp", "catalog", "gc", "--workspace", str(workspace), "--keep-versions", "0"],
+    )
+    assert code == 2

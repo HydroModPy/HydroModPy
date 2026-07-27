@@ -158,6 +158,15 @@ Sections
       Storage backend toggles loaded from [persistence]. Drives the DuckDB catalog, Zarr field arrays, Parquet tables, and the `hydromodpy.lock` reproducibility manifest.
 
    .. grid-item-card::
+      :link: observation
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[observation]**
+      ^^^
+      Observation points declared in [observation] and sampled while the run still holds its fields. Each [[observation.points]] entry names a location (x, y, and layer or depth); its series land in the run timeseries table, so no post-hoc interrogation is needed for a point known in advance.
+
+   .. grid-item-card::
       :link: analysis
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -259,6 +268,7 @@ Sections
    display
    export
    persistence
+   observation
    analysis
    overview
    mesh_catchment

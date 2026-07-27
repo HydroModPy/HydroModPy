@@ -7,7 +7,8 @@ Iterable, filterable view over a list of ``sim_id`` resolved against a single
 ranks runs (``best``, ``worst``, ``sort_by``), compares scalar metrics across
 simulations (``compare``), exports tabular bundles (``to_dataframe``,
 ``to_csv``), stacks field arrays lazily into an ``xarray.DataArray``
-(``to_xarray``, dask-backed), and narrows the set with ``filter(**criteria)``.
+(``to_xarray``, dask-backed), reads one location on every run
+(``probe.series``) and narrows the set with ``filter(**criteria)``.
 
 Why
 ---
@@ -35,6 +36,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from hydromodpy.core import progress
+from hydromodpy.results.run.point import RunPointProvider
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -94,6 +96,11 @@ class RunSet:
     ) -> None:
         self._sim_ids = sim_ids
         self._catalog = catalog
+        self.probe = RunPointProvider(self)
+
+    def _iter_runs(self):
+        """Runs of the group, so ``probe`` serves a set exactly like one run."""
+        return iter(self)
 
     @property
     def count(self) -> int:

@@ -13,13 +13,20 @@ when they are block-based static pages.
 Reporting is a one-way sink: ``display`` and ``analysis`` must not
 import from ``reporting``.
 
+Every deliverable of this package lands under ``<project>/share/``,
+the publication directory: reports in ``share/reports/<name>/``,
+exports next to them. Nothing in ``share/`` is a source of truth; it is
+regenerated from ``runs/`` and ``sessions/``.
+
 Sub-modules
 -----------
 
 - ``reporting/calibration_report.py`` -- calibration session HTML
-  report (moved from ``display/``). Reads sessions, iterations, and
-  promoted runs from the catalog; renders six calibration figures
-  through the ``display`` catalog; emits a standalone HTML file.
+  report (moved from ``display/``). Reads the session descriptor and
+  the trial log from ``sessions/<session_name>/``; renders six
+  calibration figures through the ``display`` figure registry; emits
+  ``share/reports/<session_name>/report.html`` next to a ``figures/``
+  sub-directory.
 - ``reporting/comparison/`` -- simulation comparison HTML web report
   (moved from ``analysis/comparison/web/``).
 
@@ -36,7 +43,7 @@ Sub-modules
 Key public symbols
 ------------------
 
-- ``hydromodpy.reporting.calibration_report.render_report``
+- ``hydromodpy.reporting.calibration_report.render_session``
 - ``hydromodpy.reporting.comparison.render`` (web report orchestrator)
 - ``hydromodpy.reporting.comparison.compact_network.builder.build_compact_network_synthesis``
 

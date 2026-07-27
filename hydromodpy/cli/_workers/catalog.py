@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 logger = get_logger(__name__)
 
@@ -271,23 +275,131 @@ def query_catalog(
         conn.close()
 
 
-def gc(workspace: Any = None, *, dry_run: bool = True) -> dict:
-    """Garbage-collect orphan caches, tmp parquet, and stale running sims.
+def point_simulations(
+    sim_refs: list[str],
+    *,
+    workspace: Any,
+    variables: list[str],
+    x: float | None = None,
+    y: float | None = None,
+    cell: int | None = None,
+    layer: int | None = None,
+    depth: float | None = None,
+    label: str | None = None,
+    timestep: int | None = None,
+    output: Any = None,
+) -> Any:
+    """Read one variable in one precise cell, on one or several runs.
+
+    Parameters
+    ----------
+    sim_refs
+        Run references (id, prefix, name, ``@last`` ...). Several of them
+        stack their answers so scenarios can be compared on one location.
+    workspace
+        Project catalog root.
+    variables
+        Field names, persisted or virtual.
+    x, y
+        Coordinates in the simulation CRS; mutually exclusive with ``cell``.
+    cell
+        Zero-based cell index; mutually exclusive with ``x`` / ``y``.
+    layer, depth
+        Layer index, or metres below the local model top. Mutually exclusive.
+    label
+        Name of the point, reported in the table.
+    timestep
+        Keep one timestep instead of the whole series.
+    output
+        Optional ``.csv`` / ``.parquet`` path written with the table.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Long-format table, one row per run, variable and timestep.
+    """
+    from hydromodpy.results.run.point import PointRequest, read_points, write_point_table
+
+    request = PointRequest(x=x, y=y, cell=cell, layer=layer, depth=depth, label=label)
+    with _open_project_catalog(workspace, read_only=True) as catalog:
+        runs = [catalog[catalog.resolve(ref)] for ref in sim_refs]
+        frame = read_points(runs, variables, request, timestep=timestep)
+    if output is not None:
+        write_point_table(frame, output)
+    return frame
+
+
+PROTECTED_TAG = "pinned"
+"""Reserved tag that exempts a run from every retention rule."""
+
+DEFAULT_KEEP_VERSIONS = 5
+"""Versions of one lineage ``gc`` keeps by default before trimming the rest."""
+
+
+@dataclass(frozen=True, slots=True)
+class RetentionPolicy:
+    """How much run history ``gc`` keeps in a project.
+
+    Prudent by default: only lineages longer than :attr:`keep_versions` are
+    trimmed, and both age expiry and figure sweeping are opt-in. No rule ever
+    destroys anything. A selected run is moved to the trash, a reversible
+    status flip stamped on disk as ``runs/<name>/trash.json``, and selected
+    figures are quarantined under ``<project>/.hmp/trash/<stamp>/``. Bytes are
+    freed later, by the trash-expiry rule, once the retention window has
+    passed. A run tagged :data:`PROTECTED_TAG` is never selected.
+    """
+
+    keep_versions: int | None = DEFAULT_KEEP_VERSIONS
+    """Newest versions kept per lineage (``name_stem``). ``None`` disables."""
+
+    max_age_days: int | None = None
+    """Age past which a run is trashed. ``None`` (default) disables."""
+
+    purge_figures: bool = False
+    """Sweep the regenerable ``figures/`` directory of each run."""
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return the policy as a JSON-friendly mapping, for the plan report."""
+        return {
+            "keep_versions": self.keep_versions,
+            "max_age_days": self.max_age_days,
+            "purge_figures": self.purge_figures,
+            "protected_tag": PROTECTED_TAG,
+        }
+
+
+def gc(
+    workspace: Any = None,
+    *,
+    dry_run: bool = True,
+    policy: RetentionPolicy | None = None,
+) -> dict:
+    """Garbage-collect orphan caches, tmp parquet, stale sims and old runs.
 
     Plans by default: nothing is touched unless the caller passes
-    ``dry_run=False``. Orphan run stores are never destroyed, only moved to
-    ``<project>/.hmp/trash/<stamp>/``.
+    ``dry_run=False``. Nothing is destroyed directly either. Orphan run stores
+    and regenerable figures are moved to ``<project>/.hmp/trash/<stamp>/``, and
+    runs selected by the retention ``policy`` go to the project trash, from
+    which ``hmp catalog restore`` brings them back.
 
-    Returns a dict with ``plan`` (mapping category -> candidate list) and
-    ``summary`` (mapping category -> applied count, empty when ``dry_run``).
+    Returns a dict with ``plan`` (mapping category -> candidate list),
+    ``policy`` (the retention rules applied) and ``summary`` (mapping
+    category -> applied count, empty when ``dry_run``).
     """
+    retention = policy or RetentionPolicy()
     workspace_root = _gc_resolve_workspace(workspace)
-    plan = _gc_collect_plan(workspace_root)
+    plan = _gc_collect_plan(workspace_root, retention)
     summary: dict[str, int] = {}
     if not dry_run:
         summary = _gc_apply_plan(workspace_root, plan)
         _emit_gc_audit_events(workspace_root, summary)
-    return {"workspace": str(workspace_root), "plan": plan, "summary": summary, "dry_run": dry_run}
+    return {
+        "workspace": str(workspace_root),
+        "policy": retention.as_dict(),
+        "plan": plan,
+        "summary": summary,
+        "dry_run": dry_run,
+    }
 
 
 def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
@@ -664,12 +776,15 @@ def _gc_iter_project_roots(workspace: Path) -> list[Path]:
     return iter_project_catalog_roots(workspace)
 
 
-def _gc_collect_plan(workspace: Path) -> dict[str, list[str]]:
+def _gc_collect_plan(workspace: Path, policy: RetentionPolicy) -> dict[str, list[str]]:
     plan: dict[str, list[str]] = {
         "calibration_sessions": [],
         "geographic_cache": [],
         "tmp_parquet": [],
         "stale_running_sims": [],
+        "superseded_runs": [],
+        "expired_runs": [],
+        "regenerable_figures": [],
         "expired_trash": [],
         "pending_purges": [],
         "orphan_stores": [],
@@ -678,6 +793,10 @@ def _gc_collect_plan(workspace: Path) -> dict[str, list[str]]:
     for project_root in project_roots:
         plan["calibration_sessions"].extend(_gc_orphan_calibration_sessions(project_root))
         plan["stale_running_sims"].extend(_gc_stale_running_simulations(project_root))
+        retention = _gc_retention_candidates(project_root, policy)
+        plan["superseded_runs"].extend(retention["superseded_runs"])
+        plan["expired_runs"].extend(retention["expired_runs"])
+        plan["regenerable_figures"].extend(retention["regenerable_figures"])
         plan["expired_trash"].extend(_gc_expired_trash(project_root))
         plan["pending_purges"].extend(_gc_pending_purges(project_root))
         plan["orphan_stores"].extend(_gc_orphan_stores(project_root))
@@ -713,6 +832,173 @@ def _gc_expired_trash(project_root: Path) -> list[str]:
     finally:
         catalog.close()
     return [f"{project_root.name}:{sid}" for sid in sids]
+
+
+_RETENTION_SKIPPED_STATUSES: frozenset[str] = frozenset({"running", "trashed"})
+"""Statuses no retention rule may touch: a live solve, or an already-trashed run."""
+
+
+@dataclass(frozen=True, slots=True)
+class _RetentionRun:
+    """One live run of a project, reduced to what a retention rule reads."""
+
+    sim_id: str
+    name_stem: str
+    version: int
+    created_at: Any
+    dirname: str | None
+
+
+def _gc_retention_candidates(project_root: Path, policy: RetentionPolicy) -> dict[str, list[str]]:
+    """Return the retention candidates of one project, by plan category.
+
+    Runs are referenced as ``<project>:<sim_id>`` like the other per-run
+    categories; figures are referenced by path. A run tagged
+    :data:`PROTECTED_TAG` never appears, and a run selected as superseded is
+    not listed again as expired.
+    """
+    empty: dict[str, list[str]] = {
+        "superseded_runs": [],
+        "expired_runs": [],
+        "regenerable_figures": [],
+    }
+    if policy.keep_versions is None and policy.max_age_days is None and not policy.purge_figures:
+        return empty
+    runs, protected = _gc_live_runs(project_root)
+    eligible = [run for run in runs if run.sim_id not in protected]
+
+    superseded: list[_RetentionRun] = []
+    if policy.keep_versions is not None:
+        superseded = _gc_superseded_runs(eligible, policy.keep_versions)
+    taken = {run.sim_id for run in superseded}
+
+    expired: list[_RetentionRun] = []
+    if policy.max_age_days is not None:
+        expired = [
+            run for run in _gc_aged_runs(eligible, policy.max_age_days) if run.sim_id not in taken
+        ]
+
+    figures: list[str] = []
+    if policy.purge_figures:
+        figures = _gc_regenerable_figures(project_root, eligible)
+
+    return {
+        "superseded_runs": [f"{project_root.name}:{run.sim_id}" for run in superseded],
+        "expired_runs": [f"{project_root.name}:{run.sim_id}" for run in expired],
+        "regenerable_figures": figures,
+    }
+
+
+def _gc_live_runs(project_root: Path) -> tuple[list[_RetentionRun], set[str]]:
+    """Return the retainable runs of a project and the protected sim_ids."""
+    catalog = _read_only_catalog(project_root)
+    if catalog is None:
+        return [], set()
+    try:
+        frame = catalog.list_simulations(named_only=True)
+        protected = catalog.sims_with_tag(PROTECTED_TAG)
+    except Exception:
+        return [], set()
+    finally:
+        catalog.close()
+
+    runs: list[_RetentionRun] = []
+    for row in frame.to_dict(orient="records"):
+        if str(row.get("status") or "") in _RETENTION_SKIPPED_STATUSES:
+            continue
+        stem = row.get("name_stem") or row.get("name")
+        if not stem:
+            continue
+        dirname = row.get("storage_basename")
+        runs.append(
+            _RetentionRun(
+                sim_id=str(row["sim_id"]),
+                name_stem=str(stem),
+                version=int(row.get("version_int") or 1),
+                created_at=row.get("created_at"),
+                dirname=None if not dirname else str(dirname),
+            )
+        )
+    return runs, {str(sid) for sid in protected}
+
+
+def _gc_superseded_runs(runs: list[_RetentionRun], keep: int) -> list[_RetentionRun]:
+    """Return the runs beyond the ``keep`` newest versions of their lineage.
+
+    A lineage is a ``name_stem``: ``cheze`` and ``cheze.v2`` are two versions
+    of one run, and registration guarantees the version number orders them.
+    """
+    from collections import defaultdict
+
+    by_stem: dict[str, list[_RetentionRun]] = defaultdict(list)
+    for run in runs:
+        by_stem[run.name_stem].append(run)
+    superseded: list[_RetentionRun] = []
+    for _stem, group in sorted(by_stem.items()):
+        if len(group) <= keep:
+            continue
+        newest_first = sorted(group, key=lambda run: run.version, reverse=True)
+        superseded.extend(newest_first[keep:])
+    return superseded
+
+
+def _gc_aged_runs(runs: list[_RetentionRun], max_age_days: int) -> list[_RetentionRun]:
+    """Return the runs created before the age limit."""
+    from datetime import UTC, datetime, timedelta
+
+    cutoff = datetime.now(UTC) - timedelta(days=max_age_days)
+    aged: list[_RetentionRun] = []
+    for run in runs:
+        created = _gc_as_utc(run.created_at)
+        if created is not None and created < cutoff:
+            aged.append(run)
+    return aged
+
+
+def _gc_as_utc(value: Any) -> datetime | None:
+    """Return a timestamp column as a UTC-aware datetime, or None."""
+    from datetime import UTC, datetime
+
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        stamp = value
+    else:
+        try:
+            stamp = datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
+    return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=UTC)
+
+
+def _gc_regenerable_figures(project_root: Path, runs: list[_RetentionRun]) -> list[str]:
+    """Return the non-empty ``figures/`` directories of a project's runs.
+
+    Figures are rendered from the run outputs, so they are the one artefact a
+    project can always rebuild. They are still quarantined rather than
+    deleted, and a directory younger than the staging grace window is left
+    alone in case a report is being written right now.
+    """
+    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
+
+    runs_dir = runs_dir_for(project_root)
+    found: list[str] = []
+    for run in runs:
+        if run.dirname is None:
+            continue
+        figures = runs_dir / run.dirname / RUN_FIGURES_DIRNAME
+        if not figures.is_dir():
+            continue
+        try:
+            if not any(figures.iterdir()):
+                continue
+        except OSError:
+            continue
+        if _gc_recent(figures, _GC_STAGING_MIN_AGE_S):
+            continue
+        found.append(str(figures))
+    return found
 
 
 def _gc_pending_purges(project_root: Path) -> list[str]:
@@ -905,28 +1191,50 @@ def _gc_trash_stamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
-def _gc_quarantine_orphan_store(store: Path, *, stamp: str) -> bool:
-    """Move an orphan run directory to ``<project>/.hmp/trash/<stamp>/``.
+def _gc_quarantine(path: Path, *, project_root: Path, stamp: str, relative: str) -> bool:
+    """Move ``path`` under ``<project>/.hmp/trash/<stamp>/<relative>``.
 
-    An orphan run directory is the only remaining copy of a run's outputs, so
-    gc never deletes one: it quarantines it where a human can inspect it and
-    finally remove it. Returns True when the directory was moved.
+    The single destructive primitive of gc, and it destroys nothing: it moves.
+    A human inspects the quarantine and empties it, or a later sweep expires
+    it. Returns True when the move happened.
     """
     from hydromodpy.core.state.paths import internal_dir
 
-    if not store.exists():
+    if not path.exists():
         return False
-    # Orphan run directories are collected from ``<project>/runs/<name>``.
-    trash_dir = internal_dir(store.parent.parent) / "trash" / stamp
-    destination = trash_dir / store.name
+    destination = internal_dir(project_root) / "trash" / stamp / relative
     try:
-        trash_dir.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(store), str(destination))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(path), str(destination))
     except OSError as exc:
-        logger.warning("gc could not quarantine orphan store %s: %s", store, exc)
+        logger.warning("gc could not quarantine %s: %s", path, exc)
         return False
-    logger.info("gc moved orphan store %s to %s", store.name, trash_dir)
+    logger.info("gc moved %s to %s", path, destination)
     return True
+
+
+def _gc_quarantine_orphan_store(store: Path, *, stamp: str) -> bool:
+    """Quarantine an orphan run directory collected from ``<project>/runs/<name>``.
+
+    An orphan run directory is the only remaining copy of a run's outputs, so
+    gc never deletes one.
+    """
+    return _gc_quarantine(store, project_root=store.parent.parent, stamp=stamp, relative=store.name)
+
+
+def _gc_quarantine_figures(figures: Path, *, stamp: str) -> bool:
+    """Quarantine the ``figures/`` directory of a run, run name kept.
+
+    Collected from ``<project>/runs/<name>/figures``, so the quarantine holds
+    ``<stamp>/<name>/figures`` and says which run the figures came from.
+    """
+    run_dir = figures.parent
+    return _gc_quarantine(
+        figures,
+        project_root=run_dir.parent.parent,
+        stamp=stamp,
+        relative=f"{run_dir.name}/{figures.name}",
+    )
 
 
 def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int]:
@@ -960,6 +1268,11 @@ def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int
     for path_str in plan["orphan_stores"]:
         if _gc_quarantine_orphan_store(Path(path_str), stamp=stamp):
             summary["orphan_stores"] += 1
+    for path_str in plan["regenerable_figures"]:
+        if _gc_quarantine_figures(Path(path_str), stamp=stamp):
+            summary["regenerable_figures"] += 1
+    summary["superseded_runs"] = _gc_apply_retention(workspace, plan["superseded_runs"])
+    summary["expired_runs"] = _gc_apply_retention(workspace, plan["expired_runs"])
     summary["expired_trash"], summary["pending_purges"] = _gc_apply_per_project_purges(
         workspace, plan["expired_trash"], plan["pending_purges"]
     )
@@ -969,6 +1282,36 @@ def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int
     summary["cache_checkpoints"] = _vacuum_checkpoint_data_cache(workspace)
     summary["zarr_consolidated"] = _vacuum_consolidate_zarr_stores(workspace)
     return summary
+
+
+def _gc_apply_retention(workspace: Path, refs: list[str]) -> int:
+    """Move the retention candidates to the project trash, one open per project.
+
+    Reversible by design: :meth:`Catalog.trash` flips the status and stamps
+    ``runs/<name>/trash.json``, so the bytes stay until the trash-expiry rule
+    purges them and ``hmp catalog restore`` undoes the decision until then.
+    """
+    from hydromodpy.results.catalog import Catalog
+
+    by_project: dict[str, list[str]] = {}
+    for ref in refs:
+        project_name, sim_id = ref.split(":", 1)
+        by_project.setdefault(project_name, []).append(sim_id)
+
+    trashed = 0
+    for project_name, sim_ids in sorted(by_project.items()):
+        project_root = _gc_project_root_by_name(workspace, project_name)
+        if project_root is None:
+            continue
+        with Catalog(project_root) as catalog:
+            for sim_id in sim_ids:
+                try:
+                    catalog.trash(sim_id)
+                except Exception as exc:  # noqa: BLE001 - one refusal never stops the sweep
+                    logger.warning("gc could not trash run %s: %s", sim_id[:8], exc)
+                    continue
+                trashed += 1
+    return trashed
 
 
 def _gc_apply_per_project_purges(

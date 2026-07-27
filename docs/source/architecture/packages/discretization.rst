@@ -17,11 +17,11 @@ Sub-modules
 Key public symbols
 ------------------
 
-- ``hydromodpy.discretization.time.TMeshConfig``
+- ``hydromodpy.discretization.time.tmesh_config.TMeshConfig``
 - ``hydromodpy.discretization.time.TmeshGenerator``
 - ``hydromodpy.discretization.time.TimeGrid``
-- ``hydromodpy.discretization.time.load_tmesh_toml``
-- ``hydromodpy.discretization.time.validate_tmesh_config_data``
+- ``hydromodpy.discretization.time.tmesh_config.load_tmesh_toml``
+- ``hydromodpy.discretization.time.tmesh_config.validate_tmesh_config_data``
 
 Layer-matrix neighbours
 -----------------------

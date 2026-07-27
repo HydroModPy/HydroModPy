@@ -26,7 +26,7 @@ package exposes a flat set of verbs and helpers re-exported from
      - Role
    * - ``hmp.open(project_path)``
      - Open a project catalog. Returns a ``Catalog``
-       backed by ``catalog.duckdb`` at the project root. Calls
+       backed by ``.hmp/index.duckdb`` inside the project. Calls
        ``ensure_schema()`` on the underlying backend.
    * - ``hmp.read(run, field, **selectors)``
      - Read a logical field from a ``Run``. Dispatches to a Zarr
@@ -69,7 +69,7 @@ the catalog is always at the version pinned by the library.
 Simulation store Protocol
 -------------------------
 
-Source: ``hydromodpy/results/storage_contract.py``
+Source: ``hydromodpy/results/storage/contract.py``
 (``SimulationStore`` Protocol).
 
 Covers the minimal write/read surface that workflow steps, solver

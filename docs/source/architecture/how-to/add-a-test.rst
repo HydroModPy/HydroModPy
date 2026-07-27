@@ -116,7 +116,7 @@ Unit-test pattern
 .. code-block:: python
 
    # tests/unit/data/test_load_result.py
-   from hydromodpy.data.contracts.results import LoadResult
+   from hydromodpy.data.contracts.load_result import LoadResult
 
 
    def test_load_result_concat(tmp_path):

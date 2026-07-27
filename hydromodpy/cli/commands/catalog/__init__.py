@@ -5,6 +5,8 @@ Sub-actions:
 - ``hmp catalog ls``: list simulations (filterable by solver/catchment/project).
 - ``hmp catalog query "<SQL>"``: run a raw SQL statement against the catalog.
 - ``hmp catalog show <sim_ref>``: show simulation metadata (with ``--detail``).
+- ``hmp catalog point <sim_ref>... --var V``: read a variable in one cell,
+  named by coordinates, cell id or depth, on one or several runs.
 - ``hmp catalog gc``: the one maintenance verb. Plans by default; ``--apply``
   purges expired trash, removes orphan stores, replays interrupted purges,
   marks stale runs failed, and compacts DuckDB + Zarr (absorbed ``vacuum``).
@@ -35,6 +37,7 @@ from hydromodpy.cli.commands.catalog import (
     import_archive,
     ls,
     note,
+    point,
     query,
     reindex,
     rename,
@@ -53,6 +56,7 @@ ACTIONS = (
     ls,
     query,
     show,
+    point,
     gc,
     reindex,
     delete,

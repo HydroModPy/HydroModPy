@@ -15,7 +15,7 @@ given workspace. It is the read-side complement of
 one call, a ready-to-query object.
 
 By default ``create=False``: the call raises ``FileNotFoundError`` when
-no ``catalog.duckdb`` exists at the workspace. Pass ``create=True`` to
+no ``.hmp/index.duckdb`` exists in the project. Pass ``create=True`` to
 initialise an empty catalog.
 
 .. code-block:: python

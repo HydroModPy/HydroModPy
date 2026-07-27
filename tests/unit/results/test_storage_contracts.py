@@ -196,34 +196,6 @@ def test_virtual_seepage_mask_prefers_surface_excess_budget(catalog):
     np.testing.assert_array_equal(mask, np.array([0.0, 1.0]))
 
 
-def test_register_observation_points_stores_simulation_crs(catalog):
-    sid = _sim_id()
-    reg = catalog.register_simulation(
-        sid,
-        project="p",
-        solver="modflow6",
-        n_cells=1,
-        n_layers=1,
-        crs="EPSG:2154",
-    )
-    assert reg.zarr is not None
-    reg.zarr.close()
-    catalog.write_mesh(
-        sid,
-        vertices=np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
-        face_node_connectivity=np.array([[0, 1, 2]], dtype="int32"),
-        z_interfaces=np.array([0.0, -1.0]),
-    )
-
-    catalog.register_observation_points(sid, {"S1": (0.2, 0.2)})
-
-    row = catalog.connection.execute(
-        "SELECT crs_wkt, crs_epsg FROM observation_points WHERE sim_id = ?",
-        [sid],
-    ).fetchone()
-    assert row == ("EPSG:2154", 2154)
-
-
 def test_geographic_feature_uses_parquet_geometry_payload(catalog):
     sid = _sim_id()
     catalog.register_simulation(sid, project="p", solver="modflow6")

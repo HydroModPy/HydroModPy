@@ -71,7 +71,10 @@ print(f"Seepage cells at the last period     : {int(seepage.sum())} / {seepage.s
 
 # hmp.figure is the Python door on the figure registry: same names and
 # options as [display].figures / [display.overrides] in the TOML.
-out_dir = HERE / "figures" / "from_python"
+# Figures belong to the run, exactly where `hmp run` puts them:
+# <project>/runs/<run>/figures/. The project root stays clean.
+with hmp.open(HERE) as catalog:
+    out_dir = catalog.run_dir_for(run.sim_id) / "figures" / "from_python"
 
 hmp.figure(run, "mesh_map", save=out_dir)
 hmp.figure(run, "piezometric_map", save=out_dir)

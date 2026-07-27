@@ -91,7 +91,7 @@ new branch in ``hydromodpy/results/catalog/reads.py``:
 Wire it through the CLI
 -----------------------
 
-The ``hmp export`` command (``hydromodpy/cli/commands/export.py``)
+The ``hmp export`` command (``hydromodpy/cli/commands/catalog/export.py``)
 forwards ``--myfmt`` to the exporter. Add an argument and a dispatch
 branch:
 

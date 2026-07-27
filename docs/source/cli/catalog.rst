@@ -69,6 +69,59 @@ Synopsis: ``hmp catalog watch [--stale-minutes N]``
 Show the runs currently in the ``running`` state with their heartbeat age and a
 ``STALE`` flag when a process died without finalizing.
 
+point
+~~~~~
+
+Synopsis: ``hmp catalog point <ref>... --var NAME [--var NAME] (--xy X Y |
+--cell N) [--layer N | --depth M] [--label NAME] [--timestep N]
+[-o FILE.csv|FILE.parquet] [--format table|json|csv]``
+
+Read the value of a variable in one precise cell of a finished run, after the
+fact. The cell is named in one of three ways:
+
+- ``--xy X Y``: coordinates in the simulation CRS, resolved to the cell that
+  contains them;
+- ``--cell N``: the zero-based cell index, when it is already known;
+- ``--depth M`` (with either of the above): metres below the local model top,
+  which picks the layer from the mesh layer thicknesses. ``--layer N`` sets the
+  layer index directly instead.
+
+The answer is one row per timestep and variable (a single row for a steady
+run), with the resolved ``cell``, ``layer`` and coordinates so the table stays
+self-describing. Virtual fields answer like persisted ones:
+``watertable_depth``, ``watertable_elevation``, ``seepage_mask`` and
+``outflow_drain`` are rebuilt on read.
+
+Passing several references reads the *same* point on each of them and stacks
+the answers, which is the scenario comparison: the ``run`` column tells the
+series apart. Coordinates are resolved per run, since two runs rarely share a
+mesh.
+
+``-o`` writes the table to ``.csv`` or ``.parquet`` (the extension picks the
+format) in addition to printing it.
+
+Example::
+
+   hmp catalog point @last --var head --xy 327816.965 6777886.670
+   hmp catalog point @last --var head --xy 327816.965 6777886.670 --depth 30
+   hmp catalog point @last --var head --var watertable_depth --cell 2550 --timestep -1
+   hmp catalog point cheze_baseline.v2 cheze_baseline.v3 --var head --cell 2550 -o probe.csv
+
+The point-to-cell lookup is cached per mesh, under
+``<project>/.hmp/cache/cell_index/<mesh_hash>.json``. The cache is keyed by the
+geometry fingerprint of the run, so a different mesh never reuses it, and
+deleting it costs only the rebuild.
+
+For a point known before the run, prefer declaring it in ``[observation]``:
+it is then sampled while the run still holds its fields, and reading it back
+is a plain table read (``run.timeseries("head", station="obs:<id>")``) instead
+of a scan of the whole field. See
+:doc:`/user_guide/config_reference/observation`.
+
+The Python form of this action is ``run.probe.series("head", x=..., y=...)``,
+and ``group.probe.series(...)`` on a :class:`~hydromodpy.results.run.group.RunSet`
+for the multi-run comparison.
+
 query
 ~~~~~
 
@@ -162,7 +215,8 @@ are skipped unless ``--force``).
 gc
 ~~
 
-Synopsis: ``hmp catalog gc [--apply]``
+Synopsis: ``hmp catalog gc [--apply] [--keep-versions N|all] [--max-age-days DAYS]
+[--purge-figures]``
 
 Plan, by default, the garbage collection of orphan stores, tmp parquet,
 expired trash, stale ``running`` rows, pending purges and orphan
@@ -171,10 +225,45 @@ inverse of the old destructive default). ``gc --apply`` also compacts the
 DuckDB file and consolidates Zarr metadata, the maintenance formerly
 exposed as the separate ``vacuum`` verb.
 
+Retention policy
+^^^^^^^^^^^^^^^^
+
+Three rules decide how much run history a project keeps. They are prudent by
+default, so a project that never sets them keeps everything but the tail of a
+long lineage:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 16 58
+
+   * - Rule
+     - Default
+     - What it selects
+   * - ``--keep-versions N|all``
+     - ``5``
+     - Every version of one run name beyond the ``N`` newest
+       (``cheze``, ``cheze.v2``, ... is one lineage). ``all`` disables it.
+   * - ``--max-age-days DAYS``
+     - disabled
+     - Runs created more than ``DAYS`` ago.
+   * - ``--purge-figures``
+     - disabled
+     - The ``figures/`` directory of each run, which is rebuildable from the
+       run outputs.
+
+No rule destroys anything. A selected run is moved to the project trash: a
+reversible status flip stamped on disk as ``runs/<name>/trash.json``, undone
+by ``hmp catalog restore``. Its bytes are freed later, by the trash-expiry
+rule, once the retention window has passed. Selected figures are moved to
+``<project>/.hmp/trash/<stamp>/<run>/figures``. A run tagged ``pinned`` is
+exempt from every rule.
+
 Example::
 
-   hmp catalog gc            # plan only
-   hmp catalog gc --apply    # execute the plan
+   hmp catalog gc                                  # plan only, default policy
+   hmp catalog gc --keep-versions 2 --apply        # keep the two newest per lineage
+   hmp catalog gc --max-age-days 365 --apply       # also retire runs older than a year
+   hmp catalog gc --keep-versions all              # inspect the rest, keep every version
 
 reindex
 ~~~~~~~

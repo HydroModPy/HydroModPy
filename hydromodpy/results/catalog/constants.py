@@ -42,13 +42,11 @@ TABLE_NAMES: tuple[str, ...] = (
     "runs_environment",
     "provenance",
     "observations",
-    "observation_points",
     "audit_log",
     "deletions",
     "tracked_files",
     "geographic_features",
     "geographic_metadata",
-    "parquet_files",
     "tags",
     "sim_notes",
     "export_log",
@@ -64,7 +62,6 @@ TABLE_NAMES: tuple[str, ...] = (
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "parameters",
     "metrics",
-    "observation_points",
     "provenance",
     "geographic_features",
     "geographic_metadata",
@@ -73,7 +70,6 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "sim_notes",
     "export_log",
     "tracked_files",
-    "parquet_files",
 )
 
 # Per-simulation Parquet view aliases. Files live at
@@ -86,6 +82,7 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "mass_balance",
     "metrics",
     "provenance",
+    "observation_points",
 )
 
 

@@ -308,7 +308,7 @@ embedding a single component in another workflow.
    from hydromodpy.spatial.geographic import CatchmentDelineation
    from hydromodpy.spatial.domain import Domain
    from hydromodpy.spatial.mesh import HydroMesh
-   from hydromodpy.physics.process import Flow
+   from hydromodpy.physics.flow import Flow
 
 The data managers under ``hydromodpy.data`` can also be called directly to
 fetch a single source (BRGM geology, BD TOPAGE hydrography, Hub'Eau

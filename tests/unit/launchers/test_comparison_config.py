@@ -172,7 +172,7 @@ def test_materialize_simulation_config_writes_base_overlay(tmp_path: Path) -> No
                 'solver = "boussinesq"',
                 "",
                 "[comparison.simulation.overlay.mesh_input]",
-                'bundle_dir = "results_stable/mesh/bundle"',
+                'bundle_dir = "mesh/bundle"',
                 "",
                 "[[comparison.observable]]",
                 'name = "head_cell"',
@@ -195,10 +195,7 @@ def test_materialize_simulation_config_writes_base_overlay(tmp_path: Path) -> No
     raw = load_toml_with_base_config(generated)
     assert raw["simulation"]["name"] == "demo_compare__bouss_demo"
     assert raw["simulation"]["process"][0]["solvers"] == ["boussinesq"]
-    assert (
-        raw["mesh_input"]["bundle_dir"]
-        == (tmp_path / "results_stable" / "mesh" / "bundle").resolve().as_posix()
-    )
+    assert raw["mesh_input"]["bundle_dir"] == (tmp_path / "mesh" / "bundle").resolve().as_posix()
 
 
 def test_materialize_simulation_config_applies_shared_base_overlay_and_default_workspace(

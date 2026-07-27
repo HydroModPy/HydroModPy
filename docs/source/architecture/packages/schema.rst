@@ -55,7 +55,7 @@ CLI bindings
 - ``hmp schema validate-field <path> <value>`` -> JSON
   ``ValidationResult``.
 
-Both subcommands live under ``hydromodpy/cli/commands/schema.py``.
+Both subcommands live under ``hydromodpy/cli/commands/dev/schema.py``.
 
 Recommended reading path
 ------------------------

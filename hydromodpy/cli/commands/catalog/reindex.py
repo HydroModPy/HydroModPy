@@ -24,8 +24,12 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Read every sealed run under runs/ and every calibration session under "
             "sessions/, and rebuild .hmp/index.duckdb from them. The current index "
             "stays readable until the new one is published in one atomic step, and "
-            "rebuilding twice yields the same index. What no directory carries is not "
-            "rebuilt: audit history, export log and run-time tracked files."
+            "rebuilding twice yields the same index. What no run directory carries is "
+            "not rebuilt, and is lost: the audit log and its hash chain (a fresh chain "
+            "starts), the deletion tombstones, the export log, the workflow journal and "
+            "its event stream (an interrupted run can no longer be resumed), and the "
+            "observation series with their stations (re-ingested by the next run from "
+            "the data files the config declares)."
         ),
         epilog="Example:\n  hmp catalog reindex",
         formatter_class=argparse.RawDescriptionHelpFormatter,

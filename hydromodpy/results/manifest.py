@@ -12,10 +12,10 @@ Files written here, in order
 ----------------------------
 1. ``tables.parquet/parameters.parquet`` - the run parameters, tabular.
 2. ``provenance.json`` - tool, git, python, platform, packages, solver, timing.
-3. ``manifest.json`` - identity, geometry, period, config fingerprint, artefact
-   list, parameters, metric summary. Written **last** and **atomically**
-   (``manifest.json.tmp-<uuid>`` then ``os.replace``), so a run directory
-   without a manifest is, by construction, an incomplete run.
+3. ``manifest.json`` - identity, geometry, period, config fingerprint, input
+   list, artefact list, parameters, metric summary. Written **last** and
+   **atomically** (``manifest.json.tmp-<uuid>`` then ``os.replace``), so a run
+   directory without a manifest is, by construction, an incomplete run.
 
 ``config.toml`` is not written here: the workflow freezes it into the run
 directory at registration time (``workflow.steps.prepare_solver.dispatch
@@ -52,6 +52,7 @@ geographic_metadata.dem_res / nrow / ncol        results.grid, mf6 extractor   M
 geographic_metadata.crs_proj / epsg              results.grid                  M ``geometry.catchment``
 parameters.*                                     Run.params, calibration       tables.parquet/parameters; M
 metrics.*                                        calibration, reporting        tables.parquet/metrics; M ``metrics``
+tracked_files.*                                  .hmp packaging, data reuse    M ``inputs``
 runs_environment.*                               provenance, reports           P
 timeseries / budgets / mass_balance / provenance readers everywhere            tables.parquet/<view>.parquet
 geographic_features.*                            watershed and river figures   tables.parquet/geographic_*.parquet
@@ -61,6 +62,15 @@ Losing ``catch_area`` or the outlet is the dangerous case: discharge derived
 from runoff is scaled by the catchment area, so a missing area yields a
 silently wrong series rather than an error. They are therefore mandatory
 members of the manifest geometry block whenever the run recorded them.
+
+The ``inputs`` block answers the other provenance question: *which data fed
+this run*. Every file the configuration declares as an input is walked at
+setup time (``core.tracking.collect_input_files``), hashed, and stored in
+``tracked_files``; the seal copies path, digest, size and origin into the
+manifest, so the run directory carries its own input provenance and needs
+neither the index nor the project lockfile to state it. The lockfile answers
+a wider question - the state of the whole data cache before a run - and is
+kept for that (see :mod:`hydromodpy.project.lockfile`).
 
 Known gap: ``tags`` and ``sim_notes`` are annotations, mutable after the run
 ends; they are not part of the seal and belong to the annotation sidecar.
@@ -378,6 +388,7 @@ def build_manifest(catalog: Catalog, sim_id: str | UUID) -> dict[str, Any]:
             "hash": row.get("config_hash"),
             "source": row.get("config_source"),
         },
+        "inputs": _manifest_inputs(catalog, sid),
         "artifacts": list_artifacts(run_dir),
         "parameters": _manifest_parameters(catalog, sid),
         "metrics": _manifest_metrics(catalog, sid),
@@ -404,16 +415,17 @@ def write_manifest(catalog: Catalog, sim_id: str | UUID) -> Path:
 
 
 def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
-    """Inventory the run directory: relative path, role and format of each item.
+    """Inventory the run directory: relative path, role, format and size of each item.
 
     Directories that are stores in their own right (``fields.zarr``) are listed
-    as one entry, not walked. Sizes are reported for files only: hashing or
-    walking a multi-gigabyte Zarr at seal time would cost more than the index
-    it replaces. The manifest lists itself, without a size, since it cannot
-    know its own length before it is written. ``annotations.json`` and
-    ``trash.json`` are left out entirely: both change after the seal, so any
-    size recorded for them would be wrong by the next ``hmp catalog tag`` or
-    ``hmp catalog trash``.
+    as one entry, not walked, but their ``bytes`` is the sum of the files they
+    hold: the field store is the heaviest thing a run owns, and a manifest that
+    sizes only the small files cannot answer *what does this run weigh*. The
+    walk costs a stat per chunk, under a millisecond for a typical store. The
+    manifest lists itself, without a size, since it cannot know its own length
+    before it is written. ``annotations.json`` and ``trash.json`` are left out
+    entirely: both change after the seal, so any size recorded for them would
+    be wrong by the next ``hmp catalog tag`` or ``hmp catalog trash``.
     """
     entries: list[dict[str, Any]] = [
         {"path": RUN_MANIFEST_FILENAME, "role": "manifest", "format": "json"}
@@ -423,7 +435,14 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
         if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME, RUN_TRASH_FILENAME):
             continue
         if name == FIELDS_STORE_NAME:
-            entries.append({"path": name, "role": "fields", "format": "zarr"})
+            entries.append(
+                {
+                    "path": name,
+                    "role": "fields",
+                    "format": "zarr",
+                    "bytes": _directory_bytes(path),
+                }
+            )
         elif name == TABLES_DIRNAME and path.is_dir():
             entries.extend(_table_artifacts(run_dir, path))
         elif name == RUN_FIGURES_DIRNAME and path.is_dir():
@@ -437,7 +456,32 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
                     "bytes": path.stat().st_size,
                 }
             )
+        elif path.is_dir():
+            entries.append(
+                {
+                    "path": name,
+                    "role": "other",
+                    "format": "directory",
+                    "bytes": _directory_bytes(path),
+                }
+            )
     return entries
+
+
+def _directory_bytes(directory: Path) -> int:
+    """Return the total size of the files under ``directory``, recursively.
+
+    Unreadable entries count as zero: a size is inventory, never a reason for a
+    seal to fail.
+    """
+    total = 0
+    for dirpath, _dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            try:
+                total += os.stat(os.path.join(dirpath, filename)).st_size
+            except OSError:
+                continue
+    return total
 
 
 def _table_artifacts(run_dir: Path, tables_dir: Path) -> list[dict[str, Any]]:
@@ -611,6 +655,33 @@ def _manifest_parameters(catalog: Catalog, sid: str) -> list[dict[str, Any]]:
             "parameterization": record["parameterization"],
         }
         for record in _parameter_records(catalog, sid)
+    ]
+
+
+def _manifest_inputs(catalog: Catalog, sid: str) -> list[dict[str, Any]]:
+    """Return the input files this run consumed: path, digest, size, origin.
+
+    Read from ``tracked_files``, which the setup step fills from the
+    configuration tree. ``path`` is the workspace-encoded location the run
+    actually read, ``declared_path`` the value written in the configuration,
+    and ``role`` / ``category`` say what the file was used for.
+    """
+    rows = catalog.backend.fetch_all(
+        "SELECT role, category, original_path, canonical_path, sha256, size_bytes, portable "
+        "FROM tracked_files WHERE sim_id = ? ORDER BY role, canonical_path",
+        [sid],
+    )
+    return [
+        {
+            "role": str(row[0]),
+            "category": str(row[1]),
+            "path": str(row[3]),
+            "declared_path": str(row[2]),
+            "sha256": str(row[4]),
+            "bytes": _int_or_none(row[5]),
+            "portable": bool(row[6]),
+        }
+        for row in rows
     ]
 
 

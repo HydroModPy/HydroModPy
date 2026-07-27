@@ -30,7 +30,7 @@ Case Setup
 
 - Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.
 - Primary editable file: `examples/projects/04_data_overview/project.toml`.
-- Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout.
+- Committed figures are mirrored under `examples/projects/09_capability_gallery/geographic/` so the doc build stays reproducible without a local run tree.
 
 What It Shows
 -------------

@@ -25,7 +25,6 @@ from hydromodpy.display.figures.particle_tracks import (
 
 HERE = Path(__file__).resolve().parent
 CONFIG = HERE / "project.toml"
-OUT = HERE / "figures" / "from_python"
 
 # %% ---- RUN
 
@@ -47,13 +46,20 @@ travel_years = travel_years[np.isfinite(travel_years) & (travel_years > 0)]
 # %% ---- RESIDENCE-TIME DISTRIBUTION
 
 print(f"\nParticles tracked      : {len(tracks)}")
-print(f"Travel time (years)    : "
-      f"median {np.median(travel_years):.1f}, "
-      f"p10 {np.quantile(travel_years, 0.10):.1f}, "
-      f"p90 {np.quantile(travel_years, 0.90):.1f}, "
-      f"max {travel_years.max():.1f}")
+print(
+    f"Travel time (years)    : "
+    f"median {np.median(travel_years):.1f}, "
+    f"p10 {np.quantile(travel_years, 0.10):.1f}, "
+    f"p90 {np.quantile(travel_years, 0.90):.1f}, "
+    f"max {travel_years.max():.1f}"
+)
 
 # %% ---- RENDER FIGURES
+
+# Figures belong to the run, exactly where `hmp run` puts them:
+# <project>/runs/<run>/figures/. The project root stays clean.
+with hmp.open(HERE) as catalog:
+    OUT = catalog.run_dir_for(run.sim_id) / "figures" / "from_python"
 
 hmp.figure(run, "particle_tracks", save=OUT)
 hmp.figure(run, "cross_section", save=OUT, orientation="we")

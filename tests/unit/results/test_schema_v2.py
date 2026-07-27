@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.migrations import discover_migrations, target_version
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 # Tables we expect after migration 0001 has applied.
@@ -41,14 +42,12 @@ _EXPECTED_TABLES: frozenset[str] = frozenset(
         "runs_environment",
         "provenance",
         "observations",
-        "observation_points",
         # Cross-cutting
         "audit_log",
         "deletions",
         "tracked_files",
         "geographic_features",
         "geographic_metadata",
-        "parquet_files",
         "tags",
         "stations",
         # Calibration
@@ -189,15 +188,6 @@ def test_deletions_tombstone_table(catalog: Catalog) -> None:
     assert "sha256_snapshot" in cols
 
 
-def test_parquet_files_manifest_columns(catalog: Catalog) -> None:
-    """``parquet_files`` manifest exposes path / view / sha / written_at."""
-    cols = _columns(catalog, "parquet_files")
-    assert "path" in cols
-    assert "view_name" in cols
-    assert "sha256" in cols
-    assert "written_at" in cols
-
-
 def test_tracked_files_canonical_path_column(catalog: Catalog) -> None:
     """``tracked_files`` carries ``canonical_path`` for workspace-relative storage."""
     cols = _columns(catalog, "tracked_files")
@@ -300,18 +290,18 @@ def test_metric_definitions_seeded(catalog: Catalog) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_version_records_catalog_v1(catalog: Catalog) -> None:
+def test_schema_version_records_the_bundled_catalog_version(catalog: Catalog) -> None:
     """``_schema_version`` carries the latest catalog migration after init."""
     rows = catalog.connection.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert ("catalog", 1) in rows
+    assert ("catalog", target_version()) in rows
 
 
 def test_schema_migrations_records_all_known_migrations(catalog: Catalog) -> None:
-    """``schema_migrations`` records the single consolidated schema."""
+    """``schema_migrations`` records every bundled migration, in order."""
     rows = catalog.connection.execute(
         "SELECT version, slug FROM schema_migrations ORDER BY version"
     ).fetchall()
-    assert rows == [(1, "initial")]
+    assert rows == [(m.version, m.slug) for m in discover_migrations()]
 
 
 def test_workflow_steps_has_artifact_uris_column(catalog: Catalog) -> None:
@@ -338,7 +328,7 @@ def test_double_init_is_idempotent(tmp_path: Path) -> None:
     cat2.close()
 
     assert tables_a == tables_b
-    assert rows[0] == 1, "schema_migrations should record the single consolidated schema"
+    assert rows[0] == target_version(), "every bundled migration is recorded exactly once"
     assert version_rows[0] == 1
 
 

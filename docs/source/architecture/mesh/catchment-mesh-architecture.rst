@@ -9,15 +9,15 @@ Gmsh meshing core.
 Code map
 --------
 
-- ``hydromodpy/spatial/mesh/runtime.py``: public mono-catchment entry
+- ``hydromodpy/spatial/mesh/launcher/runtime.py``: public mono-catchment entry
   point. Called by ``Project.build_mesh()``.
-- ``hydromodpy/spatial/mesh/hydro_mesh.py``: concrete ``HydroMesh``
+- ``hydromodpy/spatial/mesh/model/hydro_mesh.py``: concrete ``HydroMesh``
   runtime object behind the public facade.
-- ``hydromodpy/spatial/mesh/batch.py``: batch orchestration and
+- ``hydromodpy/spatial/mesh/launcher/batch.py``: batch orchestration and
   manifest handling.
-- ``hydromodpy/spatial/mesh/batch_io.py`` and ``batch_reporting.py``:
+- ``hydromodpy/spatial/mesh/launcher/batch_io.py`` and ``batch_reporting.py``:
   IO and reporting helpers used by ``batch.py``.
-- ``hydromodpy/spatial/mesh/config.py``: Pydantic configuration
+- ``hydromodpy/spatial/mesh/config/``: Pydantic configuration
   schema (``[mesh_catchment]`` block).
 - ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/``: conformal
   meshing core and export helpers.
@@ -26,11 +26,11 @@ Code map
 
 Recommended reading path:
 
-1. ``hydromodpy/spatial/mesh/runtime.py``
-2. ``hydromodpy/spatial/mesh/hydro_mesh.py``
+1. ``hydromodpy/spatial/mesh/launcher/runtime.py``
+2. ``hydromodpy/spatial/mesh/model/hydro_mesh.py``
 3. ``hydromodpy/spatial/mesh/gmsh_grid/runtime_support.py``
 4. ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/conformal.py``
-5. ``hydromodpy/spatial/mesh/batch.py`` and ``config.py``
+5. ``hydromodpy/spatial/mesh/launcher/batch.py`` and ``config.py``
 
 Package components
 ------------------

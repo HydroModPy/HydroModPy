@@ -27,6 +27,11 @@
 -- Categorical columns use CHECK constraints as lightweight enums. Widening a
 -- vocabulary is a one-line edit here (no table rebuild) since catalogs are
 -- recreated.
+--
+-- A table is declared only once code writes it. A table nothing fills is a
+-- promise the disk cannot keep: the index is rebuilt from the run directories
+-- (``hmp catalog reindex``), so state with no home on disk comes back empty
+-- and silently loses whatever a user had put there.
 -- =====================================================================
 
 
@@ -403,24 +408,6 @@ CREATE INDEX ix_observations_datetime ON observations(datetime);
 CREATE INDEX ix_obs_valid_from        ON observations(valid_from DESC);
 
 -- =====================================================================
--- observation_points (per-sim virtual observation cells)
--- =====================================================================
-
-CREATE TABLE observation_points (
-    sim_id     UUID NOT NULL,
-    station_id VARCHAR NOT NULL,
-    x          DOUBLE NOT NULL,
-    y          DOUBLE NOT NULL,
-    cell_id    INTEGER NOT NULL,
-    layer      INTEGER NOT NULL DEFAULT 0,
-    crs_wkt    VARCHAR NOT NULL,
-    crs_epsg   INTEGER,
-    PRIMARY KEY (sim_id, station_id)
-);
-
-CREATE INDEX ix_obs_points_cell ON observation_points(sim_id, cell_id);
-
--- =====================================================================
 -- audit_log (event sourcing + SHA-256 hash chain)
 --   ``seq`` is the monotonic insertion order used to build and verify the
 --   chain (occurred_at is frozen per transaction and cannot order rows that
@@ -525,23 +512,6 @@ CREATE TABLE geographic_metadata (
     unit       VARCHAR,
     PRIMARY KEY (sim_id, key)
 );
-
--- =====================================================================
--- parquet_files (workspace-relative Parquet manifest)
--- =====================================================================
-
-CREATE TABLE parquet_files (
-    sim_id     UUID NOT NULL,
-    path       VARCHAR NOT NULL,
-    view_name  VARCHAR NOT NULL,
-    n_rows     BIGINT,
-    bytes      BIGINT,
-    sha256     VARCHAR,
-    written_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
-    PRIMARY KEY (sim_id, view_name)
-);
-
-CREATE INDEX ix_parquet_files_path ON parquet_files(path);
 
 -- =====================================================================
 -- tags (sim-level free-form labels)

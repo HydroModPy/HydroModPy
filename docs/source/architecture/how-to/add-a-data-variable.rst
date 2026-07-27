@@ -55,9 +55,9 @@ Manager skeleton
    # hydromodpy/data/variables/newvar/manager.py
    from typing import ClassVar
 
-   from hydromodpy.data.base_manager_variable import BaseVariableManager
-   from hydromodpy.data.contracts.records import PointRecord
-   from hydromodpy.data.contracts.results import LoadResult
+   from hydromodpy.data.managers.base_manager_variable import BaseVariableManager
+   from hydromodpy.data.contracts.timeseries import PointRecord
+   from hydromodpy.data.contracts.load_result import LoadResult
 
 
    class NewvarManager(BaseVariableManager):
@@ -121,31 +121,29 @@ The matching Pydantic models:
        date_end: Annotated[str | None, Profile.USER] = None
        sources: list[NewvarSourceConfig] = Field(default_factory=list)
 
-Source registry
----------------
+Source modules
+--------------
 
-Each public API source registers itself through
-``hydromodpy/data/sources.py``:
+There is no source registry. Each public API source is a plain module
+exposing a ``fetch`` function:
 
 .. code-block:: python
 
    # hydromodpy/data/variables/newvar/apis/myapi.py
-   from hydromodpy.data.sources import register_source
+   from hydromodpy.data.contracts.timeseries import PointRecord
 
 
-   @register_source(variable_type="newvar", source_name="myapi")
-   class NewvarMyApiSource:
-       def fetch(self, source_cfg, context) -> "LoadResult":
-           ...
+   def fetch(station_ids, start, end) -> list[PointRecord]:
+       ...
 
-The decorator binds the ``(variable_type, source_name)`` pair so
-``NewvarManager._fetch_from_source`` can resolve it through
-``get_source(variable_type, source_name)``.
+``NewvarManager._fetch_from_source`` dispatches on
+``source_cfg.source`` and imports the module lazily inside the matching
+branch. See :doc:`add-a-data-source` for the full wiring.
 
 Wire it into the planner
 ------------------------
 
-``DataPlanner`` (``hydromodpy/data/planner.py``) merges the
+``DataPlanner`` (``hydromodpy/data/managers/planner.py``) merges the
 ``[data].types`` list with rules that infer extra families from other
 sections (geology if the domain references "geology", hydrography if
 the flow uses ``"stream"`` boundary conditions, etc.). If your
@@ -162,7 +160,7 @@ Otherwise the user activates it explicitly:
 Wire it into ``HydroModPyConfig``
 ---------------------------------
 
-In ``hydromodpy/data/data_managers_config.py`` (or the equivalent
+In ``hydromodpy/data/managers/config_schema.py`` (or the equivalent
 discriminated union), add ``NewvarConfig`` so ``[data.newvar]``
 parses cleanly.
 

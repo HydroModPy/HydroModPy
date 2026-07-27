@@ -47,9 +47,8 @@ Delivery status
        fails if any of them reappears.
    * - Not in place
      - Reading one variable at one cell; declaring observation points
-       outside calibration; a retention policy for live runs; a
-       per-run replacement for the root ``hydromodpy.lock``. See
-       `What is not in place`_.
+       outside calibration; an ``audit_log`` retention that keeps the
+       hash chain verifiable. See `What is not in place`_.
 
 Project layout
 --------------
@@ -73,7 +72,7 @@ Layout of a project root, as written today:
        |-- checkpoints/     resolved workflow manifests, for resume
        |-- running/         live-run heartbeat sidecars
        |-- scratch/         solver working directory
-       `-- trash/           orphan stores quarantined by gc
+       `-- trash/           orphan stores and figures quarantined by gc
 
 ``runs/``, ``sessions/``, ``share/`` and ``.hmp/`` are ignored by git.
 
@@ -267,10 +266,10 @@ consequence is part of the contract.
      - the record of which artefacts were published under ``share/`` is
        lost. The artefacts themselves stay on disk.
    * - ``tracked_files``
-     - the portable file inventory of a run is lost, so
-       ``entry.used_by()`` stops linking a cache entry back to its runs.
-       The files stay on disk and the manifest still lists them under
-       ``artifacts[]``.
+     - nothing is lost: the manifest of each run carries its input list
+       under ``inputs[]`` (path, ``sha256``, size, role), and the rebuild
+       reinserts it, so ``entry.used_by()`` keeps linking a cache entry
+       back to its runs.
    * - ``observation_points``
      - the cell mapping of observation stations is lost. It is recorded
        at run time only.
@@ -288,11 +287,12 @@ consequence is part of the contract.
        purge is not replayed; the leftover directory becomes an orphan
        that ``gc`` reports.
 
-Two bookkeeping columns have no home on disk:
-``runs_environment.recorded_at`` and ``provenance.valid_from``. The
-rebuild dates them from the seal time of their run
-(``manifest.json``, ``sealed_at``) rather than from the wall clock, so a
-rebuild stays reproducible instead of stamping itself into the data.
+Three bookkeeping columns have no home on disk:
+``runs_environment.recorded_at``, ``tracked_files.recorded_at`` and
+``provenance.valid_from``. The rebuild dates them from the seal time of
+their run (``manifest.json``, ``sealed_at``) rather than from the wall
+clock, so a rebuild stays reproducible instead of stamping itself into
+the data.
 
 Class 3: input
 ~~~~~~~~~~~~~~
@@ -510,9 +510,10 @@ Tables of the project index. The authoritative DDL is
      - ``session_id``, ``iteration``, ``sim_id``, ``params_hash``,
        ``parameters`` (JSON), ``objective_value``
    * - ``tracked_files``
-     - losable
+     - reconstructible
      - ``sim_id``, ``role``, ``category``, ``original_path``,
-       ``canonical_path``, ``sha256``, ``size_bytes``
+       ``canonical_path``, ``sha256``, ``size_bytes``, from the
+       ``inputs[]`` block of ``manifest.json``
    * - ``observation_points``
      - losable
      - ``sim_id``, ``station_id``, ``x``, ``y``, ``cell_id``,
@@ -533,16 +534,13 @@ Tables of the project index. The authoritative DDL is
        ``mesh_topologies``, ``dim_*``, ``metric_definitions``,
        ``retention_policies``
      - dimension
-     - static vocabularies seeded by the DDL. ``retention_policies``
-       sweeps ``audit_log`` only
+     - static vocabularies seeded by the DDL. ``retention_policies`` is
+       the exception: declared, read by ``hmp audit prune``, seeded by
+       nothing
    * - ``schema_migrations``
      - dimension
      - one row per applied migration: ``version``, ``component``,
        ``slug``, ``checksum``, ``applied_at``
-   * - ``parquet_files``
-     - unused
-     - declared by the DDL as a per-run Parquet manifest, written by no
-       code path today
 
 Views. ``v_workflow_heartbeats`` comes from the DDL.
 ``v_simulation_summary`` (the view the machine index federates),
@@ -650,14 +648,12 @@ Stated here so that nothing above is read as a promise.
   filled by a calibration run. There is no config section that declares
   them, and the table has no home on disk, so a rebuild would drop them
   anyway. Both gaps have to close together.
-- **Retention for runs.** ``retention_policies`` only sweeps
-  ``audit_log``. ``hmp catalog gc`` expires the trash and quarantines
-  orphan stores; it has no notion of keeping the last N runs or expiring
-  a live run by age. Disk grows until a human deletes something.
-- **Per-run lockfile.** ``hydromodpy.lock`` is a project-root file
-  shared by every run. The manifest does not carry the input entry list,
-  so removing the lockfile today would lose the only per-project input
-  provenance outside ``provenance.parquet``.
+- **Audit retention.** ``retention_policies`` is declared by the DDL and
+  read by ``hmp audit prune``, but no code ever fills it, so the sweep is
+  a no-op. Filling it is not a one-line seed: ``audit_log`` is a
+  hash-chained ledger and ``hmp audit verify`` replays it in ``seq``
+  order, so deleting old rows invalidates the chain. Either the table and
+  the ``prune`` verb go, or pruning learns to re-anchor the chain.
 
 See also
 --------

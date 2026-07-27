@@ -10,7 +10,7 @@ Sub-modules
 
 - ``results/catalog/`` -- ``Catalog`` facade plus
   read / write mixins. One DuckDB file per project
-  (``catalog.duckdb``); see :doc:`/architecture/storage-layout`.
+  (``.hmp/index.duckdb``); see :doc:`/architecture/storage-layout`.
 - ``results/catalog/ports.py`` -- :class:`CatalogBackend` Protocol
   (Ports and Adapters port) consumed by every catalog operation.
 - ``results/catalog/adapters/`` -- ``DuckDBBackend`` in-tree adapter.
@@ -68,7 +68,7 @@ Catalog operations
 
 - ``hmp.open(project_path)`` -- single catalog door. Default
   ``create=False`` raises ``FileNotFoundError`` when no
-  ``catalog.duckdb`` exists; pass ``create=True`` to initialise an
+  ``.hmp/index.duckdb`` exists; pass ``create=True`` to initialise an
   empty one.
 - ``find(**filters)`` -- one return type (a ``RunSet``);
   raises ``ValueError`` listing valid filters on an unknown key.
@@ -121,7 +121,7 @@ Recommended reading path
 3. ``hydromodpy/results/catalog/adapters/duckdb.py`` (in-tree
    implementation).
 4. ``hydromodpy/results/catalog/facade.py`` (``Catalog``).
-5. ``hydromodpy/results/run.py`` (``Run`` facade).
+5. ``hydromodpy/results/run/view.py`` (``Run`` facade).
 6. ``hydromodpy/results/field_registry.py`` for the field dispatch
    used by ``hmp.read``.
 7. ``hydromodpy/results/exporters/csv.py`` for an exporter

@@ -234,7 +234,9 @@ def test_manifest_inventories_every_artefact_of_the_run(sealed_run):
     run_dir, manifest = sealed_run
     by_path = {entry["path"]: entry for entry in manifest["artifacts"]}
 
-    assert by_path["fields.zarr"] == {"path": "fields.zarr", "role": "fields", "format": "zarr"}
+    fields = by_path["fields.zarr"]
+    assert fields["role"] == "fields"
+    assert fields["format"] == "zarr"
     assert by_path[RUN_MANIFEST_FILENAME]["role"] == "manifest"
     assert by_path[RUN_PROVENANCE_FILENAME]["role"] == "provenance"
     assert by_path[RUN_CONFIG_FILENAME]["role"] == "config"
@@ -248,6 +250,39 @@ def test_manifest_inventories_every_artefact_of_the_run(sealed_run):
     assert listed, "the inventory must not be empty"
     for relative in listed:
         assert (run_dir / relative).exists()
+
+
+def test_the_field_store_is_weighed_like_any_other_artefact(sealed_run):
+    """``fields.zarr`` is a directory; the manifest must still say what it weighs."""
+    run_dir, manifest = sealed_run
+    entry = next(e for e in manifest["artifacts"] if e["role"] == "fields")
+
+    on_disk = sum(p.stat().st_size for p in (run_dir / "fields.zarr").rglob("*") if p.is_file())
+    assert on_disk > 0
+    assert entry["bytes"] == on_disk
+
+
+def test_the_inventory_accounts_for_the_whole_run_directory(sealed_run):
+    """Every byte of the run directory is inventoried, bar the unsized manifest."""
+    run_dir, manifest = sealed_run
+    inventoried = sum(entry.get("bytes", 0) for entry in manifest["artifacts"])
+
+    on_disk = sum(p.stat().st_size for p in run_dir.rglob("*") if p.is_file())
+    assert inventoried == on_disk - (run_dir / RUN_MANIFEST_FILENAME).stat().st_size
+
+
+def test_an_unexpected_directory_is_inventoried_rather_than_dropped(tmp_path):
+    with Catalog(tmp_path / "project") as catalog:
+        _register(catalog)
+        extra = catalog.run_dir_for(SID) / "solver_workdir"
+        extra.mkdir(parents=True)
+        (extra / "mfsim.lst").write_bytes(b"listing")
+        catalog.finalize(SID, status="completed")
+        manifest = read_manifest(catalog.run_dir_for(SID))
+
+    entry = next(e for e in manifest["artifacts"] if e["path"] == "solver_workdir")
+    assert entry["format"] == "directory"
+    assert entry["bytes"] == len(b"listing")
 
 
 def test_figures_of_the_run_are_inventoried(tmp_path):
@@ -405,3 +440,57 @@ def test_manifest_can_be_rebuilt_without_writing_it(tmp_path):
     assert rebuilt["run"] == on_disk["run"]
     assert rebuilt["geometry"] == on_disk["geometry"]
     assert rebuilt["parameters"] == on_disk["parameters"]
+
+
+# -- inputs -----------------------------------------------------------------
+
+
+def _track_dem(catalog: Catalog, tmp_path, sid: str = SID) -> bytes:
+    """Register one tracked input file, like the setup step does at run time."""
+    from hydromodpy.core.tracking import TrackedFileEntry
+
+    payload = b"elevation"
+    dem = tmp_path / "inputs" / "dem.tif"
+    dem.parent.mkdir(parents=True, exist_ok=True)
+    dem.write_bytes(payload)
+    catalog.register_tracked_files(
+        sid,
+        [
+            TrackedFileEntry(
+                role="dem",
+                category="raster",
+                original_path="inputs/dem.tif",
+                canonical_path=dem,
+                portable=True,
+            )
+        ],
+    )
+    return payload
+
+
+def test_manifest_records_the_input_files_the_run_consumed(tmp_path):
+    """The run says what fed it: path, digest, size and origin of every input."""
+    import hashlib
+    from pathlib import Path
+
+    with Catalog(tmp_path / "project") as catalog:
+        _register(catalog)
+        _populate(catalog)
+        payload = _track_dem(catalog, tmp_path)
+        catalog.finalize(SID, status="completed", duration_s=1.0)
+        run_dir = catalog.run_dir_for(SID)
+
+    (entry,) = read_manifest(run_dir)["inputs"]
+    assert entry["role"] == "dem"
+    assert entry["category"] == "raster"
+    assert entry["declared_path"] == "inputs/dem.tif"
+    assert Path(entry["path"]).name == "dem.tif"
+    assert entry["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert entry["bytes"] == len(payload)
+    assert entry["portable"] is True
+
+
+def test_a_run_declaring_no_input_seals_an_empty_input_list(sealed_run):
+    _run_dir, manifest = sealed_run
+
+    assert manifest["inputs"] == []

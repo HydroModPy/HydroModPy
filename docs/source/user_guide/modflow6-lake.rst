@@ -327,7 +327,7 @@ per-step callback. Read the solved lake stage at the end of each timestep.
 
 .. code-block:: python
 
-   from hydromodpy.solver.modflow6.api_runner import Mf6ApiContext, Mf6ApiStep
+   from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext, Mf6ApiStep
 
    def on_step(ctx: Mf6ApiContext) -> None:
        if ctx.step is Mf6ApiStep.timestep_end:
