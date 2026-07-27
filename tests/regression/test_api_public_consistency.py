@@ -36,7 +36,6 @@ _DIRECT_EXPORTS = frozenset(
         "index",
         "compare_pair",
         "report",
-        "audit_prune",
         "doctor",
         "bootstrap_proj",
         "log_manager",

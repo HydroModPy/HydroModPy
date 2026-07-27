@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import run as run_cmd
+from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
@@ -107,3 +108,18 @@ def test_run_without_config_or_resume_errors(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exc:
         run_cmd.run(_args(config=None, resume=None))
     assert exc.value.code != 0
+
+
+def test_force_is_rejected_outside_the_simulation_workflow(tmp_path, monkeypatch, capsys):
+    """Only the simulation workflow skips an identical run, so only it accepts --force."""
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    config = workspace / "overview.toml"
+    config.write_text('[workflow]\nmode = "overview"\n', encoding="utf-8")
+    monkeypatch.chdir(workspace)
+
+    with pytest.raises(SystemExit) as exit_info:
+        run_cmd._run_toml(config, args=_args(resume=None, force=True, dry_run=False))
+
+    assert exit_info.value.code == EXIT_CONFIG
+    assert "--force is only supported for the 'simulation' workflow" in capsys.readouterr().err

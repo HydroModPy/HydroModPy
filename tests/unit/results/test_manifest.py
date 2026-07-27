@@ -234,7 +234,9 @@ def test_manifest_inventories_every_artefact_of_the_run(sealed_run):
     run_dir, manifest = sealed_run
     by_path = {entry["path"]: entry for entry in manifest["artifacts"]}
 
-    assert by_path["fields.zarr"] == {"path": "fields.zarr", "role": "fields", "format": "zarr"}
+    fields = by_path["fields.zarr"]
+    assert fields["role"] == "fields"
+    assert fields["format"] == "zarr"
     assert by_path[RUN_MANIFEST_FILENAME]["role"] == "manifest"
     assert by_path[RUN_PROVENANCE_FILENAME]["role"] == "provenance"
     assert by_path[RUN_CONFIG_FILENAME]["role"] == "config"
@@ -248,6 +250,39 @@ def test_manifest_inventories_every_artefact_of_the_run(sealed_run):
     assert listed, "the inventory must not be empty"
     for relative in listed:
         assert (run_dir / relative).exists()
+
+
+def test_the_field_store_is_weighed_like_any_other_artefact(sealed_run):
+    """``fields.zarr`` is a directory; the manifest must still say what it weighs."""
+    run_dir, manifest = sealed_run
+    entry = next(e for e in manifest["artifacts"] if e["role"] == "fields")
+
+    on_disk = sum(p.stat().st_size for p in (run_dir / "fields.zarr").rglob("*") if p.is_file())
+    assert on_disk > 0
+    assert entry["bytes"] == on_disk
+
+
+def test_the_inventory_accounts_for_the_whole_run_directory(sealed_run):
+    """Every byte of the run directory is inventoried, bar the unsized manifest."""
+    run_dir, manifest = sealed_run
+    inventoried = sum(entry.get("bytes", 0) for entry in manifest["artifacts"])
+
+    on_disk = sum(p.stat().st_size for p in run_dir.rglob("*") if p.is_file())
+    assert inventoried == on_disk - (run_dir / RUN_MANIFEST_FILENAME).stat().st_size
+
+
+def test_an_unexpected_directory_is_inventoried_rather_than_dropped(tmp_path):
+    with Catalog(tmp_path / "project") as catalog:
+        _register(catalog)
+        extra = catalog.run_dir_for(SID) / "solver_workdir"
+        extra.mkdir(parents=True)
+        (extra / "mfsim.lst").write_bytes(b"listing")
+        catalog.finalize(SID, status="completed")
+        manifest = read_manifest(catalog.run_dir_for(SID))
+
+    entry = next(e for e in manifest["artifacts"] if e["path"] == "solver_workdir")
+    assert entry["format"] == "directory"
+    assert entry["bytes"] == len(b"listing")
 
 
 def test_figures_of_the_run_are_inventoried(tmp_path):

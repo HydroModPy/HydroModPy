@@ -6,7 +6,7 @@ import pytest
 
 from hydromodpy.physics.flow.sinks_sources.lake import BathymetryReconstructionConfig
 from hydromodpy.solver.modflow6.builders import build_exposed_band_runoff_specs
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import _resolve_modflow_runner
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import resolve_modflow_runner
 
 
 def test_exposed_band_runoff_requires_dynamic_area():
@@ -67,9 +67,9 @@ def test_build_specs_empty_without_flag():
 def test_resolve_runner_forces_api_with_specs():
     model = _marnage_lake(exposed_band=True)
     model._exposed_band_runoff_specs = build_exposed_band_runoff_specs(model)
-    assert _resolve_modflow_runner(model) == "api"
+    assert resolve_modflow_runner(model) == "api"
 
     class _Bare:
         pass
 
-    assert _resolve_modflow_runner(_Bare()) == "subprocess"
+    assert resolve_modflow_runner(_Bare()) == "subprocess"

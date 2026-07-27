@@ -23,15 +23,51 @@ logger = get_logger(__name__)
 
 
 def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
-    """Return the solve dispatch this run selected: 'subprocess' or 'api'.
+    """Return the solve dispatch this run uses: 'subprocess' or 'api'.
 
     Only MODFLOW 6 offers a second dispatch (``libmf6`` through the BMI
     wrappers); every other backend runs its executable.
+
+    The declared ``mf6_runner`` is the fallback, not the answer: the build
+    forces the in-process runner whenever a lake carries exposed-band
+    (marnage) runoff, so a configuration that says ``subprocess`` can still
+    solve through the shared library. Once the model exists, it - not the
+    configuration - states the dispatch.
     """
     if str(solver_name or "") != "modflow6":
         return "subprocess"
+    executed = _built_model_runner(ctx, solver_name)
+    if executed is not None:
+        return executed
     runtime = getattr(getattr(ctx.cfg, "modflow6", None), "runtime", None)
     return "api" if getattr(runtime, "mf6_runner", "subprocess") == "api" else "subprocess"
+
+
+def _built_model_runner(ctx: WorkflowContext, solver_name: str) -> str | None:
+    """Return the dispatch of the built flow model, or None before it exists.
+
+    ``models_by_run_id`` only fills once the adapter has built the model, so
+    this returns None on the registration pass and the real dispatch on the
+    post-solve pass.
+    """
+    from hydromodpy.solver.modflow_common.flow_adapter_helpers import resolve_modflow_runner
+
+    execution = getattr(ctx, "execution", None)
+    plan = getattr(execution, "simulation_plan", None)
+    models = getattr(execution, "models_by_run_id", None) or {}
+    if plan is None or not models:
+        return None
+    for run in getattr(plan, "runs", ()) or ():
+        is_primary_flow = (
+            getattr(run, "process_type", None) == "flow"
+            and getattr(run, "solver", None) == solver_name
+        )
+        if not is_primary_flow:
+            continue
+        model = models.get(getattr(run, "id", None))
+        if model is not None:
+            return resolve_modflow_runner(model)
+    return None
 
 
 def _resolve_solver_engine(ctx: WorkflowContext, solver_name: str | None) -> SolverEngine | None:
@@ -64,6 +100,27 @@ def _write_run_environment(ctx: WorkflowContext, sim_id: str, solver_name: str |
         solver_version_text=None if engine is None else engine.version,
         rng_seed=getattr(ctx.cfg.simulation, "rng_seed", None),
     )
+
+
+def refresh_run_environment(ctx: WorkflowContext) -> None:
+    """Rewrite the engine identity of a run once its model has been solved.
+
+    Registration happens before the model exists, so the row it writes can only
+    name the engine the configuration asked for. This second pass reads the
+    dispatch off the built model and overwrites the row (the write is a
+    delete-then-insert, and the host snapshot behind it is memoised), so
+    ``provenance.json`` names the executable or the shared library that really
+    ran, with its own version and digest.
+    """
+    store = getattr(ctx, "store", None)
+    sim_id = getattr(ctx, "sim_id", None)
+    plan = getattr(getattr(ctx, "execution", None), "simulation_plan", None)
+    if store is None or not sim_id or plan is None:
+        return
+    try:
+        _write_run_environment(ctx, str(sim_id), _primary_solver_for_simulation(plan))
+    except Exception:
+        logger.exception("Failed to refresh the run environment for sim %s", str(sim_id)[:8])
 
 
 def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
@@ -281,6 +338,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
 
 __all__ = (
+    "refresh_run_environment",
     "step_open_store",
     "step_register_simulation",
 )

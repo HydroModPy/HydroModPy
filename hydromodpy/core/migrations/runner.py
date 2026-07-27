@@ -35,6 +35,27 @@ if TYPE_CHECKING:
 DEFAULT_COMPONENT = "catalog"
 DEFAULT_LOCK_TIMEOUT = 30.0
 
+REPAIR_HINTS: dict[str, str] = {
+    "catalog": (
+        "the project index is rebuildable: delete <project>/.hmp/index.duckdb "
+        "and run 'hmp catalog reindex'"
+    ),
+    "index": (
+        "the machine-wide index is rebuildable: delete it and run "
+        "'hmp workspace register <project>' for each workspace"
+    ),
+    "data_cache": (
+        "the download cache is a primary record, not an index: restore the newest "
+        "'.hmp/backups/cache.duckdb.bak-*' snapshot next to it"
+    ),
+}
+"""How to repair a database whose recorded schema no longer matches the code.
+
+Keyed by migration component. Every index in this project is reconstructed
+rather than repaired, so the hint is a command; only the download cache holds
+something no rebuild can produce, so its hint is a restore.
+"""
+
 _FILENAME_RE = re.compile(r"^(?P<version>\d{4})_(?P<slug>[a-z0-9][a-z0-9_]*)\.sql$")
 
 _SYSTEM_TABLES_DDL = """
@@ -77,6 +98,14 @@ class Migration(BaseModel):
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def repair_hint_for(component: str) -> str:
+    """Return the one-line repair instruction for ``component``."""
+    return REPAIR_HINTS.get(
+        component,
+        f"delete the {component} database and let the next command recreate it",
+    )
 
 
 def discover_migrations(versions_dir: Path) -> list[Migration]:
@@ -216,7 +245,8 @@ def ensure_schema(
         if recorded != migration.checksum:
             raise SchemaIntegrityError(
                 f"Checksum mismatch for migration {migration.version:04d}_{migration.slug} "
-                f"({component}): stored {recorded!r}, disk {migration.checksum!r}"
+                f"({component}): stored {recorded!r}, disk {migration.checksum!r}. "
+                f"To repair, {repair_hint_for(component)}."
             )
 
 

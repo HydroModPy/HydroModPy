@@ -386,70 +386,9 @@ def audited(
     return decorator
 
 
-def apply_retention(
-    db: duckdb.DuckDBPyConnection,
-    *,
-    dry_run: bool = True,
-) -> dict[str, int]:
-    """Sweep ``audit_log`` against active ``retention_policies``.
-
-    Returns a mapping ``event_type -> rows_deleted_or_eligible``. With
-    ``dry_run=True`` (default) the function only counts the rows that
-    would be removed; with ``dry_run=False`` it issues DELETE statements
-    in a single transaction.
-
-    The table ``retention_policies`` is created by migration ``0003``.
-    Catalogs that have not been migrated yet return an empty mapping.
-    """
-    try:
-        policies = db.execute(
-            "SELECT event_type, retention_days FROM retention_policies"
-        ).fetchall()
-    except Exception:
-        return {}
-
-    if not policies:
-        return {}
-
-    eligible: dict[str, int] = {}
-    for event_type, retention_days in policies:
-        if retention_days is None:
-            continue
-        cutoff_days = int(retention_days)
-        row = db.execute(
-            "SELECT COUNT(*) FROM audit_log "
-            "WHERE event_type = ? AND occurred_at < (current_timestamp - INTERVAL '"
-            f"{cutoff_days} days')",
-            [str(event_type)],
-        ).fetchone()
-        eligible[str(event_type)] = int(row[0]) if row else 0
-
-    if dry_run:
-        return eligible
-
-    db.execute("BEGIN TRANSACTION")
-    try:
-        for event_type, retention_days in policies:
-            if retention_days is None:
-                continue
-            cutoff_days = int(retention_days)
-            db.execute(
-                "DELETE FROM audit_log "
-                "WHERE event_type = ? AND occurred_at < (current_timestamp - INTERVAL '"
-                f"{cutoff_days} days')",
-                [str(event_type)],
-            )
-        db.execute("COMMIT")
-    except Exception:
-        db.execute("ROLLBACK")
-        raise
-    return eligible
-
-
 __all__ = [
     "AuditActorKind",
     "AuditEventType",
-    "apply_retention",
     "audited",
     "emit_audit_event",
     "emit_deletion_tombstone",

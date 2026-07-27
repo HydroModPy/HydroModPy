@@ -1,8 +1,7 @@
-"""Unit tests for the audit_log SHA-256 hash chain and retention policies."""
+"""Unit tests for the audit_log SHA-256 hash chain."""
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 import pytest
@@ -133,36 +132,14 @@ def test_hash_chain_corruption_detected(catalog: Catalog) -> None:
     assert verify_chain(catalog.connection) is False
 
 
-def test_retention_policies_table_exists(catalog: Catalog) -> None:
-    """Migration 0003 creates ``retention_policies`` with the expected shape."""
+def test_retention_policies_table_is_gone(catalog: Catalog) -> None:
+    """Migration 0002 drops ``retention_policies``.
+
+    It was never written to, and the only sweep that read it deleted rows from
+    the middle of the ``audit_log`` hash chain, which :func:`verify_chain`
+    replays. Nothing may recreate it.
+    """
     rows = catalog.connection.execute(
         "SELECT table_name FROM information_schema.tables WHERE table_name = 'retention_policies'"
     ).fetchall()
-    assert rows == [("retention_policies",)]
-
-    cols = {
-        name
-        for (name,) in catalog.connection.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'retention_policies'"
-        ).fetchall()
-    }
-    assert {"policy_id", "event_type", "retention_days", "created_at"}.issubset(cols)
-
-
-def test_apply_retention_dry_run_counts_eligible(catalog: Catalog) -> None:
-    """``apply_retention(dry_run=True)`` returns counts without deleting rows."""
-    from hydromodpy.results.catalog.audit import apply_retention
-
-    catalog.connection.execute(
-        "INSERT INTO retention_policies (policy_id, event_type, retention_days) VALUES (?, ?, ?)",
-        [str(uuid.uuid4()), "metric.write", 0],
-    )
-    _emit_three_events(catalog)
-
-    counts = apply_retention(catalog.connection, dry_run=True)
-    assert counts.get("metric.write", 0) >= 0
-    remaining = catalog.connection.execute(
-        "SELECT COUNT(*) FROM audit_log WHERE event_type = 'metric.write'"
-    ).fetchone()[0]
-    assert remaining == 3
+    assert rows == []

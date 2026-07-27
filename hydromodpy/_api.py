@@ -728,44 +728,6 @@ def export(
     )
 
 
-def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]:
-    """Apply ``retention_policies`` to ``audit_log`` for the workspace catalog.
-
-    Parameters
-    ----------
-    workspace
-        Path to a workspace or project directory. Resolved via
-        :func:`hydromodpy.core.state.paths.resolve_project_root` so any path under
-        the project tree works. ``None`` resolves to the current directory.
-    apply
-        ``False`` (default) counts rows that would be removed without
-        modifying the file. ``True`` actually deletes rows.
-
-    Returns
-    -------
-    dict[str, int]
-        Mapping ``event_type -> rows_affected``. Empty when no retention
-        policy is registered.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the workspace does not host an index database.
-    """
-    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.audit import apply_retention
-
-    workspace_root = resolve_project_root(
-        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
-    )
-    catalog_path = catalog_path_for(workspace_root)
-    if not catalog_path.is_file():
-        raise FileNotFoundError(f"No catalog at {workspace_root}")
-    with Catalog(workspace_root) as catalog:
-        return apply_retention(catalog.connection, dry_run=not apply)
-
-
 def doctor() -> dict:
     """Lightweight environment diagnostic.
 

@@ -107,14 +107,10 @@ class Pipeline:
         behaviour is identical to the strict for-loop. Pass
         ``parallel=False`` to fall back to the legacy sequential path.
         """
-        from hydromodpy.solver.base import registry as solver_registry
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
         from hydromodpy.workflow.tracking.events import WorkflowEventStream
         from hydromodpy.workflow.tracking.heartbeat import HeartbeatPulse
         from hydromodpy.workflow.tracking.journal import WorkflowJournal
-
-        solver_registry.load_plugins()
-        solver_registry.load_extractor_plugins()
 
         self._parallel = bool(parallel)
 

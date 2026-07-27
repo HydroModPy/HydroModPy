@@ -415,16 +415,17 @@ def write_manifest(catalog: Catalog, sim_id: str | UUID) -> Path:
 
 
 def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
-    """Inventory the run directory: relative path, role and format of each item.
+    """Inventory the run directory: relative path, role, format and size of each item.
 
     Directories that are stores in their own right (``fields.zarr``) are listed
-    as one entry, not walked. Sizes are reported for files only: hashing or
-    walking a multi-gigabyte Zarr at seal time would cost more than the index
-    it replaces. The manifest lists itself, without a size, since it cannot
-    know its own length before it is written. ``annotations.json`` and
-    ``trash.json`` are left out entirely: both change after the seal, so any
-    size recorded for them would be wrong by the next ``hmp catalog tag`` or
-    ``hmp catalog trash``.
+    as one entry, not walked, but their ``bytes`` is the sum of the files they
+    hold: the field store is the heaviest thing a run owns, and a manifest that
+    sizes only the small files cannot answer *what does this run weigh*. The
+    walk costs a stat per chunk, under a millisecond for a typical store. The
+    manifest lists itself, without a size, since it cannot know its own length
+    before it is written. ``annotations.json`` and ``trash.json`` are left out
+    entirely: both change after the seal, so any size recorded for them would
+    be wrong by the next ``hmp catalog tag`` or ``hmp catalog trash``.
     """
     entries: list[dict[str, Any]] = [
         {"path": RUN_MANIFEST_FILENAME, "role": "manifest", "format": "json"}
@@ -434,7 +435,14 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
         if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME, RUN_TRASH_FILENAME):
             continue
         if name == FIELDS_STORE_NAME:
-            entries.append({"path": name, "role": "fields", "format": "zarr"})
+            entries.append(
+                {
+                    "path": name,
+                    "role": "fields",
+                    "format": "zarr",
+                    "bytes": _directory_bytes(path),
+                }
+            )
         elif name == TABLES_DIRNAME and path.is_dir():
             entries.extend(_table_artifacts(run_dir, path))
         elif name == RUN_FIGURES_DIRNAME and path.is_dir():
@@ -448,7 +456,32 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
                     "bytes": path.stat().st_size,
                 }
             )
+        elif path.is_dir():
+            entries.append(
+                {
+                    "path": name,
+                    "role": "other",
+                    "format": "directory",
+                    "bytes": _directory_bytes(path),
+                }
+            )
     return entries
+
+
+def _directory_bytes(directory: Path) -> int:
+    """Return the total size of the files under ``directory``, recursively.
+
+    Unreadable entries count as zero: a size is inventory, never a reason for a
+    seal to fail.
+    """
+    total = 0
+    for dirpath, _dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            try:
+                total += os.stat(os.path.join(dirpath, filename)).st_size
+            except OSError:
+                continue
+    return total
 
 
 def _table_artifacts(run_dir: Path, tables_dir: Path) -> list[dict[str, Any]]:
