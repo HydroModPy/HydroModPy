@@ -33,8 +33,8 @@ def test_simulation_regression_mf6_precomputed_mesh_input_config_uses_runtime_me
 
     payload = load_toml_with_base_config(example_config)
 
-    assert payload["mesh_input"]["mesh_path"] == "results_stable/mesh/mesh_catchment.msh"
-    assert payload["mesh_input"]["bundle_dir"] == "results_stable/mesh/mesh_catchment_bundle"
+    assert payload["mesh_input"]["mesh_path"] == "mesh/mesh_catchment.msh"
+    assert payload["mesh_input"]["bundle_dir"] == "mesh/mesh_catchment_bundle"
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
     assert "postprocess" not in payload

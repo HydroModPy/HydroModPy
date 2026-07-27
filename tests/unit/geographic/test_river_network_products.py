@@ -133,15 +133,17 @@ def test_build_river_network_products_noop_when_disabled():
         dem_correc_path="dem_correc.tif",
         d8_pointer_path="dem_direc.tif",
         watershed_shp="watershed.shp",
-        geographic_dir="results_stable/geographic",
-        correcflow_dir="results_stable/demcorrecflow",
+        geographic_dir=f"{PREPROCESSING_DIR}/geographic",
+        correcflow_dir=f"{PREPROCESSING_DIR}/demcorrecflow",
         dem_res_m=50.0,
-        streams_tif_path="results_stable/geographic/river_streams.tif",
-        streams_pruned_tif_path="results_stable/geographic/river_streams_pruned.tif",
-        stream_order_strahler_tif_path="results_stable/geographic/river_stream_order_strahler.tif",
-        stream_link_id_tif_path="results_stable/geographic/river_stream_link_id.tif",
-        network_shp_path="results_stable/geographic/river_network.shp",
-        summary_json_path="results_stable/geographic/river_network_summary.json",
+        streams_tif_path=f"{PREPROCESSING_DIR}/geographic/river_streams.tif",
+        streams_pruned_tif_path=f"{PREPROCESSING_DIR}/geographic/river_streams_pruned.tif",
+        stream_order_strahler_tif_path=(
+            f"{PREPROCESSING_DIR}/geographic/river_stream_order_strahler.tif"
+        ),
+        stream_link_id_tif_path=f"{PREPROCESSING_DIR}/geographic/river_stream_link_id.tif",
+        network_shp_path=f"{PREPROCESSING_DIR}/geographic/river_network.shp",
+        summary_json_path=f"{PREPROCESSING_DIR}/geographic/river_network_summary.json",
         backend=_FailIfCalledBackend(),
     )
 

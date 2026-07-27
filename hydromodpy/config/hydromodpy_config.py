@@ -72,6 +72,7 @@ from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.export_config import ExportConfig
+from hydromodpy.simulation.planning.observation_config import ObservationConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
@@ -228,6 +229,16 @@ class HydroModPyConfig(HydroModelBase):
             "Storage backend toggles loaded from [persistence]. Drives the "
             "DuckDB catalog, Zarr field arrays, Parquet tables, and the "
             "`hydromodpy.lock` reproducibility manifest."
+        ),
+    )
+    observation: Annotated[ObservationConfig, Profile.USER] = Field(
+        default_factory=ObservationConfig,
+        description=(
+            "Observation points declared in [observation] and sampled while the "
+            "run still holds its fields. Each [[observation.points]] entry names "
+            "a location (x, y, and layer or depth); its series land in the run "
+            "timeseries table, so no post-hoc interrogation is needed for a point "
+            "known in advance."
         ),
     )
     analysis: Annotated[AnalysisConfig | None, Profile.DEV] = Field(
@@ -622,6 +633,7 @@ class HydroModPyConfig(HydroModelBase):
             "display": ({}, _std(DisplayConfig)),
             "export": ({}, _std(ExportConfig)),
             "persistence": ({}, _std(PersistenceConfig)),
+            "observation": ({}, _std(ObservationConfig)),
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),

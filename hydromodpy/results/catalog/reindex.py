@@ -29,6 +29,7 @@ metrics                ``tables.parquet/metrics.parquet``
 provenance             ``tables.parquet/provenance.parquet``
 geographic_features    ``tables.parquet/geographic_*.parquet``
 geographic_metadata    ``manifest.json``, ``geometry.catchment``
+tracked_files          ``manifest.json``, ``inputs``
 runs_environment       ``provenance.json``
 tags, sim_notes        ``annotations.json``
 trash state            ``trash.json``
@@ -61,16 +62,16 @@ What no directory can give back (assumed loss)
 ----------------------------------------------
 - ``audit_log``: the history of what happened to a run.
 - ``export_log``: which artefacts were published under ``share/``.
-- ``tracked_files`` and ``observation_points``: recorded at run time only.
 - the promoted ``sim_id`` of a trial: promotion back-fills it in the index
   after the trial is journalled. The session keeps its ``best_sim_id``, and
   each promoted run keeps its ``calibration:<session>`` tag on disk, so the
   link between a session and its runs survives in both directions.
 
-Two bookkeeping columns have no home on disk: ``runs_environment.recorded_at``
-and ``provenance.valid_from``. They are dated by the seal time of their run
-(``manifest.json``, ``sealed_at``) rather than by the wall clock, so a rebuild
-stays reproducible instead of stamping itself into the data.
+Three bookkeeping columns have no home on disk: ``runs_environment.recorded_at``,
+``tracked_files.recorded_at`` and ``provenance.valid_from``. They are dated by
+the seal time of their run (``manifest.json``, ``sealed_at``) rather than by the
+wall clock, so a rebuild stays reproducible instead of stamping itself into the
+data.
 """
 
 from __future__ import annotations
@@ -328,6 +329,9 @@ def _index_run(catalog: Catalog, run_dir: Path) -> dict[str, int]:
         overrides={"valid_from": _sql_text(sealed_at)},
     )
     counts["geographic_metadata"] = _insert_geographic_metadata(catalog.backend, sim_id, manifest)
+    counts["tracked_files"] = _insert_tracked_files(
+        catalog.backend, sim_id, manifest, recorded_at=sealed_at
+    )
     counts["geographic_features"] = _insert_geographic_features(catalog, sim_id, tables_dir)
     counts["runs_environment"] = _insert_environment(
         catalog.backend, sim_id, run_dir, recorded_at=sealed_at
@@ -458,6 +462,37 @@ def _insert_geographic_metadata(
             [sim_id, str(key), None if value is None else str(value), _python_value_type(value)],
         )
     return len(catchment)
+
+
+def _insert_tracked_files(
+    backend: CatalogBackend, sim_id: str, manifest: dict[str, Any], *, recorded_at: str
+) -> int:
+    """Restore the input files the run consumed from the manifest.
+
+    ``inputs`` is the data provenance of the run: which DEM, which climate
+    series, which geometry produced these numbers, each with its SHA-256. It
+    is what lets a run directory state what it was fed without the index.
+    """
+    entries = manifest.get("inputs") or []
+    for entry in entries:
+        backend.execute(
+            """INSERT INTO tracked_files
+               (sim_id, role, category, original_path, canonical_path,
+                sha256, size_bytes, portable, recorded_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                sim_id,
+                entry["role"],
+                entry["category"],
+                entry["declared_path"],
+                entry["path"],
+                entry["sha256"],
+                entry["bytes"],
+                entry["portable"],
+                recorded_at,
+            ],
+        )
+    return len(entries)
 
 
 def _insert_geographic_features(catalog: Catalog, sim_id: str, tables_dir: Path) -> int:

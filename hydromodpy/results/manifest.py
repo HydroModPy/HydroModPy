@@ -12,10 +12,10 @@ Files written here, in order
 ----------------------------
 1. ``tables.parquet/parameters.parquet`` - the run parameters, tabular.
 2. ``provenance.json`` - tool, git, python, platform, packages, solver, timing.
-3. ``manifest.json`` - identity, geometry, period, config fingerprint, artefact
-   list, parameters, metric summary. Written **last** and **atomically**
-   (``manifest.json.tmp-<uuid>`` then ``os.replace``), so a run directory
-   without a manifest is, by construction, an incomplete run.
+3. ``manifest.json`` - identity, geometry, period, config fingerprint, input
+   list, artefact list, parameters, metric summary. Written **last** and
+   **atomically** (``manifest.json.tmp-<uuid>`` then ``os.replace``), so a run
+   directory without a manifest is, by construction, an incomplete run.
 
 ``config.toml`` is not written here: the workflow freezes it into the run
 directory at registration time (``workflow.steps.prepare_solver.dispatch
@@ -52,6 +52,7 @@ geographic_metadata.dem_res / nrow / ncol        results.grid, mf6 extractor   M
 geographic_metadata.crs_proj / epsg              results.grid                  M ``geometry.catchment``
 parameters.*                                     Run.params, calibration       tables.parquet/parameters; M
 metrics.*                                        calibration, reporting        tables.parquet/metrics; M ``metrics``
+tracked_files.*                                  .hmp packaging, data reuse    M ``inputs``
 runs_environment.*                               provenance, reports           P
 timeseries / budgets / mass_balance / provenance readers everywhere            tables.parquet/<view>.parquet
 geographic_features.*                            watershed and river figures   tables.parquet/geographic_*.parquet
@@ -61,6 +62,15 @@ Losing ``catch_area`` or the outlet is the dangerous case: discharge derived
 from runoff is scaled by the catchment area, so a missing area yields a
 silently wrong series rather than an error. They are therefore mandatory
 members of the manifest geometry block whenever the run recorded them.
+
+The ``inputs`` block answers the other provenance question: *which data fed
+this run*. Every file the configuration declares as an input is walked at
+setup time (``core.tracking.collect_input_files``), hashed, and stored in
+``tracked_files``; the seal copies path, digest, size and origin into the
+manifest, so the run directory carries its own input provenance and needs
+neither the index nor the project lockfile to state it. The lockfile answers
+a wider question - the state of the whole data cache before a run - and is
+kept for that (see :mod:`hydromodpy.project.lockfile`).
 
 Known gap: ``tags`` and ``sim_notes`` are annotations, mutable after the run
 ends; they are not part of the seal and belong to the annotation sidecar.
@@ -378,6 +388,7 @@ def build_manifest(catalog: Catalog, sim_id: str | UUID) -> dict[str, Any]:
             "hash": row.get("config_hash"),
             "source": row.get("config_source"),
         },
+        "inputs": _manifest_inputs(catalog, sid),
         "artifacts": list_artifacts(run_dir),
         "parameters": _manifest_parameters(catalog, sid),
         "metrics": _manifest_metrics(catalog, sid),
@@ -611,6 +622,33 @@ def _manifest_parameters(catalog: Catalog, sid: str) -> list[dict[str, Any]]:
             "parameterization": record["parameterization"],
         }
         for record in _parameter_records(catalog, sid)
+    ]
+
+
+def _manifest_inputs(catalog: Catalog, sid: str) -> list[dict[str, Any]]:
+    """Return the input files this run consumed: path, digest, size, origin.
+
+    Read from ``tracked_files``, which the setup step fills from the
+    configuration tree. ``path`` is the workspace-encoded location the run
+    actually read, ``declared_path`` the value written in the configuration,
+    and ``role`` / ``category`` say what the file was used for.
+    """
+    rows = catalog.backend.fetch_all(
+        "SELECT role, category, original_path, canonical_path, sha256, size_bytes, portable "
+        "FROM tracked_files WHERE sim_id = ? ORDER BY role, canonical_path",
+        [sid],
+    )
+    return [
+        {
+            "role": str(row[0]),
+            "category": str(row[1]),
+            "path": str(row[3]),
+            "declared_path": str(row[2]),
+            "sha256": str(row[4]),
+            "bytes": _int_or_none(row[5]),
+            "portable": bool(row[6]),
+        }
+        for row in rows
     ]
 
 

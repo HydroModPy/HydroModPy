@@ -443,6 +443,66 @@ PROVENANCE_SCHEMA: Final[pa.Schema] = pa.schema(
 """Per-simulation provenance records for inputs and derived arrays."""
 
 
+OBSERVATION_POINTS_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "station_id",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Id of the declared observation point"),
+        ),
+        pa.field(
+            "x",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Easting in the simulation CRS"),
+        ),
+        pa.field(
+            "y",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Northing in the simulation CRS"),
+        ),
+        pa.field(
+            "cell_id",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Zero-based mesh cell holding the point"),
+        ),
+        pa.field(
+            "layer",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Zero-based layer the point is read in"),
+        ),
+        pa.field(
+            "crs_wkt",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="CRS of x and y, as WKT or an authority code"),
+        ),
+        pa.field(
+            "crs_epsg",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(description="EPSG code of the CRS when known"),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "observation_points",
+        pk=("sim_id", "station_id"),
+    ),
+)
+"""Per-run declared observation points: where the model was probed.
+
+The run directory is the only home of this declaration. Exposing it as a
+Parquet *view* rather than as an index table is what makes it survive
+``hmp catalog reindex``: the view globs the run directories, so a rebuilt
+index finds the points again with the files themselves.
+"""
+
+
 # Geographic vector files are NOT declared as a pa.Schema here: they are written
 # by ``geopandas.to_parquet`` (OGC GeoParquet 1.1) and carry every column of the
 # source GeoDataFrame plus the ``geo`` OGC metadata key, so no fixed pyarrow
@@ -458,6 +518,7 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "mass_balance": MASS_BALANCE_SCHEMA,
     "metrics": METRICS_SCHEMA,
     "provenance": PROVENANCE_SCHEMA,
+    "observation_points": OBSERVATION_POINTS_SCHEMA,
 }
 """Map of per-simulation view name to declared :class:`pa.Schema`."""
 
@@ -507,6 +568,7 @@ __all__ = [
     "CF_CONVENTIONS",
     "MASS_BALANCE_SCHEMA",
     "METRICS_SCHEMA",
+    "OBSERVATION_POINTS_SCHEMA",
     "PARAMETERS_SCHEMA",
     "PARQUET_SCHEMA_VERSION",
     "PROVENANCE_SCHEMA",

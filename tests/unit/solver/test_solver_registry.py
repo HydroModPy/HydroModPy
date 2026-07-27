@@ -294,3 +294,28 @@ def test_get_extractor_loads_plugin_lazily(monkeypatch) -> None:
     )
 
     assert registry.get_extractor("flow", "pluginflow") is FakeExtractor
+
+
+def test_get_loads_plugin_lazily(monkeypatch) -> None:
+    """An out-of-tree adapter resolves on first lookup, with no eager scan."""
+    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
+    scans: list[str] = []
+
+    class _StubEntryPoint:
+        name = "flow_lazyplugin"
+
+        def load(self) -> type:
+            return FakeAdapter
+
+    def _fake_entry_points(*, group: str):
+        scans.append(group)
+        return [_StubEntryPoint()] if group == registry.ENTRY_POINT_GROUP else []
+
+    monkeypatch.setattr(registry, "entry_points", _fake_entry_points)
+
+    # A built-in pair is served from the dotted-path table without any scan.
+    assert registry.get("flow", "modflow6") is not None
+    assert scans == []
+
+    assert registry.get("flow", "lazyplugin") is FakeAdapter
+    assert scans == [registry.ENTRY_POINT_GROUP]

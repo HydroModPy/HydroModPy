@@ -39,6 +39,7 @@ from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
     MASS_BALANCE_SCHEMA,
+    OBSERVATION_POINTS_SCHEMA,
     PARQUET_SCHEMA_VERSION,
     TIMESERIES_SCHEMA,
 )
@@ -341,6 +342,70 @@ class WritesMixinParquet:
             pk_cols=("sim_id", "timestep", "quantity"),
             sim_id=sid,
         )
+
+    @with_lock_retry()
+    def write_observation_points(
+        self,
+        sim_id: str | UUID,
+        records: Sequence[Mapping[str, Any]],
+    ) -> None:
+        """Persist the observation points a run declared and sampled.
+
+        ``records`` carry ``station_id``, ``x``, ``y``, ``cell_id`` and
+        ``layer``; the CRS defaults to the one recorded for the simulation.
+        The payload lands in the run directory, which is the only home this
+        declaration has: an index rebuilt from the runs reads it back through
+        the ``observation_points`` view.
+        """
+        if not self._persistence.save_parquet:
+            return
+        if not records:
+            return
+        sid = str(sim_id)
+        crs_wkt, crs_epsg = self._simulation_crs(sid)
+        normalised: list[dict[str, Any]] = []
+        for record in records:
+            row = dict(record)
+            row.setdefault("sim_id", sid)
+            row.setdefault("crs_wkt", crs_wkt)
+            row.setdefault("crs_epsg", crs_epsg)
+            row["cell_id"] = int(row["cell_id"])
+            row["layer"] = int(row.get("layer") or 0)
+            normalised.append(row)
+        self._write_parquet_records(
+            target=self._paths.table_path_for(sid, "observation_points"),
+            records=normalised,
+            schema=OBSERVATION_POINTS_SCHEMA,
+            pk_cols=("sim_id", "station_id"),
+            sim_id=sid,
+        )
+
+    def sample_observation_points(
+        self,
+        sim_id: str | UUID,
+        declarations: Sequence[Mapping[str, Any]],
+    ) -> int:
+        """Sample the points declared in ``[observation]`` and persist them.
+
+        Entry point of the run pipeline: the extraction step holds a store, not
+        a catalog type, so the sampling of declared probes is reached through
+        this method. Returns the number of series written.
+        """
+        from hydromodpy.results.run.observation_points import sample_observation_points
+
+        if not self._persistence.save_parquet:
+            return 0
+        return sample_observation_points(self, str(sim_id), declarations)
+
+    def _simulation_crs(self, sim_id: str) -> tuple[str, int | None]:
+        """Return ``(crs_wkt, crs_epsg)`` recorded for one simulation."""
+        row = self._backend.fetch_one(
+            "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?",
+            [sim_id],
+        )
+        if row is None:
+            return "", None
+        return str(row[0] or ""), (None if row[1] is None else int(row[1]))
 
     @with_lock_retry()
     def write_geographic_feature(

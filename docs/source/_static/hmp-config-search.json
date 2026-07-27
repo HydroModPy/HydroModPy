@@ -8,7 +8,7 @@
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L99",
     "description": "Workflow mode dispatched by `hmp run`."
   },
   {
@@ -20,7 +20,7 @@
     "section": "workflow",
     "anchor": "workflow-profile",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L102",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L103",
     "description": "Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path."
   },
   {
@@ -15312,6 +15312,102 @@
     "page": "persistence.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48",
     "description": "Compression level (codec-dependent). Ignored when compression='none'."
+  },
+  {
+    "path": "observation.points",
+    "name": "points",
+    "type": "list[ObservationPointConfig]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-points",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L84",
+    "description": "Observation points sampled once the run has produced its fields."
+  },
+  {
+    "path": "observation.points.id",
+    "name": "id",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-points-id",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L30",
+    "description": "Station id of the point. Unique within the section."
+  },
+  {
+    "path": "observation.points.x",
+    "name": "x",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-points-x",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L33",
+    "description": "Easting in the project CRS (same units as the mesh)."
+  },
+  {
+    "path": "observation.points.y",
+    "name": "y",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-points-y",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L36",
+    "description": "Northing in the project CRS (same units as the mesh)."
+  },
+  {
+    "path": "observation.points.layer",
+    "name": "layer",
+    "type": "int | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-points-layer",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L39",
+    "description": "Zero-based layer index to read. Mutually exclusive with 'depth'."
+  },
+  {
+    "path": "observation.points.depth",
+    "name": "depth",
+    "type": "float | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-points-depth",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L43",
+    "description": "Depth in metres below the local model top; picks the layer from the mesh layer thicknesses. Mutually exclusive with 'layer'."
+  },
+  {
+    "path": "observation.points.variables",
+    "name": "variables",
+    "type": "list[str] | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-points-variables",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L51",
+    "description": "Variables sampled at this point. Defaults to the section-level 'variables' list."
+  },
+  {
+    "path": "observation.variables",
+    "name": "variables",
+    "type": "list[str]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "observation",
+    "anchor": "observation-variables",
+    "page": "observation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L75",
+    "description": "Variables sampled at every point that does not name its own. Virtual fields (watertable_depth, seepage_mask ...) are accepted."
   },
   {
     "path": "analysis.batch",

@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
-from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
+from hydromodpy.analysis.comparison.runtime.metadata import open_result_store_for_write
 
 CLOSURE_STATION_ID = "__global__"
 CLOSURE_VARIABLE = "water_budget"
@@ -289,7 +289,7 @@ def _persist_closure_metrics(
         config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         preferred_sim_id = summary.get("sim_id")
         preferred_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
+        store, sim_id = open_result_store_for_write(
             config_path,
             preferred_sim_id=None if preferred_sim_id in (None, "") else str(preferred_sim_id),
             preferred_name=None if preferred_name in (None, "") else str(preferred_name),

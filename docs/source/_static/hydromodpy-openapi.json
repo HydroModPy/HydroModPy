@@ -92,6 +92,11 @@
             "description": "Storage backend toggles loaded from [persistence]. Drives the DuckDB catalog, Zarr field arrays, Parquet tables, and the `hydromodpy.lock` reproducibility manifest.",
             "x-hmp-profile": "user"
           },
+          "observation": {
+            "$ref": "#/components/schemas/ObservationConfig",
+            "description": "Observation points declared in [observation] and sampled while the run still holds its fields. Each [[observation.points]] entry names a location (x, y, and layer or depth); its series land in the run timeseries table, so no post-hoc interrogation is needed for a point known in advance.",
+            "x-hmp-profile": "user"
+          },
           "analysis": {
             "anyOf": [
               {
@@ -14339,6 +14344,118 @@
           }
         },
         "title": "NwtSolverConfig",
+        "type": "object"
+      },
+      "ObservationConfig": {
+        "additionalProperties": false,
+        "description": "Configuration for ``[observation]``: points sampled during the run.\n\nExample\n-------\n.. code-block:: toml\n\n    [observation]\n    variables = [\"head\", \"watertable_depth\"]\n\n    [[observation.points]]\n    id = \"piezo_amont\"\n    x = 395100.0\n    y = 6824925.0\n    depth = 12.5",
+        "properties": {
+          "points": {
+            "description": "Observation points sampled once the run has produced its fields.",
+            "items": {
+              "$ref": "#/components/schemas/ObservationPointConfig"
+            },
+            "title": "Points",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "variables": {
+            "description": "Variables sampled at every point that does not name its own. Virtual fields (watertable_depth, seepage_mask ...) are accepted.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "ObservationConfig",
+        "type": "object"
+      },
+      "ObservationPointConfig": {
+        "additionalProperties": false,
+        "description": "One declared observation point, in the coordinates of the project.",
+        "properties": {
+          "id": {
+            "description": "Station id of the point. Unique within the section.",
+            "examples": [
+              "example"
+            ],
+            "title": "Id",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "x": {
+            "description": "Easting in the project CRS (same units as the mesh).",
+            "examples": [
+              1.0
+            ],
+            "title": "X",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "y": {
+            "description": "Northing in the project CRS (same units as the mesh).",
+            "examples": [
+              1.0
+            ],
+            "title": "Y",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Zero-based layer index to read. Mutually exclusive with 'depth'.",
+            "title": "Layer",
+            "x-hmp-profile": "user"
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Depth in metres below the local model top; picks the layer from the mesh layer thicknesses. Mutually exclusive with 'layer'.",
+            "title": "Depth",
+            "x-hmp-profile": "user"
+          },
+          "variables": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Variables sampled at this point. Defaults to the section-level 'variables' list.",
+            "title": "Variables",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "id",
+          "x",
+          "y"
+        ],
+        "title": "ObservationPointConfig",
         "type": "object"
       },
       "ObservationsCriteriaConfig": {

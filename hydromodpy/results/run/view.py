@@ -8,9 +8,11 @@ its catalog row on first access and exposes typed properties (``solver``,
 ``timeseries``, ``budget``, ``mass_balance``, ``provenance``), field-array
 readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``) and
 spatial helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``). Heavier
-xarray / UGRID readers (``dataset``, ``to_xarray_batch``, ``at``) live on the
+xarray / UGRID readers (``dataset``, ``to_xarray_batch``) live on the
 :class:`hydromodpy.results.run.array.RunArrayProvider` exposed as
-``run.array``. Derived catchment views are module-level functions in
+``run.array``; the point interrogation (one cell, after the fact) lives on
+:class:`hydromodpy.results.run.point.RunPointProvider` exposed as
+``run.probe``. Derived catchment views are module-level functions in
 :mod:`hydromodpy.results.derive.views` (``saturated_fraction``, ``drainage_density``,
 ``persistence``, ``catchment_mean``, ``recharge_forcing``).
 
@@ -34,9 +36,12 @@ module-level functions in :mod:`hydromodpy.results.derive.views` and consume a
 Public API
 ----------
 - ``Run``: instantiated by ``Catalog`` resolution methods. Also
-  exposes ``run.array`` for xarray / UGRID readers.
+  exposes ``run.array`` for xarray / UGRID readers and ``run.probe`` for
+  point interrogation.
 - :class:`hydromodpy.results.run.array.RunArrayProvider` exposes
   ``dataset`` and ``to_xarray_batch``.
+- :class:`hydromodpy.results.run.point.RunPointProvider` exposes
+  ``series`` and ``declared``.
 
 Cross-refs
 ----------
@@ -59,6 +64,7 @@ from hydromodpy.results.errors import RunNotFoundError
 from hydromodpy.results.run.array import RunArrayProvider
 from hydromodpy.results.run.geographic import RunGeographicMixin
 from hydromodpy.results.run.hydrographic import RunHydrographicMixin
+from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
 
 logger = get_logger(__name__)
@@ -142,6 +148,11 @@ class Run(
         self._catalog = catalog
         self._row: dict | None = None
         self.array = RunArrayProvider(self)
+        self.probe = RunPointProvider(self)
+
+    def _iter_runs(self) -> tuple[Run, ...]:
+        """Runs this object stands for, so ``probe`` serves one run and a set alike."""
+        return (self,)
 
     def _load_row(self) -> dict:
         if self._row is None:

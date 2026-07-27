@@ -370,3 +370,40 @@ def test_a_reader_keeps_reading_across_the_swap(project):
         assert len(reader.list_simulations()) == 2
     finally:
         reader.close()
+
+
+def test_the_rebuild_restores_the_input_provenance(tmp_path):
+    """``tracked_files`` comes back from the manifest, digests included."""
+    from hydromodpy.core.tracking import TrackedFileEntry
+
+    root = tmp_path / "demo"
+    dem = tmp_path / "inputs" / "dem.tif"
+    dem.parent.mkdir(parents=True)
+    dem.write_bytes(b"elevation")
+    with Catalog(root) as catalog:
+        sid = str(uuid.uuid4())
+        registration = catalog.register_simulation(
+            sid, project="demo", solver="modflow6", name="alpha"
+        )
+        if registration.zarr is not None:
+            registration.zarr.close()
+        catalog.register_tracked_files(
+            sid,
+            [
+                TrackedFileEntry(
+                    role="dem",
+                    category="raster",
+                    original_path="inputs/dem.tif",
+                    canonical_path=dem,
+                    portable=True,
+                )
+            ],
+        )
+        catalog.finalize(sid, status="completed", duration_s=1.0)
+        expected = catalog.list_tracked_files(sid).to_dict(orient="records")
+
+    catalog_path_for(root).unlink()
+    rebuild_index(root)
+
+    with Catalog(root, read_only=True) as catalog:
+        assert catalog.list_tracked_files(sid).to_dict(orient="records") == expected

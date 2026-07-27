@@ -2,10 +2,10 @@
 
 Tabular catalog writes against the DuckDB backend: parameters, metrics,
 stations, scientific objectives, run environment snapshots, geographic
-metadata, provenance, and the registration of observation points and
-tracked input files. Methods that also mirror to Parquet (``write_metric``,
-``write_provenance``) call ``self._write_parquet_records`` which the facade
-inherits from :class:`WritesMixinParquet` via the MRO.
+metadata, provenance, and the registration of tracked input files. Methods
+that also mirror to Parquet (``write_metric``, ``write_provenance``) call
+``self._write_parquet_records`` which the facade inherits from
+:class:`WritesMixinParquet` via the MRO.
 """
 
 from __future__ import annotations
@@ -27,13 +27,11 @@ from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.writes_helpers import (
     _coerce_timestamp,
     _coerce_timestamp_utc,
-    _epsg_from_crs,
     _path_size_bytes,
     _python_value_type,
     _sha256_directory,
     _sha256_streaming,
 )
-from hydromodpy.results.spatial_index import point_in_cell
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.parquet_schemas import (
     METRICS_SCHEMA,
@@ -759,59 +757,6 @@ class WritesMixinDuckDB:
                 pk_cols=("sim_id", "variable", "source_ref"),
                 sim_id=sid,
             )
-
-    @with_lock_retry()
-    def register_observation_points(
-        self,
-        sim_id: str | UUID,
-        points: dict[str, tuple[float, float]],
-        variable: str = "head",
-        layer: int = 0,
-        *,
-        crs: str | None = None,
-        crs_epsg: int | None = None,
-    ) -> None:
-        if not self._persistence.save_catalog:
-            return
-        sid = str(sim_id)
-        if crs is None or crs_epsg is None:
-            row = self._backend.fetch_one(
-                "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?",
-                [sid],
-            )
-            if row is not None:
-                crs = crs or row[0]
-                crs_epsg = crs_epsg if crs_epsg is not None else row[1]
-        if crs is None:
-            raise ValueError("Observation point CRS is required.")
-        if crs_epsg is None:
-            crs_epsg = _epsg_from_crs(crs)
-        sz = self.open_zarr(sim_id)
-        try:
-            mesh = sz.root["mesh"]
-            vertices = mesh["vertices"][:]
-            connectivity = mesh["face_node_connectivity"][:]
-
-            _ = variable
-            mapping = point_in_cell(vertices, connectivity, points)
-            for station_id, (x, y) in points.items():
-                cell_id = mapping[station_id]
-                self._backend.execute(
-                    """INSERT INTO observation_points
-                       (sim_id, station_id, x, y, cell_id, layer, crs_wkt, crs_epsg)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                       ON CONFLICT (sim_id, station_id)
-                       DO UPDATE SET
-                           x = EXCLUDED.x,
-                           y = EXCLUDED.y,
-                           cell_id = EXCLUDED.cell_id,
-                           layer = EXCLUDED.layer,
-                           crs_wkt = EXCLUDED.crs_wkt,
-                           crs_epsg = EXCLUDED.crs_epsg""",
-                    [sid, station_id, x, y, cell_id, layer, str(crs), crs_epsg],
-                )
-        finally:
-            sz.close()
 
     @with_lock_retry()
     def register_tracked_files(

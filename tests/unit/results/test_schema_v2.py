@@ -41,14 +41,12 @@ _EXPECTED_TABLES: frozenset[str] = frozenset(
         "runs_environment",
         "provenance",
         "observations",
-        "observation_points",
         # Cross-cutting
         "audit_log",
         "deletions",
         "tracked_files",
         "geographic_features",
         "geographic_metadata",
-        "parquet_files",
         "tags",
         "stations",
         # Calibration
@@ -187,15 +185,6 @@ def test_deletions_tombstone_table(catalog: Catalog) -> None:
     assert "sim_id" in cols and "UUID" in cols["sim_id"]
     assert "deleted_at" in cols
     assert "sha256_snapshot" in cols
-
-
-def test_parquet_files_manifest_columns(catalog: Catalog) -> None:
-    """``parquet_files`` manifest exposes path / view / sha / written_at."""
-    cols = _columns(catalog, "parquet_files")
-    assert "path" in cols
-    assert "view_name" in cols
-    assert "sha256" in cols
-    assert "written_at" in cols
 
 
 def test_tracked_files_canonical_path_column(catalog: Catalog) -> None:

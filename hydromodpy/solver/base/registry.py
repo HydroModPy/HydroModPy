@@ -181,7 +181,8 @@ def get(process_type: str, solver_name: str) -> type:
 
     Explicit registrations (via :func:`register` or plugins) are served
     from the cache. Unknown pairs fall back to lazy-loading the in-tree
-    ``_BUILTIN_PATHS`` entry, if any.
+    ``_BUILTIN_PATHS`` entry, then to one entry-point scan: nothing is
+    imported until a lookup actually needs it.
     """
     key = (process_type, solver_name)
     cls = _REGISTRY.get(key)
@@ -190,6 +191,11 @@ def get(process_type: str, solver_name: str) -> type:
     cls = _load_builtin(key)
     if cls is not None:
         return cls
+    if not _PLUGINS_LOADED:
+        load_plugins()
+        cls = _REGISTRY.get(key)
+        if cls is not None:
+            return cls
     known = sorted(set(_REGISTRY) | set(_BUILTIN_PATHS))
     raise KeyError(
         f"No solver adapter registered for {process_type}/{solver_name}. Known pairs: {known}."
@@ -356,12 +362,7 @@ def load_plugins(*, force: bool = False) -> int:
         return 0
 
     count = 0
-    try:
-        eps = entry_points(group=ENTRY_POINT_GROUP)
-    except TypeError:
-        eps = entry_points().get(ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
-
-    for ep in eps:
+    for ep in entry_points(group=ENTRY_POINT_GROUP):
         name = ep.name
         if "_" not in name:
             logger.warning(
@@ -402,12 +403,7 @@ def load_extractor_plugins(*, force: bool = False) -> int:
         return 0
 
     count = 0
-    try:
-        eps = entry_points(group=EXTRACTOR_ENTRY_POINT_GROUP)
-    except TypeError:
-        eps = entry_points().get(EXTRACTOR_ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
-
-    for ep in eps:
+    for ep in entry_points(group=EXTRACTOR_ENTRY_POINT_GROUP):
         name = str(ep.name).strip()
         if "_" not in name:
             logger.warning(

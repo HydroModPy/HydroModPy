@@ -418,6 +418,19 @@ Sub-models are linked back to their per-section page.
       # Compression level (codec-dependent). Ignored when compression='none'.
       compression_level = 3
 
+.. dropdown:: ``[observation]`` (ObservationConfig)
+   :icon: gear
+
+   See :doc:`observation` for the full description.
+
+   .. code-block:: toml
+
+      [observation]
+      # Observation points sampled once the run has produced its fields.
+      # points = ...  # uses factory default
+      # Variables sampled at every point that does not name its own. Virtual fields (watertable_depth, seepage_mask ...) are accepted.
+      # variables = ...  # uses factory default
+
 .. dropdown:: ``[analysis]`` (AnalysisConfig)
    :icon: gear
 

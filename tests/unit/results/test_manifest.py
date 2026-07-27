@@ -405,3 +405,57 @@ def test_manifest_can_be_rebuilt_without_writing_it(tmp_path):
     assert rebuilt["run"] == on_disk["run"]
     assert rebuilt["geometry"] == on_disk["geometry"]
     assert rebuilt["parameters"] == on_disk["parameters"]
+
+
+# -- inputs -----------------------------------------------------------------
+
+
+def _track_dem(catalog: Catalog, tmp_path, sid: str = SID) -> bytes:
+    """Register one tracked input file, like the setup step does at run time."""
+    from hydromodpy.core.tracking import TrackedFileEntry
+
+    payload = b"elevation"
+    dem = tmp_path / "inputs" / "dem.tif"
+    dem.parent.mkdir(parents=True, exist_ok=True)
+    dem.write_bytes(payload)
+    catalog.register_tracked_files(
+        sid,
+        [
+            TrackedFileEntry(
+                role="dem",
+                category="raster",
+                original_path="inputs/dem.tif",
+                canonical_path=dem,
+                portable=True,
+            )
+        ],
+    )
+    return payload
+
+
+def test_manifest_records_the_input_files_the_run_consumed(tmp_path):
+    """The run says what fed it: path, digest, size and origin of every input."""
+    import hashlib
+    from pathlib import Path
+
+    with Catalog(tmp_path / "project") as catalog:
+        _register(catalog)
+        _populate(catalog)
+        payload = _track_dem(catalog, tmp_path)
+        catalog.finalize(SID, status="completed", duration_s=1.0)
+        run_dir = catalog.run_dir_for(SID)
+
+    (entry,) = read_manifest(run_dir)["inputs"]
+    assert entry["role"] == "dem"
+    assert entry["category"] == "raster"
+    assert entry["declared_path"] == "inputs/dem.tif"
+    assert Path(entry["path"]).name == "dem.tif"
+    assert entry["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert entry["bytes"] == len(payload)
+    assert entry["portable"] is True
+
+
+def test_a_run_declaring_no_input_seals_an_empty_input_list(sealed_run):
+    _run_dir, manifest = sealed_run
+
+    assert manifest["inputs"] == []

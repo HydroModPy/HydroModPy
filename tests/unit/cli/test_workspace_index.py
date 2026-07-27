@@ -132,3 +132,44 @@ def test_register_help_mentions_workspace_uri(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert "workspace_uri" in out
     assert "--label" in out
+
+
+def test_index_list_empty_returns_zero(monkeypatch, capsys, isolated_state) -> None:
+    """``hmp workspace list`` on an empty index says so instead of crashing."""
+    code = _run(monkeypatch, ["hmp", "workspace", "list"])
+    assert code == 0
+    assert "no registered workspaces" in capsys.readouterr().out
+
+
+def test_index_list_renders_registered_rows(monkeypatch, capsys, tmp_path, isolated_state) -> None:
+    """``hmp workspace list`` renders a table of the registered workspaces."""
+    ws = tmp_path / "ws_listed"
+    _seed_workspace_with_catalog(ws)
+    assert _run(monkeypatch, ["hmp", "workspace", "register", str(ws), "--label", "listed"]) == 0
+    capsys.readouterr()
+
+    code = _run(monkeypatch, ["hmp", "workspace", "list"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "workspace_id" in out
+    assert "workspace_uri" in out
+    assert "listed" in out
+    assert str(ws) in out
+
+
+def test_index_list_json_emits_record_fields(monkeypatch, capsys, tmp_path, isolated_state) -> None:
+    """``hmp workspace list --json`` emits one object per registered workspace."""
+    import json
+
+    ws = tmp_path / "ws_json"
+    _seed_workspace_with_catalog(ws)
+    assert _run(monkeypatch, ["hmp", "workspace", "register", str(ws), "--label", "jsoned"]) == 0
+    capsys.readouterr()
+
+    code = _run(monkeypatch, ["hmp", "workspace", "list", "--json"])
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert len(payload) == 1
+    assert payload[0]["label"] == "jsoned"
+    assert payload[0]["workspace_uri"] == str(ws)
+    assert payload[0]["last_scanned_at"] is None

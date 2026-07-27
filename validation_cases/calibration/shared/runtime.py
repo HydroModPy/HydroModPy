@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.state.paths import internal_dir, runs_dir_for, share_dir_for
+from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
     ObservationNoiseSpec,
@@ -24,6 +25,14 @@ from validation_cases.calibration.shared.definitions import (
     build_payload,
 )
 from validation_cases.shared.runtime import _dump_toml, resolve_validation_results_dir
+
+# Budget components that carry the outlet discharge, most specific first.
+# Both extraction paths speak the canonical vocabulary of
+# ``hydromodpy.solver.modflow_common.budget_components``: the catalog stores
+# canonical names, and raw solver record names are canonicalised before the
+# lookup, so a Run and its solver output directory always resolve the same
+# component.
+OUTLET_BUDGET_COMPONENTS: tuple[str, ...] = ("drain", "constant_head")
 
 
 def _write_toml(path: Path, payload: dict[str, Any]) -> None:
@@ -555,10 +564,7 @@ def extract_outputs(
         values: np.ndarray | None = None
         try:
             if variable == "outlet_discharge" or support == "boundary":
-                values = _extract_outlet_discharge_from_run(
-                    run,
-                    boundary_id=str(getattr(decl, "boundary_id", "") or ""),
-                )
+                values = _extract_outlet_discharge_from_run(run)
             elif variable in {"watertable_elevation", "head"} and support == "point":
                 values = _extract_head_at_point_from_run(
                     run,
@@ -589,25 +595,13 @@ def _quantity_magnitude(value: Any) -> float | None:
         return None
 
 
-def _extract_outlet_discharge_from_run(run: Any, *, boundary_id: str) -> np.ndarray | None:
+def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
     """Sum boundary flux per timestep from ``run.budget()``."""
     bud = run.budget()
     if bud is None or bud.empty:
         return None
-    preferred: tuple[str, ...] = ("drn", "drain", "drains", "chd")
-    lowered = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
-    bid = (boundary_id or "").strip().lower()
-    resolved: str | None = None
-    if "drain" in bid or "drn" in bid:
-        for key in ("drn", "drain", "drains"):
-            if key in lowered:
-                resolved = key
-                break
-    if resolved is None:
-        for key in preferred:
-            if key in lowered:
-                resolved = key
-                break
+    available = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
+    resolved = next((key for key in OUTLET_BUDGET_COMPONENTS if key in available), None)
     if resolved is None:
         return None
     subset = bud[bud["component"].astype(str).str.strip().str.lower() == resolved]
@@ -847,15 +841,18 @@ def _extract_outlet_discharge_from_dir(
         return None
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
-        record_names = [r.decode().strip().lower() for r in cbb.get_unique_record_names()]
-        record_name: str | None = None
-        for key in ("drn", "drain", "drains", "chd"):
-            for rec in record_names:
-                if key in rec:
-                    record_name = rec
-                    break
-            if record_name is not None:
-                break
+        record_by_component: dict[str, str] = {}
+        for raw in cbb.get_unique_record_names():
+            record = raw.decode().strip()
+            record_by_component.setdefault(canonical_budget_component(record), record)
+        record_name = next(
+            (
+                record_by_component[key]
+                for key in OUTLET_BUDGET_COMPONENTS
+                if key in record_by_component
+            ),
+            None,
+        )
         if record_name is None:
             return None
         times = cbb.get_times()

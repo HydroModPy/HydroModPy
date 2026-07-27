@@ -25,13 +25,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `workflow <workflow.html#workflow-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L98>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L99>`__
    * - ``workflow.profile``
      - ``bool | str``
      - expert
      - -
      - `workflow <workflow.html#workflow-profile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L102>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L103>`__
    * - ``workspace.project_root``
      - ``Path | UPath``
      - user
@@ -7598,6 +7598,54 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `persistence <persistence.html#persistence-compression-level>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L48>`__
+   * - ``observation.points``
+     - ``list[ObservationPointConfig]``
+     - user
+     - -
+     - `observation <observation.html#observation-points>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L84>`__
+   * - ``observation.points.id``
+     - ``str``
+     - user
+     - -
+     - `observation <observation.html#observation-points-id>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L30>`__
+   * - ``observation.points.x``
+     - ``float``
+     - user
+     - -
+     - `observation <observation.html#observation-points-x>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L33>`__
+   * - ``observation.points.y``
+     - ``float``
+     - user
+     - -
+     - `observation <observation.html#observation-points-y>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L36>`__
+   * - ``observation.points.layer``
+     - ``int | None``
+     - user
+     - -
+     - `observation <observation.html#observation-points-layer>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L39>`__
+   * - ``observation.points.depth``
+     - ``float | None``
+     - user
+     - -
+     - `observation <observation.html#observation-points-depth>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L43>`__
+   * - ``observation.points.variables``
+     - ``list[str] | None``
+     - user
+     - -
+     - `observation <observation.html#observation-points-variables>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L51>`__
+   * - ``observation.variables``
+     - ``list[str]``
+     - user
+     - -
+     - `observation <observation.html#observation-variables>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/observation_config.py#L75>`__
    * - ``analysis.batch``
      - ``RegionalLabConfig | None``
      - user

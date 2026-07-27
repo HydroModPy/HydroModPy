@@ -23,6 +23,7 @@ from hydromodpy.core.state.paths import (
     SESSIONS_DIRNAME,
     SHARE_DIRNAME,
 )
+from hydromodpy.data.data_freeze import LOCKFILE_NAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import (
@@ -59,6 +60,11 @@ ALLOWED_PROJECT_ENTRIES = frozenset(
         SESSIONS_DIRNAME,
         SHARE_DIRNAME,
         INTERNAL_DIRNAME,
+        # Input-side pin of the workspace data cache, written by `hmp run` and
+        # verified by `hmp run --frozen` before anything is computed. Declared,
+        # not tolerated: see hydromodpy/project/lockfile.py for why the per-run
+        # `inputs` block of the manifest does not replace it.
+        LOCKFILE_NAME,
     }
 )
 
@@ -158,6 +164,20 @@ def test_project_root_grows_no_dumping_ground(solved_run):
     )
     for forbidden in FORBIDDEN_PROJECT_ENTRIES:
         assert not (project / forbidden).exists(), f"legacy layout entry reappeared: {forbidden}"
+
+
+def test_the_reproducibility_lock_is_a_declared_project_entry(solved_run):
+    """A lockfile next to the project marker does not break the layout.
+
+    It is an input of the project, like ``project.toml`` and ``configs/``, not
+    an output of a run: the run's own input provenance lives in its manifest.
+    """
+    project, _ = solved_run
+    (project / LOCKFILE_NAME).write_text("[hydromodpy]\n", encoding="utf-8")
+
+    entries = {entry.name for entry in project.iterdir()}
+    assert LOCKFILE_NAME in entries
+    assert entries <= ALLOWED_PROJECT_ENTRIES
 
 
 def test_no_output_path_carries_an_opaque_identifier(solved_run):

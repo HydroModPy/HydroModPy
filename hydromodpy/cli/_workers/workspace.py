@@ -50,11 +50,22 @@ def init_workspace(
 
 
 def list_workspaces() -> Any:
-    """List workspaces registered in the machine-wide global index."""
+    """List workspaces registered in the machine-wide global index.
+
+    Returns one :class:`pandas.DataFrame` with the columns of
+    :class:`hydromodpy.core.state.global_index.WorkspaceRecord`, so the
+    listing renders like every other CLI table.
+    """
+    import pandas as pd
+
     from hydromodpy.core.state.global_index import GlobalIndex
 
     with GlobalIndex(read_only=True) as gi:
-        return gi.list_workspaces()
+        records = gi.list_workspaces()
+    return pd.DataFrame(
+        [record.model_dump() for record in records],
+        columns=["workspace_id", "workspace_uri", "label", "last_scanned_at", "created_at"],
+    )
 
 
 def register_workspace(uri: str, *, label: str | None = None) -> str:
