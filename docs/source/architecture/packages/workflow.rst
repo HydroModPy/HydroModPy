@@ -83,7 +83,7 @@ Key public symbols
 
 - ``hydromodpy.workflow.internals.state.PipelineState``
 - ``hydromodpy.workflow.internals.step.Step``
-- ``hydromodpy.workflow.internals.checkpoint.CheckpointStore``
+- ``hydromodpy.workflow.internals.manifest.ResolvedRunManifest``
 - ``hydromodpy.workflow.internals.dependencies.earliest_affected_step``
 - ``hydromodpy.workflow.internals.derived.DerivedRegistry``
 - ``hydromodpy.workflow.runner.Pipeline``
@@ -91,7 +91,7 @@ Key public symbols
   DisplayStep}``
 
 The v1 ``StepsLedger`` module is removed; workflow steps are now
-recorded in the project ``catalog.duckdb`` under the
+recorded in the project index (``.hmp/index.duckdb``) under the
 ``workflow_steps`` table (see :doc:`/architecture/storage-layout`).
 
 Recommended reading path
@@ -102,7 +102,7 @@ Recommended reading path
 3. ``hydromodpy/workflow/runner.py``
 4. ``hydromodpy/workflow/steps/__init__.py`` to see the registered
    steps.
-5. one step (``hydromodpy/workflow/steps/build_geographic.py``).
+5. one step (``hydromodpy/workflow/steps/setup.py``).
 6. ``hydromodpy/workflow/internals/dependencies.py`` for the
    skip-aware logic used by calibration.
 

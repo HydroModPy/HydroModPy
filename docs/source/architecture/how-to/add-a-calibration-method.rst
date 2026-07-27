@@ -50,19 +50,19 @@ Skeleton:
 
 .. code-block:: python
 
-   from typing import ClassVar
-
-   from hydromodpy.calibration.adapters.base import (
-       CalibrationMethodAdapter, EvaluationResult, ParamSuggestion, ParameterSpace,
+   from hydromodpy.calibration.optim.optimizer import (
+       EvaluationResult,
+       ParamSuggestion,
+       register_optimizer,
    )
+   from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 
-   class MyMethodAdapter:
-       method_name: ClassVar[str] = "mymethod"
-
-       def configure(self, params: ParameterSpace, options: dict) -> None:
-           self._params = params
-           self._max_iter = int(options.get("max_iter", 100))
+   @register_optimizer("mymethod")
+   class MyMethodOptimizer:
+       def __init__(self, space: ParameterSpace, *, max_iter: int = 100) -> None:
+           self._space = space
+           self._max_iter = max_iter
            self._iter = 0
            self._best: EvaluationResult | None = None
 
@@ -78,39 +78,41 @@ Skeleton:
        def best(self) -> EvaluationResult | None:
            return self._best
 
-Register in the engine
-----------------------
+       def converged(self) -> bool:
+           return self._iter >= self._max_iter
 
-The engine resolves adapters through a name-keyed registry in
-``hydromodpy/calibration/adapters/__init__.py``. Add the entry:
+Registration
+------------
 
-.. code-block:: python
+There is no registry dict to edit. ``@register_optimizer("mymethod")``
+publishes the class under the name accepted by
+``CalibrationConfig.method`` and by ``build_optimizer``. The registry
+(``hydromodpy/calibration/optim/optimizer.py``) auto-discovers every
+module under ``hydromodpy/calibration/adapters/`` on the first
+``build_optimizer`` call, so dropping the file in that package is all
+the wiring required.
 
-   from hydromodpy.calibration.adapters.mymethod import MyMethodAdapter
-
-   _ADAPTERS = {
-       ...,
-       MyMethodAdapter.method_name: MyMethodAdapter,
-   }
+Third-party methods shipped outside the repository register through the
+``hydromodpy.optimizer`` entry-point group instead.
 
 Optional dependencies
 ---------------------
 
 If your method depends on a heavy or optional package
-(``cma``, ``cmaes``, ``scikit-learn``, ``torch``), import it
-inside ``configure`` and raise a clear ``ImportError`` when it is
-missing:
+(``cma``, ``cmaes``, ``scikit-learn``, ``torch``), import it at module
+level and let the ``ImportError`` propagate: auto-discovery treats an
+adapter that fails to import as simply unregistered, so a missing
+optional never breaks the other methods.
 
 .. code-block:: python
 
-   def configure(self, params, options):
-       try:
-           import cma  # noqa: F401
-       except ImportError as exc:
-           raise ImportError(
-               "method 'mymethod' requires the 'calibration' extra "
-               "(pip install -e \".[calibration]\")"
-           ) from exc
+   try:
+       import cma  # noqa: F401
+   except ImportError as exc:
+       raise ImportError(
+           "method 'mymethod' requires the 'calibration' extra "
+           "(pip install -e \".[calibration]\")"
+       ) from exc
 
 Sampling-space coordinates
 --------------------------

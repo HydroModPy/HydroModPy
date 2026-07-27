@@ -4,7 +4,7 @@ calibration
 ``hydromodpy.calibration`` runs the ask/tell loop that estimates
 parameters against observations. It sits on top of the simulation
 layer and reuses the prepare-once / evaluate-many primitive in
-``hydromodpy/simulation/execution/trial.py``.
+``hydromodpy/calibration/runners/trial.py``.
 
 Sub-modules
 -----------
@@ -59,7 +59,7 @@ Ask / tell flow
        promote selected trials to full simulations
 
 ``earliest`` is computed by
-``hydromodpy/workflow/internals/dependencies.earliest_affected_step``
+``hydromodpy/workflow/internals/dependencies.py``
 from the dotted paths in ``[calibration.parameters.*]``. Steps
 ``[0..earliest)`` are shared across every trial; steps
 ``[earliest..8]`` re-run lightweight per trial; steps
@@ -83,24 +83,24 @@ deduplicates trials across sessions when ``use_cache = true``
 Key public symbols
 ------------------
 
-- ``hydromodpy.calibration.cli_runner.run_calibration_cli``
-- ``hydromodpy.calibration.programmatic_runner.run_calibration_programmatic``
-- ``hydromodpy.calibration.engine.CalibrationEngine``
+- ``hydromodpy.calibration.runners.cli_runner.run_calibration_cli``
+- ``hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic``
+- ``hydromodpy.calibration.optim.engine.CalibrationEngine``
 - ``hydromodpy.calibration.adapters.{Grid, RandomSearch,
   ScipyNelderMead, ScipyDE, OptunaAdapter, CmaEsAdapter,
   GpMappingAdapter, DaMhGpAdapter}``
 - ``hydromodpy.calibration.metrics.build_metric_extractor``
-- ``hydromodpy.calibration.objective.Objective``
-- ``hydromodpy.calibration.diagnostics.{convergence_rate,
+- ``hydromodpy.calibration.optim.objective.Objective``
+- ``hydromodpy.calibration.optim.diagnostics.{convergence_rate,
   parameter_correlation}``
 
 Recommended reading path
 ------------------------
 
 1. ``hydromodpy/calibration/__init__.py`` for the public surface.
-2. ``hydromodpy/calibration/cli_runner.py``
-3. ``hydromodpy/calibration/engine.py``
-4. ``hydromodpy/simulation/execution/trial.py``
+2. ``hydromodpy/calibration/runners/cli_runner.py``
+3. ``hydromodpy/calibration/optim/engine.py``
+4. ``hydromodpy/calibration/runners/trial.py``
 5. one adapter (``hydromodpy/calibration/adapters/optuna_adapter.py``
    is the most generic).
 6. one case (``hydromodpy/calibration/cases/recession_brutsaert.py``).

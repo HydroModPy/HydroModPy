@@ -40,10 +40,6 @@ Stable Python API
      - ``hmp.read``
      - Python-only
      - not a TOML workflow
-   * - Audit prune
-     - ``hmp.audit_prune``
-     - ``hmp audit prune``
-     - not a TOML workflow
    * - Doctor diagnostics
      - ``hmp.doctor``
      - ``hmp doctor``

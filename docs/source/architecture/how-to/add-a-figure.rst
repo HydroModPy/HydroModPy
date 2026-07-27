@@ -51,7 +51,7 @@ Skeleton:
 
    from matplotlib.axes import Axes
 
-   from hydromodpy.display.catalog import register
+   from hydromodpy.display.figure_registry import register
    from hydromodpy.display.figure import BaseFigure, FigureSpec
    from hydromodpy.results.run import Run
 

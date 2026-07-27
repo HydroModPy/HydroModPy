@@ -31,7 +31,7 @@ Sections live close to the package they configure:
      - ``hydromodpy/spatial/domain/domain_config.py``
    * - ``[data]``
      - ``DataManagersConfig``
-     - ``hydromodpy/data/data_managers_config.py``
+     - ``hydromodpy/data/managers/config_schema.py``
    * - ``[flow]``
      - ``FlowConfig``
      - ``hydromodpy/physics/flow/flow_config.py``
@@ -46,7 +46,7 @@ Sections live close to the package they configure:
      - ``hydromodpy/solver/base/solver_config.py``
    * - ``[modflownwt]``
      - ``ModflowConfig``
-     - ``hydromodpy/solver/modflow_nwt/nwt.py``
+     - ``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py``
    * - ``[modflow6]``
      - ``Modflow6Config``
      - ``hydromodpy/solver/modflow6/modflow6_config.py``
@@ -64,7 +64,7 @@ Sections live close to the package they configure:
      - ``hydromodpy/display/overview/config.py``
    * - ``[mesh_catchment]``
      - ``MeshCatchmentConfig``
-     - ``hydromodpy/spatial/mesh/config.py``
+     - ``hydromodpy/spatial/mesh/config/``
    * - ``[calibration]``
      - ``CalibrationConfig``
      - ``hydromodpy/calibration/config.py``
@@ -208,7 +208,7 @@ Add a brand-new section
    ``hydromodpy/config/hydromodpy_config.py`` (typically as
    ``Annotated[NewConfig | None, Profile.USER] = None``).
 3. If a launcher should dispatch on the new section, wire it through
-   ``hydromodpy/cli/workflows.py`` (or the equivalent dispatcher).
+   ``hydromodpy/project/dispatch/workflow.py`` (or the equivalent dispatcher).
 4. Refresh the JSON Schema export with
    ``hmp schema export --output ./schema/`` and commit the diff if
    the project pins generated artefacts.

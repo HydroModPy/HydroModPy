@@ -83,7 +83,7 @@ Sub-models are linked back to their per-section page.
       # dam_carve = ...  # uses factory default
       # If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
       reuse_existing_outputs = false
-      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), results_stable/ is removed after ingestion into the simulation Zarr store.
+      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/_preprocessing/ is removed after ingestion into the run field store.
       write_intermediates = false
 
 .. dropdown:: ``[domain]`` (DomainConfig)
@@ -475,7 +475,7 @@ Sub-models are linked back to their per-section page.
       [mesh_catchment]
       # Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.
       constraints_mode = "geology_rivers"
-      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
+      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
       # output_mesh = ...  # default = None
       # Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output.
       # output_summary_json = ...  # default = None
@@ -493,11 +493,11 @@ Sub-models are linked back to their per-section page.
       figure_dpi = 300
       # Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
       figure_regional_dpi = 220
-      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
+      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
       output_layout = "standard"
       # If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.
       show_plot = false
-      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
+      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and `.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
       geographic_outputs_mode = "keep"
       # River-constraint section used when constraints_mode includes rivers. The default behavior is to reuse the in-memory river trace already built by the geographic pipeline.
       # rivers = ...  # uses factory default

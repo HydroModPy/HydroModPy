@@ -1,6 +1,4 @@
 {%- set skip_modules = [
-    'hydromodpy.data.variables.hydrometry.discovery',
-    'hydromodpy.data.variables.piezometry.discovery',
     'hydromodpy.workflow.pipelines.overview',
 ] -%}
 {{ fullname | escape | underline}}

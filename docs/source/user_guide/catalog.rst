@@ -4,7 +4,7 @@ The catalog door
 HydroModPy stores its tabular state in three DuckDB files:
 
 - ``<workspace>/data/cache.duckdb`` -- shared input cache.
-- ``<project>/catalog.duckdb`` -- simulation results for one project.
+- ``<project>/.hmp/index.duckdb`` -- index of the runs of one project.
 - ``<state_dir>/index.duckdb`` -- machine-wide federation of every
   registered workspace.
 
@@ -27,7 +27,7 @@ Opening a catalog
 
 ``hmp.open`` returns a :class:`~hydromodpy.results.catalog.Catalog`
 (the engine itself, not a wrapper). With the default ``create=False`` it
-raises ``FileNotFoundError`` when no ``catalog.duckdb`` exists; pass
+raises ``FileNotFoundError`` when no ``.hmp/index.duckdb`` exists; pass
 ``create=True`` to initialise an empty catalog instead.
 
 The three databases
@@ -36,7 +36,8 @@ The three databases
 The simulation catalog -- ``hmp.open``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Backed by ``<project>/catalog.duckdb``.
+Backed by ``<project>/.hmp/index.duckdb``, rebuildable from ``runs/``
+and ``sessions/`` with ``hmp catalog reindex``.
 
 .. code-block:: python
 
@@ -112,6 +113,59 @@ concurrent ``hmp run`` writers keep their write-lock.
 The federation (federated search across every workspace, full-text
 search across descriptions / scientific objectives) lives on the index
 returned by ``hmp.index()``.
+
+Keeping the history bounded
+---------------------------
+
+A project accumulates runs. ``hmp catalog gc`` decides how many it
+keeps, and it plans before it acts: without ``--apply`` it only prints
+what it would do.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 14 60
+
+   * - Rule
+     - Default
+     - What it selects
+   * - ``--keep-versions N|all``
+     - ``5``
+     - Every version of one run name beyond the ``N`` newest.
+       ``cheze``, ``cheze.v2``, ``cheze.v3`` is one lineage. ``all``
+       disables the rule.
+   * - ``--max-age-days DAYS``
+     - disabled
+     - Runs created more than ``DAYS`` ago.
+   * - ``--purge-figures``
+     - disabled
+     - The ``figures/`` directory of each run, rebuildable from the run
+       outputs.
+
+.. code-block:: bash
+
+   hmp catalog gc                              # plan only, default policy
+   hmp catalog gc --keep-versions 2 --apply    # keep the two newest per lineage
+   hmp catalog gc --max-age-days 365 --apply   # also retire runs older than a year
+   hmp catalog gc --keep-versions all          # keep every version, clean the rest
+
+No rule destroys anything on the spot. A selected run is moved to the
+project trash: a reversible status flip stamped on disk as
+``runs/<name>/trash.json`` and undone by ``hmp catalog restore``. Its
+bytes are freed later, by the trash-expiry rule, once the retention
+window has passed. Selected figures are quarantined under
+``.hmp/trash/<stamp>/<run>/figures``.
+
+Tag a run ``pinned`` to exempt it from every rule:
+
+.. code-block:: bash
+
+   hmp catalog tag <ref> pinned
+
+Beyond retention, ``gc`` also collects orphan stores, tmp Parquet,
+expired trash, stale ``running`` rows, pending purges and orphan
+calibration sessions. With ``--apply`` it compacts the DuckDB file and
+consolidates the Zarr metadata. The full synopsis is in
+:doc:`/cli/catalog`.
 
 Underlying objects
 ------------------

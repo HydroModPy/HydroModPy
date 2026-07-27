@@ -94,7 +94,7 @@ queryable through ``capabilities(process_type, solver_name)``.
 Key public symbols
 ------------------
 
-- ``hydromodpy.solver.base.protocol.SolverAdapter``
+- ``hydromodpy.solver.base.adapter_protocol.SolverAdapter``
 - ``hydromodpy.solver.base.registry.{register, get, get_solver_adapter,
   register_extractor, get_extractor, list_pairs, capabilities,
   required_bindings, load_plugins}``
@@ -109,7 +109,7 @@ Key public symbols
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/solver/base/protocol.py`` and ``registry.py``.
+1. ``hydromodpy/solver/base/adapter_protocol.py`` and ``registry.py``.
 2. ``hydromodpy/solver/modflow6/adapters/flow.py`` for a concrete
    adapter.
 3. ``hydromodpy/solver/modflow_common/flow_adapter_helpers.py`` for

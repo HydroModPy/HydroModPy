@@ -8611,73 +8611,73 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-output-summary-json>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L57>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L58>`__
    * - ``mesh_catchment.output_figure``
      - ``Optional[str]``
      - dev
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-output-figure>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L65>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L66>`__
    * - ``mesh_catchment.output_figure_regional``
      - ``Optional[str]``
      - dev
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-output-figure-regional>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L73>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L74>`__
    * - ``mesh_catchment.figures_enabled``
      - ``bool``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-figures-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L81>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L82>`__
    * - ``mesh_catchment.export_exchange_bundle``
      - ``bool``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-export-exchange-bundle>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L88>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L89>`__
    * - ``mesh_catchment.cache``
      - ``bool``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-cache>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L96>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L97>`__
    * - ``mesh_catchment.figure_dpi``
      - ``int``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-figure-dpi>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L107>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L108>`__
    * - ``mesh_catchment.figure_regional_dpi``
      - ``int``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-figure-regional-dpi>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L114>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L115>`__
    * - ``mesh_catchment.output_layout``
      - ``Literal['standard', 'flat']``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-output-layout>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L121>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L122>`__
    * - ``mesh_catchment.show_plot``
      - ``bool``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-show-plot>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L130>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L131>`__
    * - ``mesh_catchment.geographic_outputs_mode``
      - ``Literal['keep', 'cleanup']``
      - dev
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-geographic-outputs-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L137>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L138>`__
    * - ``mesh_catchment.rivers``
      - ``MeshCatchmentRiversConfig``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-rivers>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L146>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L147>`__
    * - ``mesh_catchment.rivers.source``
      - ``Literal['geographic_features', 'file']``
      - user
@@ -8713,13 +8713,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-geology>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L153>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L154>`__
    * - ``mesh_catchment.watershed_boundary``
      - ``MeshCatchmentWatershedBoundaryConfig``
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-watershed-boundary>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L162>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L163>`__
    * - ``mesh_catchment.watershed_boundary.enabled``
      - ``bool``
      - user
@@ -8815,7 +8815,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-hydraulic-properties>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L170>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L171>`__
    * - ``mesh_catchment.hydraulic_properties.conductivity``
      - ``MeshCatchmentHydraulicConductivity | None``
      - user
@@ -8911,7 +8911,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-domain>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L180>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L181>`__
    * - ``mesh_catchment.domain.bbox.kind``
      - ``Literal['bbox']``
      - user
@@ -8983,7 +8983,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-zone-meshing>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L188>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L189>`__
    * - ``mesh_catchment.zone_meshing.algorithm``
      - ``str``
      - user
@@ -9193,7 +9193,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-lake-refinement>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L196>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L197>`__
    * - ``mesh_catchment.lake_refinement.enabled``
      - ``bool``
      - user
@@ -9253,7 +9253,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `mesh_catchment <mesh_catchment.html#mesh-catchment-refinement-zone>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L204>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L205>`__
    * - ``mesh_catchment.refinement_zone.path``
      - ``str``
      - user

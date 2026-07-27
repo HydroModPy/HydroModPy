@@ -242,7 +242,7 @@ computes useful summaries such as:
 - the ``simulated_active_network`` figure when the run has
   ``accumulation_flux`` and a plottable mesh
 
-These are lazy result views implemented in ``hydromodpy.results.views``:
+These are lazy result views implemented in ``hydromodpy.results.derive.views``:
 they read persisted fields, mesh geometry, and hydrographic-network roles from
 the run without mutating the catalog.
 

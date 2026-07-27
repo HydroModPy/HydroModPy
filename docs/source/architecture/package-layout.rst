@@ -14,8 +14,7 @@ Top-level facade
    hydromodpy/
    |-- __init__.py             Lazy public exports plus PROJ bootstrap.
    |-- _api.py                 Top-level helpers (open, run, calibrate,
-   |                           index, compare_pair, report,
-   |                           audit_prune, doctor).
+   |                           index, compare_pair, report, doctor).
    |-- _bootstrap.py           PROJ database setup at import time.
    |-- _lazy.py                Lazy-export tables (LAZY_IMPORTS,
    |                           MODULE_EXPORTS).

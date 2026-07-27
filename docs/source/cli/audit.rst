@@ -35,15 +35,6 @@ Example::
 
    hmp audit verify --strict
 
-prune
------
-
-Synopsis: ``hmp audit prune [--dry-run] [--apply] [--workspace <path>]``
-
-Apply the ``retention_policies`` rows to ``audit_log``. Dry-run by default:
-it counts the rows that exceed their retention window without touching the
-table. ``--apply`` performs the deletion.
-
-Example::
-
-   hmp audit prune --dry-run
+The audit log has no retention rule: it grows with the project and is
+never pruned. Run retention is a separate matter, handled by
+``hmp catalog gc`` (see :doc:`catalog`).

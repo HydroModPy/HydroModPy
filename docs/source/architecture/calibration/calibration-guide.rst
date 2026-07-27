@@ -97,7 +97,7 @@ Node by node:
   what you would write for a single run.
 - **``hmp run``**: the unified CLI entry point. It reads
   ``[workflow].mode = "calibration"`` and dispatches to
-  ``hydromodpy.calibration.cli_runner.run_calibration_cli``. Calibration
+  ``hydromodpy.calibration.runners.cli_runner.run_calibration_cli``. Calibration
   has no separate top-level subcommand.
 - **``prepare_trials``**: runs pipeline steps ``[0..earliest)`` exactly
   once. ``earliest`` is computed from the dotted paths declared by
@@ -126,9 +126,9 @@ Node by node:
   ``simulations`` row, and back-fills the corresponding
   ``calibration_iterations.sim_id``.
 - **``hmp report <session_id>``**: post-processing CLI that reads the
-  session and iterations from DuckDB, renders the six calibration
+  session descriptor and its trial log, renders the six calibration
   figures, and emits a standalone HTML report at
-  ``<workspace>/reports/<session_id>/report.html``.
+  ``<project>/share/reports/<session_name>/report.html``.
 
 The user TOML
 -------------
@@ -155,7 +155,7 @@ Overlay and workflow marker
 - ``[workflow].mode = "calibration"``: the single switch that tells
   ``hmp run`` to dispatch to the ask/tell loop instead of the default
   single-simulation path. Dispatch logic lives in
-  ``hydromodpy/cli/workflows.py:DISPATCH``.
+  ``hydromodpy/project/dispatch/workflow.py:DISPATCH``.
 
 Standard simulation block
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -550,33 +550,38 @@ Calibration storage flow, by container:
      - Aligned vector + scalar metrics
      - Built per trial by ``run_trial_light`` and discarded at end of
        trial. Never reaches disk.
-   * - ``catalog.duckdb``
-     - ``calibration_sessions``
-     - One row per session (start, finalize, status).
-   * - ``catalog.duckdb``
-     - ``calibration_iterations`` (``sim_id`` NULL)
-     - One row per trial: parameters, objective, scalar metrics,
-       ``params_hash``.
-   * - ``catalog.duckdb``
+   * - ``sessions/<session_name>/``
+     - ``session.json``
+     - The session descriptor: identity, project, search space,
+       objective, dates, best trial. Written before the first trial and
+       rewritten with the outcome at the end.
+   * - ``sessions/<session_name>/``
+     - ``trials.jsonl``
+     - The trial log: one JSON object per evaluated trial, appended
+       live. An interrupted calibration keeps every trial it had time
+       to evaluate.
+   * - ``.hmp/index.duckdb``
+     - ``calibration_sessions``, ``calibration_iterations``
+     - Index over the two journal files, rebuilt from them by
+       ``hmp catalog reindex``. Not a source of truth.
+   * - ``.hmp/index.duckdb``
      - ``simulations``, ``parameters``, ``metrics``, ``tags``
      - Promoted top-N trials only (``promote_trial``). Updates the
        matching ``calibration_iterations.sim_id``.
-   * - Filesystem
-     - ``simulations/<basename>.zarr/``
+   * - ``runs/<run_name>/``
+     - ``fields.zarr/``
      - Spatial fields written **only** for promoted trials.
-   * - Filesystem
-     - ``simulations/<basename>.parquet.d/``
+   * - ``runs/<run_name>/``
+     - ``tables.parquet/``
      - Detailed timeseries, budgets, mass balance for promoted
        trials only.
-   * - Filesystem
-     - ``<project>/figures/<session_id>/``
-     - PNG figures rendered post-loop via the display registry.
-   * - Filesystem
-     - ``<project>/reports/<session_id>/report.html``
-     - HTML report rendered by ``hmp report <session_id>``.
+   * - ``share/reports/<session_name>/``
+     - ``figures/*.png`` and ``report.html``
+     - Rendered post-loop by ``hmp report <session ref>``.
 
-Rule of thumb: **RAM inside the loop, DuckDB for the trace, Zarr /
-Parquet only for promoted runs.**
+Rule of thumb: **RAM inside the loop, the session journal for the trace,
+a run directory only for promoted trials.** The index is derived from
+both and never holds anything the disk does not.
 
 .. list-table::
    :header-rows: 1
@@ -588,29 +593,29 @@ Parquet only for promoted runs.**
      - RAM only
      - Each ``run_trial_light``: discarded at end of trial
    * - Per-station scalar metrics (NSE, KGE, RMSE)
-     - ``calibration_iterations.metrics`` (JSON column)
+     - ``sessions/<session_name>/trials.jsonl``
      - After each trial
    * - Session metadata
-     - ``calibration_sessions`` (1 row / session)
-     - Start + finalize
+     - ``sessions/<session_name>/session.json``
+     - Before the first trial, rewritten at finalize
    * - Parameters + scalar objective
-     - ``calibration_iterations`` (sim_id NULL by default)
+     - ``sessions/<session_name>/trials.jsonl``
      - After each trial
    * - ``params_hash``
-     - Column in ``calibration_iterations``
+     - ``sessions/<session_name>/trials.jsonl``
      - After each trial
    * - Spatial fields ``head(x, y, t)``
-     - ``simulations/<basename>.zarr/`` or ``.zarr.zip``
+     - ``runs/<run_name>/fields.zarr/``
      - **Only** via ``promote_trial``
    * - Detailed timeseries (head, Q)
-     - ``simulations/<basename>.parquet.d/timeseries.parquet``
+     - ``runs/<run_name>/tables.parquet/timeseries.parquet``
      - **Only** via ``promote_trial``
    * - Figures (PNG)
-     - ``<workspace>/projects/<name>/figures/<session_id>/``
-     - Post-loop via Display registry
+     - ``share/reports/<session_name>/figures/``
+     - Post-loop via the figure registry
    * - HTML report
-     - ``<workspace>/reports/<session_id>/report.html``
-     - ``hmp report <session_id>``
+     - ``share/reports/<session_name>/report.html``
+     - ``hmp report <session ref>``
 
 Disk-space cheat sheet for a representative 100-trial session on a
 moderately fine mesh:
@@ -792,7 +797,7 @@ For users who do not want to drop into Python:
 .. code-block:: bash
 
    hmp report <session_id>
-   xdg-open ~/workspace/reports/<session_id>/report.html
+   xdg-open ~/workspace/projects/<name>/share/reports/<session_name>/report.html
 
 The report embeds the six figures together with a summary table
 (method, objective, best parameters, best_sim_id, duration). It is
@@ -862,7 +867,7 @@ Programmatic entry point (no CLI needed):
 
 .. code-block:: python
 
-   from hydromodpy.calibration.cli_runner import run_calibration_cli
+   from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
    summary = run_calibration_cli(
        "run_calibration_k.toml",
@@ -899,7 +904,7 @@ directly for custom orchestration:
 
 .. code-block:: python
 
-   from hydromodpy.simulation.execution.trial import (
+   from hydromodpy.calibration.runners.trial import (
        prepare_trials, run_trial_light, promote_trial,
    )
 
@@ -923,7 +928,7 @@ Useful diagnostics on a persisted trace:
 
 .. code-block:: python
 
-   from hydromodpy.calibration.diagnostics import (
+   from hydromodpy.calibration.optim.diagnostics import (
        convergence_rate, parameter_correlation,
    )
 

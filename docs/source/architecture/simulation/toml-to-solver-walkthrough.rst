@@ -17,7 +17,7 @@ End-to-end chain
 For the standard simulation workflow, the runtime path is:
 
 1. ``hydromodpy/cli/commands/run.py`` (the ``hmp run <toml>`` entry
-   point) and ``hydromodpy/cli/workflows.py`` (workflow dispatch)
+   point) and ``hydromodpy/project/dispatch/workflow.py`` (workflow dispatch)
 2. ``HydroModPyConfig.from_toml(...)`` builds the typed config tree
 3. ``hydromodpy/project/facade.py`` instantiates the public ``Project``
    facade and runs setup, data, and optional mesh preparation
@@ -152,7 +152,7 @@ When reading or modifying the pipeline, the right file usually depends
 on the kind of change:
 
 - change CLI dispatch or workflow registration:
-  ``hydromodpy/cli/workflows.py``
+  ``hydromodpy/project/dispatch/workflow.py``
 - change top-level project orchestration or workspace behaviour:
   ``hydromodpy/project/facade.py``
 - change planning rules or dependency binding:

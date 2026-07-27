@@ -18,7 +18,7 @@ Sub-modules
    * - ``catalog/facade.py``
      - :func:`hmp.open`. Resolves the workspace and returns a
        :class:`Catalog`. Default ``create=False`` raises
-       ``FileNotFoundError`` when no ``catalog.duckdb`` exists; pass
+       ``FileNotFoundError`` when no ``.hmp/index.duckdb`` exists; pass
        ``create=True`` to initialise an empty one.
    * - ``catalog/simulations.py``
      - :class:`Catalog`. Read-mostly access to the

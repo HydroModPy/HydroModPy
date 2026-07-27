@@ -31,8 +31,8 @@ Twenty-six verbs ship today.
    * - Verb
      - Role
    * - ``init``
-     - Scaffold a workspace (catalog, ``data/``, ``projects/``,
-       ``simulations/``).
+     - Scaffold a workspace (``data/`` with its input cache, and
+       ``projects/``).
    * - ``new``
      - Create a new project inside a workspace.
    * - ``config``
@@ -129,7 +129,7 @@ Recommended reading path
    registered tuple ``ALL_COMMANDS``.
 3. ``hydromodpy/cli/commands/run.py`` for the canonical workflow
    verb.
-4. ``hydromodpy/cli/workflows.py`` for the
+4. ``hydromodpy/project/dispatch/workflow.py`` for the
    ``[workflow].mode`` -> launcher dispatch.
 5. One small verb such as ``cli/commands/show.py`` to see the
    thin-handler convention.
