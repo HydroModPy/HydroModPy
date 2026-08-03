@@ -1,0 +1,311 @@
+@startuml pkg_spatial
+title HydroModPy — Package spatial (geometrie, domaine, maillage)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "spatial (top-level)" {
+  class Surface <<dataclass>> {
+    + name : str
+    + values : ndarray
+    + support : RasterSupport
+    + from_geographic_dem(dem_values, support) : Surface {static}
+    + resample_to_shape(nrows, ncols) : Surface
+  }
+  class RasterSupport <<dataclass, frozen>> {
+    + crs : str
+    + dx : float
+    + nrows : int
+    + assert_same_geographic_domain(other) : void
+  }
+  class PreparedSurfaceSampler <<dataclass, frozen>> {
+    + values : ndarray
+    + from_surface(surface) : PreparedSurfaceSampler {static}
+  }
+  class CatchmentZonesField <<dataclass, frozen>> {
+    + encoded_codes : ndarray
+    + encoded_to_zone : Map<int,str>
+    + zone_keys : Tuple<str> {property}
+  }
+  interface GeologyDataSource <<Protocol>> {
+    + load_encoded_grid(config) : ndarray
+    + normalize_zone_key(raw) : str
+  }
+  Surface *-- "1" RasterSupport
+  PreparedSurfaceSampler ..> Surface : from_surface() <
+}
+
+package "spatial.domain" {
+  class Domain {
+    + config : DomainConfig
+    + surface_topo : Surface
+    + substratum : Surface
+    + zones : Map<str,Object>
+    + set_zone(zone_id, zone_obj) : void
+    + get_zone(zone_id) : Object
+  }
+  class DomainConfig {
+    + zone_ids : List<str>
+    + supports : Map<str,DomainSupportConfig>
+    + depth_model : DepthModelConfig
+  }
+  Domain *-- "2" Surface
+  Domain *-- "1" DomainConfig
+
+  interface SpatialSupportProvider <<Protocol>> {
+    + provider_name : str {classifier}
+    + build(support_id, config, context) : Object
+  }
+  class SpatialSupportProviderRegistry {
+    + build_default_spatial_support_provider_registry() : SpatialSupportProviderRegistry {static}
+  }
+  class SupportBuildContext <<dataclass>> {
+    + domain : Domain
+    + workspace : Object
+  }
+  SpatialSupportProviderRegistry o-- "0..*" SpatialSupportProvider
+  SpatialSupportProvider ..> SupportBuildContext : reçoit >
+  SupportBuildContext --> Domain : assoc.
+}
+
+package "spatial.geographic" {
+  class CatchmentDelineation {
+    + out_dir_path : Path
+    + x_outlet : float
+    + processing() : void
+    + get_domain_surface_topo() : Surface
+    + get_geographic_derived_features() : GeographicDerivedFeatures
+    + get_domain_geographic_context() : DomainGeographicContext
+  }
+  class GeographicConfig {
+    + source_mode : str
+    + crs_project : str
+    + river_network : RiverNetworkConfig
+  }
+  class DomainGeographicContext <<dataclass>> {
+    + surface_topo : Surface
+    + catchment_area_km2 : float
+  }
+  class GeographicDerivedFeatures <<dataclass>> {
+    + surface_topo : Surface
+    + rivers : RiverNetworkProducts
+    + hydrographic_networks : HydrographicNetworks
+    + to_domain_geographic_context() : DomainGeographicContext
+  }
+  class HydrographicNetwork <<dataclass, frozen>> {
+    + role : HydrographicNetworkRole
+    + river_mesh_trace : RiverMeshTrace
+    + read_vector() : GeoDataFrame
+  }
+  class HydrographicNetworks <<dataclass, frozen>> {
+    + reference : HydrographicNetwork
+    + generated : HydrographicNetwork
+    + simulated_active : HydrographicNetwork
+  }
+  class RiverMeshTrace <<dataclass>>
+  class Subbasin
+  class SyntheticGeographic
+
+  CatchmentDelineation --> GeographicConfig : assoc.
+  CatchmentDelineation ..> Surface : produit >
+  CatchmentDelineation ..> DomainGeographicContext : produit >
+  CatchmentDelineation ..> GeographicDerivedFeatures : produit >
+  GeographicDerivedFeatures *-- "1" Surface
+  GeographicDerivedFeatures *-- "1" HydrographicNetworks
+  GeographicDerivedFeatures ..> DomainGeographicContext : to_domain_geographic_context() >
+  HydrographicNetworks o-- "0..3" HydrographicNetwork
+  HydrographicNetwork *-- "0..1" RiverMeshTrace
+  SyntheticGeographic ..> GeographicDerivedFeatures : produit (mode synthétique) >
+}
+
+package "spatial.delineation" {
+  interface DelineationBackend <<Protocol>> {
+    + name : str
+    + flow_accumulation(dem) : ndarray
+    + stream_network(dem, threshold) : Object
+    + catchment_from_outlet(dem, x, y) : Object
+  }
+  class WhiteboxWorkflowsBackend {
+    + raster : Object
+    + flow : Object
+    + delineation : Object
+  }
+  class SyntheticBackend
+  WhiteboxWorkflowsBackend ..|> DelineationBackend
+  SyntheticBackend ..|> DelineationBackend
+  CatchmentDelineation ..> DelineationBackend : résout via >
+}
+
+package "spatial.mesh" {
+  class HydroMesh <<dataclass, frozen>> {
+    + vertices : ndarray
+    + cell_blocks : Tuple<CellBlock>
+    + n_cells : int {property}
+    + is_structured : bool {property}
+    + with_cell_data(**fields) : HydroMesh
+  }
+  class CellBlock <<dataclass, frozen>> {
+    + cell_type : CellType
+    + connectivity : ndarray
+    + n_cells : int {property}
+  }
+  enum CellType {
+    TRIANGLE
+    QUADRILATERAL
+    WEDGE
+    HEXAHEDRON
+  }
+  interface Grid <<Protocol>> {
+    + topology : GridTopology
+    + n_cells : int
+    + to_hydro_mesh() : HydroMesh
+  }
+  class RegularGrid
+  class IrregularGrid {
+    + mesh : HydroMesh
+  }
+  class LumpedGrid
+  RegularGrid ..|> Grid
+  IrregularGrid ..|> Grid
+  LumpedGrid ..|> Grid
+  HydroMesh *-- "1..*" CellBlock
+  CellBlock --> CellType
+  IrregularGrid *-- "1" HydroMesh
+
+  class MeshCatchmentConfig {
+    + constraints_mode : str
+    + output_mesh : str
+  }
+  class MeshCatchmentBatchRunner <<dataclass, frozen>> {
+    + config_path : Path
+    + mesh_section_data : MeshCatchmentConfig
+  }
+  MeshCatchmentBatchRunner --> MeshCatchmentConfig
+}
+
+package "spatial.mesh.cartesian_grid" {
+  class StructuredGridSpec <<dataclass, frozen>> {
+    + delc : ndarray
+    + nlay : int
+    + xvertices : ndarray
+  }
+  class StructuredGridBuilder {
+    + build_from_surfaces(top, bottom, vertical_config) : StructuredGridSpec {static}
+  }
+  class SGridConfig {
+    + planar : PlanarGridConfig
+    + vertical : VerticalGridConfig
+    + solver : SolverSGridConfig
+  }
+  StructuredGridBuilder ..> Surface : consomme (top,bottom) >
+  StructuredGridBuilder ..> StructuredGridSpec : produit >
+}
+
+package "spatial.mesh.gmsh_grid" {
+  class GmshPlanarMesh2D {
+    + points_xy : ndarray
+    + connectivity : ndarray
+    + from_hydro_mesh(mesh) : GmshPlanarMesh2D {static}
+    + to_hydro_mesh() : HydroMesh
+  }
+  GmshPlanarMesh2D --|> BaseFieldMesh
+  class ExtrudedPrismMesh3D {
+    + planar_mesh : GmshPlanarMesh2D
+    + z_interfaces : ndarray
+  }
+  ExtrudedPrismMesh3D *-- "1" GmshPlanarMesh2D
+  class CatchmentMeshBundle <<dataclass, frozen>> {
+    + bundle_dir : Path
+    + nodes : Tuple<CatchmentMeshBundleNode>
+    + cells : Tuple<CatchmentMeshBundleCell>
+    + n_cells() : int
+  }
+  CatchmentMeshBundle ..> ExtrudedPrismMesh3D : export disque de >
+  GmshPlanarMesh2D ..> HydroMesh : to_hydro_mesh() >
+}
+
+package "spatial.field" {
+  abstract class Field {
+    + identifier : str
+    + {abstract} on_mesh(mesh, cell_samples) : FieldDiscretization
+  }
+  abstract class FieldDiscretization {
+    + mesh : BaseFieldMesh
+    + {abstract} weighted_components() : tuple
+  }
+  class FieldParam {
+    + identifier : str
+    + kind : str
+    + to_mesh_field(discretization) : ndarray
+  }
+  abstract class BaseFieldMesh {
+    + {abstract} n_cells() : int
+    + to_hydro_mesh() : HydroMesh
+  }
+  class GeologyField {
+    + encoded_codes : ndarray
+    + on_mesh(mesh, cell_samples) : WeightedAverageFieldDiscretization
+  }
+  class GeologyStructuredMesh
+
+  GeologyField --|> Field
+  GeologyStructuredMesh --|> BaseFieldMesh
+  Field ..> FieldDiscretization : on_mesh() >
+  FieldDiscretization *-- "1" BaseFieldMesh
+  FieldParam ..> FieldDiscretization : consomme >
+  GeologyField ..> GeologyDataSource : get_geology_data_source() >
+}
+
+package "spatial.site_selection" {
+  class SiteSelectionConfig {
+    + selection_id : str
+    + criteria : CriteriaConfig
+  }
+  class CandidateOutlet <<dataclass, frozen>> {
+    + candidate_id : str
+    + x : float
+    + y : float
+  }
+  class DelineatedCatchment <<dataclass, frozen>> {
+    + site_id : str
+    + outlet : CandidateOutlet
+    + area_km2 : float
+  }
+  class SelectionResult <<dataclass, frozen>> {
+    + selected : List<DelineatedCatchment>
+    + decisions : List<SelectionDecision>
+  }
+  class SelectionDecision <<dataclass, frozen>> {
+    + site_id : str
+    + selected : bool
+  }
+  class SiteSelectionBuildResult <<dataclass, frozen>> {
+    + candidates : List<CandidateOutlet>
+    + delineated : List<DelineatedCatchment>
+    + selection : SelectionResult
+  }
+  DelineatedCatchment *-- "1" CandidateOutlet
+  SelectionResult o-- "0..*" DelineatedCatchment
+  SelectionResult o-- "0..*" SelectionDecision
+  SiteSelectionBuildResult *-- "0..*" CandidateOutlet
+  SiteSelectionBuildResult *-- "0..*" DelineatedCatchment
+  SiteSelectionBuildResult *-- "1" SelectionResult
+}
+
+note as NRel
+  domain/ <- geographic/ : CatchmentDelineation produit Surface
+  + DomainGeographicContext, remis a Domain.__init__.
+  domain/ -> field/ : SpatialSupportProvider construit des
+  Field (GeneratedBandsSupportField, RasterZonesSupportField...)
+  stockes dans Domain.zones.
+  field/ <-> mesh/ : Field.on_mesh(BaseFieldMesh) est le point
+  de jonction geometrie/valeurs (GmshPlanarMesh2D et
+  GeologyStructuredMesh heritent tous deux de BaseFieldMesh).
+  mesh/cartesian_grid/ et mesh/gmsh_grid/ convergent vers
+  HydroMesh (pivot), lui-meme enveloppe par Grid (Protocol).
+  site_selection/ <- geographic/ : reutilise les memes primitives
+  de delineation, en mode batch multi-exutoires.
+end note
+
+@enduml

@@ -73,7 +73,7 @@ class TestbedLauncher:
         if not isinstance(payload, dict):
             raise ValueError("testbed base config must load to a TOML mapping")
         payload.pop("testbed", None)
-        payload["workflow"] = self._child_workflow()
+        payload["workflow"] = {"mode": self._child_workflow()}
         if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
             _ensure_mesh_process_payload(payload)
         return payload
@@ -84,7 +84,7 @@ class TestbedLauncher:
             source_dir=self.cfg.base_dir,
         )
         payload = merge_toml_payloads(self._base_child_payload(), overlay)
-        payload["workflow"] = self._child_workflow()
+        payload["workflow"] = {"mode": self._child_workflow()}
         if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
             _ensure_mesh_process_payload(payload)
         path = self.generated_configs_dir / f"{_slugify(case_config.id)}.toml"

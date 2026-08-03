@@ -1,0 +1,69 @@
+@startuml pkg_cli
+title HydroModPy — Package cli (69 fichiers, quasi 100% fonctionnel)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+note as N1
+  **cli/ n'est PAS orienté objet.**
+  Sur 69 fichiers, seulement 3 classes existent au total.
+  Le paquet repose sur une convention structurelle :
+  chaque module de commande expose deux fonctions,
+  register(subparsers) et run(args) -- pas de classe
+  Command ni de Protocol, juste un tuple registre
+  ALL_COMMANDS parcouru par main._build_parser().
+end note
+
+package "cli.commands.dev.manage" {
+  class _WorkspaceManagerBackend {
+    - scan_root : Path
+    - workspace_roots : Map<str,Path>
+    + list_workspaces() : list
+    + list_simulations(workspace_ref) : list
+    + delete_simulations(workspace_ref, sim_ids) : void
+    + list_tables(...) : list
+  }
+
+  class _WorkspaceManagerHandler {
+    + server_version : str = "HydroModPyManage/1.0"
+    + backend : _WorkspaceManagerBackend {property}
+    + do_GET() : void
+    + do_POST() : void
+  }
+  _WorkspaceManagerHandler --|> BaseHTTPRequestHandler
+  _WorkspaceManagerHandler *-- "1" _WorkspaceManagerBackend
+
+  note bottom of _WorkspaceManagerHandler
+    Seul endroit du paquet cli/ utilisant
+    l'OOP : le tableau de bord HTTP "hmp dev manage"
+    (BaseHTTPRequestHandler impose la sous-classe).
+  end note
+}
+
+class BaseHTTPRequestHandler <<stdlib http.server>>
+
+package "cli.commands.run" {
+  class FrozenVerificationError <<RuntimeError>>
+  note bottom of FrozenVerificationError
+    Levée quand --frozen détecte une dérive
+    du lockfile avant toute exécution.
+  end note
+}
+
+note as N2
+  **Flux réel de "hmp run"** (fonctions, pas de classes) :
+  cli.main.main(argv)
+   -> _build_parser() itère commands.ALL_COMMANDS,
+      chaque module.register(subparsers)
+   -> args._handler(args)  == commands/run.py:run(args)
+      -> hydromodpy._api.run(config, **kwargs)
+         -> workflow.dispatch.resolve_workflow(toml)
+         -> project.dispatch.workflow.dispatch_workflow(...)
+
+  _workers/*.py : logique métier pure (fonctions),
+  découplée d'argparse ; commands/*.py = fine couche
+  argparse + gestion des codes de sortie (helpers.py).
+end note
+
+@enduml

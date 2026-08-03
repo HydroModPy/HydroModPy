@@ -283,8 +283,8 @@ def discover_result_store(
             return str(raw_path or "").strip().replace("\\", "/").casefold()
 
     workspace_root = _resolve_workspace_root_from_config(config_path_resolved)
+    project_root = _resolve_project_root_from_config(config_path_resolved)
     if workspace_root is None:
-        project_root = _resolve_project_root_from_config(config_path_resolved)
         if project_root is None:
             return None, None
         from hydromodpy.core.workspace.resolve import locate_workspace_root
@@ -298,7 +298,15 @@ def discover_result_store(
         sims = catalog.list_simulations()
         if sims.empty:
             catalog.close()
-            return None, None
+            # workspace.root is the shared data folder; try project_root for the simulation catalog
+            if project_root is not None and project_root != workspace_root:
+                catalog = SimulationCatalog(project_root)
+                sims = catalog.list_simulations()
+                if sims.empty:
+                    catalog.close()
+                    return None, None
+            else:
+                return None, None
         completed_sims = sims
         if "status" in sims.columns:
             completed_sims = sims.loc[sims["status"].astype(str).str.lower() == "completed"]

@@ -1,0 +1,276 @@
+@startuml architecture_condensee_corrigee
+title Architecture Globale HydroModPy — version corrigée (noms/methodes reels du code)
+skinparam dpi 140
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor White
+  BorderColor #333333
+  ArrowColor #333333
+}
+
+package "Configuration (Pydantic)" #E8F0FE {
+  class HydroModPyConfig <<pydantic BaseModel>> {
+    + workflow : WorkflowConfig
+    + workspace : WorkspaceConfig
+    + geographic : GeographicConfig
+    + domain : DomainConfig
+    + data : DataManagersConfig
+    + flow : FlowConfig
+    + transport : TransportConfig
+    + simulation : SimulationConfig
+    + solver : SolverConfig
+    + display : DisplayConfig
+    + calibration : CalibrationConfig
+    + from_toml(path) : HydroModPyConfig {static}
+  }
+  note bottom of HydroModPyConfig
+    Pas de "catchment_cfg/processes_cfg/solver_cfg" imbriqués :
+    ~20 sections indépendantes, une par package. calibration
+    est une section optionnelle au même niveau que les autres,
+    pas nichée sous simulation.
+  end note
+}
+
+package "Tests & Validation" #FCE8E6 {
+  note as NTests
+    hydromodpy/tests/ : suite pytest standard
+    (fonctions test_*, PAS de classes NonRegressionTestSuite
+    ou UnitTests dans le code).
+    validation_cases/run_cases.py : scripts de comparaison
+    calcul vs référence, également fonctionnels.
+  end note
+}
+
+package "Orchestration" #F5F5F5 {
+  class Pipeline {
+    + steps : Tuple<Step>
+    + workspace : Path
+    + run(state : PipelineState, resume_from, parallel) : PipelineState
+    + dag() : WorkflowDAG
+  }
+  interface Step <<Protocol>> {
+    + name : str
+    + run(state_in : PipelineState) : PipelineState
+  }
+  Pipeline o-- "1..*" Step
+
+  note bottom of Pipeline
+    Pas de classe "GlobalOrchestrator" : l'orchestration est
+    workflow.orchestrator (module de FONCTIONS : prepare_run,
+    execute_run...) qui construit standard_steps() = 12 Step
+    (Validate, Resolve, BuildGeographic, LoadData, BuildMesh,
+    SetupProcess, PrepareSolver, RunSolver, Extract, Derive,
+    Export, Display), exécutés par Pipeline.
+  end note
+}
+HydroModPyConfig ..> Pipeline : lu via WorkflowContext.cfg\n(pas d'injection directe)
+
+package "Module Catchment" #E6F4EA {
+  class CatchmentDelineation {
+    + out_dir_path : Path
+    + x_outlet : float
+    + processing() : void
+    + get_domain_surface_topo() : Surface
+    + get_geographic_derived_features() : GeographicDerivedFeatures
+  }
+  class Domain {
+    + config : DomainConfig
+    + surface_topo : Surface
+    + substratum : Surface
+    + zones : Map<str,Object>
+    + set_zone(zone_id, zone_obj) : void
+  }
+  class Surface <<dataclass>> {
+    + values : ndarray
+    + support : RasterSupport
+  }
+  CatchmentDelineation ..> Surface : produit >
+  Domain *-- "2" Surface
+  note bottom of Domain
+    Pas d'attributs "crs"/"referenceRaster" typés : le
+    géoréférencement est un dict (Domain.georeferencing).
+  end note
+}
+Pipeline ..> CatchmentDelineation : BuildGeographicStep >
+Pipeline ..> Domain : BuildMeshStep >
+
+package "Module Process" #EDE7F6 {
+  abstract class ProcessSpatial<T> {
+    + parameters : dict
+    + boundary_conditions : Map<str,BoundaryCondition>
+    + sinks_sources : Map<str,SinkSource>
+    + {abstract} build_initial_conditions() : void
+    + {abstract} set_boundary_conditions() : void
+  }
+  class Flow {
+    + config : FlowConfig
+    + flow_regime : str
+    + boundary_condition_bundle : BoundaryConditionBundle
+  }
+  class Transport {
+    + config : TransportConfig
+    + modpath : Object
+    + mt3dms : Object
+  }
+  Flow --|> ProcessSpatial
+  Transport --|> ProcessSpatial
+  note bottom of ProcessSpatial
+    "Ecoulement" = Flow (le seul endroit ou le schema
+    d'origine etait structurellement juste, a la traduction
+    pres). Package reel : physics/ (physics/flow, transport).
+  end note
+}
+Pipeline ..> ProcessSpatial : SetupProcessStep (construit Flow/Transport) >
+Domain --> ProcessSpatial : fournit surface/zones pour les BC
+
+package "Module Solver / Engine" #FFF9C4 {
+  class SimulationRunner {
+    + callbacks : ProcessCallbacks
+    + execute(plan : SimulationPlan, state, callbacks) : Tuple
+  }
+  interface SolverAdapter <<Protocol>> {
+    + process_type : str {classifier}
+    + solver_name : str {classifier}
+    + validate(ctx) : void
+    + execute(ctx) : RunExecutionResult
+    + cleanup(ctx) : void
+  }
+  class Modflow6FlowAdapter
+  class ModflowNwtFlowAdapter
+  class BoussinesqFlowAdapter
+  Modflow6FlowAdapter ..|> SolverAdapter
+  ModflowNwtFlowAdapter ..|> SolverAdapter
+  BoussinesqFlowAdapter ..|> SolverAdapter
+  SimulationRunner ..> SolverAdapter : resout via SolverRegistryProvider\n(registre paresseux, pas d'appel direct) >
+
+  class SolverMesh <<dataclass, frozen>> {
+    + planar_mesh : HydroMesh
+    + top : ndarray
+    + botm : ndarray
+  }
+  Modflow6FlowAdapter ..> SolverMesh : construit la grille >
+
+  note bottom of SolverAdapter
+    Pas de classe "Engine" ni "ISolver" : SimulationRunner
+    (implemente le Protocol Launcher) + SolverAdapter
+    (Protocol) + 7 adaptateurs concrets. Aucune classe
+    "GestionnaireGrille/Physique/Donnees" interne au solveur --
+    SolverMesh (grille), Flow/Transport (physique, package a
+    part) et DataStore (donnees, package a part) sont 3
+    packages independants, pas 3 sous-classes du solveur.
+  end note
+}
+Pipeline ..> SimulationRunner : RunSolverStep delegue a >
+SolverAdapter --> ProcessSpatial : consomme Flow/Transport\n(solver importe physics, jamais l'inverse) >
+
+package "Module Calibration" #FEF7E0 {
+  class CalibrationEngine <<dataclass>> {
+    + space : ParameterSpace
+    + optimizer : Optimizer
+    + evaluator : EvaluatorFn
+    + max_iter : int = 100
+    + run() : CalibrationSession
+  }
+  interface Optimizer <<Protocol>> {
+    + name : str
+    + ask(n : int) : List<ParamSuggestion>
+    + tell(results) : void
+    + best() : EvaluationResult
+    + converged() : bool
+  }
+  class ParameterSpace {
+    + dim : int {property}
+    + names : List<str> {property}
+  }
+  CalibrationEngine *-- "1" Optimizer
+  CalibrationEngine *-- "1" ParameterSpace
+
+  note bottom of CalibrationEngine
+    Pas de méthode runCalibration(setup), pas de classe
+    CalibrationSetup : run() lance la boucle ask()/tell().
+    "evaluator" est un simple Callable (inversion de
+    dépendance) -- CalibrationEngine ne connaît ni Pipeline
+    ni Project, contrairement à la flèche "pilote & relance
+    Engine" du schéma d'origine.
+  end note
+}
+CalibrationEngine ..> Pipeline : evaluator: Callable\n(indirection, pas de lien direct) >
+
+package "Module Output" #FCE4EC {
+  class SimulationCatalog {
+    + register_simulation(...) : void
+    + write_field(name, data) : void
+    + query_field(...) : Any
+    + __getitem__(ref) : Run
+  }
+  class Run {
+    + sim_id : str
+    + export() : Path
+    + summary() : dict
+  }
+  SimulationCatalog ..> Run : cree >
+  note bottom of SimulationCatalog
+    Pas de classe "ExportManager" : l'export est une methode
+    de SimulationCatalog/Run + un module fonctionnel
+    (results.exporters), pas un objet dedie.
+  end note
+}
+Pipeline ..> SimulationCatalog : Extract/Derive/Export Step ecrivent >
+CalibrationEngine ..> SimulationCatalog : lit les métriques via EvaluationResult >
+
+package "Module Base de Données (DuckDB)" #E0F7FA {
+  interface CatalogBackend <<Protocol>> {
+    + ensure_schema() : void
+    + query(sql, params) : DataFrame
+    + execute(sql, params) : void
+    + fetch_one(sql, params) : tuple
+    + fetch_all(sql, params) : List<tuple>
+    + insert(table, row) : void
+  }
+  class DuckDBBackend
+  DuckDBBackend ..|> CatalogBackend
+
+  class DataCatalogDuckDB {
+    + find_cached(...) : CatalogEntry
+    + list_entries() : List<CatalogEntry>
+    + register(...) : void
+  }
+
+  class GlobalIndex {
+    + refresh_federation() : void
+  }
+  note right of GlobalIndex
+    index.duckdb (unique par machine) ATTACHe en
+    lecture seule chaque catalog.duckdb de workspace
+    et reconstruit la vue federee "all_simulations".
+  end note
+
+  class MigrationRunner <<Alembic-like>> {
+    + ensure_schema(component) : void
+  }
+  DuckDBBackend ..> MigrationRunner : ensure_schema >
+  DataCatalogDuckDB ..> MigrationRunner : ensure_schema >
+  GlobalIndex ..> MigrationRunner : ensure_schema >
+
+  note bottom of MigrationRunner
+    Un seul runner générique, parametre par "component"
+    (catalog / index / data-cache) : scripts NNNN_slug.sql,
+    table schema_migrations, verif de checksum.
+    connect_with_retry() (db_retry.py) reessaie sur
+    duckdb.IOException de lock (multi-process).
+  end note
+}
+SimulationCatalog *-- "1" CatalogBackend : _db, via connect_with_retry
+Pipeline ..> DataCatalogDuckDB : LoadDataStep interroge/alimente le cache >
+note bottom of CatalogBackend
+  Pas de "base de données" dans le schema d'origine :
+  SimulationCatalog est backee par DuckDB (etat tabulaire :
+  simulations, parametres, metriques, provenance, sessions
+  de calibration) + Zarr/Parquet pour les tableaux de champs
+  et series temporelles. 3 fichiers .duckdb distincts par role,
+  pas une seule "base" partagee.
+end note
+
+@enduml

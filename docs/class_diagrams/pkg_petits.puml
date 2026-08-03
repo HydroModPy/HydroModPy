@@ -1,0 +1,106 @@
+@startuml pkg_petits
+title HydroModPy — Petits packages (discretization, config, schema, catalog)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "discretization.time" {
+  class TMeshConfig {
+    + itmuni : str
+    + genmtd : str
+    + nper : int
+    + from_toml(path) : TMeshConfig {static}
+    + to_builder_kwargs() : dict
+  }
+  class TimeGrid <<dataclass, frozen>> {
+    + time_units : str
+    + perlen : ndarray
+    + nstp : ndarray
+    + datetimes : Tuple
+  }
+  class TmeshGenerator {
+    - _config : TMeshConfig
+    - _tmesh : TimeGrid
+    + from_config(config) : TmeshGenerator {static}
+    + run() : TimeGrid
+  }
+  TmeshGenerator *-- "1" TMeshConfig
+  TmeshGenerator ..> TimeGrid : produit >
+
+  class TMeshCaseScenarioConfig {
+    + id : str
+    + description : str
+  }
+  TMeshCaseScenarioConfig --|> TMeshConfig
+  class TMeshCasesConfig {
+    + scenarios : List<TMeshCaseScenarioConfig>
+    + from_toml(path) : TMeshCasesConfig {static}
+  }
+  TMeshCasesConfig *-- "0..*" TMeshCaseScenarioConfig
+}
+
+package "config" {
+  class WorkflowConfig {
+    + mode : WorkflowMode
+  }
+  class HydroModPyConfig {
+    + workflow : WorkflowConfig
+    + workspace : WorkspaceConfig
+    + geographic : GeographicConfig
+    + domain : DomainConfig
+    + data : DataManagersConfig
+    + flow : FlowConfig
+    + simulation : SimulationConfig
+    + solver : SolverConfig
+    + display : DisplayConfig
+    + calibration : CalibrationConfig
+    + from_toml(path) : HydroModPyConfig {static}
+    + from_snapshot(snapshot, **overrides) : HydroModPyConfig {static}
+  }
+  HydroModPyConfig *-- "1" WorkflowConfig
+  note bottom of HydroModPyConfig
+    Racine de composition : agrège ~20 sections
+    (une par package -- physics, spatial, solver,
+    calibration, display, simulation...).
+  end note
+
+  class DynamicFlowExamples {
+    + render(threshold, section_renderer) : List<str>
+  }
+  note bottom of DynamicFlowExamples
+    Implémente le Protocol externe
+    core.toml_io.DynamicFlowExamplesProvider --
+    garde core/toml_io découplé de physics/spatial.
+  end note
+}
+
+package "schema" {
+  class ValidationResult <<dataclass, frozen>> {
+    + valid : bool
+    + path : str
+    + error : str
+    + warnings : List<str>
+    + as_dict() : dict
+  }
+  ValidationResult ..> HydroModPyConfig : validate_field() parcourt >
+}
+
+package "catalog" {
+  class InputsNamespace {
+    - _workspace : Path
+    - _catalog : Any
+    + has_cache() : bool
+    + list(variable, source) : DataFrame
+    + find(variable, source) : Any
+    + close() : void
+  }
+  note bottom of InputsNamespace
+    Façade lecture-seule sur &lt;workspace&gt;/data/cache.duckdb,
+    enveloppe data.registry.DataCatalogDuckDB (association).
+    Sœur conceptuelle de ProjectDataAccessor mais scopée
+    workspace plutôt que projet.
+  end note
+}
+
+@enduml

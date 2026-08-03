@@ -1,0 +1,92 @@
+@startuml pkg_reporting
+title HydroModPy — Package reporting (rapports HTML de comparaison/calibration)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+note as NScope
+  streamlit_config.py et reporting/site_selection/*
+  sont 100% fonctionnels (aucune classe).
+end note
+
+package "reporting.calibration_report" {
+  interface SessionReportPayload <<Protocol>> {
+    + session_id : str
+    + iterations : list
+    + best_sim_id : str
+  }
+  class _SessionRunStub {
+    + session_id : str
+    + name : str
+    + timeseries(variable, station) : Series
+  }
+  note bottom of _SessionRunStub
+    Adaptateur minimal imitant results.run.Run pour que
+    display.figures puisse tracer sans stack Zarr complète.
+  end note
+}
+
+package "reporting.comparison" {
+  class FigureCategory <<dataclass, frozen>> {
+    + category_id : str
+    + figures : List<dict>
+  }
+  class ComparisonWebContext <<dataclass, frozen>> {
+    + manifest : Any
+    + figure_categories : List<FigureCategory>
+    + metrics_rows : Any
+  }
+  ComparisonWebContext *-- "0..*" FigureCategory
+
+  class ReportSection <<dataclass, frozen>> {
+    + section_id : str
+    + priority : int
+    + render : Callable
+    + is_available : Callable
+  }
+  ReportSection ..> ComparisonWebContext : render(ctx) >
+}
+
+package "reporting.comparison.compact_network" {
+  class InfoCard <<dataclass, frozen>> {
+    + title : str
+    + body_html : str
+  }
+  class GroupSection <<dataclass, frozen>> {
+    + group_id : str
+    + title : str
+  }
+  class SimulationMeta <<dataclass, frozen>> {
+    + simulation_id : str
+    + label : str
+    + group : str
+  }
+  class CompactNetworkSynthesisConfig <<dataclass, frozen>> {
+    + comparison_root : Path
+    + simulations : List<SimulationMeta>
+    + group_sections : List<GroupSection>
+    + contract_cards : List<InfoCard>
+  }
+  CompactNetworkSynthesisConfig *-- "0..*" SimulationMeta
+  CompactNetworkSynthesisConfig *-- "0..*" GroupSection
+  CompactNetworkSynthesisConfig *-- "0..*" InfoCard
+
+  class SimulationRecord {
+    + meta : SimulationMeta
+    + solver : str
+    + closure : dict
+  }
+  SimulationRecord *-- "1" SimulationMeta
+
+  class CompactNetworkSynthesisBuilder {
+    + config : CompactNetworkSynthesisConfig
+    + records_by_simulation() : List<SimulationRecord>
+    + build_page() : Path
+  }
+  CompactNetworkSynthesisBuilder *-- "1" CompactNetworkSynthesisConfig
+  CompactNetworkSynthesisBuilder ..> SimulationRecord : produit >
+  CompactNetworkSynthesisBuilder ..> "results.catalog.SimulationCatalog" : instancie (import dynamique) >
+}
+
+@enduml

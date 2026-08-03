@@ -1,0 +1,219 @@
+@startuml pkg_physics
+title HydroModPy — Package physics (definitions scientifiques, solveur-agnostique)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "physics.base" {
+  abstract class ProcessSpatial<TInitialConditions> {
+    + parameters : dict
+    + initial_conditions : TInitialConditions
+    + boundary_conditions : Map<str,BoundaryCondition>
+    + sinks_sources : Map<str,SinkSource>
+    + set_parameters_from_config() : void
+    + {abstract} build_initial_conditions() : void
+    + {abstract} set_boundary_conditions() : void
+    + {abstract} set_sinks_sources() : void
+  }
+  class ProcessSpatialConfig {
+    + param : dict
+    + bc : dict
+    + active_bc : List<str>
+  }
+  class BoundaryCondition {
+    + id : str
+    + value : float
+    + type : str
+  }
+  class InitialCondition {
+    + id : str
+    + value : Any
+  }
+  class SinkSource {
+    + id : str
+    + value : float
+  }
+  interface LoadResultProto <<Protocol>> {
+    + points : list
+    + fields : list
+    + has_points : bool {property}
+  }
+  interface FieldParamLike <<Protocol>> {
+    + identifier : str
+    + kind : str
+    + value : float
+  }
+  ProcessSpatial *-- "0..*" BoundaryCondition
+  ProcessSpatial *-- "0..*" SinkSource
+  ProcessSpatial --> InitialCondition
+}
+
+package "physics.flow" {
+  class Flow {
+    + config : FlowConfig
+    + flow_regime : str
+    + boundary_condition_bundle : BoundaryConditionBundle
+    + initial_conditions : FlowInitialConditions
+    + build_initial_conditions() : void
+    + set_boundary_conditions() : void
+    + set_recharge() : void
+  }
+  Flow --|> ProcessSpatial
+
+  class FlowConfig {
+    + flow_regime : str
+    + param : Map<str,FlowParam>
+    + bc : Map<str,BCEntry>
+    + ic : FlowInitialConditions
+    + sinks_sources : FlowSinksSourcesConfig
+    + homogeneous() : FlowConfig {static}
+    + steady() : FlowConfig {static}
+  }
+  FlowConfig --|> ProcessSpatialConfig
+
+  class FlowBoundaryConditionConfig {
+    + id : str
+    + kind : str
+    + forcing : FlowBoundaryForcingConfig
+  }
+  FlowBoundaryConditionConfig --|> BoundaryCondition
+  class DirichletBC
+  class CauchyBC
+  class RobinBC
+  DirichletBC --|> FlowBoundaryConditionConfig
+  CauchyBC --|> FlowBoundaryConditionConfig
+  RobinBC --|> FlowBoundaryConditionConfig
+
+  class FlowBoundaryDefinition <<dataclass, frozen>> {
+    + id : str
+    + backend_packages : Map<str,str>
+    + supports_backend(name) : bool
+  }
+  class BoundaryConditionBundle <<dataclass, frozen>> {
+    + conditions : Map<str,Object>
+    + active_ids : Tuple<str>
+    + from_flow(flow) : BoundaryConditionBundle {static}
+    + is_active(id) : bool
+  }
+  BoundaryConditionBundle ..> FlowBoundaryDefinition : consulte >
+
+  class FlowInitialConditions {
+    + h : FlowInitialCondition
+  }
+  class FlowICTop
+  class FlowICBottom
+  class FlowICSteadyState
+  FlowICTop --|> InitialCondition
+  FlowICBottom --|> InitialCondition
+  FlowICSteadyState --|> InitialCondition
+  FlowInitialConditions *-- "1" FlowICTop
+
+  class FlowSinksSourcesConfig {
+    + wells : Map<str,FlowWellConfig>
+    + recharge : FlowRechargeConfig
+    + etp : FlowEtpConfig
+  }
+  class FlowWellConfig {
+    + location : FlowWellLocation
+    + flux : float
+    + resolve_cell(grid) : Tuple<int,int,int>
+  }
+  class FlowRechargeConfig {
+    + values : Any
+    + spatial_mode : str
+  }
+  class FlowEtpConfig {
+    + values : Any
+    + extinction_depth : Length
+  }
+  FlowSinksSourcesConfig *-- "0..*" FlowWellConfig
+  FlowSinksSourcesConfig *-- "0..1" FlowRechargeConfig
+  FlowSinksSourcesConfig *-- "0..1" FlowEtpConfig
+
+  class FlowParam {
+    + field : FieldSection
+  }
+  Flow *-- "1" FlowConfig
+  Flow *-- "1" FlowInitialConditions
+  Flow *-- "1" BoundaryConditionBundle
+  Flow *-- "1" FlowSinksSourcesConfig
+}
+
+package "physics.transport" {
+  class Transport {
+    + config : TransportConfig
+    + modpath : _TransportComponent
+    + mt3dms : _TransportComponent
+    + modflow6gwt : _TransportComponent
+    + modflow6prt : _TransportComponent
+  }
+  Transport --|> ProcessSpatial
+  class _TransportComponent <<dataclass>> {
+    + parameters : dict
+  }
+  Transport *-- "4" _TransportComponent
+
+  class TransportConfig {
+    + modpath : TransportModpathConfig
+    + mt3dms : TransportMt3dmsConfig
+    + modflow6gwt : TransportModflow6GwtConfig
+    + modflow6prt : TransportModflow6PrtConfig
+  }
+  TransportConfig --|> ProcessSpatialConfig
+}
+
+package "physics.forcing" {
+  class ResolvedForcing <<dataclass>> {
+    + series : Series
+    + heterogeneous_source : LoadResultProto
+    + spatial_mode : str
+  }
+  ResolvedForcing ..> LoadResultProto : dérivé de >
+  note bottom of ResolvedForcing
+    forcing_bridge.resolve_forcing(LoadResultProto)
+    alimente FlowRechargeConfig / FlowEtpConfig
+    via flow/structure_binders.py
+  end note
+}
+
+package "physics.hydrology" {
+  class HelpManager {
+    + workdir : Path
+    + set_workdir() : void
+    + load_weather_input_data() : void
+  }
+  class HelpOutput {
+    + data : dict
+    + load_from_hdf5() : void
+  }
+  abstract class PyhelpCsvManager {
+    + {abstract} display_data() : void
+  }
+  class PyhelpEra5
+  class PyhelpGrid
+  PyhelpEra5 --|> PyhelpCsvManager
+  PyhelpGrid --|> PyhelpCsvManager
+  HelpManager ..> HelpOutput : produit >
+
+  note bottom of PyhelpCsvManager
+    Sous-système vendored (port de PyHELP,
+    MIT License) : précalcule recharge/ETP,
+    injecté ensuite via ResolvedForcing.
+  end note
+}
+
+note as NDep
+  **Dépendance strictement unidirectionnelle :**
+  solver/ importe physics/ (25 fichiers) ;
+  physics/ n'importe JAMAIS solver/ (0 fichier).
+  physics/ ignore aussi FloPy -- toute traduction
+  solveur-spécifique se fait dans solver/*_adapter.
+
+  TOML -> FlowConfig/TransportConfig (physics, validation Pydantic)
+       -> Flow/Transport (physics, objets runtime)
+       -> solver.*.flow_to_*_adapter (solver, importe physics)
+       -> paquets FLOPY / MODFLOW6 / MT3DMS / Boussinesq
+end note
+
+@enduml
