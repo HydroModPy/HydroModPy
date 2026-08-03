@@ -1,0 +1,63 @@
+@startuml pkg_project
+title HydroModPy — Package project (facade complementaire)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+class Project <<externe (deja couvert par class_diagram_core.puml)>>
+
+package "project.accessors" {
+  class ProjectDataAccessor {
+    - _project : Project
+    + list(variable) : DataFrame
+    + missing() : List<str>
+  }
+  class ProjectRunsAccessor {
+    - _project : Project
+    + list() : DataFrame
+    + find(**filters) : List<Run>
+    + latest() : Run
+    + delete(sim_id) : void
+  }
+  ProjectDataAccessor --> Project : assoc.
+  ProjectRunsAccessor --> Project : assoc.
+  ProjectRunsAccessor ..> "results.run.Run" : produit >
+}
+
+package "project.phases" {
+  note as NPhases
+    Module 100% fonctionnel (verbes) : configure(),
+    setup_workspace(project), build_geographic(project),
+    load_data(project), build_mesh(project), open_catalog(project)
+    -- tous prennent Project en 1er argument (association,
+    pas de classe Phase).
+  end note
+}
+
+package "project.dispatch" {
+  class ProjectTrialPromotionProvider {
+    + promote_trial(cfg_path, values, ...) : str
+  }
+  ProjectTrialPromotionProvider ..> Project : instancie >
+  note bottom of ProjectTrialPromotionProvider
+    Implémente un Protocol externe (calibration.runners
+    .contracts.TrialPromotionProvider) -- seam d'inversion
+    de dépendance : calibration/ ne peut importer Project.
+  end note
+
+  class ProjectTestbedRunnerProvider {
+    + run_simulation(config_path) : Mapping
+    + run_comparison(config_path) : Mapping
+    + run_calibration(config_path) : Mapping
+  }
+  ProjectTestbedRunnerProvider ..|> "analysis.testbed.contracts.TestbedRunnerProvider"
+  ProjectTestbedRunnerProvider ..> Project : instancie (via "with Project(...)") >
+  note bottom of ProjectTestbedRunnerProvider
+    Même rôle pour analysis.testbed/ -- registre
+    DISPATCH + dispatch_workflow() route les noms
+    de workflow CLI vers les lanceurs concrets.
+  end note
+}
+
+@enduml

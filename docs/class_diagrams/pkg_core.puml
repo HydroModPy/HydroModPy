@@ -1,0 +1,312 @@
+@startuml pkg_core
+title HydroModPy — Package core (infrastructure transverse)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "core.state" {
+  class WorkflowContext <<dataclass>> {
+    + cfg : Any
+    + config_path : Path
+    + raw_toml : dict
+    + data_plan : Any
+    + setup : SetupContext
+    + loaded_data : LoadedDataContext
+    + execution : ExecutionRegistry
+    + store : Any
+    + sim_id : str
+    + get_model(run_id) : Any
+    + get_run_for_solver(solver_name) : Any
+  }
+  class SetupContext <<dataclass>> {
+    + workspace : Workspace
+    + geographic : Any
+    + domain : Any
+    + flow : Any
+    + mesh_bundle : Any
+    + run_id : str = "default"
+    + time_grid : Any
+  }
+  class LoadedDataContext <<dataclass>> {
+    + dem : Any
+    + geology : Any
+    + hydrography : Any
+    + hydrometry : Any
+    + recharge : Any
+    + precipitation : Any
+  }
+  class ExecutionRegistry <<dataclass>> {
+    + simulation_plan : Any
+    + process_runs_by_id : Map<str,Any>
+    + models_by_run_id : Map<str,Any>
+    + output_dirs_by_run_id : Map<str,Path>
+    + rng : RngManager
+  }
+  class GlobalIndex {
+    - _db_path : Path
+    - _conn : DuckDBPyConnection
+    + register_workspace() : void
+    + list_workspaces() : List<WorkspaceRecord>
+    + search(term : str) : List
+    + close() : void
+  }
+  class WorkspaceRecord <<pydantic, frozen>> {
+    + workspace_id : str
+    + workspace_uri : str
+    + label : str
+  }
+
+  WorkflowContext *-- "1" SetupContext
+  WorkflowContext *-- "1" LoadedDataContext
+  WorkflowContext *-- "1" ExecutionRegistry
+  GlobalIndex ..> WorkspaceRecord : produit >
+}
+
+package "core.contracts" {
+  interface SolverRegistryProvider <<Protocol>> {
+    + known_process_types() : Set<str>
+    + get_solver_adapter(process_type, solver_name) : Any
+  }
+  interface DataCacheBackend <<Protocol>> {
+    + register(...) : void
+    + find_cached(...) : Any
+    + invalidate(...) : void
+  }
+  interface WorkflowStep <<Protocol>> {
+    + name : str {classifier}
+    + depends_on() : Tuple<str>
+    + run(state_in) : Any
+  }
+  interface ResumableWorkflowStep <<Protocol>> {
+    + artifacts(state_out) : Tuple<str>
+    + rebuild_state(prior_state, workspace, run_id) : Any
+  }
+  ResumableWorkflowStep --|> WorkflowStep
+
+  class DataOverviewState <<dataclass>> {
+    + cfg : Any
+    + workspace : Workspace
+    + loaded_data : LoadedDataContext
+  }
+  DataOverviewState o-- "1" LoadedDataContext
+
+  interface RootConfigProvider <<Protocol>> {
+    + root_model() : type
+    + from_toml(path) : Any
+  }
+}
+
+package "core.config_kit" {
+  class HydroModelBase <<pydantic model>> {
+    + to_toml(path, profile) : void
+  }
+  enum Profile <<IntEnum>> {
+    USER
+    DEV
+    EXPERT
+  }
+  class VisibleWhen <<dataclass, frozen>> {
+    + field : str
+    + values : str
+    + matches(current_value) : bool
+  }
+  class ExportSpec {
+    + var : str
+    + dest : Path
+    + fmt : ExportFormat
+  }
+  class PersistenceConfig {
+    + save_catalog : bool
+    + save_zarr : bool
+    + compression : CompressionCodec
+  }
+  class MeshInputConfig {
+    + mesh_path : Path
+    + bundle_dir : Path
+  }
+  ExportSpec --|> HydroModelBase
+  PersistenceConfig --|> HydroModelBase
+  MeshInputConfig --|> HydroModelBase
+}
+
+package "core.exceptions" {
+  class HydroModPyError <<Exception>> {
+    + message : str
+    + sim_id : str
+    + run_id : str
+    + code : str {classifier}
+    + context : dict
+  }
+  class ConfigError
+  class DataError
+  class MeshError
+  class SolverError
+  class PipelineError
+  class CalibrationError
+  class DisplayError
+  class StorageError
+  class ResultsError
+  class StepError {
+    + step_name : str
+    + cause : BaseException
+  }
+  class ResumeError
+  class UnknownFieldError {
+    + name : str
+    + available : list
+  }
+
+  ConfigError --|> HydroModPyError
+  DataError --|> HydroModPyError
+  MeshError --|> HydroModPyError
+  SolverError --|> HydroModPyError
+  PipelineError --|> HydroModPyError
+  CalibrationError --|> HydroModPyError
+  DisplayError --|> HydroModPyError
+  StorageError --|> HydroModPyError
+  ResultsError --|> HydroModPyError
+  StepError --|> PipelineError
+  ResumeError --|> PipelineError
+  UnknownFieldError --|> ResultsError
+
+  note bottom of HydroModPyError
+    Hiérarchie complète (~30 classes,
+    codes E1xx..E9xx) : voir
+    hydromodpy/core/exceptions.py
+  end note
+}
+
+package "core.workspace" {
+  class Workspace {
+    + paths : WorkspacePathRegistry
+    + root : Path
+    + catalog_path : Path
+    + data_dir : Path
+  }
+  class WorkspacePathRegistry <<dataclass, frozen>> {
+    + project_root : Path
+    + catalog_path : Path
+    + from_config(config) : WorkspacePathRegistry {static}
+    + solver_scratch_run_folder(sim_id) : Path
+  }
+  class WorkspaceConfig {
+    + project_root : Path
+    + root : Path
+    + catalog_path : Path
+  }
+  class WorkspaceError <<RuntimeError>>
+
+  Workspace *-- "1" WorkspacePathRegistry
+  WorkspacePathRegistry ..> WorkspaceConfig : from_config() <
+  WorkspaceConfig --|> HydroModelBase
+}
+
+package "core.rng" {
+  class RngManager {
+    + master_seed : int
+    + child_seed(label : str) : int
+    + child_rng(label : str) : Generator
+  }
+  RngManager --|> HydroModelBase
+}
+
+package "core.time" {
+  class ResolvedSimulationTimeWindow <<dataclass, frozen>> {
+    + start : Timestamp
+    + end : Timestamp
+    + step_value : int
+    + to_date_bounds() : Tuple<str,str>
+  }
+  class ResolvedSimulationTimeGrid <<dataclass, frozen>> {
+    + window : ResolvedSimulationTimeWindow
+    + boundaries : Tuple<Timestamp>
+    + nstp_per_period : int = 1
+  }
+  class ResolvedSteadySimulationTimeGrid <<dataclass, frozen>> {
+    + boundaries : Tuple = ()
+  }
+  ResolvedSimulationTimeGrid *-- "1" ResolvedSimulationTimeWindow
+}
+
+package "core.logging" {
+  class LogManager {
+    - {static} _instance : LogManager
+    + mode : str
+    + logger : Logger
+    + set_simulation_log(watershed_folder) : void
+  }
+}
+
+package "core.io" {
+  class HTTPClient {
+    + timeout : float
+    + max_retries : int
+    + get(url) : Response
+    + stream(url, dest) : StreamResult
+    + close() : void
+  }
+  class StreamResult <<dataclass>> {
+    + sha256 : str
+    + size : int
+    + status_code : int
+  }
+  class _TokenBucket {
+    + slot() : void
+  }
+  HTTPClient *-- "0..*" _TokenBucket
+  HTTPClient ..> StreamResult : produit >
+}
+
+package "core.migrations" {
+  class Migration <<pydantic, frozen>> {
+    + version : int
+    + slug : str
+    + sql_path : Path
+    + checksum : str
+  }
+  class MigrationError <<Exception>>
+  class SchemaIntegrityError
+  class MigrationDiscoveryError
+  class MigrationExecutionError
+  SchemaIntegrityError --|> MigrationError
+  MigrationDiscoveryError --|> MigrationError
+  MigrationExecutionError --|> MigrationError
+}
+
+package "core.auth" {
+  interface AuthBackend <<Protocol>> {
+    + current_user() : str
+    + can_read(resource) : bool
+    + can_write(resource) : bool
+  }
+  class LocalAuthBackend
+  LocalAuthBackend ..|> AuthBackend
+}
+
+package "core.tracking" {
+  class InputFile <<dataclass, frozen>> {
+    + role : str
+    + category : str
+    + portable : bool = true
+  }
+  class TrackedFileEntry <<dataclass, frozen>> {
+    + canonical_path : Path
+    + exists() : bool
+  }
+  TrackedFileEntry ..> InputFile : résolution de >
+}
+
+class GridReference <<dataclass, frozen>> {
+  + n_cells : int
+  + bounds : Tuple<float,float,float,float>
+  + crs : str
+  + is_structured : bool
+  + shape() : Tuple<int,int>
+  + cell_area() : float
+}
+
+note "core est en bas de la pile de dépendances :\nne peut importer ni config/, ni data/, ni spatial/, ni physics/.\nCommunication inter-couches via Protocol (contracts.*)\nou champs typés Any (WorkflowContext.cfg, .data_plan)." as N1
+core.contracts .. N1
+
+@enduml
