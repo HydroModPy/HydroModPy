@@ -15,8 +15,10 @@ if str(REPO_ROOT) not in sys.path:
 
 
 from evaluation._utils import (
+    is_public_module_path,
     iter_python_files,
     module_name_from_path,
+    package_name_from_path,
     parse_ast,
     resolve_repository_root,
 )
@@ -28,17 +30,23 @@ class ClassCohesion:
     module: str
     methods: set[str] = field(default_factory=set)
     attributes_by_method: dict[str, set[str]] = field(default_factory=dict)
+    declared_fields: set[str] = field(default_factory=set)
 
-    def lcom(self) -> float:
+    def lcom(self) -> float | None:
         """
         Simple LCOM calculation:
         0 = high cohesion
         1 = low cohesion
+        None = not applicable (fewer than 2 methods to compare, e.g. a
+        Pydantic/dataclass-style class whose fields are declared at class
+        level instead of assigned in methods)
         """
 
         methods = list(self.attributes_by_method)
 
         if len(methods) < 2:
+            if self.declared_fields:
+                return None
             return 0.0
 
         disjoint = 0
@@ -132,6 +140,22 @@ class CohesionVisitor(ast.NodeVisitor):
 
 
 
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> Any:
+
+        # Champ déclaré directement dans le corps de la classe (Pydantic,
+        # dataclass...), par opposition à une assignation dans une méthode.
+        if (
+            self.current_class is not None
+            and self.current_method is None
+            and isinstance(node.target, ast.Name)
+        ):
+
+            self.current_class.declared_fields.add(node.target.id)
+
+        self.generic_visit(node)
+
+
+
     def visit_Attribute(self, node: ast.Attribute) -> Any:
 
         if (
@@ -177,12 +201,19 @@ def compute_cohesion(root: Path) -> dict[str, Any]:
                         "class": class_info.name,
                         "module": class_info.module,
                         "methods": sorted(class_info.methods),
+                        "declared_fields": sorted(class_info.declared_fields),
                         "lcom": class_info.lcom(),
                     }
                 )
 
         rows.append(
             {
+                "module": module_name_from_path(root, path),
+
+                "package": package_name_from_path(root, path),
+
+                "public": is_public_module_path(path),
+
                 "path": str(path),
                 "classes": classes,
             }

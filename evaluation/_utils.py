@@ -50,6 +50,35 @@ def module_name_from_path(root: Path, path: Path) -> str:
     return ".".join(parts) if parts else root.name
 
 
+def package_name_from_path(root: Path, path: Path) -> str:
+    root = root.resolve()
+    path = path.resolve()
+    relative = path.relative_to(root).with_suffix("")
+    parts = list(relative.parts)
+    if not parts:
+        return root.name
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    else:
+        parts = parts[:-1]
+    return ".".join(parts) if parts else root.name
+
+
+def is_public_module_path(path: Path) -> bool:
+    parts = path.parts
+    for part in parts:
+        if part in EXCLUDED_DIRS:
+            return False
+        if part.startswith("_") and part not in {"__init__.py", "__main__.py"}:
+            return False
+    return True
+
+
+def public_module_rank(path: Path, root: Path) -> tuple[int, int, str]:
+    module_name = module_name_from_path(root, path)
+    return (0 if is_public_module_path(path) else 1, len(module_name.split(".")), module_name)
+
+
 def relative_path(root: Path, path: Path) -> Path:
     return path.resolve().relative_to(root.resolve())
 

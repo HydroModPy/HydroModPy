@@ -174,9 +174,13 @@ Generate the complete comparison bundle with all requested charts:
 python3 evaluation/compare_repositories.py \
 	--left-repo https://github.com/ORG/REPO-A.git --left-branch main \
 	--right-repo https://github.com/ORG/REPO-B.git --right-branch develop \
+	--left-label hackathon \
+	--right-label legacy \
 	--output evaluation/out/comparison.json \
 	--output-dir evaluation/out/charts
 ```
+
+You can use `--left-label` and `--right-label` to force the names shown in the charts.
 
 This will generate:
 
