@@ -134,7 +134,7 @@ pygments_style = 'sphinx'
 html_theme = 'pydata_sphinx_theme'
 html_favicon = 'images/logoHydroModPy.png'
 html_logo = 'images/logoHydroModPy_long.png'
-html_baseurl = "https://hydromodpy.github.io/v1.0/"
+html_baseurl = "https://docs.hydromodpy.fr/v1.0/"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -150,13 +150,13 @@ html_theme_options = {
         "technical note "
         "(<a href='https://doi.org/10.5194/egusphere-2026-868'>preprint</a>). "
         "Latest development lives on "
-        "<a href='https://hydromodpy.github.io/main/'>v2 (main)</a>."
+        "<a href='https://docs.hydromodpy.fr/main/'>v2 (main)</a>."
     ),
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
     "switcher": {
-        "json_url": "https://hydromodpy.github.io/switcher.json",
+        "json_url": "https://docs.hydromodpy.fr/switcher.json",
         "version_match": _current_version,
     },
     "check_switcher": False,
