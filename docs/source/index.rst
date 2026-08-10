@@ -98,7 +98,7 @@ Install
 
 .. code-block:: bash
 
-   pip install "hydromodpy==1.0.0"
+   pip install "hydromodpy==1.0.*"
 
 For detailed instructions see the :doc:`installation guide <install>`.
 If you plan to add new features, check the
