@@ -1,14 +1,20 @@
-# Publish HydroModPy v1.0 to PyPI on tag push.
+# Publish HydroModPy v1.0 to PyPI, on demand.
 #
-# Trigger: a git tag matching v1.*.* is pushed. Tags of the v1.0 maintenance
-# branch resolve this file; v2 tags on main resolve main's own workflow.
+# Nothing is ever published by pushing a tag. The release is started by hand
+# from the Actions tab ("Run workflow"), on a tag that already exists.
 #
-# Steps:
-#   1. Check the tag matches the pyproject version.
-#   2. Build wheel + sdist with `python -m build`, validate with `twine check`.
-#   3. Upload to PyPI via Trusted Publishers (OIDC, no API token).
-#   4. Create a GitHub release with the matching CHANGELOG section as body and
-#      the distribution files attached.
+# Flow:
+#   1. build   - check the tag matches the pyproject version, build sdist and
+#                wheel, validate the metadata with `twine check --strict`.
+#   2. verify  - install the built wheel on Linux, Windows and macOS for the
+#                lowest and highest supported Python, import the package and
+#                run the bundled MODFLOW 6 binary from its installed location.
+#   3. publish - upload to PyPI. Guarded by the `pypi` environment, so a
+#                reviewer approves before anything leaves the runner.
+#   4. release - create the GitHub release from the CHANGELOG section.
+#
+# Tick `dry_run` to stop after `verify`: everything is built and tested, the
+# artifacts stay downloadable from the run page, and PyPI is never touched.
 #
 # Trusted Publisher prerequisite (one-time, on PyPI):
 #   project = hydromodpy
@@ -16,22 +22,28 @@
 #   repository = HydroModPy
 #   workflow = publish.yml
 #   environment = pypi
+#
+# LAUNCHING: GitHub only shows the "Run workflow" button for workflow files
+# present on the DEFAULT branch (main). Open the button, then switch the branch
+# selector to v1.0 so this file is the one that runs.
 
 name: Release / PyPI (v1.0)
 
 on:
-  push:
-    tags:
-      - "v1.*.*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to publish (e.g. v1.0.1)"
+        description: "Existing tag to publish (e.g. v1.0.0)"
         required: true
         type: string
+      dry_run:
+        description: "Build and verify only, never upload to PyPI"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.tag }}
   cancel-in-progress: false
 
 permissions:
@@ -39,13 +51,13 @@ permissions:
 
 jobs:
   build:
-    name: Release / build sdist and wheel
+    name: Build sdist and wheel
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -58,13 +70,14 @@ jobs:
 
       - name: Verify version matches tag
         run: |
-          tag="${{ inputs.tag || github.ref_name }}"
+          tag="${{ inputs.tag }}"
           expected="${tag#v}"
           actual=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
           if [ "$expected" != "$actual" ]; then
             echo "Tag $tag does not match pyproject version $actual" >&2
             exit 1
           fi
+          echo "publishing version $actual"
 
       - name: Build distributions
         run: python -m build
@@ -78,9 +91,71 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  publish:
-    name: Release / upload to PyPI
+  verify:
+    name: Install ${{ matrix.os }} py${{ matrix.python }}
     needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install the built wheel
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+
+      - name: Import the package and check the version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python - <<'PY'
+          import os
+          import hydromodpy
+
+          expected = os.environ["RELEASE_TAG"].lstrip("v")
+          print("installed version:", hydromodpy.__version__)
+          assert hydromodpy.__version__ == expected, (hydromodpy.__version__, expected)
+          PY
+
+      - name: Run the bundled MODFLOW 6 binary
+        run: |
+          python - <<'PY'
+          import pathlib
+          import subprocess
+          import sys
+
+          from hydromodpy import watershed_root
+
+          # Same expression as Watershed.__init__ uses to locate the binaries.
+          bin_dir = pathlib.Path(watershed_root.root_dir).parent / "bin"
+          platform_dir = {"win32": "win", "darwin": "mac"}.get(sys.platform, "linux")
+          exe = bin_dir / platform_dir / ("mf6.exe" if platform_dir == "win" else "mf6")
+
+          assert exe.is_file(), f"missing bundled binary: {exe}"
+          result = subprocess.run([str(exe), "-v"], capture_output=True, text=True)
+          print(result.stdout.strip() or result.stderr.strip())
+          assert result.returncode == 0, result.returncode
+          PY
+
+  publish:
+    name: Upload to PyPI
+    needs: [build, verify]
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -98,8 +173,9 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   release:
-    name: Release / create GitHub release
+    name: Create the GitHub release
     needs: publish
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -107,7 +183,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag }}
           fetch-depth: 0
 
       - uses: actions/download-artifact@v4
@@ -117,8 +193,7 @@ jobs:
 
       - name: Extract CHANGELOG section for tag
         run: |
-          tag="${{ inputs.tag || github.ref_name }}"
-          python - "$tag" <<'PY' > release_notes.md
+          python - "${{ inputs.tag }}" <<'PY' > release_notes.md
           import pathlib
           import re
           import sys
@@ -139,7 +214,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          tag="${{ inputs.tag || github.ref_name }}"
+          tag="${{ inputs.tag }}"
           if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)[0-9]+$ ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
@@ -167,8 +242,8 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
-          name: HydroModPy ${{ inputs.tag || github.ref_name }}
+          tag_name: ${{ inputs.tag }}
+          name: HydroModPy ${{ inputs.tag }}
           body_path: release_notes.md
           prerelease: ${{ steps.release-kind.outputs.prerelease }}
           make_latest: ${{ steps.release-kind.outputs.make_latest }}
