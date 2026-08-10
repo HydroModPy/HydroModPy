@@ -119,6 +119,24 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install dist/*.whl
 
+      - name: Fetch the WhiteboxTools binary
+        run: |
+          # watershed_root builds a whitebox.WhiteboxTools() at module level, so
+          # `import hydromodpy` downloads a ~25 MB binary from whiteboxgeo.com on
+          # first use. That third-party download truncates from time to time, and
+          # it must not fail a release, so pull it here with retries. Nothing is
+          # extracted on failure, which makes a retry re-download cleanly.
+          for attempt in 1 2 3; do
+            if python -c "import whitebox; whitebox.WhiteboxTools()"; then
+              echo "WhiteboxTools ready (attempt ${attempt})"
+              exit 0
+            fi
+            echo "WhiteboxTools download failed (attempt ${attempt}), retrying"
+            sleep 20
+          done
+          echo "WhiteboxTools download kept failing after 3 attempts" >&2
+          exit 1
+
       - name: Import the package and check the version
         env:
           RELEASE_TAG: ${{ inputs.tag }}
