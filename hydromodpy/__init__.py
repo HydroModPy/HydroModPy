@@ -234,8 +234,11 @@ except metadata.PackageNotFoundError:
     with _pyproject.open("rb") as fh:
         __version__ = tomllib.load(fh)["project"]["version"]
 
-__author__ = "Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy"
-__email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
+__author__ = "Alexandre Gauvain, Ronan Abhervé, Bastien Boivin, Jean-Raynald de Dreuzy"
+__email__ = (
+    "alexandre.gauvain.ag@gmail.com, ronan.abherve@inrae.fr, "
+    "bastien.boivin@proton.me, jean-raynald.de-dreuzy@univ-rennes.fr"
+)
 
 # Initialize logging system
 from hydromodpy.tools.log_manager import LogManager
