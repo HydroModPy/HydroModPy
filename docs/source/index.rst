@@ -10,7 +10,7 @@ Welcome to HydroModPy
    (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1.0`` branch
    is the reference cited by the paper and still receives fixes. For the latest
    development version, see HydroModPy v2 on ``main``:
-   https://hydromodpy.github.io/main/
+   https://docs.hydromodpy.fr/main/
 
 HydroModPy was initiated in 2018 to streamline the deployment of hydrological
 models in catchments across the crystalline basement regions of Normandy and

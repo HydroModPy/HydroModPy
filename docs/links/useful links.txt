@@ -2,10 +2,10 @@ GitHub repository
 https://github.com/HydroModPy/HydroModPy
 
 Documentation v1.0 (paper version)
-https://hydromodpy.github.io/v1.0/
+https://docs.hydromodpy.fr/v1.0/
 
 Documentation v2 (latest development)
-https://hydromodpy.github.io/main/
+https://docs.hydromodpy.fr/main/
 
 Google Drive
 https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing

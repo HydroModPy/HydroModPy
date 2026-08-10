@@ -8,7 +8,7 @@ Contribute
    (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1.0`` branch
    is the reference cited by the paper and still receives fixes. For the latest
    development version, see HydroModPy v2 on ``main``:
-   https://hydromodpy.github.io/main/
+   https://docs.hydromodpy.fr/main/
 
 The ``v1.0`` branch stays available as the citable reference for the paper and
 accepts bug fixes and documentation updates. New features and active development
@@ -52,7 +52,7 @@ Documentation workflow
 3. Run ``pip install -e '.[docs]'`` after changing the doc extras.
 
 The ``v1.0`` documentation is published automatically to
-https://hydromodpy.github.io/v1.0/ when the ``v1.0`` branch is updated.
+https://docs.hydromodpy.fr/v1.0/ when the ``v1.0`` branch is updated.
 
 Submitting changes
 ------------------

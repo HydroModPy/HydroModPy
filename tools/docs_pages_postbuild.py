@@ -6,7 +6,7 @@ The source assets are never touched.
 
 Usage::
 
-    python tools/docs_pages_postbuild.py site https://hydromodpy.github.io --versions main,dev,v1.0
+    python tools/docs_pages_postbuild.py site https://docs.hydromodpy.fr --versions main,dev,v1.0
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def main() -> int:
             index += 1
 
     html_root = Path(positional[0] if positional else "site")
-    base_url = positional[1] if len(positional) > 1 else "https://hydromodpy.github.io"
+    base_url = positional[1] if len(positional) > 1 else "https://docs.hydromodpy.fr"
     if not html_root.is_dir():
         print(f"no html dir at {html_root}", file=sys.stderr)
         return 1

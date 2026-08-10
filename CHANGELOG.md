@@ -56,12 +56,13 @@ which resolves to the latest `1.0.X` patch and never upgrades to the v2 series.
 
 ### Added
 - First PyPI release published from GitHub, with MODFLOW, MODPATH and MT3D-USGS binaries bundled in the wheel.
-- Release pipeline on GitHub Actions: build, `twine check`, PyPI Trusted Publishing (OIDC), CycloneDX SBOM and GitHub release with the changelog notes.
+- Release pipeline on GitHub Actions: tag/version guard, build, `twine check --strict`, PyPI Trusted Publishing (OIDC) and a GitHub release carrying the changelog notes.
 - Weekly cross-platform install and example smoke tests on Linux, Windows, macOS x86 and macOS arm, for Python 3.11 to 3.13.
-- Multi-version documentation deployed to GitHub Pages at <https://hydromodpy.github.io/v1.0/>.
+- Multi-version documentation served at <https://docs.hydromodpy.fr/v1.0/>, rebuilt on every push to the `v1.0` branch.
 
 ### Changed
-- Repository, issues, documentation and CI moved from GitLab and ReadTheDocs to GitHub and GitHub Pages.
+- Repository, issues and CI moved from GitLab to GitHub.
+- Documentation moved from ReadTheDocs to GitHub Pages under the `docs.hydromodpy.fr` domain.
 - README leads with the pip installation path; authors, affiliations and title aligned with the preprint.
 - Upper pin on `numpy` (`<2.5`) for `pysheds` compatibility, and `dask` added for multi-file xarray merges.
 - Development status classifier raised to `5 - Production/Stable`.

@@ -4,7 +4,7 @@
 
 A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![Documentation](https://img.shields.io/badge/docs-v1.0-blue)](https://hydromodpy.github.io/v1.0/)
+[![Documentation](https://img.shields.io/badge/docs-v1.0-blue)](https://docs.hydromodpy.fr/v1.0/)
 [![DOI](https://img.shields.io/badge/DOI-10.5194%2Fegusphere--2026--868-blue)](https://doi.org/10.5194/egusphere-2026-868)
 [![PyPI](https://img.shields.io/badge/PyPI-hydromodpy%201.0-blue)](https://pypi.org/project/hydromodpy/)
 [![License: EPL-2.0](https://img.shields.io/badge/License-EPL%202.0-red.svg)](https://github.com/HydroModPy/HydroModPy/blob/v1.0/LICENSE)
@@ -23,8 +23,8 @@ A Python toolbox for deploying catchment-scale shallow groundwater models.
 > | | Link |
 > |---|---|
 > | Paper (preprint) | https://doi.org/10.5194/egusphere-2026-868 |
-> | v1.0 documentation | https://hydromodpy.github.io/v1.0/ |
-> | v2 documentation (latest) | https://hydromodpy.github.io/main/ |
+> | v1.0 documentation | https://docs.hydromodpy.fr/v1.0/ |
+> | v2 documentation (latest) | https://docs.hydromodpy.fr/main/ |
 > | Forum (Google Group) | https://groups.google.com/g/hydromodpy |
 
 ## Presentation
@@ -182,15 +182,15 @@ Run the example scripts in `examples/` in this order:
 ```
 
 The same examples are available as notebooks in the
-[documentation](https://hydromodpy.github.io/v1.0/).
+[documentation](https://docs.hydromodpy.fr/v1.0/).
 
 ## Documentation
 
-- v1.0 documentation: https://hydromodpy.github.io/v1.0/
-- v2 documentation (latest development): https://hydromodpy.github.io/main/
+- v1.0 documentation: https://docs.hydromodpy.fr/v1.0/
+- v2 documentation (latest development): https://docs.hydromodpy.fr/main/
 
 The v1.0 documentation is built and published automatically to
-`https://hydromodpy.github.io/v1.0/` on every update of the `v1.0` branch.
+`https://docs.hydromodpy.fr/v1.0/` on every update of the `v1.0` branch.
 
 ## Publications
 
