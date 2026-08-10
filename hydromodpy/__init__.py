@@ -237,7 +237,7 @@ except metadata.PackageNotFoundError:
 __author__ = "Alexandre Gauvain, Ronan Abhervé, Bastien Boivin, Jean-Raynald de Dreuzy"
 __email__ = (
     "alexandre.gauvain.ag@gmail.com, ronan.abherve@inrae.fr, "
-    "bastien.boivin@proton.me, jean-raynald.de-dreuzy@univ-rennes.fr"
+    "jean-raynald.de-dreuzy@univ-rennes.fr, bastien.boivin@proton.me"
 )
 
 # Initialize logging system
