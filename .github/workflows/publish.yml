@@ -1,46 +1,154 @@
-# Build the sdist + wheel and publish HydroModPy to PyPI.
+# Publish HydroModPy v1.0 to PyPI on tag push.
 #
-# Triggered manually (workflow_dispatch) or when a GitHub release is published.
-# Requires a PYPI_API_TOKEN secret on this repository (a PyPI project API token).
-# The published version is the one in pyproject.toml; bump it before releasing.
+# Trigger: a git tag matching v1.*.* is pushed. Tags of the v1.0 maintenance
+# branch resolve this file; v2 tags on main resolve main's own workflow.
+#
+# Steps:
+#   1. Check the tag matches the pyproject version.
+#   2. Build wheel + sdist with `python -m build`, validate with `twine check`.
+#   3. Upload to PyPI via Trusted Publishers (OIDC, no API token).
+#   4. Create a GitHub release with the matching CHANGELOG section as body and
+#      the distribution files attached.
+#
+# Trusted Publisher prerequisite (one-time, on PyPI):
+#   project = hydromodpy
+#   owner = HydroModPy
+#   repository = HydroModPy
+#   workflow = publish.yml
+#   environment = pypi
 
-name: Publish to PyPI
+name: Release / PyPI (v1.0)
 
 on:
+  push:
+    tags:
+      - "v1.*.*"
   workflow_dispatch:
-  release:
-    types: [published]
+    inputs:
+      tag:
+        description: "Existing tag to publish (e.g. v1.0.1)"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  build-and-publish:
-    name: Build and publish to PyPI
+  build:
+    name: Release / build sdist and wheel
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
+          cache: pip
 
-      - name: Build sdist and wheel
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
+      - name: Install build tooling
+        run: pip install "build>=1.2" "twine>=5.0"
 
-      - name: Check the built artifacts
+      - name: Verify version matches tag
         run: |
-          python -m pip install twine
-          python -m twine check dist/*
+          tag="${{ inputs.tag || github.ref_name }}"
+          expected="${tag#v}"
+          actual=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          if [ "$expected" != "$actual" ]; then
+            echo "Tag $tag does not match pyproject version $actual" >&2
+            exit 1
+          fi
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Check distribution metadata
+        run: python -m twine check --strict dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Release / upload to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/hydromodpy
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: python -m twine upload --non-interactive dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  release:
+    name: Release / create GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Extract CHANGELOG section for tag
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          python - "$tag" <<'PY' > release_notes.md
+          import pathlib
+          import re
+          import sys
+
+          tag = sys.argv[1]
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = rf"^## \[{re.escape(tag)}\][^\n]*\n(.*?)(?=^## \[)"
+          match = re.search(pattern, changelog, re.DOTALL | re.MULTILINE)
+          if not match:
+              sys.stderr.write(f"No CHANGELOG section for {tag}\n")
+              sys.exit(1)
+          sys.stdout.write(match.group(1).strip() + "\n")
+          PY
+
+      - name: Classify release tag
+        id: release-kind
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: HydroModPy ${{ inputs.tag || github.ref_name }}
+          body_path: release_notes.md
+          prerelease: ${{ steps.release-kind.outputs.prerelease }}
+          files: |
+            dist/*
