@@ -42,6 +42,41 @@ Each release section includes the following standard categories:
 
 ---
 
+## [v1.0.0] - 2026-08-10
+
+First stable release of HydroModPy, and the version described in the technical
+note submitted to *Hydrology and Earth System Sciences*
+([EGUsphere preprint](https://doi.org/10.5194/egusphere-2026-868)). This is the
+reference cited by the paper. The `v1.0` branch stays open for `1.0.X` bug fixes
+so the paper link always points to a working release, while feature development
+continues on `main` as HydroModPy v2.
+
+Install the maintained paper version with `pip install "hydromodpy==1.0.*"`,
+which resolves to the latest `1.0.X` patch and never upgrades to the v2 series.
+
+### Added
+- First PyPI release published from GitHub, with MODFLOW, MODPATH and MT3D-USGS binaries bundled in the wheel.
+- Release pipeline on GitHub Actions: build, `twine check`, PyPI Trusted Publishing (OIDC), CycloneDX SBOM and GitHub release with the changelog notes.
+- Weekly cross-platform install and example smoke tests on Linux, Windows, macOS x86 and macOS arm, for Python 3.11 to 3.13.
+- Multi-version documentation deployed to GitHub Pages at <https://hydromodpy.github.io/v1.0/>.
+
+### Changed
+- Repository, issues, documentation and CI moved from GitLab and ReadTheDocs to GitHub and GitHub Pages.
+- README leads with the pip installation path; authors, affiliations and title aligned with the preprint.
+- Upper pin on `numpy` (`<2.5`) for `pysheds` compatibility, and `dask` added for multi-file xarray merges.
+- Development status classifier raised to `5 - Production/Stable`.
+
+### Fixed
+- MODPATH particle flux is sampled with `rasterio` instead of `whitebox`.
+- Interactive matplotlib backend detected through `backend_registry`.
+- Watershed object is rebuilt when the stored pickle cannot be read.
+- Transport and PyHELP examples run headless, without user interaction.
+
+### Removed
+- GitLab CI pipeline and ReadTheDocs configuration.
+
+---
+
 ## [v0.3.5] - 2026-01-28
 ### Changed
 - Pinned pandas to `<3.0` across pip/conda install files and docs to avoid breaking changes from pandas 3.0.
@@ -177,9 +212,11 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.5...dev
+[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v1.0.0...v1.0
+[v1.0.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.5...v1.0.0
 [v0.3.5]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.4...v0.3.5
 [v0.3.4]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.3...v0.3.4
+[v0.3.3]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.2...v0.3.3
 [v0.3.2]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.2.0...v0.3.0
