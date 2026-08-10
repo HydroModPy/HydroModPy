@@ -1,13 +1,13 @@
 [build-system]
 requires = [
-    "setuptools>=65.0",
+    "setuptools>=77.0",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "1.0.0a1"
+version = "1.0.0"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -33,7 +33,7 @@ keywords = [
     "catchment",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
