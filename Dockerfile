@@ -7,7 +7,7 @@ WORKDIR /scripts
 RUN python -m pip install -U --upgrade pip
 COPY install/requirements-docker-light.txt install/requirements-docker-light.txt
 RUN pip install --no-cache-dir -r install/requirements-docker-light.txt
-RUN pip install --no-cache-dir --no-deps hydromodpy
+RUN pip install --no-cache-dir --no-deps "hydromodpy==1.0.*"
 
 # copy all python programme
 COPY *.py .

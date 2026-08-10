@@ -3,9 +3,9 @@ Install
 
 .. warning::
 
-   You are reading the HydroModPy **v1** documentation, the version described in
+   You are reading the HydroModPy **v1.0** documentation, the version described in
    the HESS technical note
-   (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1`` branch
+   (`preprint <https://doi.org/10.5194/egusphere-2026-868>`_). The ``v1.0`` branch
    is the reference cited by the paper and still receives fixes. For the latest
    development version, see HydroModPy v2 on ``main``:
    https://hydromodpy.github.io/main/
@@ -25,16 +25,21 @@ Install with pip
 
 .. tab-set::
 
-   .. tab-item:: PyPI (v1.0.0)
+   .. tab-item:: PyPI (v1.0)
 
       .. code-block:: bash
 
          python -m pip install --upgrade pip
-         pip install "hydromodpy==1.0.0"
+         pip install "hydromodpy==1.0.*"
 
       This installs the published release from PyPI and exposes the package as
       ``hydromodpy`` in any environment. Need an IDE bundle (Spyder + JupyterLab)?
-      install ``hydromodpy[ide]==1.0.0`` instead.
+      install ``hydromodpy[ide]==1.0.*`` instead.
+
+      The ``==1.0.*`` specifier always resolves to the latest ``1.0.X`` patch
+      and never crosses over to the v2 series. ``==1.0.0`` pins one exact
+      release, and a bare ``pip install hydromodpy`` follows the newest
+      release of any series.
 
    .. tab-item:: Editable clone
 
@@ -42,14 +47,14 @@ Install with pip
 
          git clone https://github.com/HydroModPy/HydroModPy.git
          cd HydroModPy
-         git checkout v1
+         git checkout v1.0
          python -m pip install --upgrade pip
          pip install -e .
 
       Editable mode installs the package from the local repository while keeping
       the source tree editable. Use the v2 documentation for active
       contributions. Install the ``[docs]`` extras later only if you work on the
-      v1 documentation.
+      v1.0 documentation.
 
 Full pip packaging is available from v0.3.0 onward. Users pinned to older
 releases should rely on the conda environment and the ``v0.2.0`` tag.
@@ -104,7 +109,7 @@ Command recipes
 
 Pick the setup that matches your workflow. Replace ``<env>`` with your
 environment name and set ``<py>`` to the desired Python version (3.11–3.13).
-Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
+Use ``"hydromodpy[docs]==1.0.*"`` if you need the documentation extras.
 
 .. dropdown:: Conda + YAML
    :color: secondary
@@ -114,7 +119,7 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    .. code-block:: bash
 
       # Clone + runtime stack (scripts, notebooks)
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1.0 && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
 
    .. code-block:: bash
 
@@ -124,7 +129,7 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    .. code-block:: bash
 
       # Clone + editable stack (adds pip install -e ..)
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1.0 && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
 
    .. code-block:: bash
 
@@ -140,7 +145,7 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    .. code-block:: bash
 
       # Without cloning
-      conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
+      conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.*"
 
    .. code-block:: bash
 
@@ -150,14 +155,14 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    .. code-block:: bash
 
       # Clone first (optional), then install from PyPI
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1.0 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.*"
 
    .. code-block:: bash
 
       # Clone first, then install in editable mode (pip install -e .)
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && git checkout v1.0 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
 
-   Add ``"hydromodpy[ide]==1.0.0"`` at the end if you want Spyder and
+   Add ``"hydromodpy[ide]==1.0.*"`` at the end if you want Spyder and
    JupyterLab bundled.
 
 .. dropdown:: venv + PyPI
@@ -170,31 +175,35 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
 
    .. code-block:: bash
 
-      python<py> -m venv <env> && source <env>/bin/activate && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
+      python<py> -m venv <env> && source <env>/bin/activate && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.*"
 
    .. rubric:: Windows (PowerShell)
 
    .. code-block:: powershell
 
-      py -<py> -m venv <env> ; .\<env>\Scripts\Activate.ps1 ; python -m pip install --upgrade pip ; pip install "hydromodpy==1.0.0"
+      py -<py> -m venv <env> ; .\<env>\Scripts\Activate.ps1 ; python -m pip install --upgrade pip ; pip install "hydromodpy==1.0.*"
 
    .. rubric:: Windows (CMD)
 
    .. code-block:: batch
 
-      py -<py> -m venv <env> && call <env>\Scripts\activate.bat && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
+      py -<py> -m venv <env> && call <env>\Scripts\activate.bat && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.*"
 
-   Append ``"hydromodpy[ide]==1.0.0"`` to either command if you want the IDE
+   Append ``"hydromodpy[ide]==1.0.*"`` to either command if you want the IDE
    extras.
 
-Track v1
---------
+Track v1.0
+----------
 
 .. code-block:: bash
 
-   pip install "hydromodpy==1.0.0"
+   pip install "hydromodpy==1.0.*"
 
-Editable installs should track the ``v1`` branch, which stays current with
+This is the recommended specifier for anyone reproducing the paper results.
+It picks up every ``1.0.X`` bug fix published on PyPI and never upgrades to
+the v2 series, which has a different interface.
+
+Editable installs should track the ``v1.0`` branch, which stays current with
 fixes for the published release.
 
 Check the installation
@@ -221,7 +230,7 @@ Spyder note
 environment. Install the IDE itself via the Conda YAML files (Spyder is already
 included) or by adding the ``ide`` extra ::
 
-   pip install "hydromodpy[ide]==1.0.0"
+   pip install "hydromodpy[ide]==1.0.*"
 
 Manual install remains possible with ``conda install spyder``.
 

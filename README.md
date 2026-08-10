@@ -1,4 +1,4 @@
-![logo](docs/source/images/logoHydroModPy_long.png)
+![logo](https://raw.githubusercontent.com/HydroModPy/HydroModPy/v1.0/docs/source/images/logoHydroModPy_long.png)
 
 # HydroModPy
 
@@ -6,8 +6,9 @@ A Python toolbox for deploying catchment-scale shallow groundwater models.
 
 [![Documentation](https://img.shields.io/badge/docs-v1.0-blue)](https://hydromodpy.github.io/v1.0/)
 [![DOI](https://img.shields.io/badge/DOI-10.5194%2Fegusphere--2026--868-blue)](https://doi.org/10.5194/egusphere-2026-868)
-[![License: EPL-2.0](https://img.shields.io/badge/License-EPL%202.0-red.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue)](pyproject.toml)
+[![PyPI](https://img.shields.io/badge/PyPI-hydromodpy%201.0-blue)](https://pypi.org/project/hydromodpy/)
+[![License: EPL-2.0](https://img.shields.io/badge/License-EPL%202.0-red.svg)](https://github.com/HydroModPy/HydroModPy/blob/v1.0/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue)](https://github.com/HydroModPy/HydroModPy/blob/v1.0/pyproject.toml)
 
 > ### HydroModPy v1.0: the version cited in the paper
 >
@@ -81,10 +82,13 @@ Install HydroModPy from PyPI:
 
 ```bash
 # without Spyder and JupyterLab
-pip install "hydromodpy==1.0.0"
+pip install "hydromodpy==1.0.*"     # latest 1.0.X, never 1.1 nor 2.0
 # including Spyder and JupyterLab
-pip install "hydromodpy[ide]==1.0.0"
+pip install "hydromodpy[ide]==1.0.*"
 ```
+
+The `==1.0.*` specifier always resolves to the latest `1.0.X` patch and never
+crosses over to the v2 series. Use `==1.0.0` only to pin one exact release.
 
 MODFLOW, MODPATH and MT3DMS binaries ship with the package. The PyHELP binary
 downloads itself on the first call to the corresponding module.
@@ -213,7 +217,7 @@ Gauvain, A., Abhervé, R., Boivin, B., Coche, A., Le Mesnil, M., Babey, T., Maug
 ## License
 
 HydroModPy is released under the Eclipse Public License v2.0 (EPL-2.0). See
-[LICENSE](LICENSE).
+[LICENSE](https://github.com/HydroModPy/HydroModPy/blob/v1.0/LICENSE).
 
 ## Contact
 
