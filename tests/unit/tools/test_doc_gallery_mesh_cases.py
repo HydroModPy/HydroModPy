@@ -86,23 +86,32 @@ def test_update_gallery_copy_file_falls_back_to_extended_windows_paths(
     _assert_windows_copy_uses_extended_path_fallback(update_gallery_module, monkeypatch)
 
 
-def _write_text(path: Path, content: str) -> None:
+def _filesystem_path(path: Path) -> Path:
     if os.name != "nt":
-        path.write_text(content, encoding="utf-8")
-        return
+        return path
     text = str(path.expanduser().resolve())
     if text.startswith("\\\\?\\"):
-        Path(text).write_text(content, encoding="utf-8")
-        return
+        return Path(text)
     if text.startswith("\\\\"):
-        Path("\\\\?\\UNC\\" + text.lstrip("\\")).write_text(content, encoding="utf-8")
-        return
-    Path("\\\\?\\" + text).write_text(content, encoding="utf-8")
+        return Path("\\\\?\\UNC\\" + text.lstrip("\\"))
+    return Path("\\\\?\\" + text)
+
+
+def _write_text(path: Path, content: str) -> None:
+    _filesystem_path(path).write_text(content, encoding="utf-8")
+
+
+def _mkdir(path: Path) -> None:
+    _filesystem_path(path).mkdir(parents=True, exist_ok=True)
+
+
+def _read_text(path: Path) -> str:
+    return _filesystem_path(path).read_text(encoding="utf-8")
 
 
 def _write_dummy_launcher_config(repo_root: Path, relative_path: str) -> None:
     config_path = repo_root / relative_path
-    config_path.parent.mkdir(parents=True, exist_ok=True)
+    _mkdir(config_path.parent)
     _write_text(
         config_path,
         "[mesh_catchment]\nconstraints_mode = 'geology_rivers'\n",
@@ -153,12 +162,12 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     case_json_path = expected_case_dir / "case.json"
     viewer_config_path = expected_case_dir / "viewer_config.toml"
     bundle_dir = expected_case_dir / "bundle"
-    assert case_json_path.exists()
-    assert viewer_config_path.exists()
-    assert (expected_case_dir / "README.md").exists()
+    assert _filesystem_path(case_json_path).exists()
+    assert _filesystem_path(viewer_config_path).exists()
+    assert _filesystem_path(expected_case_dir / "README.md").exists()
     validate_bundle_dir(bundle_dir)
 
-    payload = json.loads(case_json_path.read_text(encoding="utf-8"))
+    payload = json.loads(_read_text(case_json_path))
     assert payload["case_schema_version"] == MESH_GALLERY_CASE_SCHEMA_VERSION
     assert payload["scale"] == "100km2"
     assert payload["variant"] == "geology_rivers_buffer30"
@@ -169,7 +178,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     )
     assert DEFAULT_100KM2_SOURCE_CONFIG in payload["source_paths"]
 
-    viewer_config = viewer_config_path.read_text(encoding="utf-8")
+    viewer_config = _read_text(viewer_config_path)
     assert 'bundle_dir = "./bundle"' in viewer_config
     assert 'color_field = "geology_key"' in viewer_config
 
