@@ -148,7 +148,16 @@ def plot_lake_abacus_comparison(
 
 @register
 class LakeAbacusComparison(BaseFigure):
-    """Reference vs simulated lake abacus (stage-volume), requestable via display."""
+    """Reference abacus vs the carved-bed geometry, requestable via display.
+
+    This is a GEOMETRY check, not a water-balance one. MODFLOW 6 reads the
+    stage-volume-area relation from the ``laktab``, which carries the reference
+    abacus verbatim, so lake storage is exact no matter what this figure shows. The
+    simulated curve integrates the bed elevations actually carved into the grid: a
+    gap means the mesh cuvette is not the real one, which biases the lake-aquifer
+    exchange elevations, the seepage, and (in ``dynamic_area`` mode) which cells wet
+    and dry at a given stage.
+    """
 
     spec = FigureSpec(
         name="lake_abacus_comparison",
@@ -171,35 +180,89 @@ class LakeAbacusComparison(BaseFigure):
         vol_unit = str(ab.get("volume_unit", "m3"))
         stage_unit = str(ab.get("stage_unit", "m"))
 
-        ax.plot(
-            stage, real_volume, color="black", lw=1.6, marker="o", ms=3, label="Abacus (reference)"
-        )
-        ax.plot(
+        # Millions of cubic metres: a reservoir abacus spans 1e7, and raw m3 leaves the
+        # axis unreadable with an offset exponent in the corner.
+        scale, scaled_unit = (1e6, "Mm3") if vol_unit == "m3" else (1.0, vol_unit)
+        real_plot = real_volume / scale
+        sim_plot = sim_volume / scale
+
+        # No per-point markers: an abacus carries hundreds of rows, and a marker on each
+        # of them turns both curves into thick crenellated bands.
+        ax.plot(stage, real_plot, color="#111111", lw=2.0, label="Abacus (reference)")
+        ax.plot(stage, sim_plot, color="#b3352c", lw=1.8, label="Simulated (carved bed)")
+        # The gap IS the message: shade it so an over- or under-storing grid reads at a
+        # glance instead of having to compare two nearly parallel lines.
+        ax.fill_between(
             stage,
-            sim_volume,
-            color="firebrick",
-            lw=1.6,
-            marker="s",
-            ms=3,
-            label="Simulated (carved bed)",
+            real_plot,
+            sim_plot,
+            color="#b3352c",
+            alpha=0.16,
+            linewidth=0,
+            label="Storage gap",
         )
         ax.set_xlabel(f"Stage [{stage_unit}]")
-        ax.set_ylabel(f"Volume [{vol_unit}]")
-        ax.set_title(f"Lake abacus - {lake_id or (sim.name or sim.sim_id)}")
-        ax.legend(fontsize=9, loc="best")
-        ax.grid(alpha=0.3)
+        ax.set_ylabel(f"Volume [{scaled_unit}]")
+        # Name the lake, not just the run: a two-lake model renders one curve per lake and
+        # the default picks the first, so the run name alone leaves the reader guessing.
+        which = lake_id or str(ab.get("lake_id") or "")
+        run_label = sim.name or sim.sim_id
+        title = f"Lake abacus - {which} ({run_label})" if which else f"Lake abacus - {run_label}"
+        ax.set_title(title)
+        ax.legend(fontsize=9, loc="upper left", frameon=False)
+        ax.grid(alpha=0.25, linewidth=0.6)
+        ax.set_axisbelow(True)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
 
         metrics = lake_abacus_fit_metrics(real_volume, sim_volume)
         if metrics:
+            # NOT a storage check: MF6 converts stage to volume through the laktab, which
+            # carries the REFERENCE abacus verbatim, so the lake water balance is exact
+            # whatever this figure shows. What is compared here is the carved BED geometry
+            # (which cells exchange with the lake, at which elevation, and which ones dry
+            # out in marnage mode), so the gap bears on lake-aquifer exchange and seepage.
+            lines = [
+                f"bed fidelity NSE  {metrics['nse']:+.4f}",
+                f"RMSE              {metrics['rmse'] / scale:.3g} {scaled_unit}",
+            ]
+            # The full-pool gap is what a modeller acts on: it says how much storage the
+            # grid adds or loses at the crest, where the reservoir actually operates.
+            if real_volume[-1] > 0.0:
+                gap = 100.0 * (sim_volume[-1] - real_volume[-1]) / real_volume[-1]
+                lines.append(f"full pool         {gap:+.1f} % vs reference")
+                lines.append("(bed geometry, not lake storage)")
+            # One panel holds one lake, but a multi-lake run must not hide the others:
+            # list every sibling's full-pool gap so a bad cuvette cannot go unseen just
+            # because its lake is not the one plotted.
+            siblings = [name for name in ab.get("lake_ids", ()) if name != which]
+            if siblings:
+                lines.append("")
+                lines.append("other lakes (full pool):")
+                for name in siblings:
+                    try:
+                        other = run_lake_abacus(sim, name)
+                    except KeyError:  # pragma: no cover - lake listed but unreadable
+                        continue
+                    other_real = np.asarray(other["real_volume"], dtype=float)
+                    other_sim = np.asarray(other["sim_volume"], dtype=float)
+                    if other_real.size and other_real[-1] > 0.0:
+                        other_gap = 100.0 * (other_sim[-1] - other_real[-1]) / other_real[-1]
+                        lines.append(f"  {name}  {other_gap:+.1f} %")
             ax.text(
-                0.015,
-                0.97,
-                f"storage NSE = {metrics['nse']:.4f}\nRMSE = {metrics['rmse']:.3g} {vol_unit}",
+                0.985,
+                0.05,
+                "\n".join(lines),
                 transform=ax.transAxes,
-                va="top",
-                ha="left",
-                fontsize=9,
+                va="bottom",
+                ha="right",
+                fontsize=8.5,
                 family="monospace",
-                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8, "edgecolor": "#ccc"},
+                bbox={
+                    "boxstyle": "round,pad=0.45",
+                    "facecolor": "white",
+                    "alpha": 0.85,
+                    "edgecolor": "#d0d0d0",
+                },
             )
         return ax
