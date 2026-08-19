@@ -266,6 +266,7 @@ def run_calibration_core(
                 trial_ctx.ctx,
                 outputs=cfg.outputs or None,
                 objective_blocks=cfg.objective_blocks or None,
+                warmup_periods=int(cfg.warmup_periods),
             )
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)

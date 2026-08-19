@@ -45,6 +45,7 @@ def build_metric_extractor(
     *,
     outputs: Mapping[str, CalibOutputDecl] | None = None,
     objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
+    warmup_periods: int = 0,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -87,8 +88,10 @@ def build_metric_extractor(
                 components: dict[str, float] = {}
                 costs: list[float] = []
                 for obs_rec in observed:
-                    cost = score(obs_rec.series, simulated, objective)
-                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    cost = score(
+                        obs_rec.series, simulated, objective, warmup_periods=warmup_periods
+                    )
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
@@ -118,8 +121,8 @@ def build_metric_extractor(
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no head calibration series"
                         )
-                    cost = score(obs_rec.series, sim, objective)
-                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    cost = score(obs_rec.series, sim, objective, warmup_periods=warmup_periods)
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
@@ -141,8 +144,8 @@ def build_metric_extractor(
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no lake stage series"
                         )
-                    cost = score(obs_rec.series, sim, objective)
-                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    cost = score(obs_rec.series, sim, objective, warmup_periods=warmup_periods)
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
