@@ -271,6 +271,12 @@ ignore = [
 "tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
 # tools/ scripts may set repo-root import precedence before imports.
 "tools/**" = ["E402", "F401", "B007", "B905", "F841"]
+# evaluation/ metric scripts do the same repo-root sys.path bootstrap.
+"evaluation/**" = ["E402"]
+# validity_frame is a separate installable package with its own pyproject;
+# its str+Enum classes are kept as declared because StrEnum would change
+# what str() renders, and with it every f-string and log line there.
+"validity_frame/**" = ["UP042"]
 # Annex: legacy/peripheral code, minimal linting.
 "hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
 # Demo / validation scripts: lenient, they're not production code.

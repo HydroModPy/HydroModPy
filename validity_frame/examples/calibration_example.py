@@ -24,16 +24,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from validity_frame.semantic_model import (
     ExecutionKnowledgeRecord,
     FidelityLevel,
-    ValidityDomain,
-    ValidationStore,
     UncertaintyDescriptors,
+    ValidationStore,
+    ValidityDomain,
     load_semantic_model,
 )
 
 # ── STEP 1: load semantic model ───────────────────────────────────────────────
 config_path = Path(__file__).parent / "aquifer_config.toml"
-semantic    = load_semantic_model(config_path)
-ctx         = semantic["context"]
+semantic = load_semantic_model(config_path)
+ctx = semantic["context"]
 
 # For calibration we use KGE with threshold 0.70
 KGE_THRESHOLD = 0.70
@@ -98,7 +98,13 @@ def _process_catalog(catalog_path: Path) -> list[ExecutionKnowledgeRecord]:
     con.close()
 
     session_id, project, method, obj_name, n_iter, best_sim_id, best_obj = session or (
-        None, None, None, "kge", None, None, None
+        None,
+        None,
+        None,
+        "kge",
+        None,
+        None,
+        None,
     )
 
     print(f"\n{'=' * 60}")
@@ -112,8 +118,7 @@ def _process_catalog(catalog_path: Path) -> list[ExecutionKnowledgeRecord]:
 
     records: list[ExecutionKnowledgeRecord] = []
 
-    for iteration, sim_id, params_json, obj_val, metrics_json, status, duration_s in rows:
-
+    for iteration, sim_id, params_json, obj_val, _metrics_json, status, duration_s in rows:
         if status != "completed" or obj_val is None:
             print(f"\n  [iter {iteration}] skipped (status={status})")
             continue
@@ -122,7 +127,7 @@ def _process_catalog(catalog_path: Path) -> list[ExecutionKnowledgeRecord]:
         kge = round(1.0 - float(obj_val), 4)
 
         params = json.loads(params_json) if params_json else {}
-        K_val  = params.get("K", {}).get("value")
+        K_val = params.get("K", {}).get("value")
         Sy_val = params.get("Sy", {}).get("value")
 
         # Build ValidationStore for this iteration (KGE-based)
@@ -136,20 +141,20 @@ def _process_catalog(catalog_path: Path) -> list[ExecutionKnowledgeRecord]:
         )
 
         record = ExecutionKnowledgeRecord(
-            run_id                 = f"iter_{iteration:03d}",
-            validation_store       = va,
-            validity_domain        = ValidityDomain(),
-            fidelity               = FidelityLevel(P1=True),
-            source_adapter         = "calibration_catalog",
-            model_structure        = semantic["model_structure"],
-            properties_of_interest = semantic["properties_of_interest"],
-            influence_factors      = semantic["influence_factors"],
-            context                = semantic["context"],
-            metadata               = {
-                "session_id":   str(session_id) if session_id else "",
-                "sim_id":       str(sim_id) if sim_id else "",
-                "objective":    obj_name or "kge",
-                "duration_s":   duration_s,
+            run_id=f"iter_{iteration:03d}",
+            validation_store=va,
+            validity_domain=ValidityDomain(),
+            fidelity=FidelityLevel(P1=True),
+            source_adapter="calibration_catalog",
+            model_structure=semantic["model_structure"],
+            properties_of_interest=semantic["properties_of_interest"],
+            influence_factors=semantic["influence_factors"],
+            context=semantic["context"],
+            metadata={
+                "session_id": str(session_id) if session_id else "",
+                "sim_id": str(sim_id) if sim_id else "",
+                "objective": obj_name or "kge",
+                "duration_s": duration_s,
                 "catalog_path": str(catalog_path),
             },
         )
@@ -157,6 +162,7 @@ def _process_catalog(catalog_path: Path) -> list[ExecutionKnowledgeRecord]:
         record.delta = kge
         # CVF if KGE >= tau (higher is better → flip comparison)
         from validity_frame.semantic_model.knowledge_record import ValidationDecision
+
         if kge >= KGE_THRESHOLD:
             record.decision = ValidationDecision.CVF
         else:
@@ -172,7 +178,7 @@ def _process_catalog(catalog_path: Path) -> list[ExecutionKnowledgeRecord]:
         print(f"    --> DECISION: {record.decision.value}")
 
     if records:
-        cvf   = [r for r in records if r.decision.value == "CVF"]
+        cvf = [r for r in records if r.decision.value == "CVF"]
         incvf = [r for r in records if r.decision.value == "INCVF"]
         print(f"\n  Summary — {catalog_path.parent.name}")
         print(f"    Total : {len(records)}")
@@ -191,7 +197,7 @@ for cp in catalogs:
 if len(catalogs) > 1 and all_records:
     print("\n" + "=" * 60)
     print("Global summary")
-    cvf   = [r for r in all_records if r.decision.value == "CVF"]
+    cvf = [r for r in all_records if r.decision.value == "CVF"]
     incvf = [r for r in all_records if r.decision.value == "INCVF"]
     print(f"  Catalogs    : {len(catalogs)}")
     print(f"  Total cases : {len(all_records)}")

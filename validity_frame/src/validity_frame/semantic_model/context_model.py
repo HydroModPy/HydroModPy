@@ -12,13 +12,13 @@ class ContextModel:
     system_name: str
 
     # Outlet / delineation — from project geographic config
-    outlet_x: float | None = None        # x coordinate of the outlet (in project CRS)
-    outlet_y: float | None = None        # y coordinate of the outlet (in project CRS)
-    crs: str | None = None               # coordinate reference system (e.g. EPSG:2154)
+    outlet_x: float | None = None  # x coordinate of the outlet (in project CRS)
+    outlet_y: float | None = None  # y coordinate of the outlet (in project CRS)
+    crs: str | None = None  # coordinate reference system (e.g. EPSG:2154)
 
     # Physical structure of the aquifer
-    aquifer_thickness_m: float | None = None   # constant thickness below topography
-    catchment_area_km2: float | None = None    # total watershed area
+    aquifer_thickness_m: float | None = None  # constant thickness below topography
+    catchment_area_km2: float | None = None  # total watershed area
 
     # Lithological context
     geo_nature: dict[str, Any] = field(default_factory=dict)

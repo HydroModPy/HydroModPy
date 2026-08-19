@@ -23,9 +23,7 @@ from evaluation._utils import (
 )
 
 
-
 class CBOVisitor(ast.NodeVisitor):
-
     def __init__(self, internal_prefixes: set[str] | None = None) -> None:
         self.classes: list[dict[str, Any]] = []
 
@@ -41,121 +39,78 @@ class CBOVisitor(ast.NodeVisitor):
             return True
         return target.split(".")[0] in self.internal_prefixes
 
-
-
     def visit_Import(self, node: ast.Import) -> Any:
 
         for alias in node.names:
-
             name = alias.asname or alias.name.split(".")[0]
 
             self.imports[name] = alias.name
 
         self.generic_visit(node)
 
-
-
     def visit_ImportFrom(self, node: ast.ImportFrom) -> Any:
 
         if node.module:
-
             module = node.module.split(".")[0]
 
             for alias in node.names:
-
                 name = alias.asname or alias.name
 
                 self.imports[name] = module
 
-
-
         elif node.level:
-
             for alias in node.names:
-
                 name = alias.asname or alias.name
 
                 self.imports[name] = "." * node.level + name
 
-
-
         self.generic_visit(node)
-
-
 
     def visit_ClassDef(self, node: ast.ClassDef) -> Any:
 
         previous_class = self.current_class
         previous_dependencies = self.current_dependencies
 
-
         self.current_class = node.name
         self.current_dependencies = set()
-
 
         # Analyse uniquement le contenu de la classe
         for item in node.body:
             self.visit(item)
 
-
         # retirer la classe elle-même
-        self.current_dependencies.discard(
-            node.name
-        )
-
+        self.current_dependencies.discard(node.name)
 
         self.classes.append(
             {
                 "class": node.name,
                 "cbo": len(self.current_dependencies),
-                "dependencies": sorted(
-                    self.current_dependencies
-                ),
+                "dependencies": sorted(self.current_dependencies),
             }
         )
-
 
         self.current_class = previous_class
         self.current_dependencies = previous_dependencies
 
-
-
     def visit_Call(self, node: ast.Call) -> Any:
 
         if self.current_class is not None:
-
-
             # Exemple : Database()
             if isinstance(node.func, ast.Name):
-
                 name = node.func.id
 
                 if name in self.imports and self._is_internal(self.imports[name]):
-
-                    self.current_dependencies.add(
-                        name
-                    )
-
+                    self.current_dependencies.add(name)
 
             # Exemple : obj.save()
             elif isinstance(node.func, ast.Attribute):
-
-                if isinstance(
-                    node.func.value,
-                    ast.Name
-                ):
-
+                if isinstance(node.func.value, ast.Name):
                     obj = node.func.value.id
 
                     if obj in self.imports and self._is_internal(self.imports[obj]):
-
-                        self.current_dependencies.add(
-                            obj
-                        )
-
+                        self.current_dependencies.add(obj)
 
         self.generic_visit(node)
-
 
 
 def compute_cbo(root: Path) -> dict[str, Any]:
@@ -164,44 +119,29 @@ def compute_cbo(root: Path) -> dict[str, Any]:
 
     paths = list(iter_python_files(root))
 
-    internal_prefixes = {
-        module_name_from_path(root, path).split(".")[0] for path in paths
-    }
+    internal_prefixes = {module_name_from_path(root, path).split(".")[0] for path in paths}
 
     for path in paths:
-
         tree = parse_ast(path)
 
         classes = []
 
-
         if tree is not None:
-
             visitor = CBOVisitor(internal_prefixes)
 
             visitor.visit(tree)
 
             classes = visitor.classes
 
-
-
         rows.append(
             {
-                "module": module_name_from_path(
-                    root,
-                    path
-                ),
-
+                "module": module_name_from_path(root, path),
                 "package": package_name_from_path(root, path),
-
                 "public": is_public_module_path(path),
-
                 "path": str(path),
-
                 "classes": classes,
             }
         )
-
 
     return {
         "root": str(root),
@@ -209,83 +149,32 @@ def compute_cbo(root: Path) -> dict[str, Any]:
     }
 
 
-
 def main() -> None:
 
-    parser = argparse.ArgumentParser(
-        description="Compute class coupling metrics (CBO)"
-    )
+    parser = argparse.ArgumentParser(description="Compute class coupling metrics (CBO)")
 
+    parser.add_argument("--root", type=Path, default=Path.cwd(), help="Repository root")
 
-    parser.add_argument(
-        "--root",
-        type=Path,
-        default=Path.cwd(),
-        help="Repository root"
-    )
+    parser.add_argument("--repo", type=str, default=None, help="Repository URL or path to clone")
 
+    parser.add_argument("--branch", type=str, default=None, help="Branch to checkout")
 
-    parser.add_argument(
-        "--repo",
-        type=str,
-        default=None,
-        help="Repository URL or path to clone"
-    )
-
-
-    parser.add_argument(
-        "--branch",
-        type=str,
-        default=None,
-        help="Branch to checkout"
-    )
-
-
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Output JSON file"
-    )
-
+    parser.add_argument("--output", type=Path, default=None, help="Output JSON file")
 
     args = parser.parse_args()
 
-
-
-    with resolve_repository_root(
-        args.root,
-        args.repo,
-        args.branch
-    ) as root:
-
-
+    with resolve_repository_root(args.root, args.repo, args.branch) as root:
         result = compute_cbo(root)
 
-
-        output = json.dumps(
-            result,
-            indent=2
-        )
-
+        output = json.dumps(result, indent=2)
 
         if args.output is None:
-
             print(output)
 
         else:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
 
-            args.output.parent.mkdir(
-                parents=True,
-                exist_ok=True
-            )
-
-
-            args.output.write_text(
-                output,
-                encoding="utf-8"
-            )
-
+            args.output.write_text(output, encoding="utf-8")
 
 
 if __name__ == "__main__":
