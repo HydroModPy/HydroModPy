@@ -8,6 +8,7 @@ import pytest
 from hydromodpy.spatial.lake_bed import (
     cell_bed_from_surface,
     reconcile_bed_to_abacus,
+    regrade_column_active_top,
     regrade_column_to_bed,
     simulate_abacus,
 )
@@ -147,6 +148,50 @@ def test_regrade_column_clamps_below_base():
     )
     assert new[0] >= 50.0 + 1.0 - 1e-9
     assert np.all(np.diff(new) < 0.0)
+
+
+def test_regrade_holds_min_thickness_on_every_layer():
+    """The floor is per layer, not just per segment.
+
+    ``[90, 80, 50]`` re-graded into the 2 m active segment left by a clamped bed
+    used to be split 0.5 m / 1.5 m in proportion to the original 10 m / 30 m: the
+    segment held its aggregate floor while one layer fell under it.
+    """
+    top = 100.0
+    botm = np.array([90.0, 80.0, 50.0])
+    min_thickness = 1.0
+    new = regrade_column_to_bed(
+        top=top, botm_col=botm, bed=10.0, occupied_layers=1, min_thickness=min_thickness
+    )
+    thickness = np.concatenate(([top], new[:-1])) - new
+    assert np.all(thickness >= min_thickness - 1e-9)
+    assert new[-1] == pytest.approx(50.0)
+    assert np.all(np.diff(new) < 0.0)
+
+
+def test_regrade_active_top_holds_min_thickness_on_every_layer():
+    """Same floor guarantee on the active-littoral (marnage) re-grade."""
+    min_thickness = 1.0
+    botm = np.array([90.0, 80.0, 50.0])
+    new_top, new = regrade_column_active_top(
+        orig_top=100.0, botm_col=botm, bed=10.0, min_thickness=min_thickness
+    )
+    thickness = np.concatenate(([new_top], new[:-1])) - new
+    assert np.all(thickness >= min_thickness - 1e-9)
+    assert new[-1] == pytest.approx(50.0)
+    assert np.all(np.diff(new) < 0.0)
+
+
+def test_regrade_keeps_the_original_shape_when_there_is_room():
+    """With room to spare the split still follows the original thicknesses."""
+    top = 100.0
+    botm = np.array([90.0, 60.0, 0.0])
+    new = regrade_column_to_bed(
+        top=top, botm_col=botm, bed=90.0, occupied_layers=1, min_thickness=0.01
+    )
+    thickness = np.concatenate(([top], new[:-1])) - new
+    # The active segment keeps the 30 / 60 proportion of the original column.
+    assert thickness[2] / thickness[1] == pytest.approx(2.0, rel=1e-3)
 
 
 def test_simulate_abacus_basic():

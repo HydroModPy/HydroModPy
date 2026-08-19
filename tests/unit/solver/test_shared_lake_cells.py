@@ -162,3 +162,55 @@ def test_spillway_receiver_falls_back_to_nearest_reach() -> None:
         {"res": 1}, reach_cell_to_ifno={2: 10, 3: 20}, cell_centroids=centroids
     )
     assert resolved == {"res": 10}
+
+
+def test_spillway_fallback_skips_a_feeder_of_its_own_lake() -> None:
+    """The nearest reach is refused when it already hands its flow to this lake.
+
+    Without the guard the overflow would go LAK -> SFR -> LAK: the lake would feed
+    its own inflow, and nothing checks it because the two mover rows are built
+    independently and merged as-is.
+    """
+    centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
+    resolved = resolve_downstream_spillway_reaches(
+        {"res": 1},
+        reach_cell_to_ifno={2: 10, 3: 20},
+        cell_centroids=centroids,
+        own_lake_terminal_ifnos={"res": {10}},
+    )
+    assert resolved == {"res": 20}  # the nearest one (10) feeds 'res', so 20 wins
+
+
+def test_spillway_fallback_allows_a_feeder_of_another_lake() -> None:
+    """A cascade stays legal: a forebay may spill into a reach feeding the main lake."""
+    centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
+    resolved = resolve_downstream_spillway_reaches(
+        {"forebay": 1},
+        reach_cell_to_ifno={2: 10, 3: 20},
+        cell_centroids=centroids,
+        own_lake_terminal_ifnos={"forebay": set(), "main": {10}},
+    )
+    assert resolved == {"forebay": 10}
+
+
+def test_spillway_exact_hit_on_own_feeder_raises() -> None:
+    """A mid-basin lake whose toe reach feeds it back is refused, not silently wired."""
+    centroids = np.array([[0, 0], [10, 0], [20, 0], [30, 0]], dtype=float)
+    with pytest.raises(ValueError, match="circulate back into the reservoir"):
+        resolve_downstream_spillway_reaches(
+            {"res": 2},
+            reach_cell_to_ifno={2: 10, 3: 20},
+            cell_centroids=centroids,
+            own_lake_terminal_ifnos={"res": {10}},
+        )
+
+
+def test_spillway_raises_when_every_reach_feeds_the_lake() -> None:
+    centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
+    with pytest.raises(ValueError, match="no downstream SFR reach"):
+        resolve_downstream_spillway_reaches(
+            {"res": 1},
+            reach_cell_to_ifno={2: 10, 3: 20},
+            cell_centroids=centroids,
+            own_lake_terminal_ifnos={"res": {10, 20}},
+        )

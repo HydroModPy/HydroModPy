@@ -3,23 +3,29 @@ unit convention.
 
 Per-lake stage / volume / surface-area come from the LAK observation CSV and are
 states: stage (m), volume (m3), surface-area (m2) must NOT be divided by
-``seconds_per_time_unit``. Every RATE term (lake-aquifer exchange, spillway,
-storage, the rest of the water balance) is divided to reach m3/s. The
-lake-aquifer exchange is the sum of the per-connection ``lak`` observations,
-negated to the lake's point of view so a draining lake reads negative; the
-under-dam leakage is the VERTICAL-connection subset. The test guards that the
-undivided rate is NOT produced (a per-time-unit value would be 86400x too large
-under a DAYS-equivalent clock).
+``seconds_per_time_unit``. Every RATE term (spillway, storage, the rest of the
+water balance) is divided to reach m3/s. The test guards that the undivided rate
+is NOT produced (a per-time-unit value would be 86400x too large under a
+DAYS-equivalent clock).
+
+The lake-aquifer exchange is the exception: it comes from the applied flux in the
+LAK binary budget, never from the per-connection ``lak`` observations, which MF6
+does not keep equal to the applied flux on a connection with no wetted area. The
+tests pin that the obs sum is not used, and that a missing budget drops the
+exchange series instead of publishing a wrong one.
 """
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
 
 from hydromodpy.solver.modflow6.builders import build_lake_obs_spec
+from hydromodpy.solver.modflow6.extractors import lake as lake_extractor
 from hydromodpy.solver.modflow6.extractors.lake import (
+    AppliedExchange,
     LakeObsSpec,
     build_lake_records,
     lake_station_id,
@@ -46,11 +52,26 @@ def _write_obs_csv(path: Path, obs_continuous: dict, values: dict[str, float]) -
     path.write_text(",".join(map(str, header)) + "\n" + ",".join(map(str, row)) + "\n")
 
 
-def test_lake_extractor_states_not_scaled_rates_to_m3_s(tmp_path: Path) -> None:
+def _stub_applied_exchange(
+    monkeypatch: pytest.MonkeyPatch, exchange: dict[str, AppliedExchange]
+) -> None:
+    """Serve a known applied flux, standing in for the LAK binary budget."""
+    monkeypatch.setattr(
+        lake_extractor, "read_applied_exchange", lambda spec, obs_path, *, n_steps: exchange
+    )
+
+
+def test_lake_extractor_states_not_scaled_rates_to_m3_s(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     spec, obs_continuous = _single_lake_spec()
     obs_path = tmp_path / spec.obs_csv
-    # Lake loses water to the aquifer: every per-connection lak obs is positive
-    # (aquifer's point of view), so the lake-side exchange must come out negative.
+    # The applied flux is what gets published. It is deliberately NOT the sum of the
+    # lak obs below (-0.0035), so a regression back to summing the obs fails here.
+    applied = -0.006
+    _stub_applied_exchange(
+        monkeypatch, {"lac0": AppliedExchange(total=[applied], under_dam=[applied])}
+    )
     _write_obs_csv(
         obs_path,
         obs_continuous,
@@ -92,13 +113,15 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(tmp_path: Path) -> None:
     assert abs(rec[(station, "ext_outflow")]["value"]) != pytest.approx(_SECONDS_PER_STEP)
     assert rec[(station, "ext_outflow")]["unit"] == "m3/s"
 
-    # Lake-aquifer exchange = -(sum of per-connection lak) / seconds. Lake loses
-    # water, so the lake-side flux is strictly negative.
-    expected_exchange = -(0.001 + 0.002 + 0.0005) / _SECONDS_PER_STEP
+    # Lake-aquifer exchange = the applied flux / seconds. Lake loses water, so the
+    # lake-side flux is strictly negative.
+    expected_exchange = applied / _SECONDS_PER_STEP
     assert rec[(station, "gwf_exchange")]["value"] == pytest.approx(expected_exchange)
     assert rec[(station, "gwf_exchange")]["value"] < 0.0
-    # Wrong (undivided, wrong sign) value must not appear.
-    assert rec[(station, "gwf_exchange")]["value"] != pytest.approx(0.0035)
+    # Neither the obs sum nor the undivided rate may appear.
+    obs_sum = -(0.001 + 0.002 + 0.0005) / _SECONDS_PER_STEP
+    assert rec[(station, "gwf_exchange")]["value"] != pytest.approx(obs_sum)
+    assert rec[(station, "gwf_exchange")]["value"] != pytest.approx(applied)
 
     # All three connections are VERTICAL, so under-dam leakage == total exchange.
     assert rec[(station, "seepage_under_dam")]["value"] == pytest.approx(expected_exchange)
@@ -110,6 +133,47 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(tmp_path: Path) -> None:
     assert budget["component"] == "lak_gwf"
     assert budget["flux_out"] == pytest.approx(abs(expected_exchange))
     assert budget["flux_in"] == pytest.approx(0.0)
+
+
+def test_lake_extractor_drops_exchange_when_budget_is_missing(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # No LAK binary budget next to the obs CSV: the exchange cannot be recovered from
+    # the obs, so it must be absent and said out loud, never silently substituted.
+    spec, obs_continuous = _single_lake_spec()
+    assert spec.budget_bin == "m.lak.cbc"
+    obs_path = tmp_path / spec.obs_csv
+    _write_obs_csv(
+        obs_path,
+        obs_continuous,
+        {"LAC0_STAGE": 90.0, "LAC0_LAK_0": 0.001, "LAC0_LAK_1": 0.002, "LAC0_LAK_2": 0.0005},
+    )
+    with caplog.at_level(logging.WARNING):
+        timeseries, budgets = build_lake_records(
+            spec, obs_path, times=[_SECONDS_PER_STEP], seconds_per_time_unit=_SECONDS_PER_STEP
+        )
+    variables = {r["variable"] for r in timeseries}
+    assert "stage" in variables
+    assert "gwf_exchange" not in variables
+    assert "seepage_under_dam" not in variables
+    assert not [b for b in budgets if b["component"] == "lak_gwf"]
+    assert "m.lak.cbc" in caplog.text
+
+
+def test_lake_obs_spec_names_the_binary_budget() -> None:
+    # The sidecar must carry the binary budget name: it is the only source of the
+    # applied lake-aquifer flux, and an older sidecar without it loses the series.
+    _, meta = build_lake_obs_spec(
+        stem="run",
+        lake_conn_info=[{"lake_index": 0, "lake_id": "lac0", "n_conn": 1, "vertical_iconns": [0]}],
+        outlets=[],
+    )
+    assert meta["budget_bin"] == "run.lak.cbc"
+    assert meta["budgetcsv"] == "run.lak.budget.csv"
+    assert LakeObsSpec.from_mapping(meta).budget_bin == "run.lak.cbc"
+    # An older sidecar simply has no budget name; the spec must not invent one.
+    legacy = {k: v for k, v in meta.items() if k != "budget_bin"}
+    assert LakeObsSpec.from_mapping(legacy).budget_bin is None
 
 
 def test_lake_extractor_treats_dnodata_sentinel_as_zero(tmp_path: Path) -> None:

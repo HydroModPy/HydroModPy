@@ -14,6 +14,7 @@ tests check:
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import numpy as np
@@ -254,3 +255,36 @@ def test_lak_package_args_omit_outlets_when_none() -> None:
     # No empty recarrays handed to FloPy.
     assert "outlets" not in args
     assert "perioddata" not in args
+
+
+def test_reciprocal_lake_outlets_are_reported(caplog: pytest.LogCaptureFixture) -> None:
+    # Two lakes spilling into each other at the same invert: MF6 circulates water
+    # around the loop instead of routing it downstream. Conservative, so nothing
+    # else catches it; the builder must say so.
+    lakes = {
+        "reservoir": {
+            "outlets": [
+                {"couttype": "WEIR", "invert": 87.57, "width": 35.0, "lakeout": 0},
+                {"couttype": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 2},
+            ]
+        },
+        "preretenue": {
+            "outlets": [{"couttype": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 1}],
+        },
+    }
+    with caplog.at_level(logging.WARNING):
+        rows = build_lake_outlets(None, lakes=lakes)
+    assert len(rows) == 3
+    assert "outlet loop" in caplog.text
+    assert "reservoir" in caplog.text and "preretenue" in caplog.text
+
+
+def test_lake_outlet_cascade_is_not_reported(caplog: pytest.LogCaptureFixture) -> None:
+    # A real cascade (upstream lake -> downstream lake -> external) is not a loop.
+    lakes = {
+        "upper": {"outlets": [{"couttype": "WEIR", "invert": 90.0, "width": 10.0, "lakeout": 2}]},
+        "lower": {"outlets": [{"couttype": "WEIR", "invert": 80.0, "width": 10.0, "lakeout": 0}]},
+    }
+    with caplog.at_level(logging.WARNING):
+        build_lake_outlets(None, lakes=lakes)
+    assert "outlet loop" not in caplog.text

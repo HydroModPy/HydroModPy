@@ -190,7 +190,10 @@ def run_mf6_api_isolated(
                     proc.terminate()
                     proc.join(5)
                     raise SolverError(
-                        f"MF6 API subprocess for {sim_ws} timed out after {timeout:.0f}s."
+                        f"MF6 API subprocess for {sim_ws} timed out after {timeout:.0f}s. "
+                        "The budget is a guard against one stuck trial wedging a parallel "
+                        "calibration, not a model verdict: a long chronicle can simply need "
+                        "more. Raise it with [modflow6.runtime] mf6_api_timeout_s."
                     ) from None
         _drain_progress(progress_queue, bar)
 

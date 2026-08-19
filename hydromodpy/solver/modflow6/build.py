@@ -863,10 +863,24 @@ def run_pre_processing(  # noqa: PLR0915
             for reach in network.reaches
             if reach.cellid is not None
         }
+        # Reaches that already hand their flow to a lake, keyed by the SAME lake
+        # enumeration as lake_cells_by_number above, so a spillway is never routed to a
+        # feeder of its own lake (that would close a LAK -> SFR -> LAK loop).
+        terminals_by_lake_number: dict[int, set[int]] = {}
+        for network in sfr_networks.values():
+            for reach in network.reaches:
+                if reach.is_terminal_to_lake and reach.terminal_lake is not None:
+                    terminals_by_lake_number.setdefault(int(reach.terminal_lake), set()).add(
+                        int(reach.ifno)
+                    )
         downstream_reach_by_lake = resolve_downstream_spillway_reaches(
             spillway_seed_by_lake,
             reach_cell_to_ifno=reach_cell_to_ifno,
             cell_centroids=solver_mesh.cell_centroids(),
+            own_lake_terminal_ifnos={
+                lake_id: terminals_by_lake_number.get(number, set())
+                for number, lake_id in enumerate(lake_cell_ids_by_lake)
+            },
         )
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path

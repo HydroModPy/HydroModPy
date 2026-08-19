@@ -14,7 +14,14 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from hydromodpy.core.metrics import kge, mae, nse, rmse
+from hydromodpy.core.metrics import (
+    kge,
+    mae,
+    nse,
+    nse_delta,
+    nse_seasonal,
+    rmse,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,14 +94,59 @@ def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
     return float(kge(sim, obs)["kge"])
 
 
+# Window, in samples, over which the reservoir objective differences the level.
+# A day-to-day increment is wrecked by a two or three day phase shift even when the
+# filling and emptying are right; ten days keeps the flux signal while making such a
+# shift a perturbation rather than a sign flip.
+RESERVOIR_INCREMENT_STEP: int = 10
+
+
+# KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
+# and the mean of an increment series is (last - first) / n, i.e. near zero by
+# construction, so the score swings wildly for one and the same run depending only
+# on where the series is cut. NSE has no such term and stays stable, so the
+# increment side of the objective uses it.
+
+
+def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
+    """Half seasonal efficiency on the level, half efficiency on its increments.
+
+    Built for an impounded level, where the two usual metrics mislead in opposite
+    ways. ``nse`` on the level compares the model to a flat mean, a benchmark a
+    strongly seasonal signal beats on its own, so a run can score comfortably and
+    still be worse than the seasonal cycle. And a level is an integral, so
+    compensating flux errors cancel in it: a low-water bias and a high-water bias of
+    opposite signs hide behind a mean bias near zero while the increments stay
+    uncorrelated.
+
+    Pairing the two closes both holes: the seasonal term keeps the absolute level
+    honest and demands more than climatology, the increment term makes the water
+    balance count. Equal weights, no tuning knob, so the score stays readable.
+
+    The increments are taken over ``RESERVOIR_INCREMENT_STEP`` samples rather than
+    one, so a timing error of a few days is not punished as though the model had
+    filled when it should have emptied.
+    """
+    seasonal = nse_seasonal(sim, obs)
+    increments = nse_delta(sim, obs, step=RESERVOIR_INCREMENT_STEP)
+    if not np.isfinite(seasonal) or not np.isfinite(increments):
+        return float("nan")
+    return 0.5 * float(seasonal) + 0.5 * float(increments)
+
+
 METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "nse": nse,
     "rmse": rmse,
     "mae": mae,
     "kge": _kge_score,
+    "nse_delta": nse_delta,
+    "nse_seasonal": nse_seasonal,
+    "reservoir": _reservoir_score,
 }
 
-HIGHER_IS_BETTER: frozenset[str] = frozenset({"nse", "kge"})
+HIGHER_IS_BETTER: frozenset[str] = frozenset(
+    {"nse", "kge", "nse_delta", "nse_seasonal", "reservoir"}
+)
 
 
 class ScalarObjective:
@@ -132,7 +184,7 @@ class ScalarObjective:
                 continue
             value = float(self._metric_fn(s, o))
             cost = (1.0 - value) if self._higher_is_better else value
-            components[f"{self.name}@{station}"] = cost
+            components[f"cost:{self.name}@{station}"] = cost
             costs.append(cost)
             weights.append(float(self._weights.get(station, 1.0)))
         if not costs:

@@ -8,9 +8,10 @@ land in the right structures with the right keys and signs:
 
 * stage / volume / surface-area parse under ``station_id = lake:lac0`` and are
   NOT divided by the TDIS time unit (states, not rates);
-* the lake-aquifer exchange (``gwf_exchange``) is negative -- the lake loses
-  water to the aquifer -- and equals the under-dam leakage here (all VERTICAL
-  connections), and is also written to the budget table as ``lak_gwf``;
+* the lake-aquifer exchange (``gwf_exchange``), read from the applied flux in the
+  LAK binary budget, is negative -- the lake loses water to the aquifer -- equals
+  the under-dam leakage here (all VERTICAL connections), and is also written to
+  the budget table as ``lak_gwf``;
 * the spillway (``ext_outflow``) is a rate in m3/s.
 
 The obs spec and JSON sidecar are built through the production

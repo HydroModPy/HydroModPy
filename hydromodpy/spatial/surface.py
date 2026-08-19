@@ -155,14 +155,30 @@ class Surface:
 
         The returned surface:
         - keeps the same raster support as the current one,
-        - uses a new 2D array equal to ``self - offset``.
+        - uses a new 2D array equal to ``self - offset``,
+        - leaves a NODATA cell AT the sentinel instead of shifting it.
+
+        The sentinel must not move. The support is shared by reference, so it keeps
+        advertising the same ``nodata`` value, and every consumer recognises a
+        no-data cell by exact equality with it (``surface_sampling``, the
+        discretization guard, the zonal statistics). Shifting ``-9999`` to
+        ``-9999 - offset`` silently turns the sentinel into an ordinary elevation:
+        it is then interpolated as if it were terrain, and a mesh cell whose stencil
+        straddles the mask edge inherits a bottom dragged toward it. Such a cell has
+        no idomain signature either, because the top of that same cell is clean: it
+        stays active and carries a column kilometres thick, with the transmissivity
+        and the storage that go with it.
 
         Example
         -------
         If ``self`` stores the topography and ``offset=50``, the returned
-        surface is ``topography - 50`` on every cell.
+        surface is ``topography - 50`` on every cell carrying data.
         """
-        bottom = self.as_array() - float(offset)
+        top = self.as_array()
+        bottom = top - float(offset)
+        nodata = getattr(self.support, "nodata", None)
+        if nodata is not None:
+            bottom = np.where(top == float(nodata), float(nodata), bottom)
         return Surface(name=name, values=bottom, support=self.support)
 
     def flat_like(
