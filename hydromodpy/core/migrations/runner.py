@@ -14,6 +14,7 @@ the machine-wide global index).
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from collections.abc import Callable
 from functools import cached_property
@@ -23,6 +24,7 @@ from typing import TYPE_CHECKING
 from filelock import FileLock
 from pydantic import BaseModel, ConfigDict
 
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.migrations.errors import (
     MigrationDiscoveryError,
     MigrationExecutionError,
@@ -266,8 +268,8 @@ def apply_migrations(
     import duckdb
 
     db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    lock = FileLock(f"{db_path}.lock", timeout=lock_timeout)
+    os.makedirs(native_io_path(db_path.parent), exist_ok=True)
+    lock = FileLock(native_io_path(f"{db_path}.lock"), timeout=lock_timeout)
     with lock:
         connection = duckdb.connect(str(db_path))
         try:
