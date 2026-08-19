@@ -138,6 +138,47 @@ def _assert_bottom_below_top(
         )
 
 
+# A valid cell thicker than this multiple of the median, and thicker than the floor
+# below, is reported. Both bounds are needed: the multiple alone fires on a legitimate
+# variable-thickness substratum, the floor alone fires on a genuinely deep aquifer.
+_THICKNESS_OUTLIER_FACTOR = 10.0
+_THICKNESS_OUTLIER_FLOOR_M = 500.0
+
+
+def _warn_on_outlier_thickness(*, top: np.ndarray, bot: np.ndarray, valid: np.ndarray) -> None:
+    """Report aquifer columns far thicker than the rest of the mesh.
+
+    A raster NODATA sentinel that reaches the sampler as an ordinary elevation is
+    interpolated as if it were terrain, so a cell whose stencil straddles the mask
+    edge ends up kilometres deep with a perfectly clean top and an active idomain.
+    Nothing downstream notices: the model converges and its mass balance closes,
+    while those cells carry a transmissivity and a storage several hundred times the
+    nominal ones. This check does not change the mesh; it makes the symptom visible
+    whatever its cause.
+    """
+    if not np.any(valid):
+        return
+    thickness = (top - bot)[valid]
+    median = float(np.median(thickness))
+    if median <= 0.0:
+        return
+    limit = max(_THICKNESS_OUTLIER_FACTOR * median, _THICKNESS_OUTLIER_FLOOR_M)
+    outliers = thickness > limit
+    if not np.any(outliers):
+        return
+    logger.warning(
+        "Aquifer thickness outliers: %d of %d valid cells are thicker than %.4g m "
+        "(median thickness %.4g m, worst %.4g m). A cell kilometres deep usually means a "
+        "raster NODATA sentinel was sampled as an elevation; check the substratum raster "
+        "and the domain extent.",
+        int(np.count_nonzero(outliers)),
+        int(thickness.size),
+        limit,
+        median,
+        float(thickness.max()),
+    )
+
+
 def _zonal_top_flat(
     *,
     hydro_mesh: object,
@@ -276,6 +317,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     top_flat = np.where(invalid, float(nodata), top_flat)
     bottom_flat = np.where(invalid, float(nodata), bottom_flat)
     _assert_bottom_below_top(top=top_flat, bot=bottom_flat, nodata=nodata)
+    _warn_on_outlier_thickness(top=top_flat, bot=bottom_flat, valid=~invalid)
 
     allp, nlay = _compute_layer_proportions(
         genmtd_lay=cfg.genmtd_lay,
