@@ -21,19 +21,12 @@ _EXTENT = 100.0
 _NCELL = 10  # 10 x 10 structured grid, dx = dy = 10 -> cell area 100, footprint 10000
 
 
-def _write_bowl_raster(path, *, n=100):
-    """Write a fine GeoTIFF bowl bed over [0, 100]^2 (deep centre ~20, rim ~60)."""
+def _write_raster(path, bed: np.ndarray) -> None:
+    """Write a single-band GeoTIFF bed over [0, 100]^2."""
     import rasterio
     from rasterio.transform import from_bounds
 
-    dx = _EXTENT / n
-    rows = np.arange(n)
-    cols = np.arange(n)
-    x = (cols + 0.5) * dx
-    y = _EXTENT - (rows + 0.5) * dx
-    gx, gy = np.meshgrid(x, y)
-    r2 = (gx - 50.0) ** 2 + (gy - 50.0) ** 2
-    bed = 60.0 - 40.0 * np.exp(-r2 / (2.0 * 30.0**2))
+    n = bed.shape[0]
     transform = from_bounds(0.0, 0.0, _EXTENT, _EXTENT, n, n)
     with rasterio.open(
         str(path),
@@ -48,6 +41,21 @@ def _write_bowl_raster(path, *, n=100):
         nodata=-9999.0,
     ) as dst:
         dst.write(bed.astype("float32"), 1)
+
+
+def _write_bowl_raster(path, *, n=100):
+    """Write a fine GeoTIFF bowl bed over [0, 100]^2 (deep centre ~20, rim ~60)."""
+    dx = _EXTENT / n
+    x = (np.arange(n) + 0.5) * dx
+    y = _EXTENT - (np.arange(n) + 0.5) * dx
+    gx, gy = np.meshgrid(x, y)
+    r2 = (gx - 50.0) ** 2 + (gy - 50.0) ** 2
+    _write_raster(path, 60.0 - 40.0 * np.exp(-r2 / (2.0 * 30.0**2)))
+
+
+def _write_flat_raster(path, value: float, *, n=100):
+    """Write a flat GeoTIFF bed at ``value`` over [0, 100]^2."""
+    _write_raster(path, np.full((n, n), float(value)))
 
 
 def _mesh() -> SolverMesh:
@@ -321,6 +329,43 @@ def test_marnage_record_holds_the_clamped_top(tmp_path):
     bed = model._lake_bed_reconstruction["lac0"]["bed_by_cell"]
     for cid in cell_ids:
         assert bed[cid] == pytest.approx(carved.top[cid], abs=1e-9)
+
+
+def test_marnage_top_follows_a_bed_that_reaches_the_terrain(tmp_path):
+    """A bed at the DEM keeps the cell top at the DEM: nothing sits above it.
+
+    In active-littoral mode the cell top IS the bed and all layers live below it,
+    so the terrain ceiling must reserve no thickness. Reserving one would drop
+    every cell whose bathymetry reaches the terrain by ``min_thickness`` and
+    deepen the cuvette for free.
+    """
+    raster = tmp_path / "lake_bathymetry_lac0.tif"
+    _write_flat_raster(raster, 100.0)
+    min_thickness = 5.0
+    payload = {
+        "bedleak": 1.0e-6,
+        "bathymetry": str(raster),
+        "bed_reconstruction": BathymetryReconstructionConfig(
+            dynamic_area=True, reconcile_to_abacus=False, min_thickness=min_thickness
+        ),
+        "occupied_layers": 1,
+    }
+    model = _Model({"lac0": payload})
+    cell_ids = list(range(_NCELL * _NCELL))
+    carved = carve_lake_bed(
+        model,
+        _mesh(),
+        lake_cell_ids_by_lake={"lac0": cell_ids},
+        occupied_layers_by_lake={"lac0": 1},
+    )
+
+    assert np.allclose(carved.top, 100.0)
+    assert model._lake_bed_reconstruction["lac0"]["diagnostics"]["bed_clamp_shift_max"] == 0.0
+    for cid in cell_ids:
+        col = carved.botm[:, cid]
+        thickness = np.concatenate(([carved.top[cid]], col[:-1])) - col
+        assert np.all(thickness >= min_thickness - 1e-9)
+        assert col[-1] == 10.0
 
 
 def test_carve_is_noop_without_bed_reconstruction(tmp_path):
