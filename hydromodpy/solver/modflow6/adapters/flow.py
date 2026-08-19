@@ -27,7 +27,6 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     run_flow_model,
 )
 
-
 # Calibration variable -> LAK observation state. The variable carries the quantity
 # because the adapter Protocol takes one ``variable`` string, not a quantity kwarg;
 # every entry must stay a state ``extract_lake_series`` accepts.

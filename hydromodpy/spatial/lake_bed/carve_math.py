@@ -112,7 +112,6 @@ def regrade_column_active_top(
     return bed_clamped, new_botm
 
 
-
 def _bed_ceiling(terrain_ceiling: float, stage_max: float | None) -> float:
     """Highest bed a column may carry, given the terrain and the lake full pool.
 
@@ -136,6 +135,7 @@ def _bed_ceiling(terrain_ceiling: float, stage_max: float | None) -> float:
     if stage_max is None:
         return terrain_ceiling
     return max(terrain_ceiling, float(stage_max))
+
 
 def _regrade_segment(
     *,

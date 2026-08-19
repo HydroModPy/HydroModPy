@@ -145,9 +145,7 @@ def resolve_lake_cells(
 _AREA_MISMATCH_TOL = 1e-6
 
 
-def _intersected_areas(
-    vertex_grid, polygon, result, *, lake_id: str
-) -> dict[int, float]:
+def _intersected_areas(vertex_grid, polygon, result, *, lake_id: str) -> dict[int, float]:
     """Per-cell area inside ``polygon``, recomputed rather than read off FloPy.
 
     FloPy 3.10 collapses the areas of every cell whose intersection is a

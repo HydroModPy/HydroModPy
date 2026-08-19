@@ -54,9 +54,7 @@ class TestSchema:
 
     @pytest.mark.parametrize("quantity", ["stage", "volume", "surface_area"])
     def test_lake_output_accepts_every_lak_state(self, quantity):
-        out = validate_calib_output(
-            {"support": "lake", "lake_id": "lac0", "variable": quantity}
-        )
+        out = validate_calib_output({"support": "lake", "lake_id": "lac0", "variable": quantity})
         assert out.variable == quantity
 
 
@@ -237,9 +235,7 @@ class TestBridge:
             ("surface_area", "lake_surface_area"),
         ],
     )
-    def test_declared_quantity_reaches_the_adapter(
-        self, monkeypatch, declared, expected_variable
-    ):
+    def test_declared_quantity_reaches_the_adapter(self, monkeypatch, declared, expected_variable):
         """The config quantity is what the adapter is asked for, not a fixed stage."""
         seen: dict[str, str] = {}
 
@@ -257,9 +253,7 @@ class TestBridge:
             "resolve_flow_adapter",
             lambda ctx: (_Recorder(), run_ctx),
         )
-        out = validate_calib_output(
-            {"support": "lake", "lake_id": "lac0", "variable": declared}
-        )
+        out = validate_calib_output({"support": "lake", "lake_id": "lac0", "variable": declared})
         _extract_lake(SimpleNamespace(), out)
         assert seen["variable"] == expected_variable
 

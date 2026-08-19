@@ -240,8 +240,7 @@ def capture_stream_gaps(
     sr, sc = np.where(stream)
     if not sr.size:
         logger.warning(
-            "stream capture: the link-id raster %s holds no stream cell; "
-            "nothing to capture.",
+            "stream capture: the link-id raster %s holds no stream cell; nothing to capture.",
             link_id_tif,
         )
         return StreamCaptureReport(0, 0, dem_path)
