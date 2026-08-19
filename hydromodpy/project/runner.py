@@ -284,12 +284,12 @@ class ProjectRunner:
         )
 
         pipeline = Pipeline(steps, workspace=workspace_path)
-        previous_frozen_mode: bool | None = None
+        restore_frozen_root: Path | None = None
         if frozen:
-            from hydromodpy.data.data_freeze import is_frozen_mode, set_frozen_mode
+            from hydromodpy.data.data_freeze import frozen_project_root, set_frozen_mode
 
-            previous_frozen_mode = is_frozen_mode()
-            set_frozen_mode(True)
+            restore_frozen_root = frozen_project_root()
+            set_frozen_mode(True, project_root=workspace_path)
 
         try:
             final = pipeline.run(
@@ -319,10 +319,13 @@ class ProjectRunner:
             if project._store is None:
                 project_phases.open_catalog(project)
             _rebind_run_history_catalog(project)
-            if previous_frozen_mode is not None:
+            if frozen:
                 from hydromodpy.data.data_freeze import set_frozen_mode
 
-                set_frozen_mode(previous_frozen_mode)
+                set_frozen_mode(
+                    restore_frozen_root is not None,
+                    project_root=restore_frozen_root,
+                )
 
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None

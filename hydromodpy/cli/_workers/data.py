@@ -87,16 +87,28 @@ def add_data_entry(
     unit: str | None = None,
     station_id: str | None = None,
     workspace: Any = None,
+    project: Any = None,
     frozen: bool = False,
 ) -> dict:
-    """Ingest a single file into the workspace data cache."""
+    """Ingest a single file into the workspace data cache.
+
+    ``frozen`` checks the candidate against the lockfile of ``project``, or of
+    the project the current directory sits in when none is named. ``workspace``
+    only ever names the cache the file lands in: it holds many projects and
+    therefore no lockfile of its own.
+    """
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.adapters import (
         convert_asc_to_geotiff,
         convert_timeseries_csv_to_parquet,
         convert_vector_to_geoparquet,
     )
-    from hydromodpy.data.data_freeze import LOCKFILE_NAME, read_lockfile, sha256_of
+    from hydromodpy.data.data_freeze import (
+        project_lockfile_path,
+        read_lockfile,
+        resolve_lockfile_root,
+        sha256_of,
+    )
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.scaffold import VARIABLES
 
@@ -105,9 +117,9 @@ def add_data_entry(
     if not src.is_file():
         raise FileNotFoundError(f"File not found: {src}")
     if frozen:
-        lockfile = workspace_root / LOCKFILE_NAME
+        lockfile = project_lockfile_path(resolve_lockfile_root(project))
         if not lockfile.is_file():
-            raise FileNotFoundError(f"--frozen requested but no {lockfile}")
+            raise FileNotFoundError(f"--frozen requested but no lockfile at {lockfile}")
         expected = {la.sha256 for la in read_lockfile(lockfile)}
         if sha256_of(src) not in expected:
             raise ValueError(f"--frozen: {src} SHA-256 does not match any lockfile entry")

@@ -23,6 +23,14 @@ Verification has two modes:
 - ``verify_inputs_strict`` returns the same kind of report but is consumed by
   ``hmp dev lock verify --strict`` to map ``sha256`` mismatches to a non-zero
   exit.
+
+The file has one address, ``<project root>/hydromodpy.lock``, built by
+:func:`project_lockfile_path` and by nothing else. A command that is not handed
+a project root asks :func:`resolve_lockfile_root` for one; a workspace root is
+never an answer, because a workspace holds many projects and one shared cache.
+Frozen mode carries the project root it was enabled on so a reader never has to
+guess it from a database location. :mod:`hydromodpy.project.lockfile` documents
+why the project root, and not the workspace, owns the file.
 """
 
 from __future__ import annotations
@@ -39,6 +47,7 @@ from typing import Any
 
 import tomlkit
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.data.registry.migrations import target_version as _cache_target_version
@@ -46,20 +55,78 @@ from hydromodpy.data.registry.migrations import target_version as _cache_target_
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_VERSION = "2.0.0"
 
-# Process-wide frozen-mode flag. Consulted by data loaders to refuse
-# fresh downloads when a lockfile is authoritative.
+# Process-wide frozen-mode state. Consulted by data loaders to refuse fresh
+# downloads when a lockfile is authoritative, and to know which project's
+# lockfile that is.
 _FROZEN_MODE: bool = False
+_FROZEN_PROJECT_ROOT: Path | None = None
 
 
-def set_frozen_mode(enabled: bool) -> None:
-    """Toggle process-wide frozen mode (used by ``hmp run --frozen``)."""
-    global _FROZEN_MODE
-    _FROZEN_MODE = bool(enabled)
+def project_lockfile_path(project_root: Path | str) -> Path:
+    """Return ``<project_root>/hydromodpy.lock``, the one address of the lockfile."""
+    return Path(project_root).expanduser() / LOCKFILE_NAME
+
+
+def resolve_lockfile_root(project: Path | str | None = None) -> Path:
+    """Return the project root whose lockfile a command addresses.
+
+    An explicit ``project`` is the root. Otherwise the walk up from the current
+    directory is the one :func:`hydromodpy.core.state.paths.resolve_project_root`
+    owns, and only the miss differs: that helper answers with the starting
+    directory so a flat project still resolves, while a lockfile command
+    outside any project must not write ``hydromodpy.lock`` into whatever
+    directory the shell happened to sit in.
+
+    Every miss raises ``FileNotFoundError``, including the unanchored
+    ``configs/`` directory that helper reports as a ``ConfigError``: one
+    missing root, one exception type to catch.
+    """
+    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
+
+    if project is not None:
+        return Path(project).expanduser().resolve()
+    start = Path.cwd().resolve()
+    try:
+        root = resolve_project_root(start)
+    except ConfigError as exc:
+        raise FileNotFoundError(str(exc)) from exc
+    if not (root / PROJECT_MARKER_FILENAME).is_file():
+        raise FileNotFoundError(
+            f"No {PROJECT_MARKER_FILENAME} at or above {start}: {LOCKFILE_NAME} lives at a "
+            "project root, so run from inside a project or name one explicitly."
+        )
+    return root
+
+
+def set_frozen_mode(enabled: bool, *, project_root: Path | str | None = None) -> None:
+    """Toggle process-wide frozen mode and bind the project it reads.
+
+    ``project_root`` is the directory holding ``hydromodpy.lock`` and is
+    required to enable: frozen mode without a project has no lockfile to read.
+    Disabling clears the binding.
+    """
+    global _FROZEN_MODE, _FROZEN_PROJECT_ROOT
+    if not enabled:
+        _FROZEN_MODE = False
+        _FROZEN_PROJECT_ROOT = None
+        return
+    if project_root is None:
+        raise ValueError(
+            "Enabling frozen mode requires project_root: hydromodpy.lock is read from "
+            "the project root, never guessed."
+        )
+    _FROZEN_MODE = True
+    _FROZEN_PROJECT_ROOT = Path(project_root).expanduser().resolve()
 
 
 def is_frozen_mode() -> bool:
     """Return whether frozen mode is currently active."""
     return _FROZEN_MODE
+
+
+def frozen_project_root() -> Path | None:
+    """Return the project root frozen mode reads the lockfile from, if bound."""
+    return _FROZEN_PROJECT_ROOT
 
 
 @dataclass(frozen=True)
@@ -210,7 +277,7 @@ def _entry_to_locked(
 def _atomic_write_text(dest: Path, text: str) -> None:
     """Write *text* to *dest* atomically (tmp + fsync + replace)."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.parent / f".{dest.name}.tmp.{uuid.uuid4().hex}"
+    tmp = dest.parent / f".{dest.name}.tmp.{uuid.uuid4().hex[:8]}"
     try:
         fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
         try:
@@ -692,12 +759,15 @@ __all__ = [
     "LockMismatch",
     "LockedArtifact",
     "archive_lockfile",
+    "frozen_project_root",
     "is_frozen_mode",
+    "project_lockfile_path",
     "read_lockfile",
     "read_lockfile_binaries",
     "read_lockfile_inputs",
     "read_lockfile_meta",
     "read_lockfile_schema_sha256",
+    "resolve_lockfile_root",
     "restore_archive",
     "set_frozen_mode",
     "sha256_of",

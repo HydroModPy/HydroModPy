@@ -87,15 +87,9 @@ class DataCatalogDuckDB:
     def _resolve_entry_path(self, file_path: Path | str, *, variable: str | None = None) -> Path:
         return cache_store.resolve_entry_path(self, file_path, variable=variable)
 
-    def _workspace_lockfile_path(self) -> Path | None:
-        return cache_store.workspace_lockfile_path(self)
-
     @staticmethod
     def _frozen_enabled() -> bool:
         return cache_store.frozen_enabled()
-
-    def _locked_artifacts(self):
-        return cache_store.locked_artifacts(self)
 
     def _match_locked_artifact(
         self,
