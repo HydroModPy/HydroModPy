@@ -300,10 +300,13 @@ class BathymetryReconstructionConfig(HydroModelBase):
         default=0.5,
         gt=0.0,
         description=(
-            "Minimum layer thickness [L, model units] kept when re-grading a lake "
-            "column around the carved bed, so no degenerate (near-zero) cell breaks "
-            "the solver. The bed is clamped into [base + min_thickness, top - "
-            "min_thickness]."
+            "Minimum layer thickness [L, model units] held by EVERY layer when "
+            "re-grading a lake column around the carved bed, so no degenerate "
+            "(near-zero) cell breaks the solver. The bed is clamped into the band "
+            "the column can hold at that floor, i.e. [base + n_active * "
+            "min_thickness, top - n_occupied * min_thickness]; a column too thin "
+            "for it raises at build time. Raising this value moves the carved bed "
+            "away from the bathymetry (the build logs the shift)."
         ),
     )
     min_pixels: Annotated[int, Profile.USER] = Field(

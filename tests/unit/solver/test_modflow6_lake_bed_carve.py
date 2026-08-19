@@ -256,6 +256,73 @@ def test_marnage_connectiondata_is_one_vertical_per_active_cell(tmp_path):
     assert {row[2] for row in rows} == {(0, cid) for cid in cell_ids}
 
 
+def test_record_holds_the_carved_bed_when_the_clamp_bites(tmp_path, caplog):
+    """The stashed bed is the one the grid carries, not the bathymetric request.
+
+    A ``min_thickness`` wide enough to bite forces the re-grade to clamp the bed
+    into the band the column can hold. Everything downstream of the record (the
+    simulated abacus, the exposed-band runoff) reasons about the grid, so the
+    record must follow the grid and the shift must be reported.
+    """
+    raster = tmp_path / "lake_bathymetry_lac0.tif"
+    _write_bowl_raster(raster)
+    payload = {
+        "bedleak": 1.0e-6,
+        "bathymetry": str(raster),
+        "bed_reconstruction": BathymetryReconstructionConfig(
+            min_thickness=25.0, reconcile_to_abacus=False
+        ),
+        "occupied_layers": 1,
+    }
+    model = _Model({"lac0": payload})
+    cell_ids = list(range(_NCELL * _NCELL))
+    with caplog.at_level("WARNING"):
+        carved = carve_lake_bed(
+            model,
+            _mesh(),
+            lake_cell_ids_by_lake={"lac0": cell_ids},
+            occupied_layers_by_lake={"lac0": 1},
+        )
+
+    recon = model._lake_bed_reconstruction["lac0"]
+    bed = recon["bed_by_cell"]
+    occ_by_cell = model._lake_occupied_layers_by_cell["lac0"]
+
+    # The clamp bit: the deep centre cannot hold a 25 m cap plus a 25 m aquifer.
+    assert recon["diagnostics"]["bed_clamp_shift_max"] > 1.0
+    assert "min_thickness clamp moved the carved bed" in caplog.text
+
+    # Every recorded bed is exactly the bottom of its deepest occupied layer.
+    for cid in cell_ids:
+        assert bed[cid] == pytest.approx(carved.botm[occ_by_cell[cid] - 1, cid], abs=1e-9)
+
+
+def test_marnage_record_holds_the_clamped_top(tmp_path):
+    """In active-littoral mode the recorded bed is the cell top MF6 wets and dries."""
+    raster = tmp_path / "lake_bathymetry_lac0.tif"
+    _write_bowl_raster(raster)
+    payload = {
+        "bedleak": 1.0e-6,
+        "bathymetry": str(raster),
+        "bed_reconstruction": BathymetryReconstructionConfig(
+            dynamic_area=True, reconcile_to_abacus=False, min_thickness=25.0
+        ),
+        "occupied_layers": 1,
+    }
+    model = _Model({"lac0": payload})
+    cell_ids = list(range(_NCELL * _NCELL))
+    carved = carve_lake_bed(
+        model,
+        _mesh(),
+        lake_cell_ids_by_lake={"lac0": cell_ids},
+        occupied_layers_by_lake={"lac0": 1},
+    )
+
+    bed = model._lake_bed_reconstruction["lac0"]["bed_by_cell"]
+    for cid in cell_ids:
+        assert bed[cid] == pytest.approx(carved.top[cid], abs=1e-9)
+
+
 def test_carve_is_noop_without_bed_reconstruction(tmp_path):
     payload = {"bedleak": 1.0e-6, "occupied_layers": 1}
     model = _Model({"lac0": payload})

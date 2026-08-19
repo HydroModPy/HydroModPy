@@ -24,7 +24,7 @@ plain ``ValueError`` naming the offending TOML path, exactly as ``wells.py`` doe
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -100,6 +100,11 @@ _HORIZONTAL = "HORIZONTAL"
 # leakance is rejected.
 _MIN_BEDLEAK = 0.0
 
+# Report the min_thickness clamp only when it moved the carved bed by more than a
+# centimetre: below that the shift is re-proportioning round-off, not a geometry the
+# user needs to know about.
+_BED_CLAMP_REPORT_TOL = 0.01
+
 
 def resolve_lake_cells(
     model,
@@ -130,14 +135,70 @@ def resolve_lake_cells(
         )
     if not with_areas:
         return cell_ids
-    intersected: dict[int, float] = {}
-    for cid, area in zip(
-        np.asarray(result["cellids"]).ravel(),
-        np.asarray(result["areas"]).ravel(),
-        strict=True,
-    ):
-        intersected[int(cid)] = intersected.get(int(cid), 0.0) + float(area)
+    intersected = _intersected_areas(vertex_grid, polygon, result, lake_id=lake_id)
     return cell_ids, intersected
+
+
+# Relative gap above which the areas FloPy reports are rejected in favour of the
+# recomputed ones. The two agree bit for bit on a clean intersection, so anything
+# past rounding means the collapse described in _intersected_areas.
+_AREA_MISMATCH_TOL = 1e-6
+
+
+def _intersected_areas(
+    vertex_grid, polygon, result, *, lake_id: str
+) -> dict[int, float]:
+    """Per-cell area inside ``polygon``, recomputed rather than read off FloPy.
+
+    FloPy 3.10 collapses the areas of every cell whose intersection is a
+    GeometryCollection -- which is what a cell edge running along the lake
+    shoreline produces. ``gridintersect.py`` calls ``np.apply_along_axis`` with
+    ``axis=0`` on a 1-D object array, so the parser runs ONCE over the whole array,
+    merges those intersections into a single multipolygon and broadcasts it back to
+    every slot: each of those cells is then credited the SUM of all of them. (FloPy
+    knows: the linestring twin of that call carries the comment "not working for
+    multiple geometry collections ... causes doubles in the result" and is commented
+    out; the polygon one was left live.)
+
+    The consequence is not cosmetic: every affected cell is credited the SUM of
+    them all, which inflates the lake footprint by whatever those cells represent.
+    The abacus reconciliation then divides the cumulative area by that footprint
+    ratio, so the ranking it builds is wrong and the carved bed over-stores. A mesh
+    whose edges follow the shoreline (a boundary-aligned refinement) produces more
+    of those degenerate intersections, not fewer.
+
+    Summing per cell (a cell can appear more than once) stays as before.
+    """
+    from shapely.geometry import Polygon as _Polygon
+
+    cellids = np.asarray(result["cellids"]).ravel()
+    reported: dict[int, float] = {}
+    for cid, area in zip(cellids, np.asarray(result["areas"]).ravel(), strict=True):
+        reported[int(cid)] = reported.get(int(cid), 0.0) + float(area)
+
+    verts = np.asarray(vertex_grid.verts)
+    exact: dict[int, float] = {}
+    for cid in reported:
+        row = vertex_grid.cell2d[cid]
+        ring = verts[[int(i) for i in row[4:] if int(i) >= 0]][:, :2]
+        exact[cid] = float(_Polygon(ring).intersection(polygon).area)
+
+    total_exact = sum(exact.values())
+    total_reported = sum(reported.values())
+    if total_exact > 0.0:
+        gap = abs(total_reported - total_exact) / total_exact
+        if gap > _AREA_MISMATCH_TOL:
+            logger.warning(
+                "lake '%s': FloPy reported a lake footprint of %.4g m2 where the cell "
+                "polygons give %.4g m2 (%+.2f %%), on %d cell(s). This is the FloPy "
+                "GeometryCollection area collapse; the recomputed areas are used.",
+                lake_id,
+                total_reported,
+                total_exact,
+                100.0 * (total_reported - total_exact) / total_exact,
+                sum(1 for cid in exact if abs(exact[cid] - reported[cid]) > 1e-6),
+            )
+    return exact
 
 
 def apply_lake_idomain_mask(
@@ -212,7 +273,11 @@ def carve_lake_bed(
     Lakes without ``bed_reconstruction`` are left untouched. The frozen
     ``SolverMesh`` is replaced with a fresh ``botm`` (``top`` and the inactive
     mask are unchanged). The per-lake reconstruction is stashed on
-    ``model._lake_bed_reconstruction`` for the abacus-comparison figure.
+    ``model._lake_bed_reconstruction`` for the abacus-comparison figure and the
+    exposed-band runoff coupling; its ``bed_by_cell`` holds the bed the grid
+    actually carries (after the ``min_thickness`` clamp), and
+    ``diagnostics["bed_clamp_shift_max"]`` reports how far that clamp moved the
+    bathymetric bed.
     """
     definitions = _active_lake_definitions(model)
     targets = {
@@ -262,6 +327,8 @@ def carve_lake_bed(
         area_by_cell = {cid: float(intersected.get(cid, areas[cid])) for cid in cell_ids}
 
         stage_col, sarea_col = _abacus_stage_sarea(definition.get("abacus"))
+        # Full-pool stage: the ceiling the reconciled bed is expressed against.
+        full_pool = float(stage_col[-1]) if stage_col is not None and len(stage_col) else None
         if reconcile and (stage_col is None or sarea_col is None):
             raise ValueError(
                 f"flow.sinks_sources.lakes.{lake_id} bed_reconstruction.reconcile_to_abacus "
@@ -280,6 +347,14 @@ def carve_lake_bed(
             reconcile=reconcile,
             min_pixels=min_pixels,
         )
+        # The re-grade clamps the bed into the band its column can hold at
+        # min_thickness, so the elevation the grid ends up carrying is not always the
+        # one the bathymetry asked for. Record the CARVED bed (post-clamp), because
+        # every consumer of this record answers a question about the grid: the
+        # simulated abacus measures how faithfully the mesh reproduces the
+        # stage-volume curve, and the exposed-band runoff must exit at the same
+        # elevation MF6 wets and dries.
+        clamp_shift = 0.0
         if dynamic_area:
             # Active-littoral (marnage): the cell stays active, its TOP becomes the
             # bathymetric bed, and MF6 gates RCH/ET vs lake exchange per cell.
@@ -289,9 +364,12 @@ def carve_lake_bed(
                     botm_col=botm[:, cid],
                     bed=bed_by_cell[cid],
                     min_thickness=min_thickness,
+                    stage_max=full_pool,
                 )
                 top[cid] = new_top
                 botm[:, cid] = new_botm
+                clamp_shift = max(clamp_shift, abs(new_top - bed_by_cell[cid]))
+                bed_by_cell[cid] = float(new_top)
             marnage_cells[lake_id] = cell_ids
         else:
             # Fixed-area reservoir: the inactive cap of each column follows the real
@@ -309,8 +387,25 @@ def carve_lake_bed(
                     bed=bed_by_cell[cid],
                     occupied_layers=occ_c,
                     min_thickness=min_thickness,
+                    stage_max=full_pool,
                 )
+                # regrade_column_to_bed pins the bottom of the deepest occupied layer
+                # on the (clamped) bed, so that bottom IS the carved elevation.
+                carved = float(botm[occ_c - 1, cid])
+                clamp_shift = max(clamp_shift, abs(carved - bed_by_cell[cid]))
+                bed_by_cell[cid] = carved
             occupied_by_cell[lake_id] = per_cell_occ
+        if clamp_shift > _BED_CLAMP_REPORT_TOL:
+            logger.warning(
+                "[LAK] lake '%s': the min_thickness clamp moved the carved bed by up to "
+                "%.3f m from the bathymetry (min_thickness=%.2f m). The grid, the simulated "
+                "abacus and the exposed band all use the carved bed; deepen the column or "
+                "lower min_thickness to follow the bathymetry more closely.",
+                lake_id,
+                clamp_shift,
+                min_thickness,
+            )
+        diag = {**diag, "bed_clamp_shift_max": float(clamp_shift)}
         record = {
             "bed_by_cell": bed_by_cell,
             "area_by_cell": area_by_cell,
@@ -924,7 +1019,61 @@ def build_lake_outlets(
                 ]
             )
             outletno += 1
+    _warn_on_lake_outlet_cycle(rows, lake_ids=list(lakes))
     return rows
+
+
+def _warn_on_lake_outlet_cycle(rows: Sequence[Sequence[Any]], *, lake_ids: Sequence[str]) -> None:
+    """Report a lake-to-lake outlet loop, which MF6 solves as a circulating flow.
+
+    Two lakes each spilling into the other is conservative (every transfer is
+    counted once out and once in, so the balance still closes) but it is not a
+    routing: MF6 sends water both ways every time step, and at a shared or nearly
+    shared invert the pair see-saws. The circulating volume can exceed the real
+    spillway discharge by orders of magnitude and then dominates both lakes'
+    published ``outlet`` series and their stages. Nothing else catches it: the model
+    converges and the mass balance stays clean.
+
+    This does not change the model. Almost always the loop means one of the two
+    outlets should route to the downstream reach or to the external boundary.
+    """
+    downstream: dict[int, set[int]] = {}
+    for row in rows:
+        lakein, lakeout = int(row[1]), int(row[2])
+        if lakeout >= 0:
+            downstream.setdefault(lakein, set()).add(lakeout)
+
+    def name(index: int) -> str:
+        return lake_ids[index] if 0 <= index < len(lake_ids) else f"lake{index}"
+
+    reported: set[tuple[int, ...]] = set()
+    for start in downstream:
+        stack = [(start, (start,))]
+        while stack:
+            node, path = stack.pop()
+            for nxt in downstream.get(node, ()):
+                if nxt == start:
+                    cycle = tuple(sorted(path))
+                    if cycle in reported:
+                        continue
+                    reported.add(cycle)
+                    inverts = [
+                        float(row[4])
+                        for row in rows
+                        if int(row[1]) in cycle and int(row[2]) in cycle
+                    ]
+                    logger.warning(
+                        "Lake outlet loop: %s route into each other, so MF6 circulates water "
+                        "around the loop every time step instead of routing it downstream "
+                        "(outlet inverts %s m). The balance still closes, but the lakes' "
+                        "outlet series and stages carry the circulation. Route one of these "
+                        "outlets to the downstream reach (mover.to_downstream_reach) or to the "
+                        "external boundary (lakeout = 0).",
+                        " and ".join(name(i) for i in path),
+                        ", ".join(f"{value:.2f}" for value in inverts),
+                    )
+                elif nxt not in path:
+                    stack.append((nxt, (*path, nxt)))
 
 
 # The single LAK package name used across the GWF model (see build.py: pname="LAK").
@@ -1052,6 +1201,7 @@ def resolve_downstream_spillway_reaches(
     *,
     reach_cell_to_ifno: Mapping[int, int],
     cell_centroids: np.ndarray,
+    own_lake_terminal_ifnos: Mapping[str, Collection[int]] | None = None,
 ) -> dict[str, int]:
     """Map each spillway dam-toe seed to the 0-based SFR reach that receives its overflow.
 
@@ -1059,18 +1209,46 @@ def resolve_downstream_spillway_reaches(
     cell is itself a reach, so the receiver is exact. If it is not (rectification off, or
     the extension did not reach it), fall back to the nearest reach to the toe. Returns
     ``{lake_id: reach_ifno}``.
+
+    ``own_lake_terminal_ifnos`` names, per lake, the reaches that already hand their
+    flow BACK to that same lake (its shoreline feeders). Sending a spillway to one of
+    them would close a ``LAK -> SFR -> LAK`` loop: the lake would feed its own inflow,
+    and nothing downstream checks it because the two mover rows are merged
+    independently. Those reaches are therefore excluded from the nearest-reach
+    fallback, and an exact hit on one of them raises. Feeding a reach that terminates
+    in a DIFFERENT lake stays allowed: that is a legitimate cascade (a forebay
+    spilling into the main reservoir).
     """
     resolved: dict[str, int] = {}
     if not reach_cell_to_ifno:
         return resolved
     centroids = np.asarray(cell_centroids, dtype=float)
+    forbidden_by_lake = own_lake_terminal_ifnos or {}
     for lake_id, seed in seed_cell_by_lake.items():
+        forbidden = {int(ifno) for ifno in forbidden_by_lake.get(lake_id, ())}
         if seed in reach_cell_to_ifno:
-            resolved[lake_id] = int(reach_cell_to_ifno[seed])
+            ifno = int(reach_cell_to_ifno[seed])
+            if ifno in forbidden:
+                raise ValueError(
+                    f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach "
+                    f"resolved to reach {ifno}, which already feeds this same lake: the "
+                    "overflow would circulate back into the reservoir. The dam toe is not "
+                    "below this lake (a mid-basin lake), so declare the receiving reach "
+                    "with an explicit spillway discharge point instead."
+                )
+            resolved[lake_id] = ifno
             continue
+        candidates = [cell for cell, ifno in reach_cell_to_ifno.items() if ifno not in forbidden]
+        if not candidates:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach found "
+                "no downstream SFR reach: every reach of the network feeds this lake, so "
+                "any receiver would circulate the overflow back into it. Add a reach below "
+                "the dam, or route the outlet elsewhere."
+            )
         sx, sy = float(centroids[seed][0]), float(centroids[seed][1])
         target = min(
-            reach_cell_to_ifno,
+            candidates,
             key=lambda c: float(np.hypot(centroids[c][0] - sx, centroids[c][1] - sy)),
         )
         resolved[lake_id] = int(reach_cell_to_ifno[target])
@@ -1202,7 +1380,7 @@ def build_lake_obs_spec(
     Returns empty structures when no lake is present.
     """
     if not lake_conn_info:
-        return {}, {"obs_csv": "", "budgetcsv": None, "entries": []}
+        return {}, {"obs_csv": "", "budgetcsv": None, "budget_bin": None, "entries": []}
 
     obs_csv = f"{stem}.lak.obs.csv"
     obslist: list[tuple[Any, ...]] = []
@@ -1260,6 +1438,7 @@ def build_lake_obs_spec(
     lake_obs_meta = {
         "obs_csv": obs_csv,
         "budgetcsv": f"{stem}.lak.budget.csv",
+        "budget_bin": f"{stem}.lak.cbc",
         "entries": entries,
     }
     return obs_continuous, lake_obs_meta
