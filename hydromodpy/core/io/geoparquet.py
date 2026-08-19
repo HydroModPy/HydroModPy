@@ -41,7 +41,7 @@ def write_geoparquet_atomic(
     os.makedirs(native_io_path(target.parent), exist_ok=True)
     if gdf.crs is None:
         raise ValueError("GeoParquet writer requires gdf.crs to be set")
-    tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex}")
+    tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex[:8]}")
     tmp_io = native_io_path(tmp)
     target_io = native_io_path(target)
     if os.path.exists(tmp_io):

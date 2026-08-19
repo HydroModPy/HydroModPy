@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.io.geoparquet import GEOPARQUET_WRITE_DEFAULTS
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.data.schemas import (
@@ -174,15 +175,17 @@ def _write_parquet_v2(table: object, dest: Path) -> Path:
 
     import pyarrow.parquet as pq
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    os.makedirs(native_io_path(dest.parent), exist_ok=True)
+    tmp_io = native_io_path(dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex[:8]}"))
     try:
-        pq.write_table(table, tmp, **PARQUET_WRITE_DEFAULTS)
+        pq.write_table(table, tmp_io, **PARQUET_WRITE_DEFAULTS)
     except Exception:
-        if tmp.exists():
-            tmp.unlink()
+        try:
+            os.unlink(tmp_io)
+        except FileNotFoundError:
+            pass
         raise
-    os.replace(tmp, dest)
+    os.replace(tmp_io, native_io_path(dest))
     return dest
 
 
@@ -368,7 +371,7 @@ def convert_locations_csv_to_geoparquet(
     if artifact.errors:
         raise TimeSeriesValidationError(src, artifact.errors)
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    os.makedirs(native_io_path(dest.parent), exist_ok=True)
 
     import geopandas as gpd
     import pandas as pd
@@ -397,14 +400,16 @@ def convert_locations_csv_to_geoparquet(
             StationCollectionSchema,
             schema_name=f"StationCollectionSchema[{src.name}]",
         )
-    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    tmp_io = native_io_path(dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex[:8]}"))
     try:
-        gdf.to_parquet(tmp, **GEOPARQUET_WRITE_DEFAULTS)
+        gdf.to_parquet(tmp_io, **GEOPARQUET_WRITE_DEFAULTS)
     except Exception:
-        if tmp.exists():
-            tmp.unlink()
+        try:
+            os.unlink(tmp_io)
+        except FileNotFoundError:
+            pass
         raise
-    os.replace(tmp, dest)
+    os.replace(tmp_io, native_io_path(dest))
     return dest
 
 
