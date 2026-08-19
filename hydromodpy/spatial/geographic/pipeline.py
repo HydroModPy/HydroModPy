@@ -15,6 +15,7 @@ import geopandas as gpd
 from geopy.geocoders import Nominatim
 
 from hydromodpy.core import progress
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
@@ -49,7 +50,13 @@ from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
+logger = get_logger(__name__)
+
 _GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v1"
+
+# Relative catchment-area change above which the stream-capture re-delineation is
+# reported as a moved divide rather than a connected channel.
+_CAPTURE_AREA_DRIFT_TOL = 0.05
 
 
 @dataclass(frozen=True)
@@ -542,7 +549,30 @@ def build_geographic_runtime_context(
                     backend=tool,
                     unsupported_mode="ignore",
                 )
+                area_before_capture = catchment_area_km2
                 catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
+                # Capture must CONNECT a stream to the lake, never redraw the divide. A
+                # carved channel is a new low path: if it breaches the watershed boundary,
+                # the second delineation annexes the neighbouring basin and the model stops
+                # being the catchment that was asked for: a single carved channel of a
+                # few dozen cells is enough to more than double the area. Loud, because
+                # nothing downstream can tell the difference.
+                if area_before_capture > 0.0:
+                    drift = abs(catchment_area_km2 - area_before_capture) / area_before_capture
+                    if drift > _CAPTURE_AREA_DRIFT_TOL:
+                        logger.warning(
+                            "stream capture moved the watershed divide: the catchment went "
+                            "from %.2f to %.2f km2 (%+.0f %%) after re-delineating on the "
+                            "carved DEM. The carved channel most likely breached the divide "
+                            "and annexed a neighbouring basin, so the model no longer covers "
+                            "the requested catchment. Lower "
+                            "geographic.enforce_lakes.capture_radius_m, reduce buffer_m, or "
+                            "drop the capture pass and raise "
+                            "flow.sinks_sources.sfr.<id>.lake_feeder_snap instead.",
+                            area_before_capture,
+                            catchment_area_km2,
+                            100.0 * (catchment_area_km2 / area_before_capture - 1.0),
+                        )
                 domain_products = build_standard_domain_polygons(
                     config=config,
                     paths=setup.paths,

@@ -229,12 +229,21 @@ def capture_stream_gaps(
     ).astype(bool)
     lake_rc = np.argwhere(lake_mask)
     if not lake_rc.size:
+        logger.warning(
+            "stream capture: the lake geometry rasterises to 0 cell on the routing grid; "
+            "nothing to capture towards. Check enforce_lakes.lake_geometry_path and its CRS."
+        )
         return StreamCaptureReport(0, 0, dem_path)
 
     nrow, ncol = dem.shape
     stream = link > 0
     sr, sc = np.where(stream)
     if not sr.size:
+        logger.warning(
+            "stream capture: the link-id raster %s holds no stream cell; "
+            "nothing to capture.",
+            link_id_tif,
+        )
         return StreamCaptureReport(0, 0, dem_path)
 
     # Vectorised D8 downstream cell of every stream cell.
@@ -256,7 +265,44 @@ def capture_stream_gaps(
     tr = sr[is_terminal]
     tc = sc[is_terminal]
     if not tr.size:
+        logger.info(
+            "stream capture: no near-miss terminal (every stream cell flows on to a stream "
+            "or a lake); nothing to carve."
+        )
         return StreamCaptureReport(0, 0, dem_path)
+
+    # Drop every terminal the radius can never reach BEFORE ranking. The link-id and
+    # D8 rasters cover the whole REGIONAL DEM, so without this the accumulation filter
+    # compares the catchment's own tributaries against the largest river of the
+    # region: the candidates it keeps sit tens of kilometres away, nothing is carved,
+    # and the real near-miss a few hundred metres from the shore is never seen. The
+    # radius is the hard criterion, the accumulation only ranks what is reachable.
+    from scipy.ndimage import distance_transform_edt
+
+    pixel_yx = (abs(float(transform.e)), abs(float(transform.a)))
+    distance_to_lake = distance_transform_edt(~lake_mask, sampling=pixel_yx)
+    reachable = np.asarray(distance_to_lake)[tr, tc] <= float(capture_radius_m)
+    if not reachable.any():
+        closest = float(np.min(np.asarray(distance_to_lake)[tr, tc]))
+        logger.warning(
+            "stream capture: %d near-miss terminal(s) but the closest one is %.0f m from a "
+            "lake, beyond capture_radius_m = %.0f m; nothing was carved. Raise the radius "
+            "above %.0f m to connect it.",
+            int(tr.size),
+            closest,
+            float(capture_radius_m),
+            closest,
+        )
+        return StreamCaptureReport(0, 0, dem_path)
+    n_terminals_total = int(tr.size)
+    tr, tc = tr[reachable], tc[reachable]
+    logger.info(
+        "stream capture: %d near-miss terminal(s) on the grid, %d within "
+        "capture_radius_m = %.0f m of a lake.",
+        n_terminals_total,
+        int(tr.size),
+        float(capture_radius_m),
+    )
 
     # Keep only the SIGNIFICANT near-misses (main rivers), not every small bank
     # tributary end: a large elongated reservoir has dozens of them, and carving all
@@ -268,21 +314,45 @@ def capture_stream_gaps(
         order = np.argsort(acc_t)[::-1]
         keep = acc_t[order] >= float(min_acc_fraction) * float(acc_t.max())
         chosen = order[keep][: int(max_streams)]
+        dropped = int(order.size - keep.sum())
+        if dropped:
+            logger.info(
+                "stream capture: %d near-miss terminal(s), %d kept above %.0f %% of the "
+                "largest upstream accumulation, %d dropped as minor bank tributaries.",
+                int(tr.size),
+                int(min(keep.sum(), max_streams)),
+                100.0 * float(min_acc_fraction),
+                dropped,
+            )
     else:
         chosen = np.arange(tr.size)[: int(max_streams)]
+        logger.info(
+            "stream capture: %d near-miss terminal(s), no accumulation raster to rank them, "
+            "keeping the first %d.",
+            int(tr.size),
+            int(max_streams),
+        )
     terminals = list(zip(tr[chosen].tolist(), tc[chosen].tolist(), strict=True))
     if not terminals:
+        logger.warning(
+            "stream capture: %d near-miss terminal(s) found but none passed the "
+            "capture_min_acc_fraction = %.2f filter; lower it to carve the smaller ones.",
+            int(tr.size),
+            float(min_acc_fraction),
+        )
         return StreamCaptureReport(0, 0, dem_path)
 
     lake_x, lake_y = xy(transform, lake_rc[:, 0], lake_rc[:, 1])
     lake_xy = np.column_stack([np.asarray(lake_x), np.asarray(lake_y)])
     n_captured = 0
     channel_cells = 0
+    out_of_reach: list[float] = []
     for r, c in terminals:
         tx, ty = xy(transform, r, c)
         d = np.hypot(lake_xy[:, 0] - tx, lake_xy[:, 1] - ty)
         k = int(np.argmin(d))
         if float(d[k]) > capture_radius_m:
+            out_of_reach.append(float(d[k]))
             continue
         lr, lc = int(lake_rc[k, 0]), int(lake_rc[k, 1])
         lx, ly = xy(transform, lr, lc)
@@ -309,6 +379,22 @@ def capture_stream_gaps(
         n_captured += 1
 
     if n_captured == 0:
+        if out_of_reach:
+            logger.warning(
+                "stream capture: %d near-miss terminal(s) selected but the closest lake is "
+                "%.0f m away, beyond capture_radius_m = %.0f m; nothing was carved. Raise "
+                "the radius above %.0f m to connect them.",
+                len(out_of_reach),
+                min(out_of_reach),
+                float(capture_radius_m),
+                min(out_of_reach),
+            )
+        else:
+            logger.warning(
+                "stream capture: %d terminal(s) selected but no channel could be rasterised; "
+                "nothing was carved.",
+                len(terminals),
+            )
         return StreamCaptureReport(0, 0, dem_path)
 
     profile.pop("blockxsize", None)
@@ -530,6 +616,11 @@ def capture_from_config(
         return None
     routing = str(Path(setup.paths.correcflow_path) / "dem_routing_enforced.tif")
     src = routing if Path(routing).exists() else str(setup.dem_init_path)
+    if not Path(routing).exists():
+        logger.info(
+            "stream capture: no lake-enforced routing DEM yet, capturing on the raw DEM %s.",
+            src,
+        )
     out_path = str(Path(setup.paths.correcflow_path) / "dem_routing_captured.tif")
     acc_tif = str(Path(setup.paths.correcflow_path) / "dem_acc_cells.tif")
     report = capture_stream_gaps(
