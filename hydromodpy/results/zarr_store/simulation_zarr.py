@@ -28,8 +28,8 @@ from upath import UPath
 
 from hydromodpy.results.zarr_store import zarr_finalizer, zarr_reader, zarr_writer
 from hydromodpy.results.zarr_store.zarr_finalizer import (
-    LOCK_FILE_NAME,
     LOCK_TIMEOUT_SECONDS,
+    lock_path_for_store,
 )
 from hydromodpy.results.zarr_store.zarr_finalizer import DummyLock as _DummyLock
 from hydromodpy.results.zarr_store.zarr_schema import (
@@ -54,7 +54,7 @@ from hydromodpy.results.zarr_store.zarr_schema import (
 
 def _file_lock_for_store(path: Path) -> FileLock:
     """Build the store lock using extended-length paths on Windows."""
-    return FileLock(str(_windows_long_path(path / LOCK_FILE_NAME)))
+    return FileLock(str(_windows_long_path(lock_path_for_store(path))))
 
 
 class SimulationZarr:
@@ -428,7 +428,6 @@ class SimulationZarr:
 
 
 __all__ = [
-    "LOCK_FILE_NAME",
     "LOCK_TIMEOUT_SECONDS",
     "SimulationZarr",
     "_ensure_local_zarr_node_dir",

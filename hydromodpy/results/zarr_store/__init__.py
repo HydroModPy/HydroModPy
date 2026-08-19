@@ -25,7 +25,6 @@ from hydromodpy.results.zarr_store.constants import (
 )
 from hydromodpy.results.zarr_store.exceptions import ZarrSchemaVersionError
 from hydromodpy.results.zarr_store.simulation_zarr import (
-    LOCK_FILE_NAME,
     LOCK_TIMEOUT_SECONDS,
     SimulationZarr,
     _ensure_local_zarr_node_dir,
@@ -39,7 +38,6 @@ __all__ = [
     "BLOSC_ZSTD",
     "CF_CONVENTIONS",
     "HIGHLY_RECOMMENDED",
-    "LOCK_FILE_NAME",
     "LOCK_TIMEOUT_SECONDS",
     "SHARD_TARGET_BYTES",
     "SHARD_TRIGGER_BYTES",
