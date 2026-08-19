@@ -15,7 +15,10 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.core.io.http_client import HTTPClient, get_default_client
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import check_status
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -110,18 +113,29 @@ class Sim2EDRClient:
 
     @staticmethod
     def _load_netcdf_from_bytes(content: bytes) -> Any:
-        """Load NetCDF binary content into an xarray Dataset."""
+        """Load NetCDF binary content into an in-memory xarray Dataset.
+
+        The dataset is fully read and the file handle CLOSED before the temporary
+        file is removed: an open NetCDF backend keeps the handle, and Windows
+        refuses to unlink an open file (``WinError 32``), which used to abort the
+        whole data load. On POSIX the unlink would succeed silently, so the bug
+        only ever showed up on Windows. If the removal still fails, the temporary
+        file is left behind rather than losing the data that was just fetched.
+        """
         import xarray as xr
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as tmp:
             tmp.write(content)
             tmp_path = tmp.name
         try:
-            ds = xr.open_dataset(tmp_path)
-            ds.load()
-            return ds
+            with xr.open_dataset(tmp_path) as opened:
+                dataset = opened.load()
         finally:
-            Path(tmp_path).unlink(missing_ok=True)
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except OSError as exc:  # pragma: no cover - platform file locking
+                logger.debug("Could not remove the temporary NetCDF %s: %s", tmp_path, exc)
+        return dataset
 
     @staticmethod
     def coverage_json_to_series(
