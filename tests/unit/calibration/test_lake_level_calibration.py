@@ -50,7 +50,14 @@ class TestSchema:
 
     def test_lake_output_rejects_unknown_variable(self):
         with pytest.raises(ValueError):
-            validate_calib_output({"support": "lake", "lake_id": "lac0", "variable": "volume"})
+            validate_calib_output({"support": "lake", "lake_id": "lac0", "variable": "inflow"})
+
+    @pytest.mark.parametrize("quantity", ["stage", "volume", "surface_area"])
+    def test_lake_output_accepts_every_lak_state(self, quantity):
+        out = validate_calib_output(
+            {"support": "lake", "lake_id": "lac0", "variable": quantity}
+        )
+        assert out.variable == quantity
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +161,22 @@ class TestAdapterBranch:
         )
         assert list(series.values) == pytest.approx([86.0, 87.0])
 
+    def test_lake_volume_reads_the_volume_column(self, tmp_path: Path):
+        """The variable suffix selects the LAK state, not just the stage column."""
+        _write_lake_outputs(tmp_path, "m", stages=(86.0, 87.0))
+        adapter = Modflow6FlowAdapter()
+        series = adapter.extract_calibration_series(
+            self._ctx(tmp_path), None, variable="lake_volume", lake_id="lac0"
+        )
+        assert list(series.values) == pytest.approx([86000.0, 87000.0])
+
+    def test_unknown_lake_variable_is_not_implemented(self, tmp_path: Path):
+        adapter = Modflow6FlowAdapter()
+        with pytest.raises(NotImplementedError, match="lake_inflow"):
+            adapter.extract_calibration_series(
+                self._ctx(tmp_path), None, variable="lake_inflow", lake_id="lac0"
+            )
+
 
 # ---------------------------------------------------------------------------
 # Bridge: extract_lake + lake_id threading guard
@@ -205,6 +228,40 @@ class TestBridge:
         out = validate_calib_output({"support": "lake", "lake_id": "lac0"})
         with pytest.raises(NotImplementedError, match="cannot extract calibration lake_id"):
             _extract_lake(SimpleNamespace(), out)
+
+    @pytest.mark.parametrize(
+        ("declared", "expected_variable"),
+        [
+            ("stage", "lake_stage"),
+            ("volume", "lake_volume"),
+            ("surface_area", "lake_surface_area"),
+        ],
+    )
+    def test_declared_quantity_reaches_the_adapter(
+        self, monkeypatch, declared, expected_variable
+    ):
+        """The config quantity is what the adapter is asked for, not a fixed stage."""
+        seen: dict[str, str] = {}
+
+        class _Recorder:
+            def extract_calibration_series(
+                self, ctx, store, *, variable, lake_id=None, time_index=None
+            ):
+                del ctx, store, lake_id, time_index
+                seen["variable"] = variable
+                return pd.Series([1.0])
+
+        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"))
+        monkeypatch.setattr(
+            _solver_extract_module,
+            "resolve_flow_adapter",
+            lambda ctx: (_Recorder(), run_ctx),
+        )
+        out = validate_calib_output(
+            {"support": "lake", "lake_id": "lac0", "variable": declared}
+        )
+        _extract_lake(SimpleNamespace(), out)
+        assert seen["variable"] == expected_variable
 
 
 # ---------------------------------------------------------------------------

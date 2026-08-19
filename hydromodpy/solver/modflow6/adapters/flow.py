@@ -28,6 +28,16 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
 )
 
 
+# Calibration variable -> LAK observation state. The variable carries the quantity
+# because the adapter Protocol takes one ``variable`` string, not a quantity kwarg;
+# every entry must stay a state ``extract_lake_series`` accepts.
+_LAKE_CALIB_QUANTITIES: dict[str, str] = {
+    "lake_stage": "stage",
+    "lake_volume": "volume",
+    "lake_surface_area": "surface_area",
+}
+
+
 def _collapse_to_disv_cells(
     station_cells: Mapping[str, tuple[int, int, int]],
     model: Any,
@@ -79,9 +89,10 @@ class Modflow6FlowAdapter:
 
         MF6 binaries share the FloPy-readable format used by MODFLOW-NWT, so
         the same helpers in ``modflow_common.calibration_extractors`` apply.
-        The ``lake_stage`` variable instead reads the LAK obs CSV via
-        ``extractors.lake`` and requires ``lake_id``. ``store`` is accepted for
-        Protocol uniformity but unused on this path.
+        The ``lake_*`` variables instead read the LAK obs CSV via
+        ``extractors.lake`` and require ``lake_id``; the suffix names the LAK
+        state (``lake_stage``, ``lake_volume``, ``lake_surface_area``).
+        ``store`` is accepted for Protocol uniformity but unused on this path.
         """
         del store
         output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
@@ -99,13 +110,14 @@ class Modflow6FlowAdapter:
 
         if variable == "discharge":
             return extract_discharge_from_cbc(output_dir, model_name, time_index)
-        if variable == "lake_stage":
+        if variable in _LAKE_CALIB_QUANTITIES:
             if not lake_id:
-                raise ValueError("lake_stage calibration requires lake_id")
+                raise ValueError(f"{variable} calibration requires lake_id")
             return extract_lake_series(
                 output_dir,
                 model_name,
                 lake_id=lake_id,
+                quantity=_LAKE_CALIB_QUANTITIES[variable],
                 time_index=time_index,
             )
         if variable == "head":

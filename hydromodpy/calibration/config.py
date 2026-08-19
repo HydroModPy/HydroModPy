@@ -245,10 +245,10 @@ class CalibOutputCell(HydroModelBase):
 
 
 class CalibOutputLake(HydroModelBase):
-    """Observable extracted from a MODFLOW 6 LAK lake stage.
+    """Observable extracted from a MODFLOW 6 LAK lake state.
 
-    Use this variant to score a lake water level (stage) inside a composite
-    objective. ``lake_id`` matches the lake declared under
+    Use this variant to score a lake water level, stored volume or free surface
+    inside a composite objective. ``lake_id`` matches the lake declared under
     ``flow.sinks_sources.lakes.<lake_id>``.
 
     For calibration against a real observed chronicle, prefer the top-level
@@ -258,9 +258,13 @@ class CalibOutputLake(HydroModelBase):
     composite outputs.
     """
 
-    variable: Annotated[Literal["stage"], Profile.USER] = Field(
+    variable: Annotated[Literal["stage", "volume", "surface_area"], Profile.USER] = Field(
         default="stage",
-        description="Simulated lake quantity. Only 'stage' (water level, m) is supported.",
+        description=(
+            "Simulated lake quantity: 'stage' (water level, m), 'volume' (m3) or "
+            "'surface_area' (m2). All three are LAK observation states, read in native "
+            "units and never time-scaled."
+        ),
     )
     support: Annotated[Literal["lake"], Profile.USER] = Field(
         default="lake",

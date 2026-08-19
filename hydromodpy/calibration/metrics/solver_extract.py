@@ -200,7 +200,11 @@ def extract_boundary(ctx: Any, output: CalibOutputBoundary) -> list[float]:
 
 
 def extract_lake(ctx: Any, output: CalibOutputLake) -> list[float]:
-    """Extract a lake stage time series for the lake named by ``output.lake_id``."""
+    """Extract a lake state time series for the lake named by ``output.lake_id``.
+
+    ``output.variable`` selects the LAK state (stage, volume or surface area);
+    the adapter receives it as the composed ``lake_<quantity>`` variable.
+    """
     resolved = resolve_flow_adapter(ctx)
     if resolved is None:
         raise NotImplementedError("No flow solver adapter available for lake extraction")
@@ -209,7 +213,7 @@ def extract_lake(ctx: Any, output: CalibOutputLake) -> list[float]:
     sim = call_extract_calibration_series(
         adapter,
         run_ctx,
-        variable="lake_stage",
+        variable=f"lake_{output.variable}",
         lake_id=str(output.lake_id),
         time_index=None,
     )
