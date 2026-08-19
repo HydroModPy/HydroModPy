@@ -17,7 +17,6 @@ def test_build_refresh_steps_full_pipeline() -> None:
 
     assert [step.title for step in steps] == [
         "Install solver binaries",
-        "Refresh validation reports",
         "Refresh XT3D irregular-triangle diagnostics",
         "Refresh capability gallery artifacts",
         "Check capability gallery drift",
@@ -33,14 +32,15 @@ def test_build_refresh_steps_full_pipeline() -> None:
         "mf6,mfnwt",
         "--quiet",
     )
+    assert all("validation_cases.update_reports" not in step.command for step in steps)
+    assert DOCS_ROOT == REPO_ROOT / "docs"
     assert steps[-1].working_directory == DOCS_ROOT
-    assert steps[-1].command[-2:] == ("source", "build/html")
+    assert steps[-1].command[-6:] == ("-j", "auto", "-b", "html", "source", "build/html")
 
 
 def test_build_refresh_steps_respects_skip_flags() -> None:
     steps = build_refresh_steps(
         python_executable=Path("/tmp/python"),
-        include_validation_reports=False,
         include_xt3d_diagnostics=False,
         include_gallery_check=False,
         include_sphinx_build=False,
