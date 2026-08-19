@@ -1,0 +1,369 @@
+@startuml HydroModPy_Core_Class_Diagram
+title HydroModPy — Diagramme de classes (architecture centrale)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor White
+  ArrowColor #33658A
+  BorderColor #333333
+}
+hide empty members
+
+' ===================== FACADE =====================
+package "project (façade)" {
+
+  class Project {
+    - _state : ProjectState
+    - _runner : ProjectRunner
+    - _catalog : ProjectCatalog
+    + config : HydroModPyConfig
+    + runs : ProjectRunsAccessor
+    + data : ProjectDataAccessor
+    + simulate(**overrides) : Run
+    + calibrate(...) : CalibrationSession
+    + rerun(run : Run, ...) : Run {static}
+    + prepare() : Project
+    + close() : void
+    + __getitem__(sim_id : str) : Run
+  }
+
+  class ProjectRunner {
+    - _project : Project
+    + run(name, resume, from_step, until_step, **overrides) : Run
+    + sweep(parameters, strategy, parallel) : SimulationGroup
+  }
+
+  class ProjectCatalog {
+    - _project : Project
+    + store : SimulationCatalog
+    + data : ProjectDataAccessor
+    + runs : ProjectRunsAccessor
+    + get(sim_id : str) : Run
+    + close() : void
+  }
+
+  class ProjectState <<dataclass>> {
+    + config_path : Path
+    + cfg : HydroModPyConfig
+    + ctx : WorkflowContext
+    + store : SimulationCatalog
+    + phase : str
+    + run_history : List<Run>
+  }
+}
+
+' ===================== CONFIG =====================
+package "config" {
+  class HydroModPyConfig <<pydantic model>> {
+    + workflow : WorkflowConfig
+    + workspace : WorkspaceConfig
+    + geographic : GeographicConfig
+    + domain : DomainConfig
+    + data : DataManagersConfig
+    + solver : SolverConfig
+    + from_toml(path : Path) : HydroModPyConfig {static}
+    + from_dict(payload : dict) : HydroModPyConfig {static}
+    + from_json(payload : str) : HydroModPyConfig {static}
+  }
+}
+
+' ===================== WORKFLOW / PIPELINE =====================
+package "workflow" {
+
+  class Pipeline {
+    - steps : Tuple<Step>
+    - workspace : Path
+    - _catalog : SimulationCatalog
+    - _parallel : bool
+    + run(state : PipelineState, resume_from, parallel) : PipelineState
+    + dag() : WorkflowDAG
+    + cohorts() : Tuple<Tuple<Step>>
+  }
+
+  interface Step <<Protocol>> {
+    + name : str
+    + run(state_in : PipelineState) : PipelineState
+    + depends_on() : Tuple<str>
+  }
+
+  interface ResumableStep <<Protocol>> {
+    + artifacts(state_out) : Tuple<str>
+    + rebuild_state(prior_state, workspace, run_id) : PipelineState
+  }
+  ResumableStep --|> Step
+
+  package "workflow.steps" {
+    class ValidateStep
+    class ResolveStep
+    class BuildGeographicStep
+    class LoadDataStep
+    class BuildMeshStep
+    class SetupProcessStep
+    class PrepareSolverStep
+    class RunSolverStep
+    class ExtractStep
+    class DeriveStep
+    class ExportStep
+    class DisplayStep
+  }
+
+  ValidateStep ..|> Step
+  ResolveStep ..|> Step
+  BuildGeographicStep ..|> Step
+  LoadDataStep ..|> Step
+  BuildMeshStep ..|> Step
+  SetupProcessStep ..|> Step
+  DeriveStep ..|> Step
+  DisplayStep ..|> Step
+  PrepareSolverStep ..|> ResumableStep
+  RunSolverStep ..|> ResumableStep
+  ExtractStep ..|> ResumableStep
+  ExportStep ..|> ResumableStep
+
+  interface Launcher <<Protocol>> {
+    + execute(plan : SimulationPlan, state, callbacks) : Tuple<ProcessRun, RunExecutionResult>
+  }
+}
+
+' ===================== SIMULATION EXECUTION =====================
+package "simulation.execution" {
+  class SimulationRunner {
+    - callbacks : ProcessCallbacks
+    + execute(plan : SimulationPlan, state, callbacks) : Tuple<ProcessRun, RunExecutionResult>
+  }
+  class ProcessCallbacks <<dataclass>> {
+    + before_process : Callable
+    + after_process : Callable
+    + after_run : Callable
+  }
+  SimulationRunner ..|> Launcher
+  SimulationRunner *-- "1" ProcessCallbacks
+}
+
+' ===================== SOLVER ADAPTERS =====================
+package "solver" {
+  interface SolverAdapter <<Protocol>> {
+    + process_type : str {classifier}
+    + solver_name : str {classifier}
+    + requires : Tuple<Tuple<str,str>>
+    + validate(ctx) : void
+    + execute(ctx) : RunExecutionResult
+    + cleanup(ctx) : void
+    + extract_calibration_series(ctx, store, variable) : Series
+  }
+
+  interface SolverRegistryProvider <<Protocol>> {
+    + known_process_types() : Set<str>
+    + get_solver_adapter(process_type, solver_name) : SolverAdapter
+    + get_solver_adapter_class(process_type, solver_name) : type
+  }
+
+  class Modflow6FlowAdapter
+  class ModflowNwtFlowAdapter
+  class BoussinesqFlowAdapter
+  class Modflow6GwtTransportAdapter
+  class Modflow6PrtTransportAdapter
+  class Mt3dmsTransportAdapter
+  class ModpathTransportAdapter
+
+  Modflow6FlowAdapter ..|> SolverAdapter
+  ModflowNwtFlowAdapter ..|> SolverAdapter
+  BoussinesqFlowAdapter ..|> SolverAdapter
+  Modflow6GwtTransportAdapter ..|> SolverAdapter
+  Modflow6PrtTransportAdapter ..|> SolverAdapter
+  Mt3dmsTransportAdapter ..|> SolverAdapter
+  ModpathTransportAdapter ..|> SolverAdapter
+
+  SolverRegistryProvider ..> SolverAdapter : résout >
+}
+
+' ===================== CALIBRATION =====================
+package "calibration" {
+  class CalibrationEngine <<dataclass>> {
+    + space : ParameterSpace
+    + optimizer : Optimizer
+    + evaluator : EvaluatorFn
+    + max_iter : int = 100
+    + batch_size : int = 1
+    + run() : CalibrationSession
+  }
+
+  class CalibrationSession <<dataclass>> {
+    + session_id : str
+    + optimizer : Optimizer
+    + space : ParameterSpace
+    + history : List<EvaluationResult>
+    + best() : EvaluationResult
+    + duration_s() : float
+  }
+
+  interface Optimizer <<Protocol>> {
+    + name : str
+    + ask(n : int = 1) : List<ParamSuggestion>
+    + tell(results : List<EvaluationResult>) : void
+    + suggest_next() : ParamSuggestion
+    + best() : EvaluationResult
+    + converged() : bool
+  }
+
+  class ParamSuggestion <<dataclass>> {
+    + trial_id : str
+    + values : dict
+    + source : str
+  }
+
+  class EvaluationResult <<dataclass>> {
+    + trial_id : str
+    + sim_id : str
+    + objective_value : float
+    + status : str
+    + duration_s : float
+  }
+
+  CalibrationEngine *-- "1" Optimizer
+  CalibrationEngine ..> CalibrationSession : crée >
+  CalibrationSession o-- "1" Optimizer
+  CalibrationSession o-- "0..*" EvaluationResult : history
+  Optimizer ..> ParamSuggestion
+  Optimizer ..> EvaluationResult
+}
+
+' ===================== DATA =====================
+package "data" {
+  class DataStore {
+    - workspace_root : Path
+    - catalog : DataCatalogDuckDB
+    - project_extent : Tuple
+    + load_variable(variable_name, config) : LoadResult
+    + load_dem(...) : LoadResult
+    + load_geology(...) : LoadResult
+    + cache_info() : DataFrame
+    + clear_cache(...) : int
+  }
+
+  abstract class BaseManagerCommon <<ABC>> {
+    # config : SourceConfigProtocol
+    # catalog : DataCatalogDuckDB
+    # project_extent : Tuple
+    # {abstract} _load_mask_geometry() : Geometry
+    # _resolve_bbox(source_cfg) : Tuple
+    # _apply_mask(records, source_cfg) : List<PointRecord>
+  }
+
+  interface SourceConfigProtocol <<Protocol>> {
+    + source : str
+    + mask_path : Path
+    + extent : str
+  }
+
+  DataStore ..> BaseManagerCommon : instancie (transient) >
+  BaseManagerCommon --> SourceConfigProtocol : config
+}
+
+' ===================== RESULTS / CATALOG =====================
+package "results" {
+  interface SimulationStore <<Protocol>> {
+    + register_simulation(...) : void
+    + write_field(...) : void
+    + query_field(...) : Any
+    + list_simulations() : List<str>
+    + open_zarr(...) : SimulationZarr
+    + __getitem__(ref) : Run
+    + close() : void
+  }
+
+  class SimulationCatalog {
+    - _db : DuckDBPyConnection
+    - _workspace : Path
+    - _backend : CatalogBackend
+    - _open_zarr_handles : List<SimulationZarr>
+    + from_workspace(path) : SimulationCatalog {static}
+    + load_dataset(...) : Dataset
+    + read(ref, var) : Any
+    + __getitem__(ref) : Run
+    + close() : void
+  }
+  SimulationCatalog ..|> SimulationStore
+
+  class RunArrayProvider {
+    - _run : Run
+    + __call__(field, timestep) : ndarray
+  }
+
+  class Run {
+    - _sim_id : str
+    - _catalog : SimulationCatalog
+    - _row : dict
+    + array : RunArrayProvider
+    + sim_id : str
+    + name : str
+    + solver : str
+    + status : str
+    + export(var, dest) : Path
+    + summary(json : bool = false) : dict
+  }
+
+  Run *-- "1" RunArrayProvider
+  Run --> "1" SimulationCatalog : _catalog (référence)
+  SimulationCatalog ..> Run : crée >
+}
+
+' ===================== SPATIAL =====================
+package "spatial" {
+  class Surface {
+    + elevation : ndarray
+    + resolution : float
+  }
+
+  class Domain {
+    - config : DomainConfig
+    - surface_topo : Surface
+    - substratum : Surface
+    - zones : Map<str, Object>
+    + set_zone(zone_id, zone_obj) : void
+    + get_zone(zone_id) : Object
+    + resolve_spatial_support(support_id) : Object
+    + z_interfaces() : ndarray
+  }
+
+  class CatchmentDelineation {
+    - _config : GeographicConfig
+    - out_dir_path : Path
+    - x_outlet : float
+    - y_outlet : float
+    + build_georeferencing() : dict
+    + get_domain_surface_topo() : Surface
+    + get_geographic_derived_features() : GeographicDerivedFeatures
+    + processing() : void
+  }
+
+  Domain *-- "1" Surface : substratum
+  CatchmentDelineation ..> Surface : produit >
+  CatchmentDelineation ..> Domain : alimente (surface_topo) >
+}
+
+' ===================== RELATIONS INTER-PACKAGES =====================
+Project *-- "1" ProjectRunner
+Project *-- "1" ProjectCatalog
+Project *-- "1" ProjectState
+ProjectRunner --> Project : _project (back-ref)
+ProjectCatalog --> Project : _project (back-ref)
+ProjectState o-- "1" HydroModPyConfig
+ProjectState o-- "1" SimulationCatalog
+ProjectState o-- "0..*" Run : run_history
+
+ProjectRunner ..> Pipeline : crée par run() >
+ProjectRunner ..> Run : retourne >
+Pipeline o-- "1..*" Step : steps
+Pipeline *-- "0..1" SimulationCatalog : créé si absent
+
+SimulationRunner ..> SolverAdapter : résout via SolverRegistryProvider >
+
+CalibrationEngine ..> Project : evaluator invoque simulate() >
+
+Domain --> HydroModPyConfig : config
+CatchmentDelineation --> HydroModPyConfig : _config
+DataStore --> HydroModPyConfig : utilisé par
+
+@enduml

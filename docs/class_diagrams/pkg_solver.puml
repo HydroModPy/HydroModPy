@@ -1,0 +1,260 @@
+@startuml pkg_solver
+title HydroModPy — Package solver (adapters + backends numeriques)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "solver.base" {
+  interface SolverAdapter <<Protocol>> {
+    + process_type : str {classifier}
+    + solver_name : str {classifier}
+    + requires : Tuple<Tuple<str,str>>
+    + validate(ctx) : void
+    + execute(ctx) : RunExecutionResult
+    + cleanup(ctx) : void
+    + extract_calibration_series(ctx, store, variable) : Series
+  }
+  class RunResult <<dataclass, frozen>> {
+    + converged : bool
+    + output_dir : Path
+    + wall_time_s : float
+    + iterations : int
+  }
+  interface FlowModelLike <<Protocol>>
+  interface TransportLike <<Protocol>>
+  interface DomainLike <<Protocol>>
+
+  class SolverConfig {
+    + backend : SolverBackendConfig
+    + validate_registry() : void
+  }
+  note bottom of SolverConfig
+    registry (base/registry.py) : PAS une classe,
+    catalogue fonctionnel {(process_type,solver_name): classe}
+    résolu paresseusement (import_module) --
+    get_solver_adapter(), get_extractor()
+  end note
+}
+
+package "solver.modflow_grid" {
+  class SolverMesh <<dataclass, frozen>> {
+    + planar_mesh : HydroMesh
+    + top : ndarray
+    + botm : ndarray
+    + cell_centroids() : ndarray
+    + to_dis_kwargs() : dict
+    + to_disv_kwargs() : dict
+  }
+  class SolverGridContext <<dataclass>> {
+    + grid : GridReference
+    + solver_mesh : SolverMesh
+    + top_surface : Surface
+  }
+  class TemporalDiscretizationResult <<dataclass>> {
+    + itmuni : int
+    + nper : int
+    + as_dis_kwargs() : dict
+  }
+  SolverGridContext *-- "1" SolverMesh
+}
+
+package "solver.modflow_common" {
+  class SolverRoutingContext <<dataclass, frozen>>
+  class ModflowPreprocessOptions <<dataclass>>
+  class ModflowRunOptions <<dataclass>>
+  class ModflowPostprocessOptions <<dataclass>>
+  class BoundaryCell <<dataclass, frozen>> {
+    + layer : int
+    + row : int
+    + col : int
+    + as_tuple() : tuple
+  }
+  enum PackageKind <<StrEnum>>
+  abstract class Mt3dmsExtractorBase {
+    + solver_name : str {classifier}
+    + extract(sim_id, solver_output_dir, store) : void
+    + derive(...) : void
+  }
+}
+
+package "solver.modflow6" {
+  class Modflow6 {
+    + model_folder : Path
+    + grid_ctx : SolverGridContext
+    + routing_ctx : SolverRoutingContext
+    + modflow_config : Modflow6Config
+    + pre_processing() : void
+    + processing() : void
+    + post_processing() : void
+  }
+  class Modflow6Config
+  class Modflow6Transport {
+    + domain : Any
+    + model_modflow : FlowModelLike
+    + pre_processing() : void
+    + processing() : void
+  }
+  class Modflow6Prt {
+    + model_modflow : FlowModelLike
+    + release_zone : Any
+  }
+  class PrtTrackArrays <<dataclass, frozen>> {
+    + x : ndarray
+    + y : ndarray
+    + n_particles() : int
+  }
+  class Modflow6FlowAdapter
+  class Modflow6GwtTransportAdapter
+  class Modflow6PrtTransportAdapter
+  class Modflow6OutputAdapter
+  class Modflow6GwtOutputAdapter
+  class Modflow6PrtOutputAdapter
+
+  Modflow6 *-- "1" SolverGridContext
+  Modflow6 *-- "1" Modflow6Config
+  Modflow6Transport --> Modflow6 : model_modflow (assoc.)
+  Modflow6Prt --> Modflow6 : model_modflow (assoc.)
+  Modflow6Prt ..> PrtTrackArrays : produit >
+  Modflow6FlowAdapter ..|> SolverAdapter
+  Modflow6GwtTransportAdapter ..|> SolverAdapter
+  Modflow6PrtTransportAdapter ..|> SolverAdapter
+  Modflow6FlowAdapter ..> Modflow6 : orchestre >
+  Modflow6GwtTransportAdapter ..> Modflow6Transport : orchestre >
+  Modflow6PrtTransportAdapter ..> Modflow6Prt : orchestre >
+  Modflow6GwtOutputAdapter --|> Mt3dmsExtractorBase
+}
+
+package "solver.modflow_nwt" {
+  class ModflowNwt {
+    + grid_ctx : SolverGridContext
+    + modflow_config : ModflowConfig
+    + pre_processing() : void
+    + processing() : void
+    + post_processing() : void
+  }
+  class FlowToModflowAdapter {
+    + convert() : FlowModflowInputs
+  }
+  class FlowModflowInputs <<dataclass>> {
+    + ibound : ndarray
+    + strt : ndarray
+    + chd_spd : dict
+    + rch_data : dict
+  }
+  class ModflowConfig
+  class Modpath {
+    + model_modflow : FlowModelLike
+  }
+  class Mt3dms {
+    + model_modflow : FlowModelLike
+    + spc_name : str
+  }
+  class ModflowNwtFlowAdapter
+  class ModpathTransportAdapter
+  class Mt3dmsTransportAdapter
+  class ModflowNwtOutputAdapter
+  class Mt3dmsOutputAdapter
+  class ModpathOutputAdapter
+
+  ModflowNwt *-- "1" SolverGridContext
+  ModflowNwt *-- "1" ModflowConfig
+  ModflowNwt ..> FlowToModflowAdapter : utilise >
+  FlowToModflowAdapter ..> FlowModflowInputs : produit >
+  Modpath --> ModflowNwt : model_modflow (assoc.)
+  Mt3dms --> ModflowNwt : model_modflow (assoc.)
+  ModflowNwtFlowAdapter ..|> SolverAdapter
+  ModpathTransportAdapter ..|> SolverAdapter
+  Mt3dmsTransportAdapter ..|> SolverAdapter
+  ModflowNwtFlowAdapter ..> ModflowNwt : orchestre >
+  ModpathTransportAdapter ..> Modpath : orchestre >
+  Mt3dmsTransportAdapter ..> Mt3dms : orchestre >
+  Mt3dmsOutputAdapter --|> Mt3dmsExtractorBase
+}
+
+package "solver.boussinesq" {
+  class Boussinesq {
+    + mesh : BoussinesqMesh
+    + state : BoussinesqState
+    + pre_processing() : void
+    + processing() : void
+    + post_processing() : void
+  }
+  class BoussinesqMesh <<dataclass, frozen>> {
+    + hydraulic_conductivity_m_s : ndarray
+    + storage_coefficient : ndarray
+    + from_bundle(bundle) : BoussinesqMesh {static}
+  }
+  class BoussinesqState <<dataclass>> {
+    + head_m : ndarray
+    + saturated_thickness_m : ndarray
+    + initial() : BoussinesqState {static}
+  }
+  class BoussinesqAssembly <<dataclass, frozen>> {
+    + transmissivity_m2_s : ndarray
+    + flow_residual_m3_s : ndarray
+  }
+  class RuntimeSolveResult <<dataclass, frozen>> {
+    + assembly : BoussinesqAssembly
+  }
+  interface BoussinesqRuntimeBackend <<Protocol>> {
+    + solve_transient_step(...) : RuntimeSolveResult
+    + solve_steady_problem(...) : RuntimeSolveResult
+  }
+  class ResolvedBoussinesqRuntimeBackend <<dataclass, frozen>> {
+    + backend : BoussinesqRuntimeBackend
+    + method : BoussinesqMethodSpec
+    + solve_transient_step(...) : RuntimeSolveResult
+  }
+  class BoussinesqEngineSpec <<dataclass, frozen>> {
+    + id : str
+    + module_name : str
+    + jacobian_strategy : str
+  }
+  class BoussinesqMethodSpec <<dataclass, frozen>> {
+    + formulation : BoussinesqFormulationSpec
+  }
+  class BoussinesqSolverContract <<dataclass, frozen>> {
+    + flow_regime : str
+    + runtime_backend : ResolvedBoussinesqRuntimeBackend
+  }
+  class BoussinesqForcingResolver <<dataclass, frozen>> {
+    + mesh : BoussinesqMesh
+  }
+  class BoussinesqFlowAdapter
+  class BoussinesqOutputAdapter
+
+  Boussinesq *-- "1" BoussinesqMesh
+  Boussinesq *-- "1" BoussinesqState
+  Boussinesq ..> BoussinesqSolverContract : résout >
+  BoussinesqSolverContract *-- "1" ResolvedBoussinesqRuntimeBackend
+  ResolvedBoussinesqRuntimeBackend o-- "1" BoussinesqRuntimeBackend
+  ResolvedBoussinesqRuntimeBackend *-- "1" BoussinesqMethodSpec
+  ResolvedBoussinesqRuntimeBackend ..> BoussinesqEngineSpec : résolu via >
+  RuntimeSolveResult *-- "1" BoussinesqAssembly
+  BoussinesqForcingResolver --> BoussinesqMesh : assoc.
+  BoussinesqFlowAdapter ..|> SolverAdapter
+  BoussinesqFlowAdapter ..> Boussinesq : orchestre >
+
+  note bottom of BoussinesqRuntimeBackend
+    Implémenté par des MODULES (pas des classes) :
+    runtimes/local.py, scipy_dense.py, scipy_sparse.py,
+    petsc_partition.py, petsc_vi_obstacle.py, ...
+    résolus par import_module() (même pattern que
+    solver.base.registry, un niveau plus bas)
+  end note
+}
+
+note as NDiff
+  **Différence structurelle clé**
+  MODFLOW6 / MODFLOW-NWT : wrappers FloPy minces
+  autour de binaires externes (mf6/mfnwt/mt3dms/mp6) —
+  aucune numérique propre, juste assemblage de paquets
+  et lecture de formats de sortie (.hds/.cbc/.ucn).
+
+  Boussinesq : solveur PDE non-linéaire 100% interne
+  (assemblage, Jacobien, Newton/SciPy/PETSc) — aucun
+  binaire externe, sorties en .npz/.json.
+end note
+
+@enduml

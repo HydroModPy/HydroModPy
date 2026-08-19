@@ -1,0 +1,248 @@
+@startuml pkg_calibration
+title HydroModPy — Package calibration (moteur ask/tell, optimiseurs)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "calibration (coeur)" {
+  class ParamSuggestion <<dataclass, frozen>> {
+    + trial_id : int
+    + values : Map<str,float>
+    + source : str = "ask"
+  }
+  class EvaluationResult <<dataclass, frozen>> {
+    + trial_id : int
+    + sim_id : str
+    + objective_value : float
+    + status : str
+  }
+  interface Optimizer <<Protocol>> {
+    + name : str
+    + ask(n : int) : List<ParamSuggestion>
+    + tell(results) : void
+    + best() : EvaluationResult
+    + converged() : bool
+  }
+  Optimizer ..> ParamSuggestion : ask() >
+  Optimizer ..> EvaluationResult : tell() >
+
+  class CalibrationSession <<dataclass>> {
+    + session_id : str
+    + optimizer : Optimizer
+    + space : ParameterSpace
+    + history : List<EvaluationResult>
+    + best : EvaluationResult {property}
+  }
+  class CalibrationEngine <<dataclass>> {
+    + space : ParameterSpace
+    + optimizer : Optimizer
+    + evaluator : EvaluatorFn
+    + max_iter : int = 100
+    + cache : ParamsHashCache
+    + run() : CalibrationSession
+  }
+  CalibrationEngine *-- "1" Optimizer
+  CalibrationEngine *-- "1" ParameterSpace
+  CalibrationEngine *-- "0..1" ParamsHashCache
+  CalibrationEngine ..> CalibrationSession : crée >
+  CalibrationSession o-- "0..*" EvaluationResult
+  CalibrationSession --> Optimizer
+
+  class ParamsHashCache {
+    - _hits : Map<str,CachedEvaluation>
+    + get(key) : CachedEvaluation
+    + put(key, sim_id, objective_value) : void
+  }
+  class CachedEvaluation <<dataclass, frozen>> {
+    + sim_id : str
+    + objective_value : float
+  }
+  ParamsHashCache o-- "0..*" CachedEvaluation
+
+  class CalibParameter <<dataclass, frozen>> {
+    + name : str
+    + lower : float
+    + upper : float
+    + to_physical(y) : float
+  }
+  class ParameterSpace {
+    - _params : Tuple<CalibParameter>
+    + dim : int {property}
+    + names : List<str> {property}
+    + from_toml_mapping(...) : ParameterSpace {static}
+  }
+  ParameterSpace o-- "1..*" CalibParameter
+}
+
+package "calibration.adapters (implémentent Optimizer)" {
+  class GridAdapter
+  class RandomSearchAdapter
+  class OptunaAdapter
+  abstract class _ScipyAdapterBase
+  class ScipyDE
+  class ScipyNelderMead
+  class CmaEsAdapter
+  class GPMappingOptimizer
+  class DaMhGpOptimizer
+
+  GridAdapter ..|> Optimizer
+  RandomSearchAdapter ..|> Optimizer
+  OptunaAdapter ..|> Optimizer
+  _ScipyAdapterBase ..|> Optimizer
+  ScipyDE --|> _ScipyAdapterBase
+  ScipyNelderMead --|> _ScipyAdapterBase
+  CmaEsAdapter ..|> Optimizer
+  GPMappingOptimizer ..|> Optimizer
+  DaMhGpOptimizer ..|> Optimizer
+
+  note bottom of _ScipyAdapterBase
+    @register_optimizer("...") -- registre par decorateur,
+    résolution paresseuse (comme solver.base.registry).
+    Tous les constructeurs prennent ParameterSpace en 1er arg.
+  end note
+}
+
+package "calibration.objective" {
+  class ObservationSet <<dataclass, frozen>> {
+    + stations : Any
+    + values : Any
+    + variable : str
+  }
+  class SimulationOutput <<dataclass, frozen>> {
+    + sim_id : str
+    + values : Any
+  }
+  class ObjectiveValue <<dataclass, frozen>> {
+    + total : float
+    + components : dict
+  }
+  interface Objective <<Protocol>> {
+    + name : str
+    + evaluate(sim : SimulationOutput) : ObjectiveValue
+  }
+  class ScalarObjective {
+    - _observations : ObservationSet
+    - _metric_fn : Callable
+  }
+  class CompositeObjective {
+    - _blocks : Tuple
+  }
+  class ConfigBlockObjective
+
+  ScalarObjective ..|> Objective
+  CompositeObjective ..|> Objective
+  ConfigBlockObjective ..|> Objective
+  CompositeObjective o-- "1..*" Objective : composite
+  ScalarObjective --> ObservationSet
+  Objective ..> ObjectiveValue : evaluate() >
+}
+
+package "calibration.config (TOML [calibration])" {
+  class CalibParameterDecl {
+    + bounds : Any
+    + path : str
+    + resolve_target() : Any
+  }
+  class CalibOutputPoint
+  class CalibOutputBoundary
+  class CalibOutputCell
+  class CalibObjectiveBlockDecl {
+    + name : str
+    + metric : str
+    + weight : float
+  }
+  class CalibrationConfig {
+    + method : str
+    + parameters : Map<str,CalibParameterDecl>
+    + outputs : Map<str,CalibOutputDecl>
+    + objective_blocks : List<CalibObjectiveBlockDecl>
+    + validate_registry() : void
+  }
+  CalibrationConfig *-- "0..*" CalibParameterDecl
+  CalibrationConfig *-- "0..*" CalibObjectiveBlockDecl
+  CalibrationConfig o-- "0..*" CalibOutputPoint
+  CalibrationConfig o-- "0..*" CalibOutputBoundary
+  CalibrationConfig o-- "0..*" CalibOutputCell
+  CalibParameterDecl ..> CalibParameter : résolu vers >
+  CalibObjectiveBlockDecl ..> ConfigBlockObjective : résolu vers >
+
+  abstract class CalibrationMethodConfig
+  class CmaEsMethodConfig
+  class OptunaMethodConfig
+  class GridMethodConfig
+  CmaEsMethodConfig --|> CalibrationMethodConfig
+  OptunaMethodConfig --|> CalibrationMethodConfig
+  GridMethodConfig --|> CalibrationMethodConfig
+  note bottom of CalibrationMethodConfig
+    Union discriminée, 8 classes (1 par adapter) --
+    validée par validate_method_kwargs().
+  end note
+}
+
+package "calibration.runners (execution d'un essai)" {
+  class TrialResult <<dataclass, frozen>> {
+    + values : dict
+    + status : str
+    + primary_metric : float
+  }
+  class TrialContext <<dataclass>> {
+    + base_cfg : BaseModel
+    + ctx : WorkflowContext
+    + parameter_space : ParameterSpace
+    + fork(values) : TrialContext
+  }
+  TrialContext *-- "0..1" ParameterSpace
+  TrialContext ..> TrialResult : produit (via run_trial_light) >
+
+  interface TrialStep <<Protocol>> {
+    + name : str
+    + run(state_in) : Any
+  }
+  interface TrialPipelineProvider <<Protocol>> {
+    + standard_steps() : Tuple
+    + make_pipeline(steps) : Any
+  }
+  interface CalibrationSeriesExtractor <<Protocol>> {
+    + extract_calibration_series(ctx, store, variable) : Series
+  }
+  note bottom of TrialPipelineProvider
+    Frontière d'inversion de dépendance : calibration/
+    n'importe jamais workflow/ directement.
+  end note
+}
+
+package "calibration (persistance)" {
+  class CalibrationPersistence {
+    - _conn : DuckDBPyConnection
+    + start_session(...) : void
+    + append_iteration(session_id, suggestion, result) : void
+    + load_iterations(session_id) : List<dict>
+  }
+  class CalibrationReport <<dataclass, frozen>> {
+    + session_id : str
+    + best_objective : float
+    + iterations : list {property}
+    + best : Run {property}
+  }
+  CalibrationReport ..> CalibrationPersistence : load_iterations() >
+  CalibrationPersistence ..> ParamSuggestion
+  CalibrationPersistence ..> EvaluationResult
+}
+
+package "calibration.lumped (GR4J, sans binaire externe)" {
+  class Gr4jAdapter {
+    + process_type = "flow"
+    + solver_name = "gr4j"
+    + extract_calibration_series(...) : Series
+  }
+  class LumpedRamCache {
+    + series : Map<Tuple,Series>
+    + put(key, series) : void
+    + get(key) : Series
+  }
+  Gr4jAdapter ..|> CalibrationSeriesExtractor
+  Gr4jAdapter ..> LumpedRamCache : lit/écrit si store=None >
+}
+
+@enduml

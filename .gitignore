@@ -406,3 +406,10 @@ examples/old/
 
 # Underscore-prefixed scratch config drafts kept next to an example project.
 examples/projects/**/_*.toml
+
+# Files the dev line keeps out of history (three of them are tracked there,
+# so their rule is inert; kept as declared rather than second-guessed).
+validity_frame/examples/testbed_real_example.py
+docs/class_diagrams/architecture_condensee_corrigee.png
+docs/class_diagrams/architecture_condensee_corrigee.puml
+examples/data/hydrography/bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg

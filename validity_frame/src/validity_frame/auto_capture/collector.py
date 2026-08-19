@@ -58,16 +58,29 @@ class AutoCaptureCollector:
         return fn(*args, **kwargs)
 
     def capture_start(self) -> AutoCaptureSnapshot:
+        """Start a capture and return the initial snapshot.
+
+        Note: this method keeps backward compatibility with existing code.
+        If you need the start_time for a precise runtime/elapsed computation
+        at capture_end(), use :meth:`capture_start_with_time`.
+        """
+        snapshot, _ = self.capture_start_with_time()
+        return snapshot
+
+    def capture_start_with_time(self) -> tuple[AutoCaptureSnapshot, float]:
+        """Start a capture and also return the `start_time` used by runtime."""
         import time
 
         start_time = time.time()
-        return AutoCaptureSnapshot(
+        snapshot = AutoCaptureSnapshot(
             execution=self.context,
             system=self._call_probe("system", "collect"),
             hardware=self._call_probe("hardware", "collect"),
             runtime=self._call_probe("runtime", "collect_start", start_time),
             solver=self._call_probe("solver", "collect"),
         )
+        return snapshot, start_time
+
 
     def capture_end(
         self,
