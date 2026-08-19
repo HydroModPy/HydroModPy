@@ -305,6 +305,7 @@ def build_sfr_mover_records(
             return float(np.hypot(here[0] - outlet_xy[0], here[1] - outlet_xy[1])) < keepout_m
 
         if flagged and lake_xy is not None:
+            unsnapped: list[tuple[int, float]] = []
             for reach in network.reaches:
                 if reach.downstream or reach.is_terminal_to_lake or reach.cellid is None:
                     continue
@@ -312,8 +313,13 @@ def build_sfr_mover_records(
                 d2 = ((lake_xy - here) ** 2).sum(axis=1)
                 nearest = int(np.argmin(d2))
                 # Skip a dead-end FAR from any shoreline (a main stem stopping at a flat
-                # forebay): teleporting it would drop an entry "in the void".
+                # forebay): teleporting it would drop an entry "in the void". Collect it
+                # instead of dropping it silently: its whole flow then leaves the model by
+                # EXT-OUTFLOW, which starves the lake without any signal (a main stem
+                # stopping short of the shoreline can carry most of the network
+                # outflow out of the model).
                 if float(d2[nearest]) ** 0.5 > feeder_snap_m:
+                    unsnapped.append((int(reach.ifno), float(d2[nearest]) ** 0.5))
                     continue
                 if _near_outlet(reach.cellid):
                     continue  # below-dam discharge reach, not a lake feeder
@@ -326,6 +332,22 @@ def build_sfr_mover_records(
                         mvrtype=mvrtype,
                         value=value,
                     )
+                )
+            if unsnapped:
+                closest = min(unsnapped, key=lambda item: item[1])
+                logger.warning(
+                    "%s: %d dead-end reach(es) stop short of every shoreline and stay "
+                    "unrouted, so their flow leaves the model by EXT-OUTFLOW instead of "
+                    "feeding the lake (nearest is reach %d, %.0f m from the shore, for a "
+                    "lake_feeder_snap of %.0f m). Carve the channel to the shore with "
+                    "geographic.enforce_lakes.capture_radius_m, or raise lake_feeder_snap "
+                    "above %.0f m to snap them.",
+                    location,
+                    len(unsnapped),
+                    closest[0],
+                    closest[1],
+                    feeder_snap_m,
+                    closest[1],
                 )
         for terminal in terminals:
             if _near_outlet(terminal.cellid):

@@ -458,6 +458,31 @@ def test_bare_outlet_far_from_any_shoreline_is_not_teleported() -> None:
     assert all(r.provider_id != 1 for r in records)  # the bare outlet leaves the model
 
 
+def test_unsnapped_dead_end_is_reported(caplog) -> None:
+    """Leaving a dead-end unrouted must be loud: its whole flow exits the model.
+
+    Measured on the Cheze reservoir: the main stem stopped 1015 m short of the
+    shoreline, just past the 300 m snap, and 51 % of the network outflow left the
+    model with no message at all.
+    """
+    nets, cc = _flagged_plus_bare((400.0, 0.0))
+    with caplog.at_level("WARNING"):
+        build_sfr_mover_records(nets, lake_cells_by_number={0: [10], 1: [6]}, cell_centroids=cc)
+    assert "leaves the model by EXT-OUTFLOW instead of" in caplog.text
+    assert "400 m from the shore" in caplog.text
+    assert "capture_radius_m" in caplog.text
+
+
+def test_snapped_dead_end_is_not_reported(caplog) -> None:
+    nets, cc = _flagged_plus_bare((50.0, 0.0))
+    with caplog.at_level("WARNING"):
+        records = build_sfr_mover_records(
+            nets, lake_cells_by_number={0: [10], 1: [6]}, cell_centroids=cc
+        )
+    assert any(r.provider_id == 1 for r in records)
+    assert "stop short of every shoreline" not in caplog.text
+
+
 def test_bare_outlet_near_the_model_outlet_is_not_teleported() -> None:
     # A dead-end 50 m from a lake but right at the model outlet is the below-dam
     # DISCHARGE reach; it leaves the model (the lake feeds it), never fed to the lake.
