@@ -212,10 +212,12 @@ class WritesMixinDuckDB:
             sha: str | None = _sha256_streaming(p) if p.is_file() else None
         except OSError:
             return
+        # POSIX-normalised like every other relative path in the catalog, so the
+        # idempotency key below keeps matching a row written on another platform.
         try:
-            rel = str(p.resolve().relative_to(self.project_path.resolve()))
+            rel = p.resolve().relative_to(self.project_path.resolve()).as_posix()
         except ValueError:
-            rel = str(p)
+            rel = p.as_posix()
         # Idempotent on (sim_id, kind, rel_path): re-exporting the same artefact
         # to the same path refreshes its row instead of accumulating duplicates
         # that no longer map one-to-one to on-disk files.
