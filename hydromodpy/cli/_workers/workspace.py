@@ -28,7 +28,7 @@ def init_workspace(
 
     Returns a dict with ``path`` and ``workspace_toml``.
     """
-    from hydromodpy.core.state.global_index import auto_register_workspace
+    from hydromodpy.core.state.global_index import auto_register_projects
     from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
     from hydromodpy.data.scaffold import DEFAULT_ROOT, scaffold
 
@@ -45,48 +45,65 @@ def init_workspace(
         creator_email=creator_email or "",
         force=force,
     )
-    auto_register_workspace(result, label=project_name or result.name)
+    auto_register_projects(result, label=project_name or result.name)
     return {"path": str(result), "workspace_toml": str(workspace_toml)}
 
 
-def list_workspaces() -> Any:
-    """List workspaces registered in the machine-wide global index.
+def list_registered_projects() -> Any:
+    """List the projects registered in the machine-wide global index.
 
     Returns one :class:`pandas.DataFrame` with the columns of
-    :class:`hydromodpy.core.state.global_index.WorkspaceRecord`, so the
-    listing renders like every other CLI table.
+    :class:`hydromodpy.core.state.global_index.ProjectRecord`, so the listing
+    renders like every other CLI table.
     """
     import pandas as pd
 
     from hydromodpy.core.state.global_index import GlobalIndex
 
     with GlobalIndex(read_only=True) as gi:
-        records = gi.list_workspaces()
+        records = gi.list_projects()
     return pd.DataFrame(
         [record.model_dump() for record in records],
-        columns=["workspace_id", "workspace_uri", "label", "last_scanned_at", "created_at"],
+        columns=["project_id", "project_uri", "label", "last_scanned_at", "created_at"],
     )
 
 
-def register_workspace(uri: str, *, label: str | None = None) -> str:
-    """Register a workspace index database in the global index.
+def register_projects(uri: str, *, label: str | None = None) -> dict[str, list[str]]:
+    """Register the projects behind ``uri`` in the global index.
 
-    Returns the assigned ``workspace_id``.
+    A project root registers as one row; a workspace root expands to the
+    project roots it holds, and any other existing directory is one row too.
+    What counts as either is
+    :meth:`~hydromodpy.core.state.global_index.GlobalIndex.register`'s call,
+    including the ``FileNotFoundError`` on a path that is not a directory at
+    all, which this interactive path lets through for the command to print.
+
+    Returns
+    -------
+    dict[str, list[str]]
+        ``registered``: the ``project_id`` of every row this call inserted.
+        ``known``: the ``project_uri`` of every project the index holds under
+        ``uri`` once the call is done, read back from the index rather than
+        walked again on disk. An empty ``registered`` reads two ways and
+        ``known`` is what separates them: everything was already registered,
+        or there was no project there to register.
     """
     from hydromodpy.core.state.global_index import GlobalIndex
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for
-    from hydromodpy.core.state.paths import resolve_workspace as _resolve
+    from hydromodpy.core.state.paths import resolve_workspace
 
-    local = _resolve(uri)
-    catalog = catalog_path_for(Path(local))
-    if not catalog.is_file():
-        raise FileNotFoundError(f"Workspace {uri!r} has no {CATALOG_FILENAME} at {catalog}.")
+    root = resolve_workspace(uri).expanduser().resolve()
     with GlobalIndex() as gi:
-        return gi.register_workspace(uri, label=label)
+        registered = gi.register(uri, label=label)
+        known = [
+            record.project_uri
+            for record in gi.list_projects()
+            if (known_root := Path(record.project_uri)) == root or root in known_root.parents
+        ]
+    return {"registered": registered, "known": known}
 
 
-def search_workspaces(term: str, *, limit: int = 20) -> Any:
-    """Full-text search across registered workspaces."""
+def search_projects(term: str, *, limit: int = 20) -> Any:
+    """Full-text search across the registered projects."""
     from hydromodpy.core.state.global_index import GlobalIndex
 
     with GlobalIndex(read_only=True) as gi:
@@ -96,16 +113,16 @@ def search_workspaces(term: str, *, limit: int = 20) -> Any:
     return df.head(limit)
 
 
-def forget_workspace(workspace_id: str) -> None:
-    """Drop a workspace registration from the global index."""
+def forget_project(project_id: str) -> None:
+    """Drop one project registration from the global index."""
     from hydromodpy.core.state.global_index import GlobalIndex
 
     with GlobalIndex() as gi:
-        gi.forget(workspace_id)
+        gi.unregister(project_id)
 
 
-def prune_workspaces() -> list[str]:
-    """Drop registrations whose index database is missing."""
+def prune_projects() -> list[str]:
+    """Drop registrations whose project index database is missing."""
     from hydromodpy.core.state.global_index import GlobalIndex
 
     with GlobalIndex() as gi:

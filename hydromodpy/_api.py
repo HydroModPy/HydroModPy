@@ -89,7 +89,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
     See Also
     --------
     hydromodpy.index
-        Machine-wide federation across registered workspaces.
+        Machine-wide federation across registered projects.
     """
     from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog import Catalog
@@ -110,12 +110,16 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
 
 
 def index(db_path: Any = None, *, read_only: bool = True) -> GlobalIndex:
-    """Open the machine-wide global index that federates registered workspaces.
+    """Open the machine-wide global index that federates registered projects.
+
+    One row is one project root, since a project root is what owns an index
+    database. Registering a workspace root expands it into the project roots
+    it holds.
 
     Read-only by default, mirroring :func:`open`: browsing the federation index
     never migrates it or touches its mtime, and a reader never contends with a
     concurrent solve. Pass ``read_only=False`` for the writable handle used to
-    ``register_workspace`` / ``forget`` / ``prune``.
+    ``register`` / ``unregister`` / ``prune``.
 
     Parameters
     ----------
@@ -124,15 +128,15 @@ def index(db_path: Any = None, *, read_only: bool = True) -> GlobalIndex:
         machine-state location.
     read_only
         Open the index in read-only mode (default ``True``). Writes
-        (``register_workspace``, ``forget``, ``prune``) will raise. Pure reads
-        (``search``, ``find``, ``list_workspaces``) keep working while another
+        (``register``, ``unregister``, ``prune``) will raise. Pure reads
+        (``search``, ``find``, ``list_projects``) keep working while another
         process holds the write-lock.
 
     Returns
     -------
     GlobalIndex
-        Index object exposing ``register_workspace``, ``find``, ``search``,
-        ``prune`` and ``forget``.
+        Index object exposing ``register``, ``unregister``, ``list_projects``,
+        ``find``, ``search`` and ``prune``.
 
     Raises
     ------
@@ -145,7 +149,7 @@ def index(db_path: Any = None, *, read_only: bool = True) -> GlobalIndex:
     --------
     >>> import hydromodpy as hmp
     >>> idx = hmp.index(read_only=True)  # doctest: +SKIP
-    >>> idx.list_workspaces()  # doctest: +SKIP
+    >>> idx.list_projects()  # doctest: +SKIP
 
     See Also
     --------

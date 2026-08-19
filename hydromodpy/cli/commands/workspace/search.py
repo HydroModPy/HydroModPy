@@ -1,4 +1,4 @@
-"""``hmp workspace search`` - thin wrapper around :func:`hydromodpy.search_workspaces`."""
+"""``hmp workspace search`` - full-text search across the registered projects."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 from hydromodpy.cli.helpers import EXIT_OK
 
 NAME: str = "search"
-HELP: str = "Full-text search across all workspaces registered in the global index"
+HELP: str = "Full-text search across every project registered in the global index"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -20,15 +20,15 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.workspace import search_workspaces
+    from hydromodpy.cli._workers.workspace import search_projects
 
-    df = search_workspaces(args.term, limit=args.limit)
+    df = search_projects(args.term, limit=args.limit)
     if df is None or df.empty:
         print(f"No matches for {args.term!r}.")
         sys.exit(EXIT_OK)
 
     columns = [
-        c for c in ("workspace_id", "sim_id", "name", "project", "description") if c in df.columns
+        c for c in ("project_id", "sim_id", "name", "project", "description") if c in df.columns
     ]
     if not columns:
         columns = list(df.columns)

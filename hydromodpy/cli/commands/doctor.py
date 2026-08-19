@@ -103,12 +103,16 @@ def run(args: argparse.Namespace) -> None:
 def _migrate_catalogs(workspace_arg: str | None) -> None:
     """Upgrade the catalog schema of every project under the workspace."""
     from hydromodpy.cli.helpers import EXIT_NOT_FOUND
-    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+    from hydromodpy.core.state.paths import (
+        PROJECTS_DIRNAME,
+        catalog_path_for,
+        resolve_project_root,
+    )
     from hydromodpy.results.catalog.migrations import apply_migrations
 
     base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
     catalogs: list[Path] = []
-    projects = base / "projects"
+    projects = base / PROJECTS_DIRNAME
     if projects.is_dir():
         catalogs = sorted(
             catalog_path_for(p) for p in projects.iterdir() if (catalog_path_for(p)).is_file()
@@ -344,7 +348,7 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
 
 def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dict]:
     try:
-        from hydromodpy.core.state.paths import catalog_path_for
+        from hydromodpy.core.state.paths import PROJECTS_DIRNAME, catalog_path_for
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.core.workspace.exceptions import WorkspaceError
         from hydromodpy.data.scaffold import DEFAULT_ROOT
@@ -386,7 +390,7 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
         _path_check("data_dir", ws / "data"),
     ]
     project_roots = []
-    projects_dir = ws / "projects"
+    projects_dir = ws / PROJECTS_DIRNAME
     standalone = not projects_dir.is_dir() and (catalog_path_for(ws)).is_file()
     if not standalone:
         # A standalone project owns its index at the root and has no
@@ -514,19 +518,18 @@ def _path_check(name: str, path: Path, *, required: bool = True) -> dict:
     return {"name": name, "status": status, "detail": detail, "hint": hint}
 
 
+def _iter_project_roots(workspace: Path) -> list[Path]:
+    """Return the root of every project under ``workspace`` that carries an index."""
+    from hydromodpy.core.state.paths import catalog_path_for, project_roots_under
+
+    return [root for root in project_roots_under(workspace) if catalog_path_for(root).is_file()]
+
+
 def _iter_project_catalogs(workspace: Path) -> list[Path]:
+    """Return the existing index databases of every project under ``workspace``."""
     from hydromodpy.core.state.paths import catalog_path_for
 
-    catalogs: list[Path] = []
-    if (catalog_path_for(workspace)).is_file():
-        catalogs.append(catalog_path_for(workspace))
-    projects_dir = workspace / "projects"
-    if projects_dir.is_dir():
-        for entry in sorted(projects_dir.iterdir()):
-            cat = catalog_path_for(entry)
-            if cat.is_file():
-                catalogs.append(cat)
-    return catalogs
+    return [catalog_path_for(root) for root in _iter_project_roots(workspace)]
 
 
 def _resolve_doctor_workspace(workspace_arg: str | None) -> Path | None:
@@ -557,6 +560,7 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
         import duckdb
 
         from hydromodpy.core.state.global_index import GlobalIndex
+        from hydromodpy.core.state.paths import is_under_workspace
         from hydromodpy.core.state.paths import resolve_workspace as _resolve_uri
     except Exception as exc:  # pragma: no cover - defensive
         return [
@@ -590,20 +594,20 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
             if df is not None and not df.empty and "sim_id" in df.columns:
                 index_sim_ids = {str(v) for v in df["sim_id"].tolist()}
             try:
-                workspace_ids_local = {
-                    record.workspace_id
-                    for record in gi.list_workspaces()
-                    if _resolve_uri(record.workspace_uri) == workspace
+                local_project_ids = {
+                    record.project_id
+                    for record in gi.list_projects()
+                    if is_under_workspace(workspace, _resolve_uri(record.project_uri))
                 }
             except Exception:
-                workspace_ids_local = set()
+                local_project_ids = set()
     except Exception as exc:
         return [
             {
                 "name": "cross_catalog:index_open",
                 "status": "KO",
                 "detail": f"{exc}",
-                "hint": "Re-register the workspaces with 'hmp workspace register <ws>'",
+                "hint": "Re-register the projects with 'hmp workspace register <ws>'",
             }
         ]
 
@@ -613,14 +617,14 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
 
     checks.append(
         {
-            "name": "cross_catalog:workspace_registered",
-            "status": "OK" if workspace_ids_local else "WARN",
+            "name": "cross_catalog:projects_registered",
+            "status": "OK" if local_project_ids else "WARN",
             "detail": (
-                f"{len(workspace_ids_local)} registration(s) match {workspace}"
-                if workspace_ids_local
-                else "workspace not registered in the global index"
+                f"{len(local_project_ids)} registered project(s) under {workspace}"
+                if local_project_ids
+                else "no project of this workspace is registered in the global index"
             ),
-            "hint": "Run 'hmp workspace register <ws>' to register it",
+            "hint": "Run 'hmp workspace register <ws>' to register its projects",
         }
     )
     checks.append(
@@ -675,22 +679,21 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
         orphan_calibration_session_count,
         stale_running_sim_ids,
     )
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
 
-    project_catalogs = _iter_project_catalogs(workspace)
     stale_running = 0
     orphan_sessions = 0
     wf_running = 0
     wf_failed = 0
     wf_recent: list[tuple[str, str, str, str]] = []
-    for catalog_path in project_catalogs:
-        project_root = catalog_path.parent
+    for project_root in _iter_project_roots(workspace):
         # Stale-running + orphan-session reads go through the shared catalog
         # facade helpers (same path as gc/watch); no raw SQL, no private import.
         stale_running += len(stale_running_sim_ids(project_root))
         orphan_sessions += orphan_calibration_session_count(project_root)
         try:
-            conn = duckdb.connect(str(catalog_path), read_only=True)
+            conn = duckdb.connect(str(catalog_path_for(project_root)), read_only=True)
         except duckdb.Error:
             continue
         try:

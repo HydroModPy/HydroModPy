@@ -115,7 +115,7 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
 
     def _fake_subprocess_run(*args, **kwargs):
         del args
-        captured["auto_register"] = kwargs["env"].get("HMP_AUTO_REGISTER_WORKSPACE")
+        captured["auto_register"] = kwargs["env"].get("HMP_AUTO_REGISTER_PROJECT")
         return SimpleNamespace(
             returncode=0,
             stdout="ok",
