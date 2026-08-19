@@ -574,10 +574,15 @@ def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None
     """Write one recharge period to ``target`` in the exact MF6 binary format.
 
     Idempotent and race-safe: skips a complete existing target, and otherwise
-    writes a per-writer temp, fsyncs it, then atomically renames it, so a
+    writes a per-writer temp, fsyncs it, then renames it over the target, so a
     concurrent reader (or a re-run after a crash) only ever sees a complete file
     (all writers emit identical bytes). A pre-existing file of the wrong size
     (a zero-length remnant from a crash between write and rename) is rewritten.
+
+    Two Windows specifics are handled here rather than left to fail: a handle
+    needs write access to be flushed, and a rename cannot land on a file another
+    process holds open. Both only surface under a parallel calibration, which is
+    the only caller of the shared-recharge path.
     """
     ncpl = int(arr.size)
     expected_size = 52 + 8 * ncpl  # double-precision head header (52 B) + ncpl doubles
@@ -602,12 +607,25 @@ def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None
     Util2d.write_bin(
         (1, ncpl), str(tmp), np.ascontiguousarray(arr).reshape(1, ncpl), header_data=header
     )
-    fd = os.open(str(tmp), os.O_RDONLY)
+    # O_RDWR, not O_RDONLY: Windows refuses to flush a handle without write access
+    # and raises OSError(EBADF), which crashed every calibration trial on that
+    # platform (the shared-recharge path only runs under calibration).
+    fd = os.open(str(tmp), os.O_RDWR)
     try:
         os.fsync(fd)
     finally:
         os.close(fd)
-    os.replace(str(tmp), str(target))
+    try:
+        os.replace(str(tmp), str(target))
+    except OSError:
+        # Windows refuses to replace a file another process holds open, so parallel
+        # trials collide on the shared target. Every writer emits identical bytes,
+        # so a target already at the expected size is the file we were about to
+        # write: drop our temp and let it stand. Anything else is a real failure.
+        if target.exists() and target.stat().st_size == expected_size:
+            tmp.unlink(missing_ok=True)
+            return
+        raise
 
 
 def _shared_recharge_spd(spd: dict[int, np.ndarray], shared_dir: Path) -> dict[int, dict]:
