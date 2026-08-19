@@ -47,6 +47,12 @@ _LOCK_ERROR_SNIPPETS = (
     "resource temporarily unavailable",
     "database is locked",
 )
+# DuckDB refuses to attach a file another database in this process already
+# holds, and says so in its own English wording whatever the OS locale is.
+_ATTACH_CONFLICT_SNIPPETS = (
+    "unique file handle conflict",
+    "already attached",
+)
 
 F = TypeVar("F", bound=Callable[..., object])
 
@@ -55,6 +61,12 @@ def _is_lock_contention(exc: duckdb.IOException) -> bool:
     """Return whether ``exc`` looks like a transient DuckDB file-lock error."""
     message = str(exc).lower()
     return any(snippet in message for snippet in _LOCK_ERROR_SNIPPETS)
+
+
+def _is_attach_path_conflict(exc: duckdb.BinderException) -> bool:
+    """Return whether ``exc`` says this process already holds that database file."""
+    message = str(exc).lower()
+    return any(snippet in message for snippet in _ATTACH_CONFLICT_SNIPPETS)
 
 
 def _sleep_with_jitter(delay: float) -> float:
@@ -122,12 +134,28 @@ def _precreate_with_block_size(db_path: str, block_size: int) -> None:
     ATTACHes the not-yet-existing file with the requested block size and
     checkpoints so the header records it; subsequent plain ``connect()`` calls
     then inherit it (block_size is immutable once the file exists).
+
+    DuckDB registers attached database files process-wide, and the entry
+    outlives the file: a connection still open on a path someone deleted keeps
+    that path claimed although it is gone from disk. Sizing blocks is a
+    footprint optimisation, never a reason to refuse a connection, so that one
+    conflict is skipped and the caller falls through to a plain open. Every
+    other failure propagates.
     """
     escaped = db_path.replace("'", "''")
     tmp = duckdb.connect(":memory:")
     try:
         tmp.execute(f"ATTACH '{escaped}' (BLOCK_SIZE {int(block_size)})")
         tmp.execute("CHECKPOINT")
+    except duckdb.BinderException as exc:
+        if not _is_attach_path_conflict(exc):
+            raise
+        logger.debug(
+            "Skipping the DuckDB block-size pre-create on %s, the path is still "
+            "attached in this process: %s",
+            db_path,
+            exc,
+        )
     finally:
         tmp.close()
 
@@ -151,7 +179,8 @@ def connect_with_retry(
 
     ``block_size`` pre-creates a not-yet-existing read-write file with that
     DuckDB block size (see :data:`HMP_DUCKDB_BLOCK_SIZE`) to keep small metadata
-    databases compact.
+    databases compact. That pre-create is best effort: it never decides whether
+    the connection can be opened.
 
     A write-ahead log left behind by an unclean shutdown is checkpointed on the
     first read-write open (see :func:`_absorb_stale_wal`).
