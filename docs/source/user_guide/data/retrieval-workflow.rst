@@ -195,8 +195,8 @@ After a run, inspect the workspace data catalog:
 
 .. code-block:: bash
 
-   hmp data list --workspace ~/hydromodpy
-   hmp data list --workspace ~/hydromodpy --variable hydrometry
+   hmp data ls --workspace ~/hydromodpy
+   hmp data ls --workspace ~/hydromodpy --variable hydrometry
    hmp data check --workspace ~/hydromodpy
 
 Use ``force_refresh = true`` only on the source that should bypass the cache:

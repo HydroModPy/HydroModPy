@@ -18,11 +18,24 @@ Cache layout
    |   |-- hydrometry/
    |   |-- piezometry/
    |   `-- recharge/
-   `-- hydromodpy.lock
+   `-- projects/
+       `-- <project>/
+           |-- project.toml
+           `-- hydromodpy.lock
 
 The DuckDB catalog stores variable, source, station id, spatial coverage,
 period, unit, source unit, file path, and file modification time. Managers query
 this catalog before downloading again.
+
+The cache and the lockfile sit at two different levels, on purpose. One
+workspace holds one cache shared by every project in it, so a station
+downloaded for one catchment is reused by the next. The lockfile is the
+snapshot of that cache a given project replays against: it records every
+catalog entry with its digest, and it lives at ``<project>/hydromodpy.lock``
+next to ``project.toml``, so it is versioned with the project and travels with
+it. There is no workspace-level lockfile: ``hmp run`` writes the project one,
+``hmp run --frozen`` reads that same file, and ``hmp dev lock`` addresses it
+through ``--project``.
 
 What cache stability protects
 -----------------------------
@@ -68,9 +81,9 @@ Inspect and repair the cache
 
 .. code-block:: bash
 
-   hmp data list --workspace ~/hydromodpy
-   hmp data list --workspace ~/hydromodpy --variable hydrometry
-   hmp data list --workspace ~/hydromodpy --provider hubeau
+   hmp data ls --workspace ~/hydromodpy
+   hmp data ls --workspace ~/hydromodpy --variable hydrometry
+   hmp data ls --workspace ~/hydromodpy --provider hubeau
    hmp data check --workspace ~/hydromodpy
    hmp data check --workspace ~/hydromodpy --fix
 
@@ -88,19 +101,30 @@ Without it, the catalog is cleaned but files are left on disk.
 Lock the cache
 --------------
 
-The lockfile records the file identity of indexed artifacts. Use it after a data
-overview run or before archiving a project:
+The lockfile records the file identity of the artifacts one project replays.
+Use it after a data overview run or before archiving a project. ``--project``
+names the lockfile, ``--workspace`` names the cache it is scanned from:
 
 .. code-block:: bash
 
-   hmp lock update --workspace ~/hydromodpy
-   hmp lock verify --workspace ~/hydromodpy
+   hmp dev lock update --project ~/hydromodpy/projects/nancon
+   hmp dev lock verify --project ~/hydromodpy/projects/nancon
 
-A frozen run refuses to refresh or ingest unlocked data:
+Run from inside the project directory, both flags can be omitted: the project
+root is the nearest ancestor holding ``project.toml``, and the workspace is the
+one holding that project.
+
+``--frozen`` checks the project lockfile before the run starts: a SHA-256 drift
+on any tracked input aborts before the first step, whatever the workflow.
 
 .. code-block:: bash
 
    hmp run examples/projects/05_nancon_data_overview/config_overview.toml --frozen
+
+On a ``simulation`` workflow the constraint also holds for the whole run: the
+cache refuses a miss and refuses any entry absent from the lockfile instead of
+downloading again. It is released when that run ends, so a later workflow in
+the same process is never silently frozen too.
 
 Use frozen mode for CI, teaching material, and any result that must be
 replayable without silent downloads.
@@ -112,14 +136,16 @@ Two command families can create portable data archives:
 
 .. code-block:: bash
 
-   hmp data export --workspace ~/hydromodpy data-cache.tar.gz
-   hmp data import --workspace ~/hydromodpy data-cache.tar.gz
+   hmp data archive --workspace ~/hydromodpy data-cache.tar.gz
+   hmp data restore --workspace ~/hydromodpy data-cache.tar.gz
 
-   hmp lock archive --workspace ~/hydromodpy locked-data.tar.gz
-   hmp lock restore --workspace ~/hydromodpy locked-data.tar.gz
+   hmp dev lock archive --workspace ~/hydromodpy locked-data.tar.gz
+   hmp dev lock restore --workspace ~/hydromodpy locked-data.tar.gz
 
-Use ``hmp data export`` when you want a cache archive. Use ``hmp lock archive``
+Use ``hmp data archive`` when you want a cache archive. Use ``hmp dev lock archive``
 when the lockfile identity is the contract you want to move with the artifacts.
+The archive carries its own manifest of the cache it was built from, so those
+two take ``--workspace`` only; no project lockfile is read or written.
 
 Manual ingestion
 ----------------
@@ -137,6 +163,19 @@ Power users can register one file explicitly:
        --station-id J1234010
 
 Add ``--frozen`` when the file must already match an existing lockfile entry.
+The entry is looked up in ``<project>/hydromodpy.lock``, and ``--project``
+names that project, so the check works from outside it too:
+
+.. code-block:: bash
+
+   hmp data add data/hydrometry/station.csv \
+       --workspace ~/hydromodpy \
+       --project ~/hydromodpy/projects/nancon \
+       --type hydrometry \
+       --frozen
+
+Without ``--project`` the lockfile is the one of the project the command runs
+from. ``--workspace`` only ever names the cache the file is ingested into.
 
 Recommended policy
 ------------------
@@ -150,13 +189,13 @@ Recommended policy
      - Commands
    * - Exploration
      - Let API managers populate the cache.
-     - ``hmp run ...`` then ``hmp data list``
+     - ``hmp run ...`` then ``hmp data ls``
    * - Reproducible example
      - Lock once the figures and data are accepted.
-     - ``hmp lock update`` then ``hmp run --frozen``
+     - ``hmp dev lock update`` then ``hmp run --frozen``
    * - Offline validation
      - Restore locked artifacts before running.
-     - ``hmp lock restore`` then ``hmp lock verify``
+     - ``hmp dev lock restore`` then ``hmp dev lock verify``
    * - Provider refresh
      - Refresh one source intentionally.
      - Add ``force_refresh = true`` to that source, run, then update the lock.

@@ -179,14 +179,9 @@ Highlights
 What's new
 ----------
 
-Recent entries from ``CHANGELOG.md``:
-
-- **v0.3.3** (2025-12-03): lightweight conda environment option, surface
-  routing consolidated under ``masstransfer``, leaner SIM2 memory use.
-- **v0.3.2** (2025-11-28): SIM2 reworked with coarse-clip then reproject,
-  ``disk_clip`` accepts ``.shp``, ``.gpkg``, ``.geojson``.
-- **v0.3.1** (2025-11-14): installation guide reorganized, dual YAML
-  options for runtime versus editable installs, NumPy >= 2 baseline.
+This documentation tracks HydroModPy **2.0.0a1**, the version declared by
+the package. Every notable change is recorded in ``CHANGELOG.md``, with the
+work in progress kept under its ``[Unreleased]`` section.
 
 See the full :doc:`changelog <about/changelog>` and the :doc:`roadmap
 <about/roadmap>` for upcoming work.

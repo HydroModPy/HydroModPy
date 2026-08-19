@@ -34,17 +34,20 @@ through ``install/enter_wsl_dev.sh --headless``.
      - ``21/21 cases passed``
      - ``659.8 s``
 
-The committed report consumed by the validation gallery is:
-``validation_cases/reports/latest/boussinesq_both.json``. It was generated at
-``2026-05-06T07:41:24.118686+00:00`` and records ``failed_case_count = 0``.
+That JSON report is local output only. ``reports*/`` is gitignored, so
+``validation_cases/reports/latest/boussinesq_both.json`` is recreated by the
+command above and never committed, and no page reads it: the validation
+gallery dropped its batch-report section when the committed reports went
+away. The run recorded in this table was executed at
+``2026-05-06T07:41:24.118686+00:00`` and reported ``failed_case_count = 0``.
 
 Validation Gallery Pages
 ------------------------
 
 Open these pages first in the generated HTML build:
 
-- :doc:`Validation Benchmarks </capability_gallery/validation>` shows the
-  refreshed Boussinesq batch line: ``21/21 cases passed``.
+- :doc:`Validation Benchmarks </capability_gallery/validation>` counts the
+  Boussinesq solver variant under ``Current Coverage``: 21 cases.
 - :doc:`Boussinesq Hillslope Interception 1D </capability_gallery/cases/boussinesq_hillslope_interception_1d>`
   is the main PETSc VI obstacle diagnostic page.
 - :doc:`Capability Gallery </capability_gallery/index>` is the gallery entry
@@ -64,7 +67,7 @@ Case Coverage
 -------------
 
 These 21 analytical validation cases use the PETSc-backed Boussinesq route in
-the latest batch report.
+the batch recorded above.
 
 .. list-table::
    :header-rows: 1

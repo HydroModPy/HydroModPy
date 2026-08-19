@@ -176,7 +176,7 @@ Tests to add
   fixtures folder) for any HTTP-backed source so smoke tests can run
   offline.
 
-Run ``hmp data list`` after a manual cache write to confirm the
+Run ``hmp data ls`` after a manual cache write to confirm the
 catalog row appears.
 
 Pitfalls flagged by the layer matrix

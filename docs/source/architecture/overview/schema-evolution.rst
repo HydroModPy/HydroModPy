@@ -145,7 +145,8 @@ Versions today
        validation_reports.
    * - Machine global index (``index.duckdb``)
      - ``0001``
-     - Workspaces table; ``all_simulations`` is rebuilt at attach time.
+     - Projects table, one row per project root; ``all_simulations`` is
+       rebuilt at attach time.
    * - Zarr field store
      - ``ZARR_SCHEMA_VERSION = "2"``
      - Zarr format 3, ACDD root attrs, CF ``_FillValue``, consolidated

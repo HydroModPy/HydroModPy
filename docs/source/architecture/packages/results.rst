@@ -17,21 +17,31 @@ Sub-modules
   Additional adapters can plug in by implementing the protocol.
 - ``results/catalog/migrations/`` -- Alembic-like SQL migrations
   applied by the runner in ``hydromodpy/core/migrations/runner.py``.
-- ``results/run.py`` -- ``Run`` facade exposing read-only access to
-  one persisted simulation. Stays below the 50-method limit.
-- ``results/run_array.py``, ``run_timeseries.py``,
-  ``run_geographic.py``, ``run_hydrographic.py``,
-  ``run_environment.py`` -- focused mixins behind the ``Run`` facade.
+- ``results/run/view.py`` -- ``Run`` facade exposing read-only access
+  to one persisted simulation. Stays below the 50-method limit.
+- ``results/run/array.py``, ``timeseries.py``, ``geographic.py``,
+  ``hydrographic.py``, ``environment.py`` -- focused providers behind
+  the ``Run`` facade.
+- ``results/run/point.py`` -- ``RunPointProvider``, bound as
+  ``run.probe`` and ``group.probe``: one variable in one cell, named by
+  coordinates, cell index or depth.
+- ``results/run/observation_points.py`` -- samples the points declared
+  in ``[observation]`` and writes them to the run directory.
+- ``results/run/group.py`` -- ``RunSet`` view across multiple runs
+  (used by comparison and calibration analysis).
 - ``results/field_registry.py`` -- maps a logical field name to a
   Zarr or Parquet reader. Used by the ``hmp.read`` facade.
-- ``results/zarr_store/`` -- Zarr v2 store with atomic writes,
-  filelock, ACDD and CF metadata, ``ZARR_SCHEMA_VERSION``.
-- ``results/parquet_io.py`` and ``parquet_schemas.py`` -- Parquet
-  v2.6 writers, KV-metadata mixin, ``PARQUET_SCHEMA_VERSION``.
-- ``results/geoparquet_io.py`` -- GeoParquet 1.1 writers
+- ``results/zarr_store/`` -- Zarr format 3 store with atomic writes,
+  filelock, ACDD and CF metadata, ``ZARR_SCHEMA_VERSION``, and the
+  chunk / shard heuristics in ``chunks.py``.
+- ``results/storage/parquet_io.py`` and
+  ``results/storage/parquet_schemas.py`` -- Parquet v2.6 writers, KV
+  metadata, and the declared schema of every payload.
+- ``results/storage/contract.py`` -- the machine-readable run layout:
+  physical layers and every file name a run or session directory may
+  carry.
+- ``hydromodpy/core/io/geoparquet.py`` -- GeoParquet 1.1 writers
   (``GEOPARQUET_SCHEMA_VERSION``).
-- ``results/simulation_group.py`` -- ``RunSet`` view across
-  multiple runs (used by comparison and calibration analysis).
 - ``results/exporters/`` -- format writers: ``csv``, ``netcdf``,
   ``geotiff``, ``vtu``, ``shapefile``, ``hmp_package``.
 - ``results/importers/`` -- ``hmp_package`` reader plus catalog
@@ -60,6 +70,9 @@ Run API
 - **Array provider**: ``run.array.dataset(variable=None)`` returns
   an ``xugrid.UgridDataset``; ``to_xarray_batch()``;
   ``at(timestep, layer)``.
+- **Point provider**: ``run.probe.series(variable, x=..., y=...)``,
+  or ``cell=`` / ``layer=`` / ``depth=``. ``group.probe.series(...)``
+  stacks the same point across several runs.
 
 Catalog operations
 ------------------
@@ -100,10 +113,14 @@ Companion DuckDB views (``v_simulation_summary``,
 ``v_best_per_project``, ``v_metrics_wide``, ``v_params_wide``)
 remain available for ad-hoc SQL.
 
-Cross-project / cross-workspace queries go through the
+Cross-project queries go through the
 :class:`~hydromodpy.core.state.global_index.GlobalIndex` exposed as
-``hmp.index()``. The index federates every registered workspace via
-ATTACH read-only and rebuilds ``all_simulations`` on refresh.
+``hmp.index()``. Its ``projects`` table holds one row per project
+root, the directory that owns ``project.toml`` and the index database
+at ``.hmp/index.duckdb``; a workspace root owns no index, so
+registering one expands into the project roots under its
+``projects/`` directory. The index ATTACHes every registered project
+index read-only and rebuilds ``all_simulations`` on refresh.
 
 Concurrency
 -----------

@@ -77,14 +77,15 @@ End-to-end workflow
        ``hmp catalog reindex``.
    * - DuckDB (``calibration_sessions`` + ``calibration_iterations``)
      - Indexes trial fingerprints and session metadata. Read by
-       ``hmp report``, rebuilt from the session journal.
+       ``hmp report render``, rebuilt from the session journal.
    * - ``promote_trial`` (top-N)
      - Replays the chosen trials through the full pipeline. Writes
        Zarr + Parquet + ``simulations`` rows and back-fills
        ``calibration_iterations.sim_id``.
    * - Catalog (simulations + Zarr + Parquet)
-     - Read by ``hmp report`` alongside the DuckDB iteration history.
-   * - ``hmp report``
+     - Read by ``hmp report render`` alongside the DuckDB iteration
+       history.
+   * - ``hmp report render``
      - Reads sessions, iterations, simulation outputs, and renders the
        calibration HTML report with figures.
 
@@ -125,10 +126,12 @@ Node by node:
   promotion creates a Zarr store, a Parquet directory, and a
   ``simulations`` row, and back-fills the corresponding
   ``calibration_iterations.sim_id``.
-- **``hmp report <session_id>``**: post-processing CLI that reads the
-  session descriptor and its trial log, renders the six calibration
-  figures, and emits a standalone HTML report at
-  ``<project>/share/reports/<session_name>/report.html``.
+- **``hmp report render <session_ref>``**: post-processing CLI that
+  reads the session descriptor and its trial log, renders the six
+  calibration figures, and emits a standalone HTML report at
+  ``<project>/share/reports/<session_name>/report.html``. The reference
+  accepts a session id or prefix, or one of its runs; omitted, it renders
+  the most recent session.
 
 The user TOML
 -------------
@@ -577,7 +580,7 @@ Calibration storage flow, by container:
        trials only.
    * - ``share/reports/<session_name>/``
      - ``figures/*.png`` and ``report.html``
-     - Rendered post-loop by ``hmp report <session ref>``.
+     - Rendered post-loop by ``hmp report render <session ref>``.
 
 Rule of thumb: **RAM inside the loop, the session journal for the trace,
 a run directory only for promoted trials.** The index is derived from
@@ -615,7 +618,7 @@ both and never holds anything the disk does not.
      - Post-loop via the figure registry
    * - HTML report
      - ``share/reports/<session_name>/report.html``
-     - ``hmp report <session ref>``
+     - ``hmp report render <session ref>``
 
 Disk-space cheat sheet for a representative 100-trial session on a
 moderately fine mesh:
@@ -736,11 +739,11 @@ Python API and DuckDB
 
    import hydromodpy as hmp
 
-   catalog = hmp.open("~/workspace")
+   catalog = hmp.open("~/workspace/projects/<name>")
    sessions = catalog.calibration_sessions()
    iters = catalog.calibration_iterations(session_id=sessions.iloc[0]["session_id"])
    best = catalog.best(project="calibration", metric="nse")
-   best.plot("watertable_map", save="~/figures/")
+   hmp.figure(best, "watertable_depth_map", save="~/figures/")
    print(iters.head())
 
 - ``catalog.calibration_sessions()`` returns a ``DataFrame`` with one
@@ -769,17 +772,21 @@ Protocol and is registered in
 - ``calibration_pairplot``: pairwise grid of scatter plus
   histograms.
 
-Render one figure at a time from the CLI (the session id is printed on
-stderr during ``hmp run``):
+Render one figure at a time from the CLI. ``hmp viz show`` takes a run
+reference and a figure name, so point it at a promoted run of the
+session (``hmp catalog ls --tag calibration:<session_id>`` lists them):
 
 .. code-block:: bash
 
-   hmp display run_calibration_k.toml --session <session_id> --figure calibration_convergence
-   hmp display run_calibration_k.toml --session <session_id> --figure calibration_trace
-   hmp display run_calibration_k.toml --session <session_id> --figure calibration_landscape
-   hmp display run_calibration_k.toml --session <session_id> --figure calibration_posterior
-   hmp display run_calibration_k.toml --session <session_id> --figure calibration_objective_surface
-   hmp display run_calibration_k.toml --session <session_id> --figure calibration_pairplot
+   hmp viz show <run_ref> calibration_convergence
+   hmp viz show <run_ref> calibration_trace
+   hmp viz show <run_ref> calibration_landscape
+   hmp viz show <run_ref> calibration_posterior
+   hmp viz show <run_ref> calibration_objective_surface
+   hmp viz show <run_ref> calibration_pairplot
+
+Without ``--output`` the PNG lands in ``runs/<run>/figures/``.
+``hmp report render`` renders the whole set in one go.
 
 Pre-rendered examples for a Dupuit / MODFLOW 6 twin benchmark live
 under ``docs/source/_static/capability_gallery/calibration/``: reuse
@@ -796,8 +803,7 @@ For users who do not want to drop into Python:
 
 .. code-block:: bash
 
-   hmp report <session_id>
-   xdg-open ~/workspace/projects/<name>/share/reports/<session_name>/report.html
+   hmp report render <session_ref> --open
 
 The report embeds the six figures together with a summary table
 (method, objective, best parameters, best_sim_id, duration). It is
@@ -938,18 +944,19 @@ Useful diagnostics on a persisted trace:
    print(corr)
 
 Render a specific figure programmatically (equivalent to the
-``hmp display`` call above):
+``hmp viz show`` call above):
 
 .. code-block:: python
 
    from pathlib import Path
    import hydromodpy as hmp
 
-   catalog = hmp.open("~/workspace")
-   fig = hmp.display.get("calibration_convergence").plot(
-       session_id="abcd1234ef...",
-       catalog=catalog,
-       save_path=Path("~/figures/convergence.png").expanduser(),
+   catalog = hmp.open("~/workspace/projects/<name>")
+   run = catalog["abcd1234"]
+   fig = hmp.figure(
+       run,
+       "calibration_convergence",
+       save=Path("~/figures/convergence.png").expanduser(),
    )
 
 Analytical test cases

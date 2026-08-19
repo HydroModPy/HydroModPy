@@ -19,21 +19,24 @@ Sub-modules
   ``state.advance(...)``.
 - ``workflow/internals/step.py`` -- ``Step[TIn, TOut]`` Protocol
   (``name``, ``run(state) -> state``, optional ``config_sections``).
-- ``workflow/internals/checkpoint.py`` -- ``CheckpointStore`` with
-  HMAC-SHA256 signed pickle plus zstd compression.
-- ``workflow/internals/ledger.py`` -- DuckDB ledger of executed
-  steps.
+- ``workflow/tracking/journal.py`` -- ``WorkflowJournal``, the DuckDB
+  journal of executed steps; ``workflow/tracking/resume.py`` and
+  ``workflow/tracking/heartbeat.py`` sit beside it. There is no
+  checkpoint store and no pickle layer: resume reads artefacts, see
+  :doc:`/architecture/pipeline_resume`.
 - ``workflow/internals/dependencies.py`` --
   ``earliest_affected_step`` resolves the first pipeline index
   affected by a dotted-path override (used by calibration to skip
   shared phases).
 - ``workflow/internals/derived.py`` -- ``DerivedRegistry`` for
   ordered post-extraction calculations.
-- ``workflow/internals/manifest.py`` -- ``WorkflowManifest`` summary
-  for the lockfile.
+- ``workflow/internals/manifest.py`` -- ``ResolvedRunManifest``, the
+  step blueprint plus config digest written under
+  ``.hmp/checkpoints/<run_id>/resolved_manifest.json`` and verified on
+  resume.
 - ``workflow/runner.py`` -- ``Pipeline`` runner that chains steps,
-  manages the ledger, the optional checkpoint store, and typed
-  errors (``StepError`` exposes ``step_name`` and ``run_id``).
+  manages the journal, and raises typed errors (``StepError`` exposes
+  ``step_name`` and ``run_id``).
 - ``workflow/steps/`` -- the canonical step library.
 - ``workflow/pipelines/`` -- pre-assembled pipelines for the
   standard workflows.

@@ -51,8 +51,8 @@ Key public symbols
 CLI bindings
 ------------
 
-- ``hmp schema export --output ./schema/`` -> three JSON files.
-- ``hmp schema validate-field <path> <value>`` -> JSON
+- ``hmp dev schema export --output ./schema/`` -> three JSON files.
+- ``hmp dev schema validate-field <path> <value>`` -> JSON
   ``ValidationResult``.
 
 Both subcommands live under ``hydromodpy/cli/commands/dev/schema.py``.

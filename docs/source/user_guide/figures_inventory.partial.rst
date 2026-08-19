@@ -181,6 +181,12 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``lake_abacus_comparison``
      - Lake abacus comparison
      - (no fixed input)
+   * - ``lake_stage_sim_obs``
+     - Lake stage (sim vs obs)
+     - tables ``timeseries``
+   * - ``lake_volume_sim_obs``
+     - Lake storage (sim vs obs)
+     - tables ``timeseries``
    * - ``piezo_timeseries_sim_obs``
      - Piezometric head (sim vs obs)
      - tables ``timeseries``

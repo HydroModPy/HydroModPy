@@ -1,10 +1,15 @@
 catalog
 =======
 
-``hydromodpy.catalog`` is the V1 facade over the three DuckDB scopes
-(per-workspace cache, per-project catalog, machine-wide index). It is
-the canonical entry point for :func:`hmp.open` and sits above
+``hydromodpy.catalog`` is the read-only view over the per-workspace
+input cache (``<workspace>/data/cache.duckdb``). It sits above
 ``results`` and ``data`` without the reverse edge.
+
+The two other DuckDB scopes are reached elsewhere: the project catalog
+through :func:`hmp.open`, which returns
+``hydromodpy.results.catalog.Catalog``, and the machine-wide index
+through :func:`hmp.index`, which returns
+``hydromodpy.core.state.global_index.GlobalIndex``.
 
 Sub-modules
 -----------
@@ -15,25 +20,11 @@ Sub-modules
 
    * - Module
      - Role
-   * - ``catalog/facade.py``
-     - :func:`hmp.open`. Resolves the workspace and returns a
-       :class:`Catalog`. Default ``create=False`` raises
-       ``FileNotFoundError`` when no ``.hmp/index.duckdb`` exists; pass
-       ``create=True`` to initialise an empty one.
-   * - ``catalog/simulations.py``
-     - :class:`Catalog`. Read-mostly access to the
-       project catalog rows (``find`` returning a ``RunSet``,
-       ``frame``, ``latest``, ``best``, ``worst``, ``rank``,
-       ``cat[ref]``) plus schema discovery (``describe``, ``tables``,
-       ``columns``, ``variables``, ``metrics``, ``stations``).
    * - ``catalog/inputs.py``
-     - :class:`InputsNamespace`. Lookup over the per-workspace data
-       cache (``list``, ``get`` by variable). Reached via
-       ``hydromodpy.catalog.InputsNamespace(ws)`` or the ``hmp data``
-       CLI, not via :func:`hmp.open`.
-   * - ``catalog/projects.py``
-     - Machine-wide index of registered projects, reached through
-       :func:`hmp.index`.
+     - :class:`InputsNamespace`, the only public symbol of the package.
+       Lookup over the per-workspace data cache (``list``, ``get`` by
+       variable). Reached via ``hydromodpy.catalog.InputsNamespace(ws)``
+       or the ``hmp data`` CLI, not via :func:`hmp.open`.
 
 Mutators (since v1.x.6)
 -----------------------

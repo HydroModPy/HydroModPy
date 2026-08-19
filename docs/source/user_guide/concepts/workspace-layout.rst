@@ -167,9 +167,14 @@ Machine-wide index
 ------------------
 
 A separate DuckDB file under ``$XDG_STATE_HOME/hydromodpy/index.duckdb``
-federates workspaces registered on the machine, for cross-workspace
-discovery. It is fully recreatable from the registered workspaces and is
-operated by ``hmp workspace register``, ``hmp workspace search``,
+federates the **projects** registered on the machine, for cross-project
+discovery. One row is one project root, the directory holding
+``project.toml`` and its ``.hmp/index.duckdb``, because that index file is
+what the federation attaches. A workspace root has none of its own, so
+registering one adds the project roots under its ``projects/`` directory,
+one row each, and a workspace with no project yet adds nothing. The file
+is fully recreatable from the registered projects and is operated by
+``hmp workspace register``, ``hmp workspace search``,
 ``hmp workspace forget`` and ``hmp workspace prune``.
 
 Two environment variables relocate the machine-wide directories:

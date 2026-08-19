@@ -36,7 +36,9 @@ package exposes a flat set of verbs and helpers re-exported from
    * - ``hmp.calibrate(toml_path, **overrides)``
      - Drive a calibration session.
    * - ``hmp.index(db_path=None)``
-     - Open the machine-wide ``GlobalIndex``.
+     - Open the machine-wide ``GlobalIndex``, the registry of project
+       roots. One row is one project; a workspace root passed to
+       ``register`` expands into the projects it holds.
    * - ``hmp.viz.show(run, figure, **kwargs)``
      - Render one figure for a run. Scalable defaults via
        datashader / LTTB.

@@ -85,7 +85,7 @@ Subpackages
        :doc:`packages/data`.
    * - ``display/``
      - Solver-agnostic figures registered through
-       ``display/catalog.py``. 33 named figures under
+       ``display/figure_registry.py``. 45 named figures under
        ``display/figures/``, plus geographic helpers (``display/geo``)
        and overview rendering (``display/overview``). See
        :doc:`packages/display`.

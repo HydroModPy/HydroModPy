@@ -52,10 +52,10 @@ Programmatic flow
 
    # Open-and-query: jump straight to any run
    catalog = hmp.open("~/ws/projects/canut")
-   best = catalog.best(metric="nse")
+   best = catalog.best("canut", metric="nse")
 
    # Read a field through the V1 facade
-   head = hmp.read(best, "head", timestep=0)
+   head = hmp.read(best, "head", time=0)
 
 CLI equivalents
 ---------------
@@ -71,7 +71,7 @@ CLI equivalents
      - ``hmp.open(project).frame``
    * - ``hmp catalog show <sim_ref>``
      - ``hmp.open(project)[sim_ref]``
-   * - ``hmp display``
-     - ``hmp.viz.show(run, ...)``
-   * - ``hmp index search``
+   * - ``hmp viz show <sim_ref> <figure>``
+     - ``hmp.figure(run, figure)``
+   * - ``hmp workspace search``
      - ``hmp.index().search(...)``
