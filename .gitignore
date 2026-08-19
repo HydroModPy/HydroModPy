@@ -399,3 +399,10 @@ examples/data/dem/DEM_ille_vilaine_*.tif.aux.xml
 examples/data/blobs/
 examples/data/cutoff_wall/
 examples/projects/19_cheze_reservoir/mesh/
+
+# Local scratch copies of old example material (multi-GB, never versioned).
+# The root-anchored `old/*` rule above does not reach nested directories.
+examples/old/
+
+# Underscore-prefixed scratch config drafts kept next to an example project.
+examples/projects/**/_*.toml
