@@ -7,7 +7,7 @@ architecture) lives in the
 [contributor guide](https://hydromodpy-docs.readthedocs.io/en/main/contribute.html)
 and on the [Read the Docs site](https://hydromodpy-docs.readthedocs.io/en/main/).
 Release naming, maintenance branches, tags, and GitHub Releases are covered
-in [VERSIONING.md](VERSIONING.md).
+in [`docs/source/about/release_policy.rst`](docs/source/about/release_policy.rst).
 
 ## Open an issue
 
@@ -99,8 +99,10 @@ and is enforced by `tests/unit/architecture/test_layer_matrix.py`.
 - Branch from `dev` for normal work. Use a short descriptive name, for
   example `feat/bdtopage-loader`, `fix/calib-cell-resolve`, or
   `docs/versioning-policy`.
-- `main` is the current v2 line and future default branch.
-- `archive-v1` is the frozen v1.0.0 branch. Do not target normal PRs there.
+- `main` is the current v2 line. It carries version `2.0.0a1`, which is not
+  tagged or released yet.
+- `v1.0` is the published v1 line, frozen at the `v1.0.0` tag. Do not target
+  normal PRs there.
 - Use `maint/1.x` only if active maintenance of the `1.*` line resumes.
 - Use `release/X.Y` only for short stabilization windows before a final
   `vX.Y.0` release.
@@ -115,7 +117,6 @@ and is enforced by `tests/unit/architecture/test_layer_matrix.py`.
 
 Releases are identified by tags such as `v1.1.0`, `v2.0.0a1`,
 `v2.0.0b1`, or `v2.0.0rc1`, not by branch names. See
-[`VERSIONING.md`](VERSIONING.md) and
 [`docs/source/about/release_policy.rst`](docs/source/about/release_policy.rst).
 
 ## Where to look next
