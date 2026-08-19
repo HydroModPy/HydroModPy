@@ -75,6 +75,9 @@ CATALOG_FILENAME = "index.duckdb"
 WORKSPACE_TOML_FILENAME = "workspace.toml"
 """Workspace-wide metadata file living at ``<workspace>/workspace.toml``."""
 
+PROJECTS_DIRNAME = "projects"
+"""Workspace sub-directory holding one directory per project."""
+
 INDEX_FILENAME = "index.duckdb"
 """Machine-wide global index file living under ``state_dir()``."""
 
@@ -123,6 +126,61 @@ def running_sidecar_path(workspace: Path, sim_id: str) -> Path:
     """Heartbeat sidecar path for a run, keyed by its first 8 hex digits."""
     id8 = str(sim_id).replace("-", "")[:8]
     return running_sidecar_dir(workspace) / f"{id8}.json"
+
+
+# Root granularity ----------------------------------------------------------
+#
+# Two kinds of directory carry a HydroModPy layout and they are not
+# interchangeable. A *project* root holds ``project.toml`` and the index
+# database at ``.hmp/index.duckdb``. A *workspace* root holds the shared
+# ``data/`` tree, ``workspace.toml`` and a ``projects/`` directory; it owns no
+# index database. Anything that federates index databases therefore counts in
+# project roots, and turns a workspace root into the project roots it holds.
+
+
+def is_project_root(path: Path) -> bool:
+    """Return True when ``path`` carries a project marker or an index database."""
+    root = Path(path)
+    return (root / PROJECT_MARKER_FILENAME).is_file() or catalog_path_for(root).is_file()
+
+
+def is_workspace_root(path: Path) -> bool:
+    """Return True when ``path`` carries ``workspace.toml`` or a ``projects/`` directory."""
+    root = Path(path)
+    return (root / WORKSPACE_TOML_FILENAME).is_file() or (root / PROJECTS_DIRNAME).is_dir()
+
+
+def project_roots_under(root: Path) -> list[Path]:
+    """Return the resolved project roots ``root`` stands for.
+
+    A workspace root expands to the project roots it holds: itself when it is
+    also one, then every ``projects/<name>`` that is. Any other directory is
+    taken as a single project root, whether or not its index database exists
+    yet, so a project can be registered before its first run.
+
+    Every returned path is resolved, expanded entries included, so a project
+    reached through a symlinked ``projects/<name>`` yields the same string as
+    the same project named directly. Duplicates are dropped in first-seen
+    order.
+    """
+    resolved = Path(root).expanduser().resolve()
+    if not is_workspace_root(resolved):
+        return [resolved]
+    candidates: list[Path] = []
+    if is_project_root(resolved):
+        candidates.append(resolved)
+    projects_dir = resolved / PROJECTS_DIRNAME
+    if projects_dir.is_dir():
+        candidates.extend(
+            entry.resolve()
+            for entry in sorted(projects_dir.iterdir())
+            if entry.is_dir() and is_project_root(entry)
+        )
+    roots: list[Path] = []
+    for candidate in candidates:
+        if candidate not in roots:
+            roots.append(candidate)
+    return roots
 
 
 # Portable URI schemes ------------------------------------------------------
@@ -258,7 +316,11 @@ def to_workspace_uri(path: Path | UPath) -> str:
 
 
 def resolve_workspace(uri: str | Path | UPath) -> Path:
-    """Resolve a portable ``workspace_uri`` to a local :class:`Path`.
+    """Resolve a portable root URI to a local :class:`Path`.
+
+    The URI may point at a workspace root or a project root: this helper only
+    turns a portable string into a filesystem path and says nothing about the
+    granularity of what it points at. Use :func:`project_roots_under` for that.
 
     The argument is widened to ``str | Path | UPath`` so callers can
     pass either a raw URI, a :class:`pathlib.Path`, or a
@@ -286,7 +348,7 @@ def resolve_workspace(uri: str | Path | UPath) -> Path:
             path_text = f"//{parsed.netloc}{path_text}"
         return Path(url2pathname(path_text)).expanduser()
     raise NotImplementedError(
-        f"workspace_uri {text!r} uses scheme {scheme!r} which is not supported "
+        f"root URI {text!r} uses scheme {scheme!r} which is not supported "
         "in this release. Use a local path or a file:// URI."
     )
 
@@ -296,6 +358,7 @@ __all__: Iterable[str] = (
     "CONFIGS_DIRNAME",
     "INDEX_FILENAME",
     "INTERNAL_DIRNAME",
+    "PROJECTS_DIRNAME",
     "PROJECT_MARKER_FILENAME",
     "REPORTS_DIRNAME",
     "RUNS_DIRNAME",
@@ -308,7 +371,10 @@ __all__: Iterable[str] = (
     "encode_workspace_path",
     "from_workspace_relative",
     "internal_dir",
+    "is_project_root",
     "is_under_workspace",
+    "is_workspace_root",
+    "project_roots_under",
     "reports_dir_for",
     "resolve_project_root",
     "resolve_workspace",

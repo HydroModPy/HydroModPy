@@ -6,7 +6,7 @@ HydroModPy stores its tabular state in three DuckDB files:
 - ``<workspace>/data/cache.duckdb`` -- shared input cache.
 - ``<project>/.hmp/index.duckdb`` -- index of the runs of one project.
 - ``<state_dir>/index.duckdb`` -- machine-wide federation of every
-  registered workspace.
+  registered project.
 
 End-user code never needs to know which file holds a given row.
 ``hmp.open`` is the single door onto the simulation catalog; the input
@@ -23,7 +23,7 @@ Opening a catalog
 
    cat = hmp.open("~/proj/naizin")
    sims = cat.find(solver="modflow6")          # RunSet
-   workspaces = hmp.index()                     # machine-wide federation
+   federation = hmp.index()                    # machine-wide federation
 
 ``hmp.open`` returns a :class:`~hydromodpy.results.catalog.Catalog`
 (the engine itself, not a wrapper). With the default ``create=False`` it
@@ -60,9 +60,9 @@ and ``sessions/`` with ``hmp catalog reindex``.
 
    # Ranking and resolution.
    cat.latest()
-   cat.best()
-   cat.worst()
-   cat.rank()
+   cat.best("naizin", metric="nse")
+   cat.worst("naizin", metric="nse")
+   cat.rank("naizin", "nse", n=5)
    cat.resolve(ref)
 
    # One sim by reference.
@@ -105,14 +105,22 @@ The machine global index -- ``hmp.index``
 Backed by ``<state_dir>/index.duckdb``. Opened in read-only mode so
 concurrent ``hmp run`` writers keep their write-lock.
 
+It registers **projects**, one row per project root, because a project
+root is what owns an index database. A workspace root owns none: passing
+one to ``register`` adds the projects it holds instead of itself.
+
 .. code-block:: python
 
-   # Every registered workspace plus federated search.
-   hmp.index()
+   idx = hmp.index()
+   idx.list_projects()             # every registered project root
+   idx.find(solver="modflow6")     # federated query across all of them
 
-The federation (federated search across every workspace, full-text
-search across descriptions / scientific objectives) lives on the index
-returned by ``hmp.index()``.
+   with hmp.index(read_only=False) as writable:
+       writable.register("~/hydromodpy")   # the workspace's projects
+
+The federation (federated search across every registered project,
+full-text search across descriptions / scientific objectives) lives on
+the index returned by ``hmp.index()``.
 
 Keeping the history bounded
 ---------------------------

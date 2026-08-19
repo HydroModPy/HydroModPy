@@ -9,7 +9,7 @@ Jupyter widget, electron app) can consume.
 Two integration points
 ----------------------
 
-1. **JSON Schema export** -- ``hmp schema export --output ./schema/``
+1. **JSON Schema export** -- ``hmp dev schema export --output ./schema/``
    writes three JSON files:
 
    .. code-block:: text
@@ -20,7 +20,7 @@ Two integration points
       `-- field_validators.json    # flat field_path -> validator_type
 
 2. **Partial-field validator** --
-   ``hmp schema validate-field <path> <value>`` runs the same
+   ``hmp dev schema validate-field <path> <value>`` runs the same
    validator your form should call on each keystroke (under 50 ms per
    call, no I/O).
 
@@ -63,7 +63,7 @@ Pair JSON Schema with ``ngx-formly`` or ``@rjsf/core``. Two steps:
 .. code-block:: bash
 
    # 1. Export the schema during the HydroModPy CI step.
-   hmp schema export --output ./src/app/api/schema/
+   hmp dev schema export --output ./src/app/api/schema/
 
 .. code-block:: ts
 
@@ -163,7 +163,7 @@ Tests to add
 
 - **Unit** for any custom Python service that wraps the schema
   exports.
-- **Schema diff CI**: re-run ``hmp schema export`` in CI and fail
+- **Schema diff CI**: re-run ``hmp dev schema export`` in CI and fail
   on diffs that the contributor did not commit.
 - **Smoke** call against ``validate_field`` for a few known good /
   bad pairs per release.

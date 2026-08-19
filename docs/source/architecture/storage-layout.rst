@@ -37,18 +37,26 @@ Delivery status
        reports. ``.hmp/`` for the index, logs, checkpoints, heartbeats,
        solver scratch and the ``gc`` quarantine. ``project.toml`` as the
        project-root marker. ``hmp catalog reindex``, which rebuilds the
-       whole index from ``runs/`` and ``sessions/``.
+       whole index from ``runs/`` and ``sessions/``. Point interrogation
+       (``run.probe.series``, ``group.probe.series``,
+       ``hmp catalog point``). Observation points declared in
+       ``[observation]``, sampled by the run and persisted as
+       ``tables.parquet/observation_points.parquet``. Run retention
+       enforced by ``hmp catalog gc``.
    * - Removed
      - ``simulations/``, ``exports/``, ``figures/`` and ``reports/`` at
        the project root; ``.solver_scratch/``; ``catalog.duckdb`` at the
        project root; the ``.parquet.d`` and ``.zarr.zip`` container
        suffixes; the opaque ``<project>__<id8>`` storage basename; the
-       adoption verb. ``tests/unit/results/test_run_layout_contract.py``
-       fails if any of them reappears.
+       adoption verb; the ``retention_policies`` table and the
+       ``hmp audit prune`` verb, dropped together by migration ``0002``.
+       ``tests/unit/results/test_run_layout_contract.py`` fails if any of
+       the layout entries reappears.
    * - Not in place
-     - Reading one variable at one cell; declaring observation points
-       outside calibration; an ``audit_log`` retention that keeps the
-       hash chain verifiable. See `What is not in place`_.
+     - A chunk layout tuned for point reads: a series at one cell still
+       decompresses every chunk its time axis crosses. A per-run
+       replacement for the project-wide ``hydromodpy.lock``. See
+       `What is not in place`_.
 
 Project layout
 --------------
@@ -88,7 +96,12 @@ per-run replacement does not exist yet.
 
 The machine-wide ``index.duckdb`` lives at ``$XDG_STATE_HOME/hydromodpy/``
 (``~/.local/state/hydromodpy/`` on Linux) and federates registered
-workspaces through read-only ``ATTACH``.
+**projects** through read-only ``ATTACH``. One row of its ``projects``
+table is one project root, because a project root is what owns the
+``.hmp/index.duckdb`` the federation attaches. A workspace root owns
+none, so it is never a row: registering one expands it into the project
+roots under its ``projects/`` directory, one row each, and a workspace
+with no project registers nothing.
 
 A run folder
 ------------
@@ -229,6 +242,9 @@ Written into the run or session directory, and restored identically by
    * - ``tags``, ``sim_notes``
      - ``annotations.json``
      - tag search, ``gc`` pinning, spinup convergence gate
+   * - ``tracked_files``
+     - ``manifest.json``, ``inputs[]`` (path, ``sha256``, size, role)
+     - ``entry.used_by()``, cache-to-run linking
    * - trash state
      - ``trash.json``
      - ``hmp catalog trash`` and ``restore``
@@ -242,9 +258,10 @@ Written into the run or session directory, and restored identically by
 The frozen ``config.toml`` is not a table: it stays in the run directory,
 and ``hmp run --resume <ref>`` replays it straight from there.
 ``hmp catalog rerun`` goes through ``simulations.config_snapshot``, which
-comes back with ``simulation.parquet``. ``timeseries``, ``budgets`` and
-``mass_balance`` are not tables either but DuckDB views over the Parquet
-payloads, so they come back with the files themselves.
+comes back with ``simulation.parquet``. ``timeseries``, ``budgets``,
+``mass_balance`` and ``observation_points`` are not tables either but
+DuckDB views over the Parquet payloads, so they come back with the files
+themselves.
 
 Class 2: losable
 ~~~~~~~~~~~~~~~~
@@ -265,14 +282,6 @@ consequence is part of the contract.
    * - ``export_log``
      - the record of which artefacts were published under ``share/`` is
        lost. The artefacts themselves stay on disk.
-   * - ``tracked_files``
-     - nothing is lost: the manifest of each run carries its input list
-       under ``inputs[]`` (path, ``sha256``, size, role), and the rebuild
-       reinserts it, so ``entry.used_by()`` keeps linking a cache entry
-       back to its runs.
-   * - ``observation_points``
-     - the cell mapping of observation stations is lost. It is recorded
-       at run time only.
    * - ``workflow_steps``, ``workflow_events``
      - the workflow journal is lost, so an interrupted workflow replans
        from scratch instead of resuming. The resolved manifests under
@@ -305,8 +314,8 @@ treats their absence as a corrupted run.
 
 Tables outside the three classes are the static dimension tables seeded
 by the DDL (``solvers``, ``statuses``, ``flow_regimes``,
-``mesh_topologies``, ``metric_definitions``, ``retention_policies`` and
-the ``dim_*`` tables). A rebuild recreates them from the DDL.
+``mesh_topologies``, ``metric_definitions`` and the ``dim_*`` tables). A
+rebuild recreates them from the DDL.
 
 Contract coverage
 -----------------
@@ -444,6 +453,9 @@ are plain ``.parquet`` files. No suffix marks a container.
    * - ``mass_balance.parquet``
      - ``sim_id``, ``timestep``, ``total_in``, ``total_out``,
        ``storage_in``, ``storage_out``, ``percent_error``
+   * - ``observation_points.parquet``
+     - ``sim_id``, ``station_id``, ``x``, ``y``, ``cell_id``, ``layer``,
+       ``crs_wkt``, ``crs_epsg``: the points declared in ``[observation]``
    * - ``provenance.parquet``
      - input provenance rows of the run
    * - ``geographic_*.parquet``
@@ -514,10 +526,6 @@ Tables of the project index. The authoritative DDL is
      - ``sim_id``, ``role``, ``category``, ``original_path``,
        ``canonical_path``, ``sha256``, ``size_bytes``, from the
        ``inputs[]`` block of ``manifest.json``
-   * - ``observation_points``
-     - losable
-     - ``sim_id``, ``station_id``, ``x``, ``y``, ``cell_id``,
-       ``layer``, ``crs_wkt``, ``crs_epsg``
    * - ``workflow_steps``, ``workflow_events``
      - losable
      - workflow journal: ``step_id``, ``run_id``, ``step_name``,
@@ -531,24 +539,31 @@ Tables of the project index. The authoritative DDL is
      - station metadata and observation series, repopulated from the
        input cache
    * - ``solvers``, ``statuses``, ``flow_regimes``,
-       ``mesh_topologies``, ``dim_*``, ``metric_definitions``,
-       ``retention_policies``
+       ``mesh_topologies``, ``dim_*``, ``metric_definitions``
      - dimension
-     - static vocabularies seeded by the DDL. ``retention_policies`` is
-       the exception: declared, read by ``hmp audit prune``, seeded by
-       nothing
+     - static vocabularies seeded by the DDL
    * - ``schema_migrations``
      - dimension
      - one row per applied migration: ``version``, ``component``,
        ``slug``, ``checksum``, ``applied_at``
+
+``observation_points`` has no row here on purpose: the declaration lives
+in the run directory and is exposed as a Parquet-backed view, which is
+what makes it survive a rebuild. ``retention_policies`` is gone;
+migration ``0002`` dropped it together with the ``hmp audit prune`` verb,
+because a per-event-type age sweep deletes rows from the middle of the
+``audit_log`` hash chain and would break ``hmp audit verify``
+permanently.
 
 Views. ``v_workflow_heartbeats`` comes from the DDL.
 ``v_simulation_summary`` (the view the machine index federates),
 ``v_best_per_project``, ``v_metrics_wide``, ``v_params_long`` and
 ``v_params_wide`` are created at runtime by
 ``hydromodpy/results/catalog/views.py``. ``timeseries``, ``budgets``,
-``mass_balance``, ``metrics_parquet`` and ``provenance_parquet`` are
-views over the run's Parquet payloads.
+``mass_balance``, ``observation_points``, ``metrics_parquet`` and
+``provenance_parquet`` are views over the run's Parquet payloads,
+declared once in ``PARQUET_VIEW_NAMES``
+(``hydromodpy/results/catalog/constants.py``).
 
 Backend abstraction
 -------------------
@@ -578,9 +593,23 @@ Concurrency and atomic writes
 - A solving run refreshes a heartbeat sidecar under ``.hmp/running/`` so
   ``hmp catalog watch`` and ``hmp catalog gc`` read liveness from a file
   rather than from a database a live solve holds locked.
-- ``hmp catalog reindex`` fills a staging database next to the index and
-  publishes it with one ``os.replace``, so readers never see a partial
-  rebuild.
+- ``hmp catalog reindex`` fills a staging database next to the index
+  and installs it with one atomic rename (``_publish`` in
+  ``hydromodpy/results/catalog/reindex.py``, the only publishing path).
+  The invariant is that ``index.duckdb`` is never absent nor
+  half-written: a reader that was reading keeps reading the file it
+  opened, and the next opener gets the rebuilt one. ``os.replace``
+  delivers exactly that on POSIX. Windows refuses it with
+  ``PermissionError`` as soon as another handle is on the index,
+  because ``MoveFileEx`` deletes the target eagerly, so the same rename
+  is asked of the kernel there through ``SetFileInformationByHandle``
+  with ``FILE_RENAME_INFO_EX`` and ``FILE_RENAME_POSIX_SEMANTICS``,
+  which unlinks the target from its directory instead of deleting it.
+  Both ends are one atomic rename; there is no non-atomic fallback.
+  Where the kernel supports neither (below Windows 10 1709, or a volume
+  that is not NTFS) the rebuild fails and says so: the previous index is
+  untouched and still readable, and the fix is to close the processes
+  reading the project and rebuild again.
 
 Lockfile and reproducibility
 ----------------------------
@@ -632,28 +661,132 @@ writes its archive under ``share/<label>/`` instead.
 ``hmp catalog import run.hmp`` verifies the magic and every checksum,
 then re-materialises the runs in the target project.
 
+Reading one cell
+----------------
+
+A finished run answers for one precise cell, after the fact.
+``hydromodpy/results/run/point.py`` binds the point-to-cell lookup
+(``results/spatial_index``) and the on-the-fly derivations
+(``results/derive/virtual_fields``) to a run, and exposes the gesture as
+``run.probe.series`` and ``group.probe.series``. The cell is named by
+project-CRS coordinates, by its zero-based index, or by a depth in
+metres below the local model top that picks the layer. A virtual field
+(``watertable_depth`` ...) answers exactly like a persisted one, so a
+map read and a point read can never disagree.
+
+.. code-block:: python
+
+   run.probe.series("head", x=352000.0, y=6789000.0)
+   run.probe.series("watertable_depth", cell=1204, timestep=-1)
+   group.probe.series("head", x=352000.0, y=6789000.0, depth=12.5)
+
+The answer is a long-format table (``run``, ``sim_id``, ``variable``,
+``timestep``, ``time``, ``value``, ``unit``, ``cell``, ``layer``, ``x``,
+``y``), which makes the multi-run form a plain concatenation ready for a
+scenario comparison. The same reader backs the CLI:
+
+.. code-block:: bash
+
+   hmp catalog point @last --var head --xy 395100 6824925
+   hmp catalog point @last --var head --cell 5000 --timestep -1
+   hmp catalog point run_a run_b --var watertable_depth --cell 5000 -o point.csv
+
+A persisted field is sliced in a single Zarr call
+(``array[:, layer, cell]``), so the series costs one decompression pass
+over the touched chunks instead of one per timestep. A virtual field is
+rebuilt timestep by timestep and reduced to the cell right away, so
+memory stays at one field.
+
+Declared observation points
+---------------------------
+
+A location known before the run is declared in ``[observation]`` rather
+than interrogated afterwards:
+
+.. code-block:: toml
+
+   [observation]
+   variables = ["head", "watertable_depth"]
+
+   [[observation.points]]
+   id = "piezo_amont"
+   x = 395100.0
+   y = 6824925.0
+   depth = 12.5
+
+Each point names ``x``, ``y`` and either ``layer`` or ``depth``, and may
+override the section-level ``variables``. ``ObservationConfig``
+(``hydromodpy/simulation/planning/observation_config.py``) validates the
+ids and the vertical selector; the run samples the points at the end of
+extraction, while it still holds its fields
+(``simulation/extraction/post_run.py``,
+``sample_declared_observation_points``). A declaration mistake is logged
+and skipped: it must not lose a run whose results are already in.
+
+Both halves of a declared point are run artefacts. The series lands in
+``tables.parquet/timeseries.parquet`` under the station id
+``obs:<point id>``, so a declared probe never collides with a solver
+station (gauge, SFR reach, lake). The declaration itself lands in
+``tables.parquet/observation_points.parquet`` and is exposed as a
+Parquet-backed view, so ``hmp catalog reindex`` finds it again with the
+files. This is not ``[data.piezometry]``: that section loads *measured*
+series, this one declares *where the model is read*.
+
+Retention and garbage collection
+--------------------------------
+
+``hmp catalog gc`` is the single maintenance verb, and it plans by
+default: nothing moves without ``--apply``. Nothing is destroyed on the
+spot either. The rules are ``RetentionPolicy`` in
+``hydromodpy/cli/_workers/catalog.py``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Rule
+     - Behaviour
+   * - ``keep_versions`` (default 5)
+     - Keeps the newest versions of one lineage (``name_stem``) and
+       trashes the rest. ``--keep-versions all`` disables the rule.
+   * - ``max_age_days`` (default off)
+     - Trashes runs created more than N days ago. Opt-in through
+       ``--max-age-days``.
+   * - ``purge_figures`` (default off)
+     - Quarantines the regenerable ``figures/`` directory of each run.
+   * - ``pinned`` tag
+     - ``PROTECTED_TAG``: a run carrying it is exempt from every rule.
+
+A selected run goes to the project trash, a reversible status flip
+stamped on disk as ``runs/<name>/trash.json`` and undone by
+``hmp catalog restore``. Orphan stores and swept figures are moved to
+``<project>/.hmp/trash/<stamp>/``. Bytes are freed later by the trash
+expiry rule: a trashed, non-pinned run older than
+``TRASH_RETENTION_DAYS`` (30) is listed as ``expired_trash``. The same
+sweep also replays interrupted purges, marks stale running runs failed,
+drops orphan geographic caches and tmp Parquet files, checkpoints the
+DuckDB files and consolidates Zarr metadata (the absorbed ``vacuum``
+verb). Every applied sweep writes one ``gc`` row in the project audit
+log.
+
 What is not in place
 --------------------
 
 Stated here so that nothing above is read as a promise.
 
-- **Reading one cell.** There is no per-cell accessor. ``Run.field``
-  reads one timestep of a whole field, optionally clipped to a ``bbox``,
-  and ``Run.timeseries`` only serves the station series already
-  persisted in ``timeseries.parquet``. Building a series at an arbitrary
-  cell therefore reads the full field once per timestep, and no CLI verb
-  covers the case. The chunking policy that would make such a read cheap
-  is not implemented.
-- **Declared observation points.** ``observation_points`` can only be
-  filled by a calibration run. There is no config section that declares
-  them, and the table has no home on disk, so a rebuild would drop them
-  anyway. Both gaps have to close together.
-- **Audit retention.** ``retention_policies`` is declared by the DDL and
-  read by ``hmp audit prune``, but no code ever fills it, so the sweep is
-  a no-op. Filling it is not a one-line seed: ``audit_log`` is a
-  hash-chained ledger and ``hmp audit verify`` replays it in ``seq``
-  order, so deleting old rows invalidates the chain. Either the table and
-  the ``prune`` verb go, or pruning learns to re-anchor the chain.
+- **A chunk layout tuned for point reads.** Chunks are sized for map
+  reads: about 1 MiB each, and a whole timestep sits in one chunk as long
+  as it fits that budget
+  (``hydromodpy/results/zarr_store/chunks.py``). Reading one cell across
+  time is a single Zarr call, but it decompresses every chunk the time
+  axis crosses, so a point series pays for the neighbouring cells it
+  never uses. Making that read cheap needs a cell-major layout, or a
+  second copy laid out that way, and neither is written today.
+- **A per-run lockfile.** ``hydromodpy.lock`` sits at the project root
+  and describes the whole project's input cache. A run seals its own
+  inputs in ``manifest.json`` (``inputs[]``), but there is no per-run
+  lockfile, so replaying one old run still reads a project-wide file
+  that a later run may have rewritten.
 
 See also
 --------

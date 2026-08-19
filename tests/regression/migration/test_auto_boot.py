@@ -1,12 +1,12 @@
-"""Regression tests for ``ensure_schema_safe``.
+"""Regression tests for ``ensure_schema_safe`` on a project catalog.
 
-Three v1 fixtures (empty / single sim / multi sim) round-trip through the
-auto-boot path: pre-migration backup is written, post-migration the schema
-sits at the latest version, seeded simulations survive, and restoring the
-backup yields a working v1 catalog again.
+Three fixtures (empty / single sim / multi sim) are materialised at the
+initial schema version and driven through the auto-boot path: the catalog
+reaches the target version in place, the seeded simulations survive, and no
+snapshot is written because a catalog is rebuilt (``hmp catalog reindex``),
+never restored.
 
-Also covers the opt-out (``HMP_AUTO_MIGRATE=0``) and the failure path
-(corrupt migration triggers a restore).
+Also covers the opt-out (``HMP_AUTO_MIGRATE=0``) and the rolling backup cap.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from hydromodpy.core.migrations import (
     ensure_schema_safe,
     list_backups,
 )
+from hydromodpy.core.migrations.auto_boot import NO_BACKUP_COMPONENTS
 from hydromodpy.results.catalog.migrations import (
     CATALOG_COMPONENT,
     MIGRATIONS_DIR,
@@ -32,17 +33,6 @@ from .conftest import copy_fixture, discover_fixture_stems
 
 ALL_FIXTURES = discover_fixture_stems()
 
-# The nine catalog migrations were folded into a single canonical 0001 schema
-# (commit 89c78e5cf). There is no longer an incremental v1 -> latest migration
-# path: an old catalog is recreated, not migrated. The v1-fixture round-trip /
-# opt-out / restore tests below therefore exercise a removed capability. They
-# are skipped (not deleted) so the framework tests keep running and the intent
-# is preserved if incremental migration is ever reintroduced.
-_OBSOLETE_FOLD = (
-    "obsolete since 89c78e5cf: catalog migrations folded to one canonical schema; "
-    "no incremental v1->latest migration path (old catalogs are recreated)"
-)
-
 
 def _count_simulations(db_path: Path) -> int:
     conn = duckdb.connect(str(db_path), read_only=True)
@@ -52,16 +42,17 @@ def _count_simulations(db_path: Path) -> int:
         conn.close()
 
 
-@pytest.mark.skip(reason=_OBSOLETE_FOLD)
 @pytest.mark.parametrize("stem", ALL_FIXTURES)
-def test_round_trip_v1_to_latest(tmp_path: Path, stem: str) -> None:
-    """Every v1 fixture migrates to the latest version with a backup written."""
+def test_catalog_migrates_in_place_without_a_backup(tmp_path: Path, stem: str) -> None:
+    """A stale catalog reaches the target version, keeps its rows, gets no snapshot."""
+    assert CATALOG_COMPONENT in NO_BACKUP_COMPONENTS
     db_path = copy_fixture(stem, tmp_path)
     pre_count = _count_simulations(db_path)
-    pre_backups = list_backups(db_path)
+    assert list_backups(db_path) == []
 
     conn = duckdb.connect(str(db_path))
     try:
+        assert current_version(conn) < target_version(), "fixture must have a pending migration"
         ensure_schema_safe(
             conn,
             db_path=db_path,
@@ -74,20 +65,20 @@ def test_round_trip_v1_to_latest(tmp_path: Path, stem: str) -> None:
     finally:
         conn.close()
 
-    new_backups = [p for p in list_backups(db_path) if p not in pre_backups]
-    assert len(new_backups) == 1, "auto-boot must drop exactly one backup before migrating"
+    assert list_backups(db_path) == [], "a catalog is reindexed, not restored: never snapshotted"
 
 
-@pytest.mark.skip(reason=_OBSOLETE_FOLD)
 @pytest.mark.parametrize("stem", ALL_FIXTURES[:1])
 def test_opt_out_disables_migration(
     tmp_path: Path, stem: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``HMP_AUTO_MIGRATE=0`` blocks the migration without touching the file."""
+    """``HMP_AUTO_MIGRATE=0`` blocks the migration, and clearing it lets it through."""
     db_path = copy_fixture(stem, tmp_path)
     monkeypatch.setenv("HMP_AUTO_MIGRATE", "0")
     conn = duckdb.connect(str(db_path))
     try:
+        stale_version = current_version(conn)
+        assert stale_version < target_version(), "fixture must have a pending migration"
         with pytest.raises(AutoMigrationDisabled):
             ensure_schema_safe(
                 conn,
@@ -95,8 +86,17 @@ def test_opt_out_disables_migration(
                 versions_dir=MIGRATIONS_DIR,
                 component=CATALOG_COMPONENT,
             )
-        # File stays at v1.
-        assert current_version(conn) == 1
+        assert current_version(conn) == stale_version
+        assert list_backups(db_path) == []
+
+        monkeypatch.delenv("HMP_AUTO_MIGRATE")
+        ensure_schema_safe(
+            conn,
+            db_path=db_path,
+            versions_dir=MIGRATIONS_DIR,
+            component=CATALOG_COMPONENT,
+        )
+        assert current_version(conn) == target_version()
     finally:
         conn.close()
 
@@ -121,42 +121,3 @@ def test_rolling_backups_respect_max(tmp_path: Path) -> None:
     _prune_old_backups(db_path, keep=MAX_BACKUPS)
     survivors = list_backups(db_path)
     assert len(survivors) == MAX_BACKUPS
-
-
-@pytest.mark.skip(reason=_OBSOLETE_FOLD)
-def test_restore_on_migration_failure(tmp_path: Path) -> None:
-    """A simulated migration failure rolls the file back to the v1 backup."""
-    from hydromodpy.core.migrations import auto_boot as auto_boot_mod
-
-    db_path = copy_fixture("single_sim", tmp_path)
-    pre_count = _count_simulations(db_path)
-
-    real_ensure = auto_boot_mod.ensure_schema
-
-    def _boom(connection, *args, **kwargs) -> None:
-        # Mutate through DuckDB itself so the failure simulation is portable
-        # even on platforms that deny raw writes to an open database file.
-        connection.execute("DROP TABLE IF EXISTS simulations")
-        raise RuntimeError("simulated migration crash")
-
-    auto_boot_mod.ensure_schema = _boom  # type: ignore[assignment]
-    try:
-        conn = duckdb.connect(str(db_path))
-        try:
-            with pytest.raises(RuntimeError, match="simulated"):
-                ensure_schema_safe(
-                    conn,
-                    db_path=db_path,
-                    versions_dir=MIGRATIONS_DIR,
-                    component=CATALOG_COMPONENT,
-                )
-        finally:
-            try:
-                conn.close()
-            except Exception:
-                pass
-    finally:
-        auto_boot_mod.ensure_schema = real_ensure
-
-    # The file must be back at v1 with the seeded row intact.
-    assert _count_simulations(db_path) == pre_count

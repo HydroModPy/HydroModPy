@@ -33,6 +33,10 @@ So the project root keeps it, and the layout contract
 (``tests/unit/results/test_run_layout_contract.py``) declares it instead of
 tolerating it by accident. What the lockfile no longer has to carry is the
 per-run input list: that duplication is gone.
+
+One address, one resolver: every writer and every reader goes through
+:func:`hydromodpy.data.data_freeze.project_lockfile_path`, and frozen mode
+carries the project root instead of guessing it from the cache database.
 """
 
 from __future__ import annotations
@@ -57,7 +61,7 @@ def write_project_lockfile(config: HydroModPyConfig, *, quiet: bool = True) -> P
     is the data provenance plus the storage-schema versions.
     """
     from hydromodpy.config.schema_export import schema_sha256
-    from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
+    from hydromodpy.data.data_freeze import project_lockfile_path, write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
@@ -67,7 +71,7 @@ def write_project_lockfile(config: HydroModPyConfig, *, quiet: bool = True) -> P
     if not db_path.is_file():
         return None
 
-    dest = project_root / LOCKFILE_NAME
+    dest = project_lockfile_path(project_root)
     try:
         with DataCatalogDuckDB(db_path) as catalog:
             write_lockfile(

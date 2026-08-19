@@ -207,7 +207,9 @@ def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
     finally:
         sz.close()
 
-    array_dir = store_path / "derived" / "watertable_elevation"
+    # The store writes through the extended-length form, so read it back the
+    # same way: a bare path over 259 chars is invisible to the Win32 API.
+    array_dir = zarr_schema.windows_long_path(store_path) / "derived" / "watertable_elevation"
     assert (array_dir / "zarr.json").is_file()
     assert any(path.is_file() for path in (array_dir / "c").rglob("*"))
 

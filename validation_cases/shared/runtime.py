@@ -650,7 +650,7 @@ def run_example_script(
     env[out_env_var] = str(out_path)
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
+    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -831,7 +831,7 @@ def run_launcher_validation_case(
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
+    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
 
     # Validation runs never persist ``hydromodpy.lock``: the lockfile would

@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from hydromodpy.cli._conventions import add_sim_ref
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
 
 NAME: str = "show"
@@ -14,8 +15,10 @@ HELP: str = "Render one figure for a simulation"
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument("sim_ref", help="Simulation reference: full UUID, prefix, or name")
-    parser.add_argument("figure", help="Figure name (e.g. watertable_map)")
+    add_sim_ref(parser)
+    parser.add_argument(
+        "figure", help="Figure name from 'hmp viz list' (e.g. watertable_depth_map)"
+    )
     parser.add_argument("--workspace", default=None, help="Project catalog root")
     parser.add_argument(
         "--output",

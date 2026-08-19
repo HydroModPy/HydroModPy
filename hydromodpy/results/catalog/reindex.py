@@ -11,10 +11,11 @@ that read-back, and it is the only way a run directory re-enters the index.
 How
 ---
 The rebuild never edits the live index. It fills a fresh database next to it
-and publishes the result with one ``os.replace``: readers keep the old file
-open until the swap and see the new one on their next statement. Running it
-twice describes the project identically, because every row comes from a file
-on disk. Only the database's own bookkeeping differs between two rebuilds:
+and publishes it in one filesystem step (:func:`_publish`), so the index path
+is never absent nor half-written: a reader that was reading keeps reading the
+file it opened, and the next opener gets the rebuilt one. Running it twice
+describes the project identically, because every row comes from a file on
+disk. Only the database's own bookkeeping differs between two rebuilds:
 the schema ledger (``_schema_version``, ``schema_migrations``) and the
 ``migrate`` audit row a fresh database writes when it applies the DDL.
 
@@ -37,6 +38,10 @@ trash state            ``trash.json``
 
 ``timeseries``, ``budgets`` and ``mass_balance`` are not tables but views
 over the Parquet payloads, so they come back with the files themselves.
+
+A manifest carrying no ``inputs`` block at all is reported at WARNING and
+indexed as it stands: a run that declared no input and a run whose inputs
+were never recorded must not read the same.
 
 The run **name is taken from the directory**, never from the files: a rename
 moves the directory, so the tree is what the name is. The identity recorded
@@ -77,12 +82,12 @@ data.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
+from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
     RUNS_DIRNAME,
@@ -152,7 +157,8 @@ def rebuild_index(project_root: Path | str) -> ReindexReport:
     """Rebuild ``<project>/.hmp/index.duckdb`` from ``runs/`` and ``sessions/``.
 
     Fills a staging database, then publishes it atomically. The previous
-    index stays readable for the whole rebuild and is replaced in one step.
+    index stays readable for the whole rebuild and is replaced in one step,
+    open readers included.
 
     Parameters
     ----------
@@ -201,7 +207,7 @@ def rebuild_index(project_root: Path | str) -> ReindexReport:
                 sessions.append(session_dir.name)
                 _tally(counts)
             catalog.connection.execute("CHECKPOINT")
-        os.replace(staging, index_path)
+        _publish(staging, index_path)
         _forget_write_ahead_log(index_path)
     finally:
         _discard(staging)
@@ -330,7 +336,7 @@ def _index_run(catalog: Catalog, run_dir: Path) -> dict[str, int]:
     )
     counts["geographic_metadata"] = _insert_geographic_metadata(catalog.backend, sim_id, manifest)
     counts["tracked_files"] = _insert_tracked_files(
-        catalog.backend, sim_id, manifest, recorded_at=sealed_at
+        catalog.backend, sim_id, manifest, run=run_dir.name, recorded_at=sealed_at
     )
     counts["geographic_features"] = _insert_geographic_features(catalog, sim_id, tables_dir)
     counts["runs_environment"] = _insert_environment(
@@ -465,15 +471,30 @@ def _insert_geographic_metadata(
 
 
 def _insert_tracked_files(
-    backend: CatalogBackend, sim_id: str, manifest: dict[str, Any], *, recorded_at: str
+    backend: CatalogBackend,
+    sim_id: str,
+    manifest: dict[str, Any],
+    *,
+    run: str,
+    recorded_at: str,
 ) -> int:
     """Restore the input files the run consumed from the manifest.
 
     ``inputs`` is the data provenance of the run: which DEM, which climate
     series, which geometry produced these numbers, each with its SHA-256. It
     is what lets a run directory state what it was fed without the index.
+
+    An empty list is an answer: the run declared no input. A missing block is
+    not, so it is said out loud instead of being indexed as an input-free run.
     """
-    entries = manifest.get("inputs") or []
+    entries = manifest.get("inputs")
+    if entries is None:
+        logger.warning(
+            "Run %s carries no inputs block: the data provenance of this run is "
+            "unknown, not empty.",
+            run,
+        )
+        return 0
     for entry in entries:
         backend.execute(
             """INSERT INTO tracked_files
@@ -609,13 +630,43 @@ def _sql_text(value: str) -> str:
     return f"'{escaped}'"
 
 
+# ---------------------------------------------------------------------------
+# Publishing the rebuilt index
+# ---------------------------------------------------------------------------
+
+
+def _publish(staging: Path, index_path: Path) -> None:
+    """Install the rebuilt database at ``index_path`` in one filesystem step.
+
+    The swap is what makes a rebuild safe to run at any time: the path never
+    goes missing, no reader ever sees half a database, and a reader holding
+    the previous index keeps reading it until it reopens. That is what
+    :func:`rename_over_open_file` buys on both platforms; there is no second
+    way to publish.
+    """
+    try:
+        rename_over_open_file(staging, index_path)
+    except OSError as refused:
+        raise OSError(
+            f"Could not publish the rebuilt index at {index_path}: {refused}. "
+            "The previous index is untouched and still readable; close the "
+            "processes reading this project and rebuild again."
+        ) from refused
+
+
 def _forget_write_ahead_log(index_path: Path) -> None:
     """Drop the write-ahead log of the index the rebuild just replaced.
 
     The published database is checkpointed and complete; a leftover ``.wal``
     belongs to the file that is gone and would be replayed onto the new one.
     """
-    index_path.with_name(f"{index_path.name}.wal").unlink(missing_ok=True)
+    wal_path = index_path.with_name(f"{index_path.name}.wal")
+    try:
+        wal_path.unlink(missing_ok=True)
+    except OSError as exc:
+        # The index is already swapped: a journal a reader still holds open is
+        # a leftover to report, not a reason to fail a finished rebuild.
+        logger.warning("Left the stale write-ahead log %s behind: %s", wal_path, exc)
 
 
 def _discard(staging: Path) -> None:

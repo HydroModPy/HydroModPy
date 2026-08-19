@@ -11,18 +11,25 @@ Sub-modules
 
 - ``cli/main.py`` -- argparse dispatcher; iterates ``ALL_COMMANDS``
   and forwards the parsed namespace to ``args._handler``.
-- ``cli/commands/`` -- one module per verb (see inventory below).
+- ``cli/commands/`` -- one module per leaf verb, one sub-package per
+  verb family (see inventory below).
+- ``cli/_conventions.py`` -- the shared argparse grammar
+  (``workspace_parser``, ``confirm_parser``, ``format_parser``,
+  ``profile_parser``, ``add_sim_ref``, ``add_action_subparsers``).
+- ``cli/helpers.py`` -- typed exit codes and ``exit_code_for(exc)``.
 - ``cli/_workers/`` -- CLI application services for commands whose
   reusable Python surface is not part of ``hydromodpy._api``. Workers
   may assemble diagnostics, catalog listings and developer reports, but
   they must not become hidden scientific workflow implementations.
-- ``cli/workflows.py`` -- workflow dispatcher used by ``hmp run`` to
-  pick the right launcher from ``[workflow].mode``.
+
+The ``[workflow].mode`` dispatch does not live here: ``hmp run`` calls
+``hydromodpy._api.run``, which reaches
+``hydromodpy/project/dispatch/workflow.py``.
 
 Verb inventory
 --------------
 
-Twenty-six verbs ship today.
+Seventeen top-level verbs ship today, in ``ALL_COMMANDS`` order.
 
 .. list-table::
    :header-rows: 1
@@ -30,70 +37,60 @@ Twenty-six verbs ship today.
 
    * - Verb
      - Role
-   * - ``init``
-     - Scaffold a workspace (``data/`` with its input cache, and
-       ``projects/``).
-   * - ``new``
-     - Create a new project inside a workspace.
+   * - ``workspace``
+     - Workspace lifecycle and global-index registration: ``init``,
+       ``list``, ``register``, ``search``, ``forget``, ``prune``,
+       ``clean``.
+   * - ``project``
+     - Projects inside a workspace: ``new``, ``list``, ``show``,
+       ``delete``.
+   * - ``catalog``
+     - The run lifecycle: ``ls``, ``query``, ``show``, ``point``,
+       ``gc``, ``reindex``, ``delete``, ``restore``, ``trash``,
+       ``tag``, ``note``, ``rename``, ``diff``, ``watch``, ``export``,
+       ``import``, ``rerun``.
+   * - ``data``
+     - Input cache and ``.hmp`` package exchange: ``ls``, ``get``,
+       ``check``, ``add``, ``remove``, ``prune``, ``archive``,
+       ``restore``, ``export``, ``export-package``, ``import``.
+   * - ``viz``
+     - Figures: ``list`` (registered names), ``show`` (one figure for
+       one run), ``gallery`` (the ``[display]`` set for one or several
+       runs).
    * - ``config``
-     - Generate a TOML template, validate one, list modules, open
-       the wizard.
-   * - ``schema``
-     - Export JSON Schema and the companion files for frontends.
+     - ``template``, ``check``, ``schema``, ``wizard``.
+   * - ``dev``
+     - Developer-only: ``run-script``, ``completion``, ``schema``,
+       ``lock``, ``rank``, ``manage``.
+   * - ``audit``
+     - ``list`` and ``verify`` on the hash-chained audit log.
+   * - ``privacy``
+     - ``purge`` a simulation with a JSON certificate, and ``verify``
+       that certificate.
    * - ``run``
      - Execute a workflow (``simulation`` / ``calibration`` /
        ``overview`` / ``comparison`` / ``testbed``).
-   * - ``dev``
-     - Developer-only verbs (``run-script``, schema diagnostics,
-       etc.).
-   * - ``catalog``
-     - Query the workspace-level catalog.
-   * - ``display``
-     - Render registered figures for one persisted simulation.
-   * - ``report``
-     - Render the HTML report for a calibration session.
-   * - ``list``
-     - Browse projects or runs in a workspace.
-   * - ``export``
-     - Export geographic data or simulation results to external
-       formats.
+   * - ``calibrate``
+     - Run a calibration workflow from a TOML config.
+   * - ``spinup``
+     - Cyclic spin-up until heads and lake stage converge.
+   * - ``site-selection``
+     - ``plan``, ``select-catchments``, ``build-observed``,
+       ``build-generated``, ``report``.
    * - ``test``
-     - Run the unit, integration, regression, validation tiers.
-   * - ``data``
-     - Inspect or manage custom data artefacts.
-   * - ``lock``
-     - Manage the reproducibility lockfile.
-   * - ``show``
-     - Show metadata, metrics, parameters of a simulation.
-   * - ``compare``
-     - Compare two simulations by id, prefix, or name.
-   * - ``add``
-     - Import a portable ``.hmp`` archive and dematerialise inputs.
-   * - ``import``
-     - Import a portable ``.hmp`` package into a workspace.
+     - Run the ``unit``, ``regression`` or ``validation`` tier.
+   * - ``report``
+     - ``render`` a calibration report, ``compare`` two runs, build a
+       ``catchment`` report.
    * - ``doctor``
      - Diagnose Python, dependencies, solver binaries, workspace.
-   * - ``inspect``
-     - Inspect metadata, mesh, status, files of a simulation.
-   * - ``manage``
-     - Open the local browser UI for catalog tables and cleanup.
    * - ``install-binaries``
      - Download the MODFLOW / MODPATH / MT3D-USGS binaries.
-   * - ``rank``
-     - Rank simulations for a project by one metric.
-   * - ``delete``
-     - Delete a simulation (catalog row plus Zarr / Parquet
-       artefacts).
-   * - ``workspace``
-     - Inspect or initialise workspace paths and storage
-       conventions.
-   * - ``completion``
-     - Emit shell completion scripts (bash / zsh / fish).
 
 Verb contract
 -------------
 
-Each module under ``cli/commands/`` exposes:
+Each leaf module under ``cli/commands/`` exposes:
 
 .. code-block:: python
 
@@ -111,6 +108,13 @@ Each module under ``cli/commands/`` exposes:
 
 The dispatcher iterates ``ALL_COMMANDS``, calls ``register`` on
 each, then forwards the parsed namespace to ``args._handler``.
+
+A verb family (``workspace/``, ``project/``, ``catalog/``, ``data/``,
+``viz/``, ``dev/``) is a sub-package: its ``__init__.py`` carries
+``NAME``, ``HELP`` and an ``ACTIONS`` tuple, and every action module
+repeats the same four symbols. The group is attached with
+``add_action_subparsers``, so a bare ``hmp catalog`` is a usage error
+and exits 2.
 
 For V1, the CLI boundary is:
 
@@ -131,8 +135,9 @@ Recommended reading path
    verb.
 4. ``hydromodpy/project/dispatch/workflow.py`` for the
    ``[workflow].mode`` -> launcher dispatch.
-5. One small verb such as ``cli/commands/show.py`` to see the
-   thin-handler convention.
+5. One small verb such as ``cli/commands/catalog/point.py`` to see the
+   thin-handler convention: parse, call a worker, format, map errors to
+   exit codes.
 
 Layer-matrix neighbours
 -----------------------

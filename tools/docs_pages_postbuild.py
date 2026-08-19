@@ -12,7 +12,7 @@ so the capability-gallery SHA-256 gate and the nightly refresh stay valid.
 
 Usage::
 
-    python tools/docs_pages_postbuild.py docs/build/html https://hydromodpy.github.io
+    python tools/docs_pages_postbuild.py docs/build/html https://docs.hydromodpy.fr
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ def shrink_gallery_pngs(html_root: Path) -> None:
 
 def main() -> int:
     html_root = Path(sys.argv[1] if len(sys.argv) > 1 else "docs/build/html")
-    base_url = sys.argv[2] if len(sys.argv) > 2 else "https://hydromodpy.github.io"
+    base_url = sys.argv[2] if len(sys.argv) > 2 else "https://docs.hydromodpy.fr"
     if not html_root.is_dir():
         print(f"no html dir at {html_root}", file=sys.stderr)
         return 1

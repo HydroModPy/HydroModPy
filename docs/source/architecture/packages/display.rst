@@ -3,8 +3,8 @@ display
 
 ``hydromodpy.display`` is the solver-agnostic figure layer. It wraps
 matplotlib through a registered catalog of named figures consumable
-from ``Run.plot``, ``hmp display``, and the ``[display]`` TOML
-section.
+from ``Run.plot``, ``hmp viz show``, ``hmp viz gallery``, and the
+``[display]`` TOML section.
 
 Sub-modules
 -----------
@@ -12,7 +12,7 @@ Sub-modules
 - ``display/figure.py`` -- ``FigureSpec`` dataclass, ``Figure``
   Protocol, and ``BaseFigure`` ABC. Concrete figures inherit from
   ``BaseFigure`` and decorate themselves with ``@register``.
-- ``display/catalog.py`` -- registry, ``register`` decorator,
+- ``display/figure_registry.py`` -- registry, ``register`` decorator,
   ``get(name)``, ``list_figures()``, ``names()``.
 - ``display/figures/`` -- one module per named figure. Auto-discovery
   through ``pkgutil.iter_modules`` in
@@ -50,30 +50,44 @@ The renderer is currently used by overview reporting, site-selection
 review reports, the catchment report pipeline, and the
 network/transient calibration diagnostic page.
 
-Figure inventory (33 today)
+Figure inventory (45 today)
 ---------------------------
 
-Spatial: ``piezometric_map``, ``recharge_map``, ``seepage_map``,
-``concentration_map``, ``side_by_side_map``, ``difference_map``,
-``cross_section``, ``hydrographic_network``,
-``hydrographic_network_comparison``, ``simulated_active_network``,
-``watershed_id_card``, ``residuals``.
+Grouped by ``FigureSpec.kind``. ``hmp viz list`` prints the live list;
+this page is a reading aid, not the source of truth.
 
-Time series: ``hydrograph``, ``hydrograph_sim_obs``,
-``piezo_timeseries_sim_obs``, ``duration_curve``,
-``seasonal_boxplot``, ``recession``, ``ensemble_band``.
+Spatial (8): ``concentration_map``, ``mesh_map``, ``piezometric_map``,
+``recharge_map``, ``seepage_map``, ``sfr_reach_network``,
+``simulated_active_network``, ``watertable_depth_map``.
 
-Balance: ``water_budget``.
+Section (1): ``cross_section``.
 
-Calibration: ``calibration_convergence``,
-``calibration_landscape``, ``calibration_objective_surface``,
-``calibration_pairplot``, ``calibration_posterior``,
-``calibration_trace``.
+Time series (8): ``calibration_convergence``, ``calibration_trace``,
+``duration_curve``, ``hydrograph``, ``recession``,
+``seasonal_boxplot``, ``sfr_longitudinal_profile``,
+``sfr_reach_timeseries``.
 
-Hydrochemistry: ``piper_diagram``, ``schoeller_diagram``,
+Balance (2): ``flux_timeseries``, ``water_budget``.
+
+Comparison (22): ``calibration_landscape``,
+``calibration_objective_surface``, ``calibration_pairplot``,
+``calibration_posterior``, ``conditioning_impact_map``,
+``difference_map``, ``ensemble_band``, ``hydrograph_sim_obs``,
+``hydrographic_network_comparison``,
+``hydrographic_network_generated``,
+``hydrographic_network_generated_extra_only``,
+``hydrographic_network_reference``,
+``hydrographic_network_reference_missing_only``,
+``lake_abacus_comparison``, ``lake_stage_sim_obs``,
+``lake_volume_sim_obs``, ``piezo_timeseries_sim_obs``, ``residuals``,
+``scatter_one_to_one``, ``side_by_side``,
+``simulated_active_network_reference_overlay``,
+``watershed_id_card``.
+
+Table (3): ``piper_diagram``, ``schoeller_diagram``,
 ``stiff_diagram``.
 
-Particle / scatter: ``particle_tracks``, ``scatter_one_to_one``.
+Particles (1): ``particle_tracks``.
 
 Figure contract
 ---------------

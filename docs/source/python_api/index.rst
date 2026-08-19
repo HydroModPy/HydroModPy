@@ -9,10 +9,10 @@ re-exported from :mod:`hydromodpy._api`.
 Catalog and indexing
 --------------------
 
-- :func:`hydromodpy.open` -- the single door to a workspace catalog (object
+- :func:`hydromodpy.open` -- the single door to a project catalog (object
   access, DataFrames, and schema discovery). Replaces the former
   ``open_catalog``.
-- :func:`hydromodpy.index` -- open the machine-wide global index of workspaces.
+- :func:`hydromodpy.index` -- open the machine-wide global index of projects.
 
 Workflow launchers
 ------------------

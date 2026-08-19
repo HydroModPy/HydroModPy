@@ -90,7 +90,7 @@ class TestCliWiring:
         result = obj.evaluate({"head_A": [12.0, 22.0, 32.0]})
         assert result.total == pytest.approx(2.0)
 
-    def test_cli_args_keep_legacy_when_no_blocks(self):
+    def test_cli_args_keep_single_metric_when_no_blocks(self):
         cfg = CalibrationConfig.model_validate(
             {"method": "grid", "variable": "head", "objective": "rmse"}
         )

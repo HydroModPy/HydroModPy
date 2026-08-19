@@ -210,7 +210,7 @@ Add a brand-new section
 3. If a launcher should dispatch on the new section, wire it through
    ``hydromodpy/project/dispatch/workflow.py`` (or the equivalent dispatcher).
 4. Refresh the JSON Schema export with
-   ``hmp schema export --output ./schema/`` and commit the diff if
+   ``hmp dev schema export --output ./schema/`` and commit the diff if
    the project pins generated artefacts.
 
 Tests to add

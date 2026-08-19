@@ -2,8 +2,9 @@
 
 Covers Phase 3 of the calibration integration:
 
-- Without ``outputs`` the legacy single-metric extractor is returned and
-  no composite objective is built.
+- Without ``outputs`` the single-metric extractor is returned and no
+  composite objective is built. This is the standard TOML route, taken
+  whenever no ``objective_blocks`` are declared.
 - With ``outputs`` and ``objective_blocks`` the extractor routes through
   :func:`build_objective_from_config` and exposes per-block costs as
   components.
@@ -59,11 +60,11 @@ def _empty_ctx():
 
 
 # ---------------------------------------------------------------------------
-# Legacy fallback path
+# Single-metric path (no objective_blocks declared)
 # ---------------------------------------------------------------------------
 
 
-class TestLegacyFallback:
+class TestSingleMetricPath:
     def test_falls_back_when_no_outputs(self):
         ctx = _empty_ctx()
         metric_fn = build_metric_extractor(

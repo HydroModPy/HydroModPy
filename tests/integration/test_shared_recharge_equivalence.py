@@ -10,6 +10,7 @@ both ways and checks exactly that.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -120,11 +121,14 @@ def test_shared_recharge_matches_per_trial_and_runs(tmp_path: Path) -> None:
     )
 
 
-def test_short_recharge_stays_internal() -> None:
-    # Below the binary threshold the stack stays in-memory on both paths.
+def test_short_recharge_stays_internal(tmp_path: Path) -> None:
+    # Below the binary threshold the stack stays in-memory on both paths, and the
+    # shared dir is not even created.
     small = {k: np.full(_NCPL, 1e-4) for k in range(10)}
+    shared = tmp_path / "_shared_recharge"
     assert externalize_recharge_spd(small, basename="m") is small
-    assert externalize_recharge_spd(small, basename="m", shared_dir="/tmp/x") is small
+    assert externalize_recharge_spd(small, basename="m", shared_dir=str(shared)) is small
+    assert not shared.exists()
 
 
 def test_shared_recharge_dir_detects_a_trial_anywhere_in_the_path() -> None:
@@ -132,12 +136,23 @@ def test_shared_recharge_dir_detects_a_trial_anywhere_in_the_path() -> None:
 
     from hydromodpy.solver.modflow6.build import _shared_recharge_dir
 
+    # ``full_path`` is an os.path.join of the local scratch tree, and the result only
+    # feeds a local mkdir plus the OPEN/CLOSE line of the same run's MF6 input: it is
+    # an OS-native path, never a persisted cross-platform record.
+    scratch = os.path.join(os.sep, "p", ".hmp", "scratch")
+    shared = os.path.join(scratch, "_shared_recharge")
+
     # The trial folder can be the leaf, or a parent of a truncated mf6 model name;
     # either way the shared dir sits beside the trial folder.
-    nested = SimpleNamespace(full_path="/p/.hmp/scratch/run_trial000016/cheze_cal_377f4b")
-    leaf = SimpleNamespace(full_path="/p/.hmp/scratch/run_trial000001")
-    single = SimpleNamespace(full_path="/p/.hmp/scratch/plain_run")
-    assert _shared_recharge_dir(nested) == "/p/.hmp/scratch/_shared_recharge"
-    assert _shared_recharge_dir(leaf) == "/p/.hmp/scratch/_shared_recharge"
+    nested = SimpleNamespace(full_path=os.path.join(scratch, "run_trial000016", "cheze_cal_377f4b"))
+    leaf = SimpleNamespace(full_path=os.path.join(scratch, "run_trial000001"))
+    single = SimpleNamespace(full_path=os.path.join(scratch, "plain_run"))
+    assert _shared_recharge_dir(nested) == shared
+    assert _shared_recharge_dir(leaf) == shared
     assert _shared_recharge_dir(single) is None
     assert _shared_recharge_dir(SimpleNamespace(full_path=None)) is None
+
+    # A workspace root read from a TOML may be spelled with forward slashes, so
+    # ``full_path`` reaches the walk with mixed separators on Windows.
+    mixed = SimpleNamespace(full_path="/p/.hmp/scratch/run_trial000016/cheze_cal_377f4b")
+    assert _shared_recharge_dir(mixed) == shared

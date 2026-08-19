@@ -31,6 +31,7 @@ class TestCanonicalAdapters:
         assert opt.name == "random_search"
 
     def test_cma_es_resolves(self) -> None:
+        pytest.importorskip("cma")
         opt = build_optimizer(
             "cma_es",
             _two_dim_space(),
@@ -96,6 +97,7 @@ class TestRandomSearchSeeding:
 class TestCmaEsAdapter:
     def test_ask_tell_converges_on_convex(self) -> None:
         """Optimise a convex quadratic: best value must be close to origin."""
+        pytest.importorskip("cma")
         space = _two_dim_space()
         opt = build_optimizer(
             "cma_es",
@@ -133,6 +135,7 @@ class TestCmaEsAdapter:
         assert abs(best_vec["y"] - 0.5) < 0.1
 
     def test_ask_returns_values_within_bounds(self) -> None:
+        pytest.importorskip("cma")
         space = _two_dim_space()
         opt = build_optimizer(
             "cma_es",
@@ -150,6 +153,7 @@ class TestCmaEsAdapter:
 
     def test_cma_adapter_restarts(self) -> None:
         """A restart must re-instantiate the strategy when CMA stops early."""
+        pytest.importorskip("cma")
         space = _two_dim_space()
         opt = build_optimizer(
             "cma_es",

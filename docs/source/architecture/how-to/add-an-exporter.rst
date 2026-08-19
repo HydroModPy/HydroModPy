@@ -91,9 +91,9 @@ new branch in ``hydromodpy/results/catalog/reads.py``:
 Wire it through the CLI
 -----------------------
 
-The ``hmp export`` command (``hydromodpy/cli/commands/catalog/export.py``)
-forwards ``--myfmt`` to the exporter. Add an argument and a dispatch
-branch:
+The ``hmp catalog export`` command
+(``hydromodpy/cli/commands/catalog/export.py``) forwards ``--myfmt`` to
+the exporter. Add an argument and a dispatch branch:
 
 .. code-block:: python
 
@@ -122,12 +122,11 @@ keys.
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/results/exporters/`` with a tiny
-  fixture catalog (``conftest.py`` already ships ``catalog_with_data``).
-  Assert the file is created and round-trips for the field's dtype
-  and shape.
+- **Unit** under ``tests/unit/results/`` with a tiny fixture catalog
+  (``conftest.py`` already ships ``catalog_with_data``). Assert the file
+  is created and round-trips for the field's dtype and shape.
 - **Integration** under ``tests/integration/results/`` for an
-  end-to-end ``hmp export`` invocation.
+  end-to-end ``hmp catalog export`` invocation.
 
 Pitfalls flagged by the layer matrix
 ------------------------------------

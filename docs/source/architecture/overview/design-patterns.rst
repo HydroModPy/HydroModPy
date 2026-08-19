@@ -225,7 +225,7 @@ Location: ``hydromodpy/schema/``.
 Anything that drives a UI widget (figure picker, parameter form,
 metrics panel) exposes a JSON-compatible contract. The ``schema``
 package exposes helpers that dump Pydantic models as JSON Schema
-(``hmp schema export``) and validate a partially edited TOML, so a
+(``hmp dev schema export``) and validate a partially edited TOML, so a
 frontend can flag errors field by field without raising on the first
 invalid value.
 

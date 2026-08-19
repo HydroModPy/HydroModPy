@@ -97,7 +97,7 @@ def write_table_atomic(
     """
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex}")
+    tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex[:8]}")
     tmp_io = _native_io_path(tmp)
     target_io = _native_io_path(target)
     if os.path.exists(tmp_io):

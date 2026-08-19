@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
-from hydromodpy.core.state.global_index import auto_register_workspace
+from hydromodpy.core.state.global_index import auto_register_projects
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
@@ -368,7 +368,7 @@ def run_setup(
     setup_state = run_state.setup
 
     setup_state.workspace = Workspace(config=cfg.workspace)
-    auto_register_workspace(
+    auto_register_projects(
         setup_state.workspace.project_root,
         label=getattr(setup_state.workspace, "catch_name", None),
     )

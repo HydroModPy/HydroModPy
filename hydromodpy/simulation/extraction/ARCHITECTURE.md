@@ -87,6 +87,7 @@ dans le meme fichier. Strategie :
 import duckdb
 import time
 
+
 def _write_to_registry(catalog_path, row, retries=3):
     """Ecriture avec retry pour gerer la concurrence."""
     for attempt in range(retries):
@@ -97,7 +98,7 @@ def _write_to_registry(catalog_path, row, retries=3):
             return
         except duckdb.IOException:
             if attempt < retries - 1:
-                time.sleep(0.1 * (2 ** attempt))
+                time.sleep(0.1 * (2**attempt))
             else:
                 raise
 ```
@@ -136,32 +137,35 @@ par cell_id** avec connectivite explicite.
 # Maillage 2D - hydromodpy/spatial/mesh/hydro_mesh.py
 @dataclass(frozen=True)
 class HydroMesh:
-    vertices: np.ndarray              # (n_nodes, 2|3) float64
+    vertices: np.ndarray  # (n_nodes, 2|3) float64
     cell_blocks: tuple[CellBlock, ...]
     cell_data: dict[str, np.ndarray]  # (n_cells,) par champ
-    point_data: dict[str, np.ndarray] # (n_nodes,) par champ
+    point_data: dict[str, np.ndarray]  # (n_nodes,) par champ
     structured_shape: tuple[int, ...] | None
+
 
 @dataclass(frozen=True)
 class CellBlock:
-    cell_type: CellType               # TRIANGLE | QUADRILATERAL | WEDGE | HEXAHEDRON
-    connectivity: np.ndarray          # (n_cells, nodes_per_cell) int
+    cell_type: CellType  # TRIANGLE | QUADRILATERAL | WEDGE | HEXAHEDRON
+    connectivity: np.ndarray  # (n_cells, nodes_per_cell) int
+
 
 # Maillage 3D extrude - gmsh_grid/extruded_prism_mesh.py
 @dataclass(frozen=True)
 class ExtrudedPrismMeshData:
-    points_xyz: np.ndarray            # (n_nodes, 3)
-    prism_connectivity: np.ndarray    # (n_prisms, 6|8)
-    cell_type_2d: str                 # "triangle" | "quadrilateral"
-    z_interfaces: np.ndarray          # (nz,) limites verticales
-    layer_indices: np.ndarray         # (n_prisms,) couche par prisme
-    source_cell_indices: np.ndarray   # (n_prisms,) cellule 2D source
+    points_xyz: np.ndarray  # (n_nodes, 3)
+    prism_connectivity: np.ndarray  # (n_prisms, 6|8)
+    cell_type_2d: str  # "triangle" | "quadrilateral"
+    z_interfaces: np.ndarray  # (nz,) limites verticales
+    layer_indices: np.ndarray  # (n_prisms,) couche par prisme
+    source_cell_indices: np.ndarray  # (n_prisms,) cellule 2D source
+
 
 # Champs attaches - gmsh_grid/extruded_mesh_values.py
 @dataclass(frozen=True)
 class ExtrudedPrismMeshWithValues:
     mesh: ExtrudedPrismMesh3D
-    values_3d: np.ndarray             # (nlay, n_cells_2d)
+    values_3d: np.ndarray  # (nlay, n_cells_2d)
     label: str | None
     prism_center_depths: np.ndarray | None
     metadata: Mapping[str, Any] | None
@@ -249,7 +253,7 @@ deux stores independamment :
 ```python
 # Comparaison simule / observe
 simulated = result_store.query_timeseries(sim_id, station="P1", variable="head")
-observed  = data_manager.piezometry.load(station="P1", period=...)
+observed = data_manager.piezometry.load(station="P1", period=...)
 plot_comparison(simulated, observed)
 ```
 
@@ -266,6 +270,7 @@ Cela permet de detecter toute divergence sans dupliquer les forcages.
 ```python
 import hashlib
 import numpy as np
+
 
 def fingerprint(data: np.ndarray) -> dict:
     """Fingerprint leger d'un array de forcage."""
@@ -377,7 +382,7 @@ project_results.zarr/
 chunks = (1, nlayers, ncells)
 
 # Compression : Blosc + Zstd, ratio ~2-3x sur donnees hydrologiques
-compressor = zarr.codecs.BloscCodec(cname='zstd', clevel=3)
+compressor = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
 ```
 
 Le sharding Zarr v3 elimine le probleme "1 fichier par chunk" : un shard
@@ -679,21 +684,52 @@ class ResultStore:
 
     def register_simulation(self, sim_id: UUID, config: HydroModPyConfig) -> None: ...
     def write_mesh(self, sim_id: UUID, mesh: HydroMesh, z_interfaces: np.ndarray) -> None: ...
-    def register_observation_points(self, sim_id: UUID, points: dict[str, tuple[float, float]], variable: str = "head", layer: int = 0) -> None:
+    def register_observation_points(
+        self,
+        sim_id: UUID,
+        points: dict[str, tuple[float, float]],
+        variable: str = "head",
+        layer: int = 0,
+    ) -> None:
         """Enregistre des points d'observation et calcule le mapping station → cell_id.
         Effectue un point-in-cell lookup sur le maillage stocke.
         points : {"P1": (x1, y1), "P2": (x2, y2), ...}"""
         ...
-    def write_field(self, sim_id: UUID, variable: str, timestep: int, values: np.ndarray) -> None: ...
-    def write_timeseries(self, sim_id: UUID, station: str, variable: str, ts: pd.Series) -> None: ...
-    def write_budget(self, sim_id: UUID, timestep: int, zone: int, component: str, flux_in: float, flux_out: float) -> None: ...
-    def write_mass_balance(self, sim_id: UUID, timestep: int, total_in: float, total_out: float, percent_error: float, **kwargs) -> None:
+
+    def write_field(
+        self, sim_id: UUID, variable: str, timestep: int, values: np.ndarray
+    ) -> None: ...
+    def write_timeseries(
+        self, sim_id: UUID, station: str, variable: str, ts: pd.Series
+    ) -> None: ...
+    def write_budget(
+        self,
+        sim_id: UUID,
+        timestep: int,
+        zone: int,
+        component: str,
+        flux_in: float,
+        flux_out: float,
+    ) -> None: ...
+    def write_mass_balance(
+        self,
+        sim_id: UUID,
+        timestep: int,
+        total_in: float,
+        total_out: float,
+        percent_error: float,
+        **kwargs,
+    ) -> None:
         """Enregistre le bilan de masse global (depuis le listing file MODFLOW)."""
         ...
-    def record_provenance(self, sim_id: UUID, variable: str, source_ref: str, data: np.ndarray, **meta) -> None:
+
+    def record_provenance(
+        self, sim_id: UUID, variable: str, source_ref: str, data: np.ndarray, **meta
+    ) -> None:
         """Enregistre un fingerprint (hash + stats) des donnees d'entree.
         Ne stocke PAS l'array - uniquement le hash SHA-256 et les statistiques."""
         ...
+
     def finalize(self, sim_id: UUID, status: str = "completed") -> None:
         """Marque la simulation comme terminee.
 
@@ -707,26 +743,37 @@ class ResultStore:
     # -- Requetes --
 
     def list_simulations(self, **filters) -> pd.DataFrame: ...
-    def query_timeseries(self, sim_id: UUID, station: str, variable: str, period: tuple | None = None) -> pd.Series:
+    def query_timeseries(
+        self, sim_id: UUID, station: str, variable: str, period: tuple | None = None
+    ) -> pd.Series:
         """Extrait une serie temporelle a un point d'observation.
         Utilise le mapping station → cell_id pour lire dans Zarr :
         zarr[sim_id/variable][:, layer, cell_id] → pd.Series."""
         ...
-    def query_field(self, sim_id: UUID, variable: str, timestep: int, layer: int | None = None) -> np.ndarray:
+
+    def query_field(
+        self, sim_id: UUID, variable: str, timestep: int, layer: int | None = None
+    ) -> np.ndarray:
         """Charge un champ spatial pour un pas de temps donne.
         Accepte les variables brutes (head, concentration) et derivees
         (watertable_depth, seepage_areas) de maniere transparente."""
         ...
-    def query_budget(self, sim_id: UUID, zone: int | None = None, period: tuple | None = None) -> pd.DataFrame: ...
+
+    def query_budget(
+        self, sim_id: UUID, zone: int | None = None, period: tuple | None = None
+    ) -> pd.DataFrame: ...
     def query_mass_balance(self, sim_id: UUID) -> pd.DataFrame:
         """Retourne le bilan de masse global par pas de temps + erreur de fermeture."""
         ...
+
     def get_provenance(self, sim_id: UUID, variable: str | None = None) -> pd.DataFrame:
         """Retourne les fingerprints des entrees utilisees pour un run."""
         ...
+
     def verify_provenance(self, sim_id: UUID, variable: str, current_data: np.ndarray) -> bool:
         """Compare le hash des donnees actuelles avec celui du run. Retourne False si divergence."""
         ...
+
     def compare(self, sim_a: UUID, sim_b: UUID, variable: str, timestep: int) -> dict: ...
 
     # -- Calibration --
@@ -1027,6 +1074,7 @@ DuckDB peut lire nativement les fichiers SQLite existants :
 
 ```python
 import duckdb
+
 conn = duckdb.connect("workspace/catalog.duckdb")
 conn.execute("INSTALL sqlite; LOAD sqlite")
 conn.execute("ATTACH 'catalog.db' AS legacy (TYPE SQLITE)")
@@ -1146,6 +1194,7 @@ pas obligatoire. C'est configurable.
 ```python
 # simulation/results/calibration_bridge.py
 
+
 def make_hot_simulator(run_fn):
     """Callback pour la boucle de calibration. Tout en RAM, pas de store.
 
@@ -1153,8 +1202,10 @@ def make_hot_simulator(run_fn):
         Fonction qui lance le modele et retourne directement les resultats
         en memoire (pas de persistence).
     """
+
     def simulator(params: dict) -> np.ndarray:
         return run_fn(params)  # numpy array direct, zero I/O
+
     return simulator
 
 
@@ -1255,9 +1306,9 @@ dict_accumulation_flux = {}
 for item, time in enumerate(times):
     head = head_fpu.get_data(totim=time)
     wt = pp.get_water_table(head, -9999)
-    dict_watertable_depth[item] = dem - wt       # GARDE en memoire
-    dict_seepage_areas[item] = (wt >= dem)        # GARDE en memoire
-    dict_outflow_drain[item] = extract_drain(cbb) # GARDE en memoire
+    dict_watertable_depth[item] = dem - wt  # GARDE en memoire
+    dict_seepage_areas[item] = wt >= dem  # GARDE en memoire
+    dict_outflow_drain[item] = extract_drain(cbb)  # GARDE en memoire
     # ...
 
 # Pour 500k cellules × 365 pas de temps × 5 variables × 8 octets :
@@ -1269,7 +1320,7 @@ Avec le ResultStore, chaque pas de temps est ecrit dans Zarr puis libere :
 ```python
 # Avec ResultStore - RAM constante (solution)
 for item, time in enumerate(times):
-    head = head_fpu.get_data(totim=time)          # ~40 Mo (1 timestep)
+    head = head_fpu.get_data(totim=time)  # ~40 Mo (1 timestep)
     wt = pp.get_water_table(head, -9999)
     wtd = dem - wt
 

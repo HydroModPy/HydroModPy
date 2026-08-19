@@ -170,7 +170,9 @@ def test_resolve_bundle_cells_warns_when_structured_support_raster_is_absent(
     assert cells is None
     warnings = [record.getMessage() for record in records if record.levelno >= logging.WARNING]
     assert any("Cannot rebuild structured cell centroids" in message for message in warnings)
-    assert any(PREPROCESSING_DIR in message for message in warnings)
+    # The warning interpolates a Path, so it renders with the native separator.
+    native_preprocessing_dir = str(Path(PREPROCESSING_DIR))
+    assert any(native_preprocessing_dir in message for message in warnings)
 
 
 def test_equivalence_audit_flags_physical_config_mismatch(

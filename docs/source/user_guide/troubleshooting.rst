@@ -7,7 +7,7 @@ recommended action.
 
 If your error is not listed, open a GitHub issue with the full traceback,
 the TOML config (or its schema), and the version of HydroModPy
-(``hmp version``).
+(``hmp --version``).
 
 Configuration parsing
 ---------------------
@@ -100,12 +100,12 @@ Data and storage
 .. dropdown:: ``No .hmp archive at ...``
    :icon: database
 
-   **Cause.** ``hmp open <path>`` was pointed at a missing or moved
+   **Cause.** ``hmp data import <path>`` was pointed at a missing or moved
    ``.hmp`` archive.
 
    **Fix.** Confirm the archive path. ``hmp catalog export <ref> -o
    <file>.hmp`` prints the archive it wrote; that path is the one
-   ``hmp open`` expects.
+   ``hmp data import`` expects.
 
 .. dropdown:: ``CSV time series not found`` / ``NetCDF file not found``
    :icon: database
@@ -171,4 +171,4 @@ issue under the ``HydroModPy/HydroModPy`` repository with:
 
 - the full traceback,
 - the TOML config (or a minimal reproduction),
-- the output of ``hmp version``.
+- the output of ``hmp --version``.

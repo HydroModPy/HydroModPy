@@ -19,9 +19,9 @@ from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.results.catalog.migrations import ensure_schema as _ensure_catalog
 
 
-def _seed_real_catalog(workspace: Path, *, solver_code: str, project: str) -> str:
+def _seed_real_catalog(project_root: Path, *, solver_code: str, project: str) -> str:
     """Materialise a real catalog DB with one simulation under ``solver_code``."""
-    catalog_path = catalog_path_for(workspace)
+    catalog_path = catalog_path_for(project_root)
     catalog_path.parent.mkdir(parents=True, exist_ok=True)
     sim_id = str(uuid.uuid4())
     connection = duckdb.connect(str(catalog_path))
@@ -47,11 +47,11 @@ def _seed_real_catalog(workspace: Path, *, solver_code: str, project: str) -> st
 def test_find_returns_rows_for_real_catalog_solver(tmp_path: Path) -> None:
     """``find(solver="modflow6")`` returns the simulation registered under it."""
     state_root = tmp_path / "state"
-    workspace = tmp_path / "naizin"
-    sim_id = _seed_real_catalog(workspace, solver_code="modflow6", project="naizin")
+    project_root = tmp_path / "naizin"
+    sim_id = _seed_real_catalog(project_root, solver_code="modflow6", project="naizin")
 
     with GlobalIndex(state_root / "index.duckdb") as index:
-        index.register_workspace(str(workspace), label="naizin")
+        index.register(str(project_root), label="naizin")
         index.refresh_federation()
         rows = index.find(solver="modflow6")
 
@@ -61,16 +61,16 @@ def test_find_returns_rows_for_real_catalog_solver(tmp_path: Path) -> None:
 
 
 def test_find_filters_on_solver_code(tmp_path: Path) -> None:
-    """Two workspaces with different solvers: ``find`` returns only the match."""
+    """Two projects with different solvers: ``find`` returns only the match."""
     state_root = tmp_path / "state"
-    ws_a = tmp_path / "naizin"
-    ws_b = tmp_path / "lez"
-    _seed_real_catalog(ws_a, solver_code="modflow6", project="naizin")
-    _seed_real_catalog(ws_b, solver_code="boussinesq", project="lez")
+    project_a = tmp_path / "naizin"
+    project_b = tmp_path / "lez"
+    _seed_real_catalog(project_a, solver_code="modflow6", project="naizin")
+    _seed_real_catalog(project_b, solver_code="boussinesq", project="lez")
 
     with GlobalIndex(state_root / "index.duckdb") as index:
-        index.register_workspace(str(ws_a), label="naizin")
-        index.register_workspace(str(ws_b), label="lez")
+        index.register(str(project_a), label="naizin")
+        index.register(str(project_b), label="lez")
         index.refresh_federation()
         rows = index.find(solver="boussinesq")
 
@@ -78,9 +78,9 @@ def test_find_filters_on_solver_code(tmp_path: Path) -> None:
     assert rows.iloc[0]["solver"] == "boussinesq"
 
 
-def _seed_row(workspace: Path, *, name: str, status_code: str, nse: float | None = None) -> str:
+def _seed_row(project_root: Path, *, name: str, status_code: str, nse: float | None = None) -> str:
     """Insert one simulation row (and optional nse metric) into a catalog."""
-    catalog_path = catalog_path_for(workspace)
+    catalog_path = catalog_path_for(project_root)
     catalog_path.parent.mkdir(parents=True, exist_ok=True)
     sim_id = str(uuid.uuid4())
     connection = duckdb.connect(str(catalog_path))
@@ -110,12 +110,12 @@ def _seed_row(workspace: Path, *, name: str, status_code: str, nse: float | None
 
 def test_find_keyword_filters_hide_trashed_and_compare(tmp_path: Path) -> None:
     state_root = tmp_path / "state"
-    ws = tmp_path / "cheze"
-    _seed_row(ws, name="cheze_baseline", status_code="completed", nse=0.86)
-    _seed_row(ws, name="cheze_draft", status_code="trashed")
+    project_root = tmp_path / "cheze"
+    _seed_row(project_root, name="cheze_baseline", status_code="completed", nse=0.86)
+    _seed_row(project_root, name="cheze_draft", status_code="trashed")
 
     with GlobalIndex(state_root / "index.duckdb") as index:
-        index.register_workspace(str(ws), label="cheze")
+        index.register(str(project_root), label="cheze")
         index.refresh_federation()
         default = index.find()
         by_name = index.find(name_like="cheze_base%")

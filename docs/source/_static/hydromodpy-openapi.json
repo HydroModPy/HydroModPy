@@ -495,7 +495,7 @@
           },
           "min_thickness": {
             "default": 0.5,
-            "description": "Minimum layer thickness [L, model units] kept when re-grading a lake column around the carved bed, so no degenerate (near-zero) cell breaks the solver. The bed is clamped into [base + min_thickness, top - min_thickness].",
+            "description": "Minimum layer thickness [L, model units] held by EVERY layer when re-grading a lake column around the carved bed, so no degenerate (near-zero) cell breaks the solver. The bed is clamped into the band the column can hold at that floor, i.e. [base + n_active * min_thickness, top - n_occupied * min_thickness]; a column too thin for it raises at build time. Raising this value moves the carved bed away from the bathymetry (the build logs the shift).",
             "examples": [
               0.5
             ],
@@ -1012,12 +1012,16 @@
       },
       "CalibOutputLake": {
         "additionalProperties": false,
-        "description": "Observable extracted from a MODFLOW 6 LAK lake stage.\n\nUse this variant to score a lake water level (stage) inside a composite\nobjective. ``lake_id`` matches the lake declared under\n``flow.sinks_sources.lakes.<lake_id>``.\n\nFor calibration against a real observed chronicle, prefer the top-level\n``variable = \"lake_level\"`` path: it loads the ``lake_levels`` data family\nand time-aligns the simulated stage to the observations. This output\nvariant scores positionally against ``observed_values``, like the other\ncomposite outputs.",
+        "description": "Observable extracted from a MODFLOW 6 LAK lake state.\n\nUse this variant to score a lake water level, stored volume or free surface\ninside a composite objective. ``lake_id`` matches the lake declared under\n``flow.sinks_sources.lakes.<lake_id>``.\n\nFor calibration against a real observed chronicle, prefer the top-level\n``variable = \"lake_level\"`` path: it loads the ``lake_levels`` data family\nand time-aligns the simulated stage to the observations. This output\nvariant scores positionally against ``observed_values``, like the other\ncomposite outputs.",
         "properties": {
           "variable": {
-            "const": "stage",
             "default": "stage",
-            "description": "Simulated lake quantity. Only 'stage' (water level, m) is supported.",
+            "description": "Simulated lake quantity: 'stage' (water level, m), 'volume' (m3) or 'surface_area' (m2). All three are LAK observation states, read in native units and never time-scaled.",
+            "enum": [
+              "stage",
+              "volume",
+              "surface_area"
+            ],
             "examples": [
               "stage"
             ],

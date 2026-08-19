@@ -10,6 +10,7 @@ import re
 import tomllib
 from pathlib import Path
 
+from ..long_paths import filesystem_path
 from ..schema import (
     DEFAULT_TOML_SECTION,
     VisualizationConfig,
@@ -61,7 +62,7 @@ def load_toml_config(
     """
 
     config_path = Path(toml_path).resolve()
-    content = tomllib.loads(config_path.read_text(encoding="utf-8-sig"))
+    content = tomllib.loads(filesystem_path(config_path).read_text(encoding="utf-8-sig"))
 
     try:
         parsed = MeshVisualizationTomlSchema.from_mapping(content.get(section))

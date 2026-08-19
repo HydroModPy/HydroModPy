@@ -158,8 +158,8 @@ hydromodpy = "hydromodpy.cli:main"
 # hydromodpy.solver.base.registry, so a backend never carries two names.
 
 [project.urls]
-Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
-Documentation = "https://hydromodpy-docs.readthedocs.io/en/latest/"
+Homepage = "https://docs.hydromodpy.fr/"
+Documentation = "https://docs.hydromodpy.fr/"
 Repository = "https://github.com/HydroModPy/HydroModPy"
 Issues = "https://github.com/HydroModPy/HydroModPy/issues"
 "Google Group" = "https://groups.google.com/g/hydromodpy"

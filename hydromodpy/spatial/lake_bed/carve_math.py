@@ -89,12 +89,13 @@ def regrade_column_active_top(
     VERTICAL LAK connection gates wetting on the real bed). All ``nlay`` layers
     are re-proportioned into ``[base, bed]`` with the aquifer base fixed; nothing
     is deactivated. Returns ``(new_top, new_botm)``. ``bed`` is clamped into
-    ``[base + nlay*min_thickness, orig_top - min_thickness]``.
+    ``[base + nlay*min_thickness, orig_top]``: the bed IS the cell top here, so
+    no layer sits above it and the terrain ceiling reserves no thickness.
     """
     botm_col = np.asarray(botm_col, dtype=float)
     nlay = botm_col.size
     base = float(botm_col[-1])
-    bed_hi = _bed_ceiling(float(orig_top) - float(min_thickness), stage_max)
+    bed_hi = _bed_ceiling(float(orig_top), stage_max)
     bed_lo = base + nlay * float(min_thickness)
     if bed_lo > bed_hi:
         raise ValueError(
@@ -122,8 +123,8 @@ def _bed_ceiling(terrain_ceiling: float, stage_max: float | None) -> float:
     Clamping to the DEM therefore undoes the reconciliation it was just asked for,
     and it can only push the bed DOWN, so it deepens the cuvette and inflates the
     storage. The reconciled bed reproduces the reference abacus to round-off; the
-    clamp then pins every cell whose terrain sits below its assigned stage to
-    ``top - min_thickness`` and deepens the cuvette by the mean of those shifts.
+    clamp then pins every cell whose terrain sits below its assigned stage on
+    the terrain ceiling and deepens the cuvette by the mean of those shifts.
     Lowering ``min_thickness`` barely helps, which is the tell: the floor is not the
     problem, the reference the ceiling is measured from is.
 

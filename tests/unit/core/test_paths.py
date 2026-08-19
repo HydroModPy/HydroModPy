@@ -12,8 +12,14 @@ from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
     PROJECT_MARKER_FILENAME,
+    PROJECTS_DIRNAME,
     RUNS_DIRNAME,
+    WORKSPACE_TOML_FILENAME,
     cache_dir,
+    catalog_path_for,
+    is_project_root,
+    is_workspace_root,
+    project_roots_under,
     resolve_project_root,
     resolve_workspace,
     state_dir,
@@ -138,3 +144,116 @@ def test_resolve_project_root_accepts_a_configs_dir_under_a_marker(tmp_path: Pat
     configs = root / CONFIGS_DIRNAME
     configs.mkdir()
     assert resolve_project_root(configs) == root
+
+
+def _make_project(parent: Path, name: str) -> Path:
+    """Create a project root carrying ``project.toml``."""
+    root = parent / name
+    root.mkdir(parents=True)
+    (root / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    return root
+
+
+def _make_workspace(parent: Path, name: str = "ws") -> Path:
+    """Create a workspace root carrying ``workspace.toml`` and ``projects/``."""
+    root = parent / name
+    (root / PROJECTS_DIRNAME).mkdir(parents=True)
+    (root / WORKSPACE_TOML_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    return root
+
+
+def _symlink_dir(link: Path, target: Path) -> None:
+    """Symlink ``link`` to ``target``, skipping where the OS forbids it."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"directory symlinks unavailable here: {exc}")
+
+
+def test_is_project_root_accepts_the_marker(tmp_path: Path) -> None:
+    """``project.toml`` alone makes a project root, before any run exists."""
+    root = _make_project(tmp_path, "naizin")
+    assert is_project_root(root)
+    assert not is_workspace_root(root)
+
+
+def test_is_project_root_accepts_a_bare_index_database(tmp_path: Path) -> None:
+    """A root whose marker is gone still counts while its index database is there."""
+    root = tmp_path / "naizin"
+    catalog = catalog_path_for(root)
+    catalog.parent.mkdir(parents=True)
+    catalog.write_bytes(b"")
+    assert is_project_root(root)
+
+
+def test_is_workspace_root_accepts_either_marker(tmp_path: Path) -> None:
+    """``workspace.toml`` or a ``projects/`` directory each make a workspace root."""
+    with_toml = tmp_path / "by_toml"
+    with_toml.mkdir()
+    (with_toml / WORKSPACE_TOML_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    with_dir = tmp_path / "by_dir"
+    (with_dir / PROJECTS_DIRNAME).mkdir(parents=True)
+    assert is_workspace_root(with_toml)
+    assert is_workspace_root(with_dir)
+    assert not is_project_root(with_toml)
+    assert not is_project_root(with_dir)
+
+
+def test_a_plain_directory_is_neither_root(tmp_path: Path) -> None:
+    """A directory without any marker carries no granularity of its own."""
+    plain = tmp_path / "downloads"
+    plain.mkdir()
+    assert not is_project_root(plain)
+    assert not is_workspace_root(plain)
+
+
+def test_project_roots_under_keeps_a_plain_directory_as_one_root(tmp_path: Path) -> None:
+    """Anything that is not a workspace root stands for itself, resolved."""
+    plain = tmp_path / "downloads"
+    plain.mkdir()
+    assert project_roots_under(plain) == [plain.resolve()]
+
+
+def test_project_roots_under_expands_a_workspace_root(tmp_path: Path) -> None:
+    """A workspace root contributes the project roots it holds, sorted, not itself."""
+    workspace = _make_workspace(tmp_path)
+    projects = workspace / PROJECTS_DIRNAME
+    beta = _make_project(projects, "beta")
+    alpha = _make_project(projects, "alpha")
+    (projects / "notes").mkdir()
+    assert project_roots_under(workspace) == [alpha.resolve(), beta.resolve()]
+
+
+def test_project_roots_under_includes_a_workspace_that_is_also_a_project(tmp_path: Path) -> None:
+    """A root carrying both markers is listed first, then the projects it holds."""
+    workspace = _make_workspace(tmp_path)
+    (workspace / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    alpha = _make_project(workspace / PROJECTS_DIRNAME, "alpha")
+    assert project_roots_under(workspace) == [workspace.resolve(), alpha.resolve()]
+
+
+def test_project_roots_under_expands_an_empty_workspace_to_nothing(tmp_path: Path) -> None:
+    """A workspace with no project yet registers no row."""
+    assert project_roots_under(_make_workspace(tmp_path)) == []
+
+
+def test_project_roots_under_resolves_a_symlinked_project(tmp_path: Path) -> None:
+    """An expanded entry resolves, so a symlinked project is one root, not two.
+
+    Registering the workspace and registering the project directly must yield
+    the same string, otherwise the global index holds the same project twice.
+    """
+    target = _make_project(tmp_path, "elsewhere")
+    workspace = _make_workspace(tmp_path)
+    _symlink_dir(workspace / PROJECTS_DIRNAME / "linked", target)
+    assert project_roots_under(workspace) == [target.resolve()]
+    assert project_roots_under(workspace / PROJECTS_DIRNAME / "linked") == [target.resolve()]
+
+
+def test_project_roots_under_drops_duplicate_symlinks(tmp_path: Path) -> None:
+    """Two links onto the same project collapse into a single root."""
+    target = _make_project(tmp_path, "elsewhere")
+    workspace = _make_workspace(tmp_path)
+    _symlink_dir(workspace / PROJECTS_DIRNAME / "one", target)
+    _symlink_dir(workspace / PROJECTS_DIRNAME / "two", target)
+    assert project_roots_under(workspace) == [target.resolve()]

@@ -1,4 +1,4 @@
-"""``hmp workspace prune`` - thin wrapper around :func:`hydromodpy.prune_workspaces`."""
+"""``hmp workspace prune`` - drop registrations whose project index is gone."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 from hydromodpy.cli.helpers import EXIT_OK
 
 NAME: str = "prune"
-HELP: str = "Drop registrations whose index database is missing"
+HELP: str = "Drop registrations whose project index database is missing"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -18,13 +18,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.workspace import prune_workspaces
+    from hydromodpy.cli._workers.workspace import prune_projects
 
-    removed = prune_workspaces()
+    removed = prune_projects()
     if not removed:
-        print("No stale workspaces to prune.")
+        print("No stale projects to prune.")
         sys.exit(EXIT_OK)
-    print(f"Pruned {len(removed)} stale workspace(s):")
-    for wid in removed:
-        print(f"  - {wid}")
+    print(f"Pruned {len(removed)} stale project(s):")
+    for project_id in removed:
+        print(f"  - {project_id}")
     sys.exit(EXIT_OK)

@@ -69,7 +69,7 @@ def convert_vector_to_geoparquet(
         raise VectorConversionError(
             f"{src} has no CRS; add a .prj sidecar or set gdf.crs before ingest"
         )
-    tmp = dest.with_name(f"{dest.name}.tmp-{uuid.uuid4().hex}")
+    tmp = dest.with_name(f"{dest.name}.tmp-{uuid.uuid4().hex[:8]}")
     try:
         gdf.to_parquet(tmp, **GEOPARQUET_WRITE_DEFAULTS)
     except Exception:

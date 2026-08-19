@@ -177,8 +177,8 @@ def test_components_dict_is_merged_from_all_blocks() -> None:
 
     # Both per-station components from the two ScalarObjective blocks
     # survive in the merged components dict.
-    assert "nse@A" in out.components
-    assert "nse@B" in out.components
+    assert "cost:nse@A" in out.components
+    assert "cost:nse@B" in out.components
     # Per-block totals are also surfaced; both blocks carry the same
     # ``.name`` ("nse") so one of them is disambiguated by index.
     total_keys = [k for k in out.components if k.endswith(".total")]
