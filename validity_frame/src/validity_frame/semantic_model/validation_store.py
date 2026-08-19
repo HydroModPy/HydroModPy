@@ -1,5 +1,6 @@
 # validity_frame/src/validity_frame/semantic_model/validation_store.py
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -7,6 +8,7 @@ from typing import Any
 @dataclass
 class UncertaintyDescriptors:
     """Incer = {m_j, s_j} extrait du HCDM."""
+
     log_mean: dict[str, float] = field(default_factory=dict)
     # m_j : log-moyenne par type de roche
     log_std: dict[str, float] = field(default_factory=dict)
@@ -16,6 +18,7 @@ class UncertaintyDescriptors:
 @dataclass
 class ValidationStore:
     """VA = ⟨X_r, P_r, τ, Val, Incer⟩"""
+
     X_r: dict[str, Any] = field(default_factory=dict)
     # résultats de simulation
     P_r: dict[str, Any] = field(default_factory=dict)

@@ -34,7 +34,6 @@ from evaluation.extract_architecture import collect_architecture
 from evaluation.radon_metrics import compute_radon_metrics
 from evaluation.repository_summary import summarize_repository
 
-
 TOP_N_PACKAGES = 15
 TOP_N_MODULES = 20
 TOP_N_BOXPLOT_PACKAGES = 10
@@ -47,7 +46,7 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def package_summary_frame(summary: dict[str, Any]) -> "pd.DataFrame":
+def package_summary_frame(summary: dict[str, Any]) -> pd.DataFrame:
     packages = summary.get("packages") or []
     if packages:
         return pd.DataFrame(packages)
@@ -57,7 +56,9 @@ def package_summary_frame(summary: dict[str, Any]) -> "pd.DataFrame":
         return pd.DataFrame()
 
     if "package" not in files.columns:
-        files["package"] = files["module"].apply(lambda name: name.rsplit(".", 1)[0] if "." in name else name)
+        files["package"] = files["module"].apply(
+            lambda name: name.rsplit(".", 1)[0] if "." in name else name
+        )
 
     grouped = files.groupby("package", dropna=False).agg(
         file_count=("path", "count"),
@@ -65,13 +66,15 @@ def package_summary_frame(summary: dict[str, Any]) -> "pd.DataFrame":
         public_module_count=("public", "sum") if "public" in files.columns else ("module", "count"),
         class_count=("classes", "sum") if "classes" in files.columns else ("module", "count"),
         method_count=("methods", "sum") if "methods" in files.columns else ("module", "count"),
-        function_count=("functions", "sum") if "functions" in files.columns else ("module", "count"),
+        function_count=("functions", "sum")
+        if "functions" in files.columns
+        else ("module", "count"),
         line_count=("lines", "sum") if "lines" in files.columns else ("module", "count"),
     )
     return grouped.reset_index()
 
 
-def top_modules_frame(summary: dict[str, Any]) -> "pd.DataFrame":
+def top_modules_frame(summary: dict[str, Any]) -> pd.DataFrame:
     top_modules = summary.get("top_modules") or []
     if top_modules:
         return pd.DataFrame(top_modules)
@@ -131,7 +134,9 @@ def _module_to_package(module: str, depth: int | None = None) -> str:
     return package
 
 
-def build_package_dependency_frame(architecture: "pd.DataFrame | dict[str, Any]", depth: int | None = None) -> "pd.DataFrame":
+def build_package_dependency_frame(
+    architecture: pd.DataFrame | dict[str, Any], depth: int | None = None
+) -> pd.DataFrame:
     if isinstance(architecture, dict):
         architecture = pd.DataFrame(architecture.get("modules", []))
     if architecture.empty or "module" not in architecture.columns:
@@ -155,7 +160,7 @@ def build_package_dependency_frame(architecture: "pd.DataFrame | dict[str, Any]"
     return pd.DataFrame(rows)
 
 
-def public_only(frame: "pd.DataFrame") -> "pd.DataFrame":
+def public_only(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         return frame
     if "public" in frame.columns:
@@ -165,13 +170,18 @@ def public_only(frame: "pd.DataFrame") -> "pd.DataFrame":
     return frame
 
 
-def package_group_column(frame: "pd.DataFrame", depth: int, source_col: str = "package") -> "pd.Series":
+def package_group_column(frame: pd.DataFrame, depth: int, source_col: str = "package") -> pd.Series:
     if frame.empty or source_col not in frame.columns:
         return pd.Series(dtype=object)
-    return frame[source_col].fillna("").astype(str).apply(lambda value: ".".join(value.split(".")[:depth]) or value)
+    return (
+        frame[source_col]
+        .fillna("")
+        .astype(str)
+        .apply(lambda value: ".".join(value.split(".")[:depth]) or value)
+    )
 
 
-def select_package_order(counts: "pd.Series", top_n: int, pinned: list[str]) -> list[str]:
+def select_package_order(counts: pd.Series, top_n: int, pinned: list[str]) -> list[str]:
     ordered = counts.sort_values(ascending=False)
     selected = list(ordered.head(top_n).index)
     for package in pinned:
@@ -187,14 +197,18 @@ def dependency_cycles_text(graph: Any, n: int = 5) -> str:
     # combinatorially on a real dependency graph.
     import networkx as nx
 
-    cycle_groups = [sorted(group) for group in nx.strongly_connected_components(graph) if len(group) > 1]
+    cycle_groups = [
+        sorted(group) for group in nx.strongly_connected_components(graph) if len(group) > 1
+    ]
     if not cycle_groups:
         return ""
     lines = [" <-> ".join(group) for group in cycle_groups[:n]]
     return "Cycles de dependances:\n" + "\n".join(lines)
 
 
-def top_outliers_text(frame: "pd.DataFrame", value_col: str, label_cols: list[str], n: int = 5) -> str:
+def top_outliers_text(
+    frame: pd.DataFrame, value_col: str, label_cols: list[str], n: int = 5
+) -> str:
     if frame.empty or value_col not in frame.columns:
         return ""
     subset = frame.dropna(subset=[value_col])
@@ -208,7 +222,7 @@ def top_outliers_text(frame: "pd.DataFrame", value_col: str, label_cols: list[st
     return "Valeurs extremes:\n" + "\n".join(lines)
 
 
-def explode_complexity_frame(radon: "pd.DataFrame") -> "pd.DataFrame":
+def explode_complexity_frame(radon: pd.DataFrame) -> pd.DataFrame:
     if radon.empty or "complexity" not in radon.columns:
         return pd.DataFrame()
     rows: list[dict[str, Any]] = []
@@ -255,7 +269,11 @@ def write_charts(
     if not summary.empty and "package" in summary.columns:
         summary_grouped = summary.copy()
         summary_grouped["package_group"] = package_group_column(summary_grouped, package_depth)
-        columns = [col for col in ["line_count", "class_count", "function_count"] if col in summary_grouped.columns]
+        columns = [
+            col
+            for col in ["line_count", "class_count", "function_count"]
+            if col in summary_grouped.columns
+        ]
         if columns:
             grouped = summary_grouped.groupby("package_group", as_index=True)[columns].sum()
             rank_col = "line_count" if "line_count" in columns else columns[0]
@@ -270,7 +288,11 @@ def write_charts(
             plt.close()
 
         top_modules = summary.attrs.get("top_modules", pd.DataFrame())
-        if not top_modules.empty and "lines" in top_modules.columns and "module" in top_modules.columns:
+        if (
+            not top_modules.empty
+            and "lines" in top_modules.columns
+            and "module" in top_modules.columns
+        ):
             ax = top_modules.set_index("module")["lines"].plot(kind="bar", figsize=(14, 7))
             ax.set_title("Top public modules by lines")
             ax.set_xlabel("Module")
@@ -282,7 +304,9 @@ def write_charts(
     if not radon.empty:
         complexity = explode_complexity_frame(radon)
         if not complexity.empty:
-            ax = complexity["complexity"].plot(kind="hist", bins=20, figsize=(10, 6), title="Cyclomatic complexity distribution")
+            ax = complexity["complexity"].plot(
+                kind="hist", bins=20, figsize=(10, 6), title="Cyclomatic complexity distribution"
+            )
             ax.set_xlabel("Complexity")
             plt.tight_layout()
             plt.savefig(output_dir / "complexity_distribution.png", dpi=200)
@@ -290,19 +314,34 @@ def write_charts(
 
             complexity["package_group"] = package_group_column(complexity, package_depth)
             package_counts = complexity.groupby("package_group").size()
-            package_order = select_package_order(package_counts, TOP_N_BOXPLOT_PACKAGES, pinned_packages)
+            package_order = select_package_order(
+                package_counts, TOP_N_BOXPLOT_PACKAGES, pinned_packages
+            )
             if package_order:
-                data = [complexity.loc[complexity["package_group"] == package, "complexity"].dropna().tolist() for package in package_order]
+                data = [
+                    complexity.loc[complexity["package_group"] == package, "complexity"]
+                    .dropna()
+                    .tolist()
+                    for package in package_order
+                ]
                 fig, ax = plt.subplots(figsize=(14, 7))
                 ax.boxplot(data, tick_labels=package_order, showmeans=True)
                 ax.set_title("Cyclomatic complexity by package")
                 ax.set_ylabel("Complexity")
                 ax.tick_params(axis="x", rotation=30)
                 complexity_subset = complexity[complexity["package_group"].isin(package_order)]
-                outliers_text = top_outliers_text(complexity_subset, "complexity", ["module", "name"])
+                outliers_text = top_outliers_text(
+                    complexity_subset, "complexity", ["module", "name"]
+                )
                 if outliers_text:
                     ax.text(
-                        1.02, 0.98, outliers_text, transform=ax.transAxes, fontsize=7, va="top", ha="left",
+                        1.02,
+                        0.98,
+                        outliers_text,
+                        transform=ax.transAxes,
+                        fontsize=7,
+                        va="top",
+                        ha="left",
                         bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
                     )
                 plt.tight_layout()
@@ -312,7 +351,12 @@ def write_charts(
         if "maintainability_index" in radon.columns:
             series = radon["maintainability_index"].dropna()
             if not series.empty:
-                ax = series.plot(kind="hist", bins=20, figsize=(10, 6), title="Maintainability Index distribution")
+                ax = series.plot(
+                    kind="hist",
+                    bins=20,
+                    figsize=(10, 6),
+                    title="Maintainability Index distribution",
+                )
                 ax.set_xlabel("Maintainability Index")
                 plt.tight_layout()
                 plt.savefig(output_dir / "maintainability.png", dpi=200)
@@ -332,7 +376,10 @@ def write_charts(
             packages = coupling.groupby("package_group").size()
             order = select_package_order(packages, TOP_N_BOXPLOT_PACKAGES, pinned_packages)
             if order:
-                data = [coupling.loc[coupling["package_group"] == package, "cbo"].dropna().tolist() for package in order]
+                data = [
+                    coupling.loc[coupling["package_group"] == package, "cbo"].dropna().tolist()
+                    for package in order
+                ]
                 fig, ax = plt.subplots(figsize=(14, 7))
                 ax.boxplot(data, tick_labels=order, showmeans=True)
                 ax.set_title("CBO by package")
@@ -342,7 +389,13 @@ def write_charts(
                 outliers_text = top_outliers_text(coupling_subset, "cbo", ["module", "class"])
                 if outliers_text:
                     ax.text(
-                        1.02, 0.98, outliers_text, transform=ax.transAxes, fontsize=7, va="top", ha="left",
+                        1.02,
+                        0.98,
+                        outliers_text,
+                        transform=ax.transAxes,
+                        fontsize=7,
+                        va="top",
+                        ha="left",
                         bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
                     )
                 plt.tight_layout()
@@ -363,7 +416,10 @@ def write_charts(
             packages = cohesion.groupby("package_group").size()
             order = select_package_order(packages, TOP_N_BOXPLOT_PACKAGES, pinned_packages)
             if order:
-                data = [cohesion.loc[cohesion["package_group"] == package, "lcom"].dropna().tolist() for package in order]
+                data = [
+                    cohesion.loc[cohesion["package_group"] == package, "lcom"].dropna().tolist()
+                    for package in order
+                ]
                 fig, ax = plt.subplots(figsize=(14, 7))
                 ax.boxplot(data, tick_labels=order, showmeans=True)
                 ax.set_title("LCOM by package")
@@ -373,7 +429,13 @@ def write_charts(
                 outliers_text = top_outliers_text(cohesion_subset, "lcom", ["module", "class"])
                 if outliers_text:
                     ax.text(
-                        1.02, 0.98, outliers_text, transform=ax.transAxes, fontsize=7, va="top", ha="left",
+                        1.02,
+                        0.98,
+                        outliers_text,
+                        transform=ax.transAxes,
+                        fontsize=7,
+                        va="top",
+                        ha="left",
                         bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
                     )
                 plt.tight_layout()
@@ -382,7 +444,9 @@ def write_charts(
 
     architecture_graph = build_package_dependency_frame(architecture, package_depth)
     if not architecture_graph.empty:
-        packages = sorted(set(architecture_graph["source"]).union(set(architecture_graph["target"])))
+        packages = sorted(
+            set(architecture_graph["source"]).union(set(architecture_graph["target"]))
+        )
         index = {package: i for i, package in enumerate(packages)}
         matrix = [[0 for _ in packages] for _ in packages]
         for _, edge in architecture_graph.iterrows():
@@ -425,15 +489,29 @@ def write_charts(
             cycles_text = dependency_cycles_text(graph)
             if cycles_text:
                 ax.text(
-                    1.02, 0.98, cycles_text, transform=ax.transAxes, fontsize=7, va="top", ha="left",
-                    bbox=dict(boxstyle="round", facecolor="#fff3cd", edgecolor="#856404", alpha=0.9),
+                    1.02,
+                    0.98,
+                    cycles_text,
+                    transform=ax.transAxes,
+                    fontsize=7,
+                    va="top",
+                    ha="left",
+                    bbox=dict(
+                        boxstyle="round", facecolor="#fff3cd", edgecolor="#856404", alpha=0.9
+                    ),
                 )
             plt.tight_layout()
             plt.savefig(output_dir / "architecture_package_graph.png", dpi=200, bbox_inches="tight")
             plt.close(fig)
 
 
-def _build_frames(summary: dict[str, Any], radon: dict[str, Any], coupling: dict[str, Any], cohesion: dict[str, Any], architecture: dict[str, Any]) -> tuple[Any, Any, Any, Any, Any]:
+def _build_frames(
+    summary: dict[str, Any],
+    radon: dict[str, Any],
+    coupling: dict[str, Any],
+    cohesion: dict[str, Any],
+    architecture: dict[str, Any],
+) -> tuple[Any, Any, Any, Any, Any]:
     summary_frame = package_summary_frame(summary)
     summary_frame.attrs["top_modules"] = top_modules_frame(summary)
     return (

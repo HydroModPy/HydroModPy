@@ -5,9 +5,22 @@ import json
 from pathlib import Path
 
 from hydromodpy.analysis.testbed.runtime import TestbedLauncher as MethodTestbedLauncher
+from hydromodpy.config.hydromodpy_config import WorkflowConfig
 from hydromodpy.core.toml_io import load_toml_with_base_config
 
 from ._testbed_builders import _write_comparison_base, _write_flow_base, _write_mesh_base
+
+
+def _assert_child_config_loads(payload: dict[str, object], mode: str) -> None:
+    """The child's workflow section must be what the schema accepts.
+
+    It was written as a bare string for a while, which reads fine in TOML and is
+    rejected by the model, so the shape is asserted through WorkflowConfig rather
+    than by comparing keys. The rest of the payload stays a fixture, deliberately
+    too thin to validate as a whole config.
+    """
+    assert payload["workflow"] == {"mode": mode}
+    assert WorkflowConfig.model_validate(payload["workflow"]).mode == mode
 
 
 def test_testbed_launcher_materializes_child_configs_without_executing(
@@ -43,7 +56,7 @@ def test_testbed_launcher_materializes_child_configs_without_executing(
     generated = Path(summary["generated_configs_dir"]) / "coarse.toml"
     assert generated.exists()
     child_payload = load_toml_with_base_config(generated)
-    assert child_payload["workflow"] == "simulation"
+    _assert_child_config_loads(child_payload, "simulation")
     assert child_payload["simulation"]["process"][0]["type"] == "mesh"
     assert "testbed" not in child_payload
     assert child_payload["mesh_catchment"]["constraints_mode"] == "rivers_only"
@@ -95,7 +108,7 @@ def test_testbed_launcher_materializes_flow_child_configs_without_executing(
 
     generated = Path(summary["generated_configs_dir"]) / "low_k.toml"
     child_payload = load_toml_with_base_config(generated)
-    assert child_payload["workflow"] == "simulation"
+    _assert_child_config_loads(child_payload, "simulation")
     assert "testbed" not in child_payload
     assert child_payload["simulation"]["name"] == "flow_low_k"
     assert child_payload["flow"]["param"]["K"]["field"]["value"] == "5e-6 m/s"
@@ -190,7 +203,7 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
     assert summary["case_count"] == 1
     generated = Path(summary["generated_configs_dir"]) / "catalog_coarse.toml"
     child_payload = load_toml_with_base_config(generated)
-    assert child_payload["workflow"] == "simulation"
+    _assert_child_config_loads(child_payload, "simulation")
     assert "testbed" not in child_payload
     assert child_payload["simulation"]["process"] == [
         {"id": "mesh_main", "type": "mesh", "backend": "catchment"}
@@ -252,7 +265,7 @@ def test_testbed_launcher_materializes_comparison_child_configs_without_executin
 
     generated = Path(summary["generated_configs_dir"]) / "mf6_vs_bouss.toml"
     child_payload = load_toml_with_base_config(generated)
-    assert child_payload["workflow"] == "comparison"
+    _assert_child_config_loads(child_payload, "comparison")
     assert "testbed" not in child_payload
     assert child_payload["comparison"]["comparison_id"] == "mf6_vs_bouss"
     assert child_payload["comparison"]["simulation"][0]["id"] == "reference"
