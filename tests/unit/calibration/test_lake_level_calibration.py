@@ -7,7 +7,9 @@ Covers the encapsulated feature added to calibrate a MODFLOW 6 LAK lake stage:
 - bridge: ``extract_lake`` and the ``lake_id`` threading guard,
 - observations: ``load_observed`` mapping ``lake_level`` to the ``lake_levels``
   data family,
-- legacy path: the ``variable="lake_level"`` metric extractor, time-aligned.
+- single-metric path: the ``variable="lake_level"`` metric extractor,
+  time-aligned. This is the standard TOML route taken when no
+  ``objective_blocks`` are declared.
 """
 
 from __future__ import annotations
@@ -292,11 +294,11 @@ class TestLoadObserved:
 
 
 # ---------------------------------------------------------------------------
-# Legacy path: variable="lake_level" metric extractor (time-aligned)
+# Single-metric path: variable="lake_level" metric extractor (time-aligned)
 # ---------------------------------------------------------------------------
 
 
-class TestLegacyLakeLevelPath:
+class TestSingleMetricLakeLevelPath:
     def test_metric_fn_scores_time_aligned_stage(self, monkeypatch):
         ctx = _lake_levels_ctx()
         metric_fn = build_metric_extractor(
@@ -322,4 +324,4 @@ class TestLegacyLakeLevelPath:
 
         total, components = metric_fn(ctx, objective="rmse", variable="lake_level")
         assert total == pytest.approx(0.5)
-        assert components["rmse@lac0"] == pytest.approx(0.5)
+        assert components["cost:rmse@lac0"] == pytest.approx(0.5)

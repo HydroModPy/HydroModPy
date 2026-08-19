@@ -1,9 +1,9 @@
 """Composite metric extractors.
 
-The legacy ``build_metric_extractor`` factory and its composite variant live
-here. They wire ``CalibrationConfig.outputs`` and ``objective_blocks`` to the
-solver extractors and produce the ``(primary, components)`` payload consumed by
-the calibration engine.
+The ``build_metric_extractor`` factory and its composite variant live here.
+They wire ``CalibrationConfig.outputs`` and ``objective_blocks`` to the solver
+extractors and produce the ``(primary, components)`` payload consumed by the
+calibration engine.
 """
 
 from __future__ import annotations
@@ -53,8 +53,10 @@ def build_metric_extractor(
     ``metric_fn(ctx, *, objective=..., variable=...) -> (primary, metrics)``.
 
     When ``outputs`` and ``objective_blocks`` are both provided, the extractor
-    routes through :func:`build_objective_from_config`. Otherwise the legacy
+    routes through :func:`build_objective_from_config`. Otherwise the
     single-metric path runs against ``loaded_data`` (variable + objective).
+    Both branches are supported: the single-metric one is the standard TOML
+    route taken whenever no ``objective_blocks`` are declared.
     """
     if outputs and objective_blocks:
         return _build_composite_metric_extractor(outputs, objective_blocks)
