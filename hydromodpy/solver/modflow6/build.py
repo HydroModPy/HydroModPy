@@ -179,6 +179,11 @@ def _shared_recharge_dir(model) -> str | None:
     is truncated to 16 chars by ``mf6_safe_name`` and drops the suffix, and the
     trial folder can sit at either the leaf or its parent depending on the
     workspace layout. The shared dir is a sibling of the trial folder.
+
+    The returned path is OS-native: it is only ever handed to the local filesystem
+    and to the ``OPEN/CLOSE`` line of the same run's MF6 input, inside a scratch
+    tree the sandbox deletes on exit. Unlike the catalog's relative paths, it is
+    never read back on another platform, so it must not be posix-normalised.
     """
     full_path = getattr(model, "full_path", None)
     if not full_path:

@@ -17,6 +17,11 @@ from hydromodpy.workflow.site_selection import run_site_selection_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_ROOT = REPO_ROOT / "examples" / "projects" / "17_site_selection_workflow"
+# Short work-directory name on purpose. Each run nests
+# outputs/<selection_id>/data/.hmp/backups/cache.duckdb.bak-<stamp> below it, and
+# that path overruns the 259-character Windows limit as soon as pytest-xdist adds
+# its popen-gwN level to the base temp directory.
+WORK_DIRNAME = "ex"
 
 
 def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeypatch):
@@ -29,7 +34,7 @@ def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeyp
         reason="delineate_from_outlets needs the optional whitebox-workflows backend",
     )
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path / "workspace"))
-    work_example = tmp_path / "17_site_selection_workflow"
+    work_example = tmp_path / WORK_DIRNAME
     shutil.copytree(
         EXAMPLE_ROOT,
         work_example,
@@ -87,7 +92,7 @@ def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeyp
 
 def test_auvergne_rhone_alpes_area_only_example_runs_from_fixture(tmp_path, monkeypatch):
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path / "workspace"))
-    work_example = tmp_path / "17_site_selection_workflow"
+    work_example = tmp_path / WORK_DIRNAME
     shutil.copytree(
         EXAMPLE_ROOT,
         work_example,
