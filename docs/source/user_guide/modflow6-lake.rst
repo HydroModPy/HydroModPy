@@ -385,6 +385,18 @@ The spatially resolved per-cell lake seepage (the GWF cell-by-cell ``LAK`` budge
 record) is stored separately under ``budget/lak`` in the run Zarr store, so the
 seepage footprint can be mapped over the aquifer, not just summed per lake.
 
+Every series above comes from the LAK observation CSV except ``gwf_exchange``,
+``seepage_under_dam`` and the ``lak_gwf`` budget rows, which are read from the
+``GWF`` record of the LAK binary budget ``<model>.lak.cbc``. The per-connection
+``lak`` observation is not the applied flux: MF6 keeps the two equal on a
+connection with a wetted area and lets them diverge on one whose reported
+``FLOW-AREA`` is zero, so summing the observations inflates the exchange as a lake
+draws down, by a factor that grows as more connections dry out and that can flip
+the sign of the cumulated net exchange. The binary budget total
+matches the package-level ``budgetcsv`` exactly. A run whose LAK binary budget is
+missing publishes no exchange series at all, with a warning, rather than a value
+that cannot be trusted.
+
 The executable reference for this guide is the lake end-to-end test
 ``tests/e2e/test_lake_project_e2e.py``: it writes a synthetic lake polygon and
 stage-volume-area abacus, runs the same pipeline as ``hmp run`` on the committed

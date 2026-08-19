@@ -1,20 +1,20 @@
 """Parse MODFLOW 6 LAK outputs into per-lake timeseries and budget records.
 
-Per-lake scalar series (stage, volume, surface-area, lake-aquifer exchange,
-outlet / ext-outflow, the rest of the lake water balance) come from the LAK
-package's own observation CSV, keyed by ``totim``, not the GWF ``.cbc``. The
-GWF ``.cbc`` ``LAK`` record carries the spatially-resolved per-aquifer-cell
-seepage and is handled by ``_extract_budget`` (Zarr ``budget/lak``); this module
-only handles the per-lake scalars.
+Per-lake scalar series (stage, volume, surface-area, outlet / ext-outflow, the
+rest of the lake water balance) come from the LAK package's own observation CSV,
+keyed by ``totim``, not the GWF ``.cbc``. The GWF ``.cbc`` ``LAK`` record carries
+the spatially-resolved per-aquifer-cell seepage and is handled by
+``_extract_budget`` (Zarr ``budget/lak``); this module only handles the per-lake
+scalars.
 
-The LAK package-level ``budgetcsv`` aggregates every lake into one row, so it is
-unusable for per-lake series; we read the obs CSV instead. ``flopy`` cannot write
-boundname-based LAK observations (its writer increments integer ids and chokes on
-strings), so the lake-aquifer exchange total is reconstructed as the sum of the
-per-connection ``lak`` observations. Those obs report the flux from the aquifer's
-point of view (positive = into the aquifer = lake losing water); we negate them
-to the lake's point of view so a draining lake reads negative, matching the
-package budget's ``GWF_IN - GWF_OUT``.
+The lake-aquifer exchange is the one quantity NOT taken from the obs CSV. The
+per-connection ``lak`` observation is not the flux MF6 applied: the two agree on a
+connection with a wetted area and diverge on one whose reported ``FLOW-AREA`` is
+zero, so their sum inflates the exchange as a lake draws down. The ``GWF`` record
+of ``<stem>.lak.cbc`` holds the applied flux connection by connection, in
+CONNECTIONDATA order, and its total matches the package-level ``budgetcsv``
+exactly; ``read_applied_exchange`` reads it. Sign convention: positive = the lake
+gains water from the aquifer, as in ``GWF_IN - GWF_OUT``.
 
 A build-time JSON sidecar (``LakeObsSpec``) maps each observation name to its
 lake, quantity and connection, and flags the under-dam (VERTICAL) connections so
@@ -29,9 +29,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 from hydromodpy.solver.modflow6.extractors.obs_common import (
     ordered_unique,
     read_obs_csv,
@@ -42,6 +44,7 @@ from hydromodpy.solver.modflow6.extractors.obs_common import (
 logger = get_logger(__name__)
 
 __all__ = [
+    "AppliedExchange",
     "LakeAbacusEntry",
     "LakeAbacusSpec",
     "LakeObsEntry",
@@ -50,6 +53,7 @@ __all__ = [
     "extract_lake_series",
     "final_lake_stages",
     "lake_station_id",
+    "read_applied_exchange",
     "read_lake_abacus",
     "read_lake_meta",
 ]
@@ -125,11 +129,16 @@ class LakeObsSpec:
     """Build-time description of the LAK outputs, persisted as a JSON sidecar.
 
     ``obs_csv`` is a filename relative to the solver output directory.
-    ``entries`` maps every obs column to its lake / quantity.
+    ``entries`` maps every obs column to its lake / quantity. ``budget_bin`` names
+    the LAK package binary budget, whose ``GWF`` record carries the lake-aquifer
+    flux MF6 actually applied, connection by connection; ``budgetcsv`` names the
+    package-level budget CSV, used to cross-check that total.
     """
 
     obs_csv: str
     entries: list[LakeObsEntry] = field(default_factory=list)
+    budgetcsv: str | None = None
+    budget_bin: str | None = None
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> LakeObsSpec:
@@ -144,9 +153,13 @@ class LakeObsSpec:
             )
             for item in payload.get("entries", [])
         ]
+        raw_budget = payload.get("budgetcsv")
+        raw_bin = payload.get("budget_bin")
         return cls(
             obs_csv=str(payload["obs_csv"]),
             entries=entries,
+            budgetcsv=None if raw_budget is None else str(raw_budget),
+            budget_bin=None if raw_bin is None else str(raw_bin),
         )
 
 
@@ -283,10 +296,10 @@ def build_lake_records(
     must align with them by row order. RATE quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / volume / surface-area stay in
     their native units. The lake-aquifer exchange (``gwf_exchange``) and the
-    under-dam leakage (``seepage_under_dam``) are summed from the per-connection
-    ``lak`` observations and negated to the lake's point of view (negative = lake
-    losing water to the aquifer). A budget row mirrors the exchange total per lake
-    so the water-balance tables carry the lake-aquifer flux.
+    under-dam leakage (``seepage_under_dam``) come from the applied flux in the LAK
+    binary budget (see :func:`read_applied_exchange`), not from the obs CSV, and
+    read negative when the lake loses water to the aquifer. A budget row mirrors
+    the exchange total per lake so the water-balance tables carry the flux.
     """
     if not obs_path.is_file():
         logger.debug("LAK obs CSV %s is missing; no per-lake series extracted", obs_path)
@@ -304,6 +317,7 @@ def build_lake_records(
     # lake_id -> ordered set of stored quantities (excluding the per-connection
     # detail, which is aggregated rather than stored on its own).
     lake_ids = ordered_unique(entry.lake_id for entry in spec.entries)
+    exchange_by_lake = read_applied_exchange(spec, obs_path, n_steps=n_steps)
 
     timeseries: list[dict[str, Any]] = []
     budgets: list[dict[str, Any]] = []
@@ -316,11 +330,6 @@ def build_lake_records(
             if entry.lake_id == lake_id
             and entry.iconn is None
             and entry.quantity != "lak_connection"
-        ]
-        conn_entries = [
-            entry
-            for entry in spec.entries
-            if entry.lake_id == lake_id and entry.quantity == "lak_connection"
         ]
 
         for t in range(n_steps):
@@ -358,12 +367,12 @@ def build_lake_records(
                     )
                 )
 
-            # Lake-aquifer exchange = sum of per-connection lak obs, negated to the
-            # lake's point of view. Under-dam = the subset flagged VERTICAL.
-            exchange = _sum_connection_flux(conn_entries, row, col_index, under_dam_only=False)
-            under_dam = _sum_connection_flux(conn_entries, row, col_index, under_dam_only=True)
-            if conn_entries:
-                exchange_m3_s = -exchange / spt
+            # Lake-aquifer exchange, taken from the flux MF6 applied (LAK binary
+            # budget), never from the per-connection obs. Under-dam = the VERTICAL
+            # subset of the same record.
+            applied = exchange_by_lake.get(lake_id)
+            if applied is not None and t < len(applied.total):
+                exchange_m3_s = applied.total[t] / spt
                 timeseries.append(
                     timeseries_record(
                         station=station,
@@ -374,14 +383,14 @@ def build_lake_records(
                         unit="m3/s",
                     )
                 )
-                if any(entry.under_dam for entry in conn_entries):
+                if applied.under_dam is not None:
                     timeseries.append(
                         timeseries_record(
                             station=station,
                             quantity="seepage_under_dam",
                             timestep=t,
                             time=calendar,
-                            value=-under_dam / spt,
+                            value=applied.under_dam[t] / spt,
                             unit="m3/s",
                         )
                     )
@@ -421,20 +430,100 @@ def final_lake_stages(timeseries: Sequence[Mapping[str, Any]]) -> dict[str, floa
     return {station[len("lake:") :]: value for station, (_, value) in best.items()}
 
 
-def _sum_connection_flux(
-    conn_entries: Sequence[LakeObsEntry],
-    row: Sequence[float],
-    col_index: Mapping[str, int],
-    *,
-    under_dam_only: bool,
-) -> float:
-    """Sum the per-connection ``lak`` obs for one lake at one time step."""
-    total = 0.0
-    for entry in conn_entries:
-        if under_dam_only and not entry.under_dam:
-            continue
-        pos = col_index.get(entry.obsname.upper())
-        if pos is None or pos >= len(row):
-            continue
-        total += float(row[pos])
-    return total
+@dataclass(frozen=True)
+class AppliedExchange:
+    """Lake-aquifer flux MF6 applied, per output step, in the TDIS time unit.
+
+    ``total`` is the whole lake, ``under_dam`` the VERTICAL subset (``None`` when
+    the lake has no vertical connection). Positive = the lake gains water from the
+    aquifer, which is the sign of the package budget's ``GWF_IN - GWF_OUT``.
+    """
+
+    total: list[float]
+    under_dam: list[float] | None
+
+
+def read_applied_exchange(
+    spec: LakeObsSpec, obs_path: Path, *, n_steps: int
+) -> dict[str, AppliedExchange]:
+    """Read the applied lake-aquifer flux from the LAK binary budget.
+
+    The per-connection ``lak`` observation is NOT this flux. MF6 reports the two
+    identically on a connection with a wetted area, and differently on one whose
+    reported ``FLOW-AREA`` is zero, where the observation overstates the seepage.
+    Summing the observations therefore inflates the exchange as a lake draws down:
+    the gap grows as more connections dry out, which no
+    downstream check catches because the model-wide balance is the GWF balance,
+    not the lake's. The ``GWF`` record of ``<stem>.lak.cbc`` is the flux the
+    groundwater equation received; it matches the package budget CSV exactly.
+
+    The record lists one entry per connection in CONNECTIONDATA order, with the
+    lake number in ``node``, so the per-lake and per-connection sums need no
+    further mapping. Returns ``{}`` when the budget is absent or unusable, and the
+    caller then publishes no exchange series rather than a wrong one.
+    """
+    if not spec.budget_bin:
+        logger.warning(
+            "The LAK obs sidecar does not name the package binary budget, so the "
+            "lake-aquifer exchange series (gwf_exchange, seepage_under_dam, lak_gwf) is "
+            "not extracted. It cannot be rebuilt from the obs CSV: the per-connection lak "
+            "obs is not the applied flux. Re-run the model to get the exchange back."
+        )
+        return {}
+    budget_path = obs_path.parent / spec.budget_bin
+    if not budget_path.is_file():
+        logger.warning(
+            "LAK binary budget %s is missing; the lake-aquifer exchange series "
+            "(gwf_exchange, seepage_under_dam, lak_gwf) is not extracted. It cannot be "
+            "rebuilt from the obs CSV: the per-connection lak obs is not the applied flux.",
+            budget_path.name,
+        )
+        return {}
+
+    lake_ids = ordered_unique(entry.lake_id for entry in spec.entries)
+    under_dam_mask: dict[str, list[bool]] = {}
+    for lake_id in lake_ids:
+        conns = sorted(
+            (e for e in spec.entries if e.lake_id == lake_id and e.quantity == "lak_connection"),
+            key=lambda e: int(e.iconn or 0),
+        )
+        under_dam_mask[lake_id] = [bool(e.under_dam) for e in conns]
+
+    totals: dict[str, list[float]] = {lake: [] for lake in lake_ids}
+    vertical: dict[str, list[float]] = {lake: [] for lake in lake_ids}
+    masks = {lake: np.asarray(under_dam_mask[lake], dtype=bool) for lake in lake_ids}
+    try:
+        with Mf6CellBudgetReader(budget_path) as budget:
+            steps = [i for i, record in enumerate(budget.records) if record.text == "GWF"]
+            if not steps:
+                raise ValueError("the budget carries no GWF record")
+            for position in steps[:n_steps]:
+                record = budget.read_record(position)
+                flux = np.asarray(record["q"], dtype=float)
+                lake_number = np.asarray(record["node"], dtype=int)
+                for index, lake_id in enumerate(lake_ids, start=1):
+                    own = flux[lake_number == index]
+                    mask = masks[lake_id]
+                    if mask.size != own.size:
+                        raise ValueError(
+                            f"lake {lake_id}: the budget holds {own.size} connections where "
+                            f"the obs sidecar declares {mask.size}"
+                        )
+                    totals[lake_id].append(float(own.sum()))
+                    vertical[lake_id].append(float(own[mask].sum()))
+    except (OSError, ValueError, KeyError, IndexError) as exc:
+        logger.warning(
+            "Could not read the applied lake-aquifer flux from %s (%s); the exchange "
+            "series is not extracted.",
+            budget_path.name,
+            exc,
+        )
+        return {}
+
+    return {
+        lake_id: AppliedExchange(
+            total=totals[lake_id],
+            under_dam=vertical[lake_id] if any(under_dam_mask[lake_id]) else None,
+        )
+        for lake_id in lake_ids
+    }
