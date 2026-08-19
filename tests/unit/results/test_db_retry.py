@@ -110,18 +110,16 @@ def capture_hmp_logs() -> Iterator[list[logging.LogRecord]]:
 def _database_killed_mid_write(tmp_path: Path) -> Path:
     """Return a database in the exact state an uncatchable signal leaves.
 
-    DuckDB keeps committed transactions in ``<db>.wal`` until a checkpoint, so
-    the on-disk pair of a live writer is byte-for-byte what a killed process
-    leaves behind. Snapshot that pair, then let the writer close cleanly.
+    DuckDB keeps committed transactions in ``<db>.wal`` until a checkpoint, and
+    only checkpoints on a clean shutdown. Suppressing that final checkpoint
+    leaves the same db + WAL pair a killed writer leaves behind, in place.
     """
-    source = tmp_path / "live.duckdb"
-    writer = duckdb.connect(str(source))
+    db_path = tmp_path / "index.duckdb"
+    writer = duckdb.connect(str(db_path))
     try:
+        writer.execute("PRAGMA disable_checkpoint_on_shutdown")
         writer.execute("CREATE TABLE runs (sim_id INTEGER PRIMARY KEY, name TEXT)")
         writer.execute("INSERT INTO runs SELECT i, 'run_' || i FROM range(500) t(i)")
-        db_path = tmp_path / "index.duckdb"
-        shutil.copyfile(source, db_path)
-        shutil.copyfile(source.with_suffix(".duckdb.wal"), db_path.with_suffix(".duckdb.wal"))
     finally:
         writer.close()
     assert db_path.with_suffix(".duckdb.wal").is_file(), "no WAL was left behind"

@@ -50,7 +50,10 @@ _SCRATCH_SESSION_ENV = "HMP_TEST_SESSION_SCRATCH_ROOT"
 _SCRATCH_OWNER_ENV = "HMP_TEST_SCRATCH_OWNER"
 _XDIST_WORKER_ENV = "PYTEST_XDIST_WORKER"
 _INHERITED_SCRATCH_OWNER = os.environ.get(_SCRATCH_OWNER_ENV)
-_SCRATCH_OWNER_TOKEN = _INHERITED_SCRATCH_OWNER or f"{os.getpid()}-{uuid.uuid4().hex[:12]}"
+# The pid alone separates concurrent runs; the suffix only guards against
+# reusing a stale session directory after a pid is recycled. Keep it short so
+# long-path tests keep headroom under the 259-character Windows limit.
+_SCRATCH_OWNER_TOKEN = _INHERITED_SCRATCH_OWNER or f"{os.getpid()}-{uuid.uuid4().hex[:4]}"
 _OWNS_TEST_SCRATCH = _INHERITED_SCRATCH_OWNER is None
 
 

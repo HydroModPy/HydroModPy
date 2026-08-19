@@ -441,7 +441,10 @@ def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
 def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
     tmp_path: Path,
 ) -> None:
-    distribution_root = tmp_path / "rbflow_like_package"
+    # Keep this name short: the copied tree already nests
+    # examples/projects/08_mesh_viewer, which the viewer's default-config
+    # lookup requires, and Windows caps the whole path at 259 characters.
+    distribution_root = tmp_path / "rbflow_pkg"
     mesh_source_dir = Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
     examples_source_dir = (
         Path(__file__).resolve().parents[3] / "examples" / "projects" / "08_mesh_viewer"
