@@ -1,6 +1,6 @@
 # Build the multi-version documentation with sphinx-polyversion and publish it
 # to the org site repository HydroModPy/hydromodpy.github.io, served at the
-# root URL https://hydromodpy.github.io/.
+# canonical URL https://docs.hydromodpy.fr/ (custom domain of that Pages site).
 #
 # poly.py builds every matched branch (main, dev, archive-v1, maint/N.x) and
 # tag (vX.Y.Z) into one merged tree under docs/build/html, one subfolder per
@@ -14,6 +14,8 @@
 #   4. Private key -> this repo, Actions secret ACTIONS_DEPLOY_KEY.
 #   5. After the first run, set hydromodpy.github.io Pages source to the
 #      gh-pages branch.
+#   6. Set the Pages custom domain to docs.hydromodpy.fr (the publish step
+#      rewrites the CNAME file on every deploy, force_orphan wipes it).
 
 name: Docs / Deploy Pages (multi-version)
 
@@ -88,7 +90,7 @@ jobs:
         run: python -m sphinx_polyversion poly.py
 
       - name: Post-process built site (switcher.json + shrink gallery PNGs)
-        run: python tools/docs_pages_postbuild.py docs/build/html https://hydromodpy.github.io
+        run: python tools/docs_pages_postbuild.py docs/build/html https://docs.hydromodpy.fr
 
       - name: Add a root redirect to the default version
         run: >
@@ -96,7 +98,7 @@ jobs:
           printf '%s'
           '<!doctype html><meta charset="utf-8">'
           '<meta http-equiv="refresh" content="0; url=./main/">'
-          '<link rel="canonical" href="https://hydromodpy.github.io/main/">'
+          '<link rel="canonical" href="https://docs.hydromodpy.fr/main/">'
           '<title>HydroModPy documentation</title>'
           '<a href="./main/">HydroModPy documentation</a>'
           > docs/build/html/index.html
@@ -107,6 +109,7 @@ jobs:
           deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
           external_repository: HydroModPy/hydromodpy.github.io
           publish_branch: gh-pages
+          cname: docs.hydromodpy.fr
           publish_dir: ./docs/build/html
           force_orphan: true
           user_name: github-actions[bot]

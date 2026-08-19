@@ -28,10 +28,12 @@ from hydromodpy.results.export.context import (
     to_json,
 )
 
+HYDROMODPY_NAMESPACE = "https://docs.hydromodpy.fr/schema#"
+
 PROV_CONTEXT = {
     "prov": "http://www.w3.org/ns/prov#",
     "schema": "http://schema.org/",
-    "hydromodpy": "https://hydromodpy-docs.readthedocs.io/schema#",
+    "hydromodpy": HYDROMODPY_NAMESPACE,
     "xsd": "http://www.w3.org/2001/XMLSchema#",
 }
 

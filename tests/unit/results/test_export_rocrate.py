@@ -18,6 +18,7 @@ from hydromodpy.results.export.context import (
     FairExportContext,
     InputEntry,
 )
+from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE
 from hydromodpy.results.export.rocrate import (
     RO_CRATE_CONFORMS,
     RO_CRATE_CONTEXT,
@@ -117,7 +118,8 @@ def test_context_block_present_and_well_formed(crate):
     # The inline term map declares the hydromodpy/prov/sha256 prefixes.
     term_map = ctx[1]
     assert term_map["prov"] == "http://www.w3.org/ns/prov#"
-    assert "hydromodpy" in term_map
+    # The crate and the PROV-O document must declare the same vocabulary IRI.
+    assert term_map["hydromodpy"] == HYDROMODPY_NAMESPACE
     assert "sha256" in term_map
 
 
@@ -213,6 +215,7 @@ def test_software_and_creator_nodes(crate):
     hmp = next(n for n in graph if n.get("@id") == "#software/hydromodpy")
     assert hmp["@type"] == "SoftwareApplication"
     assert hmp["softwareVersion"] == "1.2.3"
+    assert hmp["url"] == "https://docs.hydromodpy.fr/"
     # git_commit from runs_env attaches as softwareSourceCode.
     assert hmp["softwareSourceCode"] == "deadbeef"
 

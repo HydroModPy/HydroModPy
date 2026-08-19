@@ -4,8 +4,8 @@ Thanks for considering a contribution. This file is the short version: how
 to report an issue, set up a dev environment, run tests, and open a pull
 request. The deep documentation (CLI, TOML, Pydantic config, data managers,
 architecture) lives in the
-[contributor guide](https://hydromodpy-docs.readthedocs.io/en/main/contribute.html)
-and on the [Read the Docs site](https://hydromodpy-docs.readthedocs.io/en/main/).
+[contributor guide](https://docs.hydromodpy.fr/main/contribute.html)
+and on the [documentation site](https://docs.hydromodpy.fr/main/).
 Release naming, maintenance branches, tags, and GitHub Releases are covered
 in [`docs/source/about/release_policy.rst`](docs/source/about/release_policy.rst).
 
@@ -41,7 +41,7 @@ import. The `pre-commit install` step registers the Git hook that runs
 `ruff` before each commit.
 
 For conda env files, Windows + WSL setup, and the PETSc Boussinesq backend,
-see the [installation guide](https://hydromodpy-docs.readthedocs.io/en/main/install.html).
+see the [installation guide](https://docs.hydromodpy.fr/main/install.html).
 
 ## Lint and format
 
@@ -73,9 +73,9 @@ Do not hard-code tolerances elsewhere. New solver behavior needs at least a
 unit test, plus a validation case if the math is non-trivial.
 
 For the full ladder (when each family runs, what each protects against),
-see the [test families guide](https://hydromodpy-docs.readthedocs.io/en/main/architecture/overview/test-families-and-quality-roles.html).
+see the [test families guide](https://docs.hydromodpy.fr/main/architecture/overview/test-families-and-quality-roles.html).
 For GitHub check names and CI triage, see the
-[GitHub Actions workflow guide](https://hydromodpy-docs.readthedocs.io/en/main/architecture/ci-workflows.html).
+[GitHub Actions workflow guide](https://docs.hydromodpy.fr/main/architecture/ci-workflows.html).
 
 ## Code style
 
@@ -121,13 +121,13 @@ Releases are identified by tags such as `v1.1.0`, `v2.0.0a1`,
 
 ## Where to look next
 
-- [Configuration reference](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/config_reference/index.html):
+- [Configuration reference](https://docs.hydromodpy.fr/main/user_guide/config_reference/index.html):
   every TOML section, fields, defaults, validators.
-- [Architecture](https://hydromodpy-docs.readthedocs.io/en/main/architecture/index.html):
+- [Architecture](https://docs.hydromodpy.fr/main/architecture/index.html):
   layer matrix, package maps, runtime handoff.
-- [User guide](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/index.html):
+- [User guide](https://docs.hydromodpy.fr/main/user_guide/index.html):
   workflows, cookbook, theory, supported data variables.
-- [API reference](https://hydromodpy-docs.readthedocs.io/en/main/api/index.html):
+- [API reference](https://docs.hydromodpy.fr/main/api/index.html):
   auto-generated, complete.
 
 ## License

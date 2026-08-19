@@ -9,7 +9,7 @@ outputs.
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![License: EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
 [![CI](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml/badge.svg?branch=main)](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml?query=branch%3Amain)
-[![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=main)](https://hydromodpy-docs.readthedocs.io/en/main/)
+[![Documentation](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-deploy-pages.yml/badge.svg?branch=main)](https://docs.hydromodpy.fr/main/)
 [![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/branch/main/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/main)
 
 ## What you get
@@ -41,7 +41,7 @@ Optional extras: `[ide]`, `[test]`, `[viewer3d]`, `[docs]`. Solver binaries
 `hmp install-binaries`.
 
 For developer install, conda recipes, Windows + WSL setup and the PETSc
-backend, see the [installation guide](https://hydromodpy-docs.readthedocs.io/en/main/install.html).
+backend, see the [installation guide](https://docs.hydromodpy.fr/main/install.html).
 
 ## Quickstart
 
@@ -99,29 +99,29 @@ water_table = hmp.read(run, "watertable_elevation", time=-1)  # numpy array
 
 The tables are plain Parquet, so `pandas.read_parquet` on
 `runs/demo/tables.parquet/metrics.parquet` works too. See the
-[results guide](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/results-and-exports.html)
+[results guide](https://docs.hydromodpy.fr/main/user_guide/results-and-exports.html)
 for the full reading and export path.
 
 ## Documentation
 
 Full documentation lives at
-**[hydromodpy-docs.readthedocs.io](https://hydromodpy-docs.readthedocs.io/en/main/)**.
+**[docs.hydromodpy.fr](https://docs.hydromodpy.fr/main/)**.
 
 | Section | What it covers |
 |---------|----------------|
-| [Get started](https://hydromodpy-docs.readthedocs.io/en/main/getting_started/index.html) | Install, scaffold, first run end to end. |
-| [User Guide](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/index.html) | Workflows, configuration, theory, cookbook. |
-| [Configuration](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/config_reference/index.html) | Every TOML section validated by `HydroModPyConfig`. |
-| [CLI](https://hydromodpy-docs.readthedocs.io/en/main/cli/index.html) | Every `hmp` verb, its sub-actions, and the typed exit codes. |
-| [Gallery](https://hydromodpy-docs.readthedocs.io/en/main/capability_gallery/index.html) | Validation figures, mesh illustrations, watershed diagnostics. |
-| [API Reference](https://hydromodpy-docs.readthedocs.io/en/main/api/index.html) | Auto-generated reference for every public class and module. |
-| [Architecture](https://hydromodpy-docs.readthedocs.io/en/main/architecture/index.html) | Layer matrix, module diagrams, contributor maps. |
+| [Get started](https://docs.hydromodpy.fr/main/getting_started/index.html) | Install, scaffold, first run end to end. |
+| [User Guide](https://docs.hydromodpy.fr/main/user_guide/index.html) | Workflows, configuration, theory, cookbook. |
+| [Configuration](https://docs.hydromodpy.fr/main/user_guide/config_reference/index.html) | Every TOML section validated by `HydroModPyConfig`. |
+| [CLI](https://docs.hydromodpy.fr/main/cli/index.html) | Every `hmp` verb, its sub-actions, and the typed exit codes. |
+| [Gallery](https://docs.hydromodpy.fr/main/capability_gallery/index.html) | Validation figures, mesh illustrations, watershed diagnostics. |
+| [API Reference](https://docs.hydromodpy.fr/main/api/index.html) | Auto-generated reference for every public class and module. |
+| [Architecture](https://docs.hydromodpy.fr/main/architecture/index.html) | Layer matrix, module diagrams, contributor maps. |
 
 ## Contributing
 
 Bug reports, feature requests and pull requests are welcome. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the short version and the
-[contributor guide](https://hydromodpy-docs.readthedocs.io/en/main/contribute.html)
+[contributor guide](https://docs.hydromodpy.fr/main/contribute.html)
 for the full reference. Released versions are listed in
 [CHANGELOG.md](CHANGELOG.md).
 
@@ -132,7 +132,7 @@ advisory rather than a public issue.
 
 If HydroModPy supports your work, please cite the software and the companion
 paper. Full BibTeX, RIS and plain-text entries are on the
-[citation page](https://hydromodpy-docs.readthedocs.io/en/main/how_to_cite.html);
+[citation page](https://docs.hydromodpy.fr/main/how_to_cite.html);
 GitHub renders the "Cite this repository" button from
 [`CITATION.cff`](CITATION.cff).
 
