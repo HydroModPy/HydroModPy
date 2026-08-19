@@ -30,9 +30,11 @@ scope projet (un `Catalog`). Les inputs workspace passent par
 import hydromodpy as hmp
 
 cat = hmp.open("~/proj/naizin")
-cat.find(solver="modflow6")                        # -> <project>/catalog.duckdb
-hydromodpy.catalog.InputsNamespace("~/hydromodpy").list(variable="recharge")  # -> <workspace>/data/cache.duckdb
-hmp.index()                                        # -> <state_dir>/index.duckdb
+cat.find(solver="modflow6")  # -> <project>/catalog.duckdb
+hydromodpy.catalog.InputsNamespace("~/hydromodpy").list(
+    variable="recharge"
+)  # -> <workspace>/data/cache.duckdb
+hmp.index()  # -> <state_dir>/index.duckdb
 ```
 
 Sur disque, les trois fichiers restent separes. Le port
@@ -177,9 +179,9 @@ Tous les managers retournent un `LoadResult`.
 ```python
 @dataclass
 class LoadResult:
-    points: list[PointRecord]    # Chroniques stationnelles
-    fields: list[FieldRecord]    # Grilles / vecteurs spatiaux
-    warnings: list[str]          # Erreurs non-bloquantes (source indisponible, etc.)
+    points: list[PointRecord]  # Chroniques stationnelles
+    fields: list[FieldRecord]  # Grilles / vecteurs spatiaux
+    warnings: list[str]  # Erreurs non-bloquantes (source indisponible, etc.)
 ```
 
 - `len()` = points + fields
@@ -192,18 +194,18 @@ class LoadResult:
 ```python
 @dataclass
 class PointRecord:
-    station_id: str          # Identifiant station
-    variable: str            # ex. "hydrometry"
-    source: str              # ex. "hubeau", "custom", "sim2"
-    unit: str                # ex. "m3/s"
-    frequency: str           # ex. "D"
-    data: pd.DataFrame       # Colonnes obligatoires : datetime, value
+    station_id: str  # Identifiant station
+    variable: str  # ex. "hydrometry"
+    source: str  # ex. "hubeau", "custom", "sim2"
+    unit: str  # ex. "m3/s"
+    frequency: str  # ex. "D"
+    data: pd.DataFrame  # Colonnes obligatoires : datetime, value
     date_start: datetime
     date_end: datetime
     location: StationLocation | None
-    is_constant: bool        # True si valeur unique etendue
-    file_path: Path | None   # Fichier source
-    quality: dict | None     # Rapport de qualite automatique (voir ci-dessous)
+    is_constant: bool  # True si valeur unique etendue
+    file_path: Path | None  # Fichier source
+    quality: dict | None  # Rapport de qualite automatique (voir ci-dessous)
 ```
 
 Validation `__post_init__` : colonnes `datetime`/`value` requises, coercion dtypes.
@@ -212,12 +214,12 @@ Validation `__post_init__` : colonnes `datetime`/`value` requises, coercion dtyp
 
 ```python
 quality = {
-    "completeness_pct": 94.5,    # % jours presents vs attendus
+    "completeness_pct": 94.5,  # % jours presents vs attendus
     "n_expected": 365,
     "n_actual": 345,
     "n_missing": 20,
-    "n_gaps": 2,                 # nombre de trous (periodes consecutives manquantes)
-    "n_duplicates": 0,           # doublons datetime detectes
+    "n_gaps": 2,  # nombre de trous (periodes consecutives manquantes)
+    "n_duplicates": 0,  # doublons datetime detectes
 }
 ```
 
@@ -228,13 +230,13 @@ Calcule via `compute_completeness()` qui existe deja dans `common/validation.py`
 ```python
 @dataclass
 class FieldRecord:
-    variable: str                 # ex. "precipitation"
-    source: str                   # ex. "sim2"
-    unit: str                     # ex. "mm/day"
-    data: xr.Dataset | Path       # En memoire ou reference fichier
-    bbox: tuple                   # (xmin, ymin, xmax, ymax)
-    crs: str                      # ex. "EPSG:2154"
-    date_start: datetime | None   # None = statique
+    variable: str  # ex. "precipitation"
+    source: str  # ex. "sim2"
+    unit: str  # ex. "mm/day"
+    data: xr.Dataset | Path  # En memoire ou reference fichier
+    bbox: tuple  # (xmin, ymin, xmax, ymax)
+    crs: str  # ex. "EPSG:2154"
+    date_start: datetime | None  # None = statique
     date_end: datetime | None
     frequency: str | None
 ```
@@ -483,7 +485,7 @@ fetch_metadata = {
     "api_url": "https://hubeau.eaufrance.fr/api/v1/...",
     "params": {"code_station": "J7214001", "size": 20000},
     "http_status": 200,
-    "n_records_raw": 3650,        # avant filtrage/dedup
+    "n_records_raw": 3650,  # avant filtrage/dedup
 }
 ```
 
@@ -536,6 +538,7 @@ date_end, file_path, is_custom, fetch_metadata.
 
 ```python
 import duckdb
+
 conn = duckdb.connect("workspace/catalog.duckdb")
 conn.execute("INSTALL sqlite; LOAD sqlite")
 conn.execute("ATTACH 'catalog.db' AS legacy (TYPE SQLITE)")
@@ -624,9 +627,9 @@ class {VarName}Config(BaseModel):
 
 ```python
 class DataManagersConfig(BaseModel):
-    types: list[str]                    # ["hydrometry", "precipitation", ...]
+    types: list[str]  # ["hydrometry", "precipitation", ...]
     inference_mode: Literal["warn", "strict"] = "warn"
-    project_crs: str | None = None     # CRS cible (ex. "EPSG:2154")
+    project_crs: str | None = None  # CRS cible (ex. "EPSG:2154")
     dem: DemConfig | None
     geology: GeologyConfig | None
     hydrography: HydrographyConfig | None
@@ -706,6 +709,7 @@ croisees entre variables). `load_all()` peut paralleliser les appels
 ```python
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 def load_all(self, result):
     loaders = self._build_loaders(result)  # list[(type_name, callable)]
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -717,9 +721,13 @@ def load_all(self, result):
                 setattr(result.loaded_data, type_name, load_result)
             except Exception as exc:
                 logger.error("Chargement %s echoue : %s", type_name, exc)
-                setattr(result.loaded_data, type_name, LoadResult(
-                    warnings=[f"{type_name}: {exc}"],
-                ))
+                setattr(
+                    result.loaded_data,
+                    type_name,
+                    LoadResult(
+                        warnings=[f"{type_name}: {exc}"],
+                    ),
+                )
 ```
 
 Le parallelisme est I/O-bound (appels HTTP vers Hub'Eau, SIM2) donc
@@ -789,9 +797,9 @@ que ce soit en mode interactif ou via le pipeline de simulation.
 store = DataStore(workspace_root="~/hydromodpy")
 result = store.load_hydrometry(config)
 result = store.load_precipitation(config)
-store.cache_info("precipitation")    # DataFrame du catalogue
+store.cache_info("precipitation")  # DataFrame du catalogue
 store.clear_cache(variable="precipitation", delete_files=True)
-store.cleanup()                      # Purger orphelins
+store.cleanup()  # Purger orphelins
 ```
 
 ### Fusion DataStore / DataManagersRuntimeLoader
@@ -826,12 +834,16 @@ class DataStore:
 
     def load_variable(self, variable, config, **extra_kwargs) -> LoadResult:
         cls = get_manager_class(variable)  # data/_dispatch.py
-        mgr = cls(config=config, catalog=self.catalog,
-                  project_extent=self.project_extent,
-                  project_period=self.project_period,
-                  data_dir=self._data_dir(variable),
-                  **extra_kwargs)
+        mgr = cls(
+            config=config,
+            catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir(variable),
+            **extra_kwargs,
+        )
         return mgr.load()
+
 
 # RuntimeLoader simplifie - delegue l'instantiation a DataStore
 class DataManagersRuntimeLoader:
