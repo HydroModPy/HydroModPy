@@ -30,6 +30,10 @@ _OBSERVATION_FIELDS: tuple[str, ...] = (
     "piezometry",
     "intermittency",
     "water_quality",
+    # Gauged lake level. Without it a lake run carries only simulated rows, so no
+    # sim-vs-obs comparison is possible on the one state a reservoir model is
+    # judged on, even when the project declares [data.lake_levels].
+    "lake_levels",
 )
 
 
