@@ -1,0 +1,244 @@
+@startuml pkg_workflow
+title HydroModPy — Package workflow (pipeline, DAG, resume, journal)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "workflow.internals" {
+  class PipelineState<T> <<dataclass, frozen>> {
+    + run_id : str
+    + step_index : int
+    + step_name : str
+    + data : T
+    + advance(step_index, step_name, data) : PipelineState
+    + get(key, default) : Any
+  }
+  note right of PipelineState
+    Chaine de payloads typés (T) :
+    ValidatedState -> ResolvedState -> GeographicState
+    -> LoadedState -> MeshedState -> SetupState
+    -> OpenStoreState -> SolverRanState -> ExtractedState
+    -> DerivedState -> ExportedState
+    (héritage simple, chacun ajoute des champs)
+  end note
+
+  interface Step<TIn,TOut> <<Protocol>> {
+    + name : str
+    + run(state_in : PipelineState<TIn>) : PipelineState<TOut>
+    + depends_on() : Tuple<str>
+  }
+  interface ResumableStep<TIn,TOut> <<Protocol>> {
+    + artifacts(state_out) : Tuple<str>
+    + rebuild_state(prior_state, workspace, run_id) : PipelineState<TOut>
+  }
+  ResumableStep --|> Step
+
+  class ResolvedRunManifest <<dataclass, frozen>> {
+    + run_id : str
+    + config_sha256 : str
+    + steps : Tuple<str>
+    + from_state(state, steps, workspace) : ResolvedRunManifest {static}
+    + write_atomic(workspace) : void
+    + verify_state(state, steps, workspace) : bool
+  }
+
+  interface DerivedComputation <<Protocol>> {
+    + name : str
+    + required_inputs : Tuple<str>
+    + compute(sim_zarr, **ctx) : DerivedResult
+  }
+  class DerivedResult <<dataclass, frozen>> {
+    + name : str
+    + status : str
+  }
+  class DerivedRegistry {
+    - _entries : Map<str,DerivedComputation>
+    + register(comp) : void
+    + ordered_names() : List<str>
+    + apply(sim_zarr, names) : Tuple<DerivedResult>
+  }
+  DerivedRegistry o-- "0..*" DerivedComputation
+  DerivedComputation ..> DerivedResult : produit >
+}
+
+package "workflow.steps" {
+  class ValidateStep
+  class ResolveStep
+  class BuildGeographicStep
+  class LoadDataStep
+  class BuildMeshStep
+  class SetupProcessStep
+  class PrepareSolverStep
+  class RunSolverStep
+  class ExtractStep
+  class DeriveStep
+  class ExportStep
+  class DisplayStep
+
+  ValidateStep ..|> Step
+  ResolveStep ..|> Step
+  BuildGeographicStep ..|> Step
+  LoadDataStep ..|> Step
+  BuildMeshStep ..|> Step
+  SetupProcessStep ..|> Step
+  DeriveStep ..|> Step
+  DisplayStep ..|> Step
+  PrepareSolverStep ..|> ResumableStep
+  RunSolverStep ..|> ResumableStep
+  ExtractStep ..|> ResumableStep
+  ExportStep ..|> ResumableStep
+  DeriveStep ..> DerivedRegistry : delegue a >
+}
+
+package "workflow (dag/journal/events/heartbeat/resume/parallel)" {
+  class Pipeline {
+    + steps : Tuple<Step>
+    + workspace : Path
+    + run(state, resume_from, parallel) : PipelineState
+    + dag() : WorkflowDAG
+    + cohorts() : Tuple<Tuple<Step>>
+  }
+  Pipeline o-- "1..*" Step : steps
+
+  class WorkflowDAG {
+    - _edges : Tuple<StepEdge>
+    + topological_order() : Tuple<Tuple<Step>>
+    + get(name) : Step
+  }
+  class StepEdge <<dataclass, frozen>> {
+    + src : str
+    + dst : str
+  }
+  WorkflowDAG *-- "0..*" StepEdge
+  Pipeline ..> WorkflowDAG : dag() >
+
+  class WorkflowJournal {
+    - _catalog : SimulationCatalog
+    + start_step(...) : str
+    + finish_step(...) : void
+    + list_steps(run_id) : List<WorkflowStepRow>
+    + invalidate_from(run_id, start_order) : void
+  }
+  class WorkflowStepRow <<dataclass, frozen>> {
+    + step_id : str
+    + status : str
+    + duration_s : float
+  }
+  WorkflowJournal ..> WorkflowStepRow : produit >
+
+  class WorkflowEventStream {
+    + emit(run_id, step_name, event_type, payload) : void
+    + step_start(...) : void
+    + heartbeat(...) : void
+  }
+
+  class HeartbeatPulse {
+    - _interval_s : float = 30
+    - _thread : Thread
+    + __enter__() : HeartbeatPulse
+    + __exit__() : void
+  }
+  HeartbeatPulse --> WorkflowEventStream : heartbeat() >
+
+  class ResumePlan <<dataclass, frozen>> {
+    + run_id : str
+    + restart_index : int
+    + invalidated : Tuple<StepInvalidation>
+  }
+  class StepInvalidation <<dataclass, frozen>> {
+    + step_order : int
+    + reason : str
+  }
+  class ResumePlanner {
+    - _journal : WorkflowJournal
+    + compute(run_id, current_config_sha256, steps_blueprint) : ResumePlan
+  }
+  ResumePlanner --> WorkflowJournal : lit >
+  ResumePlanner ..> ResumePlan : produit >
+  ResumePlan *-- "0..*" StepInvalidation
+
+  interface CohortExecutor <<Protocol>> {
+    + map(fn, items) : list
+  }
+  class SequentialExecutor
+  class ThreadPoolCohortExecutor {
+    - _max_workers : int
+  }
+  SequentialExecutor ..|> CohortExecutor
+  ThreadPoolCohortExecutor ..|> CohortExecutor
+
+  Pipeline *-- "0..1" WorkflowJournal : cree par run()
+  Pipeline *-- "0..1" WorkflowEventStream : cree par run()
+  Pipeline *-- "0..1" HeartbeatPulse : cree par run()
+  Pipeline ..> CohortExecutor : choisit (parallel=bool) >
+  Pipeline *-- "0..1" SimulationCatalog : cree si absent
+}
+
+package "workflow.pipelines (lanceurs alternatifs)" {
+  class MeshCatchmentLauncher {
+    + config_path : Path
+    + batch_runner : MeshCatchmentBatchRunner
+    + run() : dict
+  }
+  class DataOverviewLauncher {
+    + config_path : Path
+    + cfg : HydroModPyConfig
+    + run() : dict
+  }
+  note bottom of MeshCatchmentLauncher
+    N'utilisent PAS Pipeline/Step/WorkflowDAG :
+    orchestrateurs impératifs autonomes, paralleles
+    conceptuellement à Pipeline mais découplés.
+  end note
+}
+
+package "workflow.site_selection" {
+  class SiteSelectionPlan <<dataclass, frozen>> {
+    + config : SiteSelectionConfig
+    + manifest : dict
+    + write_manifest(path) : Path
+  }
+  note bottom of SiteSelectionPlan
+    Module procédural (fonctions), une seule classe.
+    Pas de lien avec Pipeline/Step.
+  end note
+}
+
+package "workflow (exceptions + phases)" {
+  class WorkflowError
+  class WorkflowMissingError
+  class WorkflowUnknownError
+  class WorkflowMismatchError
+  WorkflowMissingError --|> WorkflowError
+  WorkflowUnknownError --|> WorkflowError
+  WorkflowMismatchError --|> WorkflowError
+
+  class WorkflowPhase <<dataclass, frozen>> {
+    + name : str
+    + role : str
+  }
+}
+
+interface Launcher <<Protocol>> {
+  + execute(plan, state, callbacks) : Tuple
+}
+note right of Launcher
+  Implémenté par SimulationRunner (package simulation,
+  externe à workflow/) ; consommé par RunSolverStep.
+end note
+
+class "core.state.run_state.WorkflowContext" as WorkflowContext <<import externe>> {
+  + setup : SetupContext
+  + loaded_data : LoadedDataContext
+  + execution : ExecutionRegistry
+}
+note bottom of WorkflowContext
+  Défini dans core/state/run_state.py, ré-exporté par
+  workflow/context.py. Objet MUTABLE distinct de
+  PipelineState (frozen) -- souvent stocké dans les
+  champs *_context du payload typé (GeographicState.
+  geographic_context, SetupState.setup_context...).
+end note
+
+@enduml

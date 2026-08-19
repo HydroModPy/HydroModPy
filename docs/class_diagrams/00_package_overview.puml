@@ -1,0 +1,110 @@
+@startuml package_overview
+title HydroModPy — Diagramme de packages (dependances reelles, verifiees par grep import)
+skinparam dpi 130
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+package "core" as core #F5F5F5
+package "config" as config #F5F5F5
+package "physics" as physics #E8F0FE
+package "spatial" as spatial #E8F0FE
+package "data" as data #E8F0FE
+package "solver" as solver #FCE8E6
+package "simulation" as simulation #FCE8E6
+package "workflow" as workflow #FCE8E6
+package "results" as results #E6F4EA
+package "calibration" as calibration #FEF7E0
+package "project" as project #FEF7E0
+package "analysis" as analysis #FEF7E0
+package "display" as display #E6F4EA
+package "reporting" as reporting #E6F4EA
+package "cli" as cli #FFFFFF
+package "discretization" as discretization #F5F5F5
+package "schema" as schema #F5F5F5
+package "catalog" as catalog #F5F5F5
+
+' -- Couche 0 : infrastructure, aucune dependance montante
+' core n'importe ni config/, ni data/, ni spatial/, ni physics/
+config --> core
+schema --> config
+discretization --> core
+
+' -- Couche 1 : modeles scientifiques / geometrie, solveur-agnostiques
+physics --> core
+spatial --> core
+data --> core
+data ..> spatial : GeologyDataSource (Protocol)
+
+' -- Couche 2 : solveurs numeriques (importent physics, jamais l'inverse)
+solver --> physics
+solver --> spatial
+solver --> core
+note on link
+  confirme par grep :
+  solver/ importe physics/ (25 fichiers)
+  physics/ n'importe JAMAIS solver/ (0 fichier)
+end note
+
+' -- Couche 3 : execution
+simulation --> core
+simulation ..> solver : SolverRegistryProvider (Protocol,\nresolution paresseuse via registry)
+workflow --> core
+workflow --> data
+workflow --> spatial
+workflow ..> simulation : Launcher (Protocol, SimulationRunner)
+workflow ..> results : SimulationCatalog (ouvert par les Steps)
+
+' -- Couche 4 : resultats et catalogue
+results --> core
+results --> spatial : Grid/Mesh (types)
+
+' -- Couche 5 : facade et orchestrateurs haut niveau
+project --> workflow
+project --> results
+project --> data
+project --> spatial
+project --> config
+calibration --> core
+calibration ..> workflow : TrialPipelineProvider (Protocol,\ninversion de dependance)
+calibration ..> project : TrialPromotionProvider (Protocol,\nimplemente par project.dispatch)
+calibration ..> solver : CalibrationSeriesExtractor (Protocol)
+
+' -- Couche 6 : presentation
+display --> results
+display ..> workflow : DisplayStep ouvre SimulationCatalog
+reporting --> results
+reporting --> calibration
+reporting ..> display : figures (via _SessionRunStub)
+analysis --> core
+analysis ..> project : TestbedRunnerProvider (Protocol,\nimplemente par project.dispatch)
+analysis ..> workflow
+
+catalog --> data
+
+' -- Entree utilisateur
+cli ..> project : hmp.run() / hmp.calibrate() (API fonctionnelle _api.py)
+cli --> workflow : workflow.dispatch.resolve_workflow()
+cli --> project : project.dispatch.workflow.dispatch_workflow()
+
+note as NLegend
+  **Legende**
+  --> dependance directe (import)
+  ..> dependance inversee via Protocol
+      (Ports & Adapters -- le package "bas" definit
+      le Protocol, un package "haut" fournit l'implementation
+      enregistree a l'exécution)
+
+  **Regle d'architecture centrale** (core/state/run_state.py) :
+  core/ ne peut importer ni config/, ni data/, ni spatial/,
+  ni physics/ -- communication uniquement via core.contracts.*
+  (Protocol) ou champs typés Any (WorkflowContext.cfg).
+end note
+
+note as NEmpty
+  Packages vides (code legacy, seuls des .pyc fantomes
+  subsistent) : process/, mesh/, grid/, geographic/,
+  watershed/, metamodel/, field/, data_managers/, pyhelp/,
+  calibration_legacy/. Non representes.
+end note
+
+@enduml

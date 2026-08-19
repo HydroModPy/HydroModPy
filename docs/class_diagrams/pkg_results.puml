@@ -1,0 +1,247 @@
+@startuml pkg_results
+title HydroModPy — Package results (catalogue, Run, stockage Zarr/Parquet)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "results.catalog (facade + mixins)" {
+  class SimulationCatalog {
+    - _db : DuckDBPyConnection
+    - _backend : CatalogBackend
+    - _paths : StoragePathResolver
+    + from_workspace(path) : SimulationCatalog {static}
+    + load_dataset() : Dataset
+    + __getitem__(ref) : Run
+    + close() : void
+  }
+  class LifecycleMixin {
+    + open_zarr() : SimulationZarr
+    + finalize() : void
+    + close() : void
+  }
+  class RegistrationMixin {
+    + register_simulation() : RegistrationResult
+  }
+  class RegistrationResult <<dataclass, frozen>> {
+    + sim_id : str
+    + zarr : SimulationZarr
+  }
+  class WritesMixin
+  class WritesMixinDuckDB {
+    + write_parameters() : void
+    + write_metric() : void
+  }
+  class WritesMixinParquet {
+    + write_timeseries() : void
+    + write_budget() : void
+  }
+  class WritesMixinZarr {
+    + write_field() : void
+    + write_mesh() : void
+  }
+  WritesMixin *-- "1" WritesMixinDuckDB
+  WritesMixin *-- "1" WritesMixinParquet
+  WritesMixin *-- "1" WritesMixinZarr
+
+  class ReadsMixin {
+    + query_field() : Any
+    + query_timeseries() : Series
+    + export() : Path
+  }
+  class DiscoveryMixin {
+    + resolve(ref) : str
+    + __getitem__(ref) : Run
+    + find(**filters) : SimulationGroup
+    + latest() : Run
+  }
+  class SchemaDiscoveryMixin {
+    + tables() : list
+    + variables() : list
+    + describe() : dict
+  }
+  class PackageIOMixin {
+    + export_package() : Path
+    + import_package() : void
+  }
+
+  SimulationCatalog --|> LifecycleMixin
+  SimulationCatalog --|> RegistrationMixin
+  SimulationCatalog --|> WritesMixin
+  SimulationCatalog --|> ReadsMixin
+  SimulationCatalog --|> DiscoveryMixin
+  SimulationCatalog --|> SchemaDiscoveryMixin
+  SimulationCatalog --|> PackageIOMixin
+  RegistrationMixin ..> RegistrationResult : produit >
+
+  interface SimulationStore <<Protocol>> {
+    + register_simulation(...) : void
+    + write_field(...) : void
+    + __getitem__(ref) : Run
+  }
+  SimulationCatalog ..|> SimulationStore
+
+  interface CatalogBackend <<Protocol>> {
+    + query(sql) : Any
+    + transaction() : void
+  }
+  class DuckDBBackend {
+    + connection : DuckDBPyConnection {property}
+    + attach_read_only() : void
+  }
+  DuckDBBackend ..|> CatalogBackend
+  SimulationCatalog *-- "1" CatalogBackend
+
+  class StoragePathResolver {
+    + basename_for(sim_id) : str
+    + zarr_path_for(sim_id) : Path
+    + parquet_dir_for(sim_id) : Path
+  }
+  SimulationCatalog *-- "1" StoragePathResolver
+
+  class DatasetLoader {
+    + load() : Dataset
+  }
+  DatasetLoader --> SimulationCatalog : assoc.
+  SimulationCatalog ..> DatasetLoader : load_dataset() >
+}
+
+package "results (Run + mixins)" {
+  class Run {
+    - _sim_id : str
+    - _catalog : SimulationCatalog
+    + array : RunArrayProvider
+    + export() : Path
+    + summary() : dict
+  }
+  class RunGeographicMixin {
+    + geographic() : RasterField
+    + grid : Grid {property}
+    + field(name) : ndarray
+    + mesh : Mesh {property}
+  }
+  class RunTimeseriesMixin {
+    + parameters : dict {property}
+    + metrics : dict {property}
+    + timeseries() : Series
+    + budget() : DataFrame
+  }
+  class RunHydrographicMixin {
+    + hydrographic_network(role) : HydrographicNetwork
+    + hydrographic_network_comparison() : dict
+  }
+  Run --|> RunGeographicMixin
+  Run --|> RunTimeseriesMixin
+  Run --|> RunHydrographicMixin
+  Run --> "1" SimulationCatalog : _catalog (référence)
+  SimulationCatalog ..> Run : crée >
+
+  class RunArrayProvider {
+    - _run : Run
+    + dataset() : UgridDataset
+    + list_fields() : List<str>
+    + to_xarray_batch() : Dataset
+  }
+  Run *-- "1" RunArrayProvider
+}
+
+package "results.simulation_group" {
+  class SimulationGroup {
+    - _sim_ids : List<str>
+    - _catalog : SimulationCatalog
+    + __iter__() : Iterator<Run>
+    + compare() : DataFrame
+    + best() : Run
+    + to_xarray() : Dataset
+  }
+  SimulationGroup --> SimulationCatalog : assoc.
+  SimulationGroup ..> Run : itère >
+  DiscoveryMixin ..> SimulationGroup : find()/rank() >
+}
+
+package "results.zarr_store" {
+  class SimulationZarr {
+    - _path : Path
+    - _root : Group
+    + create(path) : SimulationZarr {static}
+    + write_field(name, data) : void
+    + read_field(name) : ndarray
+    + pack_to_zip() : void
+    + close() : void
+  }
+  class ZarrSchemaVersionError
+  ZarrSchemaVersionError --|> RuntimeError
+  LifecycleMixin *-- "0..*" SimulationZarr : handles ouverts
+}
+
+package "results (contrats de retour / grille)" {
+  class Mesh <<dataclass, frozen>> {
+    + vertices : ndarray
+    + face_node_connectivity : ndarray
+  }
+  class RasterField <<dataclass, frozen>> {
+    + data : ndarray
+    + transform : Any
+    + crs : str
+  }
+  class Grid <<dataclass, frozen>> {
+    + cell_size : float
+    + shape : Tuple
+    + cell_centers_xy() : ndarray
+  }
+  Run ..> Mesh : mesh >
+  Run ..> RasterField : geographic_raster() >
+  Run ..> Grid : grid >
+
+  class FieldDescriptor <<dataclass, frozen>> {
+    + public_name : str
+    + zarr_path : str
+    + standard_name : str
+  }
+  note bottom of FieldDescriptor
+    FIELD_REGISTRY : dict[str,FieldDescriptor] --
+    catalogue canonique des champs (head, concentration,
+    watertable_*, flux de bilan...)
+  end note
+  RunGeographicMixin --> FieldDescriptor : field_registry >
+
+  class ResultStorageLayer <<dataclass, frozen>> {
+    + name : str
+    + scope : str
+    + path_template : str
+  }
+  note bottom of ResultStorageLayer
+    3 instances canoniques (catalog/zarr/parquet)
+    consommées par StoragePathResolver.
+  end note
+}
+
+package "results.errors" {
+  class FieldNotFoundError
+  class RunNotFoundError
+  class ProjectNotFoundError
+  class SchemaVersionMismatchError
+  FieldNotFoundError --|> CatalogError
+  RunNotFoundError --|> CatalogError
+  ProjectNotFoundError --|> CatalogError
+  SchemaVersionMismatchError --|> CatalogError
+}
+
+note as NExport
+  **export/import :** FairExportContext (frozen dataclass,
+  bâti une fois via build_context()) alimente 3 rendus
+  purement fonctionnels : PROV-O, RO-Crate, STAC.
+  Aucun accès DuckDB en dehors de build_context() --
+  pattern Builder -> contexte immuable -> renderers.
+end note
+
+note as NMixin
+  **Pourquoi des mixins et pas une classe monolithique ?**
+  SimulationCatalog et Run partagent chacun UN objet
+  central mais des responsabilités indépendantes
+  (cycle de vie / écriture / lecture / découverte...) --
+  la composition par mixin garde chaque fichier gérable
+  sans exposer la frontière à l'appelant (API plate).
+end note
+
+@enduml

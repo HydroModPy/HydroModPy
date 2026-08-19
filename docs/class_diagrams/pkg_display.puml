@@ -1,0 +1,279 @@
+@startuml pkg_display
+title HydroModPy — Package display (figures, rapports)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+note as NFn
+  renderer.py, catalog.py (registre fonctionnel, pas une classe),
+  map_axes.py, ugrid.py, animation.py, viz.py, theme.py (fonctions),
+  overview/report.py, overview/web.py, overview/panels.py :
+  100% fonctionnels, aucune classe -- omis du diagramme.
+end note
+
+package "display.figure (coeur)" {
+  class FigureSpec <<dataclass, frozen>> {
+    + name : str
+    + title : str
+    + kind : FigureKind
+    + required_fields : Tuple<str>
+  }
+  interface Figure <<Protocol>> {
+    + spec : FigureSpec
+    + render(sim, ax, **opts) : Axes
+    + plot(sim, **opts) : MplFigure
+  }
+  abstract class BaseFigure {
+    + spec : FigureSpec {classifier}
+    + {abstract} render(sim : Run, ax, **opts) : Axes
+    + plot(sim, figsize, dpi, save_path, **opts) : MplFigure
+    + {static} field_descriptor_for(variable) : FieldDescriptor
+  }
+  BaseFigure ..|> Figure
+  BaseFigure *-- "1" FigureSpec
+
+  class Theme <<dataclass, frozen>> {
+    + name : str
+    + palette : List<str>
+    + font_family : str
+  }
+  note bottom of Theme
+    3 instances module (default/print/dark) ;
+    apply_theme(name) pousse dans matplotlib.rcParams
+  end note
+
+  class GeoFigureMixin {
+    + crs : str
+    + add_scale_bar(ax) : void
+    + add_basemap(ax) : void
+  }
+
+  class DisplayConfig {
+    + enabled : bool
+    + preset : str
+    + figures : List<str>
+    + flow : DisplayFlowConfig
+    + particles : DisplayParticlesConfig
+  }
+  class DisplayFlowConfig {
+    + cross_section : bool
+    + streamflow : bool
+    + piezometry : bool
+  }
+  class DisplayParticlesConfig {
+    + pathlines : bool
+  }
+  class DisplayTransportConfig {
+    + concentration : bool
+  }
+  DisplayConfig *-- "1" DisplayFlowConfig
+  DisplayConfig *-- "1" DisplayParticlesConfig
+  DisplayConfig *-- "1" DisplayTransportConfig
+}
+
+package "display.report_blocks (primitives statiques)" {
+  class ReportMetric <<dataclass, frozen>> {
+    + label : str
+    + value : Any
+    + unit : str
+  }
+  class ReportFigure <<dataclass, frozen>> {
+    + figure_id : str
+    + path : Path
+    + available : bool {property}
+  }
+  class ReportTable <<dataclass, frozen>> {
+    + table_id : str
+    + columns : Tuple
+    + rows : Any
+  }
+  class ReportLink <<dataclass, frozen>> {
+    + label : str
+    + path : str
+  }
+  class ReportBlock <<dataclass, frozen>> {
+    + block_id : str
+    + level : DetailLevel
+    + status : BlockStatus
+    + metrics : Tuple<ReportMetric>
+    + figures : Tuple<ReportFigure>
+    + tables : Tuple<ReportTable>
+    + is_applicable : bool {property}
+  }
+  ReportBlock *-- "0..*" ReportMetric
+  ReportBlock *-- "0..*" ReportFigure
+  ReportBlock *-- "0..*" ReportTable
+  ReportBlock *-- "0..*" ReportLink
+  note bottom of ReportBlock
+    Rendu en HTML par des fonctions pures (html.py) --
+    pas de classe Report/HtmlRenderer.
+  end note
+}
+
+package "display.overview" {
+  class OverviewPanelsConfig {
+    + map_dem : bool
+    + timeseries_discharge : bool
+  }
+  class OverviewConfig {
+    + name : str
+    + panels : OverviewPanelsConfig
+  }
+  class OverviewSummary <<dataclass, frozen>> {
+    + watershed_name : str
+    + catchment_area_km2 : float
+    + n_hydrometry : int
+  }
+  OverviewConfig *-- "1" OverviewPanelsConfig
+}
+
+package "display.catchment_report (rapport HTML catchment)" {
+  class CatchmentReportSettings <<dataclass, frozen>> {
+    + report : ReportSettings
+    + layout : LayoutSettings
+    + pipeline : PipelineSettings
+    + from_toml(path) : CatchmentReportSettings {static}
+  }
+  class ReportSettings <<dataclass, frozen>> {
+    + output_dir : Path
+    + site_label : str
+  }
+  class LayoutSettings <<dataclass, frozen>> {
+    + watershed_project_dir : Path
+    + simulation_workspace_dir : Path
+  }
+  class PipelineSettings <<dataclass, frozen>> {
+    + run_overview : bool
+    + build_report_html : bool
+  }
+  CatchmentReportSettings *-- "1" ReportSettings
+  CatchmentReportSettings *-- "1" LayoutSettings
+  CatchmentReportSettings *-- "1" PipelineSettings
+
+  class CatchmentReportInputs <<dataclass, frozen>> {
+    + output_dir : Path
+    + context_summary : Path
+    + from_settings(settings) : CatchmentReportInputs {static}
+  }
+  CatchmentReportInputs ..> CatchmentReportSettings : from_settings() <
+
+  class CatchmentReportPreset <<dataclass, frozen>> {
+    + name : str
+    + artifact_specs : Tuple<ReportArtifactSpec>
+    + block_specs : Tuple<ReportBlockSpec>
+  }
+  class ReportBlockSpec <<dataclass, frozen>> {
+    + block_id : str
+    + content_key : str
+    + figures : Tuple<FigureSpec>
+  }
+  class ReportArtifactSpec <<dataclass, frozen>> {
+    + figure_id : str
+    + candidates : Tuple<ArtifactCandidate>
+    + resolve(context) : Path
+  }
+  class ArtifactCandidate <<dataclass, frozen>> {
+    + root : str
+    + relative_path : str
+  }
+  class ArtifactPathContext <<dataclass, frozen>> {
+    + context_assets : Path
+    + root_path(root) : Path
+  }
+  CatchmentReportPreset *-- "0..*" ReportArtifactSpec
+  CatchmentReportPreset *-- "0..*" ReportBlockSpec
+  ReportArtifactSpec *-- "0..*" ArtifactCandidate
+  ReportArtifactSpec ..> ArtifactPathContext : resolve() >
+
+  class CatchmentReportConfig <<dataclass, frozen>> {
+    + output_dir : Path
+    + preset : CatchmentReportPreset
+    + from_inputs(inputs, preset) : CatchmentReportConfig {static}
+  }
+  CatchmentReportConfig ..> CatchmentReportInputs : from_inputs() <
+  CatchmentReportConfig *-- "1" CatchmentReportPreset
+
+  class BlockBuildContext <<dataclass, frozen>> {
+    + summary : Any
+    + detail_level : DetailLevel
+    + config : Any
+  }
+  class BlockContent <<dataclass, frozen>> {
+    + metrics : Tuple
+    + tables : Tuple
+    + warnings : Tuple
+  }
+  note bottom of BlockContent
+    build_blocks(spec, ctx) -> (ReportBlockSpec,
+    BlockBuildContext) -> ReportBlock (report_blocks.model)
+  end note
+
+  class CatchmentReportPipelineResult <<dataclass, frozen>> {
+    + overview_config : Path
+    + html_report : Path
+  }
+  class SeriesStats <<dataclass, frozen>> {
+    + rows : int
+    + mean : float
+    + from_frame(df) : SeriesStats {static}
+  }
+  class CatchmentReportPreflightError
+  CatchmentReportPreflightError --|> FileNotFoundError
+  class CatchmentReportPostflightError
+  CatchmentReportPostflightError --|> RuntimeError
+}
+
+package "display.figures (33 sous-classes de BaseFigure)" {
+  class Hydrograph
+  class PiezometricMap
+  class ParticleTracks
+  class ConcentrationMap
+  class WatershedIdCardFigure
+  class _HydrographicNetworkRoleFigure {
+    + role : str {classifier}
+  }
+  class HydrographicNetworkReferenceFigure
+  class HydrographicNetworkGeneratedFigure
+  class HydrographicNetworkComparisonFigure
+  class _HydrographicNetworkDifferenceRoleFigure
+  class HydrographicNetworkReferenceMissingOnlyFigure
+  class HydrographicNetworkGeneratedExtraOnlyFigure
+  class SimulatedActiveNetworkMap
+  class CalibrationConvergenceFigure
+
+  Hydrograph --|> BaseFigure
+  PiezometricMap --|> BaseFigure
+  ParticleTracks --|> BaseFigure
+  ConcentrationMap --|> BaseFigure
+  SimulatedActiveNetworkMap --|> BaseFigure
+  CalibrationConvergenceFigure --|> BaseFigure
+  WatershedIdCardFigure --|> BaseFigure
+  WatershedIdCardFigure --|> GeoFigureMixin
+  _HydrographicNetworkRoleFigure --|> BaseFigure
+  _HydrographicNetworkRoleFigure --|> GeoFigureMixin
+  HydrographicNetworkReferenceFigure --|> _HydrographicNetworkRoleFigure
+  HydrographicNetworkGeneratedFigure --|> _HydrographicNetworkRoleFigure
+  HydrographicNetworkComparisonFigure --|> BaseFigure
+  HydrographicNetworkComparisonFigure --|> GeoFigureMixin
+  _HydrographicNetworkDifferenceRoleFigure --|> HydrographicNetworkComparisonFigure
+  HydrographicNetworkReferenceMissingOnlyFigure --|> _HydrographicNetworkDifferenceRoleFigure
+  HydrographicNetworkGeneratedExtraOnlyFigure --|> _HydrographicNetworkDifferenceRoleFigure
+
+  note bottom of CalibrationConvergenceFigure
+    + 19 autres BaseFigure directes (calibration x6,
+    géochimie x3, cross-section, budget, etc.) --
+    même patron, non détaillées ici.
+  end note
+}
+
+note as NConn
+  **display/ <-> results/ :** les figures ne consomment
+  QUE Run (résults.run.Run), jamais SimulationCatalog
+  directement (couplage structurel/duck-typing).
+  **display/ <-> workflow/ :** DisplayStep.run() est le
+  SEUL endroit qui ouvre SimulationCatalog.from_workspace(),
+  obtient un Run, puis appelle display.runs.render_figures_for_run.
+end note
+
+@enduml

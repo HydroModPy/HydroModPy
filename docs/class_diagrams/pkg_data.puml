@@ -1,0 +1,263 @@
+@startuml pkg_data
+title HydroModPy — Package data (acquisition, cache, managers)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "data (facade + orchestration)" {
+  class DataStore {
+    + catalog : DataCatalogDuckDB
+    + workspace_root : Path
+    + project_extent : Tuple
+    + load_variable(variable_name, config) : LoadResult
+    + load_dem(...) : LoadResult
+    + load_geology(...) : LoadResult
+    + cache_info() : DataFrame
+  }
+  class VariableSpec <<dataclass, frozen>> {
+    + config_class : str
+    + manager_class : str
+    + apply_simulation_window : bool
+  }
+  note bottom of VariableSpec
+    _dispatch.VARIABLE_SPECS : dict[str,VariableSpec]
+    source de vérité résolue par importlib -- utilisée
+    par DataStore ET DataManagersRuntimeLoader.
+  end note
+
+  class DataManagersRuntimeLoader {
+    + config_path : Path
+    + data_plan : DataLoadPlan
+    - _store : DataStore
+    + load_all(result) : void
+    - _load_generic_variable() : void
+    - _load_dem_data() : void
+  }
+  DataManagersRuntimeLoader *-- "1" DataStore
+  DataManagersRuntimeLoader --> VariableSpec : consulte >
+
+  class DataLoadPlan <<dataclass, frozen>> {
+    + explicit_types : Tuple<str>
+    + inferred_types : Tuple<str>
+    + types : Tuple<str> {property}
+    + has(type_name) : bool
+  }
+  class DataPlanner {
+    + build(config : DataManagersConfig) : DataLoadPlan
+  }
+  DataPlanner ..> DataLoadPlan : produit >
+  DataManagersRuntimeLoader --> DataLoadPlan : consomme
+
+  class DataManagersConfig {
+    + types : List<str>
+    + inference_mode : str
+    + dem : DemConfig
+    + hydrometry : HydrometryConfig
+  }
+  DataPlanner --> DataManagersConfig : assoc.
+}
+
+package "data (managers, hierarchie)" {
+  interface SourceConfigProtocol <<Protocol>> {
+    + source : str
+    + mask_path : Path
+    + extent : str
+  }
+  abstract class BaseManagerCommon {
+    # config : Any
+    # catalog : DataCatalogDuckDB
+    # project_extent : Tuple
+    + {abstract} _load_mask_geometry(mask_path) : Geometry
+    # _resolve_bbox(source_cfg) : Tuple
+  }
+  BaseManagerCommon --> SourceConfigProtocol : config
+
+  abstract class BaseVariableManager {
+    + load() : LoadResult
+    + {abstract} _fetch_from_source(source_cfg) : void
+    # _persist_api_records() : void
+  }
+  BaseVariableManager --|> BaseManagerCommon
+  note bottom of BaseVariableManager
+    Variables ponctuelles/stations :
+    hydrometry, piezometry, intermittency, water_quality
+  end note
+
+  abstract class BaseFieldManager {
+    + INTERNAL_UNIT : str {classifier}
+    + load() : LoadResult
+    + {abstract} _fetch_from_source(source_cfg) : void
+    # _load_or_fetch_fields() : void
+  }
+  BaseFieldManager --|> BaseManagerCommon
+  note bottom of BaseFieldManager
+    Variables grillées : precipitation, etp, temperature,
+    wind, humidity, radiation, soil_moisture, recharge, runoff
+  end note
+
+  class Sim2BackedFieldManager {
+    + SIM2_HAS_COMPONENTS : bool {classifier}
+    # _fetch_sim2(source_cfg) : void
+    # _fetch_custom(source_cfg) : void
+  }
+  Sim2BackedFieldManager --|> BaseFieldManager
+
+  class HydrometryManager {
+    + VARIABLE_NAME = "hydrometry"
+  }
+  HydrometryManager --|> BaseVariableManager
+
+  class PrecipitationManager {
+    + VARIABLE_NAME = "precipitation"
+  }
+  PrecipitationManager --|> Sim2BackedFieldManager
+
+  class DemManager {
+    + VARIABLE_NAME = "dem"
+  }
+  class GeologyManager {
+    + VARIABLE_NAME = "geology"
+  }
+  note bottom of DemManager
+    DemManager/GeologyManager n'héritent PAS de
+    BaseManagerCommon (constructeur autonome, besoin
+    du contexte "geographic") -- chemin dédié dans
+    DataStore.load_dem()/load_geology().
+  end note
+}
+
+package "data.contracts" {
+  class LoadResult <<dataclass>> {
+    + points : List<PointRecord>
+    + fields : List<FieldRecord>
+    + warnings : List<str>
+    + has_points : bool {property}
+  }
+  class PointRecord <<dataclass>> {
+    + station_id : str
+    + variable : str
+    + data : DataFrame
+    + location : StationLocation
+  }
+  class FieldRecord <<dataclass>> {
+    + variable : str
+    + data : Dataset
+    + bbox : Tuple
+    + is_static : bool {property}
+  }
+  class StationLocation <<dataclass, frozen>> {
+    + id : str
+    + x : float
+    + y : float
+  }
+  LoadResult *-- "0..*" PointRecord
+  LoadResult *-- "0..*" FieldRecord
+  PointRecord *-- "0..1" StationLocation
+}
+
+package "data.registry (cache DuckDB)" {
+  class DataCatalogDuckDB {
+    - _conn : DuckDBPyConnection
+    - _backend : CacheBackend
+    + register(...) : int
+    + find_cached(...) : CatalogEntry
+    + list_entries(...) : DataFrame
+  }
+  interface CacheBackend <<Protocol>> {
+    + query(sql) : Any
+    + transaction() : void
+  }
+  class DuckDBCacheBackend {
+    + from_connection(conn) : DuckDBCacheBackend {static}
+    + attach_read_only() : void
+  }
+  DuckDBCacheBackend ..|> CacheBackend
+  DataCatalogDuckDB *-- "1" CacheBackend
+
+  class CatalogEntry {
+    + id : str
+    + variable : str
+    + bbox_xmin : float
+    + sha256 : str
+  }
+  DataCatalogDuckDB ..> CatalogEntry : find_cached() >
+  DataStore *-- "1" DataCatalogDuckDB
+  BaseManagerCommon --> DataCatalogDuckDB : catalog
+}
+
+package "data (provenance / freeze)" {
+  class DataEntry <<dataclass>> {
+    + catalog : DataCatalogDuckDB
+    + variable : str
+    + checksum : str
+    + used_by(project_catalogs) : List
+  }
+  class Sidecar <<pydantic, frozen>> {
+    + source : str
+    + sha256 : str
+    + license : str
+  }
+  class LockedArtifact <<dataclass, frozen>> {
+    + variable : str
+    + sha256 : str
+    + file_mtime : float
+  }
+  class LockMismatch <<dataclass, frozen>> {
+    + kind : str
+    + expected : str
+    + observed : str
+  }
+}
+
+package "data.adapters (convertisseurs de format)" {
+  class TimeSeriesArtifact
+  class LocationsArtifact
+  class TimeSeriesValidationError
+  TimeSeriesValidationError --|> DataContractViolation
+}
+
+package "data (scaffolding / scan)" {
+  class "scaffold.VariableSpec" as ScaffoldVariableSpec <<dataclass, frozen>> {
+    + name : str
+    + category : str
+    + pivot : str
+  }
+  note bottom of ScaffoldVariableSpec
+    Registre déclaratif distinct de _dispatch.VariableSpec
+    (deux classes VariableSpec, préoccupations différentes) :
+    pilote le scaffolding "hmp workspace init".
+  end note
+  class Artifact <<dataclass, frozen>> {
+    + variable : str
+    + pivot_path : Path
+  }
+  class ScanReport <<dataclass, frozen>> {
+    + added : int
+    + n_changed : int {property}
+  }
+  ScanReport o-- "0..*" Artifact
+}
+
+class BaseVariableConfig {
+  + date_start : str
+  + date_end : str
+  + from_toml(path) : BaseVariableConfig {static}
+}
+note right of BaseVariableConfig
+  Base Pydantic (HydroModelBase) de chaque
+  variables/&lt;name&gt;/config.py:&lt;Name&gt;Config
+  (ex: PrecipitationConfig, HydrometryConfig).
+end note
+
+note as NFlow
+  **Chemin load_variable() :**
+  DataStore.load_variable(name, cfg)
+   -> _dispatch.get_manager_class(name)
+   -> Manager(config, catalog, project_extent).load()
+      -> _fetch_from_source(source_cfg) [custom | API]
+         -> cache: DataCatalogDuckDB.find_cached() / register()
+   <- LoadResult(points, fields, warnings)
+end note
+
+@enduml

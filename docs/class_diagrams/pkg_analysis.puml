@@ -1,0 +1,252 @@
+@startuml pkg_analysis
+title HydroModPy — Package analysis (testbed, comparaison, campagnes)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+note as NEmpty
+  batch/, postprocess/, display/ (sous analysis/) sont VIDES
+  (seuls des .pyc fantômes subsistent). D'après analysis/__init__.py :
+  figures -> hydromodpy.display ; métriques -> core.metrics ;
+  champs dérivés -> results.derived ; postprocess -> workflow.steps.
+end note
+
+package "analysis.testbed (orchestration)" {
+  class TestbedLauncher {
+    + cfg : TestbedConfig
+    + build_plan() : List<TestbedPlannedCase>
+    + run() : List<TestbedExecution>
+  }
+  interface TestbedRunnerProvider <<Protocol>> {
+    + run_simulation(config_path) : Mapping
+    + run_comparison(config_path) : Mapping
+    + run_calibration(config_path) : Mapping
+  }
+  note bottom of TestbedRunnerProvider
+    Implémenté (hors package) par
+    project.dispatch.workflow.ProjectTestbedRunnerProvider
+  end note
+  interface TestbedWorkflowAdapter <<Protocol>> {
+    + run(provider, config_path, no_display) : Any
+  }
+  class SimulationTestbedWorkflowAdapter
+  class ComparisonTestbedWorkflowAdapter
+  class CalibrationTestbedWorkflowAdapter
+  SimulationTestbedWorkflowAdapter ..|> TestbedWorkflowAdapter
+  ComparisonTestbedWorkflowAdapter ..|> TestbedWorkflowAdapter
+  CalibrationTestbedWorkflowAdapter ..|> TestbedWorkflowAdapter
+  TestbedWorkflowAdapter ..> TestbedRunnerProvider : délègue à >
+
+  class TestbedConfig {
+    + id : str
+    + runner : TestbedRunnerConfig
+    + case : Tuple<TestbedCaseConfig>
+    + catalog : TestbedCatalogConfig
+    + from_toml(path) : TestbedConfig {static}
+  }
+  class TestbedRunnerConfig {
+    + type : str
+    + no_display : bool
+  }
+  class TestbedCaseConfig {
+    + id : str
+    + axis : str
+    + enabled : bool
+  }
+  class TestbedCatalogConfig {
+    + path : Path
+    + id_field : str
+  }
+  class TestbedCatalogCaseConfig {
+    + id_template : str
+    + required_fields : Tuple
+  }
+  TestbedConfig *-- "1" TestbedRunnerConfig
+  TestbedConfig *-- "0..*" TestbedCaseConfig
+  TestbedConfig *-- "0..1" TestbedCatalogConfig
+  TestbedConfig *-- "0..*" TestbedCatalogCaseConfig
+  TestbedLauncher *-- "1" TestbedConfig
+
+  class TestbedPlannedCase <<dataclass, frozen>> {
+    + variant : TestbedCaseConfig
+    + config_path : Path
+    + status : str
+  }
+  class TestbedExecution <<dataclass, frozen>> {
+    + case : TestbedPlannedCase
+    + status : str
+    + duration_seconds : float
+  }
+  TestbedPlannedCase *-- "1" TestbedCaseConfig
+  TestbedExecution *-- "1" TestbedPlannedCase
+  TestbedLauncher ..> TestbedExecution : produit >
+}
+
+package "analysis.testbed (regional lab = campagne batch)" {
+  class RegionalLabConfig {
+    + lab_id : str
+    + catalog : RegionalLabCatalogConfig
+    + selection : RegionalLabSelectionConfig
+    + cluster_rules : Tuple<RegionalLabClusterRuleConfig>
+    + recipes : Tuple<RegionalLabRecipeConfig>
+    + from_toml(path) : RegionalLabConfig {static}
+  }
+  class RegionalLabCatalogConfig {
+    + path : Path
+    + site_id_field : str
+  }
+  class RegionalLabSelectionConfig {
+    + site_ids : Any
+    + cluster_ids : Any
+  }
+  class RegionalLabClusterRuleConfig {
+    + id : str
+    + selection : RegionalLabSelectionConfig
+  }
+  class RegionalLabRecipeConfig {
+    + id : str
+    + launcher : str
+  }
+  RegionalLabConfig *-- "1" RegionalLabCatalogConfig
+  RegionalLabConfig *-- "1" RegionalLabSelectionConfig
+  RegionalLabConfig *-- "0..*" RegionalLabClusterRuleConfig
+  RegionalLabConfig *-- "0..*" RegionalLabRecipeConfig
+
+  class RegionalLabProfileLauncher {
+    + cfg : RegionalLabConfig
+    + run() : List<RegionalLabExecution>
+  }
+  RegionalLabProfileLauncher *-- "1" RegionalLabConfig
+
+  class RegionalLabSiteRecord <<dataclass, frozen>> {
+    + site_id : str
+    + x : float
+    + y : float
+    + area_km2 : float
+  }
+  class RegionalLabPlannedCase <<dataclass, frozen>> {
+    + case_id : str
+    + site : RegionalLabSiteRecord
+    + recipe_id : str
+  }
+  RegionalLabPlannedCase *-- "1" RegionalLabSiteRecord
+  class RegionalLabExecution <<dataclass, frozen>> {
+    + case : RegionalLabPlannedCase
+    + status : str
+  }
+  RegionalLabExecution *-- "1" RegionalLabPlannedCase
+  RegionalLabProfileLauncher ..> RegionalLabExecution : produit >
+
+  class RegionalLabTestbedCase <<dataclass, frozen>> {
+    + case : TestbedPlannedCase
+    + regional_case_id : str
+  }
+  RegionalLabTestbedCase ..> TestbedPlannedCase : projection vers >
+  note bottom of RegionalLabTestbedCase
+    regional_case_to_testbed_case() fait converger
+    RegionalLabProfileLauncher et TestbedLauncher vers
+    le même contrat run_testbed_child_workflow().
+  end note
+}
+
+package "analysis (catalogue generique, partage)" {
+  class CatalogLoadSpec <<dataclass, frozen>> {
+    + path : Path
+    + required_fields : Tuple
+  }
+  class CatalogRow <<dataclass, frozen>> {
+    + raw : dict
+    + resolved_paths : dict
+    + tags : Any {property}
+  }
+  class CatalogRowSelector <<dataclass, frozen>> {
+    + field_equals : Any
+    + limit : int
+  }
+  note bottom of CatalogRowSelector
+    load_catalog_rows()/select_catalog_rows() consommés
+    par TestbedCatalogConfig ET RegionalLabCatalogConfig --
+    équivalent générique de results.catalog/display.catalog.
+  end note
+  TestbedCatalogConfig ..> CatalogLoadSpec
+  RegionalLabCatalogConfig ..> CatalogLoadSpec
+}
+
+package "analysis.comparison" {
+  class SimulationComparisonLauncher {
+    + cfg : SimulationComparisonConfig
+    + run() : void
+  }
+  class SimulationComparisonConfig {
+    + comparison : ComparisonSection
+    + from_toml(path) : SimulationComparisonConfig {static}
+  }
+  class ComparisonSection {
+    + execution : ComparisonExecutionConfig
+    + audit : ComparisonAuditConfig
+    + simulation : List<ComparisonSimulationConfig>
+    + observable : List<ComparisonObservable>
+  }
+  SimulationComparisonConfig *-- "1" ComparisonSection
+  SimulationComparisonLauncher *-- "1" SimulationComparisonConfig
+
+  class RuntimeComparisonConfig {
+    + comparison : RuntimeComparisonSection
+    + from_toml(path) : RuntimeComparisonConfig {static}
+  }
+  class RuntimeComparisonSection {
+    + simulation : List<ComparisonSimulation>
+    + observable : List<ComparisonObservable>
+    + fine_raster : ComparisonFineRaster
+  }
+  RuntimeComparisonConfig *-- "1" RuntimeComparisonSection
+  SimulationComparisonLauncher ..> RuntimeComparisonConfig : dérive >
+
+  class GeneratedChildConfig <<dataclass, frozen>> {
+    + simulation_id : str
+    + config_path : Path
+  }
+  class ChildRunResult <<dataclass, frozen>> {
+    + returncode : int
+    + succeeded : bool {property}
+  }
+  class ComparisonOutputBundle <<dataclass, frozen>> {
+    + observables_csv : Path
+    + report_path : Path
+  }
+  SimulationComparisonLauncher ..> GeneratedChildConfig : matérialise >
+  SimulationComparisonLauncher ..> ChildRunResult : exécute >
+  SimulationComparisonLauncher ..> ComparisonOutputBundle : écrit >
+
+  class CellCentroidTable <<dataclass, frozen>> {
+    + cell_ids : ndarray
+    + nearest_cell_id() : int
+  }
+  class VariableSeries <<dataclass, frozen>> {
+    + variable_name : str
+    + slices : Tuple<TimeSlice>
+  }
+  class TimeSlice <<dataclass, frozen>> {
+    + time_index : int
+    + values : ndarray
+  }
+  VariableSeries *-- "0..*" TimeSlice
+}
+
+package "analysis (config racine)" {
+  class AnalysisConfig {
+    + batch : RegionalLabConfig
+    + capability_gallery : CapabilityGalleryConfig
+    + comparison : ComparisonSection
+  }
+  AnalysisConfig *-- "0..1" RegionalLabConfig
+  AnalysisConfig *-- "0..1" ComparisonSection
+  class CapabilityGalleryConfig {
+    + enabled : bool
+    + output_dir : Path
+  }
+  AnalysisConfig *-- "0..1" CapabilityGalleryConfig
+}
+
+@enduml

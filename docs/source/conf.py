@@ -146,9 +146,11 @@ _ensure_required_doc_extensions()
 # sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
 # building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
 # and Read the Docs builds skip this block and run as a single-version build.
-# _current_version drives the pydata version-switcher highlight; default to the
-# stable trunk for non-polyversion builds.
-_current_version = "main"
+# _current_version drives the pydata version-switcher highlight. The incremental
+# Pages workflow builds one version at a time and passes its name via
+# HMP_DOC_VERSION; a local polyversion run overrides it from POLYVERSION_DATA;
+# a plain local build falls back to the stable trunk.
+_current_version = os.environ.get("HMP_DOC_VERSION") or "main"
 if os.environ.get("POLYVERSION_DATA"):
     from sphinx_polyversion import load as _polyversion_load
 

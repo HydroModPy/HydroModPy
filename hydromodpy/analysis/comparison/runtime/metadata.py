@@ -286,6 +286,23 @@ def _workspace_root_for_config(config_path: Path) -> Path | None:
     return locate_workspace_root(project_root) or project_root
 
 
+def _catalog_roots_for_config(config_path: Path) -> list[Path]:
+    """Roots that may hold the child run's index, most likely first.
+
+    A config can declare a workspace root that only carries the shared data
+    folder while the run's index sits under the project root, so both are tried
+    before discovery gives up.
+    """
+    roots: list[Path] = []
+    for root in (
+        _workspace_root_for_config(config_path),
+        _resolve_project_root_from_config(config_path),
+    ):
+        if root is not None and root not in roots:
+            roots.append(root)
+    return roots
+
+
 def _select_sim_id(
     catalog: Any,
     *,
@@ -331,7 +348,10 @@ def discover_result_store(
     preferred_sim_id: str | None = None,
     preferred_name: str | None = None,
 ) -> tuple[Any, str | None]:
-    """Open a read-only Catalog from the project root inferred from a config path.
+    """Open a read-only Catalog for the run a child config produced.
+
+    The declared workspace root is tried first, then the project root, because a
+    workspace root may carry only the shared data folder.
 
     Inspecting is reading: this handle refuses writes. Use
     :func:`open_result_store_for_write` to publish metrics back into a child
@@ -342,29 +362,35 @@ def discover_result_store(
     if config_path is None:
         return None, None
     config_path_resolved = Path(config_path).expanduser().resolve()
-    workspace_root = _workspace_root_for_config(config_path_resolved)
-    if workspace_root is None:
+    roots = _catalog_roots_for_config(config_path_resolved)
+    if not roots:
         return None, None
 
-    try:
-        from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog import Catalog
 
-        # Discovery only reads; a writable open would create an empty index
-        # in whatever directory the child config happens to point at.
-        catalog = Catalog(workspace_root, read_only=True)
-        sim_id = _select_sim_id(
-            catalog,
-            config_path=config_path_resolved,
-            preferred_sim_id=preferred_sim_id,
-            preferred_name=preferred_name,
-        )
-        if sim_id is None:
+    for root in roots:
+        try:
+            # Discovery only reads; a writable open would create an empty index
+            # in whatever directory the child config happens to point at.
+            catalog = Catalog(root, read_only=True)
+        except Exception:
+            logger.debug("Could not open Catalog from %s", root, exc_info=True)
+            continue
+        try:
+            sim_id = _select_sim_id(
+                catalog,
+                config_path=config_path_resolved,
+                preferred_sim_id=preferred_sim_id,
+                preferred_name=preferred_name,
+            )
+        except Exception:
+            logger.debug("Could not read simulations from %s", root, exc_info=True)
             catalog.close()
-            return None, None
-        return catalog, sim_id
-    except Exception:
-        logger.debug("Could not open Catalog from %s", workspace_root, exc_info=True)
-        return None, None
+            continue
+        if sim_id is not None:
+            return catalog, sim_id
+        catalog.close()
+    return None, None
 
 
 def open_result_store_for_write(

@@ -1,0 +1,147 @@
+@startuml pkg_simulation
+title HydroModPy — Package simulation (plan d'execution, lancement)
+skinparam dpi 130
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "simulation.execution" {
+  class ProcessCallbacks <<dataclass, frozen>> {
+    + before_process : Callable
+    + after_process : Callable
+    + after_run : Callable
+  }
+  class SimulationRunner {
+    + callbacks : ProcessCallbacks
+    + execute(plan : SimulationPlan, state, callbacks) : Tuple<ProcessRun,RunExecutionResult>
+  }
+  SimulationRunner *-- "1" ProcessCallbacks
+  interface Launcher <<Protocol, externe workflow>> {
+    + execute(plan, state, callbacks) : Tuple
+  }
+  SimulationRunner ..|> Launcher
+}
+
+package "simulation.planning" {
+  class ProcessRun <<dataclass, frozen>> {
+    + id : str
+    + process_type : str
+    + solver : str
+    + depends_on : Tuple<str>
+    + is_solver_backed : bool {property}
+  }
+  class SimulationPlan <<dataclass, frozen>> {
+    + name : str
+    + runs : Tuple<ProcessRun>
+    + is_empty() : bool
+  }
+  SimulationPlan *-- "0..*" ProcessRun
+  SimulationRunner ..> SimulationPlan : execute(plan) >
+
+  class RunContext <<dataclass, frozen>> {
+    + plan : SimulationPlan
+    + run : ProcessRun
+    + dependency_models : Tuple<Any>
+  }
+  RunContext *-- "1" SimulationPlan
+  RunContext *-- "1" ProcessRun
+
+  class RunExecutionResult <<dataclass, frozen>> {
+    + primary_model : Any
+    + solver_output_dir : Path
+    + metrics : Map<str,Any>
+  }
+
+  class SimulationPlanner {
+    + build(config : SimulationConfig) : SimulationPlan
+  }
+  SimulationPlanner ..> SimulationPlan : produit >
+
+  class SimulationTimeConfig {
+    + start_datetime : datetime
+    + step_unit : str
+  }
+  abstract class _ProcessBase {
+    + id : str
+  }
+  class FlowProcessConfig {
+    + type = "flow"
+    + solvers : List<str>
+  }
+  class TransportProcessConfig {
+    + type = "transport"
+  }
+  class MeshProcessConfig {
+    + type = "mesh"
+  }
+  FlowProcessConfig --|> _ProcessBase
+  TransportProcessConfig --|> _ProcessBase
+  MeshProcessConfig --|> _ProcessBase
+
+  class SimulationConfig {
+    + name : str
+    + time : SimulationTimeConfig
+    + process : List<SimulationProcessConfig>
+    + results : ResultsConfig
+    + transient(...) : SimulationConfig {static}
+  }
+  SimulationConfig *-- "0..1" SimulationTimeConfig
+  SimulationConfig o-- "0..*" _ProcessBase
+  SimulationConfig *-- "1" ResultsConfig
+  SimulationPlanner --> SimulationConfig : assoc.
+}
+
+package "simulation.planning (resultats attendus)" {
+  class DerivedConfig {
+    + watertable_elevation : bool
+    + seepage_areas : bool
+  }
+  class ExportVariablesConfig {
+    + head : bool
+    + concentration : bool
+    + active_names() : List<str>
+  }
+  class ExportConfig {
+    + variables : ExportVariablesConfig
+    + artifacts : List<ExportSpec>
+    + any_enabled() : bool
+  }
+  ExportConfig *-- "1" ExportVariablesConfig
+  class BudgetConfig {
+    + spatial_fields : bool
+  }
+  class ResultsConfig {
+    + persistence : PersistenceConfig
+    + derived : DerivedConfig
+    + budget : BudgetConfig
+    + export : ExportConfig
+  }
+  ResultsConfig *-- "1" DerivedConfig
+  ResultsConfig *-- "1" BudgetConfig
+  ResultsConfig *-- "1" ExportConfig
+}
+
+package "simulation.extraction" {
+  interface OutputAdapter <<Protocol>> {
+    + extract(sim_id, solver_output_dir, store) : void
+    + derive(sim_id, store, config) : void
+  }
+  note bottom of OutputAdapter
+    Obtenu via get_solver_registry_provider()
+    .get_extractor_instance(process_type, solver_name).
+    post_run.py (post_run_results, extract_run_outputs,
+    derive_run_outputs...) est 100% fonctionnel.
+  end note
+}
+
+package "simulation.adapters" {
+  note as NEmpty
+    Aucune classe : docstrings pointant vers
+    solver.base.protocol.SolverAdapter et
+    solver.base.registry comme sources de vérité.
+    transport_helpers.py : fonctions pures consommant
+    RunContext/ProcessRun/SimulationPlan.
+  end note
+}
+
+@enduml
