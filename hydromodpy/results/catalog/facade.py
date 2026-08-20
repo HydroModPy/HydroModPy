@@ -15,6 +15,7 @@ reopens transparently on the next statement.
 
 from __future__ import annotations
 
+import atexit
 import threading
 import time
 import weakref
@@ -155,22 +156,36 @@ class _CatalogConnectionSweeper:
         self._handles: weakref.WeakSet[CatalogConnection] = weakref.WeakSet()
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
+        self._stopped = threading.Event()
 
     def track(self, handle: CatalogConnection) -> None:
         """Register ``handle`` and start the sweeper on first use."""
         with self._lock:
             self._handles.add(handle)
-            if self._thread is None:
+            if self._thread is None and not self._stopped.is_set():
                 self._thread = threading.Thread(
-                    target=self._sweep_forever,
+                    target=self._sweep_until_stopped,
                     name="hmp-catalog-idle-release",
                     daemon=True,
                 )
                 self._thread.start()
 
-    def _sweep_forever(self) -> None:
-        while True:
-            time.sleep(_IDLE_SWEEP_SECONDS)
+    def stop(self) -> None:
+        """Join the sweeper before the interpreter starts finalizing.
+
+        A daemon thread that wakes up once finalization has begun is killed
+        where it stands, and the kill unwinds whatever native frames it is
+        holding. This one wakes twice a second and closes DuckDB connections,
+        so it is joined here rather than left to be killed inside the driver.
+        """
+        self._stopped.set()
+        with self._lock:
+            thread, self._thread = self._thread, None
+        if thread is not None:
+            thread.join(timeout=_IDLE_SWEEP_SECONDS * 4)
+
+    def _sweep_until_stopped(self) -> None:
+        while not self._stopped.wait(_IDLE_SWEEP_SECONDS):
             with self._lock:
                 handles = list(self._handles)
             for handle in handles:
@@ -178,6 +193,7 @@ class _CatalogConnectionSweeper:
 
 
 _IDLE_SWEEPER = _CatalogConnectionSweeper()
+atexit.register(_IDLE_SWEEPER.stop)
 
 
 class Catalog(
