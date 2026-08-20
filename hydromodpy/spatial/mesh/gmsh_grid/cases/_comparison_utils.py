@@ -8,6 +8,7 @@ This module consolidates utility functions that were duplicated across
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -167,16 +168,24 @@ def signature_head(arr, *, n: int = 8) -> list[float]:
 
 
 def polygon_area(vertices) -> float:
-    """Shoelace formula for a simple polygon given an (N, 2+) vertex array."""
+    """Shoelace formula for a simple polygon given an (N, 2+) vertex array.
+
+    The cross terms are summed with :func:`math.fsum` rather than reduced by
+    ``np.dot``: a dot product of a handful of doubles goes through OpenBLAS,
+    which picks its kernel from the CPU at runtime, so the last bits of the
+    area depend on the machine. ``fsum`` is exactly rounded, so the same mesh
+    measures the same area everywhere.
+    """
     xy = np.asarray(vertices, dtype=float)
     x = xy[:, 0]
     y = xy[:, 1]
-    return 0.5 * float(np.abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+    cross = x * np.roll(y, -1) - y * np.roll(x, -1)
+    return 0.5 * abs(math.fsum(cross.tolist()))
 
 
 def mesh_footprint_area(mesh) -> float:
     """Total planar area of all cells in *mesh*."""
-    return round_float(sum(polygon_area(cell.vertices) for cell in mesh.cells))
+    return round_float(math.fsum(polygon_area(cell.vertices) for cell in mesh.cells))
 
 
 def mesh_bounds_xy(mesh) -> list[float]:
