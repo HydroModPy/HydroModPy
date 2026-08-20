@@ -19,7 +19,7 @@ Module: ``hydromodpy/spatial/geographic/core/river_network.py``.
 Trigger: ``geographic.river_network.enabled = true``. The geographic
 pipeline then produces a generated network that feeds the canonical
 ``HydrographicNetwork(role="generated")`` concept. Files written under
-``results_stable/geographic/``:
+``.hmp/scratch/_preprocessing/geographic/``:
 
 - ``river_streams.tif``: raster of stream cells.
 - ``river_streams_pruned.tif``: same, after optional pruning.
@@ -45,7 +45,7 @@ Required inputs:
 - D8 direction and accumulation rasters.
 
 Backend: ``WhiteboxWorkflowsBackend``
-(``hydromodpy/spatial/delineation/whitebox_workflows_backend.py``).
+(``hydromodpy/spatial/delineation/whitebox_workflows_backend/``).
 Other backends must register explicitly through ``register_backend()``.
 
 TOML parameters:

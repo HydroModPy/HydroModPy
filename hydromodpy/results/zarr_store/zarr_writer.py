@@ -17,6 +17,7 @@ import numpy as np
 import zarr
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.results import field_registry
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
 from hydromodpy.results.zarr_store.chunks import (
@@ -56,10 +57,35 @@ def attrs_for_field(name: str, dtype: np.dtype) -> dict[str, object]:
     else:
         attrs = dict(field_registry.cf_attrs(name))
     if np.issubdtype(dtype, np.floating):
+        # CF convention: both _FillValue and missing_value carry the sentinel so
+        # xarray auto-masks it on load. MODFLOW sentinels are converted to NaN at
+        # write (see mask_sentinels), so the missing value is NaN.
         attrs["_FillValue"] = float(np.nan)
+        attrs["missing_value"] = float(np.nan)
     elif np.issubdtype(dtype, np.integer):
         attrs["_FillValue"] = int(np.iinfo(dtype).min)
+        attrs["missing_value"] = int(np.iinfo(dtype).min)
     return attrs
+
+
+def mask_sentinels(values: np.ndarray) -> np.ndarray:
+    """Replace MODFLOW dry/no-flow head sentinels with NaN in a float array.
+
+    HDRY/HNOFLO (~ +-1e30) and -6e30 are orders of magnitude above any physical
+    head; masking them here, at the field write, means every transient field
+    reaches Zarr already NaN-clean and CF ``_FillValue`` == NaN holds on read.
+    A non-float array is returned untouched (NaN is invalid for integers).
+    """
+    if not np.issubdtype(values.dtype, np.floating):
+        return values
+    # Two comparisons instead of np.abs(): the slab can reach hundreds of MiB
+    # and a materialised absolute copy would double the write-side peak.
+    sentinel = (values > SENTINEL_ABS_THRESHOLD) | (values < -SENTINEL_ABS_THRESHOLD)
+    if not sentinel.any():
+        return values
+    cleaned = values.copy()
+    cleaned[sentinel] = np.nan
+    return cleaned
 
 
 def ensure_child_dir(store_obj: SimulationZarr, target: zarr.Group, name: str) -> None:
@@ -122,6 +148,7 @@ def attach_field_attrs(target: zarr.Group, variable: str) -> None:
             fill = _fill_value_for_dtype(np.dtype(arr.dtype))
             if fill is not None:
                 attrs["_FillValue"] = fill
+                attrs["missing_value"] = fill
             update_attrs(arr, attrs)
         return
     arr = target[variable]
@@ -168,11 +195,23 @@ def write_mesh(
     source_cell_indices: np.ndarray | None = None,
     topography: np.ndarray | None = None,
     *,
+    topography_reference: np.ndarray | None = None,
+    layer_thickness: np.ndarray | None = None,
     start_index: int = 0,
     grid_type: str | None = None,
     structured_shape: tuple[int, int] | None = None,
 ) -> None:
-    """Write the UGRID-1.0 mesh group, including the optional topography array."""
+    """Write the UGRID-1.0 mesh group, including the optional topography array.
+
+    ``topography_reference`` (the pre-conditioning per-face top) is stored beside
+    ``topography`` so the conditioning-impact map can render their difference.
+
+    ``layer_thickness`` is the ``(n_layers, n_faces)`` saturated-thickness
+    geometry of the model. ``z_interfaces`` only carries the vertical column of
+    one reference cell, which is enough for metadata but not for a cross-section:
+    the per-face thickness is what lets any figure rebuild the aquifer base
+    under each cell.
+    """
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
         _write_array(
@@ -218,6 +257,25 @@ def write_mesh(
                 store_obj, mesh, "topography", np.asarray(topography, dtype="float64")
             )
             update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
+        if topography_reference is not None:
+            _write_array(
+                store_obj,
+                mesh,
+                "topography_reference",
+                np.asarray(topography_reference, dtype="float64"),
+                attrs={
+                    "long_name": "Pre-conditioning model top per face",
+                    "units": "m",
+                },
+            )
+        if layer_thickness is not None:
+            thickness_arr = _write_array(
+                store_obj,
+                mesh,
+                "layer_thickness",
+                np.atleast_2d(np.asarray(layer_thickness, dtype="float64")),
+            )
+            update_attrs(thickness_arr, attrs_for_field("layer_thickness", thickness_arr.dtype))
 
         mesh_attrs: dict[str, object] = {
             "start_index": int(start_index),
@@ -293,7 +351,18 @@ def write_time(
     calendar: str = "proleptic_gregorian",
     units: str = "seconds since 1970-01-01T00:00:00",
 ) -> None:
-    """Persist the CF time coordinate."""
+    """Persist the CF time coordinate.
+
+    Only the 1970-01-01 CF epoch is accepted: ``read_time`` decodes any unit
+    scale (seconds/minutes/hours/days since 1970) but cannot honor another epoch,
+    so a non-1970 anchor is rejected here rather than producing a store that
+    write-validates then fails every read.
+    """
+    if "1970-01-01" not in epoch or "since 1970-01-01" not in units:
+        raise ValueError(
+            "write_time only supports the 1970-01-01 CF epoch "
+            f"(read_time cannot decode another epoch): got epoch={epoch!r}, units={units!r}."
+        )
     with store_obj._guard_write():
         _write_array(
             store_obj,
@@ -337,6 +406,84 @@ def write_crs(
 # -- Fields ------------------------------------------------------------------
 
 
+def _field_target(store_obj: SimulationZarr, subgroup: str | None) -> zarr.Group:
+    """Return the group holding field arrays, creating ``subgroup`` if needed."""
+    if not subgroup:
+        return store_obj._root
+    if subgroup not in store_obj._root:
+        ensure_child_dir(store_obj, store_obj._root, subgroup)
+        store_obj._root.create_group(subgroup)
+    return store_obj._root[subgroup]
+
+
+def _create_field_array(
+    store_obj: SimulationZarr,
+    target: zarr.Group,
+    variable: str,
+    *,
+    n_timesteps: int,
+    per_step_shape: tuple[int, ...],
+    dtype: np.dtype,
+) -> None:
+    """Create the (time, ...) array for ``variable`` with balanced chunks/shards."""
+    itemsize = int(np.dtype(dtype).itemsize)
+    if len(per_step_shape) == 1:
+        n_layers, n_cells = 1, int(per_step_shape[0])
+        full_shape: tuple[int, ...] = (int(n_timesteps), n_cells)
+        if store_obj._balanced:
+            chunk_shape: tuple[int, ...] = compute_balanced_chunks_1d(
+                int(n_timesteps), n_cells, itemsize
+            )
+        else:
+            chunk_shape = (1, n_cells)
+    elif len(per_step_shape) == 2:
+        n_layers, n_cells = int(per_step_shape[0]), int(per_step_shape[1])
+        full_shape = (int(n_timesteps), n_layers, n_cells)
+        if store_obj._balanced:
+            chunk_shape = compute_balanced_chunks_2d(int(n_timesteps), n_layers, n_cells, itemsize)
+        else:
+            chunk_shape = (1, n_layers, n_cells)
+    else:
+        raise ValueError(f"Expected 1D or 2D per-step values, got shape {per_step_shape}")
+
+    ensure_child_dir(store_obj, target, variable)
+    shards = maybe_shards(
+        len(per_step_shape),
+        int(n_timesteps),
+        chunk_shape,
+        itemsize,
+        n_layers=n_layers,
+        n_cells=n_cells,
+    )
+    create_kwargs: dict[str, Any] = dict(
+        shape=full_shape,
+        chunks=chunk_shape,
+        dtype=dtype,
+        compressors=BLOSC_ZSTD,
+        # Derive the fill from the dtype so the array fill and the CF _FillValue
+        # attr agree: NaN for floats, iinfo(dtype).min for ints (NaN is invalid
+        # for an integer array).
+        fill_value=_fill_value_for_dtype(dtype),
+        overwrite=True,
+    )
+    if shards is not None:
+        try:
+            target.create_array(variable, shards=shards, **create_kwargs)
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                "ShardingCodec unavailable for %s (shape=%s, "
+                "shard=%s): %s. Falling back to plain chunks.",
+                variable,
+                full_shape,
+                shards,
+                exc,
+            )
+            target.create_array(variable, **create_kwargs)
+    else:
+        target.create_array(variable, **create_kwargs)
+    attach_field_attrs(target, variable)
+
+
 def write_field(
     store_obj: SimulationZarr,
     variable: str,
@@ -348,79 +495,78 @@ def write_field(
 ) -> None:
     """Append one timestep slice to ``variable`` under ``subgroup`` or root."""
     with store_obj._guard_write():
-        if subgroup:
-            if subgroup not in store_obj._root:
-                ensure_child_dir(store_obj, store_obj._root, subgroup)
-                store_obj._root.create_group(subgroup)
-            target = store_obj._root[subgroup]
-        else:
-            target = store_obj._root
-
-        values = np.asarray(values)
-        itemsize = int(values.dtype.itemsize)
-        if values.ndim == 1:
-            n_cells = int(values.shape[0])
-            full_shape = (int(n_timesteps), n_cells) if n_timesteps is not None else None
-            if store_obj._balanced and n_timesteps is not None:
-                chunk_shape: tuple[int, ...] = compute_balanced_chunks_1d(
-                    int(n_timesteps), n_cells, itemsize
-                )
-            else:
-                chunk_shape = (1, n_cells)
-        elif values.ndim == 2:
-            n_layers, n_cells = int(values.shape[0]), int(values.shape[1])
-            full_shape = (int(n_timesteps), n_layers, n_cells) if n_timesteps is not None else None
-            if store_obj._balanced and n_timesteps is not None:
-                chunk_shape = compute_balanced_chunks_2d(
-                    int(n_timesteps), n_layers, n_cells, itemsize
-                )
-            else:
-                chunk_shape = (1, n_layers, n_cells)
-        else:
+        target = _field_target(store_obj, subgroup)
+        values = mask_sentinels(np.asarray(values))
+        if values.ndim not in (1, 2):
             raise ValueError(f"Expected 1D or 2D values, got shape {values.shape}")
 
         if variable not in target:
             if n_timesteps is None:
                 raise ValueError(f"n_timesteps required on first write of '{variable}'")
-            ensure_child_dir(store_obj, target, variable)
-            shards = maybe_shards(
-                values.ndim,
-                int(n_timesteps),
-                chunk_shape,
-                itemsize,
-                n_layers=n_layers if values.ndim == 2 else 1,
-                n_cells=n_cells,
-            )
-            create_kwargs: dict[str, Any] = dict(
-                shape=full_shape,
-                chunks=chunk_shape,
+            _create_field_array(
+                store_obj,
+                target,
+                variable,
+                n_timesteps=int(n_timesteps),
+                per_step_shape=tuple(int(s) for s in values.shape),
                 dtype=values.dtype,
-                compressors=BLOSC_ZSTD,
-                fill_value=float("nan"),
-                overwrite=True,
             )
-            if shards is not None:
-                try:
-                    target.create_array(variable, shards=shards, **create_kwargs)
-                except (TypeError, ValueError) as exc:
-                    logger.warning(
-                        "ShardingCodec unavailable for %s (shape=%s, "
-                        "shard=%s): %s. Falling back to plain chunks.",
-                        variable,
-                        full_shape,
-                        shards,
-                        exc,
-                    )
-                    target.create_array(variable, **create_kwargs)
-            else:
-                target.create_array(variable, **create_kwargs)
-            attach_field_attrs(target, variable)
 
         arr = target[variable]
         if values.ndim == 1:
             arr[int(timestep), :] = values
         else:
             arr[int(timestep), :, :] = values
+
+
+def write_field_stack(
+    store_obj: SimulationZarr,
+    variable: str,
+    values: np.ndarray,
+    *,
+    n_timesteps: int | None = None,
+    timestep_offset: int = 0,
+    subgroup: str | None = None,
+) -> None:
+    """Write a ``(time, ...)`` stack of ``variable`` in one batched call.
+
+    Batched writes encode each chunk/shard once. Per-timestep writes into a
+    sharded array trigger one read-modify-write of a whole multi-MB shard per
+    timestep, which dominated long transient extractions. Use
+    ``timestep_offset`` with a total ``n_timesteps`` to stream large arrays in
+    time slabs without holding the full stack in memory.
+    """
+    with store_obj._guard_write():
+        target = _field_target(store_obj, subgroup)
+        values = mask_sentinels(np.asarray(values))
+        if values.ndim not in (2, 3):
+            raise ValueError(f"Expected a (time, ...) stack, got shape {values.shape}")
+
+        offset = int(timestep_offset)
+        total = int(n_timesteps) if n_timesteps is not None else offset + int(values.shape[0])
+        if offset + int(values.shape[0]) > total:
+            raise ValueError(
+                f"Stack slab [{offset}:{offset + int(values.shape[0])}] exceeds "
+                f"n_timesteps={total} for '{variable}'."
+            )
+
+        per_step_shape = tuple(int(s) for s in values.shape[1:])
+        full_shape = (total, *per_step_shape)
+        existing = target.get(variable)
+        if existing is None or tuple(int(s) for s in existing.shape) != full_shape:
+            if offset != 0:
+                raise ValueError(f"First slab of '{variable}' must start at timestep_offset=0.")
+            _create_field_array(
+                store_obj,
+                target,
+                variable,
+                n_timesteps=total,
+                per_step_shape=per_step_shape,
+                dtype=values.dtype,
+            )
+
+        arr = target[variable]
+        arr[offset : offset + int(values.shape[0])] = values
 
 
 # -- Forcing -----------------------------------------------------------------
@@ -527,10 +673,73 @@ def write_geographic_raster(
                 "transform": list(transform),
                 "crs": str(crs),
                 "nodata": float(nodata),
+                # CF _FillValue so xarray/rasterio auto-mask the nodata sentinel
+                # on load instead of the consumer having to know -99999.
+                "_FillValue": float(nodata),
                 "shape": list(np.asarray(data).shape),
             },
             compressors=BLOSC_ZSTD,
         )
+
+
+# -- Lake abacus comparison (per-run) ---------------------------------------
+
+
+def write_lake_abacus(
+    store_obj: SimulationZarr,
+    lake_id: str,
+    *,
+    stage: np.ndarray,
+    real_volume: np.ndarray,
+    real_sarea: np.ndarray,
+    sim_volume: np.ndarray,
+    sim_sarea: np.ndarray,
+    stage_unit: str = "m",
+    volume_unit: str = "m3",
+    area_unit: str = "m2",
+) -> None:
+    """Persist the reference vs simulated abacus under ``lake_abacus/<lake_id>``."""
+    with store_obj._guard_write():
+        ensure_child_dir(store_obj, store_obj._root, "lake_abacus")
+        grp = store_obj._root.require_group("lake_abacus")
+        ensure_child_dir(store_obj, grp, lake_id)
+        lake = grp.require_group(lake_id)
+        for name, values, unit in (
+            ("stage", stage, stage_unit),
+            ("real_volume", real_volume, volume_unit),
+            ("real_sarea", real_sarea, area_unit),
+            ("sim_volume", sim_volume, volume_unit),
+            ("sim_sarea", sim_sarea, area_unit),
+        ):
+            _write_array(
+                store_obj,
+                lake,
+                name,
+                np.asarray(values, dtype="float64"),
+                attrs={"units": str(unit)},
+            )
+        update_attrs(
+            lake,
+            {"stage_unit": stage_unit, "volume_unit": volume_unit, "area_unit": area_unit},
+        )
+
+
+def write_lake_restart_state(store_obj: SimulationZarr, stages: dict[str, float]) -> None:
+    """Persist each lake's final stage under ``lake_state_final`` for hotstart.
+
+    The companion of the heads field for ``[flow] restart_from``: a later run
+    seeds each lake's initial stage from this last value. ``stages`` maps
+    ``lake_id -> stage`` in metres; an empty mapping writes nothing.
+    """
+    if not stages:
+        return
+    lake_ids = [str(lake_id) for lake_id in stages]
+    values = np.asarray([float(stages[lake_id]) for lake_id in lake_ids], dtype="float64")
+    with store_obj._guard_write():
+        ensure_child_dir(store_obj, store_obj._root, "lake_state_final")
+        grp = store_obj._root.require_group("lake_state_final")
+        _write_array(store_obj, grp, "stage", values, attrs={"units": "m"})
+        update_attrs(grp, {"lake_ids": lake_ids})
 
 
 # -- ACDD --------------------------------------------------------------------
@@ -574,6 +783,7 @@ __all__ = [
     "write_forcing_field",
     "write_forcing_timeseries",
     "write_geographic_raster",
+    "write_lake_abacus",
     "write_mesh",
     "write_time",
     "write_topography",

@@ -12,44 +12,13 @@ from hydromodpy.spatial.domain.spatial_support_config import (
     GeneratedRingsSupportConfig,
     GeologySupportConfig,
 )
+from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
 from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
 from hydromodpy.spatial.raster_support import RasterSupport
-
-
-def _sample_points_in_cell(cell, *, n_sub_per_axis: int):
-    """Generate deterministic interior sample points for one mesh cell."""
-    n = max(2, int(n_sub_per_axis))
-    verts = np.asarray(cell.vertices, dtype=float)
-
-    if cell.kind == "quadrilateral":
-        u = (np.arange(n, dtype=float) + 0.5) / float(n)
-        v = (np.arange(n, dtype=float) + 0.5) / float(n)
-        uu, vv = np.meshgrid(u, v, indexing="xy")
-        w0 = (1.0 - uu) * (1.0 - vv)
-        w1 = uu * (1.0 - vv)
-        w2 = uu * vv
-        w3 = (1.0 - uu) * vv
-        x = w0 * verts[0, 0] + w1 * verts[1, 0] + w2 * verts[2, 0] + w3 * verts[3, 0]
-        y = w0 * verts[0, 1] + w1 * verts[1, 1] + w2 * verts[2, 1] + w3 * verts[3, 1]
-        return x.ravel(), y.ravel()
-
-    if cell.kind == "triangle":
-        u = (np.arange(n, dtype=float) + 0.5) / float(n)
-        v = (np.arange(n, dtype=float) + 0.5) / float(n)
-        uu, vv = np.meshgrid(u, v, indexing="xy")
-        mask = (uu + vv) < 1.0
-        uu = uu[mask]
-        vv = vv[mask]
-        p0, p1, p2 = verts[0], verts[1], verts[2]
-        x = p0[0] + uu * (p1[0] - p0[0]) + vv * (p2[0] - p0[0])
-        y = p0[1] + uu * (p1[1] - p0[1]) + vv * (p2[1] - p0[1])
-        return x, y
-
-    raise ValueError(f"Unsupported cell kind '{cell.kind}'")
 
 
 class AliasedSpatialSupportField(Field):
@@ -185,7 +154,7 @@ class RasterZonesSupportField(Field):
         n_sub = max(2, int(cell_samples_per_axis))
 
         for cell in mesh.cells:
-            x_samples, y_samples = _sample_points_in_cell(cell, n_sub_per_axis=n_sub)
+            x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
             zone_ids = self.zone_id(x_samples, y_samples)
             total = max(int(np.count_nonzero(zone_ids != "")), 1)
             for zone_key in self.zone_keys:
@@ -241,7 +210,7 @@ class GeneratedBandsSupportField(Field):
         }
         n_sub = max(2, int(cell_samples_per_axis))
         for cell in mesh.cells:
-            x_samples, y_samples = _sample_points_in_cell(cell, n_sub_per_axis=n_sub)
+            x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
             zone_ids = self.zone_id(x_samples, y_samples)
             total = max(zone_ids.size, 1)
             for zone_key in self.zone_keys:
@@ -311,7 +280,7 @@ class GeneratedRingsSupportField(Field):
         }
         n_sub = max(2, int(cell_samples_per_axis))
         for cell in mesh.cells:
-            x_samples, y_samples = _sample_points_in_cell(cell, n_sub_per_axis=n_sub)
+            x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
             zone_ids = self.zone_id(x_samples, y_samples)
             total = max(zone_ids.size, 1)
             for zone_key in self.zone_keys:

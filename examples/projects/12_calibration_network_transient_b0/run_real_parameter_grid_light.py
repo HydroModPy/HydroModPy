@@ -32,14 +32,14 @@ REPO_ROOT = HERE.parents[2]
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from hydromodpy.calibration.network_transient_truth import (  # noqa: E402
+from hydromodpy.calibration.observations.network_transient_truth import (  # noqa: E402
     q_total_release_from_drain_by_cell,
     score_network_transient_candidate,
 )
-from hydromodpy.calibration.materialize import write_overlay_toml  # noqa: E402
+from hydromodpy.calibration.runners.materialize import write_overlay_toml  # noqa: E402
 from hydromodpy.calibration.runners.trial import prepare_trials, run_trial_light  # noqa: E402
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider  # noqa: E402
-from hydromodpy.results.catalog import SimulationCatalog  # noqa: E402
+from hydromodpy.results.catalog import Catalog  # noqa: E402
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions  # noqa: E402
 
 from run_real_parameter_grid import (  # noqa: E402
@@ -729,7 +729,7 @@ def _steady_from_persistent_catalog(mk: float) -> np.ndarray | None:
     if not root.is_dir():
         return None
     try:
-        with SimulationCatalog(root) as catalog:
+        with Catalog(root) as catalog:
             sims = catalog.simulations
             if sims.empty:
                 return None

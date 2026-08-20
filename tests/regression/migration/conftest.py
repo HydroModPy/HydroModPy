@@ -14,7 +14,9 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog.migrations import MIGRATIONS_DIR
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -72,9 +74,11 @@ def _seed_fixture(db_path: Path, recipe: dict) -> None:
     try:
         for entry in seed_simulations:
             sid = entry["sim_id"]
-            short = sid.replace("-", "")[:12]
-            zarr_path = entry.get("zarr_path", f"simulations/{short}.zarr")
-            storage_basename = entry.get("storage_basename", short)
+            run_name = entry.get("name") or sid.replace("-", "")[:12]
+            storage_basename = entry.get("storage_basename", run_name)
+            zarr_path = entry.get(
+                "zarr_path", f"{RUNS_DIRNAME}/{storage_basename}/{FIELDS_STORE_NAME}"
+            )
             conn.execute(
                 """INSERT INTO simulations
                    (sim_id, name, project,

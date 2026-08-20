@@ -172,7 +172,7 @@ def _build_property_from_flow_domain(
         if required_field_id is not None
         else "direct homogeneous mapping"
     )
-    logger.info("%s mapped from flow.%s using %s", property_label, selected_name, support_label)
+    logger.debug("%s mapped from flow.%s using %s", property_label, selected_name, support_label)
 
 
 def _zero_property_arrays(*, solver_mesh) -> tuple[np.ndarray, np.ndarray]:

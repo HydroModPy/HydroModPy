@@ -1,0 +1,408 @@
+"""Developer-facing MODFLOW 6 API runner driven by libmf6.so.
+
+This is a parallel, opt-in entry point to the normal subprocess path in
+``run.py``. It drives an *already-written* simulation workspace through the
+MODFLOW 6 shared library (``libmf6.so``) using the optional ``modflowapi``
+package, invoking a developer callback once per timestep.
+
+The callback receives a typed :class:`Mf6ApiContext`, never raw
+``modflowapi`` objects, so the public surface does not leak the optional
+dependency's types. The context hides the AdvancedPackage / pointer
+mechanics behind read/write accessors for lake stage, plus a raw escape
+hatch (``get_value`` / ``set_value`` / ``get_value_ptr``) for any other
+forcing or release value.
+
+``modflowapi`` and ``xmipy`` are OPTIONAL: they are imported lazily inside
+:func:`run_mf6_api` so importing this module stays cheap and dependency-free.
+Install them with ``pip install modflowapi xmipy`` (or the ``mf6api`` extra).
+
+Notes
+-----
+The simulation must already be written (``mfsim.nam`` present in ``sim_ws``).
+For an HydroModPy model, run ``pre_processing`` then
+``processing(ModflowRunOptions(run_model=False))`` (or
+``model.sim.write_simulation(...)``) before calling :func:`run_mf6_api`,
+then pass ``model.full_path`` as ``sim_ws``.
+
+The MODFLOW 6 LAK package exposes the *input* starting stage as the advanced
+variable ``"stage"`` and the *solved* post-solve stage as ``"xnewpak"``.
+:meth:`Mf6ApiContext.read_lake_stage` reads the solved stage by default;
+:meth:`Mf6ApiContext.write_lake_stage` overrides the input ``"stage"`` value
+so the change forces the solution. Both validate the variable name against
+the package's ``advanced_vars`` at runtime and raise a clear error rather
+than failing deep in xmipy.
+"""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from enum import IntEnum
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from hydromodpy.core import progress
+from hydromodpy.core.exceptions import SolverError
+from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow_common.binaries import ensure_solver_library
+
+logger = get_logger(__name__)
+
+__all__ = ["Mf6ApiContext", "Mf6ApiStep", "run_mf6_api"]
+
+# MF6 writes this banner to the simulation listing only on a converged, complete
+# solve. flopy's subprocess runner keys success off the same string, so the API
+# path stays in contract parity with it.
+_NORMAL_TERMINATION = "Normal termination of simulation"
+
+
+def _simulation_reached_normal_termination(workspace: Path) -> bool:
+    """Return whether MF6 wrote the normal-termination banner to ``mfsim.lst``.
+
+    ``modflowapi.run_simulation`` returns ``None`` on both a converged run and a
+    non-converged one (it only prints ``DID NOT CONVERGE``), so its return value
+    cannot tell success from failure. MF6 writes the normal-termination banner to
+    the simulation listing only when the solve converged and completed; its
+    absence (or a missing listing) means the run failed.
+    """
+    listing = workspace / "mfsim.lst"
+    if not listing.is_file():
+        return False
+    try:
+        text = listing.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return _NORMAL_TERMINATION.lower() in text.lower()
+
+
+def _resolve_api_success(raw_return: object, workspace: Path) -> bool:
+    """Map a ``modflowapi.run_simulation`` return into a convergence flag.
+
+    ``modflowapi.run_simulation`` returns ``None`` on both a converged and a
+    non-converged run, so a ``None`` cannot be trusted as success: the verdict is
+    read from the listing instead, matching the subprocess path. A non-``None``
+    return (a future modflowapi that reports the flag) is honoured directly.
+    """
+    if raw_return is None:
+        converged = _simulation_reached_normal_termination(workspace)
+        if not converged:
+            logger.warning("MF6 API run in %s did not reach normal termination", workspace)
+        return converged
+    return bool(raw_return)
+
+
+class Mf6ApiStep(IntEnum):
+    """Simulation phase at which the developer callback fires.
+
+    Mirrors the ``modflowapi.Callbacks`` enum values for the phases this
+    runner exposes, so developers never import ``modflowapi`` directly.
+    """
+
+    initialize = 0
+    timestep_start = 3
+    timestep_end = 4
+    finalize = 7
+
+
+@dataclass
+class Mf6ApiContext:
+    """Typed view over one MODFLOW 6 solution group at a callback phase.
+
+    The accessors operate on ``_sim`` (a ``modflowapi`` ApiSimulation) and
+    hide the AdvancedPackage / pointer mechanics. ``_sim`` is private so the
+    public surface does not leak the optional dependency's types.
+    """
+
+    step: Mf6ApiStep
+    kper: int
+    kstp: int
+    totim: float
+    _sim: Any
+
+    # model / package resolution -------------------------------------------
+
+    def model(self, name: str | None = None) -> Any:
+        """Return the modflowapi ApiModel proxy by name (or the first model)."""
+        return self._sim.get_model(name)
+
+    def _resolve_model(self, model: Any | None) -> Any:
+        if model is None:
+            return self._sim.get_model()
+        if isinstance(model, str):
+            return self._sim.get_model(model)
+        return model
+
+    def _lake_package(self, model: Any | None, pkg: str | None) -> Any:
+        api_model = self._resolve_model(model)
+        if pkg is not None:
+            return api_model.get_package(pkg)
+        for name in api_model.package_names:
+            package = api_model.get_package(name)
+            if getattr(package, "pkg_type", "").lower() == "lak":
+                return package
+        raise SolverError(
+            "No LAK package found in the model. Available packages: "
+            f"{list(api_model.package_names)}."
+        )
+
+    @staticmethod
+    def _resolve_advanced_var(package: Any, name: str) -> str:
+        """Return the advanced var name matching ``name`` case-insensitively."""
+        available = list(getattr(package, "advanced_vars", []))
+        lowered = name.lower()
+        if lowered in available:
+            return lowered
+        raise SolverError(
+            f"Advanced variable {name!r} is not accessible for package "
+            f"{getattr(package, 'pkg_name', '?')!r}. "
+            f"Available advanced variables: {sorted(available)}."
+        )
+
+    # lake stage -----------------------------------------------------------
+
+    def read_lake_stage(
+        self,
+        model: Any | None = None,
+        pkg: str | None = None,
+        *,
+        var: str = "xnewpak",
+    ) -> np.ndarray:
+        """Read the per-lake stage as a 1-D array.
+
+        Defaults to the *solved* stage (``"xnewpak"``), which matches the
+        saved LAK stage output. Pass ``var="stage"`` to read the input
+        starting stage instead.
+        """
+        package = self._lake_package(model, pkg)
+        resolved = self._resolve_advanced_var(package, var)
+        return np.asarray(package.get_advanced_var(resolved)).ravel()
+
+    def write_lake_stage(
+        self,
+        values: Sequence[float] | np.ndarray,
+        model: Any | None = None,
+        pkg: str | None = None,
+        *,
+        var: str = "stage",
+    ) -> None:
+        """Override the lake stage forcing value (default the input ``stage``).
+
+        Writing the input ``"stage"`` value forces the solution for the
+        current and following timesteps. ``values`` is coerced to a
+        C-contiguous ``float64`` array.
+        """
+        package = self._lake_package(model, pkg)
+        resolved = self._resolve_advanced_var(package, var)
+        array = np.ascontiguousarray(np.asarray(values, dtype=np.float64)).ravel()
+        package.set_advanced_var(resolved, array)
+
+    # lake runoff / raw LAK vars -------------------------------------------
+    #
+    # These use the raw XmiWrapper address path (get_var_address + get/set_value)
+    # rather than the modflowapi AdvancedPackage wrapper: the wrapper raises while
+    # building its node list at ``timestep_start`` (where the marnage runoff must
+    # be written), whereas the raw path works at every phase.
+
+    def lak_get(self, var: str, model: Any | None = None, pkg: str = "LAK") -> np.ndarray:
+        """Read a raw LAK package variable (e.g. ``XNEWPAK``, ``RUNOFF``) as 1-D."""
+        addr = self._sim.mf6.get_var_address(
+            var.upper(), self._resolve_model(model).name, pkg.upper()
+        )
+        return np.asarray(self._sim.mf6.get_value(addr)).ravel()
+
+    def lak_set(
+        self,
+        var: str,
+        values: Sequence[float] | np.ndarray,
+        model: Any | None = None,
+        pkg: str = "LAK",
+    ) -> None:
+        """Set a raw LAK package variable (C-contiguous float64)."""
+        addr = self._sim.mf6.get_var_address(
+            var.upper(), self._resolve_model(model).name, pkg.upper()
+        )
+        array = np.ascontiguousarray(np.asarray(values, dtype=np.float64)).ravel()
+        self._sim.mf6.set_value(addr, array)
+
+    def read_lake_runoff(self, model: Any | None = None, pkg: str = "LAK") -> np.ndarray:
+        """Read the per-lake RUNOFF inflow ``[L^3/T]`` as a 1-D array."""
+        return self.lak_get("RUNOFF", model, pkg)
+
+    def write_lake_runoff(
+        self,
+        values: Sequence[float] | np.ndarray,
+        model: Any | None = None,
+        pkg: str = "LAK",
+    ) -> None:
+        """Set the per-lake RUNOFF inflow ``[L^3/T]`` (MF6 clamps it to >= 0).
+
+        Used to inject a stage-dependent exposed-lakebed (marnage) runoff each
+        timestep, sized from the solved stage ``XNEWPAK`` read with :meth:`lak_get`.
+        """
+        self.lak_set("RUNOFF", values, model, pkg)
+
+    # raw escape hatch -----------------------------------------------------
+
+    def get_value(self, addr: str) -> np.ndarray:
+        """Return a copy of the raw solver variable at ``addr`` (XmiWrapper)."""
+        return np.asarray(self._sim.mf6.get_value(addr))
+
+    def set_value(self, addr: str, values: Sequence[float] | np.ndarray) -> None:
+        """Set the raw solver variable at ``addr`` (C-contiguous float64)."""
+        array = np.ascontiguousarray(np.asarray(values, dtype=np.float64)).ravel()
+        self._sim.mf6.set_value(addr, array)
+
+    def get_value_ptr(self, addr: str) -> np.ndarray:
+        """Return the live pointer to the raw solver variable at ``addr``."""
+        return self._sim.mf6.get_value_ptr(addr)
+
+
+def _read_tdis_scalars(sim: Any) -> tuple[int, int, float]:
+    """Read kper / kstp / totim defensively across all callback phases.
+
+    The modflowapi convenience properties raise before the first timestep
+    (TOTIM is unset at initialize) and ``sim.totim`` is unreachable due to an
+    upstream typo, so we read the raw ``TDIS`` addresses directly and fall
+    back to safe zeros.
+    """
+
+    def _scalar(name: str, default: float) -> float:
+        try:
+            addr = sim.mf6.get_var_address(name, "TDIS")
+            return float(sim.mf6.get_value(addr).ravel()[0])
+        except Exception:
+            return default
+
+    kper = int(_scalar("KPER", 1.0)) - 1
+    kstp = int(_scalar("KSTP", 1.0)) - 1
+    totim = _scalar("TOTIM", 0.0)
+    return max(kper, 0), max(kstp, 0), totim
+
+
+def _read_nper(sim: Any) -> int | None:
+    """Read TDIS NPER from the live library, or None when unreadable."""
+    try:
+        addr = sim.mf6.get_var_address("NPER", "TDIS")
+        return int(sim.mf6.get_value(addr).ravel()[0])
+    except Exception:
+        return None
+
+
+def run_mf6_api(
+    sim_ws: str | os.PathLike[str],
+    callback: Callable[[Mf6ApiContext], None],
+    *,
+    lib_path: str | os.PathLike[str] | None = None,
+    verbose: bool = False,
+    progress_sink: Callable[[int, int | None], None] | None = None,
+) -> bool:
+    """Drive a written MODFLOW 6 workspace through libmf6 with a step callback.
+
+    Parameters
+    ----------
+    sim_ws:
+        Workspace containing ``mfsim.nam`` (already written). For an
+        HydroModPy model pass ``model.full_path``.
+    callback:
+        Developer hook invoked once per timestep (at
+        :attr:`Mf6ApiStep.timestep_end`) plus at initialize and finalize.
+        It receives a typed :class:`Mf6ApiContext`.
+    lib_path:
+        Explicit path to the MODFLOW 6 shared library. When ``None`` the
+        managed cache copy of ``libmf6`` is resolved.
+    verbose:
+        Forward verbose output from the modflowapi runner.
+    progress_sink:
+        Optional ``(completed, total)`` callback fired at initialize (with the
+        stress-period count as ``total``) and once per timestep. Lets the isolated
+        (spawn-child) runner relay solve progress to the parent process, which
+        cannot see the child's own progress bar.
+
+    Returns
+    -------
+    bool
+        Convergence / success flag.
+
+    Raises
+    ------
+    FileNotFoundError
+        When ``sim_ws/mfsim.nam`` or the shared library is missing.
+    ImportError
+        When the optional ``modflowapi`` package is not installed.
+    SolverError
+        When the developer callback raises (re-raised with step context).
+    """
+    workspace = Path(sim_ws).expanduser()
+    nam = workspace / "mfsim.nam"
+    if not nam.is_file():
+        raise FileNotFoundError(
+            f"No mfsim.nam in {workspace}. The simulation must be written first "
+            f"(e.g. model.sim.write_simulation(...) or "
+            f"processing(ModflowRunOptions(run_model=False)))."
+        )
+
+    try:
+        import modflowapi
+    except ImportError as exc:
+        raise ImportError(
+            "run_mf6_api requires the optional 'modflowapi' package (and 'xmipy'). "
+            "Install with: pip install modflowapi xmipy"
+        ) from exc
+
+    if lib_path is not None:
+        resolved_lib = Path(lib_path).expanduser().resolve()
+        if not resolved_lib.is_file():
+            raise FileNotFoundError(f"MODFLOW 6 shared library not found: {resolved_lib}")
+    else:
+        resolved_lib = ensure_solver_library("libmf6").resolve()
+
+    callbacks = modflowapi.Callbacks
+    phase_by_callback = {
+        callbacks.initialize: Mf6ApiStep.initialize,
+        callbacks.timestep_start: Mf6ApiStep.timestep_start,
+        callbacks.timestep_end: Mf6ApiStep.timestep_end,
+        callbacks.finalize: Mf6ApiStep.finalize,
+    }
+
+    if verbose:
+        logger.debug("Running MF6 API on %s with %s", workspace, resolved_lib.name)
+
+    with progress.task("Solving stress periods") as handle:
+
+        def _native_callback(sim: Any, mf_step: Any) -> None:
+            phase = phase_by_callback.get(mf_step)
+            if phase is None:
+                return
+            kper, kstp, totim = _read_tdis_scalars(sim)
+            if phase is Mf6ApiStep.initialize:
+                nper = _read_nper(sim)
+                if nper is not None:
+                    handle.update(total=nper)
+                    if progress_sink is not None:
+                        progress_sink(0, nper)
+            elif phase is Mf6ApiStep.timestep_end:
+                handle.update(completed=kper + 1)
+                if progress_sink is not None:
+                    progress_sink(kper + 1, None)
+            ctx = Mf6ApiContext(
+                step=phase,
+                kper=kper,
+                kstp=kstp,
+                totim=totim,
+                _sim=sim,
+            )
+            try:
+                callback(ctx)
+            except Exception as exc:
+                raise SolverError(
+                    f"MF6 API callback failed at {phase.name} "
+                    f"(kper={ctx.kper}, kstp={ctx.kstp}, totim={ctx.totim}): {exc}"
+                ) from exc
+
+        success = modflowapi.run_simulation(
+            str(resolved_lib), str(workspace), _native_callback, verbose=verbose
+        )
+    return _resolve_api_success(success, workspace)

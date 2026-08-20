@@ -14,7 +14,7 @@ import inspect
 import pytest
 
 from hydromodpy.solver.base import registry
-from hydromodpy.solver.base.protocol import SolverAdapter
+from hydromodpy.solver.base.adapter_protocol import SolverAdapter
 
 
 @pytest.mark.parametrize("pair", registry.list_pairs(), ids=lambda p: f"{p[0]}/{p[1]}")

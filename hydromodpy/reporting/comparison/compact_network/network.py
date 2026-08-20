@@ -140,7 +140,7 @@ def distance_metrics_with_external_network(
     """Compute network-distance metrics using an externally supplied reference network."""
     import numpy as np
 
-    from hydromodpy.results.views import (
+    from hydromodpy.results.derive.views import (
         _cell_field_active_state,
         _distance_stats,
         _finite_mean,

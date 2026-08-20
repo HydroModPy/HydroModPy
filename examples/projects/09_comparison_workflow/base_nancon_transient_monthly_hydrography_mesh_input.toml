@@ -17,7 +17,7 @@ root = "../../"
 [simulation]
 name = "nancon_transient_monthly_hydrography_mesh_input_shared_case"
 description = "Nancon monthly transient pilot with observed hydrography and precomputed river-constrained mesh."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-10-01 00:00:00"

@@ -9,10 +9,11 @@ from hydromodpy.analysis.comparison.runtime import (
     load_variable_series as load_runtime_variable_series,
 )
 from hydromodpy.analysis.comparison.runtime.series import load_variable_series
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
 
 class _FakeStore:
-    zarr_path = Path("memory.zarr")
+    zarr_path = Path(FIELDS_STORE_NAME)
 
     def __init__(self, root: dict[str, object]) -> None:
         self._root = root
@@ -20,6 +21,10 @@ class _FakeStore:
     def open_zarr(self, sim_id: str) -> SimpleNamespace:
         assert sim_id == "sim"
         return SimpleNamespace(root=self._root, close=lambda: None)
+
+    def fields_path_for(self, sim_id: str) -> Path:
+        assert sim_id == "sim"
+        return self.zarr_path
 
 
 def test_load_variable_series_uses_root_time_when_bouss_state_axis_is_degenerate(

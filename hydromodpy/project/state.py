@@ -24,7 +24,7 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
@@ -51,7 +51,7 @@ class ProjectState:
     requested_support_ids: tuple[str, ...] = ()
     requested_domain_supports: dict[str, Any] = field(default_factory=dict)
     ctx: WorkflowContext | None = None
-    store: SimulationCatalog | None = None
+    store: Catalog | None = None
     project_name: str | None = None
     run_counter: int = 0
     active_runs: dict[str, str] = field(default_factory=dict)

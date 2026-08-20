@@ -20,7 +20,7 @@ no I/O. The heavy model phase builds lazily on the first
 
    import hydromodpy as hmp
 
-   project = hmp.Project("hydromodpy.toml")
+   project = hmp.Project("project.toml")
 
 The constructor is polymorphic: it accepts a path, a
 :class:`~hydromodpy.config.HydroModPyConfig`, a ``dict``, or a JSON
@@ -38,7 +38,7 @@ files. The recommended pattern is to use it as a context manager so
 
    import hydromodpy as hmp
 
-   with hmp.Project("hydromodpy.toml") as p:
+   with hmp.Project("project.toml") as p:
        p.setup_workspace()
        p.build_geographic()
        p.load_data()

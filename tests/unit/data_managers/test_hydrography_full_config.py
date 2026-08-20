@@ -196,14 +196,14 @@ class TestHydrographyConfigContainer:
 class TestDataManagersConfigIntegration:
     def test_hydrography_field_is_typed(self):
         """The hydrography field on DataManagersConfig should be HydrographyConfig."""
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         info = DataManagersConfig.model_fields["hydrography"]
         # The annotation is Annotated[HydrographyConfig | None, ...]
         assert "HydrographyConfig" in str(info.annotation)
 
     def test_model_validate_with_hydrography(self, tmp_path):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         payload = {
             "types": ["hydrography"],
@@ -220,7 +220,7 @@ class TestDataManagersConfigIntegration:
         """Relative paths in nested source configs are kept as-is by the
         top-level resolver (only top-level Path fields are resolved).
         The Pydantic model still accepts the relative string."""
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["hydrography"],
@@ -236,7 +236,7 @@ class TestDataManagersConfigIntegration:
 
     def test_hydrography_in_typed_sections(self):
         """HydrographyConfig is registered in _TYPED_SECTIONS dict."""
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         # from_toml_section validates hydrography as typed - just check it doesn't error
         section = {
@@ -248,7 +248,7 @@ class TestDataManagersConfigIntegration:
 
     def test_hydrography_not_in_types_but_section_present(self, tmp_path):
         """If hydrography is not in types but section is present, it should still validate."""
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["geology"],
@@ -259,7 +259,7 @@ class TestDataManagersConfigIntegration:
         assert "hydrography" not in cfg.types
 
     def test_with_resolved_types_adds_hydrography(self, tmp_path):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": [],
@@ -280,7 +280,7 @@ class TestTomlFormatAcceptance:
     """Verify various TOML layouts produce valid configs."""
 
     def test_minimal_custom(self, tmp_path):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["hydrography"],
@@ -292,7 +292,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].source == "custom"
 
     def test_minimal_osm(self):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["hydrography"],
@@ -302,7 +302,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].waterway_types == ["river", "stream"]
 
     def test_minimal_bdtopage(self):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["hydrography"],
@@ -312,7 +312,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].typename == "sa:CoursEau_FXX_Topage2025"
 
     def test_minimal_euhydro(self):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["hydrography"],
@@ -322,7 +322,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].group_name == "River_Net_lines"
 
     def test_multi_source_toml(self, tmp_path):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["hydrography"],
@@ -347,7 +347,7 @@ class TestTomlFormatAcceptance:
         assert len(cfg.hydrography.sources) == 4
 
     def test_invalid_source_in_toml(self):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         section = {
             "types": ["hydrography"],

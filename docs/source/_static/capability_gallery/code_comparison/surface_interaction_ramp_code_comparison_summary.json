@@ -49,9 +49,9 @@
   ],
   "source_hashes": {
     "tools/doc_gallery/manifests/code_comparison_cases.json": "682dc842c96889f85939ef2347a5be9051f7ff923e14740dbda83b06ef896d3d",
-    "tools/investigate_surface_interaction_hillslope_transient.py": "0b7856ea3d872149c1c2ee76b49cc40323d2df0ac89ac0c8962269acc387cca3",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "58da59be676b46f4b549d2b93b8d3eec2df65003f9e59c1255b26d042477895c",
     "tools/investigate_surface_interaction_highk_linux.py": "8f267755dcfcb72cdbc1f616e70af97cb0366f7ad7d6f94d5948f7977ae20254",
-    "tools/doc_gallery/generate_code_comparison_assets.py": "1adae160c1d587473b6e58eab224aca440fe6c63aa2931a3f69ff4afe3f33484",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "0e0fcb6d152c85049c9c3074a9c63aa649401da7150e9b92edeaec7b3d802250",
     "validation_cases/shared/boussinesq_budget.py": "fa6b6c31647bebf77896570cf1bf7eecbfceb59ef6a5ba915dc0ea01f884a4b9",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png": "ee453b5a92852e54c9180cffd4a20a7f3effd17483de883730c0322aa34d2dd5",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json": "ac7a8473b35f2c7de82f0bb445245910218f016d5229615c943f28d25c148b8c",

@@ -112,6 +112,16 @@ def resolve_well_disv_cell(
                 f"flow.sinks_sources.wells.{well_id}.cell must contain [lay, row, col]."
             )
         lay, row, col = int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2])
+        # [lay, row, col] only maps to a DISV cell id on a structured grid (row * ncol +
+        # col). ncol is set only for a structured grid, so ncol <= 0 means a DISV
+        # (Voronoi/triangle) grid where the mapping is undefined: reject rather than
+        # silently collapse to cell_id = col.
+        if ncol <= 0:
+            raise ValueError(
+                f"flow.sinks_sources.wells.{well_id}.cell [lay, row, col] addressing needs a "
+                "structured grid; use a coordinate-based location on a DISV (Voronoi/triangle) "
+                "mesh."
+            )
         nrow = int(getattr(model, "nrow", 0) or 0)
         if nrow > 0 and (row < 0 or row >= nrow):
             raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell row is outside the grid.")

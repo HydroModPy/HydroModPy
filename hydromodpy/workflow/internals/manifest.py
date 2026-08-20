@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Any
 
@@ -92,12 +92,15 @@ class ResolvedRunManifest:
         tmp.replace(path)
         return path
 
-    def verify_state(
-        self,
-        state: PipelineState,
-        steps: Sequence[object],
-        workspace: Path | None,
-    ) -> None:
+    def verify_state(self, state: PipelineState, steps: Sequence[object]) -> None:
+        """Raise :class:`ResumeError` when the checkpoint cannot drive this run.
+
+        The step sequences must agree on their common prefix; a shorter one is
+        a partial execution (``--until``), not a divergence. The recorded
+        ``workspace`` is provenance only: the manifest is read from inside the
+        project it belongs to, so a project that was moved or copied still
+        resumes.
+        """
         if self.schema_version != SCHEMA_VERSION:
             raise ResumeError(f"Unsupported run manifest schema: {self.schema_version!r}")
         if self.run_id != state.run_id:
@@ -105,12 +108,10 @@ class ResolvedRunManifest:
                 f"Resume run_id mismatch: manifest={self.run_id!r}, state={state.run_id!r}"
             )
         current_steps = tuple(_step_name(step) for step in steps)
-        if self.steps != current_steps:
-            raise ResumeError("Pipeline steps changed since the checkpoint was written")
-        current_workspace = _string_or_none(workspace)
-        if self.workspace is not None and current_workspace != self.workspace:
+        divergence = _step_divergence(self.steps, current_steps)
+        if divergence is not None:
             raise ResumeError(
-                f"Workspace mismatch: manifest={self.workspace!r}, current={current_workspace!r}"
+                f"Pipeline steps changed since the checkpoint was written ({divergence})"
             )
         config_payload = _state_config_payload(state)
         if config_payload and self.config_sha256 is not None:
@@ -118,18 +119,32 @@ class ResolvedRunManifest:
             if current_hash != self.config_sha256:
                 raise ResumeError("Resolved configuration changed since the checkpoint was written")
 
-    def with_state(self, state: PipelineState, steps: Sequence[object]) -> ResolvedRunManifest:
-        current = self.from_state(
-            state,
-            steps,
-            Path(self.workspace) if self.workspace is not None else None,
-            created_at=self.created_at,
-        )
+    def with_state(
+        self,
+        state: PipelineState,
+        steps: Sequence[object],
+        workspace: Path | None,
+    ) -> ResolvedRunManifest:
+        """Return this manifest advanced to ``state``, keeping its provenance."""
+        current = self.from_state(state, steps, workspace, created_at=self.created_at)
         return replace(
             current,
             config_sha256=self.config_sha256 or current.config_sha256,
             config_path=self.config_path or current.config_path,
         )
+
+
+def _step_divergence(recorded: Sequence[str], current: Sequence[str]) -> str | None:
+    """Return why two step sequences diverge, or None when one is the other's prefix.
+
+    A run stopped early by ``--until`` records fewer steps than the canonical
+    pipeline. That is a partial execution, not a pipeline change, so only the
+    common prefix has to match.
+    """
+    for index in range(min(len(recorded), len(current))):
+        if recorded[index] != current[index]:
+            return f"step {index}: checkpoint={recorded[index]!r}, current={current[index]!r}"
+    return None
 
 
 def _step_name(step: object) -> str:
@@ -142,22 +157,59 @@ def _state_get(state: PipelineState, key: str) -> Any:
     return getattr(state.data, key, None)
 
 
+def _strip_observability_keys(payload: Any) -> Any:
+    """Drop config keys that toggle observability only (``workflow.profile``).
+
+    Profiling does not change results; flipping it must not invalidate an
+    existing checkpoint.
+    """
+    if not isinstance(payload, Mapping):
+        return payload
+    workflow = payload.get("workflow")
+    if isinstance(workflow, Mapping) and "profile" in workflow:
+        return {**payload, "workflow": {k: v for k, v in workflow.items() if k != "profile"}}
+    return payload
+
+
 def _state_config_payload(state: PipelineState) -> Any:
-    raw_toml = _state_get(state, "raw_toml")
-    if raw_toml:
-        return raw_toml
+    """Return the payload the checkpoint fingerprint is computed on.
+
+    The resolved configuration comes first: it is the only representation two
+    launches of the same run share, whatever their source text. A run resumed
+    from the config frozen in its own run directory therefore fingerprints
+    exactly like its original launch from the user TOML. ``raw_toml`` is the
+    fallback for states carrying no config model.
+    """
     config = _state_get(state, "config")
     if config is None:
         config = _state_get(state, "cfg")
     if isinstance(config, BaseModel):
-        return config.model_dump(mode="json", exclude_none=True)
+        return _strip_observability_keys(config.model_dump(mode="json", exclude_none=True))
     if isinstance(config, Mapping):
-        return config
+        return _strip_observability_keys(config)
+    raw_toml = _state_get(state, "raw_toml")
+    if raw_toml:
+        return _strip_observability_keys(raw_toml)
     return None
 
 
+def _json_ready(value: Any) -> Any:
+    """Render TOML date/time scalars as ISO strings so the payload hashes.
+
+    ``tomllib`` returns real ``date`` / ``datetime`` / ``time`` objects for
+    unquoted TOML literals, which JSON cannot serialize.
+    """
+    if isinstance(value, Mapping):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    return value
+
+
 def _sha256_payload(payload: Any) -> str:
-    return hashlib.sha256(canonical_dumps(payload).encode("utf-8")).hexdigest()
+    return hashlib.sha256(canonical_dumps(_json_ready(payload)).encode("utf-8")).hexdigest()
 
 
 def _string_or_none(value: object) -> str | None:

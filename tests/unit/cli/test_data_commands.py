@@ -152,6 +152,7 @@ def test_data_add_success_forwards_metadata(monkeypatch, tmp_path) -> None:
         "unit": "m3/s",
         "station_id": "H1",
         "workspace": str(tmp_path),
+        "project": None,
         "frozen": True,
     }
     assert "Added: hydrometry/custom/H1" in result.stdout

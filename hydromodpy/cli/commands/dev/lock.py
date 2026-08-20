@@ -1,4 +1,13 @@
-"""``hmp dev lock`` - thin wrapper around :func:`hydromodpy.lock_*` family."""
+"""``hmp dev lock`` - thin wrapper around :func:`hydromodpy.lock_*` family.
+
+``hydromodpy.lock`` belongs to a project root, while the data cache it pins
+belongs to a workspace. ``update`` and ``verify`` therefore take both:
+``--project`` names the lockfile, ``--workspace`` names the cache. Omitting
+``--project`` resolves the project the current directory sits in, unless
+``--output`` or ``--lockfile`` names the file outright: such a path is the
+address already, and the directory it sits in is the project it describes.
+Omitting ``--workspace`` resolves the workspace that holds that project.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +25,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="lock_command")
 
     update = sub.add_parser("update", help="Scan the cache and write/update hydromodpy.lock")
-    update.add_argument("--workspace", default=None)
+    update.add_argument("--project", default=None, help="Project root owning hydromodpy.lock")
+    update.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     update.add_argument("--output", default=None, help="Destination lockfile")
 
     archive = sub.add_parser("archive", help="Create a portable archive")
@@ -29,7 +39,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     restore.add_argument("--output", default=None, help="Target directory")
 
     verify = sub.add_parser("verify", help="Verify the cache matches the lockfile")
-    verify.add_argument("--workspace", default=None)
+    verify.add_argument("--project", default=None, help="Project root owning hydromodpy.lock")
+    verify.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     verify.add_argument("--lockfile", default=None, help="Explicit lockfile path")
     verify.add_argument("--strict", action="store_true", help="Strict input verification")
 
@@ -47,7 +58,11 @@ def run(args: argparse.Namespace) -> None:
 
     sub = getattr(args, "lock_command", None)
     if sub == "update":
-        written = lock_update(args.workspace, output=args.output)
+        try:
+            written = lock_update(args.workspace, project=args.project, output=args.output)
+        except FileNotFoundError as exc:
+            print(f"  {exc}", file=sys.stderr)
+            sys.exit(EXIT_NOT_FOUND)
         print(f"  Lockfile written: {written}")
         return
     if sub == "archive":
@@ -60,7 +75,12 @@ def run(args: argparse.Namespace) -> None:
         return
     if sub == "verify":
         try:
-            result = lock_verify(args.workspace, lockfile=args.lockfile, strict=args.strict)
+            result = lock_verify(
+                args.workspace,
+                project=args.project,
+                lockfile=args.lockfile,
+                strict=args.strict,
+            )
         except FileNotFoundError as exc:
             print(f"  {exc}", file=sys.stderr)
             sys.exit(EXIT_NOT_FOUND)

@@ -22,17 +22,18 @@ Three levels
        machine global index ``index.duckdb``.
    * - N
      - **Project**
-     - One ``projects/<name>/hydromodpy.toml`` plus the per-project
-       ``catalog.duckdb`` and ``simulations/`` folder. Open with
+     - One ``projects/<name>/project.toml`` plus the per-project
+       ``runs/``, ``sessions/`` and ``share/`` folders, indexed by
+       ``.hmp/index.duckdb``. Open with
        :class:`hmp.Project <hydromodpy.project.Project>` for a
        setup-once / run-many Python session, or fire-and-forget with
-       ``hmp run hydromodpy.toml``.
+       ``hmp run project.toml``.
    * - N
      - **Run**
      - One simulation result in the project catalog, identified by
        UUID v7. Built by ``project.simulate(**overrides)`` or retrieved
        from ``catalog[sim_ref]`` / ``catalog.best(...)`` /
-       ``SimulationGroup`` queries as a
+       ``RunSet`` queries as a
        :class:`~hydromodpy.results.run.Run`.
 
 Programmatic flow
@@ -42,7 +43,7 @@ Programmatic flow
 
    import hydromodpy as hmp
 
-   project = hmp.Project("~/ws/projects/canut/hydromodpy.toml")
+   project = hmp.Project("~/ws/projects/canut/project.toml")
 
    # Setup-once / run-many: share the context between runs
    baseline = project.simulate(K=5e-5, name="baseline")
@@ -51,10 +52,10 @@ Programmatic flow
 
    # Open-and-query: jump straight to any run
    catalog = hmp.open("~/ws/projects/canut")
-   best = catalog.best(metric="nse")
+   best = catalog.best("canut", metric="nse")
 
    # Read a field through the V1 facade
-   head = hmp.read(best, "head", timestep=0)
+   head = hmp.read(best, "head", time=0)
 
 CLI equivalents
 ---------------
@@ -64,13 +65,13 @@ CLI equivalents
 
    * - CLI
      - Python
-   * - ``hmp run hydromodpy.toml``
+   * - ``hmp run project.toml``
      - ``hmp.Project(toml).simulate()``
    * - ``hmp catalog ls``
      - ``hmp.open(project).frame``
    * - ``hmp catalog show <sim_ref>``
      - ``hmp.open(project)[sim_ref]``
-   * - ``hmp display``
-     - ``hmp.viz.show(run, ...)``
-   * - ``hmp index search``
+   * - ``hmp viz show <sim_ref> <figure>``
+     - ``hmp.figure(run, figure)``
+   * - ``hmp workspace search``
      - ``hmp.index().search(...)``

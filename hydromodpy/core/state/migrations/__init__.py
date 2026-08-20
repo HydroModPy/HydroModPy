@@ -21,7 +21,7 @@ from hydromodpy.core.migrations import apply_migration as _apply_migration
 from hydromodpy.core.migrations import apply_migrations as _apply_migrations
 from hydromodpy.core.migrations import current_version as _current_version
 from hydromodpy.core.migrations import discover_migrations as _discover_migrations
-from hydromodpy.core.migrations import ensure_schema as _ensure_schema
+from hydromodpy.core.migrations import ensure_schema_safe as _ensure_schema_safe
 from hydromodpy.core.migrations import target_version as _target_version
 
 if TYPE_CHECKING:
@@ -37,8 +37,13 @@ def ensure_schema(
     *,
     versions_dir: Path | None = None,
 ) -> None:
-    """Bring the global index DuckDB schema up to the latest bundled version."""
-    _ensure_schema(
+    """Bring the global index DuckDB schema up to the latest bundled version.
+
+    Routes through :func:`ensure_schema_safe` (file lock + pre-migration backup +
+    restore-on-failure) so the index has the same migration safety net as the
+    per-project catalog; ``db_path`` is resolved from the connection.
+    """
+    _ensure_schema_safe(
         connection,
         versions_dir=versions_dir if versions_dir is not None else _MIGRATIONS_DIR,
         component=INDEX_COMPONENT,

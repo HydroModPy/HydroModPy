@@ -1,0 +1,78 @@
+case_id = "lak_merritt_konikow_p01"
+category = "numerical"
+regime = "steady"
+dimension = "3d"
+default_solver = "modflow6"
+
+# Lake Package problem 1 of Merritt & Konikow (2000), upstream MODFLOW 6 example
+# ``ex-gwf-lak-p01``: a single surface lake on a five-layer aquifer driven by a
+# left/right constant head, areal recharge and ET. The published example embeds
+# the lake across the top two layers; HMP's home-grown DISV LAK builder lays a
+# surface lake on layer 0 only, so this case keeps the SAME single-layer footprint
+# on BOTH sides (upstream ``get_lak_connections`` reference and the HMP DISV
+# builder) to make the structural and numerical comparison apples-to-apples.
+#
+# Native example units are feet/days. HMP runs TDIS in seconds and the grid in
+# meters, so ``runtime_lak.py`` converts every length/rate into SI while the
+# ``reference.py`` run stays in feet/days; the comparison brings both into meters.
+
+[config_files]
+modflow6 = "config_modflow6.toml"
+
+[units]
+length = "feet"
+time = "days"
+feet_to_meter = 0.3048
+seconds_per_day = 86400.0
+
+[geometry]
+nlay = 5
+nrow = 17
+ncol = 17
+top_ft = 500.0
+botm_ft = [107.0, 97.0, 87.0, 77.0, 67.0]
+# Variable column / row widths (feet); delc mirrors delr (symmetric grid).
+delr_ft = [
+  250.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0,
+  500.0, 500.0, 500.0, 500.0, 500.0,
+  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 250.0,
+]
+
+[lake]
+# Surface lake footprint on layer 0: rows 6..10 and columns 6..10 (a 5x5 block).
+row_start = 6
+row_stop = 11
+col_start = 6
+col_stop = 11
+bed_elevation_ft = 107.0
+stage_init_ft = 110.0
+bedleak_per_day = 0.1
+# Stage / volume / surface-area abacus for a vertical-walled reservoir: the area
+# stays at the footprint and the volume grows linearly with depth above the bed.
+abacus_stage_ft = [107.0, 110.0, 120.0, 140.0, 160.0, 180.0, 200.0]
+rainfall_ft_per_day = 0.0116
+evaporation_ft_per_day = 0.0103
+
+[aquifer]
+k11_ft_per_day = 30.0
+k33_ft_per_day = [1179.0, 30.0, 30.0, 30.0, 30.0]
+specific_storage_per_day = 3.0e-4
+specific_yield = 0.2
+strt_ft = 115.0
+head_left_ft = 160.0
+head_right_ft = 140.0
+recharge_ft_per_day = 0.0116
+
+[time]
+# Single stress period, 5000 days, 100 steps, multiplier 1.02 (drives the model
+# to steady state); identical to the upstream example.
+period_length_days = 5000.0
+n_steps = 100
+ts_multiplier = 1.02
+
+[solver]
+outer_maximum = 500
+inner_maximum = 200
+outer_dvclose = 1.0e-7
+inner_dvclose = 1.0e-8
+rclose = 1.0e-4

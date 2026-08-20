@@ -1,4 +1,4 @@
-"""Ingest geographic preprocessing outputs into the SimulationCatalog.
+"""Ingest geographic preprocessing outputs into the Catalog.
 
 Called once per project after :class:`CatchmentDelineation` processing completes.
 Reads rasters (via rasterio) and shapefiles (via geopandas) from the
@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+
+import geopandas as gpd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
@@ -121,12 +123,6 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
 
 
 def _ingest_shapefiles(geographic: Any, store: Any, sim_id: str) -> None:
-    try:
-        import geopandas as gpd
-    except ImportError:
-        logger.debug("geopandas not available, skipping shapefile ingestion")
-        return
-
     for feature_name, attr in _SHAPEFILE_ATTRS:
         path = getattr(geographic, attr, None)
         if path is None or not Path(path).exists():
@@ -142,12 +138,6 @@ def _ingest_shapefiles(geographic: Any, store: Any, sim_id: str) -> None:
 
 
 def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
-    try:
-        import geopandas as gpd
-    except ImportError:
-        logger.debug("geopandas not available, skipping river network ingestion")
-        return
-
     generated_network = None
     generated_network_crs = None
     path = getattr(geographic, _GENERATED_HYDROGRAPHIC_NETWORK_ATTR, None)
@@ -276,7 +266,19 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
     )
 
 
-def cleanup_stable_folder(geographic: Any) -> None:
+def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
+    """Drop the geographic preprocessing tree, returning the bytes freed.
+
+    The tree (corrected DEM, D8 pointer and accumulation, watershed, stream
+    network) is written once and then ingested into the project store, so it is
+    a rebuildable cache rather than a result. It is shared by every consumer
+    that skips the setup steps - a calibration session reuses it across its
+    whole trial loop - so only the code that owns the END of a session may drop
+    it. ``keep`` honours ``[geographic] write_intermediates``.
+
+    The in-memory raster cache is released either way: it pins the same rasters
+    in RAM and outlives the folder otherwise.
+    """
     import shutil
 
     backend = resolve_delineation_backend()
@@ -284,8 +286,28 @@ def cleanup_stable_folder(geographic: Any) -> None:
         backend.raster.clear_raster_cache()
 
     stable = getattr(geographic, "stable_folder", None)
-    if stable is not None:
-        stable_path = Path(stable)
-        if stable_path.is_dir():
-            shutil.rmtree(stable_path, ignore_errors=True)
-            logger.info("Removed %s - all data is in the project store", stable_path)
+    if keep or stable is None:
+        return 0
+    stable_path = Path(stable)
+    if not stable_path.is_dir():
+        return 0
+    freed = _directory_size(stable_path)
+    shutil.rmtree(stable_path, ignore_errors=True)
+    logger.info(
+        "Removed %s (%.0f MB freed) - all data is in the project store",
+        stable_path,
+        freed / 1e6,
+    )
+    return freed
+
+
+def _directory_size(root: Path) -> int:
+    """Return the total size in bytes of the files under ``root``."""
+    total = 0
+    for path in root.rglob("*"):
+        try:
+            if path.is_file():
+                total += path.stat().st_size
+        except OSError:
+            continue
+    return total

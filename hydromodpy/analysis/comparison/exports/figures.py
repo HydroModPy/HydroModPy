@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.derive.config_flags import log_missing_field
 
 from .base import _completed_simulation_summaries
 
@@ -71,6 +72,9 @@ def write_simulated_active_network_reference_figure_export(
         try:
             run = store[str(sim_id)]
             if not run.has_field(variable):
+                log_missing_field(
+                    logger, run, variable, f"network overlay figures for {simulation_id}"
+                )
                 skipped_simulations.append(
                     {
                         "simulation_id": simulation_id,

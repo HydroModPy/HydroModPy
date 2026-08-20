@@ -103,7 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _write_text(path: Path, content: str) -> None:
     _filesystem_path(path.parent).mkdir(parents=True, exist_ok=True)
-    _filesystem_path(path).write_text(content.rstrip() + "\n", encoding="utf-8")
+    _filesystem_path(path).write_text(
+        content.rstrip() + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -111,6 +115,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     _filesystem_path(path).write_text(
         json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 

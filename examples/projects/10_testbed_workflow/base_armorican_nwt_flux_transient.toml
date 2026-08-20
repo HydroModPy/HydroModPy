@@ -109,7 +109,7 @@ negative_to_evt = true
 [simulation]
 name = "nwt_flux_armorican_base"
 description = "Regional MODFLOW-NWT transient flux testbed base with synthetic monthly recharge."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

@@ -1,0 +1,11 @@
+{
+  "lak_p01_expected": {
+    "connectiondata_sha256": "d10c1eb65d070901e314406bdf943905e9a55fcc03dafe07d6694d6344315a69",
+    "final_stage_m": 63.3302,
+    "lake_gwf_in_m3_s": 0.01186833,
+    "lake_gwf_out_m3_s": 0.01167368,
+    "n_connections": 45,
+    "n_horizontal": 20,
+    "n_vertical": 25
+  }
+}

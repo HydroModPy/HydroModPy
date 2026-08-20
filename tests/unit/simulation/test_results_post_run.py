@@ -11,10 +11,11 @@ import pytest
 
 import hydromodpy.simulation.extraction.post_run as post_run_module
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -32,8 +33,9 @@ def _build_run_context(
 ) -> RunContext:
     """Build a minimal RunContext for post_run_results tests.
 
-    The state only carries ``execution.output_dirs_by_run_id`` because that is
-    the only attribute the ``adapter.cleanup(ctx)`` path consults.
+    The state carries ``execution.output_dirs_by_run_id`` for the
+    ``adapter.cleanup(ctx)`` path, plus the ``cfg`` the extraction phase reads
+    to hand the configured dry-cell sentinels to the extractor.
     """
     run = ProcessRun(
         id=f"{process_type}_main::{solver_name}",
@@ -45,7 +47,10 @@ def _build_run_context(
     output_dirs: dict[str, Path] = {}
     if solver_output_dir is not None:
         output_dirs[run.id] = solver_output_dir
-    state = SimpleNamespace(execution=SimpleNamespace(output_dirs_by_run_id=output_dirs))
+    state = SimpleNamespace(
+        cfg=SimpleNamespace(modflownwt=ModflowConfig()),
+        execution=SimpleNamespace(output_dirs_by_run_id=output_dirs),
+    )
     return RunContext(plan=plan, run=run, state=state)
 
 
@@ -130,7 +135,7 @@ class TestPostRunResults:
     def test_unknown_solver_raises(self, catalog, tmp_path, monkeypatch):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-        config = ResultsConfig(export={"csv_timeseries": False})
+        config = ResultsConfig()
         # Trigger the "no extractor" path via a run-context solver name the
         # _FakeProvider stub does not recognise.
         ctx = _build_run_context(solver_name="custom_solver", solver_output_dir=tmp_path)
@@ -146,7 +151,7 @@ class TestPostRunResults:
     def test_no_output_dir_raises(self, catalog, monkeypatch):
         sid = str(uuid4())
         catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-        config = ResultsConfig(export={"csv_timeseries": False})
+        config = ResultsConfig()
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=None)
         _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
         with pytest.raises(FileNotFoundError, match="Solver output directory is missing"):
@@ -165,7 +170,7 @@ class TestPostRunResults:
         solver_dir.mkdir()
         (solver_dir / "model.hds").write_text("head data")
 
-        config = ResultsConfig(keep_solver_files=False, export={"csv_timeseries": False})
+        config = ResultsConfig(keep_solver_files=False)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
         provider = _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
         post_run_results(
@@ -185,7 +190,7 @@ class TestPostRunResults:
         solver_dir.mkdir()
         (solver_dir / "model.hds").write_text("head data")
 
-        config = ResultsConfig(keep_solver_files=True, export={"csv_timeseries": False})
+        config = ResultsConfig(keep_solver_files=True)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
         provider = _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
         post_run_results(
@@ -216,7 +221,7 @@ class TestPostRunResults:
             _fail_aggregation,
         )
 
-        config = ResultsConfig(keep_solver_files=True, export={"csv_timeseries": False})
+        config = ResultsConfig(keep_solver_files=True)
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=solver_dir)
         post_run_results(
             ctx=ctx,

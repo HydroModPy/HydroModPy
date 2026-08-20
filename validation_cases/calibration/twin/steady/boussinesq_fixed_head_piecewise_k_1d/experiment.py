@@ -30,7 +30,7 @@ def build_simulation_config(path: Path, project_root: Path) -> None:
         _read_toml(CASE_DIR / "config_modflow6.toml"),
     )
     payload.setdefault("workspace", {})["project_root"] = str(project_root)
-    payload.setdefault("simulation", {})["run_id"] = "steady_piecewise_k_truth"
+    payload.setdefault("simulation", {})["name"] = "steady_piecewise_k_truth"
     path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
 
 

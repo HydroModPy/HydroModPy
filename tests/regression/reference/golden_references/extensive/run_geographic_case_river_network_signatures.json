@@ -1,5 +1,4 @@
 {
-  "_schema_version": "1.0",
   "base": {
     "enabled": true,
     "threshold_mode": "area_km2",
@@ -17,24 +16,24 @@
     "threshold_mode": "area_km2",
     "threshold_value": 0.5,
     "threshold_cells": 88.88888888888889,
-    "stream_pixel_count": 257,
+    "stream_pixel_count": 258,
     "segment_count": 23,
-    "network_total_length_m": 22794.558966878954,
+    "network_total_length_m": 22900.62498405693,
     "max_strahler_order": 4.0,
     "catchment_area_km2": 24.91875,
-    "drainage_density_km_per_km2": 0.9147553134438507
+    "drainage_density_km_per_km2": 0.9190117876722119
   },
   "nancon": {
     "enabled": true,
     "threshold_mode": "area_km2",
     "threshold_value": 0.5,
     "threshold_cells": 88.88888888888889,
-    "stream_pixel_count": 690,
-    "segment_count": 74,
-    "network_total_length_m": 62632.20503806072,
+    "stream_pixel_count": 687,
+    "segment_count": 72,
+    "network_total_length_m": 62345.07300370476,
     "max_strahler_order": 4.0,
     "catchment_area_km2": 64.603125,
-    "drainage_density_km_per_km2": 0.9694918788845077
+    "drainage_density_km_per_km2": 0.9650473255543714
   },
   "aber": {
     "enabled": true,

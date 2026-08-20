@@ -14,6 +14,7 @@ import multiprocessing as mp
 import os.path as osp
 import time
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -198,15 +199,7 @@ def format_d10d11_inputs(grid, cellnames):
     d11dat = {}
     d10dat = {}
     N = len(cellnames)
-    for i, cid in enumerate(cellnames):
-        if (i + 1) % 100 == 0 or i == 0:
-            logger.debug(
-                "Formatting D10 and D11 data for cell %d of %d (%0.1f%%)",
-                i + 1,
-                N,
-                (i + 1) / N * 100,
-            )
-
+    for cid in progress.track(cellnames, "Formatting D10/D11 inputs"):
         row = grid.loc[cid]
         d11dat[cid] = _format_d11_singlecell(row)
         d10dat[cid] = _format_d10_singlecell(row)
@@ -253,18 +246,10 @@ def write_d10d11_allcells(dirpath, d10data, d11data, ncore=None):
     tic = time.perf_counter()
     iterable = [(osp.join(dirpath, str(cid) + ".D10"), cid, d10data[cid]) for cid in d10data.keys()]
     d10_connect_table = {}
-    calcul_progress = 0
-    N = len(iterable)
-    for i in pool.imap_unordered(write_d10d11_singlecell, iterable):
-        d10_connect_table.update(i)
-        calcul_progress += 1
-        if calcul_progress % 100 == 0 or calcul_progress == N:
-            logger.debug(
-                "Creating D10 input file for cell %d of %d (%0.1f%%)",
-                calcul_progress,
-                N,
-                calcul_progress / N * 100,
-            )
+    with progress.task("Writing D10 files", total=len(iterable)) as handle:
+        for i in pool.imap_unordered(write_d10d11_singlecell, iterable):
+            d10_connect_table.update(i)
+            handle.advance()
     logger.info("D10 files created in %0.2f sec", time.perf_counter() - tic)
 
     # Prepare evapotranspiration input files (D11).
@@ -272,18 +257,10 @@ def write_d10d11_allcells(dirpath, d10data, d11data, ncore=None):
     tic = time.perf_counter()
     iterable = [(osp.join(dirpath, str(cid) + ".D11"), cid, d11data[cid]) for cid in d10data.keys()]
     d11_connect_table = {}
-    calcul_progress = 0
-    N = len(iterable)
-    for i in pool.imap_unordered(write_d10d11_singlecell, iterable):
-        d11_connect_table.update(i)
-        calcul_progress += 1
-        if calcul_progress % 100 == 0 or calcul_progress == N:
-            logger.debug(
-                "Creating D11 input file for cell %d of %d (%0.1f%%)",
-                calcul_progress,
-                N,
-                calcul_progress / N * 100,
-            )
+    with progress.task("Writing D11 files", total=len(iterable)) as handle:
+        for i in pool.imap_unordered(write_d10d11_singlecell, iterable):
+            d11_connect_table.update(i)
+            handle.advance()
     logger.info("D11 files created in %0.2f sec", time.perf_counter() - tic)
 
     return d10_connect_table, d11_connect_table

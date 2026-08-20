@@ -1,7 +1,7 @@
 """Frontend hooks: JSON Schema export + partial field validator.
 
 This sub-package exposes two stable integration points for external user
-interfaces (Streamlit, Angular, React, ...). There is **no HTTP server**:
+interfaces (Angular, React, ...). There is **no HTTP server**:
 the core stays pure Python. Consumers hit these helpers via the Python
 API or the ``hmp schema`` CLI and ship the resulting JSON over whatever
 transport they prefer.

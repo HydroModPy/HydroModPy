@@ -192,7 +192,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _family_spec_by_key(key: str) -> ManagedMeshFamilySpec:

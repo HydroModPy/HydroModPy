@@ -83,9 +83,6 @@ def export_netcdf(
     finally:
         sz.close()
     n_nodes = vertices.shape[0]
-    connectivity.shape[0]
-    connectivity.shape[1]
-    len(z_interfaces) - 1
 
     # Build UGRID topology dataset
     ds = xr.Dataset()
@@ -149,17 +146,19 @@ def export_netcdf(
             descriptor = descriptors[var_name]
             arr = _resolve_zarr_path(grp, descriptor.zarr_path)
             if arr is None:
-                logger.warning(
-                    "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
-                    var_name,
-                    descriptor.zarr_path,
-                    sim_id,
-                )
-                continue
-
-            data = arr[:]
-            ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
-            data = data[ts_idx]
+                data = _derive_stack(sz, sim_id, var_name, timesteps, zarr_time)
+                if data is None:
+                    logger.warning(
+                        "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
+                        var_name,
+                        descriptor.zarr_path,
+                        sim_id,
+                    )
+                    continue
+            else:
+                data = arr[:]
+                ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
+                data = data[ts_idx]
 
             attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
             if data.ndim == 3:
@@ -182,9 +181,49 @@ def export_netcdf(
     if "layer" in ds.dims:
         ds["layer"] = xr.DataArray(np.arange(ds.sizes["layer"]), dims=("layer",))
 
-    ds.to_netcdf(output_path)
+    # zlib-compress the array variables (the Zarr source is Blosc-compressed, so
+    # an uncompressed .nc balloons) and give float fields a CF _FillValue when
+    # none is declared. Skip vars that already carry _FillValue in attrs (e.g.
+    # face_nodes = -1) since xarray forbids it in both attrs and encoding. Pin
+    # engine/format so a scipy-only environment cannot silently emit NETCDF3.
+    encoding: dict[str, dict[str, object]] = {}
+    for name, var in ds.variables.items():
+        enc: dict[str, object] = {}
+        if var.ndim >= 1 and np.issubdtype(var.dtype, np.number):
+            enc["zlib"] = True
+            enc["complevel"] = 4
+        if (
+            np.issubdtype(var.dtype, np.floating)
+            and "_FillValue" not in var.attrs
+            and name not in ds.coords
+        ):
+            enc["_FillValue"] = float("nan")
+        if enc:
+            encoding[name] = enc
+
+    ds.to_netcdf(output_path, engine="netcdf4", format="NETCDF4", encoding=encoding)
     logger.info("Exported NetCDF: %s", output_path)
     return output_path
+
+
+def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.ndarray | None:
+    """Rebuild a non-persisted field over the exported timesteps, or None.
+
+    Water-table elevation/depth, seepage mask and drain outflow are computed
+    on read rather than stored, so an export must rebuild them to stay
+    faithful to what ``hmp read`` returns.
+    """
+    from hydromodpy.results.derive.virtual_fields import derive_field_stack
+
+    n_time = None
+    if zarr_time is not None:
+        n_time = int(len(zarr_time))
+    elif "head" in sz.root:
+        n_time = int(sz.root["head"].shape[0])
+    if n_time is None:
+        return None
+    indices = list(range(n_time)) if timesteps is None else [int(t) % n_time for t in timesteps]
+    return derive_field_stack(sz, sim_id, variable, indices)
 
 
 def _resolve_zarr_path(grp, zarr_path: str):

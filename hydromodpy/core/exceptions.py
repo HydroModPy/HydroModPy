@@ -350,6 +350,36 @@ class CatalogError(StorageError):
     code = "HMPY.E801"
 
 
+class ReadOnlyError(CatalogError):
+    """A write was attempted against a read-only catalog."""
+
+    code = "HMPY.E803"
+
+
+class WriteConflictError(CatalogError):
+    """A concurrent writer holds the catalog and a write cannot proceed."""
+
+    code = "HMPY.E804"
+
+
+class CrossProjectsError(CatalogError):
+    """An operation crossed project boundaries that must stay isolated."""
+
+    code = "HMPY.E805"
+
+
+class BackupFailedError(CatalogError):
+    """The pre-migration catalog backup could not be written."""
+
+    code = "HMPY.E806"
+
+
+class MigrationFailedError(CatalogError):
+    """A catalog schema migration failed to apply."""
+
+    code = "HMPY.E807"
+
+
 class ZarrStoreError(StorageError):
     """Zarr store read/write failure."""
 
@@ -443,6 +473,11 @@ __all__ = [
     # Storage
     "StorageError",
     "CatalogError",
+    "ReadOnlyError",
+    "WriteConflictError",
+    "CrossProjectsError",
+    "BackupFailedError",
+    "MigrationFailedError",
     "ZarrStoreError",
     # Results
     "ResultsError",

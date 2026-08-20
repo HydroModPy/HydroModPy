@@ -178,15 +178,15 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
             return accumulated
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.raster_io.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.raster_io.export_tif",
         _fake_export_tif,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.masstransfer.Masstransfer",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.masstransfer.Masstransfer",
         _FakeMasstransfer,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.rasterio.open",
+        "hydromodpy.solver.modflow6.postprocess.pipeline.rasterio.open",
         lambda path: _FakeRasterReader(path),
     )
     monkeypatch.setattr(

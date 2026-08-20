@@ -18,7 +18,12 @@ from evaluation._utils import resolve_repository_root, safe_mkdir
 from evaluation.cohesion import compute_cohesion
 from evaluation.coupling import compute_cbo
 from evaluation.extract_architecture import collect_architecture, save_graph
-from evaluation.generate_report import build_frames, build_package_dependency_frame, write_charts, write_excel
+from evaluation.generate_report import (
+    build_frames,
+    build_package_dependency_frame,
+    write_charts,
+    write_excel,
+)
 from evaluation.radon_metrics import compute_radon_metrics
 from evaluation.repository_summary import summarize_repository
 
@@ -30,9 +35,9 @@ def write_json(path: Path, payload: object) -> None:
 
 def write_architecture_excel(
     output_path: Path,
-    summary_frame: "pd.DataFrame",
+    summary_frame: pd.DataFrame,
     architecture_data: dict,
-    dependency_frame: "pd.DataFrame",
+    dependency_frame: pd.DataFrame,
 ) -> None:
     if pd is None:
         return
@@ -46,7 +51,7 @@ def write_architecture_excel(
 
 def build_package_graph(
     architecture_data: dict,
-    summary_frame: "pd.DataFrame",
+    summary_frame: pd.DataFrame,
     top_n: int = 8,
     min_edge_weight: int = 2,
     max_edges: int = 20,
@@ -120,13 +125,22 @@ def run_for_root(root: Path, output_dir: Path, excel_path: Path | None) -> None:
         if package_graph is not None:
             # package_graph is already aggregated by build_package_graph()
             # (top-N packages) — don't have save_graph() collapse it again.
-            save_graph(package_graph, raw_dir / "architecture_graph.png", package_depth=None, node_is_module=False)
+            save_graph(
+                package_graph,
+                raw_dir / "architecture_graph.png",
+                package_depth=None,
+                node_is_module=False,
+            )
         else:
             save_graph(architecture.get("graph"), raw_dir / "architecture_graph.png")
         if excel_path is not None:
             write_excel(excel_path, frames)
-        write_architecture_excel(output_dir / "architecture.xlsx", summary_frame, architecture_data, dependency_frame)
-        for name, frame in zip(["summary", "radon", "coupling", "cohesion", "architecture"], frames, strict=False):
+        write_architecture_excel(
+            output_dir / "architecture.xlsx", summary_frame, architecture_data, dependency_frame
+        )
+        for name, frame in zip(
+            ["summary", "radon", "coupling", "cohesion", "architecture"], frames, strict=False
+        ):
             frame.to_csv(report_dir / f"{name}.csv", index=False)
         write_charts(report_dir / "charts", frames)
     else:
@@ -145,7 +159,11 @@ def main() -> None:
     with resolve_repository_root(args.root, args.repo, args.branch) as root:
         output_dir = args.output_dir.expanduser().resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
-        excel_path = args.excel.expanduser().resolve() if args.excel is not None else output_dir / "evaluation.xlsx"
+        excel_path = (
+            args.excel.expanduser().resolve()
+            if args.excel is not None
+            else output_dir / "evaluation.xlsx"
+        )
         run_for_root(root, output_dir, excel_path)
 
 

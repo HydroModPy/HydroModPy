@@ -81,7 +81,6 @@ class AutoCaptureCollector:
         )
         return snapshot, start_time
 
-
     def capture_end(
         self,
         *,

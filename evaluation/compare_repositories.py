@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import math
 import json
+import math
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
-
-import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -106,7 +105,9 @@ def load_metrics(
                     compute_cohesion(root),
                     architecture.get("data", architecture),
                 )
-        raise SystemExit("--output-dir requires --left-repo/--right-repo or repository directories, not summary files")
+        raise SystemExit(
+            "--output-dir requires --left-repo/--right-repo or repository directories, not summary files"
+        )
     if repo is not None:
         with resolve_repository_root(None, repo, branch) as root:
             root = _apply_subpath(root, subpath)
@@ -139,7 +140,14 @@ def flatten_complexities_detailed(radon: dict[str, Any]) -> list[dict[str, Any]]
         for block in file_info.get("complexity", []):
             complexity = block.get("complexity")
             if isinstance(complexity, (int, float)):
-                rows.append({"module": module, "path": path, "name": block.get("name"), "complexity": float(complexity)})
+                rows.append(
+                    {
+                        "module": module,
+                        "path": path,
+                        "name": block.get("name"),
+                        "complexity": float(complexity),
+                    }
+                )
     return rows
 
 
@@ -195,7 +203,9 @@ def halstead_values(radon: dict[str, Any]) -> list[float]:
     return values
 
 
-def repo_summary_metrics(summary: dict[str, Any], radon: dict[str, Any], cbo: dict[str, Any], cohesion: dict[str, Any]) -> dict[str, float]:
+def repo_summary_metrics(
+    summary: dict[str, Any], radon: dict[str, Any], cbo: dict[str, Any], cohesion: dict[str, Any]
+) -> dict[str, float]:
     files = summary.get("files", [])
     complexity_values = flatten_complexities(radon)
     maintainability_values = file_level_metric(radon.get("files", []), "maintainability_index")
@@ -253,7 +263,9 @@ def repo_package_dependency_matrix(
     return packages, matrix
 
 
-def normalize_metrics(metrics_a: dict[str, float], metrics_b: dict[str, float], keys: list[str]) -> tuple[list[float], list[float]]:
+def normalize_metrics(
+    metrics_a: dict[str, float], metrics_b: dict[str, float], keys: list[str]
+) -> tuple[list[float], list[float]]:
     left: list[float] = []
     right: list[float] = []
     for key in keys:
@@ -263,7 +275,13 @@ def normalize_metrics(metrics_a: dict[str, float], metrics_b: dict[str, float], 
     return left, right
 
 
-def radar_chart(output: Path, left_name: str, right_name: str, left_metrics: dict[str, float], right_metrics: dict[str, float]) -> None:
+def radar_chart(
+    output: Path,
+    left_name: str,
+    right_name: str,
+    left_metrics: dict[str, float],
+    right_metrics: dict[str, float],
+) -> None:
     labels = ["Complexité", "Maintainability", "CBO", "LCOM", "Halstead"]
     keys = ["Complexité moyenne", "Maintainability Index", "CBO", "LCOM", "Halstead"]
     left_values, right_values = normalize_metrics(left_metrics, right_metrics, keys)
@@ -287,7 +305,13 @@ def radar_chart(output: Path, left_name: str, right_name: str, left_metrics: dic
     plt.close(fig)
 
 
-def bar_chart(output: Path, left_name: str, right_name: str, left_metrics: dict[str, float], right_metrics: dict[str, float]) -> None:
+def bar_chart(
+    output: Path,
+    left_name: str,
+    right_name: str,
+    left_metrics: dict[str, float],
+    right_metrics: dict[str, float],
+) -> None:
     metrics = [
         "Complexité moyenne",
         "Maintainability Index",
@@ -301,7 +325,11 @@ def bar_chart(output: Path, left_name: str, right_name: str, left_metrics: dict[
     fig, axes = plt.subplots(4, 2, figsize=(16, 14))
     axes_flat = list(axes.flat)
     for axis, metric in zip(axes_flat, metrics, strict=False):
-        axis.bar([left_name, right_name], [left_metrics.get(metric, 0.0), right_metrics.get(metric, 0.0)], color=["#1f77b4", "#ff7f0e"])
+        axis.bar(
+            [left_name, right_name],
+            [left_metrics.get(metric, 0.0), right_metrics.get(metric, 0.0)],
+            color=["#1f77b4", "#ff7f0e"],
+        )
         axis.set_title(metric)
         axis.tick_params(axis="x", rotation=20)
     for axis in axes_flat[len(metrics) :]:
@@ -326,11 +354,22 @@ def boxplot_complexity(
     ax.set_title("Boxplot de la complexité cyclomatique")
     ax.set_ylabel("Complexité")
     sections = [
-        f"{name}:\n{text}" for name, text in [(left_name, top_outliers_text(left_rows)), (right_name, top_outliers_text(right_rows))] if text
+        f"{name}:\n{text}"
+        for name, text in [
+            (left_name, top_outliers_text(left_rows)),
+            (right_name, top_outliers_text(right_rows)),
+        ]
+        if text
     ]
     if sections:
         ax.text(
-            1.02, 0.98, "\n\n".join(sections), transform=ax.transAxes, fontsize=7, va="top", ha="left",
+            1.02,
+            0.98,
+            "\n\n".join(sections),
+            transform=ax.transAxes,
+            fontsize=7,
+            va="top",
+            ha="left",
             bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.9),
         )
     fig.tight_layout()
@@ -348,7 +387,9 @@ def heatmap_dependency(
     top_n: int = 30,
 ) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(16, 7))
-    for axis, name, architecture in zip(axes, [left_name, right_name], [left_arch, right_arch], strict=False):
+    for axis, name, architecture in zip(
+        axes, [left_name, right_name], [left_arch, right_arch], strict=False
+    ):
         packages, matrix = repo_package_dependency_matrix(architecture, package_depth, top_n)
         if not packages:
             axis.set_axis_off()
@@ -411,11 +452,21 @@ def architecture_graph(
         )
         axis.set_title(f"Graphe d'architecture - {name}")
         axis.axis("off")
-        cycle_groups = [sorted(group) for group in nx.strongly_connected_components(graph) if len(group) > 1]
+        cycle_groups = [
+            sorted(group) for group in nx.strongly_connected_components(graph) if len(group) > 1
+        ]
         if cycle_groups:
-            cycles_text = "Cycles de dependances:\n" + "\n".join(" <-> ".join(group) for group in cycle_groups[:5])
+            cycles_text = "Cycles de dependances:\n" + "\n".join(
+                " <-> ".join(group) for group in cycle_groups[:5]
+            )
             axis.text(
-                0.02, 0.02, cycles_text, transform=axis.transAxes, fontsize=6, va="bottom", ha="left",
+                0.02,
+                0.02,
+                cycles_text,
+                transform=axis.transAxes,
+                fontsize=6,
+                va="bottom",
+                ha="left",
                 bbox=dict(boxstyle="round", facecolor="#fff3cd", edgecolor="#856404", alpha=0.9),
             )
     fig.tight_layout()
@@ -427,8 +478,12 @@ def write_comparison_bundle(
     output_dir: Path,
     left_name: str,
     right_name: str,
-    left_pack: tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]],
-    right_pack: tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]],
+    left_pack: tuple[
+        dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]
+    ],
+    right_pack: tuple[
+        dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]
+    ],
     package_depth: int | None = 1,
     top_n_packages: int = 30,
 ) -> None:
@@ -450,10 +505,22 @@ def write_comparison_bundle(
     )
     radar_chart(output_dir / "radar_chart.png", left_name, right_name, left_metrics, right_metrics)
     heatmap_dependency(
-        output_dir / "dependency_heatmap.png", left_name, right_name, left_arch, right_arch, package_depth, top_n_packages
+        output_dir / "dependency_heatmap.png",
+        left_name,
+        right_name,
+        left_arch,
+        right_arch,
+        package_depth,
+        top_n_packages,
     )
     architecture_graph(
-        output_dir / "architecture_graph.png", left_name, right_name, left_arch, right_arch, package_depth, top_n_packages
+        output_dir / "architecture_graph.png",
+        left_name,
+        right_name,
+        left_arch,
+        right_arch,
+        package_depth,
+        top_n_packages,
     )
 
 
@@ -483,7 +550,9 @@ def main() -> None:
         default=None,
         help="Subdirectory to analyze inside --left/--left-repo (e.g. 'hydromodpy' when comparing a package inside a monorepo)",
     )
-    parser.add_argument("--right-repo", type=str, default=None, help="Second repository URL or path")
+    parser.add_argument(
+        "--right-repo", type=str, default=None, help="Second repository URL or path"
+    )
     parser.add_argument("--right-branch", type=str, default=None, help="Branch for --right-repo")
     parser.add_argument(
         "--right-subpath",
@@ -491,11 +560,17 @@ def main() -> None:
         default=None,
         help="Subdirectory to analyze inside --right/--right-repo (e.g. 'hydromodpy' when comparing a package inside a monorepo)",
     )
-    parser.add_argument("--left-label", type=str, default=None, help="Manual label for the left side")
-    parser.add_argument("--right-label", type=str, default=None, help="Manual label for the right side")
+    parser.add_argument(
+        "--left-label", type=str, default=None, help="Manual label for the left side"
+    )
+    parser.add_argument(
+        "--right-label", type=str, default=None, help="Manual label for the right side"
+    )
     parser.add_argument("--output", type=Path, default=None, help="Optional JSON output")
     parser.add_argument("--chart", type=Path, default=None, help="Optional bar chart output")
-    parser.add_argument("--output-dir", type=Path, default=None, help="Optional directory for all charts")
+    parser.add_argument(
+        "--output-dir", type=Path, default=None, help="Optional directory for all charts"
+    )
     parser.add_argument(
         "--package-depth",
         type=int,
@@ -521,7 +596,9 @@ def main() -> None:
         left_name,
     )
     right = summarize(
-        load_or_summarize(args.right, args.right_repo, args.right_branch, "right", args.right_subpath),
+        load_or_summarize(
+            args.right, args.right_repo, args.right_branch, "right", args.right_subpath
+        ),
         right_name,
     )
     result = {"left": left, "right": right}
@@ -536,7 +613,9 @@ def main() -> None:
         if plt is None or pd is None:
             raise SystemExit(f"matplotlib and pandas are required: {OPTIONAL_ERROR}")
         frame = pd.DataFrame([left, right]).set_index("repository")
-        axes = frame[["packages", "lines", "classes", "functions"]].plot(kind="bar", figsize=(10, 6))
+        axes = frame[["packages", "lines", "classes", "functions"]].plot(
+            kind="bar", figsize=(10, 6)
+        )
         axes.set_title("Repository comparison by package")
         axes.set_ylabel("Count")
         axes.figure.tight_layout()
@@ -546,9 +625,17 @@ def main() -> None:
 
     if args.output_dir is not None:
         left_pack = load_metrics(args.left, args.left_repo, args.left_branch, args.left_subpath)
-        right_pack = load_metrics(args.right, args.right_repo, args.right_branch, args.right_subpath)
+        right_pack = load_metrics(
+            args.right, args.right_repo, args.right_branch, args.right_subpath
+        )
         write_comparison_bundle(
-            args.output_dir, left_name, right_name, left_pack, right_pack, args.package_depth, args.top_n_packages
+            args.output_dir,
+            left_name,
+            right_name,
+            left_pack,
+            right_pack,
+            args.package_depth,
+            args.top_n_packages,
         )
 
 

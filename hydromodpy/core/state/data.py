@@ -32,3 +32,12 @@ class LoadedDataContext:
     radiation: Any = None
     soil_moisture: Any = None
     water_quality: Any = None
+    lake_geometry: Any = None
+    lake_bathymetry: Any = None
+    lake_abacus: Any = None
+    lake_levels: Any = None
+    lake_inflow: Any = None
+    lake_outflow: Any = None
+    lake_withdrawal: Any = None
+    # Data-plan types covered by the last completed load; None = never loaded.
+    loaded_plan_types: tuple[str, ...] | None = None

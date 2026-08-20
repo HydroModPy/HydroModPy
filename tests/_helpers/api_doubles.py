@@ -1,6 +1,6 @@
 """Reusable context-manager doubles for the functional facade tests.
 
-The ``hmp`` verbs open a ``Project`` or a ``SimulationCatalog`` as a context
+The ``hmp`` verbs open a ``Project`` or a ``Catalog`` as a context
 manager and forward kwargs. These doubles record what they receive so a test
 can assert the wiring without a real backend. Import them with an absolute
 path: ``from tests._helpers.api_doubles import CapturingProject``.
@@ -44,7 +44,7 @@ def make_capturing_project(
 
 
 def make_capturing_catalog(captured: dict[str, Any]) -> type:
-    """Build a SimulationCatalog double recording ``workspace_root``.
+    """Build a Catalog double recording ``workspace_root``.
 
     ``captured`` collects ``workspace_root`` (the constructor arg) and
     ``closed`` (set on context exit).

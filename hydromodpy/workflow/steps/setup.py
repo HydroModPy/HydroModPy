@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
-from hydromodpy.core.state.global_index import auto_register_workspace
+from hydromodpy.core.state.global_index import auto_register_projects
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.simulation import ensure_flow, ensure_transport
@@ -368,7 +368,7 @@ def run_setup(
     setup_state = run_state.setup
 
     setup_state.workspace = Workspace(config=cfg.workspace)
-    auto_register_workspace(
+    auto_register_projects(
         setup_state.workspace.project_root,
         label=getattr(setup_state.workspace, "catch_name", None),
     )
@@ -395,9 +395,10 @@ def run_setup(
         geographic=setup_state.domain_geographic,
     )
 
-    # Set run_id: explicit config > derive from TOML filename > "default".
-    if cfg.simulation.run_id:
-        setup_state.run_id = cfg.simulation.run_id
+    # Internal run_id (journal/scratch key) follows the simulation name:
+    # explicit config name > derive from TOML filename > "default".
+    if cfg.simulation.name:
+        setup_state.run_id = cfg.simulation.name
     else:
         import re
 
@@ -533,6 +534,19 @@ class BuildGeographicStep:
     ) -> PipelineState:
         """Re-run setup: idempotent given the cached DEM / watershed."""
         return self.run(prior_state)
+
+    def is_prebuilt(self, state: PipelineState) -> bool:
+        """True when the in-memory ctx already carries the setup products."""
+        ctx = state.get("ctx")
+        if ctx is None:
+            return False
+        setup = ctx.setup
+        return (
+            setup.workspace is not None
+            and setup.geographic is not None
+            and setup.geographic_features is not None
+            and setup.domain is not None
+        )
 
 
 class SetupProcessStep:

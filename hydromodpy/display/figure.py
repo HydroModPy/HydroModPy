@@ -43,8 +43,11 @@ class FigureSpec:
 
     ``required_fields`` lists Zarr fields the figure reads (e.g. ``"head"``).
     ``required_tables`` lists DuckDB tables (e.g. ``"timeseries"``).
-    These hints let the catalog and the CLI validate compatibility before
-    calling ``render``.
+    ``required_solvers`` restricts the figure to specific solver backends
+    (empty means any). Together they define whether one figure applies to a
+    given run: :meth:`BaseFigure.unavailable_reason` turns them into a
+    human-readable reason, so a figure that does not fit the configured
+    processes is skipped explicitly instead of failing at render time.
     """
 
     name: str
@@ -52,6 +55,7 @@ class FigureSpec:
     kind: FigureKind = "spatial"
     required_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()
+    required_solvers: tuple[str, ...] = ()
     default_figsize: tuple[float, float] = (7.0, 5.0)
 
 
@@ -65,6 +69,8 @@ class Figure(Protocol):
 
     def plot(self, sim: Run, **opts) -> MplFigure: ...
 
+    def unavailable_reason(self, sim: Run) -> str | None: ...
+
 
 class BaseFigure(ABC):
     """ABC providing the universal ``plot()`` boilerplate."""
@@ -76,6 +82,28 @@ class BaseFigure(ABC):
         raise NotImplementedError(
             "render must be implemented by subclasses (defines how the figure draws itself onto the given axes)."
         )
+
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Return why this figure cannot render ``sim``, or None when it can.
+
+        Checks the declared ``spec`` requirements against what the run
+        actually persisted. This is what lets a project list every figure it
+        may want and get only the ones its solver and processes produced: a
+        run without particle tracking reports ``particle_tracks`` as
+        unavailable rather than drawing an empty axes.
+        """
+        solvers = self.spec.required_solvers
+        if solvers:
+            solver = str(getattr(sim, "solver", "") or "")
+            if solver and solver not in solvers:
+                return f"requires solver {' or '.join(solvers)}, run used '{solver}'"
+        missing_fields = [name for name in self.spec.required_fields if not sim.has_field(name)]
+        if missing_fields:
+            return f"missing result field(s): {', '.join(missing_fields)}"
+        missing_tables = [name for name in self.spec.required_tables if not sim.has_table(name)]
+        if missing_tables:
+            return f"missing catalog table(s): {', '.join(missing_tables)}"
+        return None
 
     def plot(
         self,

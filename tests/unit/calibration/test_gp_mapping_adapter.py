@@ -2,7 +2,7 @@
 
 The adapter lives at
 :mod:`hydromodpy.calibration.adapters.gp_mapping_adapter` and implements
-the :class:`~hydromodpy.calibration.optimizer.Optimizer` Protocol with
+the :class:`~hydromodpy.calibration.optim.optimizer.Optimizer` Protocol with
 Latin-hypercube initial sampling and Expected-Improvement refinement.
 
 Tests cover three slices:
@@ -17,12 +17,12 @@ from __future__ import annotations
 import pytest
 import sklearn  # noqa: F401
 
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 
 
 def _quadratic_space() -> ParameterSpace:

@@ -6,7 +6,11 @@ import argparse
 import sys
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
-from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME
+from hydromodpy.core.state.paths import (
+    CATALOG_FILENAME,
+    INTERNAL_DIRNAME,
+    PROJECT_MARKER_FILENAME,
+)
 
 NAME: str = "show"
 HELP: str = "Show a project summary (TOMLs, catalog stats)"
@@ -32,7 +36,7 @@ def run(args: argparse.Namespace) -> None:
     print(f"# project: {payload['name']}")
     print(f"# path   : {payload['path']}")
     state = "present" if payload["has_project_toml"] else "missing"
-    print(f"  {PROJECT_TOML_FILENAME:<24} {state}")
+    print(f"  {PROJECT_MARKER_FILENAME:<24} {state}")
     runs = payload["run_tomls"]
     if runs:
         print(f"  run TOMLs ({len(runs)}):")
@@ -51,4 +55,5 @@ def run(args: argparse.Namespace) -> None:
     elif "catalog_error" in payload:
         print(f"  Error reading project catalog: {payload['catalog_error']}", file=sys.stderr)
     else:
-        print("  catalog.duckdb            missing")
+        index_label = f"{INTERNAL_DIRNAME}/{CATALOG_FILENAME}"
+        print(f"  {index_label:<24} missing")

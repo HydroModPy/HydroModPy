@@ -99,7 +99,7 @@ Recipes
       :link-type: doc
 
       Consume the JSON Schema and the partial-validator for any UI
-      (Streamlit, Angular, React, Jupyter widget).
+      (Angular, React, Jupyter widget).
 
 .. toctree::
    :hidden:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.hydrographic_network import _plot_topography_background
 from hydromodpy.display.geo import GeoFigureMixin
 from hydromodpy.display.map_axes import (
@@ -31,6 +31,15 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         kind="comparison",
         default_figsize=(20.0, 5.8),
     )
+
+    def unavailable_reason(self, sim) -> str | None:
+        """Require both canonical networks: the figure compares them."""
+        missing = [
+            role for role in ("reference", "generated") if not sim.has_hydrographic_network(role)
+        ]
+        if missing:
+            return f"run has no {' and no '.join(missing)} hydrographic network"
+        return None
 
     def render(
         self,

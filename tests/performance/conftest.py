@@ -3,7 +3,7 @@
 Each module under ``tests/performance/`` sets ``pytestmark =
 pytest.mark.performance`` so the suite is selectable via
 ``pytest -m performance``. Benchmarks exercise the thin HydroModPy storage
-wrappers (SimulationCatalog over DuckDB, the Zarr field backend, the Parquet
+wrappers (Catalog over DuckDB, the Zarr field backend, the Parquet
 timeseries backend) so a regression in those wrappers is caught by the
 ratio-based drift gate in ``perf.yml``.
 """

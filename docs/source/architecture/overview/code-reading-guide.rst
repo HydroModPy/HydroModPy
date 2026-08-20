@@ -20,14 +20,13 @@ Code-oriented docs already present in the repository
 Several prose documents already exist in the repository, but they were
 not previously surfaced from the published architecture pages:
 
-- ``hydromodpy/cli/README.md`` for the CLI dispatcher and the
-  registered subcommands,
 - ``hydromodpy/simulation/README.md`` for planner / runner / adapter
   roles,
-- ``hydromodpy/calibration/README.md`` for the calibration package map,
 - ``hydromodpy/solver/boussinesq/README.md`` for the in-house solver
   package,
-- ``docs/developers/*.md`` for focused engineering notes and design
+- ``hydromodpy/data/README.md`` and ``hydromodpy/data/structure.md``
+  for the data-layer contract,
+- ``docs/_dev_notes/*.md`` for focused engineering notes and design
   documents.
 
 Recommended reading paths
@@ -38,7 +37,8 @@ CLI-driven simulation
 
 When the question is "how does one TOML turn into solver runs?":
 
-1. ``hydromodpy/cli/commands/run.py`` and ``cli/workflows.py``
+1. ``hydromodpy/cli/commands/run.py``, then ``hydromodpy/_api.py``
+   (``run``) and ``hydromodpy/project/dispatch/workflow.py``
 2. ``hydromodpy/project/facade.py`` (``Project`` facade)
 3. ``hydromodpy/simulation/planning/planner.py``
 4. ``hydromodpy/simulation/execution/runner.py``
@@ -51,9 +51,9 @@ Catchment meshing
 
 When the question is "how is a runtime mesh generated and injected?":
 
-1. ``hydromodpy/spatial/mesh/runtime.py``
-2. ``hydromodpy/spatial/mesh/hydro_mesh.py``
-3. ``hydromodpy/spatial/mesh/batch.py`` for multi-outlet runs
+1. ``hydromodpy/spatial/mesh/launcher/runtime.py``
+2. ``hydromodpy/spatial/mesh/model/hydro_mesh.py``
+3. ``hydromodpy/spatial/mesh/launcher/batch.py`` for multi-outlet runs
 4. ``hydromodpy/spatial/mesh/gmsh_grid/``
 5. the pages under :doc:`../mesh/index`
 
@@ -65,10 +65,10 @@ workflow?":
 
 1. ``hydromodpy/cli/commands/run.py`` ([workflow].mode = "calibration"
    dispatch)
-2. ``hydromodpy/calibration/cli_runner.py`` (calibration entry point)
-3. ``hydromodpy/calibration/engine.py`` and the ``CalibrationEngine``
+2. ``hydromodpy/calibration/runners/cli_runner.py`` (calibration entry point)
+3. ``hydromodpy/calibration/optim/engine.py`` and the ``CalibrationEngine``
    protocol
-4. ``hydromodpy/simulation/execution/trial.py`` (prepare-once,
+4. ``hydromodpy/calibration/runners/trial.py`` (prepare-once,
    evaluate-many primitive)
 5. one case under ``hydromodpy/calibration/cases/`` if available
 

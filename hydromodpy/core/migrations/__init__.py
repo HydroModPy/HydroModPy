@@ -21,7 +21,6 @@ from hydromodpy.core.migrations.auto_boot import (
     backup_path_for,
     ensure_schema_safe,
     list_backups,
-    restore_backup,
 )
 from hydromodpy.core.migrations.errors import (
     MigrationDiscoveryError,
@@ -59,6 +58,5 @@ __all__ = [
     "ensure_schema",
     "ensure_schema_safe",
     "list_backups",
-    "restore_backup",
     "target_version",
 ]

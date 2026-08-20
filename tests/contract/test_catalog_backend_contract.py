@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.ports import CatalogBackend
 
@@ -19,7 +20,7 @@ from hydromodpy.results.catalog.ports import CatalogBackend
 @pytest.fixture
 def backend(tmp_path: Path) -> DuckDBBackend:
     """Open a DuckDB-backed CatalogBackend with a minimal test schema."""
-    db = DuckDBBackend(tmp_path / "catalog.duckdb")
+    db = DuckDBBackend(tmp_path / CATALOG_FILENAME)
     db.execute("CREATE TABLE kv (  k VARCHAR PRIMARY KEY,  v INTEGER NOT NULL,  label VARCHAR)")
     yield db
     db.close()

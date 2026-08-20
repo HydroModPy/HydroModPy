@@ -23,9 +23,9 @@ from datetime import datetime
 
 import pandas as pd
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json, paginate_json
-from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -100,13 +100,13 @@ def fetch(
         logger.info("Hub'Eau ONDE: no stations found.")
         return []
 
-    log_step(
+    logger.debug(
         f"Hub'Eau ONDE: {len(ids)} stations "
         f"[{date_start.strftime('%Y-%m-%d')} -> {date_end.strftime('%Y-%m-%d')}]"
     )
 
     records: list[PointRecord] = []
-    for sid in iter_progress(ids, desc="Stations"):
+    for sid in progress.track(ids, "Fetching ONDE stations"):
         location = _fetch_station_location(sid)
         obs_df = _download_observations(sid, date_start, date_end)
         if obs_df.empty:
@@ -126,7 +126,7 @@ def fetch(
             )
         )
 
-    log_step(f"Hub'Eau ONDE: {len(records)} station records loaded")
+    logger.debug(f"Hub'Eau ONDE: {len(records)} station records loaded")
     return records
 
 

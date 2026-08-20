@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from hydromodpy.results.time_alignment import (
+from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     observed_on_simulation_index,
 )

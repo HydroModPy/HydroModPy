@@ -56,8 +56,8 @@ the ``Architecture`` tab.  Scientific notes are documented separately under
 the ``Scientific documentation`` tab.
 """
 
-from hydromodpy.spatial.mesh.cell_types import CellType
-from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 __all__ = (
     "CellType",

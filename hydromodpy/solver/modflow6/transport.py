@@ -17,6 +17,10 @@ from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
     build_concentration_runtime_overrides,
 )
+from hydromodpy.solver.modflow_common.progress import (
+    run_simulation_with_progress,
+    write_listing_status,
+)
 
 
 class Modflow6Transport:
@@ -232,11 +236,17 @@ class Modflow6Transport:
         )
 
     def processing(self, write_model: bool = True, run_model: bool = False, verbose: bool = True):
+        del verbose  # the write listing always goes to the debug log
         if write_model:
-            self.model_modflow.sim.write_simulation(silent=not verbose)
+            with write_listing_status("Writing transport input files"):
+                self.model_modflow.sim.write_simulation(silent=False)
         success = False
         if run_model:
-            success, _ = self.model_modflow.sim.run_simulation(silent=not verbose)
+            success, _ = run_simulation_with_progress(
+                self.model_modflow.sim,
+                int(self.model_modflow.nper),
+                description="Solving transport stress periods",
+            )
         return success
 
     def _resolve_postprocess_options(

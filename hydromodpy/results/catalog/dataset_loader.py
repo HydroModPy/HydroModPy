@@ -5,7 +5,7 @@ Joins scalar tables (``simulations``, ``parameters``, ``metrics``,
 into a single :class:`xarray.Dataset` indexed by ``sim_id``.
 
 Field arrays stay lazy: each per-sim Zarr store is opened through
-:func:`hydromodpy.results.simulation_group._open_simulation_lazy` which
+:func:`hydromodpy.results.run.group._open_simulation_lazy` which
 wraps each registered field in a dask-backed :class:`xr.DataArray` and
 routes the resulting dataset through :func:`xr.decode_cf` for CF time
 decoding. Per-sim datasets are concatenated along ``sim_id`` without
@@ -22,7 +22,7 @@ import pandas as pd
 if TYPE_CHECKING:
     import xarray as xr
 
-    from hydromodpy.results.catalog.facade import SimulationCatalog
+    from hydromodpy.results.catalog.facade import Catalog
 
 
 # Columns selected from simulations s with dim-table joins. Some are resolved
@@ -56,11 +56,11 @@ class DatasetLoader:
     """Build an ``xr.Dataset`` joining scalars + Zarr fields for a cohort.
 
     The loader is stateless apart from the catalog it wraps. ``load`` accepts
-    the same ``filters`` keyword set as :meth:`SimulationCatalog.find` plus
+    the same ``filters`` keyword set as :meth:`Catalog.find` plus
     an optional ``fields`` list selecting which Zarr variables to attach.
     """
 
-    def __init__(self, catalog: SimulationCatalog) -> None:
+    def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
 
     def load(
@@ -77,7 +77,7 @@ class DatasetLoader:
         Parameters
         ----------
         filters
-            Forwarded to :meth:`SimulationCatalog.find`. ``None`` means
+            Forwarded to :meth:`Catalog.find`. ``None`` means
             "every simulation in the catalog".
         fields
             Optional list of Zarr field names (e.g. ``["head"]``) to attach
@@ -119,12 +119,12 @@ class DatasetLoader:
 
     def _resolve_group(self, filters: dict[str, Any] | None):
         if not filters:
-            from hydromodpy.results.simulation_group import SimulationGroup
+            from hydromodpy.results.run.group import RunSet
 
             rows = self._catalog.backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations ORDER BY created_at DESC"
             )
-            return SimulationGroup([str(r[0]) for r in rows], self._catalog)
+            return RunSet([str(r[0]) for r in rows], self._catalog)
         return self._catalog.find(**filters)
 
     def _build_scalar_frame(
@@ -241,13 +241,14 @@ class DatasetLoader:
         """Open each per-sim Zarr store and concat lazily on ``sim_id``.
 
         Each store is opened through
-        :func:`hydromodpy.results.simulation_group._open_simulation_lazy`
+        :func:`hydromodpy.results.run.group._open_simulation_lazy`
         (dask-backed, CF-decoded). Variables absent from a store are
         skipped per-simulation. Stores that error out are skipped with a
         logged warning.
         """
         import xarray as xr
 
+        from hydromodpy.core import progress
         from hydromodpy.core.logging import get_logger
 
         logger = get_logger(__name__)
@@ -255,7 +256,7 @@ class DatasetLoader:
         per_var_arrays: dict[str, list[xr.DataArray]] = {v: [] for v in fields}
         per_var_ids: dict[str, list[str]] = {v: [] for v in fields}
 
-        for sid in sim_ids:
+        for sid in progress.track(sim_ids, "Opening simulation stores"):
             try:
                 ds_sim = self._open_simulation_lazy(sid)
             except (KeyError, FileNotFoundError, OSError) as exc:
@@ -286,6 +287,6 @@ class DatasetLoader:
 
     def _open_simulation_lazy(self, sim_id: str) -> xr.Dataset:
         """Open one simulation's Zarr root as a lazy ``xr.Dataset``."""
-        from hydromodpy.results.simulation_group import _open_simulation_lazy
+        from hydromodpy.results.run.group import _open_simulation_lazy
 
         return _open_simulation_lazy(self._catalog, sim_id)

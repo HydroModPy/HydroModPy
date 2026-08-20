@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.hydrographic_network import _project_gdf_for_metric_operations
 from hydromodpy.display.map_axes import (
     RELATIVE_MAP_LEGEND_SIZE,
@@ -14,8 +14,8 @@ from hydromodpy.display.map_axes import (
     style_relative_km_axes,
 )
 from hydromodpy.display.ugrid import render_face_field
-from hydromodpy.results import views
-from hydromodpy.results.views import CellFieldActiveMode
+from hydromodpy.results.derive import views
+from hydromodpy.results.derive.views import CellFieldActiveMode
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

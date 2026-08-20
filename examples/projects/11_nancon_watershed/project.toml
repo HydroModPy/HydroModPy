@@ -353,7 +353,7 @@ name = "nancon_base"
 description = "Nancon watershed - shared base config for runs."
 # `replace` overwrites a run with the same name in the catalog.
 # Type: Literal['replace', 'fail', 'version'] | Default: "replace"
-on_collision = "replace"
+if_exists = "replace"
 scientific_objective = "groundwater_flow"
 study_area_name = "Nancon (Brittany, France)"
 outlet_x = 389285.91

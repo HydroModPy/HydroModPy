@@ -13,7 +13,6 @@ on:
       - "validation_cases/README.md"
       - "validation_cases/analytical/**"
       - "validation_cases/numerical/**"
-      - "validation_cases/reports/latest/**"
       - "docs/source/capability_gallery/**"
       - "docs/source/_static/capability_gallery/**"
   push:
@@ -26,7 +25,6 @@ on:
       - "validation_cases/README.md"
       - "validation_cases/analytical/**"
       - "validation_cases/numerical/**"
-      - "validation_cases/reports/latest/**"
       - "docs/source/capability_gallery/**"
       - "docs/source/_static/capability_gallery/**"
   workflow_dispatch:

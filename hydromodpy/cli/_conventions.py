@@ -7,6 +7,7 @@ usable through ``subparsers.add_parser(..., parents=[...])``:
 - :func:`workspace_parser` -- ``-w/--workspace`` selector
 - :func:`confirm_parser` -- ``-y/--yes`` confirmation flag
 - :func:`format_parser` -- ``--format {table,json,csv}`` for read commands
+- :func:`profile_parser` -- ``--profile [HTML_PATH]`` pyinstrument flag
 - :func:`add_sim_ref` -- canonical ``sim_ref`` positional
 
 :func:`add_action_subparsers` attaches a *required* action group: a bare
@@ -28,7 +29,7 @@ def workspace_parser() -> argparse.ArgumentParser:
     """Parent parser exposing the shared ``-w/--workspace`` selector.
 
     Accepts a workspace root OR a project directory; commands resolve it
-    through :func:`hydromodpy.core.state.paths.find_catalog_root`.
+    through :func:`hydromodpy.core.state.paths.resolve_project_root`.
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
@@ -65,12 +66,38 @@ def format_parser(*, default: str = "table") -> argparse.ArgumentParser:
     return parser
 
 
+def profile_parser() -> argparse.ArgumentParser:
+    """Parent parser exposing the shared ``--profile`` flag.
+
+    Profiles the wrapped execution with pyinstrument and writes an HTML
+    report. Without a value the report lands next to the config as
+    ``<config>.profile.html``.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--profile",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="HTML_PATH",
+        help=(
+            "Profile the execution with pyinstrument and write an HTML report "
+            "(default: <config>.profile.html next to the config)."
+        ),
+    )
+    return parser
+
+
 def add_sim_ref(parser: argparse.ArgumentParser, *, help: str | None = None) -> None:
-    """Add the canonical ``sim_ref`` positional (UUID / unique prefix / name)."""
+    """Add the canonical ``sim_ref`` positional (UUID / unique prefix / name / @-selector)."""
     parser.add_argument(
         "sim_ref",
         metavar="SIM_REF",
-        help=help or "Full sim_id, unique hex prefix, or simulation name",
+        help=(
+            help
+            or "Full sim_id, unique hex prefix, name, or an @-selector "
+            "(@last, @best:METRIC, @worst:METRIC, @running)"
+        ),
     )
 
 
@@ -105,5 +132,6 @@ __all__ = (
     "add_sim_ref",
     "confirm_parser",
     "format_parser",
+    "profile_parser",
     "workspace_parser",
 )

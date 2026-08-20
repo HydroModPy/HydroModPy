@@ -8,7 +8,7 @@ calibration architecture. Everything is pure Python:
   from analytical recession equations (exponential or Boussinesq form);
 - :func:`make_baseflow_simulator` returns a ``simulator(K, Sy)`` closure;
 - :func:`calibrate_brutsaert` wires the simulator to
-  :class:`~hydromodpy.calibration.engine.CalibrationEngine` and returns a
+  :class:`~hydromodpy.calibration.optim.engine.CalibrationEngine` and returns a
   compact result dictionary matching the regression golden schema.
 
 The case calibrates only ``K`` and ``Sy`` against a synthetic discharge time

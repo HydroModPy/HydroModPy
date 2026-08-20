@@ -16,7 +16,7 @@ import pytest
 from shapely.geometry import Polygon
 
 import hydromodpy as hmp
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run import Run
 from tests._helpers.fixtures_catalog import simulation_catalog
@@ -32,7 +32,7 @@ def catalog(tmp_path):
         yield cat
 
 
-def _seed_field(catalog: SimulationCatalog) -> str:
+def _seed_field(catalog: Catalog) -> str:
     """Seed a minimal MF6 simulation with a 1x2 ``head`` field."""
     sid = _sim_id()
     reg = catalog.register_simulation(
@@ -67,7 +67,7 @@ def _seed_field(catalog: SimulationCatalog) -> str:
     return sid
 
 
-def _seed_timeseries(catalog: SimulationCatalog, sid: str) -> None:
+def _seed_timeseries(catalog: Catalog, sid: str) -> None:
     series = pd.Series(
         [1.5, 2.0, 2.5],
         index=pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
@@ -76,7 +76,7 @@ def _seed_timeseries(catalog: SimulationCatalog, sid: str) -> None:
     catalog.write_timeseries(sid, "outlet", "discharge", series)
 
 
-def _seed_geographic_feature(catalog: SimulationCatalog, sid: str) -> None:
+def _seed_geographic_feature(catalog: Catalog, sid: str) -> None:
     poly = Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
     gdf = gpd.GeoDataFrame(
         {"name": ["basin"], "geometry": [poly]},

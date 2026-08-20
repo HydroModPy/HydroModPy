@@ -1372,7 +1372,7 @@ Fields
 
          :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ('piezometric_map.png', 'seepage_map.png', 'hydrograph.png', 'water_budget.png', 'watershed_id_card.png')` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/capability_gallery.py#L70>`__
 
-            Asset filenames. Each ``<name>.png`` is first rendered through the injected render callback when a Run is available, otherwise copied from one of the standard figure subdirs of the run folder.
+            Asset filenames. Each ``<name>.png`` is first rendered through the injected render callback when a Run is available, otherwise copied from the run's own figures directory.
 
 
 

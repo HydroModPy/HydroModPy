@@ -77,7 +77,7 @@ def test_simulation_comparison_launcher_infers_completed_run_folder_from_declare
         def from_toml(self, _config_path: Path):
             return SimpleNamespace(
                 workspace=SimpleNamespace(solver_scratch_folder=scratch),
-                simulation=SimpleNamespace(run_id="demo_run"),
+                simulation=SimpleNamespace(name="demo_run"),
             )
 
     monkeypatch.setattr(
@@ -117,7 +117,7 @@ def test_simulation_comparison_launcher_reuse_infers_process_output_folder(
         def from_toml(self, _config_path: Path):
             return SimpleNamespace(
                 workspace=SimpleNamespace(solver_scratch_folder=scratch),
-                simulation=SimpleNamespace(run_id="ex12_demo_mod_bouss_tri"),
+                simulation=SimpleNamespace(name="ex12_demo_mod_bouss_tri"),
             )
 
     monkeypatch.setattr(

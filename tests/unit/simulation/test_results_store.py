@@ -1,4 +1,4 @@
-"""Tests for results/catalog.py - SimulationCatalog integration."""
+"""Tests for results/catalog.py - Catalog integration."""
 
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.array_fingerprint import fingerprint
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.array_fingerprint import fingerprint
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -99,8 +100,9 @@ class TestFullCycle:
 
         catalog.finalize(sid, status="completed", duration_s=1.0)
 
-        zarr_path = catalog.zarr_path_for(sid)
-        assert zarr_path.suffix == ".zip"
+        zarr_path = catalog.fields_path_for(sid)
+        assert zarr_path.name == FIELDS_STORE_NAME
+        assert zarr_path.is_dir()
 
         sz = catalog.open_zarr(sid)
         try:
@@ -158,14 +160,15 @@ class TestFullCycle:
         catalog.register_simulation(real, project="test", solver="modflow6", name="real_run")
         catalog.finalize(real, status="completed")
 
-        # Effective-config snapshot keeps a dotted name.
+        # Effective-config snapshot keeps a dotted name; named_only drops it.
         snap = str(uuid4())
         catalog.register_simulation(
             snap, project="test", solver="modflow6", name=".real_run.effective.abc123"
         )
         catalog.finalize(snap, status="completed")
 
-        # Re-registering the same (project, name) clears the old run's name to NULL.
+        # Default if_exists='version': the bare name stays with the first run
+        # and re-registering mints '<stem>.v2'. Both stay live and named.
         old = str(uuid4())
         catalog.register_simulation(old, project="test", solver="modflow6", name="dup")
         catalog.finalize(old, status="completed")
@@ -176,7 +179,34 @@ class TestFullCycle:
         assert len(catalog.list_simulations()) == 4
 
         named = catalog.list_simulations(named_only=True)
-        assert set(named["name"]) == {"real_run", "dup"}
+        assert set(named["name"]) == {"real_run", "dup", "dup.v2"}
+
+    def test_replace_keeps_the_predecessor_named(self, catalog):
+        # if_exists='replace' trashes the predecessor: it keeps its name and
+        # version, only its status becomes 'trashed'.
+        old = str(uuid4())
+        catalog.register_simulation(old, project="test", solver="modflow6", name="dup")
+        catalog.finalize(old, status="completed")
+        new = str(uuid4())
+        reg = catalog.register_simulation(
+            new, project="test", solver="modflow6", name="dup", if_exists="replace"
+        )
+        catalog.finalize(new, status="completed")
+
+        assert reg.replaced_sim_id == old
+        assert reg.name == "dup.v2"
+
+        # Both rows still exist: the trashed predecessor keeps 'dup' and the
+        # successor takes the next version.
+        all_rows = catalog.list_simulations()
+        assert len(all_rows) == 2
+        trashed = all_rows[all_rows["sim_id"].astype(str) == old].iloc[0]
+        assert trashed["name"] == "dup"
+        assert trashed["status"] == "trashed"
+
+        # No name is ever dropped: both runs stay addressable by name.
+        named = catalog.list_simulations(named_only=True)
+        assert set(named["name"]) == {"dup", "dup.v2"}
 
 
 class TestTimeseriesCycle:
@@ -277,14 +307,16 @@ class TestDeleteSimulation:
         catalog.write_field(sid, "head", 0, np.zeros((2, 4)), n_timesteps=1)
         catalog.finalize(sid, status="completed")
 
-        zarr_zip = catalog.zarr_path_for(sid)
-        assert zarr_zip.exists()
-        assert zarr_zip.suffix == ".zip"
+        run_dir = catalog.run_dir_for(sid)
+        fields_path = catalog.fields_path_for(sid)
+        assert fields_path.is_dir()
+        assert fields_path.name == FIELDS_STORE_NAME
 
         catalog.delete(sid)
 
         assert len(catalog.list_simulations()) == 0
-        assert not zarr_zip.exists()
+        assert not fields_path.exists()
+        assert not run_dir.exists()
 
 
 class TestCompare:

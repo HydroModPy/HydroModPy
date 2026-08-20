@@ -1,4 +1,4 @@
-"""Field write/read baseline benchmarks (SimulationCatalog Zarr backend).
+"""Field write/read baseline benchmarks (Catalog Zarr backend).
 
 Guards the thin HydroModPy field-array wrapper (``write_field`` /
 ``query_field``) backed by Zarr that the solver extraction layer calls per

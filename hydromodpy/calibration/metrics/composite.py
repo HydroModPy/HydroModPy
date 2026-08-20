@@ -1,9 +1,9 @@
 """Composite metric extractors.
 
-The legacy ``build_metric_extractor`` factory and its composite variant live
-here. They wire ``CalibrationConfig.outputs`` and ``objective_blocks`` to the
-solver extractors and produce the ``(primary, components)`` payload consumed by
-the calibration engine.
+The ``build_metric_extractor`` factory and its composite variant live here.
+They wire ``CalibrationConfig.outputs`` and ``objective_blocks`` to the solver
+extractors and produce the ``(primary, components)`` payload consumed by the
+calibration engine.
 """
 
 from __future__ import annotations
@@ -21,13 +21,15 @@ from hydromodpy.calibration.metrics.series import (
     resolve_time_index,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
+    call_extract_calibration_series,
     extract_boundary,
     extract_cell,
+    extract_lake,
     extract_point,
     resolve_flow_adapter,
     resolve_station_cells,
 )
-from hydromodpy.calibration.objective import build_objective_from_config
+from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -43,6 +45,7 @@ def build_metric_extractor(
     *,
     outputs: Mapping[str, CalibOutputDecl] | None = None,
     objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
+    warmup_periods: int = 0,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -50,8 +53,10 @@ def build_metric_extractor(
     ``metric_fn(ctx, *, objective=..., variable=...) -> (primary, metrics)``.
 
     When ``outputs`` and ``objective_blocks`` are both provided, the extractor
-    routes through :func:`build_objective_from_config`. Otherwise the legacy
+    routes through :func:`build_objective_from_config`. Otherwise the
     single-metric path runs against ``loaded_data`` (variable + objective).
+    Both branches are supported: the single-metric one is the standard TOML
+    route taken whenever no ``objective_blocks`` are declared.
     """
     if outputs and objective_blocks:
         return _build_composite_metric_extractor(outputs, objective_blocks)
@@ -85,8 +90,10 @@ def build_metric_extractor(
                 components: dict[str, float] = {}
                 costs: list[float] = []
                 for obs_rec in observed:
-                    cost = score(obs_rec.series, simulated, objective)
-                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    cost = score(
+                        obs_rec.series, simulated, objective, warmup_periods=warmup_periods
+                    )
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
@@ -116,12 +123,35 @@ def build_metric_extractor(
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no head calibration series"
                         )
-                    cost = score(obs_rec.series, sim, objective)
-                    components[f"{objective}@{obs_rec.station_id}"] = cost
+                    cost = score(obs_rec.series, sim, objective, warmup_periods=warmup_periods)
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
                 if not costs:
                     raise ValueError("No finite head calibration costs were produced")
+                return float(np.mean(costs)), components
+
+            elif variable == "lake_level":
+                components = {}
+                costs = []
+                for obs_rec in observed:
+                    sim = call_extract_calibration_series(
+                        adapter,
+                        run_ctx,
+                        variable="lake_stage",
+                        lake_id=obs_rec.station_id,
+                        time_index=time_idx,
+                    )
+                    if sim.empty:
+                        raise NotImplementedError(
+                            f"Solver {run_ctx.run.solver!r} returned no lake stage series"
+                        )
+                    cost = score(obs_rec.series, sim, objective, warmup_periods=warmup_periods)
+                    components[f"cost:{objective}@{obs_rec.station_id}"] = cost
+                    if np.isfinite(cost):
+                        costs.append(cost)
+                if not costs:
+                    raise ValueError("No finite lake-level calibration costs were produced")
                 return float(np.mean(costs)), components
 
             else:
@@ -150,6 +180,8 @@ def _build_composite_metric_extractor(
                     simulated_by_output[name] = extract_point(trial_ctx, decl)
                 elif decl.support == "boundary":
                     simulated_by_output[name] = extract_boundary(trial_ctx, decl)
+                elif decl.support == "lake":
+                    simulated_by_output[name] = extract_lake(trial_ctx, decl)
                 else:
                     simulated_by_output[name] = extract_cell(trial_ctx, decl)
             except Exception as exc:

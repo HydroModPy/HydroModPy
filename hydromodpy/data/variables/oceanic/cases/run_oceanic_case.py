@@ -16,7 +16,7 @@ from typing import Any
 
 import pandas as pd
 
-from hydromodpy.data.store import DataStore
+from hydromodpy.data.loading.store import DataStore
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
 
 

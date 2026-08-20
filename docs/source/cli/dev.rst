@@ -32,8 +32,8 @@ schema
 
 Synopsis: ``hmp dev schema {export|validate-field} [...]``
 
-Export the JSON Schema for :class:`HydroModPyConfig` (consumed by the
-Streamlit UI and any frontend hook) or validate a single field value
+Export the JSON Schema for :class:`HydroModPyConfig` (consumed by any
+frontend hook) or validate a single field value
 against its declared type. The exported schema is the canonical
 contract between the Python core and external tooling.
 
@@ -50,25 +50,30 @@ recorded hashes against the on-disk artefacts.
 config
 ------
 
-Synopsis: ``hmp dev config {template|check|schema|wizard} [...]``
-
-TOML configuration tooling: generate a starter template, validate a
-TOML against the Pydantic schema, export the JSON Schema (alias of
-:command:`hmp dev schema export`), or open the stdin-driven wizard.
+Moved to the top level: use ``hmp config {template|check|schema|wizard}``
+(configuration authoring is an end-user task, not a developer-only one).
 
 rank
 ----
 
-Synopsis: ``hmp dev rank <project> [--metric <name>] [--top <n>]``
+Synopsis: ``hmp dev rank <project> [--metric <name>] [--top <n>]
+[--bottom <n>] [--workspace <path>]``
 
-Rank the simulations of a project by a metric (default: ``nse``) and
-print the top or bottom N rows. Quick way to spot the best calibration
-candidate before reading the full report.
+Rank the runs of a project by a metric (default: ``nse``) and print the top
+or bottom N rows.
+
+.. warning::
+
+   This verb currently fails with a DuckDB binder error on every project.
+   Use the ``@best:METRIC`` / ``@worst:METRIC`` selectors of
+   :doc:`hmp catalog show <catalog>`, or ``Catalog.rank`` from Python,
+   until it is fixed.
 
 manage
 ------
 
-Synopsis: ``hmp dev manage [--port <port>]``
+Synopsis: ``hmp dev manage [--workspace <path>] [--scan-root <path>]
+[--host <host>] [--port <port>] [--no-browser]``
 
 Launch a local browser UI for workspace inspection and cleanup. Kept
 as-is from the legacy interface; will be folded into :command:`hmp viz`

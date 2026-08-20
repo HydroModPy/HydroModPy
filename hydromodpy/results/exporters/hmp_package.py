@@ -12,8 +12,15 @@ containing:
   the ``simulations`` row plus per-sim data (parameters, timeseries,
   budgets, metrics, provenance, geographic features / metadata, tags,
   runs_environment).
-* ``simulation.zarr.zip`` - the simulation's Zarr store, packed to a
-  deterministic ``zip`` file (already BLOSC-compressed internally).
+* ``fields.zarr.zip`` - the run's Zarr store, packed to a deterministic
+  ``zip`` file (already BLOSC-compressed internally) so the manifest keeps
+  one checksum for the whole store. Import unpacks it back to the directory
+  store at ``runs/<name>/fields.zarr``; nothing on disk stays zipped.
+* ``run/`` - the seal of the run directory (``manifest.json``,
+  ``provenance.json``, frozen ``config.toml``), copied verbatim. The archive
+  is therefore built on a *sealed* run: packing before the seal would ship a
+  run nobody can read back without an index. It lives in a sub-directory
+  because the archive root already owns a ``manifest.json`` of its own.
 * ``geographic/`` (optional) - the workspace-level content-addressable
   raster cache materialised for the simulation's ``geographic_fingerprint``,
   so the archive is self-contained on a fresh workspace.
@@ -27,7 +34,6 @@ meaningful for tamper detection.
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import shutil
 import tarfile
@@ -38,17 +44,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import decode_workspace_path
+from hydromodpy.core.state.paths import RUNS_DIRNAME, decode_workspace_path
 from hydromodpy.results.geographic_cache import (
     CACHE_DIRNAME,
     MANIFEST_FILENAME,
     GeographicCache,
 )
-from hydromodpy.results.storage_contract import (
-    PARQUET_DIR_SUFFIX,
+from hydromodpy.results.storage.contract import (
+    FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    SIMULATIONS_DIRNAME,
-    ZARR_ZIP_SUFFIX,
+    RUN_CONFIG_FILENAME,
+    RUN_MANIFEST_FILENAME,
+    RUN_PROVENANCE_FILENAME,
 )
 
 if TYPE_CHECKING:
@@ -59,13 +66,19 @@ logger = get_logger(__name__)
 MANIFEST_NAME = "manifest.json"
 README_NAME = "README.md"
 CATALOG_SNAPSHOT_NAME = "catalog_snapshot.duckdb"
-ZARR_ARCHIVE_NAME = f"simulation{ZARR_ZIP_SUFFIX}"
+ZARR_ARCHIVE_NAME = "fields.zarr.zip"
 GEOGRAPHIC_SUBDIR = "geographic"
 INPUTS_SUBDIR = "inputs"
 INPUTS_MANIFEST_NAME = "manifest.json"
 PARQUET_SUBDIR = "parquet"
+RUN_SEAL_SUBDIR = "run"
+RUN_SEAL_FILENAMES: tuple[str, ...] = (
+    RUN_MANIFEST_FILENAME,
+    RUN_PROVENANCE_FILENAME,
+    RUN_CONFIG_FILENAME,
+)
 RO_CRATE_METADATA_NAME = "ro-crate-metadata.json"
-HMP_FORMAT_VERSION = "1.3"
+HMP_FORMAT_VERSION = "1.4"
 HMP_MAGIC = "hydromodpy/hmp"
 SHAPEFILE_SIDECAR_EXTS = (".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx")
 
@@ -101,26 +114,67 @@ def _materialise_parquet(
     src_dir: Path,
     staging: Path,
 ) -> list[str]:
-    """Copy per-sim Parquet files into the archive staging area.
+    """Copy the run's Parquet payloads into the archive staging area.
+
+    Every ``.parquet`` file of the run travels, not only the DuckDB-backed
+    views: ``parameters`` and ``simulation`` are written by the seal and are
+    exactly what a disk-only rebuild reads back, so an archive without them
+    would import a run that cannot be re-indexed.
 
     Returns the list of file base names that were bundled (empty when the
     simulation was registered but never had any per-sim rows, e.g. an
     overview-only run).
     """
-    from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-
     if not src_dir.is_dir():
         return []
     dst_dir = staging / PARQUET_SUBDIR
     copied: list[str] = []
-    for view in PARQUET_VIEW_NAMES:
-        src = src_dir / f"{view}{PARQUET_FILE_SUFFIX}"
+    for src in sorted(src_dir.glob(f"*{PARQUET_FILE_SUFFIX}")):
         if not src.is_file():
             continue
         dst_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst_dir / src.name)
         copied.append(src.name)
     return copied
+
+
+def _materialise_run_seal(run_dir: Path, staging: Path) -> list[str]:
+    """Copy the run seal into ``run/`` inside the archive.
+
+    The seal is what makes a run directory readable without the index:
+    ``manifest.json``, ``provenance.json`` and the frozen ``config.toml``.
+    They travel in a sub-directory because the archive root already owns a
+    ``manifest.json`` of its own (the checksum header). Returns the file
+    names that were bundled; empty when the run was never sealed.
+    """
+    if not run_dir.is_dir():
+        return []
+    dst_dir = staging / RUN_SEAL_SUBDIR
+    copied: list[str] = []
+    for name in RUN_SEAL_FILENAMES:
+        src = run_dir / name
+        if not src.is_file():
+            continue
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst_dir / name)
+        copied.append(name)
+    return copied
+
+
+def _dematerialise_run_seal(pkg: Path, run_dir: Path) -> list[str]:
+    """Restore the run seal from the archive into the run directory."""
+    src_dir = pkg / RUN_SEAL_SUBDIR
+    if not src_dir.is_dir():
+        return []
+    run_dir.mkdir(parents=True, exist_ok=True)
+    restored: list[str] = []
+    for name in RUN_SEAL_FILENAMES:
+        src = src_dir / name
+        if not src.is_file():
+            continue
+        shutil.copy2(src, run_dir / name)
+        restored.append(name)
+    return restored
 
 
 def _dematerialise_parquet(
@@ -147,17 +201,38 @@ def _dematerialise_parquet(
     return copied
 
 
+# Earliest timestamp the ZIP format can store. Stamped on every member so two
+# exports of the same store produce byte-identical zarr.zip bytes (the tar layer
+# normalizes mtime to 0; ZIP cannot go below 1980).
+_ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
+
+
+def _unpack_zarr(archive: Path, dst: Path) -> None:
+    """Extract a packed Zarr archive into the run's ``fields.zarr`` directory."""
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.mkdir(parents=True)
+    with zipfile.ZipFile(str(archive), "r") as zf:
+        zf.extractall(str(dst))
+
+
 def _pack_zarr(zarr_src: Path, dst: Path) -> None:
-    """Pack a zarr directory (or copy an already-zipped zarr) to ``dst``."""
-    if zarr_src.is_file():
-        shutil.copy2(zarr_src, dst)
-        return
+    """Pack the run's ``fields.zarr`` directory into ``dst``.
+
+    Member timestamps and permissions are normalized so the archive is
+    reproducible: the on-disk mtime is not stamped into the ZIP.
+    """
     if not zarr_src.is_dir():
         raise FileNotFoundError(f"Zarr store not found at {zarr_src}")
     with zipfile.ZipFile(str(dst), "w", compression=zipfile.ZIP_STORED) as zf:
         for fpath in sorted(zarr_src.rglob("*")):
-            if fpath.is_file():
-                zf.write(str(fpath), str(fpath.relative_to(zarr_src)))
+            if not fpath.is_file():
+                continue
+            arcname = str(fpath.relative_to(zarr_src)).replace("\\", "/")
+            info = zipfile.ZipInfo(arcname, date_time=_ZIP_EPOCH)
+            info.compress_type = zipfile.ZIP_STORED
+            info.external_attr = 0o644 << 16
+            zf.writestr(info, fpath.read_bytes())
 
 
 def _looks_like_shapefile(path: Path) -> bool:
@@ -369,6 +444,11 @@ def _dump_catalog_snapshot(
             snap.execute(f"INSERT INTO {table} SELECT * FROM df")
     finally:
         snap.close()
+        # The migration lock lands in the staging tree the manifest and the tar
+        # rglob, and POSIX keeps it where Windows unlinks it: leaving it makes
+        # the archive differ across platforms.
+        for suffix in (".wal", ".lock"):
+            dst.with_name(f"{dst.name}{suffix}").unlink(missing_ok=True)
 
 
 def _restore_catalog_snapshot(
@@ -477,7 +557,7 @@ def _write_readme(
             f"- **format_version**: `{HMP_FORMAT_VERSION}`\n"
             f"- **hydromodpy_version**: `{_hydromodpy_version()}`\n"
             f"{inputs_line}\n"
-            "Import with `SimulationCatalog.import_package(<path>.hmp)` "
+            "Import with `Catalog.import_package(<path>.hmp)` "
             "or the `hmp add <archive>.hmp` CLI.\n"
             "Integrity of the archive is verified against `manifest.json` "
             "on import (SHA-256 per file).\n"
@@ -491,38 +571,49 @@ def _write_tar_zst(staging: Path, output: Path) -> None:
 
     File order is deterministic (sorted) so the archive is reproducible.
     """
+    import tempfile
+
     import zstandard as zstd
 
     files = sorted(staging.rglob("*"))
-    buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w") as tar:
-        for path in files:
-            if not path.is_file():
-                continue
-            arcname = str(path.relative_to(staging)).replace("\\", "/")
-            info = tar.gettarinfo(str(path), arcname=arcname)
-            info.uid = 0
-            info.gid = 0
-            info.uname = ""
-            info.gname = ""
-            info.mtime = 0
-            with open(path, "rb") as fh:
-                tar.addfile(info, fh)
-    cctx = zstd.ZstdCompressor(level=10)
     output.parent.mkdir(parents=True, exist_ok=True)
-    with open(output, "wb") as fh:
-        fh.write(cctx.compress(buffer.getvalue()))
+    cctx = zstd.ZstdCompressor(level=10)
+    # Stage the tar on disk (not in a BytesIO), then stream-compress it with its
+    # known size so the whole uncompressed archive is never resident in memory
+    # (a chronicle run is multi-GB) while the zstd frame still embeds the content
+    # size, keeping it readable by one-shot decompressors.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tar_path = Path(tmpdir) / "archive.tar"
+        with tarfile.open(str(tar_path), mode="w") as tar:
+            for path in files:
+                if not path.is_file():
+                    continue
+                arcname = str(path.relative_to(staging)).replace("\\", "/")
+                info = tar.gettarinfo(str(path), arcname=arcname)
+                info.uid = 0
+                info.gid = 0
+                info.uname = ""
+                info.gname = ""
+                info.mtime = 0
+                with open(path, "rb") as inner:
+                    tar.addfile(info, inner)
+        tar_size = tar_path.stat().st_size
+        with (
+            open(tar_path, "rb") as src,
+            open(output, "wb") as fh,
+            cctx.stream_writer(fh, size=tar_size) as compressor,
+        ):
+            shutil.copyfileobj(src, compressor, length=1024 * 1024)
 
 
 def _read_tar_zst(archive: Path, staging: Path) -> None:
-    """Extract ``archive`` (tar.zst) into ``staging``."""
+    """Extract ``archive`` (tar.zst) into ``staging`` without buffering it all."""
     import zstandard as zstd
 
     dctx = zstd.ZstdDecompressor()
-    with open(archive, "rb") as fh:
-        raw = dctx.decompress(fh.read())
-    with tarfile.open(fileobj=io.BytesIO(raw), mode="r") as tar:
-        tar.extractall(str(staging), filter="data")
+    with open(archive, "rb") as fh, dctx.stream_reader(fh) as reader:
+        with tarfile.open(fileobj=reader, mode="r|") as tar:
+            tar.extractall(str(staging), filter="data")
 
 
 def export_hmp_package(
@@ -535,7 +626,7 @@ def export_hmp_package(
     Parameters
     ----------
     catalog
-        The source :class:`SimulationCatalog` instance (passed as ``Any`` to
+        The source :class:`Catalog` instance (passed as ``Any`` to
         avoid a circular import).
     sim_id
         The simulation UUID to export.
@@ -568,14 +659,14 @@ def export_hmp_package(
         )
 
     row = catalog.backend.fetch_one(
-        "SELECT zarr_path, geographic_fingerprint, project FROM simulations WHERE sim_id = ?",
+        "SELECT geographic_fingerprint, project FROM simulations WHERE sim_id = ?",
         [sid],
     )
     if row is None:
         raise KeyError(f"Simulation '{sid}' not found")
-    zarr_rel, geo_fp, project_name = row
+    geo_fp, project_name = row
     workspace = catalog.workspace_path
-    zarr_src = workspace / zarr_rel
+    zarr_src = catalog.fields_path_for(sid)
 
     with tempfile.TemporaryDirectory(prefix="hmp_export_") as tmpdir:
         staging = Path(tmpdir) / sid
@@ -588,7 +679,16 @@ def export_hmp_package(
         )
         _pack_zarr(zarr_src, staging / ZARR_ARCHIVE_NAME)
         _materialise_geographic(workspace, geo_fp, staging)
-        _materialise_parquet(catalog.parquet_dir_for(sid), staging)
+        _materialise_parquet(catalog.tables_dir_for(sid), staging)
+        sealed = _materialise_run_seal(catalog.run_dir_for(sid), staging)
+        if RUN_MANIFEST_FILENAME not in sealed:
+            logger.warning(
+                "Run %s is not sealed: %s carries no %s, so the archive cannot "
+                "be read back without an index.",
+                sid[:8],
+                output.name,
+                RUN_MANIFEST_FILENAME,
+            )
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
         _write_ro_crate(catalog, sid, staging)
         _write_readme(
@@ -746,6 +846,7 @@ def import_hmp_package(
     as_project: str | None = None,
     dematerialise_inputs: bool = True,
     dry_run: bool = False,
+    allow_existing_project: bool = False,
 ) -> str:
     """Import a ``.hmp`` archive into the given catalog's workspace.
 
@@ -799,7 +900,7 @@ def import_hmp_package(
         if existing is not None:
             if not force:
                 raise ValueError(f"Simulation '{sid}' already exists. Use force=True to overwrite.")
-        else:
+        elif not allow_existing_project:
             _check_project_conflict(catalog, manifest, as_project)
 
         if dry_run:
@@ -824,43 +925,29 @@ def import_hmp_package(
             _rewrite_snapshot_project(snap_path, as_project)
         _rewrite_snapshot_paths(snap_path, rewrites)
 
-        from hydromodpy.results.catalog.storage_paths import build_storage_basename
-
         with catalog.backend.transaction():
             # _restore_catalog_snapshot still takes a raw DuckDB connection
             # because the snapshot file is a transient one-sim DuckDB and is
             # DuckDB-only by construction (.hmp archive contract).
             _restore_catalog_snapshot(catalog.connection, snap_path)
             workspace = catalog.workspace_path
-            row = catalog.backend.fetch_one(
-                "SELECT project, name FROM simulations WHERE sim_id = ?",
-                [sid],
-            )
-            project_final = row[0] if row else None
-            name_final = row[1] if row else None
-            basename = build_storage_basename(project_final, name_final, sid)
-            zarr_path = f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_ZIP_SUFFIX}"
+            # The restored row carries the run name, so the path resolver names
+            # the run directory exactly as a local run would.
+            dirname = catalog.run_dir_for(sid).name
             catalog.backend.execute(
                 "UPDATE simulations SET zarr_path = ?, storage_basename = ? WHERE sim_id = ?",
-                [zarr_path, basename, sid],
+                [f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}", dirname, sid],
             )
 
-        catalog._paths.cache_basename(sid, basename)
-
-        dst = workspace / zarr_path
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(pkg / ZARR_ARCHIVE_NAME, dst)
-
-        _dematerialise_parquet(
-            pkg,
-            workspace / SIMULATIONS_DIRNAME / f"{basename}{PARQUET_DIR_SUFFIX}",
-        )
+        _unpack_zarr(pkg / ZARR_ARCHIVE_NAME, catalog.fields_path_for(sid))
+        _dematerialise_parquet(pkg, catalog.tables_dir_for(sid))
+        _dematerialise_run_seal(pkg, catalog.run_dir_for(sid))
         # Refresh Parquet views so the freshly-materialised files become
         # visible to subsequent ``SELECT ... FROM <view>`` calls on the
         # caller's catalog connection.
         from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 
-        ensure_parquet_views(catalog.connection, catalog.simulations_dir)
+        ensure_parquet_views(catalog.connection, catalog.runs_dir)
 
         _dematerialise_geographic(
             pkg,
@@ -873,6 +960,114 @@ def import_hmp_package(
     return sid
 
 
+def export_hmp_package_multi(
+    catalog: Any,
+    sim_ids: list[str],
+    output_path: Path | str,
+) -> Path:
+    """Export several simulations as one portable multi-run ``.hmp`` archive.
+
+    Each run is bundled as a self-contained single-run archive under
+    ``runs/<sim_id>.hmp`` and listed in a top-level v2.0 manifest. Import reuses
+    the single-run path verbatim, and single-run archives stay readable.
+    """
+    ids = [str(s) for s in sim_ids]
+    if not ids:
+        raise ValueError("export_hmp_package_multi requires at least one sim_id")
+    output = Path(output_path)
+    if output.suffix != ".hmp":
+        output = output.with_suffix(".hmp")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp)
+        runs_dir = staging / "runs"
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        runs_meta: list[dict] = []
+        for sid in ids:
+            inner = export_hmp_package(catalog, sid, runs_dir / f"{sid}.hmp")
+            runs_meta.append(
+                {
+                    "sim_id": sid,
+                    "rel_path": inner.relative_to(staging).as_posix(),
+                    "sha256": _sha256_file(inner),
+                }
+            )
+        manifest = {
+            "format": HMP_MAGIC,
+            "format_version": "2.0",
+            "archive_type": "multi-run",
+            "hydromodpy_version": _hydromodpy_version(),
+            "runs": runs_meta,
+        }
+        (staging / MANIFEST_NAME).write_text(
+            json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        _write_tar_zst(staging, output)
+    logger.info("Exported %d simulations to %s (multi-run)", len(ids), output)
+    return output
+
+
+def import_hmp_package_multi(
+    catalog: Any,
+    package_path: Path | str,
+    *,
+    force: bool = False,
+    dematerialise_inputs: bool = True,
+    dry_run: bool = False,
+) -> list[str]:
+    """Import a ``.hmp`` archive (single-run or multi-run); return the sim_ids.
+
+    A single-run archive (no ``archive_type == "multi-run"``) is delegated to
+    :func:`import_hmp_package`; a multi-run archive restores each nested run
+    after verifying its SHA-256.
+    """
+    pkg = Path(package_path)
+    if not pkg.is_file():
+        raise FileNotFoundError(f"No archive at {pkg}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp)
+        _read_tar_zst(pkg, staging)
+        # A multi-run container carries manifest.json at the archive root with
+        # ``archive_type == "multi-run"``. A single-run archive instead nests its
+        # payload under one top-level directory, so its root manifest is absent.
+        root_manifest = staging / MANIFEST_NAME
+        manifest: dict = {}
+        if root_manifest.is_file():
+            manifest = json.loads(root_manifest.read_text(encoding="utf-8"))
+        if manifest.get("archive_type") != "multi-run":
+            return [
+                import_hmp_package(
+                    catalog,
+                    pkg,
+                    force=force,
+                    dematerialise_inputs=dematerialise_inputs,
+                    dry_run=dry_run,
+                )
+            ]
+        sids: list[str] = []
+        for run in manifest.get("runs", []):
+            inner = staging / run["rel_path"]
+            if not inner.is_file():
+                raise ValueError(f"multi-run archive is missing {run['rel_path']}")
+            if _sha256_file(inner) != run.get("sha256"):
+                raise ValueError(f"checksum mismatch for run {run.get('sim_id')}")
+            # Runs in a container legitimately share a project, so allow the
+            # project to already exist (the per-sim id guard still applies).
+            sids.append(
+                import_hmp_package(
+                    catalog,
+                    inner,
+                    force=force,
+                    dematerialise_inputs=dematerialise_inputs,
+                    dry_run=dry_run,
+                    allow_existing_project=True,
+                )
+            )
+        logger.info("Imported %d simulations from %s (multi-run)", len(sids), pkg)
+        return sids
+
+
 __all__ = [
     "CACHE_DIRNAME",
     "GEOGRAPHIC_SUBDIR",
@@ -882,5 +1077,7 @@ __all__ = [
     "INPUTS_MANIFEST_NAME",
     "MANIFEST_NAME",
     "export_hmp_package",
+    "export_hmp_package_multi",
     "import_hmp_package",
+    "import_hmp_package_multi",
 ]

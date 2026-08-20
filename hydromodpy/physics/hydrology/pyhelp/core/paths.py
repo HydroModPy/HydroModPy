@@ -20,6 +20,7 @@ import sys
 import warnings
 from pathlib import Path
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 
@@ -87,7 +88,7 @@ def _download_help3o_binary():
     if binary_path.exists():
         return binary_path
 
-    logger.info(
+    logger.debug(
         "Downloading HELP3O binary for %s Python %s.%s",
         platform.system(),
         sys.version_info.major,
@@ -95,100 +96,101 @@ def _download_help3o_binary():
     )
 
     try:
-        # Get latest release info from GitHub API
-        request = urllib.request.Request(HELP3O_BINARIES_API, headers=_GITHUB_HEADERS)
-        with urllib.request.urlopen(request, timeout=30) as response:
-            release_data = json.loads(response.read().decode())
+        with progress.status("Downloading HELP3O binary"):
+            # Get latest release info from GitHub API
+            request = urllib.request.Request(HELP3O_BINARIES_API, headers=_GITHUB_HEADERS)
+            with urllib.request.urlopen(request, timeout=30) as response:
+                release_data = json.loads(response.read().decode())
 
-        system_name = platform.system()
+            system_name = platform.system()
 
-        # On macOS, look for bundled tarball with GCC libraries
-        if system_name == "Darwin":
-            bundle_filename = binary_filename.replace(".so", "_bundle.tar.gz")
-            bundle_url = None
+            # On macOS, look for bundled tarball with GCC libraries
+            if system_name == "Darwin":
+                bundle_filename = binary_filename.replace(".so", "_bundle.tar.gz")
+                bundle_url = None
+                for asset in release_data.get("assets", []):
+                    if asset["name"] == bundle_filename:
+                        bundle_url = asset["browser_download_url"]
+                        break
+
+                if bundle_url:
+                    # Download and extract bundle
+                    bundle_path = cache_dir / bundle_filename
+                    logger.debug("Downloading macOS bundle %s", bundle_filename)
+                    logger.debug("macOS bundle URL: %s", bundle_url)
+
+                    bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
+                    with (
+                        urllib.request.urlopen(bundle_request, timeout=60) as response,
+                        bundle_path.open("wb") as fh,
+                    ):
+                        shutil.copyfileobj(response, fh)
+
+                    # Extract tarball to cache directory
+                    logger.debug("Extracting bundle to %s", cache_dir)
+                    with tarfile.open(bundle_path, "r:gz") as tar:
+                        tar.extractall(path=cache_dir)
+
+                    # Clean up tarball
+                    bundle_path.unlink()
+                    logger.debug("HELP3O bundle extracted successfully")
+                    return binary_path
+
+            # On Windows, prefer the bundle zip that contains the MinGW runtime
+            if system_name == "Windows":
+                bundle_filename = binary_filename.replace(".pyd", "_bundle.zip")
+                bundle_url = None
+                for asset in release_data.get("assets", []):
+                    if asset["name"] == bundle_filename:
+                        bundle_url = asset["browser_download_url"]
+                        break
+
+                if bundle_url:
+                    bundle_path = cache_dir / bundle_filename
+                    logger.debug("Downloading Windows bundle %s", bundle_filename)
+                    logger.debug("Windows bundle URL: %s", bundle_url)
+
+                    bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
+                    with (
+                        urllib.request.urlopen(bundle_request, timeout=60) as response,
+                        bundle_path.open("wb") as fh,
+                    ):
+                        shutil.copyfileobj(response, fh)
+
+                    logger.debug("Extracting Windows bundle to %s", cache_dir)
+                    with zipfile.ZipFile(bundle_path, "r") as zip_fh:
+                        zip_fh.extractall(cache_dir)
+
+                    bundle_path.unlink(missing_ok=True)
+                    logger.debug("HELP3O Windows bundle extracted successfully")
+                    return binary_path
+
+            # Fallback: download standalone binary (for Linux/Windows or old macOS releases)
+            binary_url = None
             for asset in release_data.get("assets", []):
-                if asset["name"] == bundle_filename:
-                    bundle_url = asset["browser_download_url"]
+                if asset["name"] == binary_filename:
+                    binary_url = asset["browser_download_url"]
                     break
 
-            if bundle_url:
-                # Download and extract bundle
-                bundle_path = cache_dir / bundle_filename
-                logger.info("Downloading macOS bundle %s", bundle_filename)
-                logger.debug("macOS bundle URL: %s", bundle_url)
+            if not binary_url:
+                raise RuntimeError(
+                    f"Binary '{binary_filename}' not found in latest release.\n"
+                    f"Available binaries: {[a['name'] for a in release_data.get('assets', [])]}"
+                )
 
-                bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
-                with (
-                    urllib.request.urlopen(bundle_request, timeout=60) as response,
-                    bundle_path.open("wb") as fh,
-                ):
-                    shutil.copyfileobj(response, fh)
+            # Download binary
+            logger.debug("Downloading HELP3O binary from %s", binary_url)
+            logger.debug("HELP3O binary destination %s", binary_path)
 
-                # Extract tarball to cache directory
-                logger.info("Extracting bundle to %s", cache_dir)
-                with tarfile.open(bundle_path, "r:gz") as tar:
-                    tar.extractall(path=cache_dir)
+            binary_request = urllib.request.Request(binary_url, headers=_GITHUB_HEADERS)
+            with (
+                urllib.request.urlopen(binary_request, timeout=60) as response,
+                binary_path.open("wb") as fh,
+            ):
+                shutil.copyfileobj(response, fh)
+            logger.debug("HELP3O binary downloaded successfully")
 
-                # Clean up tarball
-                bundle_path.unlink()
-                logger.info("HELP3O bundle extracted successfully")
-                return binary_path
-
-        # On Windows, prefer the bundle zip that contains the MinGW runtime
-        if system_name == "Windows":
-            bundle_filename = binary_filename.replace(".pyd", "_bundle.zip")
-            bundle_url = None
-            for asset in release_data.get("assets", []):
-                if asset["name"] == bundle_filename:
-                    bundle_url = asset["browser_download_url"]
-                    break
-
-            if bundle_url:
-                bundle_path = cache_dir / bundle_filename
-                logger.info("Downloading Windows bundle %s", bundle_filename)
-                logger.debug("Windows bundle URL: %s", bundle_url)
-
-                bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
-                with (
-                    urllib.request.urlopen(bundle_request, timeout=60) as response,
-                    bundle_path.open("wb") as fh,
-                ):
-                    shutil.copyfileobj(response, fh)
-
-                logger.info("Extracting Windows bundle to %s", cache_dir)
-                with zipfile.ZipFile(bundle_path, "r") as zip_fh:
-                    zip_fh.extractall(cache_dir)
-
-                bundle_path.unlink(missing_ok=True)
-                logger.info("HELP3O Windows bundle extracted successfully")
-                return binary_path
-
-        # Fallback: download standalone binary (for Linux/Windows or old macOS releases)
-        binary_url = None
-        for asset in release_data.get("assets", []):
-            if asset["name"] == binary_filename:
-                binary_url = asset["browser_download_url"]
-                break
-
-        if not binary_url:
-            raise RuntimeError(
-                f"Binary '{binary_filename}' not found in latest release.\n"
-                f"Available binaries: {[a['name'] for a in release_data.get('assets', [])]}"
-            )
-
-        # Download binary
-        logger.info("Downloading HELP3O binary from %s", binary_url)
-        logger.debug("HELP3O binary destination %s", binary_path)
-
-        binary_request = urllib.request.Request(binary_url, headers=_GITHUB_HEADERS)
-        with (
-            urllib.request.urlopen(binary_request, timeout=60) as response,
-            binary_path.open("wb") as fh,
-        ):
-            shutil.copyfileobj(response, fh)
-        logger.info("HELP3O binary downloaded successfully")
-
-        return binary_path
+            return binary_path
 
     except Exception as e:
         warnings.warn(

@@ -1,4 +1,4 @@
-"""Unit tests for hydromodpy.calibration.parameters."""
+"""Unit tests for hydromodpy.calibration.optim.parameters."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import math
 import pytest
 from pydantic import BaseModel, Field
 
-from hydromodpy.calibration.parameters import (
+from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     Calibrable,
     ParameterSpace,

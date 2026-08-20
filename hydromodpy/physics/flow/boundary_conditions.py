@@ -34,6 +34,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import (
     canonical_unit_short_form,
     check_unit_compatible,
@@ -85,6 +86,10 @@ SIDE_DIRICHLET_BC_IDS = {
 _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
     "m": ("m", "length"),
     "m2/s": ("m**2/s", "hydraulic-conductance"),
+    # Length-rate (L/T): lake rainfall / open-water evaporation rates.
+    "m/s": ("m/s", "length-rate"),
+    # Leakance (1/T): lake-bed leakance feeding the LAK head-dependent exchange.
+    "1/s": ("1/s", "leakance"),
 }
 
 BoundaryKind: TypeAlias = Literal["dirichlet", "cauchy", "robin"]
@@ -192,7 +197,11 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
         default="csv",
         description="Discriminator tag for the CSV-backed boundary-forcing variant.",
     )
-    path_file: Annotated[Path, Profile.DEV] = Field(
+    path_file: Annotated[
+        Path,
+        Profile.DEV,
+        InputFile(role="flow_bc", category="data"),
+    ] = Field(
         ...,
         description="CSV file path containing time-series boundary head values when mode='csv'.",
     )

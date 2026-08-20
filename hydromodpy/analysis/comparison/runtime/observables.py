@@ -35,7 +35,7 @@ from hydromodpy.analysis.comparison.runtime.series import (
 from hydromodpy.core.nodata import NODATA_SENTINELS
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 
 _PERIOD_VALUE_VARIABLES = {
@@ -43,7 +43,6 @@ _PERIOD_VALUE_VARIABLES = {
     "drainage_flux_history_m3_s",
     "drainage_flux_m3_s",
     "dry_deficit_history_m_s",
-    "groundwater_flux",
     "outflow_drain",
     "outlet_flux",
     "release_accumulation_flux",
@@ -523,7 +522,7 @@ def extract_observable_rows(
     run_folder: Path,
     observables: tuple[ComparisonObservable, ...],
     config_path: Path | None = None,
-    store: SimulationCatalog | None = None,
+    store: Catalog | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Extract all observable rows for one completed/reused simulation."""

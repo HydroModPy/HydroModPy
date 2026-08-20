@@ -11,7 +11,7 @@ root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_c
 name = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_catchment_250"
 run_id = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_catchment_250"
 description = "MODFLOW 6 Nancon steady candidate on a generated irregular mesh-catchment grid, target size 250 m."
-on_collision = "replace"
+if_exists = "replace"
 
 [mesh_catchment.zone_meshing]
 global_size = 250.0

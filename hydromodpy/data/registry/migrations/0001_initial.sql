@@ -53,13 +53,15 @@ CREATE TABLE entries (
     file_path      TEXT NOT NULL,
     file_mtime     DOUBLE,
     sha256         VARCHAR,
-    created_at     TIMESTAMP NOT NULL DEFAULT current_timestamp,
-    is_custom      INTEGER NOT NULL DEFAULT 0,
-    fetch_metadata JSON
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    is_custom      BOOLEAN NOT NULL DEFAULT FALSE,
+    fetch_metadata JSON,
+    -- Logical cache identity: the writer dedups/upserts on this triple, so a
+    -- UNIQUE backstop keeps DuckDB from accumulating duplicate rows for the
+    -- same input if the existence check ever races or is bypassed.
+    UNIQUE (variable, source, station_id)
 );
 
-CREATE INDEX ix_entries_var_src_station
-    ON entries(variable, source, station_id);
 CREATE INDEX ix_entries_bbox
     ON entries(bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax);
 CREATE INDEX ix_entries_sha256
@@ -93,7 +95,7 @@ CREATE TABLE artifacts (
     path          TEXT NOT NULL,
     sha256        VARCHAR,
     size_bytes    BIGINT,
-    created_at    TIMESTAMP NOT NULL DEFAULT current_timestamp
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
 
 CREATE INDEX ix_artifacts_sim    ON artifacts(sim_id);
@@ -112,7 +114,7 @@ CREATE TABLE provenance (
     tool_name       VARCHAR,
     tool_version    VARCHAR,
     parameters_json JSON,
-    recorded_at     TIMESTAMP NOT NULL DEFAULT current_timestamp
+    recorded_at     TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
 
 CREATE INDEX ix_provenance_artifact ON provenance(artifact_id);
@@ -158,7 +160,7 @@ CREATE TABLE failures (
     source_ref  VARCHAR,
     error_type  VARCHAR NOT NULL,
     message     TEXT,
-    occurred_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
 
 CREATE INDEX ix_failures_variable ON failures(variable);
@@ -173,7 +175,7 @@ CREATE TABLE validation_reports (
     schema_name  VARCHAR NOT NULL,
     passed       BOOLEAN NOT NULL,
     errors_json  JSON,
-    validated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+    validated_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
 
 CREATE INDEX ix_validation_artifact ON validation_reports(artifact_id);
@@ -191,6 +193,6 @@ SELECT
     COUNT(DISTINCT station_id) AS n_stations,
     MIN(date_start)       AS earliest,
     MAX(date_end)         AS latest,
-    SUM(CASE WHEN is_custom = 1 THEN 1 ELSE 0 END) AS n_custom
+    SUM(CASE WHEN is_custom THEN 1 ELSE 0 END) AS n_custom
 FROM entries
 GROUP BY variable, source;

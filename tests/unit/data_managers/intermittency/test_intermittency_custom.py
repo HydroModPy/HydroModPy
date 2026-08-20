@@ -85,7 +85,7 @@ class TestIntermittencyConfig:
             )
 
     def test_data_managers_config_accepts_intermittency(self):
-        from hydromodpy.data.data_managers_config import DataManagersConfig
+        from hydromodpy.data.managers.config_schema import DataManagersConfig
 
         cfg = DataManagersConfig.model_validate(
             {

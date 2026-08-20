@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, EXIT_OK
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "export-package"
 HELP: str = "Export a simulation as a portable .hmp archive (tar.zst with RO-Crate manifest)"
@@ -44,12 +44,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
-        SimulationCatalog,
+        Catalog,
         SimulationNotFoundError,
     )
 
     workspace_root = Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    db_path = workspace_root / CATALOG_FILENAME
+    db_path = catalog_path_for(workspace_root)
     if not db_path.exists():
         print(f"No catalog found at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -57,7 +57,7 @@ def run(args: argparse.Namespace) -> None:
     output_path = Path(args.output).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with SimulationCatalog(workspace_root) as catalog:
+    with Catalog(workspace_root) as catalog:
         try:
             sim_id = catalog.resolve(args.sim_ref, project=args.project)
         except (AmbiguousReferenceError, SimulationNotFoundError) as exc:

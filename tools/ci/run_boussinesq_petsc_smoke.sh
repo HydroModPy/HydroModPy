@@ -3,6 +3,11 @@ set -euo pipefail
 
 export MPLBACKEND="${MPLBACKEND:-Agg}"
 
+# pytest disarms its own faulthandler at unconfigure, so a native abort raised
+# while the interpreter finalizes prints nothing. The variable arms it for the
+# whole process and dumps every thread on the way out.
+export PYTHONFAULTHANDLER=1
+
 python - <<'PY'
 import platform
 

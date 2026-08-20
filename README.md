@@ -9,21 +9,22 @@ outputs.
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![License: EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
 [![CI](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml/badge.svg?branch=main)](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml?query=branch%3Amain)
-[![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=main)](https://hydromodpy-docs.readthedocs.io/en/main/)
+[![Documentation](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-deploy-pages.yml/badge.svg?branch=main)](https://docs.hydromodpy.fr/main/)
 [![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/branch/main/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/main)
 
 ## What you get
 
 - **One config, four solvers.** A single `HydroModPyConfig` (Pydantic v2)
   drives MODFLOW 6, MODFLOW-NWT, Boussinesq and GR4J on the same catchment.
-- **Bit-exact reproducibility.** A frozen `hydromodpy.lock` and the
-  `runs_environment` provenance table (Python, packages, git commit, host,
-  timestamp) pin every run.
-- **ML-friendly storage.** A DuckDB catalog, per-simulation Parquet tables
-  and per-simulation Zarr stores plug straight into sklearn, PyTorch, JAX,
-  xarray and xugrid pipelines.
-- **End-to-end provenance.** Every solver run, calibration iteration and
-  derived metric is traceable back to its config, inputs and binaries.
+- **Disk is the truth.** Every run is one plain directory under `runs/`,
+  named after the run. The DuckDB file in `.hmp/` is only an index over
+  those directories: delete it and `hmp catalog reindex` rebuilds it.
+- **Standard formats, no container.** Field arrays in Zarr, tables in
+  Parquet, the frozen config in TOML, the seal and the provenance in JSON.
+  `pandas`, `xarray` and `zarr` read a run without HydroModPy installed.
+- **Reproducibility.** A frozen `hydromodpy.lock` pins the input data, and
+  each run stores its own `provenance.json`: Python version, package
+  versions, git commit, host, solver binary and its SHA-256.
 
 ## Install
 
@@ -40,11 +41,13 @@ Optional extras: `[ide]`, `[test]`, `[viewer3d]`, `[docs]`. Solver binaries
 `hmp install-binaries`.
 
 For developer install, conda recipes, Windows + WSL setup and the PETSc
-backend, see the [installation guide](https://hydromodpy-docs.readthedocs.io/en/main/install.html).
+backend, see the [installation guide](https://docs.hydromodpy.fr/main/install.html).
 
 ## Quickstart
 
-Scaffold a workspace, create a project from a template, run it.
+Scaffold a workspace, create a project, run it. `hmp project new` writes
+both a `project.toml` with the shared settings and a ready-to-run
+`run_demo.toml` on a small synthetic catchment.
 
 ```bash
 hmp workspace init .
@@ -52,46 +55,75 @@ hmp project new getting_started --workspace .
 hmp run projects/getting_started/run_demo.toml
 ```
 
-Outputs land next to the config:
+The run lands in its own directory inside the project:
 
-- `hydromodpy.duckdb` - unified simulation catalog.
-- `simulations/<basename>.zarr.zip` - finalized spatial fields per run.
-- `simulations/<basename>.parquet/` - tabular views (timeseries, budgets, mass balance).
+```text
+projects/getting_started/
+├── project.toml                  shared settings, and the marker of the project root
+├── run_demo.toml                 the run you launched
+├── hydromodpy.lock               frozen input data
+├── runs/
+│   └── demo/                     one directory per run, named after the run
+│       ├── config.toml           frozen resolved configuration
+│       ├── fields.zarr/          field arrays (head, mesh, forcings, ...)
+│       ├── tables.parquet/       metrics, parameters, budgets, timeseries
+│       ├── figures/              figures rendered for this run
+│       ├── manifest.json         seal, written last
+│       └── provenance.json       versions, git commit, solver binary
+└── .hmp/                         internals: index.duckdb, logs, checkpoints
+```
 
-Open the results from Python:
+`figures/` appears once a figure is rendered, and a tagged run also carries
+an `annotations.json`. On-demand exports and reports go to `share/`,
+calibration sessions to `sessions/`.
+
+Browse it from the command line:
+
+```bash
+hmp catalog ls                    # every run of the project
+hmp catalog show demo --detail    # metadata, metrics, parameters, store layout
+hmp viz show demo piezometric_map # render one figure into runs/demo/figures/
+```
+
+Or read it from Python:
 
 ```python
 import hydromodpy as hmp
 
-catalog = hmp.open(".")
-sim = catalog.best("getting_started")
-sim.plot("watertable_map", save=".")
+catalog = hmp.open("projects/getting_started")
+run = catalog.latest()
+
+head = hmp.read(run, "head")  # lazy xarray.DataArray
+water_table = hmp.read(run, "watertable_elevation", time=-1)  # numpy array
 ```
 
-For SQL queries, Parquet batch loading and Zarr DataLoaders, see the
-[ML access guide](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/index.html).
+The tables are plain Parquet, so `pandas.read_parquet` on
+`runs/demo/tables.parquet/metrics.parquet` works too. See the
+[results guide](https://docs.hydromodpy.fr/main/user_guide/results-and-exports.html)
+for the full reading and export path.
 
 ## Documentation
 
 Full documentation lives at
-**[hydromodpy-docs.readthedocs.io](https://hydromodpy-docs.readthedocs.io/en/main/)**.
+**[docs.hydromodpy.fr](https://docs.hydromodpy.fr/main/)**.
 
 | Section | What it covers |
 |---------|----------------|
-| [Get started](https://hydromodpy-docs.readthedocs.io/en/main/getting_started/index.html) | Install, scaffold, first run end to end. |
-| [User Guide](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/index.html) | Workflows, configuration, theory, cookbook. |
-| [Configuration](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/config_reference/index.html) | Every TOML section validated by `HydroModPyConfig`. |
-| [Gallery](https://hydromodpy-docs.readthedocs.io/en/main/capability_gallery/index.html) | Validation figures, mesh illustrations, watershed diagnostics. |
-| [API Reference](https://hydromodpy-docs.readthedocs.io/en/main/api/index.html) | Auto-generated reference for every public class and module. |
-| [Architecture](https://hydromodpy-docs.readthedocs.io/en/main/architecture/index.html) | Layer matrix, module diagrams, contributor maps. |
+| [Get started](https://docs.hydromodpy.fr/main/getting_started/index.html) | Install, scaffold, first run end to end. |
+| [User Guide](https://docs.hydromodpy.fr/main/user_guide/index.html) | Workflows, configuration, theory, cookbook. |
+| [Configuration](https://docs.hydromodpy.fr/main/user_guide/config_reference/index.html) | Every TOML section validated by `HydroModPyConfig`. |
+| [CLI](https://docs.hydromodpy.fr/main/cli/index.html) | Every `hmp` verb, its sub-actions, and the typed exit codes. |
+| [Gallery](https://docs.hydromodpy.fr/main/capability_gallery/index.html) | Validation figures, mesh illustrations, watershed diagnostics. |
+| [API Reference](https://docs.hydromodpy.fr/main/api/index.html) | Auto-generated reference for every public class and module. |
+| [Architecture](https://docs.hydromodpy.fr/main/architecture/index.html) | Layer matrix, module diagrams, contributor maps. |
 
 ## Contributing
 
 Bug reports, feature requests and pull requests are welcome. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the short version and the
-[contributor guide](https://hydromodpy-docs.readthedocs.io/en/main/contribute.html)
-for the full reference. Version numbers, maintenance branches, tags and
-GitHub Releases are documented in [VERSIONING.md](VERSIONING.md).
+[contributor guide](https://docs.hydromodpy.fr/main/contribute.html)
+for the full reference. Released versions are listed in
+[CHANGELOG.md](CHANGELOG.md).
 
 Security issues: please follow [SECURITY.md](SECURITY.md) and use a private
 advisory rather than a public issue.
@@ -100,7 +132,7 @@ advisory rather than a public issue.
 
 If HydroModPy supports your work, please cite the software and the companion
 paper. Full BibTeX, RIS and plain-text entries are on the
-[citation page](https://hydromodpy-docs.readthedocs.io/en/main/how_to_cite.html);
+[citation page](https://docs.hydromodpy.fr/main/how_to_cite.html);
 GitHub renders the "Cite this repository" button from
 [`CITATION.cff`](CITATION.cff).
 

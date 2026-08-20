@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import re
 from collections.abc import Mapping
 
 import flopy
@@ -13,36 +15,64 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders import (
+    apply_lake_idomain_mask,
     bind_recharge_from_flow,
     build_drain_stress_period_data,
+    build_drainage_mover_records,
     build_evt_stress_period_data,
+    build_exposed_band_runoff_specs,
+    build_lak_package_args,
+    build_mvr_period_records,
     build_ocean_boundary_chd_spd,
+    build_sfr_mover_records,
+    build_sfr_package_args,
     build_side_boundary_chd_spd,
     build_start_heads,
     build_stream_boundary_chd_spd,
     build_well_stress_period_data,
+    carve_lake_bed,
+    collapse_identical_periods,
     empty_recharge_aux,
+    evt_list_spd_to_array_payload,
+    externalize_recharge_spd,
     finalize_pending_recharge_evt,
+    log_xt3d_resolution,
+    mask_recharge_on_lake_cells,
+    mover_package_count,
     recharge_to_spd,
+    remove_drain_cells,
     resolve_deferred_heterogeneous_recharge,
+    resolve_downstream_spillway_reaches,
     resolve_drainage_conductance_series,
+    resolve_flow_barrier_hfb_rows,
     resolve_ims_complexity,
+    resolve_lake_cells_for_active_lakes,
+    resolve_lake_occupied_layers,
     resolve_rewet_npf_options,
+    resolve_sfr_networks,
+    resolve_spillway_seed_cells,
     resolve_xt3d_npf_options,
+    sfr_drain_cells_to_drop,
+    sto_period_settings,
+    watershed_drainage_cell_mask,
     xt3d_activation_mode,
-    xt3d_is_enabled,
     xt3d_requested_value,
 )
-from hydromodpy.solver.modflow6.property_mapping import (
+from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
+from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
+from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
+from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
+    resolve_k33_field,
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.modflow6.runtime_reuse import (
+from hydromodpy.solver.modflow6.support.runtime_reuse import (
     can_refresh_runtime_reuse,
     refresh_reused_runtime_property_packages,
     runtime_reuse_signature,
 )
+from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 from hydromodpy.solver.modflow_common import (
     ModflowPreprocessOptions,
     SolverRoutingContext,
@@ -59,13 +89,18 @@ logger = get_logger(__name__)
 
 
 def mf6_safe_name(name: str, max_len: int = 16) -> str:
-    """Return a safe MODFLOW 6 model name, hashed when longer than max_len."""
-    text = str(name)
+    """Return a safe MODFLOW 6 model name: no whitespace, hashed when too long.
+
+    MODFLOW 6 rejects a model name that contains a space, so every whitespace run
+    collapses to a single underscore before the length check. Names longer than
+    ``max_len`` are hashed to stay unique and within the identifier limit.
+    """
+    text = re.sub(r"\s+", "_", str(name).strip())
     if len(text) <= max_len:
         return text
     if max_len <= 6:
         return text[:max_len]
-    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:6]
+    digest = hashlib.sha1(str(name).encode("utf-8")).hexdigest()[:6]
     prefix_len = max_len - 7
     return f"{text[:prefix_len]}_{digest}"
 
@@ -79,6 +114,263 @@ def mf6_output_name(model, extension: str = ".cbc") -> str:
     if len(os.path.abspath(candidate)) < 240:
         return requested
     return str(getattr(model, "model_name_mf6", "") or mf6_safe_name(requested))
+
+
+def _write_lake_obs_meta(model, lake_obs_meta: Mapping[str, object]) -> None:
+    """Persist the LAK obs sidecar next to the solver files for the extractor.
+
+    The extractor reads ``{model_output_name}.lak.meta.json`` from the solver
+    output directory to re-key the LAK obs CSV by ``(lake_id, totim)`` and isolate
+    the under-dam leakage. The sidecar travels with the model files so post-run
+    extraction needs no live flopy object.
+    """
+    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lak.meta.json")
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump(dict(lake_obs_meta), fh, sort_keys=True)
+
+
+def _write_lake_abacus_meta(model) -> None:
+    """Persist the lake abacus comparison sidecar for the extractor.
+
+    Serializes ``model._lake_bed_reconstruction`` (reference + simulated abacus
+    arrays per lake) to ``{model_output_name}.lake_abacus.json`` so the post-run
+    extractor can land it in the per-sim Zarr for the comparison figure.
+    """
+    reconstruction = getattr(model, "_lake_bed_reconstruction", None)
+    entries = [
+        {
+            "lake_id": str(lid),
+            "stage": rec["abacus_stage"],
+            "real_volume": rec.get("abacus_volume"),
+            "real_sarea": rec["abacus_sarea"],
+            "sim_volume": rec["sim_volume"],
+            "sim_sarea": rec["sim_sarea"],
+        }
+        for lid, rec in (reconstruction or {}).items()
+        if rec.get("abacus_stage") is not None
+        and rec.get("sim_volume") is not None
+        and rec.get("abacus_volume") is not None
+    ]
+    if not entries:
+        return
+    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lake_abacus.json")
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump({"entries": entries}, fh, sort_keys=True)
+
+
+def _write_sfr_obs_meta(model, sfr_obs_meta: Mapping[str, object]) -> None:
+    """Persist the SFR obs sidecar (``{stem}.sfr.meta.json``) for the extractor."""
+    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.sfr.meta.json")
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump(dict(sfr_obs_meta), fh, sort_keys=True)
+
+
+def _shared_recharge_dir(model) -> str | None:
+    """Return the shared recharge directory for a calibration trial, else None.
+
+    The calibration ``TrialSandbox`` writes each trial into a
+    ``<scratch>/<base>_trialNNNNNN/`` folder shared by all trials. The recharge is
+    invariant across trials, so it lives once in a sibling ``_shared_recharge``
+    dir and every trial references it (see ``externalize_recharge_spd``). A
+    non-trial single run returns None and keeps the per-model binary layout.
+
+    The trial marker is the ``_trialNNNNNN`` PATH COMPONENT (the sandbox folder),
+    found by walking ``full_path`` up: ``model_name_mf6`` (the ``full_path`` leaf)
+    is truncated to 16 chars by ``mf6_safe_name`` and drops the suffix, and the
+    trial folder can sit at either the leaf or its parent depending on the
+    workspace layout. The shared dir is a sibling of the trial folder.
+
+    The returned path is OS-native: it is only ever handed to the local filesystem
+    and to the ``OPEN/CLOSE`` line of the same run's MF6 input, inside a scratch
+    tree the sandbox deletes on exit. Unlike the catalog's relative paths, it is
+    never read back on another platform, so it must not be posix-normalised.
+    """
+    full_path = getattr(model, "full_path", None)
+    if not full_path:
+        return None
+    path = os.path.normpath(str(full_path))
+    while path and path not in (os.sep, "."):
+        head, tail = os.path.split(path)
+        if re.search(r"_trial\d{6}$", tail):
+            return os.path.join(head, "_shared_recharge")
+        if head == path:
+            break
+        path = head
+    return None
+
+
+def _watershed_drainage_mask(model, cell_centroids: np.ndarray) -> np.ndarray | None:
+    """Cells inside the topographic watershed, to keep DRN routing off the buffer.
+
+    The active domain is the buffered box, so DRN cells in the buffer model the
+    neighbouring basins. Their hillslope drainage must leave the model (plain
+    DRN), not feed this catchment's streams and lake, so they are excluded from
+    the DRN -> MVR routing. Returns ``None`` when the watershed polygon is
+    unavailable (keeps every remaining DRN cell routed).
+    """
+    geographic = getattr(model, "geographic", None)
+    shp = getattr(geographic, "watershed_shp", None)
+    if not shp or not os.path.exists(str(shp)):
+        logger.warning(
+            "watershed polygon not found (%s); hillslope DRN routes over the full "
+            "buffered domain, over-feeding this catchment's surface water.",
+            shp,
+        )
+        return None
+    import geopandas as gpd
+
+    gdf = gpd.read_file(str(shp))
+    if gdf.empty:
+        return None
+    mask = watershed_drainage_cell_mask(gdf.geometry.union_all(), cell_centroids)
+    n_in = int(mask.sum())
+    logger.info(
+        "watershed DRN mask: %d/%d active cells inside the catchment; "
+        "buffer DRN drains out instead of feeding the streams.",
+        n_in,
+        int(mask.size),
+    )
+    return mask
+
+
+def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
+    """Boolean channel-pixel mask aligned to ``surface_topo`` for zonal top sampling.
+
+    Only produced when ``sgrid.top_sampling.mode == 'zonal'`` and its
+    ``channel_source`` requests one. Reads the delineated stream raster and
+    reprojects it (nearest) onto the model-top DEM grid. Returns ``None`` (channel
+    class disabled, every pixel treated as hillslope) when zonal is off, the
+    source is 'none', or no stream raster / georeferenced surface is available.
+    """
+    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
+    top_sampling = getattr(sgrid_cfg, "top_sampling", None)
+    if top_sampling is None or top_sampling.mode != "zonal":
+        return None
+    if top_sampling.channel_source == "none":
+        return None
+
+    geographic = getattr(model, "geographic", None)
+    path = None
+    for name in ("river_stream_link_id_tif", "river_streams_tif"):
+        candidate = getattr(geographic, name, None)
+        if candidate and os.path.exists(str(candidate)):
+            path = str(candidate)
+            break
+    if path is None:
+        logger.warning(
+            "Zonal channel_source=%s but no stream raster found; the channel class "
+            "is disabled (every DEM pixel treated as hillslope).",
+            top_sampling.channel_source,
+        )
+        return None
+
+    surface = getattr(model.domain, "surface_topo", None)
+    support = getattr(surface, "support", None)
+    fields = ("xmin", "xmax", "ymin", "ymax", "nrows", "ncols")
+    if support is None or any(getattr(support, name, None) is None for name in fields):
+        logger.warning("Zonal channel mask needs a georeferenced surface; channel class disabled.")
+        return None
+
+    import rasterio
+    from rasterio.transform import from_bounds
+    from rasterio.warp import Resampling, reproject
+
+    out_shape = (int(support.nrows), int(support.ncols))
+    dst_transform = from_bounds(
+        float(support.xmin),
+        float(support.ymin),
+        float(support.xmax),
+        float(support.ymax),
+        int(support.ncols),
+        int(support.nrows),
+    )
+    dst = np.zeros(out_shape, dtype=np.float64)
+    with rasterio.open(path) as src:
+        src_nodata = src.nodata
+        src_crs = src.crs
+        dst_crs = support.crs if support.crs is not None else src_crs
+        # WhiteboxTools strips the delineated stream raster CRS to an engineering
+        # LOCAL_CS tag, but it is delineated from the same projected DEM domain, so
+        # it is already co-registered with the model top. Asking PROJ to transform
+        # an engineering CRS to the projected DEM CRS raises, so treat a missing or
+        # non-standard tag as the model coordinate space (a pure nearest resample).
+        if src_crs is None or not (src_crs.is_projected or src_crs.is_geographic):
+            src_crs = dst_crs
+        try:
+            reproject(
+                source=src.read(1).astype(np.float64),
+                destination=dst,
+                src_transform=src.transform,
+                src_crs=src_crs,
+                dst_transform=dst_transform,
+                dst_crs=dst_crs,
+                resampling=Resampling.nearest,
+                src_nodata=src_nodata,
+                dst_nodata=0.0,
+            )
+        except Exception as exc:  # noqa: BLE001 - degrade, never abort the build
+            logger.warning(
+                "Zonal channel mask reprojection failed (%s); channel class disabled.", exc
+            )
+            return None
+    # Channel pixels carry a positive link id / stream flag; 0 is background. A
+    # nearest reproject can still copy the source nodata value into the target
+    # (it is not always filled with dst_nodata), so require a strictly positive
+    # value and drop a positive nodata sentinel explicitly.
+    mask = np.isfinite(dst) & (dst > 0.0)
+    if src_nodata is not None and float(src_nodata) > 0.0:
+        mask &= dst != float(src_nodata)
+    if top_sampling.channel_buffer_px > 0:
+        from scipy import ndimage
+
+        mask = ndimage.binary_dilation(mask, iterations=int(top_sampling.channel_buffer_px))
+    logger.info(
+        "Zonal channel mask: %d/%d channel pixels from %s.", int(mask.sum()), mask.size, path
+    )
+    return mask
+
+
+def _resolve_channel_cells_for_breach(model, solver_mesh) -> set[int] | None:
+    """Channel cell ids for the network-safety-net breach, else None.
+
+    Enabled only when ``sgrid.top_sampling.network_safety_net`` is set. Reuses the
+    zonal channel pixel mask (aligned to the model-top DEM) and maps it to the
+    runtime mesh cells that hold at least one channel pixel.
+    """
+    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
+    top_sampling = getattr(sgrid_cfg, "top_sampling", None)
+    if top_sampling is None or not getattr(top_sampling, "network_safety_net", False):
+        return None
+    mask = _resolve_channel_mask_for_zonal(model)
+    if mask is None:
+        return None
+    support = getattr(getattr(model.domain, "surface_topo", None), "support", None)
+    if support is None:
+        return None
+
+    from rasterio.transform import from_bounds
+
+    from hydromodpy.spatial.mesh.ops.zonal_stats import rasterize_cell_ids
+
+    transform = from_bounds(
+        float(support.xmin),
+        float(support.ymin),
+        float(support.xmax),
+        float(support.ymax),
+        int(support.ncols),
+        int(support.nrows),
+    )
+    labels = rasterize_cell_ids(
+        solver_mesh.planar_mesh,
+        transform=transform,
+        out_shape=(int(support.nrows), int(support.ncols)),
+    )
+    channel_labels = labels[np.asarray(mask, dtype=bool)]
+    cells = {int(c) for c in np.unique(channel_labels) if c >= 0}
+    logger.info(
+        "Network safety net: %d channel cells to breach into a monotone thalweg.", len(cells)
+    )
+    return cells
 
 
 def xt3d_requested(model) -> bool | None:
@@ -149,16 +441,6 @@ def optional_ims_kwargs(runtime) -> dict[str, object]:
     if runtime.mf6_under_relaxation is not None:
         kwargs["under_relaxation"] = runtime.mf6_under_relaxation
     return kwargs
-
-
-def log_xt3d_resolution(model, solver_mesh=None) -> None:
-    """Log the resolved XT3D mode."""
-    logger.info(
-        "MF6 XT3D resolution: mode=%s enabled=%s structured=%s",
-        xt3d_mode(model, solver_mesh),
-        xt3d_is_enabled(model, solver_mesh),
-        bool(getattr(solver_mesh, "is_structured", True)),
-    )
 
 
 def write_solver_grid_template(model) -> str:
@@ -268,6 +550,10 @@ def run_pre_processing(  # noqa: PLR0915
     flow_runtime_overrides: Mapping[str, object] | None = None,
 ) -> None:
     """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations."""
+    # Concurrent calibration trials build one MFSimulation each; the flopy DFN
+    # singleton must be fully loaded before any of them constructs a package.
+    warm_flopy_structure()
+    install_flopy_header_cache()
     model.flow = flow
     model.domain = domain
     model.runtime_mesh_planar = mesh_planar
@@ -327,7 +613,7 @@ def run_pre_processing(  # noqa: PLR0915
         domain=model.domain,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
         runtime_planar_mesh=model.runtime_mesh_planar,
-        runtime_mesh_support=model.runtime_mesh_support,
+        channel_mask=_resolve_channel_mask_for_zonal(model),
     )
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh
@@ -363,6 +649,13 @@ def run_pre_processing(  # noqa: PLR0915
     model.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
     model.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
     model.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
+    kv_field = solver_mesh.flatten_from_grid(flow_params["kv"]) if "kv" in flow_params else None
+    model.k33 = resolve_k33_field(
+        model.hk,
+        kv_field,
+        model.modflow_config.process_specific.vka,
+        label="flow vertical anisotropy",
+    )
     log_xt3d_resolution(model, solver_mesh)
 
     runtime = model.modflow_config.runtime
@@ -384,6 +677,29 @@ def run_pre_processing(  # noqa: PLR0915
         time_units=time_units,
         start_date_time=start_date_time,
     )
+    if runtime.mf6_ats:
+        # Adaptive time stepping on the transient periods: (iper, dt0, dtmin, dtmax,
+        # dtadj, dtfailadj). Each period starts at its full length (dt0=perlen) and MF6
+        # subdivides only when the solver fails, instead of carrying budget error at
+        # nstp=1. iper is 1-based. OC below saves per period end so one record/period.
+        ats_perioddata = [
+            (
+                i + 1,
+                float(model.perlen[i]),
+                float(runtime.mf6_ats_dtmin_s),
+                float(model.perlen[i]),
+                2.0,
+                5.0,
+            )
+            for i in range(int(model.nper))
+            if not bool(model.steady[i])
+        ]
+        if ats_perioddata:
+            flopy.mf6.ModflowUtlats(
+                model.tdis,
+                maxats=len(ats_perioddata),
+                perioddata=ats_perioddata,
+            )
     model.ims = flopy.mf6.ModflowIms(
         model.sim,
         print_option="SUMMARY" if runtime.mf_verbose else "NONE",
@@ -406,7 +722,171 @@ def run_pre_processing(  # noqa: PLR0915
         newtonoptions=newtonoptions,
     )
     model.sim.register_ims_package(model.ims, [model.gwf.name])
+
+    # Lake cells are made inactive (idomain=0) before DISV is built so the LAK
+    # footprint stays consistent across idomain, dem_mask, RCH, EVT and DRN. LAK
+    # supplies the storage and lake-aquifer exchange through its own
+    # CONNECTIONDATA (built later from this same lake mask).
+    lake_cell_ids_by_lake = resolve_lake_cells_for_active_lakes(model, solver_mesh)
+    occupied_layers_by_lake = resolve_lake_occupied_layers(model)
+    model._lake_cell_ids = []
+    if lake_cell_ids_by_lake:
+        # Carve the real lake bed from bathymetry (opt-in per lake) before the
+        # idomain mask, so the carved top/botm flow into DISV, start heads and the
+        # LAK connectiondata. Lakes without bed_reconstruction pass through.
+        solver_mesh = carve_lake_bed(
+            model,
+            solver_mesh,
+            lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+            occupied_layers_by_lake=occupied_layers_by_lake,
+        )
+        # Active-littoral (marnage) lakes keep their cells ACTIVE so MF6 toggles
+        # RCH/ET per cell (IWETLAKE); only fixed-area reservoirs deactivate their
+        # footprint and drop RCH/ET. Mask + RCH/ET masking exclude marnage cells.
+        marnage_ids = getattr(model, "_marnage_lake_ids", set())
+        inactive_lakes = {
+            lid: cells for lid, cells in lake_cell_ids_by_lake.items() if lid not in marnage_ids
+        }
+        model._lake_cell_ids = sorted({cid for cells in inactive_lakes.values() for cid in cells})
+        # A carved bed cuts a per-cell number of layers (deep centre vs shallow
+        # rim); the carve stashes that map so the mask follows the real basin.
+        occupied_layers_by_cell = getattr(model, "_lake_occupied_layers_by_cell", None)
+        solver_mesh = apply_lake_idomain_mask(
+            solver_mesh,
+            lake_cell_ids_by_lake=inactive_lakes,
+            occupied_layers_by_lake=occupied_layers_by_lake,
+            occupied_layers_by_cell=occupied_layers_by_cell,
+        )
+        model.solver_mesh = solver_mesh
+        model.inactive_mask = solver_mesh.inactive_mask[0]
+        model.dem_mask = model.inactive_mask
+
+    # Projecting the DEM onto irregular Voronoi cells reintroduces closed
+    # depressions the raster fill removed. Condition the mesh top so every active
+    # non-lake cell drains to the boundary. Lakes (marnage cells kept low) and the
+    # idomain edge are base levels; only the top is raised, never the bottom.
+    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
+    if sgrid_cfg is not None and getattr(sgrid_cfg, "condition_top", False):
+        # Every lake cell is a fixed base level: a reservoir bed is a legitimate
+        # low, so the fill must drain INTO it, never raise it. Fixed-area lakes are
+        # already inactive (skipped); the ones that matter here are the active
+        # marnage cells whose carved bed would otherwise flood to its spill level.
+        lake_cells = {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
+        top_sampling = getattr(sgrid_cfg, "top_sampling", None)
+        top_pre_conditioning = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()
+        solver_mesh, cond_info = condition_solver_mesh_top(
+            solver_mesh,
+            getattr(model, "runtime_mesh_support", None),
+            protected_cells=lake_cells,
+            channel_cells=_resolve_channel_cells_for_breach(model, solver_mesh),
+            max_channel_lowering_m=float(getattr(top_sampling, "max_channel_lowering_m", 5.0)),
+            epsilon=float(getattr(sgrid_cfg, "condition_top_epsilon", 1e-3)),
+        )
+        model.solver_mesh = solver_mesh
+        # Sidecar the pre-conditioning top so the flow extractor persists it beside
+        # the conditioned topography for the conditioning-impact map.
+        try:
+            np.save(
+                os.path.join(model.full_path, f"{model.model_output_name}.conditioning_ref.npy"),
+                top_pre_conditioning,
+            )
+        except OSError:
+            logger.debug("Could not write conditioning reference sidecar", exc_info=True)
+        if cond_info["unreached_active"]:
+            logger.warning(
+                "Mesh top conditioning could not drain %d active cells (no mesh face "
+                "graph or isolated basins); their pits remain.",
+                cond_info["unreached_active"],
+            )
+        logger.info(
+            "Mesh top conditioned: %d cells raised (max +%.2f m, mean +%.2f m) to "
+            "remove closed depressions.",
+            cond_info["cells_raised"],
+            cond_info["max_raise_m"],
+            cond_info["mean_raise_m"],
+        )
+
     idomain = solver_mesh.idomain()
+
+    # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
+    # active aquifer cell. Resolution happens before DRN so the drain rows
+    # coincident with a reach can be dropped (baseflow discharges to the stream,
+    # not out of the model); the package itself is built after LAK.
+    lake_cells_by_number = {
+        index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
+    }
+    # SFR resolves against the lake cells so trace reaches are truncated at the
+    # shoreline (never left sitting on a LAK cell once the DEM routes a stream
+    # through the lake), then the mover builder hands their flow to that lake.
+    _geo = getattr(model, "geographic", None)
+    _x_out = getattr(_geo, "x_outlet", None)
+    _y_out = getattr(_geo, "y_outlet", None)
+    sfr_outlet_xy = (
+        (float(_x_out), float(_y_out)) if _x_out is not None and _y_out is not None else None
+    )
+
+    # Dam-toe seeds so the SFR channel reaches the foot of any lake spillway routed to the
+    # downstream reach (mover.to_downstream_reach). Fed to the rectification below, they
+    # extend the channel up to the dam so the overflow enters an SFR reach at the dam foot
+    # instead of a gap of hillslope DRN cells. Resolved on the mesh (not a fixed number),
+    # so it survives remeshing.
+    spillway_seed_by_lake: dict[str, int] = {}
+    if lake_cell_ids_by_lake:
+        from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+
+        spillway_seed_by_lake = resolve_spillway_seed_cells(
+            model,
+            lake_cells_by_id=lake_cell_ids_by_lake,
+            cell_adjacency=build_planar_cell_adjacency(
+                solver_mesh.planar_mesh, int(solver_mesh.n_cells)
+            ),
+            cell_centroids=solver_mesh.cell_centroids(),
+            idomain=solver_mesh.idomain(),
+            mesh_top=solver_mesh.top,
+            outlet_xy=sfr_outlet_xy,
+        )
+
+    sfr_networks = resolve_sfr_networks(
+        model,
+        solver_mesh=solver_mesh,
+        lake_cells_by_number=lake_cells_by_number,
+        spillway_seeds=set(spillway_seed_by_lake.values()),
+    )
+    sfr_mover_records = build_sfr_mover_records(
+        sfr_networks,
+        lake_cells_by_number=lake_cells_by_number,
+        cell_centroids=solver_mesh.cell_centroids(),
+        outlet_xy=sfr_outlet_xy,
+    )
+
+    # Map each dam-toe seed to the reach that now sits on it (the spillway receiver).
+    downstream_reach_by_lake: dict[str, int] = {}
+    if sfr_networks and spillway_seed_by_lake:
+        reach_cell_to_ifno = {
+            int(reach.cellid[1]): int(reach.ifno)
+            for network in sfr_networks.values()
+            for reach in network.reaches
+            if reach.cellid is not None
+        }
+        # Reaches that already hand their flow to a lake, keyed by the SAME lake
+        # enumeration as lake_cells_by_number above, so a spillway is never routed to a
+        # feeder of its own lake (that would close a LAK -> SFR -> LAK loop).
+        terminals_by_lake_number: dict[int, set[int]] = {}
+        for network in sfr_networks.values():
+            for reach in network.reaches:
+                if reach.is_terminal_to_lake and reach.terminal_lake is not None:
+                    terminals_by_lake_number.setdefault(int(reach.terminal_lake), set()).add(
+                        int(reach.ifno)
+                    )
+        downstream_reach_by_lake = resolve_downstream_spillway_reaches(
+            spillway_seed_by_lake,
+            reach_cell_to_ifno=reach_cell_to_ifno,
+            cell_centroids=solver_mesh.cell_centroids(),
+            own_lake_terminal_ifnos={
+                lake_id: terminals_by_lake_number.get(number, set())
+                for number, lake_id in enumerate(lake_cell_ids_by_lake)
+            },
+        )
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
     # covers both. Native DIS is reserved for the NWT backend, which only supports
@@ -439,27 +919,40 @@ def run_pre_processing(  # noqa: PLR0915
         model.gwf,
         icelltype=np.ones((model.nlay,), dtype=int),
         k=model.hk,
-        # k33 = k / vka (vka = kh/kv vertical anisotropy ratio, > 0).
-        k33=model.hk / float(model.modflow_config.process_specific.vka),
+        # Vertical conductivity: a per-cell Kv field or the uniform kh/vka ratio.
+        # Vertical anisotropy is grid-aligned, so it needs no XT3D.
+        k33=model.k33,
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,
         wetdry=wetdry,
         save_specific_discharge=True,
         save_saturation=True,
     )
+    steady_state_spd, transient_spd = sto_period_settings(
+        [bool(model.steady[i]) for i in range(int(model.nper))]
+    )
     model.sto = flopy.mf6.ModflowGwfsto(
         model.gwf,
         sy=model.sy,
         ss=model.ss,
         iconvert=np.ones((model.nlay,), dtype=int),
-        steady_state={0: bool(model.steady[0])},
-        transient={i: not bool(model.steady[i]) for i in range(int(model.nper))},
+        steady_state=steady_state_spd or None,
+        transient=transient_spd or None,
     )
 
     model.rch_spd = recharge_to_spd(model)
+    if model._lake_cell_ids:
+        model.rch_spd = mask_recharge_on_lake_cells(
+            model.rch_spd, lake_cell_ids=model._lake_cell_ids
+        )
+    model.rch_spd = collapse_identical_periods(model.rch_spd)
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
-        recharge=model.rch_spd,
+        recharge=externalize_recharge_spd(
+            model.rch_spd,
+            basename=model.model_name_mf6,
+            shared_dir=_shared_recharge_dir(model),
+        ),
         auxiliary=["CONCENTRATION"],
         aux=empty_recharge_aux(model),
         pname="RCHA",
@@ -469,15 +962,35 @@ def run_pre_processing(  # noqa: PLR0915
         solver_mesh,
         ocean_support_mask=ocean_support_mask,
         stream_support_mask=stream_support_mask,
+        lake_cell_ids=model._lake_cell_ids,
     )
     if evt_spd is not None:
-        maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
-        model.evt = flopy.mf6.ModflowGwfevt(
-            model.gwf,
-            stress_period_data=evt_spd,
-            maxbound=maxbound,
-            save_flows=True,
+        evt_spd = collapse_identical_periods(evt_spd)
+        # Prefer the array package (EVTA): a compact READARRAY per changed period is far
+        # cheaper to write than O(ncells) list records on chronicles. It is exactly
+        # equivalent while every EVT record sits on layer 0 (the builder skips lake
+        # cells, the usual inactive-top source); otherwise fall back to the list.
+        evt_array = evt_list_spd_to_array_payload(
+            evt_spd, top_flat=solver_mesh.top, ncpl=int(model.ncpl)
         )
+        if evt_array is not None:
+            rate_by_period, evt_surface, evt_depth = evt_array
+            model.evt = flopy.mf6.ModflowGwfevta(
+                model.gwf,
+                surface=evt_surface,
+                depth=evt_depth,
+                rate=rate_by_period,
+                save_flows=True,
+                pname="EVTA",
+            )
+        else:
+            maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
+            model.evt = flopy.mf6.ModflowGwfevt(
+                model.gwf,
+                stress_period_data=evt_spd,
+                maxbound=maxbound,
+                save_flows=True,
+            )
 
     drainage_cond_series = resolve_drainage_conductance_series(model)
     model._drainage_cond_series = (
@@ -489,6 +1002,7 @@ def run_pre_processing(  # noqa: PLR0915
         drainage_cond_series is not None
         and np.any(np.asarray(drainage_cond_series, dtype=float) <= 0.0)
     )
+    drainage_mover_rows: list[list[object]] = []
     if drainage_cond_series is not None:
         drn_spd = build_drain_stress_period_data(
             model,
@@ -497,7 +1011,53 @@ def run_pre_processing(  # noqa: PLR0915
             ocean_support_mask=np.asarray(ocean_support_mask, dtype=bool),
             stream_support_mask=np.asarray(stream_support_mask, dtype=bool),
         )
-        model.drn = flopy.mf6.ModflowGwfdrn(model.gwf, stress_period_data=drn_spd, save_flows=True)
+        # Marnage lakebed cells stay active (they carry the LAK connection), but they
+        # are not hillslope: a route_drainage DRN on them would drain the lake's own
+        # leakage straight back to the streams (LAK -> aquifer -> DRN-to-MVR -> SFR ->
+        # lake), an artificial recirculation that inflates the lake-aquifer exchange.
+        # Drop their DRN rows so the under-lake aquifer equilibrates with the stage.
+        marnage_cells = getattr(model, "_marnage_lake_cells", None)
+        if marnage_cells:
+            drn_spd = remove_drain_cells(
+                drn_spd,
+                cells={int(cid) for cells in marnage_cells.values() for cid in cells},
+            )
+        if sfr_networks:
+            from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+
+            drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
+            # route_drainage: every in-watershed DRN cell follows the mesh-top
+            # steepest descent to the FIRST reach or lake it reaches (D8-style on the
+            # face graph), so the hillslope drainage joins the water body it
+            # physically drains to instead of the nearest one and instead of leaving
+            # the model. Buffer cells model neighbouring basins and stay plain DRN
+            # (they must not feed this catchment). The provider ids index the period-0
+            # rows, hence the static-DRN requirement.
+            drn_cell_centroids = solver_mesh.cell_centroids()
+            drainage_movers = build_drainage_mover_records(
+                sfr_networks,
+                drn_spd=drn_spd,
+                cell_centroids=drn_cell_centroids,
+                mesh_top=solver_mesh.top,
+                cell_adjacency=build_planar_cell_adjacency(
+                    solver_mesh.planar_mesh,
+                    int(solver_mesh.n_cells),
+                    getattr(model, "runtime_mesh_support", None),
+                ),
+                lake_cells_by_number={
+                    index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
+                },
+                watershed_cell_mask=_watershed_drainage_mask(model, drn_cell_centroids),
+            )
+            if drainage_movers:
+                drainage_mover_rows = build_mvr_period_records(drainage_movers)
+        model.drn = flopy.mf6.ModflowGwfdrn(
+            model.gwf,
+            pname="DRN",
+            stress_period_data=drn_spd,
+            save_flows=True,
+            mover=bool(drainage_mover_rows),
+        )
 
     side_chd_spd = build_side_boundary_chd_spd(model)
     chd_spd: dict[int, list[list[float]]] = {}
@@ -510,19 +1070,175 @@ def run_pre_processing(  # noqa: PLR0915
         for entry in side_chd_spd.get(kper, []):
             period_map[(int(entry[0]), int(entry[1]))] = entry
         chd_spd[kper] = list(period_map.values())
+    chd_spd = collapse_identical_periods(chd_spd)
     if any(len(v) > 0 for v in chd_spd.values()):
         model.chd = flopy.mf6.ModflowGwfchd(model.gwf, stress_period_data=chd_spd, save_flows=True)
 
     wel_spd = build_well_stress_period_data(model, int(model.nper))
     if any(len(v) > 0 for v in wel_spd.values()):
-        model.wel = flopy.mf6.ModflowGwfwel(model.gwf, stress_period_data=wel_spd, save_flows=True)
+        wel_kwargs: dict[str, object] = {"stress_period_data": wel_spd, "save_flows": True}
+        if runtime.mf6_newton:
+            # Under the Newton formulation a well that dewaters its cell makes
+            # the head oscillate across the confined/unconfined threshold and the
+            # solve diverges. AUTO_FLOW_REDUCE tapers the extraction as the
+            # saturated thickness drops below 10% of the cell (physically
+            # correct: you cannot pump water that is not there), which removes
+            # the oscillation. No effect on cells that stay saturated.
+            wel_kwargs["auto_flow_reduce"] = 0.1
+        model.wel = flopy.mf6.ModflowGwfwel(model.gwf, **wel_kwargs)
 
     model.model_output_name = mf6_output_name(model)
+
+    # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
+    # Lake cells were already made inactive above, so the CONNECTIONDATA targets
+    # active aquifer neighbours only. Controlled transfers (LAK -> LAK, SFR -> LAK,
+    # LAK -> SFR, DRN -> SFR) ride MVR, which is GWF-scoped and MUST be built last.
+    all_mover_rows: list[list[object]] = list(drainage_mover_rows)
+    n_lakes_built = 0
+    if lake_cell_ids_by_lake:
+        lak_args = build_lak_package_args(
+            model,
+            solver_mesh=solver_mesh,
+            lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+            occupied_layers_by_cell=getattr(model, "_lake_occupied_layers_by_cell", None),
+            # DRN movers always target SFR by design (never a direct DRN -> LAK
+            # record), so only the SFR movers can feed a lake externally.
+            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records),
+            downstream_reach_by_lake=downstream_reach_by_lake,
+        )
+        if lak_args is not None:
+            laktab_specs = lak_args.pop("laktab_specs")
+            mover_records = lak_args.pop("mover_records", None)
+            lak_args.pop("mover_maxpackages", 0)
+            obs_continuous = lak_args.pop("obs_continuous", None)
+            lake_obs_meta = lak_args.pop("lake_obs_meta", None)
+            ts_specs = lak_args.pop("ts_specs", None)
+            n_lakes_built = int(lak_args["nlakes"])
+            lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
+            # Non-constant forcings routed to an external TS6 file: attach right
+            # after construction so the series names are registered before write.
+            if ts_specs:
+                attach_time_series(lak, ts_specs, filename=f"{model.model_output_name}.lak.ts")
+            for spec in laktab_specs:
+                flopy.mf6.ModflowUtllaktab(
+                    model.gwf,
+                    nrow=len(spec["table"]),
+                    ncol=3,
+                    table=spec["table"],
+                    filename=spec["filename"],
+                    parent_file=lak,
+                )
+            # OBS6 for the per-lake output series, plus a JSON sidecar the
+            # extractor reads to re-key the obs CSV by (lake_id, totim).
+            if obs_continuous:
+                lak.obs.initialize(
+                    filename=f"{model.model_output_name}.lak.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=obs_continuous,
+                )
+            if lake_obs_meta is not None:
+                _write_lake_obs_meta(model, lake_obs_meta)
+            # Persist the bed-reconstruction abacus comparison for the QC figure.
+            _write_lake_abacus_meta(model)
+            model.lak = lak
+            if mover_records:
+                all_mover_rows.extend(mover_records)
+            # Active-littoral lakes with exposed_band_runoff need the in-process BMI
+            # runner: build the per-lake coupling specs now (lake order == LAK ifno).
+            # Their presence flips the runner to 'api' and attaches the callback.
+            band_specs = build_exposed_band_runoff_specs(model)
+            if band_specs:
+                model._exposed_band_runoff_specs = band_specs
+
+    # HFB (horizontal flow barrier): thin vertical low-K walls on shared cell faces
+    # (lake dam cutoff walls + general flow_barriers). Static (period 0), built
+    # after LAK and after NPF (it scales the NPF horizontal conductance) so the
+    # under-dam seepage dives below the wall. No MVR coupling.
+    hfb_rows = resolve_flow_barrier_hfb_rows(model, solver_mesh)
+    if hfb_rows:
+        n_faces = len({(row[0][1], row[1][1]) for row in hfb_rows})
+        logger.info(
+            "HFB cutoff wall: %d barrier rows over %d shared faces.", len(hfb_rows), n_faces
+        )
+        model.hfb = flopy.mf6.ModflowGwfhfb(
+            model.gwf,
+            pname="HFB",
+            maxhfb=len(hfb_rows),
+            stress_period_data={0: hfb_rows},
+        )
+
+    # SFR (streamflow routing) package. Built after LAK so the SFR -> LAK mover
+    # seam can reference an existing lake, and before OC / MVR.
+    if sfr_networks:
+        if sfr_mover_records and getattr(model, "lak", None) is None:
+            raise ValueError(
+                "flow.sinks_sources.sfr declares outflow_to_lake but no lake is "
+                "active; enable the lake boundary or drop the coupling."
+            )
+        for record in sfr_mover_records:
+            if record.receiver == "LAK" and record.receiver_id >= n_lakes_built:
+                raise ValueError(
+                    f"flow.sinks_sources.sfr outflow_to_lake={record.receiver_id + 1} "
+                    f"has no matching lake ({n_lakes_built} lakes declared)."
+                )
+        # A LAK -> SFR spillway or a DRN -> SFR drainage routing makes SFR an MVR
+        # receiver: the package advertises MOVER and the per-reach to/from-mvr
+        # series are observed even with no SFR-owned mover record.
+        sfr_args = build_sfr_package_args(
+            model,
+            networks=sfr_networks,
+            external_mover=any(str(row[2]) == "SFR" for row in all_mover_rows),
+            has_mover_records=bool(sfr_mover_records),
+            solver_mesh=solver_mesh,
+        )
+        if sfr_args is not None:
+            sfr_obs_continuous = sfr_args.pop("obs_continuous", None)
+            sfr_obs_meta = sfr_args.pop("sfr_obs_meta", None)
+            sfr_ts_specs = sfr_args.pop("ts_specs", None)
+            sfr = flopy.mf6.ModflowGwfsfr(model.gwf, pname="SFR", **sfr_args)
+            if sfr_ts_specs:
+                attach_time_series(sfr, sfr_ts_specs, filename=f"{model.model_output_name}.sfr.ts")
+            if sfr_obs_continuous:
+                sfr.obs.initialize(
+                    filename=f"{model.model_output_name}.sfr.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=sfr_obs_continuous,
+                )
+            if sfr_obs_meta is not None:
+                _write_sfr_obs_meta(model, sfr_obs_meta)
+            model.sfr = sfr
+            if sfr_mover_records:
+                all_mover_rows.extend(build_mvr_period_records(sfr_mover_records))
+
+    # MVR last: it routes provider features to receiver features by package name,
+    # so every package it references must already exist. The packages list is
+    # derived from the record rows so LAK-only, SFR-only and mixed models all
+    # produce a consistent block.
+    if all_mover_rows:
+        mvr_packages = sorted(
+            {(str(row[0]),) for row in all_mover_rows} | {(str(row[2]),) for row in all_mover_rows}
+        )
+        model.mvr = flopy.mf6.ModflowGwfmvr(
+            model.gwf,
+            pname="MVR",
+            maxmvr=len(all_mover_rows),
+            maxpackages=mover_package_count(all_mover_rows),
+            packages=mvr_packages,
+            perioddata={0: all_mover_rows},
+        )
+
+    # Save per period end, so the store always holds exactly one record per
+    # stress period. That is the catalog contract (n_timesteps == number of
+    # stress periods == len(run.time_index)). Sub-stepping (nstp > 1 through
+    # simulation.time.substeps_per_period) and ATS refine the transient
+    # solution, they do not add output records.
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
         head_filerecord=f"{model.model_output_name}.hds",
         budget_filerecord=f"{model.model_output_name}.cbc",
-        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+        saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("HEAD", "LAST")],
     )
     model._runtime_dirty_packages = ()

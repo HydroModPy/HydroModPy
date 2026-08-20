@@ -50,6 +50,8 @@ from hydromodpy.physics.flow.initial_conditions_config import (
 )
 from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
+    FlowBarrierConfig,
+    FlowLakeConfig,
     FlowSinksSourcesConfig,
     FlowWellConfig,
 )
@@ -58,8 +60,10 @@ from hydromodpy.physics.flow.sinks_sources_config import (
 )
 
 __all__ = [
+    "FlowBarrierConfig",
     "FlowBoundaryConditionConfig",
     "FlowConfig",
+    "FlowLakeConfig",
     "FlowParam",
     "FlowRuntimeConfig",
     "FlowSinksSourcesConfig",
@@ -108,6 +112,15 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
                 "En regime transitoire, force la premiere periode de calcul en stationnaire. "
                 "En regime stationnaire, toutes les periodes restent stationnaires."
             ),
+        ),
+    )
+    restart_from: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional hotstart: path to a prior simulation Zarr store whose last time step "
+            "seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior "
+            "run must share this run's mesh, so enable [mesh_catchment] cache = true; "
+            "otherwise the cell count differs and restart is refused. None keeps [flow.ic]."
         ),
     )
     param_list: Annotated[list[str], Profile.USER] = Field(
@@ -183,7 +196,9 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             "Explicitly activated boundary-condition ids for this flow run. "
             "Allowed values are the canonical ids declared in the flow "
             "boundary-condition registry: 'ocean', 'stream', 'north_side', "
-            "'south_side', 'east_side', 'west_side', 'drainage'. "
+            "'south_side', 'east_side', 'west_side', 'drainage', 'lake', "
+            "'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced "
+            "package and are only supported by the modflow6 backend. "
             "An empty list means no boundary-condition package is assembled by the solver."
         ),
         examples=[["ocean"], ["west_side", "east_side", "drainage"]],
@@ -360,7 +375,13 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         context = info.context if isinstance(info.context, Mapping) else {}
         raw_base_dir = context.get("base_dir")
         base_dir = raw_base_dir if isinstance(raw_base_dir, Path) else None
-        return flow_toml_loader.normalize_bc_payloads(value, base_dir=base_dir)
+        raw_data_dir = context.get("workspace_data_dir")
+        workspace_data_dir = raw_data_dir if isinstance(raw_data_dir, Path) else None
+        return flow_toml_loader.normalize_bc_payloads(
+            value,
+            base_dir=base_dir,
+            workspace_data_dir=workspace_data_dir,
+        )
 
     @field_validator("ic", mode="before")
     @classmethod
@@ -460,6 +481,25 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         }
 
     @classmethod
+    def _homogeneous(
+        cls,
+        parameters: Mapping[str, float],
+        *,
+        flow_regime: FlowRegime,
+        active_bc: list[str] | None,
+        active_sinks_sources: list[str] | None,
+    ) -> FlowConfig:
+        if not parameters:
+            raise ValueError("homogeneous() requires at least one parameter (e.g. K=5e-5)")
+        return cls(
+            flow_regime=flow_regime,
+            param_list=list(parameters),
+            param={pid: cls._homogeneous_param_entry(pid, v) for pid, v in parameters.items()},
+            active_bc=active_bc or [],
+            active_sinks_sources=active_sinks_sources or [],
+        )
+
+    @classmethod
     def homogeneous(
         cls,
         *,
@@ -474,25 +514,26 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         homogeneous scalar parameter. Units are inferred from the canonical
         names (K in m/s, Ss in 1/m, Sy dimensionless).
         """
-        if not parameters:
-            raise ValueError("homogeneous() requires at least one parameter (e.g. K=5e-5)")
-        return cls(
+        return cls._homogeneous(
+            parameters,
             flow_regime=flow_regime,
-            param_list=list(parameters),
-            param={pid: cls._homogeneous_param_entry(pid, v) for pid, v in parameters.items()},
-            active_bc=active_bc or [],
-            active_sinks_sources=active_sinks_sources or [],
+            active_bc=active_bc,
+            active_sinks_sources=active_sinks_sources,
         )
 
     @classmethod
     def steady(cls, **parameters: float) -> FlowConfig:
         """Shortcut for a steady-state FlowConfig with homogeneous parameters."""
-        return cls.homogeneous(flow_regime="steady", **parameters)
+        return cls._homogeneous(
+            parameters, flow_regime="steady", active_bc=None, active_sinks_sources=None
+        )
 
     @classmethod
     def transient(cls, **parameters: float) -> FlowConfig:
         """Shortcut for a transient FlowConfig with homogeneous parameters."""
-        return cls.homogeneous(flow_regime="transient", **parameters)
+        return cls._homogeneous(
+            parameters, flow_regime="transient", active_bc=None, active_sinks_sources=None
+        )
 
     @classmethod
     def from_toml_section(
@@ -500,6 +541,12 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         flow_section: Mapping[str, object] | None,
         *,
         base_dir: Path,
+        workspace_data_dir: Path | None = None,
     ) -> FlowConfig:
         """Build a validated `FlowConfig` from the `[flow]` TOML section."""
-        return flow_toml_loader.from_toml_section(cls, flow_section, base_dir=base_dir)
+        return flow_toml_loader.from_toml_section(
+            cls,
+            flow_section,
+            base_dir=base_dir,
+            workspace_data_dir=workspace_data_dir,
+        )

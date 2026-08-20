@@ -28,7 +28,7 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Project("hydromodpy.toml")  # cheap: validates config
+    project = hmp.Project("project.toml")  # cheap: validates config
     run = project.simulate(Sy=0.05, K=5e-5, name="baseline")  # builds, then runs
     wt = run.field("watertable_depth", timestep=12)
 
@@ -60,8 +60,10 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.project.spinup import SpinupResult
+    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
+    from hydromodpy.simulation.spinup_config import SpinupConfig
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.spatial.geographic.catchment_delineation import (
         CatchmentDelineation,
@@ -114,7 +116,7 @@ class Project:
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> project = hmp.Project("hydromodpy.toml")  # doctest: +SKIP
+    >>> project = hmp.Project("project.toml")  # doctest: +SKIP
     >>> run = project.simulate(Sy=0.05)  # doctest: +SKIP
     >>> project.close()  # doctest: +SKIP
     """
@@ -344,8 +346,8 @@ class Project:
         return self._ctx.setup.domain
 
     @property
-    def store(self) -> SimulationCatalog | None:
-        """Open SimulationCatalog for direct queries across all runs. Triggers build."""
+    def store(self) -> Catalog | None:
+        """Open Catalog for direct queries across all runs. Triggers build."""
         self._ensure_model_built()
         return self._catalog.store
 
@@ -461,7 +463,7 @@ class Project:
     ):
         """Run a calibration campaign on this project.
 
-        Two modes are supported:
+        Three modes are supported:
 
         * TOML mode (``config_path`` supplied): delegate to
           ``run_calibration_cli`` with the given TOML path. Extra keyword
@@ -469,6 +471,9 @@ class Project:
         * Python mode (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
+        * Embedded mode (neither supplied): use the ``[calibration]`` section
+          carried by this project's config, so a fully in-memory
+          ``HydroModPyConfig`` calibrates without re-declaring parameters.
 
         Parameters
         ----------
@@ -505,18 +510,33 @@ class Project:
         from hydromodpy.core.exceptions import ConfigMissingError
 
         if config_path is not None:
-            from hydromodpy.calibration.cli_runner import run_calibration_cli
+            from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
             return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
 
-        if not parameters:
-            raise ConfigMissingError(
-                "Project.calibrate() requires either config_path= or "
-                "parameters= (Python-mode declaration)."
-            )
-
         from hydromodpy.calibration.config import CalibrationConfig
-        from hydromodpy.calibration.programmatic_runner import run_calibration_programmatic
+        from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
+
+        if not parameters:
+            # Fall back to the [calibration] section carried by this project's
+            # config, so a fully in-memory HydroModPyConfig calibrates without
+            # re-declaring parameters= (matches the TOML path).
+            embedded = getattr(getattr(self, "config", None), "calibration", None)
+            if embedded is not None:
+                return run_calibration_programmatic(
+                    embedded,
+                    project=self,
+                    workspace=kwargs.get("workspace"),
+                    project_label=kwargs.get("project_label", kwargs.get("project", "calibration")),
+                    metric_fn=kwargs.get("metric_fn"),
+                    objective=kwargs.get("objective"),
+                    return_report=kwargs.get("return_report", True),
+                )
+            raise ConfigMissingError(
+                "Project.calibrate() requires either config_path=, parameters= "
+                "(Python-mode declaration), or a [calibration] section in the "
+                "project config."
+            )
 
         payload: dict[str, object] = {}
         if method is not None:
@@ -559,10 +579,40 @@ class Project:
             return_report=kwargs.get("return_report", True),
         )
 
+    def spinup(
+        self,
+        *,
+        spinup: SpinupConfig | None = None,
+        name_prefix: str = "spinup",
+    ) -> SpinupResult:
+        """Run the cyclic spin-up loop on this project.
+
+        Restarts the representative window each cycle from the previous cycle's
+        state until the aquifer heads and the lake stage converge. Defaults to
+        the ``[spinup]`` section of this project's config; pass ``spinup`` to
+        override it in memory. Feed ``result.restart_from`` to a production
+        run's ``[flow] restart_from``.
+
+        Parameters
+        ----------
+        spinup
+            Spin-up settings override. ``None`` uses ``config.spinup``.
+        name_prefix
+            Prefix for the per-cycle run names recorded in the catalog.
+
+        Returns
+        -------
+        hydromodpy.project.spinup.SpinupResult
+            The loop outcome (converged state, ``restart_from`` handle).
+        """
+        from hydromodpy.project.spinup import run_spinup
+
+        return run_spinup(self, spinup=spinup, name_prefix=name_prefix)
+
     # -- Lifecycle --------------------------------------------------------
 
     def close(self) -> None:
-        """Close the SimulationCatalog and clean up preprocessing files."""
+        """Close the Catalog and clean up preprocessing files."""
         self._catalog.close()
 
     def __enter__(self):

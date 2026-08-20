@@ -9,19 +9,19 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.workflow.events import WorkflowEventStream
-from hydromodpy.workflow.heartbeat import HeartbeatPulse
+from hydromodpy.results.catalog import Catalog
+from hydromodpy.workflow.tracking.events import WorkflowEventStream
+from hydromodpy.workflow.tracking.heartbeat import HeartbeatPulse
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> SimulationCatalog:
+def catalog(tmp_path: Path) -> Catalog:
     with simulation_catalog(tmp_path) as cat:
         yield cat
 
 
-def _register_running_sim(catalog: SimulationCatalog, sim_id: str) -> None:
+def _register_running_sim(catalog: Catalog, sim_id: str) -> None:
     catalog.connection.execute(
         """
         INSERT INTO simulations
@@ -36,7 +36,7 @@ def _register_running_sim(catalog: SimulationCatalog, sim_id: str) -> None:
     )
 
 
-def _read_heartbeat(catalog: SimulationCatalog, sim_id: str) -> datetime | None:
+def _read_heartbeat(catalog: Catalog, sim_id: str) -> datetime | None:
     row = catalog.connection.execute(
         "SELECT last_heartbeat FROM v_workflow_heartbeats WHERE run_id = ?",
         [sim_id],
@@ -47,7 +47,7 @@ def _read_heartbeat(catalog: SimulationCatalog, sim_id: str) -> datetime | None:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
-def _heartbeat_count(catalog: SimulationCatalog, sim_id: str) -> int:
+def _heartbeat_count(catalog: Catalog, sim_id: str) -> int:
     row = catalog.connection.execute(
         """
         SELECT COUNT(*)
@@ -69,7 +69,7 @@ def _wait_until(predicate, *, timeout: float = 5.0, poll: float = 0.02) -> bool:
     return predicate()
 
 
-def test_enter_sets_heartbeat_synchronously(catalog: SimulationCatalog) -> None:
+def test_enter_sets_heartbeat_synchronously(catalog: Catalog) -> None:
     sim_id = "22222222-2222-2222-2222-222222222222"
     _register_running_sim(catalog, sim_id)
     events = WorkflowEventStream(catalog)
@@ -80,7 +80,7 @@ def test_enter_sets_heartbeat_synchronously(catalog: SimulationCatalog) -> None:
     assert hb >= before - timedelta(seconds=1)
 
 
-def test_loop_refreshes_within_interval(catalog: SimulationCatalog) -> None:
+def test_loop_refreshes_within_interval(catalog: Catalog) -> None:
     sim_id = "33333333-3333-3333-3333-333333333333"
     _register_running_sim(catalog, sim_id)
     events = WorkflowEventStream(catalog)
@@ -92,7 +92,7 @@ def test_loop_refreshes_within_interval(catalog: SimulationCatalog) -> None:
     assert second > first
 
 
-def test_exit_joins_thread_without_leak(catalog: SimulationCatalog) -> None:
+def test_exit_joins_thread_without_leak(catalog: Catalog) -> None:
     sim_id = "44444444-4444-4444-4444-444444444444"
     _register_running_sim(catalog, sim_id)
     events = WorkflowEventStream(catalog)
@@ -106,7 +106,7 @@ def test_exit_joins_thread_without_leak(catalog: SimulationCatalog) -> None:
     assert leftover == []
 
 
-def test_pulse_does_not_write_simulation_heartbeat_column(catalog: SimulationCatalog) -> None:
+def test_pulse_does_not_write_simulation_heartbeat_column(catalog: Catalog) -> None:
     sim_id = "66666666-6666-6666-6666-666666666666"
     _register_running_sim(catalog, sim_id)
     events = WorkflowEventStream(catalog)
@@ -119,3 +119,16 @@ def test_pulse_does_not_write_simulation_heartbeat_column(catalog: SimulationCat
     }
     assert "last_heartbeat" not in cols
     assert _read_heartbeat(catalog, sim_id) is not None
+
+
+def test_pulse_writes_and_clears_sidecar(catalog: Catalog, tmp_path: Path) -> None:
+    from hydromodpy.core.state.paths import running_sidecar_path
+
+    sim_id = "77777777-7777-7777-7777-777777777777"
+    _register_running_sim(catalog, sim_id)
+    events = WorkflowEventStream(catalog)
+    sidecar = running_sidecar_path(tmp_path, sim_id)
+
+    with HeartbeatPulse(sim_id, interval_s=5.0, events=events, sidecar_workspace=tmp_path):
+        assert sidecar.exists()
+    assert not sidecar.exists()

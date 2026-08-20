@@ -25,7 +25,7 @@
       360000.0,
       6720000.0
     ],
-    "footprint_area": 99999999.97851562,
+    "footprint_area": 100000000.0,
     "stats_2d": {
       "min": 2e-06,
       "max": 7.205e-05,
@@ -348,8 +348,8 @@
       0.0,
       0.0
     ],
-    "footprint_area_delta": 0.021484375,
-    "footprint_area_relative_delta": 2.15e-10,
+    "footprint_area_delta": 0.0,
+    "footprint_area_relative_delta": 0.0,
     "global_stats_delta": {
       "min": 0.0,
       "max": 0.0,

@@ -21,7 +21,6 @@ from evaluation._utils import (
     resolve_repository_root,
 )
 
-
 try:
     import networkx as nx
 
@@ -33,230 +32,116 @@ else:
     NETWORKX_ERROR = None
 
 
-
 def get_import_name(node: ast.AST) -> str | None:
     """
     Extract full module name from import nodes.
     """
 
     if isinstance(node, ast.Import):
-
         if node.names:
             return node.names[0].name
 
     elif isinstance(node, ast.ImportFrom):
-
         if node.module:
             return node.module
 
     return None
 
 
-
 def collect_architecture(root: Path) -> dict[str, Any]:
 
     files = iter_python_files(root)
 
-    module_map = {
-        path: module_name_from_path(root, path)
-        for path in files
-    }
+    module_map = {path: module_name_from_path(root, path) for path in files}
 
-    internal_modules = set(
-        module_map.values()
-    )
-
+    internal_modules = set(module_map.values())
 
     graph_data: dict[str, Any] = {
-
         "root": str(root),
-
         "modules": [],
-
         "classes": 0,
-
         "functions": 0,
-
         "module_count": len(files),
-
         "dependencies": [],
     }
 
-
     graph = nx.DiGraph() if nx else None
-
 
     dependency_edges: set[tuple[str, str]] = set()
 
-
-
     for path in files:
-
         module = module_map[path]
 
         tree = parse_ast(path)
-
 
         class_count = 0
 
         function_count = 0
 
-
         internal_dependencies: set[str] = set()
 
         external_dependencies: set[str] = set()
 
-
-
         if tree is not None:
-
             for node in ast.walk(tree):
-
-
                 if isinstance(node, ast.ClassDef):
-
                     class_count += 1
 
-
-
-                elif isinstance(
-                    node,
-                    (
-                        ast.FunctionDef,
-                        ast.AsyncFunctionDef
-                    )
-                ):
-
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     function_count += 1
 
-
-
-                elif isinstance(
-                    node,
-                    (
-                        ast.Import,
-                        ast.ImportFrom
-                    )
-                ):
-
-
+                elif isinstance(node, (ast.Import, ast.ImportFrom)):
                     imported = get_import_name(node)
-
 
                     if imported is None:
                         continue
-
-
 
                     # recherche d'un module interne
 
                     matching_internal = None
 
-
                     for internal in internal_modules:
-
-                        if (
-                            imported == internal
-                            or imported.startswith(
-                                internal + "."
-                            )
-                        ):
-
+                        if imported == internal or imported.startswith(internal + "."):
                             matching_internal = internal
                             break
 
-
-
                     if matching_internal:
+                        internal_dependencies.add(matching_internal)
 
-                        internal_dependencies.add(
-                            matching_internal
-                        )
-
-                        dependency_edges.add(
-                            (
-                                module,
-                                matching_internal
-                            )
-                        )
+                        dependency_edges.add((module, matching_internal))
 
                     else:
-
-                        external_dependencies.add(
-                            imported.split(".")[0]
-                        )
-
-
+                        external_dependencies.add(imported.split(".")[0])
 
         module_info = {
-
             "module": module,
-
             "path": str(path),
-
             "lines": count_lines(path),
-
             "classes": class_count,
-
             "functions": function_count,
-
-            "internal_dependencies":
-                sorted(internal_dependencies),
-
-            "external_dependencies":
-                sorted(external_dependencies),
+            "internal_dependencies": sorted(internal_dependencies),
+            "external_dependencies": sorted(external_dependencies),
         }
 
-
-        graph_data["modules"].append(
-            module_info
-        )
-
+        graph_data["modules"].append(module_info)
 
         graph_data["classes"] += class_count
 
         graph_data["functions"] += function_count
 
-
-
         if graph is not None:
-
             graph.add_node(
-                module,
-                classes=class_count,
-                functions=function_count,
-                lines=count_lines(path)
+                module, classes=class_count, functions=function_count, lines=count_lines(path)
             )
 
-
             for dependency in internal_dependencies:
-
-                graph.add_edge(
-                    module,
-                    dependency
-                )
-
-
+                graph.add_edge(module, dependency)
 
     graph_data["dependencies"] = [
-
-        {
-            "source": source,
-            "target": target
-        }
-
-        for source, target
-        in sorted(dependency_edges)
-
+        {"source": source, "target": target} for source, target in sorted(dependency_edges)
     ]
 
-
-    return {
-        "data": graph_data,
-        "graph": graph
-    }
-
-
+    return {"data": graph_data, "graph": graph}
 
 
 def _module_to_package(module: str) -> str:
@@ -302,7 +187,9 @@ def aggregate_graph_to_packages(
         package = to_package(node)
         node_counts[package] = node_counts.get(package, 0) + 1
 
-    top_packages = set(sorted(node_counts, key=lambda package: node_counts[package], reverse=True)[:top_n])
+    top_packages = set(
+        sorted(node_counts, key=lambda package: node_counts[package], reverse=True)[:top_n]
+    )
 
     package_graph = nx.DiGraph()
     package_graph.add_nodes_from(top_packages)
@@ -329,144 +216,64 @@ def save_graph(
     node_is_module: bool = True,
 ) -> None:
 
-
     if graph is None:
         return
 
-
-    output_path.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if output_path.suffix.lower() == ".graphml":
-
-        nx.write_graphml(
-            graph,
-            output_path
-        )
+        nx.write_graphml(graph, output_path)
 
         return
-
-
 
     if output_path.suffix.lower() == ".json":
-
         data = {
-
-            "nodes": list(
-                graph.nodes(data=True)
-            ),
-
-            "edges": list(
-                graph.edges()
-            ),
+            "nodes": list(graph.nodes(data=True)),
+            "edges": list(graph.edges()),
         }
 
-
-        output_path.write_text(
-            json.dumps(
-                data,
-                indent=2
-            ),
-            encoding="utf-8"
-        )
+        output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
         return
 
-
-
     try:
-
         import matplotlib.pyplot as plt
 
-    except ImportError:
-
-        raise RuntimeError(
-            "matplotlib is required for image graph output"
-        )
-
+    except ImportError as exc:
+        raise RuntimeError("matplotlib is required for image graph output") from exc
 
     graph = aggregate_graph_to_packages(graph, package_depth, top_n, node_is_module)
 
+    plt.figure(figsize=(16, 10))
 
-    plt.figure(
-        figsize=(16, 10)
-    )
+    positions = nx.spring_layout(graph, seed=42)
 
-
-    positions = nx.spring_layout(
-        graph,
-        seed=42
-    )
-
-
-    nx.draw_networkx(
-        graph,
-        positions,
-        node_size=500,
-        font_size=7,
-        arrows=True
-    )
-
+    nx.draw_networkx(graph, positions, node_size=500, font_size=7, arrows=True)
 
     plt.axis("off")
 
     plt.tight_layout()
 
-    plt.savefig(
-        output_path,
-        dpi=200
-    )
+    plt.savefig(output_path, dpi=200)
 
     plt.close()
 
 
-
 def main() -> None:
 
-
     parser = argparse.ArgumentParser(
-        description=
-        "Extract architecture metrics from a Python repository"
+        description="Extract architecture metrics from a Python repository"
     )
 
+    parser.add_argument("--root", type=Path, default=Path.cwd())
 
-    parser.add_argument(
-        "--root",
-        type=Path,
-        default=Path.cwd()
-    )
+    parser.add_argument("--repo", type=str, default=None)
 
+    parser.add_argument("--branch", type=str, default=None)
 
-    parser.add_argument(
-        "--repo",
-        type=str,
-        default=None
-    )
+    parser.add_argument("--output", type=Path, default=None)
 
-
-    parser.add_argument(
-        "--branch",
-        type=str,
-        default=None
-    )
-
-
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None
-    )
-
-
-    parser.add_argument(
-        "--graph-output",
-        type=Path,
-        default=None
-    )
-
+    parser.add_argument("--graph-output", type=Path, default=None)
 
     parser.add_argument(
         "--package-depth",
@@ -475,7 +282,6 @@ def main() -> None:
         help="Number of dotted segments used to group packages in image graph output (1 = top-level package)",
     )
 
-
     parser.add_argument(
         "--top-n-packages",
         type=int,
@@ -483,69 +289,30 @@ def main() -> None:
         help="Maximum number of packages shown in image graph output",
     )
 
-
     args = parser.parse_args()
 
-
-
     if nx is None:
+        raise SystemExit(f"networkx is required: {NETWORKX_ERROR}")
 
-        raise SystemExit(
-            f"networkx is required: {NETWORKX_ERROR}"
-        )
-
-
-
-    with resolve_repository_root(
-        args.root,
-        args.repo,
-        args.branch
-    ) as root:
-
-
+    with resolve_repository_root(args.root, args.repo, args.branch) as root:
         result = collect_architecture(root)
-
 
         data = result["data"]
 
         graph = result["graph"]
 
-
-
-        output = json.dumps(
-            data,
-            indent=2
-        )
-
+        output = json.dumps(data, indent=2)
 
         if args.output is None:
-
             print(output)
 
         else:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
 
-            args.output.parent.mkdir(
-                parents=True,
-                exist_ok=True
-            )
-
-
-            args.output.write_text(
-                output,
-                encoding="utf-8"
-            )
-
-
+            args.output.write_text(output, encoding="utf-8")
 
         if args.graph_output:
-
-            save_graph(
-                graph,
-                args.graph_output,
-                args.package_depth,
-                args.top_n_packages
-            )
-
+            save_graph(graph, args.graph_output, args.package_depth, args.top_n_packages)
 
 
 if __name__ == "__main__":

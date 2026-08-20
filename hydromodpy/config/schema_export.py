@@ -7,7 +7,7 @@ configurations.
 
 The exporter preserves the rich ``json_schema_extra`` annotations attached
 to fields (``widget_type``, ``unit``, ``display_name_fr``, ``help_text_fr``,
-``display_min``, ``display_max``) which a front-end (Streamlit, React, ...)
+``display_min``, ``display_max``) which a front-end (React, ...)
 can consume to render tailored widgets.
 
 Profile filtering

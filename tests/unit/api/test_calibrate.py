@@ -30,7 +30,7 @@ def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path
         captured["kwargs"] = kwargs
         return {"report": "ok"}
 
-    monkeypatch.setattr("hydromodpy.calibration.cli_runner.run_calibration_cli", fake_cli)
+    monkeypatch.setattr("hydromodpy.calibration.runners.cli_runner.run_calibration_cli", fake_cli)
 
     result = hmp.calibrate(config, project="my_label")
     assert result == {"report": "ok"}
@@ -50,7 +50,7 @@ def test_calibrate_with_path_drops_headless_kwarg(monkeypatch, tmp_path: Path) -
         captured["kwargs"] = kwargs
         return None
 
-    monkeypatch.setattr("hydromodpy.calibration.cli_runner.run_calibration_cli", fake_cli)
+    monkeypatch.setattr("hydromodpy.calibration.runners.cli_runner.run_calibration_cli", fake_cli)
 
     hmp.calibrate(config, headless=False)
     assert "headless" not in captured["kwargs"]

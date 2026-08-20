@@ -1,8 +1,7 @@
 """Application-level configuration API.
 
 ``HydroModPyConfig`` assembles the full user-facing TOML tree, so it sits above
-``core``. The generic config helpers remain under ``hydromodpy.core.config``.
-Per-layer sub-section configs live in their own packages (e.g.
+``core``. Per-layer sub-section configs live in their own packages (e.g.
 ``hydromodpy.analysis.config:AnalysisConfig``).
 """
 

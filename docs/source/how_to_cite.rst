@@ -129,5 +129,5 @@ lock as mandatory; normal runs without enough cache evidence emit a
 reproducibility warning instead of failing.
 
 When citing a specific result, please report the package version and
-the solver binary version (``hmp version``) in addition to the entries
+the solver binary version (``hmp --version``) in addition to the entries
 above.

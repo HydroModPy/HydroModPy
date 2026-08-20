@@ -31,7 +31,6 @@ registry, see :doc:`/architecture/overview/contracts`.
    hydromodpy.index
    hydromodpy.compare_pair
    hydromodpy.report
-   hydromodpy.audit_prune
    hydromodpy.bootstrap_proj
    hydromodpy.doctor
 

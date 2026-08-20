@@ -1,4 +1,4 @@
-"""SimulationZarr: per-simulation Zarr v2 store (CF-1.11 + ACDD-1.3 + UGRID-1.0).
+"""SimulationZarr: per-simulation Zarr v3 store (CF-1.11 + ACDD-1.3 + UGRID-1.0).
 
 Thin facade over four single-concern modules:
 
@@ -9,7 +9,7 @@ Thin facade over four single-concern modules:
 * :mod:`hydromodpy.results.zarr_store.zarr_reader` — every ``read_*`` and
   the root-attribute readers.
 * :mod:`hydromodpy.results.zarr_store.zarr_finalizer` — write lock,
-  ``consolidate_metadata``, ``pack_to_zip``, ``close``.
+  ``consolidate_metadata``, ``close``.
 
 Refer to ``reports_db/03_zarr_stores.md`` and
 ``reports_db/99_target_architecture.md`` §5 for the layout contract.
@@ -28,8 +28,8 @@ from upath import UPath
 
 from hydromodpy.results.zarr_store import zarr_finalizer, zarr_reader, zarr_writer
 from hydromodpy.results.zarr_store.zarr_finalizer import (
-    LOCK_FILE_NAME,
     LOCK_TIMEOUT_SECONDS,
+    lock_path_for_store,
 )
 from hydromodpy.results.zarr_store.zarr_finalizer import DummyLock as _DummyLock
 from hydromodpy.results.zarr_store.zarr_schema import (
@@ -54,11 +54,11 @@ from hydromodpy.results.zarr_store.zarr_schema import (
 
 def _file_lock_for_store(path: Path) -> FileLock:
     """Build the store lock using extended-length paths on Windows."""
-    return FileLock(str(_windows_long_path(path / LOCK_FILE_NAME)))
+    return FileLock(str(_windows_long_path(lock_path_for_store(path))))
 
 
 class SimulationZarr:
-    """Per-simulation Zarr v2 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
+    """Per-simulation Zarr v3 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
 
     def __init__(self, path: Path | UPath | str, *, balanced: bool = True) -> None:
         self._path = Path(str(path))
@@ -146,6 +146,8 @@ class SimulationZarr:
         source_cell_indices: np.ndarray | None = None,
         topography: np.ndarray | None = None,
         *,
+        topography_reference: np.ndarray | None = None,
+        layer_thickness: np.ndarray | None = None,
         start_index: int = 0,
         grid_type: str | None = None,
         structured_shape: tuple[int, int] | None = None,
@@ -159,6 +161,8 @@ class SimulationZarr:
             layer_indices,
             source_cell_indices,
             topography,
+            topography_reference=topography_reference,
+            layer_thickness=layer_thickness,
             start_index=start_index,
             grid_type=grid_type,
             structured_shape=structured_shape,
@@ -232,6 +236,25 @@ class SimulationZarr:
             subgroup=subgroup,
         )
 
+    def write_field_stack(
+        self,
+        variable: str,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        timestep_offset: int = 0,
+        subgroup: str | None = None,
+    ) -> None:
+        """Write a full ``(time, ...)`` stack of ``variable`` in one batched call."""
+        zarr_writer.write_field_stack(
+            self,
+            variable,
+            values,
+            n_timesteps=n_timesteps,
+            timestep_offset=timestep_offset,
+            subgroup=subgroup,
+        )
+
     def read_field(
         self,
         variable: str,
@@ -241,6 +264,38 @@ class SimulationZarr:
         layer: int | None = None,
     ) -> np.ndarray:
         return zarr_reader.read_field(self, variable, timestep, subgroup=subgroup, layer=layer)
+
+    def read_time(self) -> np.ndarray | None:
+        """Return the CF ``/time`` axis as ``datetime64[ns]``, or ``None``.
+
+        This axis is the single source of truth for the simulation clock: the
+        exact stress-period timestamps the solver wrote, shared by every field
+        array. Stored as integer offsets since the CF epoch (1970-01-01), so a
+        plain numpy cast decodes it without a calendar library.
+        """
+        root = self._root
+        if root is None or "time" not in root:
+            return None
+        arr = root["time"]
+        values = np.asarray(arr[:])
+        if values.size == 0:
+            return None
+        units = str(dict(arr.attrs).get("units", "seconds since 1970-01-01"))
+        if "since 1970-01-01" not in units:
+            # The decode below assumes the 1970 epoch; a different epoch would
+            # silently shift the whole clock (~30 years for a 2000 anchor).
+            raise ValueError(
+                f"SimulationZarr.read_time: time units {units!r} are not anchored to "
+                "'since 1970-01-01'; the clock cannot be decoded without an epoch offset."
+            )
+        unit_code = "s"
+        if units.startswith("days"):
+            unit_code = "D"
+        elif units.startswith("hours"):
+            unit_code = "h"
+        elif units.startswith("minutes"):
+            unit_code = "m"
+        return values.astype(f"datetime64[{unit_code}]").astype("datetime64[ns]")
 
     # -- Forcing -------------------------------------------------------------
 
@@ -300,6 +355,22 @@ class SimulationZarr:
     def read_geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
         return zarr_reader.read_geographic_raster(self, name)
 
+    # -- Lake abacus comparison ----------------------------------------------
+
+    def write_lake_abacus(self, lake_id: str, **arrays: Any) -> None:
+        """Persist a lake's reference vs simulated abacus under ``lake_abacus/<id>``."""
+        zarr_writer.write_lake_abacus(self, lake_id, **arrays)
+
+    def read_lake_abacus(self, lake_id: str) -> dict:
+        return zarr_reader.read_lake_abacus(self, lake_id)
+
+    def lake_abacus_lakes(self) -> list[str]:
+        return zarr_reader.lake_abacus_lakes(self)
+
+    def write_lake_restart_state(self, stages: dict[str, float]) -> None:
+        """Persist each lake's final stage under ``lake_state_final`` (hotstart)."""
+        zarr_writer.write_lake_restart_state(self, stages)
+
     # -- ACDD ----------------------------------------------------------------
 
     def write_acdd_root_attrs(
@@ -337,9 +408,9 @@ class SimulationZarr:
         """Consolidate Zarr metadata into a single ``.zmetadata`` entry."""
         zarr_finalizer.consolidate_metadata(self._store, self._path)
 
-    def pack_to_zip(self) -> Path:
-        """Compact the directory-based Zarr store into a ``.zarr.zip`` file."""
-        return zarr_finalizer.pack_to_zip(self)
+    def drop_group(self, name: str) -> int:
+        """Delete a top-level group; returns the bytes freed on disk."""
+        return zarr_finalizer.drop_group(self, name)
 
     def close(self) -> None:
         zarr_finalizer.close(self)
@@ -357,7 +428,6 @@ class SimulationZarr:
 
 
 __all__ = [
-    "LOCK_FILE_NAME",
     "LOCK_TIMEOUT_SECONDS",
     "SimulationZarr",
     "_ensure_local_zarr_node_dir",

@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.progress import log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -149,7 +149,7 @@ def _find_nearest(
     tg_name = str(closest.get("name", tg_id))
     tg_lat = float(closest["latitude"])
     tg_lon = float(closest["longitude"])
-    log_step(f"SHOM: nearest tide gauge: {tg_name} ({tg_id}) at ({tg_lat:.4f}, {tg_lon:.4f})")
+    logger.debug(f"SHOM: nearest tide gauge: {tg_name} ({tg_id}) at ({tg_lat:.4f}, {tg_lon:.4f})")
     return tg_id, tg_name, tg_lat, tg_lon
 
 
@@ -174,22 +174,25 @@ def _download_sea_level(
     interval = "60"  # minutes
     chunks: list[pd.DataFrame] = []
 
+    total_chunks = (date_end - date_start).days // 32 + 1
     current = date_start
-    while current <= date_end:
-        chunk_end = min(current + timedelta(days=31), date_end)
-        dt_start = f"{current.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
-        dt_end = f"{chunk_end.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
-        url = (
-            f"{API_BASE}/observation/json/{tg_id}"
-            f"?sources={sources}&dtStart={dt_start}&dtEnd={dt_end}&interval={interval}"
-        )
-        response = session.get(url, timeout=60)
-        response.raise_for_status()
-        data = response.json().get("data", [])
-        if data:
-            chunk_df = pd.DataFrame(data).reindex(columns=["timestamp", "value"])
-            chunks.append(chunk_df[["timestamp", "value"]])
-        current = chunk_end + timedelta(days=1)
+    with progress.task("Downloading SHOM sea level", total=total_chunks) as handle:
+        while current <= date_end:
+            chunk_end = min(current + timedelta(days=31), date_end)
+            dt_start = f"{current.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
+            dt_end = f"{chunk_end.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
+            url = (
+                f"{API_BASE}/observation/json/{tg_id}"
+                f"?sources={sources}&dtStart={dt_start}&dtEnd={dt_end}&interval={interval}"
+            )
+            response = session.get(url, timeout=60)
+            response.raise_for_status()
+            data = response.json().get("data", [])
+            if data:
+                chunk_df = pd.DataFrame(data).reindex(columns=["timestamp", "value"])
+                chunks.append(chunk_df[["timestamp", "value"]])
+            current = chunk_end + timedelta(days=1)
+            handle.advance()
 
     if not chunks:
         return pd.DataFrame(columns=["timestamp", "value"])
@@ -218,7 +221,7 @@ def _try_load_cached(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     if os.path.exists(filepath):
-        log_step(f"SHOM: cache hit {filename}")
+        logger.debug(f"SHOM: cache hit {filename}")
         return pd.read_csv(filepath, parse_dates=["timestamp"])
     return None
 
@@ -241,4 +244,4 @@ def _write_cache(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     df.to_csv(filepath, index=False)
-    log_step(f"SHOM: cached data to {filename}")
+    logger.debug(f"SHOM: cached data to {filename}")

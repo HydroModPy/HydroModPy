@@ -775,7 +775,7 @@ def _write_distance_rows(path: Path, rows: list[dict[str, str]]) -> None:
 
 def generate_release_accumulation_distance_metrics(records: list[SimulationRecord]) -> int:
     try:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
     except Exception:
         return 0
 
@@ -790,7 +790,7 @@ def generate_release_accumulation_distance_metrics(records: list[SimulationRecor
             continue
         catalog = None
         try:
-            catalog = SimulationCatalog(resolve_recorded_path(run_folder))
+            catalog = Catalog(resolve_recorded_path(run_folder))
             run = catalog[str(sim_id)]
             if not run.has_field("release_accumulation_flux") or not run.has_hydrographic_network(
                 "reference"
@@ -837,7 +837,7 @@ def generate_release_accumulation_distance_metrics(records: list[SimulationRecor
 
 def generate_field_figures(records: list[SimulationRecord]) -> int:
     try:
-        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.results.catalog import Catalog
     except Exception:
         return 0
 
@@ -850,7 +850,7 @@ def generate_field_figures(records: list[SimulationRecord]) -> int:
             continue
         catalog = None
         try:
-            catalog = SimulationCatalog(resolve_recorded_path(run_folder))
+            catalog = Catalog(resolve_recorded_path(run_folder))
             run = catalog[str(sim_id)]
             for variable, title in (
                 ("release_flux", "Emergences avant routage - intensite moyenne positive"),

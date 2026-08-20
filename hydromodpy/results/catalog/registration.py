@@ -1,21 +1,34 @@
 """Simulation registration into the catalog.
 
 ``register_simulation`` is the entry point that allocates a new ``sim_id``
-row, applies on-collision rules (replace / fail / version), computes a
-human-readable storage basename, and creates the initial :class:`SimulationZarr`
-when mesh dimensions are known. The rest of the write surface
-(``write_parameters``, ``write_timeseries`` ...) lives in
+row, applies on-collision rules (replace / fail / version), derives the run
+directory from the final run name, and creates the initial
+:class:`SimulationZarr` in it when mesh dimensions are known. The rest of the
+write surface (``write_parameters``, ``write_timeseries`` ...) lives in
 :mod:`hydromodpy.results.catalog.writes`.
+
+The Zarr store is created at its final path, never staged: readers open
+``runs/<name>/fields.zarr`` while the run is still solving.
+
+Steady period convention
+------------------------
+A steady flow run may legitimately declare no ``[simulation.time]`` window:
+its solution is time-invariant, so there is nothing to span. Leaving the
+period empty would make it indistinguishable from a transient run whose
+bounds were lost, and would leave the manifest with an empty period block.
+Such a run is therefore registered with the degenerate period
+``period_start == period_end == started_at``: zero length says "no simulated
+duration", and the reference date is the only date the run can honestly
+claim, the instant it was computed. A steady run that *does* declare a
+window keeps the window it declared.
 """
 
 from __future__ import annotations
 
-import gc
 import hashlib
 import json
-import os
+import re
 import shutil
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -23,6 +36,7 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import RUNS_DIRNAME, to_workspace_relative
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
@@ -30,17 +44,81 @@ from hydromodpy.results.catalog.constants import (
 from hydromodpy.results.catalog.constants import (
     validate_solver_code as _validate_solver_code,
 )
+from hydromodpy.results.catalog.lifecycle import stamp_trash_marker
 from hydromodpy.results.catalog.ports import CatalogBackend
-from hydromodpy.results.catalog.storage_paths import build_storage_basename
-from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX
+from hydromodpy.results.catalog.storage_paths import run_dirname
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 
 logger = get_logger(__name__)
 
-OnCollisionMode = Literal["replace", "fail", "version"]
+IfExistsMode = Literal["replace", "fail", "version"]
 
-STAGED_ZARR_RENAME_ATTEMPTS = 8
-STAGED_ZARR_RENAME_BASE_DELAY_SECONDS = 0.05
+STEADY_FLOW_REGIME = "steady"
+"""Flow regime whose runs may carry a degenerate period (see module docstring)."""
+
+_VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
+
+
+def split_stem_version(name: str) -> tuple[str, int | None]:
+    """Split ``cheze_baseline.v3`` into ``("cheze_baseline", 3)``.
+
+    A bare name returns ``(name, None)``.
+    """
+    match = _VERSION_SUFFIX_RE.search(name)
+    if match:
+        return name[: match.start()], int(match.group(1))
+    return name, None
+
+
+_MEMORABLE_ADJECTIVES = (
+    "brisk",
+    "calm",
+    "bright",
+    "swift",
+    "quiet",
+    "bold",
+    "keen",
+    "warm",
+    "clear",
+    "deep",
+    "fair",
+    "lush",
+    "mild",
+    "wise",
+    "amber",
+    "azure",
+)
+_MEMORABLE_NOUNS = (
+    "heron",
+    "otter",
+    "marten",
+    "willow",
+    "alder",
+    "brook",
+    "fern",
+    "moss",
+    "spring",
+    "delta",
+    "ridge",
+    "meadow",
+    "harrier",
+    "kestrel",
+    "ibis",
+    "tern",
+)
+
+
+def _memorable_name(sim_id: str) -> str:
+    """Return a deterministic ``adjective_noun`` slug seeded from ``sim_id``.
+
+    Guarantees a programmatic run without an explicit name is still pronounceable
+    and never addressable by hex alone.
+    """
+    digest = int(hashlib.sha256(str(sim_id).encode()).hexdigest(), 16)
+    adjective = _MEMORABLE_ADJECTIVES[digest % len(_MEMORABLE_ADJECTIVES)]
+    noun = _MEMORABLE_NOUNS[(digest // len(_MEMORABLE_ADJECTIVES)) % len(_MEMORABLE_NOUNS)]
+    return f"{adjective}_{noun}"
 
 
 def _short_id(sim_id: str | UUID) -> str:
@@ -56,47 +134,79 @@ def _coerce_timestamp(value: Any) -> Any:
     return str(value)
 
 
-def _is_retryable_staged_zarr_rename_error(exc: BaseException) -> bool:
-    """Return True for transient Windows directory promotion failures."""
-    if os.name != "nt" or not isinstance(exc, PermissionError):
-        return False
-    winerror = getattr(exc, "winerror", None)
-    return winerror in (None, 5, 32)
+def portable_config_source(project_root: Path, config_source: str | Path | None) -> str | None:
+    """Return ``config_source`` as stored in the index: portable when it can be.
+
+    A configuration that lives inside the project is recorded relative to the
+    project root (``project.toml``, ``configs/winter.toml``), so a project that
+    is copied or moved still recognises its own runs. A configuration kept
+    outside the project has no project-relative form and is recorded as the
+    absolute path it is; the leading separator tells the two apart.
+    """
+    if config_source is None:
+        return None
+    try:
+        return to_workspace_relative(project_root, config_source)
+    except ValueError:
+        return str(config_source)
 
 
-def _promote_staged_zarr(source: Path, target: Path) -> None:
-    """Atomically promote a staged Zarr directory to its final location."""
-    source_io = _windows_long_path(source)
-    target_io = _windows_long_path(target)
-    for attempt in range(STAGED_ZARR_RENAME_ATTEMPTS):
-        try:
-            source_io.rename(target_io)
-            return
-        except PermissionError as exc:
-            if (
-                not _is_retryable_staged_zarr_rename_error(exc)
-                or attempt == STAGED_ZARR_RENAME_ATTEMPTS - 1
-            ):
-                raise
-            gc.collect()
-            time.sleep(STAGED_ZARR_RENAME_BASE_DELAY_SECONDS * (attempt + 1))
-
-
-def _next_available_version(
+def _resolve_registration_name(
     backend: CatalogBackend,
     project: str,
-    base_name: str,
-) -> str:
-    """Return ``base_name.v{n}`` where ``n`` is the smallest free integer >= 2."""
+    requested: str,
+    if_exists: IfExistsMode,
+) -> tuple[str, str, int, str | None]:
+    """Resolve the final ``(name, name_stem, version_int, replaced_sid)``.
+
+    Versioning is keyed on ``name_stem`` (the requested name with any trailing
+    ``.vN`` stripped). A registered name belongs to its run for good: a sealed
+    run is never renamed, so the bare stem *is* version 1 forever and every
+    later run of that stem gets the next free ``stem.vN``.
+
+    - ``version`` (default): mint the next free version behind the live runs of
+      the stem.
+    - ``replace``: trash the colliding predecessor, which keeps its name and
+      version (its stored run stays addressable and restorable), then mint the
+      next free version for the incoming run.
+    - ``fail``: raise :class:`DuplicateSimulationNameError` when a live run
+      already holds the stem.
+
+    Trashed rows still count when minting a version, because a trashed run may
+    keep its name and ``UNIQUE (project, name)`` spans every row.
+    """
+    stem, requested_version = split_stem_version(requested)
     rows = backend.fetch_all(
-        "SELECT name FROM simulations WHERE project = ? AND (name = ? OR name LIKE ?)",
-        [project, base_name, base_name + ".v%"],
+        "SELECT CAST(sim_id AS VARCHAR), name, version_int, "
+        "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+        "FROM simulations WHERE project = ? AND name_stem = ?",
+        [project, stem],
     )
-    existing = {r[0] for r in rows}
-    n = 2
-    while f"{base_name}.v{n}" in existing:
-        n += 1
-    return f"{base_name}.v{n}"
+    live = [r for r in rows if not r[3]]
+    taken = {r[1] for r in rows if r[1]}
+    if not live and requested not in taken:
+        return requested, stem, (requested_version or 1), None
+
+    if if_exists == "fail" and live:
+        raise DuplicateSimulationNameError(project, requested, str(live[0][0]))
+
+    replaced_sid: str | None = None
+    if if_exists == "replace" and live:
+        target = next((r for r in live if r[1] == requested), None)
+        if target is None:
+            target = max(live, key=lambda r: r[2] or 1)
+        backend.execute(
+            "UPDATE simulations SET original_name = COALESCE(original_name, name), "
+            "original_status_id = COALESCE(original_status_id, status_id), "
+            "trashed_at = current_timestamp, updated_at = current_timestamp, "
+            "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+            "WHERE sim_id = ?",
+            [target[0]],
+        )
+        replaced_sid = str(target[0])
+
+    next_version = max((r[2] or 1) for r in rows) + 1
+    return f"{stem}.v{next_version}", stem, next_version, replaced_sid
 
 
 def _epsg_from_crs(crs: str) -> int | None:
@@ -118,7 +228,7 @@ def _epsg_from_crs(crs: str) -> int | None:
 
 
 class DuplicateSimulationNameError(ValueError):
-    """Raised when on_collision='fail' and a (project, name) pair already exists."""
+    """Raised when if_exists='fail' and a (project, name) pair already exists."""
 
     def __init__(self, project: str, name: str, existing_sim_id: str) -> None:
         self.project = project
@@ -127,27 +237,27 @@ class DuplicateSimulationNameError(ValueError):
         super().__init__(
             f"Simulation '{name}' already exists in project '{project}' "
             f"(existing sim_id {_short_id(existing_sim_id)}). "
-            f"Use on_collision='replace' or 'version' to proceed."
+            f"Use if_exists='replace' or 'version' to proceed."
         )
 
 
 @dataclass(frozen=True)
 class RegistrationResult:
-    """Outcome of :meth:`SimulationCatalog.register_simulation`.
+    """Outcome of :meth:`Catalog.register_simulation`.
 
     Attributes
     ----------
     sim_id
         UUID of the newly registered simulation.
     name
-        Final name assigned to the simulation (may differ from the requested
-        name when ``on_collision='version'`` auto-suffixes it).
+        Final name assigned to the simulation (differs from the requested name
+        whenever the stem is already taken and a ``.vN`` is minted).
     zarr
         The freshly created :class:`SimulationZarr`, or ``None`` when mesh
         dimensions are not yet known at registration time.
     replaced_sim_id
-        UUID of a previously named simulation whose name was cleared by a
-        soft-replace. ``None`` when no collision occurred.
+        UUID of the predecessor trashed by ``if_exists='replace'``. It keeps
+        its own name and version. ``None`` when no collision occurred.
     """
 
     sim_id: str
@@ -157,7 +267,7 @@ class RegistrationResult:
 
 
 class RegistrationMixin:
-    """``register_simulation`` for :class:`SimulationCatalog`."""
+    """``register_simulation`` for :class:`Catalog`."""
 
     @audited("sim.register", payload_keys=("solver", "name"))
     @with_lock_retry()
@@ -168,7 +278,7 @@ class RegistrationMixin:
         solver: str,
         *,
         name: str | None = None,
-        on_collision: OnCollisionMode = "replace",
+        if_exists: IfExistsMode = "version",
         solver_category: str | None = None,
         flow_regime: str | None = None,
         config: dict | None = None,
@@ -201,11 +311,16 @@ class RegistrationMixin:
     ) -> RegistrationResult:
         sid = str(sim_id)
         replaced_sid: str | None = None
-        final_name = name
+        requested_name = name if name else _memorable_name(sid)
+        # Refuse an over-long name before any bookkeeping: the directory is
+        # named after the run, so a name the tree cannot carry is not a run.
+        run_dirname(requested_name)
+        final_name = requested_name
+        name_stem, _ = split_stem_version(requested_name)
+        version_int = 1
         zarr_obj: SimulationZarr | None = None
-        zarr_tmp: Path | None = None
         zarr_final: Path | None = None
-        storage_basename: str | None = None
+        dirname: str | None = None
 
         try:
             # Transactional block driven by the backend port. The surrounding
@@ -214,38 +329,24 @@ class RegistrationMixin:
             # try block and let ``CatalogBackend.transaction()`` handle the
             # rollback on exception before the outer cleanup runs.
             with self._backend.transaction():
-                if name:
-                    existing = self._backend.fetch_one(
-                        "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
-                        [project, name],
+                final_name, name_stem, version_int, replaced_sid = _resolve_registration_name(
+                    self._backend, project, requested_name, if_exists
+                )
+                if replaced_sid is not None:
+                    logger.info(
+                        "Replacing '%s' in project '%s' with '%s' (previous sim %s trashed)",
+                        requested_name,
+                        project,
+                        final_name,
+                        _short_id(replaced_sid),
                     )
-                    if existing:
-                        existing_sid = str(existing[0])
-                        if on_collision == "fail":
-                            raise DuplicateSimulationNameError(project, name, existing_sid)
-                        if on_collision == "replace":
-                            self._backend.execute(
-                                "UPDATE simulations SET name = NULL WHERE sim_id = ?",
-                                [existing_sid],
-                            )
-                            replaced_sid = existing_sid
-                            logger.info(
-                                "Reassigning name '%s' in project '%s' "
-                                "(previous sim %s kept, name cleared)",
-                                name,
-                                project,
-                                _short_id(existing_sid),
-                            )
-                        elif on_collision == "version":
-                            final_name = _next_available_version(self._backend, project, name)
-                            logger.info(
-                                "Auto-versioned '%s' -> '%s' in project '%s'",
-                                name,
-                                final_name,
-                                project,
-                            )
-                        else:
-                            raise ValueError(f"Unknown on_collision mode: '{on_collision}'")
+                elif final_name != requested_name:
+                    logger.info(
+                        "Auto-versioned '%s' -> '%s' in project '%s'",
+                        requested_name,
+                        final_name,
+                        project,
+                    )
 
                 if solver_category is None:
                     solver_category = _resolve_solver_category(solver)
@@ -272,32 +373,28 @@ class RegistrationMixin:
                 p_start = _coerce_timestamp(period_start)
                 p_end = _coerce_timestamp(period_end)
 
-                storage_basename = build_storage_basename(project, final_name, sid)
-                zarr_path = f"{SIMULATIONS_DIRNAME}/{storage_basename}{ZARR_SUFFIX}"
+                dirname = run_dirname(final_name)
+                zarr_path = f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}"
                 parent_sid = str(parent_sim_id) if parent_sim_id else None
-                config_source_str = str(config_source) if config_source is not None else None
+                config_source_str = portable_config_source(self._workspace, config_source)
 
                 if n_cells is not None and n_layers is not None:
                     zarr_final = self._workspace / zarr_path
-                    _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
-                    zarr_tmp = zarr_final.with_name(f".{_short_id(sid)}.staging.zarr")
                     if zarr_final.exists():
                         raise FileExistsError(f"Zarr store already exists: {zarr_final}")
-                    if zarr_tmp.exists():
-                        shutil.rmtree(_windows_long_path(zarr_tmp))
-                    staged = SimulationZarr.create(
-                        zarr_tmp,
+                    _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
+                    created = SimulationZarr.create(
+                        zarr_final,
                         n_cells=n_cells,
                         n_layers=n_layers,
                         cell_types=cell_types,
                         geographic_fingerprint=geographic_fingerprint,
                     )
-                    staged.close()
-                    _promote_staged_zarr(zarr_tmp, zarr_final)
+                    created.close()
 
                 self._backend.execute(
                     """INSERT INTO simulations
-                       (sim_id, name, project,
+                       (sim_id, name, name_stem, version_int, started_at, project,
                         solver_id, status_id, flow_regime_id, mesh_topology_id,
                         n_cells, n_layers, n_timesteps,
                         bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
@@ -308,7 +405,7 @@ class RegistrationMixin:
                         geographic_fingerprint, notes,
                         description, scientific_objective, contact_email, doi,
                         study_area_name, outlet_x, outlet_y)
-                       VALUES (?, ?, ?,
+                       VALUES (?, ?, ?, ?, current_timestamp, ?,
                                (SELECT id FROM solvers WHERE code = ?),
                                (SELECT id FROM statuses WHERE code = ?),
                                (SELECT id FROM flow_regimes WHERE code = ?),
@@ -322,6 +419,8 @@ class RegistrationMixin:
                     [
                         sid,
                         final_name,
+                        name_stem,
+                        version_int,
                         project,
                         solver_code_v2,
                         "running",
@@ -344,7 +443,7 @@ class RegistrationMixin:
                         config_hash,
                         config_source_str,
                         zarr_path,
-                        storage_basename,
+                        dirname,
                         parent_sid,
                         mesh_hash,
                         geographic_fingerprint,
@@ -358,6 +457,26 @@ class RegistrationMixin:
                         outlet_y,
                     ],
                 )
+                if p_start is None and p_end is None and flow_regime == STEADY_FLOW_REGIME:
+                    self._backend.execute(
+                        """UPDATE simulations
+                              SET period_start = started_at, period_end = started_at
+                            WHERE sim_id = ?""",
+                        [sid],
+                    )
+
+                if replaced_sid is not None:
+                    try:
+                        emit_audit_event(
+                            self._db,
+                            event_type="sim.trash",
+                            sim_id=replaced_sid,
+                            project=project,
+                            payload={"replaced_by": sid},
+                        )
+                    except Exception as exc:  # noqa: BLE001 - audit must not raise
+                        logger.warning("audit emission failed for sim.trash: %s", exc)
+
                 if tags:
                     for tag in tags:
                         self._backend.execute(
@@ -374,16 +493,21 @@ class RegistrationMixin:
                             )
                         except Exception as exc:  # noqa: BLE001 - audit must not raise
                             logger.warning("audit emission failed for sim.tag_add: %s", exc)
-        except Exception:
+        except BaseException:
+            # Widened to BaseException so a KeyboardInterrupt mid-registration
+            # still removes the promoted-but-uncommitted Zarr store instead of
+            # leaving it for the gc orphan sweep to delete.
             self._paths.forget(sid)
-            if zarr_tmp is not None and zarr_tmp.exists():
-                shutil.rmtree(zarr_tmp)
             if zarr_final is not None and zarr_final.exists():
                 shutil.rmtree(zarr_final)
             raise
 
-        if storage_basename is not None:
-            self._paths.cache_basename(sid, storage_basename)
+        if replaced_sid is not None:
+            # ``replace`` trashed the predecessor: stamp its directory too, or a
+            # rebuilt index would bring it back live and duplicate the stem.
+            stamp_trash_marker(self._backend, self._paths, replaced_sid)
+        if dirname is not None:
+            self._paths.cache_dirname(sid, dirname)
         if zarr_final is not None:
             zarr_obj = self._track_zarr_handle(SimulationZarr(zarr_final))
         return RegistrationResult(

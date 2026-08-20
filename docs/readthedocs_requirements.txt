@@ -39,5 +39,5 @@ tomli-w>=1.2.0,<2
 universal_pathlib>=0.2,<1
 filelock>=3.13,<4
 platformdirs>=4,<5
-tqdm>=4.67.3,<5
+rich>=13.9.4,<16
 argcomplete>=3.5,<4

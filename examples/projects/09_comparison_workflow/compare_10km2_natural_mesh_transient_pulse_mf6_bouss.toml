@@ -44,6 +44,9 @@ mf_verbose = false
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
 
+[comparison.simulation.overlay.modflow6.sgrid]
+grid_dual = "triangle"
+
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 

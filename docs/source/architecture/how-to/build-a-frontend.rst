@@ -3,13 +3,13 @@ Build a Frontend
 
 HydroModPy stays a pure Python library: it does not ship an HTTP
 server, FastAPI bindings, or websockets. Instead it exposes two
-stable contracts that any frontend (Streamlit, Angular, React,
+stable contracts that any frontend (Angular, React,
 Jupyter widget, electron app) can consume.
 
 Two integration points
 ----------------------
 
-1. **JSON Schema export** -- ``hmp schema export --output ./schema/``
+1. **JSON Schema export** -- ``hmp dev schema export --output ./schema/``
    writes three JSON files:
 
    .. code-block:: text
@@ -20,7 +20,7 @@ Two integration points
       `-- field_validators.json    # flat field_path -> validator_type
 
 2. **Partial-field validator** --
-   ``hmp schema validate-field <path> <value>`` runs the same
+   ``hmp dev schema validate-field <path> <value>`` runs the same
    validator your form should call on each keystroke (under 50 ms per
    call, no I/O).
 
@@ -55,36 +55,6 @@ annotations declared by the Pydantic models:
 These annotations form the contract between the Pydantic models and
 your frontend. Honour them and you avoid a custom mapping layer.
 
-Streamlit (local, Python)
--------------------------
-
-Streamlit is the shortest path because it runs in the same process:
-
-.. code-block:: python
-
-   import json
-   from pathlib import Path
-
-   import streamlit as st
-
-   schema = json.loads(Path("schema/config.json").read_text())
-   flow = schema["$defs"]["FlowConfig"]["properties"]
-
-   k = st.slider(
-       flow["k_aquifer"]["display_name_fr"],
-       min_value=flow["k_aquifer"]["display_min"],
-       max_value=flow["k_aquifer"]["display_max"],
-       help=flow["k_aquifer"]["help_text_fr"],
-   )
-   st.caption(f"Unite : {flow['k_aquifer']['unit']}")
-
-   if st.button("Run"):
-       toml_payload = {"flow": {"k_aquifer": k}}
-       hmp.run("hydromodpy.toml", set=toml_payload)
-
-A worked example lives at
-``examples/integrations/streamlit_app.py`` (when shipped).
-
 Angular (external repository)
 -----------------------------
 
@@ -93,7 +63,7 @@ Pair JSON Schema with ``ngx-formly`` or ``@rjsf/core``. Two steps:
 .. code-block:: bash
 
    # 1. Export the schema during the HydroModPy CI step.
-   hmp schema export --output ./src/app/api/schema/
+   hmp dev schema export --output ./src/app/api/schema/
 
 .. code-block:: ts
 
@@ -193,7 +163,7 @@ Tests to add
 
 - **Unit** for any custom Python service that wraps the schema
   exports.
-- **Schema diff CI**: re-run ``hmp schema export`` in CI and fail
+- **Schema diff CI**: re-run ``hmp dev schema export`` in CI and fail
   on diffs that the contributor did not commit.
 - **Smoke** call against ``validate_field`` for a few known good /
   bad pairs per release.

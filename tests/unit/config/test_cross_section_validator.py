@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.data.managers.config_schema import DataManagersConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 

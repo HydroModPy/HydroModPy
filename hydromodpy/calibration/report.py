@@ -15,6 +15,7 @@ Two concerns live here, both purely data-side:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -118,7 +119,7 @@ class CalibrationReport:
             raise ValueError("CalibrationReport has no workspace")
         if self.store_factory is not None:
             return self.store_factory(self.workspace)
-        from hydromodpy.calibration.state import default_store_factory
+        from hydromodpy.calibration.runners.state import default_store_factory
 
         return default_store_factory(self.workspace, None)
 
@@ -159,6 +160,9 @@ class SessionReportData:
     ----------
     session_id
         Canonical hex session identifier.
+    session_name
+        Readable name of the session directory on disk
+        (``<date>-<method>-<id8>``), so the report sits under the same name.
     session
         Row from ``calibration_sessions`` as a dict.
     iterations
@@ -178,12 +182,14 @@ class SessionReportData:
     """
 
     session_id: str
+    session_name: str
     session: dict[str, Any]
     iterations: list[dict[str, Any]]
     workspace_root: Path
     best_sim_id: str | None
     sim_timeseries: pd.DataFrame | None
     obs_timeseries: pd.DataFrame | None
+    variable: str = "discharge"
 
 
 # ---------------------------------------------------------------------------
@@ -191,50 +197,169 @@ class SessionReportData:
 # ---------------------------------------------------------------------------
 
 
+def _session_candidates(conn: Any) -> list[tuple[str, Any]]:
+    """Return ``[(session_hex, started_at)]`` ordered most-recent first."""
+    rows = conn.execute(
+        "SELECT session_id, started_at FROM calibration_sessions "
+        "ORDER BY started_at DESC NULLS LAST",
+    ).fetchall()
+    return [(_hex(r[0]), r[1]) for r in rows]
+
+
+def _sessions_for_sim_prefix(conn: Any, normalized: str) -> set[str]:
+    """Return session hexes whose calibration run matches ``normalized``.
+
+    Matches both iteration runs (``calibration_iterations.sim_id``) and the
+    promoted best run (``calibration_sessions.best_sim_id``), so a reference
+    copied from ``hmp catalog ls`` resolves to its parent session.
+    """
+    out: set[str] = set()
+    for session_id, sim_id in conn.execute(
+        "SELECT session_id, sim_id FROM calibration_iterations WHERE sim_id IS NOT NULL"
+    ).fetchall():
+        if _hex(sim_id).startswith(normalized):
+            out.add(_hex(session_id))
+    for session_id, best in conn.execute(
+        "SELECT session_id, best_sim_id FROM calibration_sessions WHERE best_sim_id IS NOT NULL"
+    ).fetchall():
+        if _hex(best).startswith(normalized):
+            out.add(_hex(session_id))
+    return out
+
+
+def _match_session_ids(conn: Any, raw: str) -> list[str]:
+    """Return session hexes matching ``raw`` as a session id or a run id.
+
+    ``raw`` is a full UUID or a unique hex prefix. A reference that matches a
+    calibration run (an iteration sim_id or the promoted best run) resolves to
+    that run's parent session. Never raises; returns ``[]`` on no match.
+    """
+    import uuid
+
+    normalized = raw.replace("-", "").lower()
+    candidates = {h for h, _ in _session_candidates(conn)}
+    if not candidates:
+        return []
+    hits: set[str] = set()
+    if len(normalized) == 32:
+        try:
+            full = uuid.UUID(normalized).hex
+        except ValueError:
+            full = None
+        if full is not None and full in candidates:
+            hits.add(full)
+    else:
+        hits.update(h for h in candidates if h.startswith(normalized))
+    hits.update(h for h in _sessions_for_sim_prefix(conn, normalized) if h in candidates)
+    return sorted(hits)
+
+
 def resolve_calibration_session_id(
     catalog: Any,
     raw: str | None,
 ) -> str:
-    """Return the canonical hex session id for ``raw``.
+    """Return the canonical hex session id for ``raw`` in one catalog.
 
     ``raw`` accepts a full UUID (hex or dashed, 32 hex chars) or a unique
-    prefix of >= 1 hex char. When ``raw`` is ``None``, return the most
-    recently started session.
+    prefix of >= 1 hex char, matching either a calibration session id or a
+    calibration run id (mapped to its parent session). When ``raw`` is
+    ``None``, return the most recently started session.
     """
-    import uuid
-
     from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 
-    rows = catalog.connection.execute(
-        "SELECT session_id, started_at FROM calibration_sessions "
-        "ORDER BY started_at DESC NULLS LAST",
-    ).fetchall()
-    candidates = [r[0].hex if hasattr(r[0], "hex") else str(r[0]).replace("-", "") for r in rows]
+    candidates = _session_candidates(catalog.connection)
     if not candidates:
         raise ConfigMissingError("No calibration session found in the workspace catalog.")
-
     if raw is None:
-        return candidates[0]
-
-    normalized = raw.replace("-", "").lower()
-    if len(normalized) == 32:
-        try:
-            full = uuid.UUID(normalized).hex
-        except ValueError as exc:
-            raise ConfigError(f"Invalid calibration session id {raw!r}: {exc}") from exc
-        if full in candidates:
-            return full
-        raise ConfigMissingError(f"Unknown calibration session {raw!r}.")
-
-    matches = [c for c in candidates if c.startswith(normalized)]
+        return candidates[0][0]
+    matches = _match_session_ids(catalog.connection, raw)
     if not matches:
-        raise ConfigMissingError(f"No calibration session matches {raw!r}.")
+        raise ConfigMissingError(f"No calibration session or run matches {raw!r}.")
     if len(matches) > 1:
         raise ConfigError(
-            f"Session prefix {raw!r} is ambiguous ({len(matches)} matches). "
-            "Use more hex characters."
+            f"Reference {raw!r} is ambiguous ({len(matches)} sessions). Use more hex characters."
         )
     return matches[0]
+
+
+def _iter_catalog_roots(workspace_root: Path) -> list[Path]:
+    """Return the workspace catalog roots (single canonical federation helper)."""
+    from hydromodpy.results.catalog import iter_project_catalog_roots
+
+    return iter_project_catalog_roots(workspace_root)
+
+
+def resolve_session_in_workspace(
+    workspace_root: Path,
+    raw: str | None,
+) -> tuple[Path, str]:
+    """Resolve a calibration session across a whole workspace.
+
+    Searches the workspace-level catalog and every ``projects/<name>`` catalog
+    under ``workspace_root``. ``raw`` may be a session id/prefix or a
+    calibration run id/prefix (mapped to its parent session). ``None`` selects
+    the most recently started session anywhere in the workspace.
+
+    Returns ``(catalog_root, session_hex)``: the project root whose catalog owns
+    the session, ready to open for rendering.
+    """
+    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+    from hydromodpy.results.catalog import Catalog
+
+    workspace_root = Path(workspace_root).expanduser().resolve()
+    roots = _iter_catalog_roots(workspace_root)
+    if not roots:
+        raise ConfigMissingError(
+            f"No catalog found under {workspace_root}. Pass -w <workspace-or-project>."
+        )
+    if len(roots) == 1:
+        with Catalog(roots[0], read_only=True) as catalog:
+            return roots[0], resolve_calibration_session_id(catalog, raw)
+
+    matches: list[tuple[Path, str, Any]] = []
+    for root in roots:
+        try:
+            with Catalog(root, read_only=True) as catalog:
+                conn = catalog.connection
+                if raw is None:
+                    cands = _session_candidates(conn)
+                    if cands:
+                        matches.append((root, cands[0][0], cands[0][1]))
+                else:
+                    started = dict(_session_candidates(conn))
+                    matches.extend(
+                        (root, sid, started.get(sid)) for sid in _match_session_ids(conn, raw)
+                    )
+        except Exception as exc:  # a locked or stale catalog must not hide the rest
+            logger.warning("report: skipping catalog %s: %s", root, exc)
+
+    if not matches:
+        if raw is None:
+            raise ConfigMissingError(
+                f"No calibration session found in any project under {workspace_root}."
+            )
+        raise ConfigMissingError(
+            f"No calibration session or run matches {raw!r} in workspace {workspace_root}. "
+            "Run 'hmp catalog ls' to list runs."
+        )
+    if raw is None:
+        matches.sort(
+            key=lambda m: (m[2] is not None, m[2].timestamp() if m[2] is not None else 0.0),
+            reverse=True,
+        )
+        return matches[0][0], matches[0][1]
+    distinct = {(root, sid) for root, sid, _ in matches}
+    if len(distinct) > 1:
+        listing = ", ".join(
+            f"{root.name}/{sid[:8]}"
+            for root, sid in sorted(distinct, key=lambda x: (x[0].name, x[1]))
+        )
+        raise ConfigError(
+            f"Reference {raw!r} is ambiguous across the workspace: {listing}. "
+            "Use more hex characters or pass -w <project_dir>."
+        )
+    root, sid = next(iter(distinct))
+    return root, sid
 
 
 def load_session_report_data(
@@ -252,19 +377,42 @@ def load_session_report_data(
     """
     session_row = _load_session(catalog, session_id)
     iterations = _load_iterations(catalog, session_id)
+    variable = _calibration_variable(session_row)
     best_sim_id = _pick_report_sim_id(session_row, iterations)
     sim_df = obs_df = None
     if best_sim_id is not None:
-        sim_df, obs_df = _load_best_discharge(catalog, best_sim_id)
+        sid = _dashed(best_sim_id)
+        if variable == "lake_level":
+            sim_df, obs_df = _load_best_lake_level(catalog, sid)
+        else:
+            sim_df, obs_df = _load_best_discharge(catalog, sid)
     return SessionReportData(
         session_id=session_id,
+        session_name=_session_name(session_row, session_id),
         session=session_row,
         iterations=iterations,
         workspace_root=Path(workspace_root),
         best_sim_id=best_sim_id,
         sim_timeseries=sim_df,
         obs_timeseries=obs_df,
+        variable=variable,
     )
+
+
+def _session_name(session_row: dict, session_id: str) -> str:
+    """Return the on-disk directory name of the session.
+
+    Rebuilt from the same ``(method, started_at)`` pair the journal used, so
+    a report never invents a second vocabulary for one session.
+    """
+    from datetime import datetime
+
+    from hydromodpy.results.session_journal import session_dir_name
+
+    started_at = session_row["started_at"]
+    if not isinstance(started_at, datetime):
+        started_at = datetime.fromisoformat(str(started_at))
+    return session_dir_name(session_id, str(session_row["method"]), started_at)
 
 
 # ---------------------------------------------------------------------------
@@ -278,11 +426,13 @@ def _load_session(catalog: Any, session_id: str) -> dict:
     sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
     row = catalog.connection.execute(
         """
-        SELECT session_id, project, method, objective_name,
-               n_iterations, config, started_at, ended_at, status,
-               best_sim_id, best_objective, duration_s
-          FROM calibration_sessions
-         WHERE session_id = ?
+        SELECT s.session_id, s.project, s.method, s.objective_name,
+               s.n_iterations, s.config, s.started_at, s.ended_at,
+               st.code AS status,
+               s.best_sim_id, s.best_objective, s.duration_s
+          FROM calibration_sessions s
+          LEFT JOIN statuses st ON st.id = s.status_id
+         WHERE s.session_id = ?
         """,
         [sid],
     ).fetchone()
@@ -309,6 +459,66 @@ def _load_iterations(catalog: Any, session_id: str) -> list[dict]:
     from hydromodpy.calibration.persistence import CalibrationPersistence
 
     return CalibrationPersistence(catalog).load_iterations(session_id)
+
+
+def _calibration_variable(session_row: dict) -> str:
+    """Return the calibrated variable from the persisted session config."""
+    config = session_row.get("config")
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except (TypeError, ValueError):
+            config = {}
+    if isinstance(config, dict):
+        return str(config.get("variable", "discharge"))
+    return "discharge"
+
+
+def _dashed(value: Any) -> str:
+    """Normalize a sim id to the dashed UUID form stored in the catalog."""
+    import uuid
+
+    hexed = _hex(value)
+    try:
+        return str(uuid.UUID(hexed))
+    except ValueError:
+        return str(value)
+
+
+def _load_best_lake_level(
+    catalog: Any, sim_id: str
+) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+    """Return (simulated stage, observed lake level) for ``sim_id``.
+
+    The simulated LAK stage comes from the catalog ``timeseries`` (one
+    ``lake:<id>`` station per lake); the observed series comes from the
+    ``observations`` table populated at promotion. Either side may be ``None``
+    when the catalog has no matching rows.
+    """
+    try:
+        stations = catalog.backend.query(
+            "SELECT DISTINCT station_id FROM timeseries "
+            "WHERE sim_id = ? AND variable = 'stage' AND station_id LIKE 'lake:%' "
+            "ORDER BY station_id",
+            [sim_id],
+        )
+        if stations.empty:
+            return None, None
+        station = str(stations.iloc[0, 0])
+        sim_df = catalog.backend.query(
+            "SELECT time AS datetime, value FROM timeseries "
+            "WHERE sim_id = ? AND station_id = ? AND variable = 'stage' ORDER BY timestep",
+            [sim_id, station],
+        )
+        obs_df = catalog.backend.query(
+            "SELECT datetime, value FROM observations "
+            "WHERE station_id = ? AND variable_type = 'lake_level' ORDER BY datetime",
+            [station],
+        )
+    except Exception as exc:
+        logger.warning("best_lake_level: catalog query failed: %s", exc)
+        return None, None
+    return sim_df, obs_df
 
 
 def _load_best_discharge(
@@ -370,4 +580,5 @@ __all__ = (
     "SessionReportData",
     "load_session_report_data",
     "resolve_calibration_session_id",
+    "resolve_session_in_workspace",
 )

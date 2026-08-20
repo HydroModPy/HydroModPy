@@ -33,7 +33,7 @@ def _build_modflow6_simulation_config(
         _read_toml(CASE_DIR / "config_modflow6.toml"),
     )
     payload.setdefault("workspace", {})["project_root"] = str(project_root)
-    payload.setdefault("simulation", {})["run_id"] = str(run_id)
+    payload.setdefault("simulation", {})["name"] = str(run_id)
     planar = (
         payload.setdefault("modflow6", {})
         .setdefault("sgrid", {})

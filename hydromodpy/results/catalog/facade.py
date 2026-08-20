@@ -1,14 +1,24 @@
 """Catalog facade composing every concern mixin.
 
-:class:`SimulationCatalog` is the single object every caller depends on.
+:class:`Catalog` is the single object every caller depends on.
 It owns the DuckDB connection, the workspace layout, the open-Zarr-handle
 tracker, and a :class:`StoragePathResolver`. Domain operations live in
 sibling modules (writes, reads, discovery, package_io, lifecycle) and
 are mixed in here via plain inheritance.
+
+The connection is a :class:`CatalogConnection`: DuckDB holds its file lock for
+the whole life of a connection object, so a catalog kept open across a solve
+would lock out every concurrent reader for the entire run. The handle drops
+the lock once the catalog has been idle for :data:`IDLE_RELEASE_SECONDS` and
+reopens transparently on the next statement.
 """
 
 from __future__ import annotations
 
+import atexit
+import threading
+import time
+import weakref
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -16,8 +26,9 @@ import duckdb
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-from hydromodpy.core.io.db_retry import connect_with_retry
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import INTERNAL_DIRNAME, catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
@@ -30,16 +41,162 @@ from hydromodpy.results.catalog.schema import SchemaDiscoveryMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.catalog.writes import WritesMixin
-from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from uuid import UUID
 
     import xarray as xr
 
+logger = get_logger(__name__)
 
-class SimulationCatalog(
+IDLE_RELEASE_SECONDS = 2.0
+_IDLE_SWEEP_SECONDS = 0.5
+# Statements that open (resp. close) a scope spanning several statements. The
+# connection must not be recycled inside one, so they pin it.
+_SCOPE_OPEN_KEYWORDS = frozenset({"begin", "start", "attach"})
+_SCOPE_CLOSE_KEYWORDS = frozenset({"commit", "rollback", "end", "detach"})
+
+
+class CatalogConnection:
+    """DuckDB connection that closes itself while the catalog sits idle.
+
+    Forwards every statement to a live :class:`duckdb.DuckDBPyConnection`, so
+    it is a drop-in for the raw connection the facade used to expose. The
+    underlying connection is opened on first use, released by
+    :class:`_CatalogConnectionSweeper` after ``IDLE_RELEASE_SECONDS`` without a
+    statement, and reopened on the next one. ``BEGIN``/``COMMIT`` and
+    ``ATTACH``/``DETACH`` scopes pin it until they close.
+    """
+
+    def __init__(
+        self,
+        db_path: Path,
+        *,
+        read_only: bool = False,
+        block_size: int | None = None,
+        on_open: Callable[[duckdb.DuckDBPyConnection], None] | None = None,
+    ) -> None:
+        self._db_path = db_path
+        self._read_only = read_only
+        self._block_size = block_size
+        self._on_open = on_open
+        self._lock = threading.RLock()
+        self._conn: duckdb.DuckDBPyConnection | None = None
+        self._scope_depth = 0
+        self._last_use = time.monotonic()
+        self._closed = False
+
+    def acquire(self) -> duckdb.DuckDBPyConnection:
+        """Return the live connection, opening it when it was released."""
+        with self._lock:
+            if self._closed:
+                raise duckdb.ConnectionException("Connection already closed")
+            if self._conn is None:
+                kwargs: dict[str, Any] = {}
+                if self._read_only:
+                    kwargs["read_only"] = True
+                if self._block_size is not None:
+                    kwargs["block_size"] = self._block_size
+                self._conn = connect_with_retry(str(self._db_path), **kwargs)
+                # Callers reach DuckDB through this wrapper, so a DataFrame
+                # referenced by name in SQL lives one frame further up than
+                # the single-frame replacement scan looks by default.
+                self._conn.execute("SET python_scan_all_frames=true")
+                if self._on_open is not None:
+                    self._on_open(self._conn)
+            self._last_use = time.monotonic()
+            return self._conn
+
+    def execute(self, sql: str, *args: Any, **kwargs: Any) -> duckdb.DuckDBPyConnection:
+        """Run one statement on the live connection and track scope keywords."""
+        with self._lock:
+            result = self.acquire().execute(sql, *args, **kwargs)
+            head = sql.split(maxsplit=1)
+            keyword = head[0].lower() if head else ""
+            if keyword in _SCOPE_OPEN_KEYWORDS:
+                self._scope_depth += 1
+            elif keyword in _SCOPE_CLOSE_KEYWORDS:
+                self._scope_depth = max(0, self._scope_depth - 1)
+            return result
+
+    def release_if_idle(self, idle_seconds: float) -> bool:
+        """Close the connection when nothing used it for ``idle_seconds``."""
+        with self._lock:
+            if self._closed or self._conn is None or self._scope_depth > 0:
+                return False
+            if (time.monotonic() - self._last_use) < idle_seconds:
+                return False
+            conn, self._conn = self._conn, None
+            try:
+                conn.close()
+            except Exception:
+                logger.debug("catalog.idle_release_failed path=%s", self._db_path, exc_info=True)
+            return True
+
+    def close(self) -> None:
+        """Close for good: further statements raise like a closed connection."""
+        with self._lock:
+            self._closed = True
+            conn, self._conn = self._conn, None
+        if conn is not None:
+            conn.close()
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return getattr(self.acquire(), name)
+
+
+class _CatalogConnectionSweeper:
+    """Daemon sweeper releasing the file lock of idle catalog connections."""
+
+    def __init__(self) -> None:
+        self._handles: weakref.WeakSet[CatalogConnection] = weakref.WeakSet()
+        self._lock = threading.Lock()
+        self._thread: threading.Thread | None = None
+        self._stopped = threading.Event()
+
+    def track(self, handle: CatalogConnection) -> None:
+        """Register ``handle`` and start the sweeper on first use."""
+        with self._lock:
+            self._handles.add(handle)
+            if self._thread is None and not self._stopped.is_set():
+                self._thread = threading.Thread(
+                    target=self._sweep_until_stopped,
+                    name="hmp-catalog-idle-release",
+                    daemon=True,
+                )
+                self._thread.start()
+
+    def stop(self) -> None:
+        """Join the sweeper before the interpreter starts finalizing.
+
+        A daemon thread that wakes up once finalization has begun is killed
+        where it stands, and the kill unwinds whatever native frames it is
+        holding. This one wakes twice a second and closes DuckDB connections,
+        so it is joined here rather than left to be killed inside the driver.
+        """
+        self._stopped.set()
+        with self._lock:
+            thread, self._thread = self._thread, None
+        if thread is not None:
+            thread.join(timeout=_IDLE_SWEEP_SECONDS * 4)
+
+    def _sweep_until_stopped(self) -> None:
+        while not self._stopped.wait(_IDLE_SWEEP_SECONDS):
+            with self._lock:
+                handles = list(self._handles)
+            for handle in handles:
+                handle.release_if_idle(IDLE_RELEASE_SECONDS)
+
+
+_IDLE_SWEEPER = _CatalogConnectionSweeper()
+atexit.register(_IDLE_SWEEPER.stop)
+
+
+class Catalog(
     LifecycleMixin,
     RegistrationMixin,
     WritesMixin,
@@ -52,14 +209,20 @@ class SimulationCatalog(
 
     Backed by DuckDB for tabular state (simulations, parameters, metrics,
     provenance, calibration sessions) and by Zarr / Parquet for field arrays
-    and timeseries written under ``<workspace>/simulations/``.
+    and timeseries written under ``<project>/runs/<run>/``.
+
+    Inspecting is reading: every caller that only reads (listings, ``show``,
+    SQL queries, figures, reports) opens with ``read_only=True``, which
+    installs no schema, runs no migration and leaves the index file byte for
+    byte as it found it. A writable handle is for code that produces runs.
 
     The facade owns four pieces of state:
 
-    - ``_db``: the DuckDB connection (re-acquired with retry on contention).
+    - ``_db``: a :class:`CatalogConnection` (lazy DuckDB connection released
+      while idle, re-acquired with retry on contention).
     - ``_workspace``: the project catalog root.
     - ``_paths``: a :class:`StoragePathResolver` translating simulation ids to
-      on-disk basenames and Parquet/Zarr paths.
+      run directories and the Parquet/Zarr paths they hold.
     - ``_open_zarr_handles``: live :class:`SimulationZarr` handles, tracked
       so ``finalize`` and ``close`` can release them deterministically.
 
@@ -69,10 +232,15 @@ class SimulationCatalog(
         Workspace directory, or direct path to a ``.duckdb`` catalog file.
     catalog_path
         Optional explicit catalog database path.
-    simulations_dir
-        Optional directory containing simulation Zarr and Parquet stores.
+    runs_dir
+        Optional directory containing the per-run directories.
     persistence
-        Storage policy for packed or unpacked field arrays.
+        Which sinks the catalog writes to (index rows, Zarr fields,
+        Parquet tables) and how they are compressed. Field arrays are
+        always a directory store: there is no packed form.
+    read_only
+        Open the index read-only. The database file must already exist: an
+        inspection never creates a phantom index.
 
     Raises
     ------
@@ -92,7 +260,7 @@ class SimulationCatalog(
     --------
     hydromodpy.results.run.Run
         Per-simulation view returned by catalog queries.
-    hydromodpy.results.simulation_group.SimulationGroup
+    hydromodpy.results.run.group.RunSet
         Multi-run view returned by cohort queries.
     """
 
@@ -101,42 +269,86 @@ class SimulationCatalog(
         workspace_path: Path | str,
         *,
         catalog_path: Path | str | None = None,
-        simulations_dir: Path | str | None = None,
+        runs_dir: Path | str | None = None,
         persistence: PersistenceConfig | None = None,
+        read_only: bool = False,
     ) -> None:
         root = Path(workspace_path).expanduser()
         if catalog_path is None and root.suffix == ".duckdb":
             catalog = root.resolve()
-            root = catalog.parent
+            parent = catalog.parent
+            root = parent.parent if parent.name == INTERNAL_DIRNAME else parent
         else:
             root = root.resolve()
             catalog = (
                 Path(catalog_path).expanduser().resolve()
                 if catalog_path is not None
-                else root / CATALOG_FILENAME
+                else catalog_path_for(root)
             )
 
+        self._read_only = read_only
         self._workspace = root
-        self._workspace.mkdir(parents=True, exist_ok=True)
         self._persistence = persistence or PersistenceConfig()
-
         self._db_path = catalog
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = connect_with_retry(str(self._db_path))
-        self._backend: CatalogBackend = DuckDBBackend.from_connection(self._db, path=self._db_path)
-
-        self._simulations_dir = (
-            Path(simulations_dir).expanduser().resolve()
-            if simulations_dir is not None
-            else self._workspace / SIMULATIONS_DIRNAME
+        self._runs_dir = (
+            Path(runs_dir).expanduser().resolve()
+            if runs_dir is not None
+            else runs_dir_for(self._workspace)
         )
-        self._simulations_dir.mkdir(parents=True, exist_ok=True)
-        self._open_zarr_handles: list[SimulationZarr] = []
-        self._paths = StoragePathResolver(self._backend, self._simulations_dir)
 
-        self._backend.ensure_schema()
-        ensure_parquet_views(self._db, self._simulations_dir)
-        ensure_views(self._db)
+        if read_only:
+            # Inspection path: open read-only, never mutate. No mkdir, no
+            # migration, no DDL persisted; views are session-local TEMPORARY,
+            # so they are reinstalled every time the handle reopens.
+            if not self._db_path.is_file():
+                raise FileNotFoundError(
+                    f"No catalog at {self._db_path} to open read-only. "
+                    f"Run a workflow there first, or open writable with create."
+                )
+            self._db = CatalogConnection(
+                self._db_path,
+                read_only=True,
+                on_open=self._install_session_views,
+            )
+            self._backend = DuckDBBackend.from_connection(
+                self._db, path=self._db_path, read_only=True
+            )
+            self._require_schema_current()
+        else:
+            self._workspace.mkdir(parents=True, exist_ok=True)
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._db = CatalogConnection(self._db_path, block_size=HMP_DUCKDB_BLOCK_SIZE)
+            self._backend = DuckDBBackend.from_connection(self._db, path=self._db_path)
+            self._runs_dir.mkdir(parents=True, exist_ok=True)
+
+        self._open_zarr_handles: list[SimulationZarr] = []
+        self._paths = StoragePathResolver(self._backend, self._runs_dir)
+
+        if not read_only:
+            # Write-mode views are plain DDL: they are stored in the file and
+            # survive an idle release, so they are installed once.
+            self._backend.ensure_schema()
+            ensure_parquet_views(self._db, self._runs_dir)
+            ensure_views(self._db)
+        _IDLE_SWEEPER.track(self._db)
+
+    def _install_session_views(self, connection: duckdb.DuckDBPyConnection) -> None:
+        """Install the TEMPORARY read-only views on a freshly opened session."""
+        ensure_parquet_views(connection, self._runs_dir, temporary=True)
+        ensure_views(connection, temporary=True)
+
+    def _require_schema_current(self) -> None:
+        """Raise when a read-only open hits a catalog whose schema is behind."""
+        from hydromodpy.results.catalog.migrations import current_version, target_version
+        from hydromodpy.results.errors import SchemaVersionMismatchError
+
+        current = current_version(self._db)
+        target = target_version()
+        if current < target:
+            raise SchemaVersionMismatchError(
+                f"Catalog schema is at version {current} but the runtime expects "
+                f"{target}. Run `hmp doctor --migrate` to upgrade it."
+            )
 
     @classmethod
     def from_workspace(
@@ -144,26 +356,26 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-    ) -> SimulationCatalog:
+    ) -> Catalog:
         """Open the project catalog declared by a runtime workspace object.
 
         Parameters
         ----------
         workspace
             Object exposing ``project_root``, ``catalog_path``, and
-            ``simulations_dir``.
+            ``runs_dir``.
         persistence
             Optional storage policy.
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the workspace database.
         """
         return cls(
             Path(workspace.project_root),
             catalog_path=Path(workspace.catalog_path),
-            simulations_dir=Path(workspace.simulations_dir),
+            runs_dir=Path(workspace.runs_dir),
             persistence=persistence,
         )
 
@@ -173,7 +385,7 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-    ) -> SimulationCatalog:
+    ) -> Catalog:
         """Open the project catalog declared by a workspace configuration.
 
         Parameters
@@ -185,18 +397,18 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the configured workspace.
         """
         return cls(
             Path(workspace.project_root),
             catalog_path=Path(workspace.catalog_path),
-            simulations_dir=Path(workspace.simulations_dir),
+            runs_dir=Path(workspace.runs_dir),
             persistence=persistence,
         )
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path) -> SimulationCatalog:
+    def from_toml(cls, toml_path: str | Path) -> Catalog:
         """Open the project catalog declared in a TOML config.
 
         Parameters
@@ -206,7 +418,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the resolved workspace.
 
         Raises
@@ -220,7 +432,7 @@ class SimulationCatalog(
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
-    def from_json(cls, payload: str | bytes) -> SimulationCatalog:
+    def from_json(cls, payload: str | bytes) -> Catalog:
         """Open the project catalog declared in a JSON config string.
 
         Parameters
@@ -230,7 +442,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the resolved workspace.
 
         Raises
@@ -242,7 +454,7 @@ class SimulationCatalog(
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
-    def from_dict(cls, payload: dict) -> SimulationCatalog:
+    def from_dict(cls, payload: dict) -> Catalog:
         """Open the project catalog declared in a dict config payload.
 
         Parameters
@@ -252,7 +464,7 @@ class SimulationCatalog(
 
         Returns
         -------
-        SimulationCatalog
+        Catalog
             Open catalog connected to the resolved workspace.
 
         Raises
@@ -264,8 +476,8 @@ class SimulationCatalog(
         return cls.from_workspace_config(cfg.workspace)
 
     @property
-    def connection(self) -> duckdb.DuckDBPyConnection:
-        """Return the DuckDB connection for protocol-based integrations."""
+    def connection(self) -> CatalogConnection:
+        """Return the DuckDB connection handle for protocol-based integrations."""
         return self._db
 
     @property
@@ -280,26 +492,30 @@ class SimulationCatalog(
 
     @property
     def catalog_path(self) -> Path:
-        """Path to the ``catalog.duckdb`` catalog file."""
+        """Path to the project index database."""
         return self._db_path
 
     @property
-    def simulations_dir(self) -> Path:
-        """Directory where simulation stores are written."""
-        return self._simulations_dir
+    def runs_dir(self) -> Path:
+        """Directory holding one sub-directory per run."""
+        return self._runs_dir
 
     @property
     def project_path(self) -> Path:
         """Alias for ``workspace_path`` kept for protocol integrations."""
         return self._workspace
 
-    def zarr_path_for(self, sim_id: str | UUID) -> Path:
-        """Return the Zarr artefact path on disk (``.zarr.zip`` if packed)."""
-        return self._paths.zarr_path_for(sim_id)
+    def run_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the run directory ``runs/<name>`` (public accessor)."""
+        return self._paths.run_dir_for(sim_id)
 
-    def parquet_dir_for(self, sim_id: str | UUID) -> Path:
-        """Return the per-simulation Parquet directory (public accessor)."""
-        return self._paths.parquet_dir_for(sim_id)
+    def fields_path_for(self, sim_id: str | UUID) -> Path:
+        """Return the run's Zarr directory store (public accessor)."""
+        return self._paths.fields_path_for(sim_id)
+
+    def tables_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the run's Parquet payload directory (public accessor)."""
+        return self._paths.tables_dir_for(sim_id)
 
     def load_dataset(
         self,
@@ -367,7 +583,7 @@ class SimulationCatalog(
         or name). For an already-resolved :class:`~hydromodpy.results.run.Run`,
         use :func:`hydromodpy.read`.
         """
-        from hydromodpy.results.reading import read_variable
+        from hydromodpy.results.derive.reading import read_variable
 
         return read_variable(self[ref], var, time=time, layer=layer, sel=sel, bbox=bbox)
 
@@ -377,7 +593,7 @@ class SimulationCatalog(
             count = row[0] if row is not None else "?"
         except Exception:
             count = "?"
-        return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
+        return f"Catalog(workspace={str(self._workspace)!r}, simulations={count})"
 
     def _repr_html_(self) -> str:
         try:
@@ -404,7 +620,7 @@ class SimulationCatalog(
             f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>" for k, v in rows
         )
         return (
-            "<div><b>SimulationCatalog</b>"
+            "<div><b>Catalog</b>"
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
