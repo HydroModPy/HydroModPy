@@ -244,7 +244,7 @@ def _scan_run_dirs(runs_dir: Path) -> dict[str, Path]:
 def _scan_tmp_parquet_files(runs_dir: Path) -> list[str]:
     if not runs_dir.is_dir():
         return []
-    pattern = f"*{PARQUET_FILE_SUFFIX}.tmp"
+    pattern = f"*{PARQUET_FILE_SUFFIX}.tmp-*"
     return [str(path) for path in sorted(runs_dir.rglob(pattern)) if path.is_file()]
 
 
