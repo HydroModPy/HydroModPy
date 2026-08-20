@@ -59,18 +59,18 @@ def rasterize_field(
         Aggregation method passed to ``ds.Canvas.raster``. One of
         ``"mean"``, ``"min"``, ``"max"``, ``"sum"``.
     """
+    width, height = int(target_px[0]), int(target_px[1])
+    if width <= 0 or height <= 0:
+        raise ValueError("target_px must be strictly positive on both axes")
+    if agg not in {"mean", "min", "max", "sum"}:
+        raise ValueError(f"unsupported agg '{agg}'")
+
     if not is_datashader_available():
         raise RuntimeError(
             "datashader is not installed. Install the optional 'viz' extra: "
             "`pip install hydromodpy[viz]`."
         )
     import datashader as ds
-
-    width, height = int(target_px[0]), int(target_px[1])
-    if width <= 0 or height <= 0:
-        raise ValueError("target_px must be strictly positive on both axes")
-    if agg not in {"mean", "min", "max", "sum"}:
-        raise ValueError(f"unsupported agg '{agg}'")
 
     cvs = ds.Canvas(plot_width=width, plot_height=height)
     # datashader.Canvas.raster expects an xr.DataArray with monotonic coords.
@@ -92,14 +92,14 @@ def rasterize_points(
     full connectivity is not needed (e.g. quick preview of head distribution
     on a 1M-face DISV mesh).
     """
+    width, height = int(target_px[0]), int(target_px[1])
+    if width <= 0 or height <= 0:
+        raise ValueError("target_px must be strictly positive on both axes")
+
     if not is_datashader_available():
         raise RuntimeError("datashader is not installed. Install the optional 'viz' extra.")
     import datashader as ds
     import pandas as pd
-
-    width, height = int(target_px[0]), int(target_px[1])
-    if width <= 0 or height <= 0:
-        raise ValueError("target_px must be strictly positive on both axes")
 
     frame = pd.DataFrame(
         {
