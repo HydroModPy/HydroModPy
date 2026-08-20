@@ -670,9 +670,13 @@ def _forget_write_ahead_log(index_path: Path) -> None:
 
 
 def _discard(staging: Path) -> None:
-    """Remove a staging database that was never published."""
-    staging.unlink(missing_ok=True)
-    staging.with_name(f"{staging.name}.wal").unlink(missing_ok=True)
+    """Remove the staging database, its write-ahead log and its migration lock.
+
+    POSIX keeps a released filelock file in place while Windows unlinks it, so
+    leaving the lock behind would drop one orphan per rebuild on Linux.
+    """
+    for suffix in ("", ".wal", ".lock"):
+        staging.with_name(f"{staging.name}{suffix}").unlink(missing_ok=True)
 
 
 __all__ = [
