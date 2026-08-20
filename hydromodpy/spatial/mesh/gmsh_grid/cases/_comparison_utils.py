@@ -170,15 +170,16 @@ def signature_head(arr, *, n: int = 8) -> list[float]:
 def polygon_area(vertices) -> float:
     """Shoelace formula for a simple polygon given an (N, 2+) vertex array.
 
-    The cross terms are summed with :func:`math.fsum` rather than reduced by
-    ``np.dot``: a dot product of a handful of doubles goes through OpenBLAS,
-    which picks its kernel from the CPU at runtime, so the last bits of the
-    area depend on the machine. ``fsum`` is exactly rounded, so the same mesh
-    measures the same area everywhere.
+    The vertices are shifted to the first one before the cross products: on a
+    projected CRS the raw products reach 1e12 for an area near 1e5, and the
+    cancellation costs eight significant digits. The terms are then summed with
+    :func:`math.fsum` instead of reduced by ``np.dot``, whose kernel is picked
+    from the CPU at runtime, so the same mesh measures the same area on every
+    machine.
     """
     xy = np.asarray(vertices, dtype=float)
-    x = xy[:, 0]
-    y = xy[:, 1]
+    x = xy[:, 0] - xy[0, 0]
+    y = xy[:, 1] - xy[0, 1]
     cross = x * np.roll(y, -1) - y * np.roll(x, -1)
     return 0.5 * abs(math.fsum(cross.tolist()))
 
