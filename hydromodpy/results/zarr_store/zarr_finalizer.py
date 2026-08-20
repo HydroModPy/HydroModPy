@@ -1,7 +1,9 @@
 """Finalization concerns for :class:`SimulationZarr`.
 
 Owns lifecycle: write-lock acquisition, ``consolidate_metadata`` and
-``close``. A run store is always a directory: there is no packed form.
+``close``. A run store is always a directory: there is no packed form,
+and its content is exactly the Zarr hierarchy, so the write lock is
+addressed outside of it (see :func:`lock_path_for_store`).
 
 All helpers take the live :class:`SimulationZarr` (or its store/lock)
 explicitly so the module stays free of hidden global state.
@@ -9,6 +11,7 @@ explicitly so the module stays free of hidden global state.
 
 from __future__ import annotations
 
+import hashlib
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -17,6 +20,7 @@ import zarr
 from filelock import FileLock, Timeout
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import internal_dir, resolve_project_root
 from hydromodpy.results.zarr_store.zarr_schema import windows_long_path
 
 if TYPE_CHECKING:
@@ -25,7 +29,25 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 LOCK_TIMEOUT_SECONDS = 60.0
-LOCK_FILE_NAME = ".lock"
+LOCKS_DIRNAME = "locks"
+LOCK_KEY_LENGTH = 16
+
+
+def lock_path_for_store(path: Path) -> Path:
+    """Return the write-lock address of a store, always outside the store.
+
+    A directory store is exactly its own content, so a lock file dropped
+    inside it becomes a member of the Zarr hierarchy and of every content
+    hash taken over it. POSIX keeps that file after release while Windows
+    unlinks it, which would make the store bytes differ per platform. The
+    lock lives in the disposable ``.hmp/locks`` directory of the owning
+    project instead, keyed by the resolved store path so that two stores
+    never contend on one file.
+    """
+    store = Path(path).resolve()
+    key = hashlib.sha256(store.as_posix().encode("utf-8")).hexdigest()[:LOCK_KEY_LENGTH]
+    locks_dir = internal_dir(resolve_project_root(store.parent)) / LOCKS_DIRNAME
+    return locks_dir / f"{store.parent.name or store.name}-{key}.lock"
 
 
 class DummyLock:
@@ -108,10 +130,12 @@ def close(store_obj: SimulationZarr) -> None:
 
 __all__ = [
     "DummyLock",
-    "LOCK_FILE_NAME",
+    "LOCKS_DIRNAME",
+    "LOCK_KEY_LENGTH",
     "LOCK_TIMEOUT_SECONDS",
     "close",
     "consolidate_metadata",
     "drop_group",
     "guard_write",
+    "lock_path_for_store",
 ]

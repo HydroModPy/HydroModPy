@@ -318,7 +318,11 @@ def write_xt3d_method_choice_report(output_path: Path | None = None) -> Path:
     resolved_path = DEFAULT_REPORT_PATH if output_path is None else Path(output_path).resolve()
     payload = rounded_xt3d_method_choice_payload(build_xt3d_method_choice_payload())
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
-    resolved_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    resolved_path.write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return resolved_path
 
 

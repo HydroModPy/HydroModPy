@@ -225,3 +225,74 @@ def test_a_later_open_in_the_same_process_stays_silent(tmp_path, capture_hmp_log
         first.close()
 
     assert not any("write-ahead log" in r.getMessage() for r in capture_hmp_logs)
+
+
+# ---------------------------------------------------------------------------
+# Block-size pre-create vs DuckDB's process-wide database file registry
+# ---------------------------------------------------------------------------
+
+
+def _leak_a_connection_then_delete_the_file(tmp_path: Path) -> duckdb.DuckDBPyConnection:
+    """Return an open connection whose database file no longer exists on disk.
+
+    A caller that wipes its output directory without closing its catalog leaves
+    exactly this: DuckDB still holds the path in its process-wide registry
+    while ``Path.exists()`` already answers False, so the next open takes the
+    "brand-new file" branch on a path DuckDB refuses to attach.
+    """
+    db_path = tmp_path / "index.duckdb"
+    leaked = duckdb.connect(str(db_path))
+    leaked.execute("CREATE TABLE runs (sim_id INTEGER)")
+    db_path.unlink()
+    assert not db_path.exists()
+    return leaked
+
+
+def test_the_registry_still_claims_a_deleted_database_file(tmp_path):
+    """Canary: without this DuckDB behaviour the regression below is vacuous."""
+    leaked = _leak_a_connection_then_delete_the_file(tmp_path)
+    probe = duckdb.connect(":memory:")
+    try:
+        escaped = str(tmp_path / "index.duckdb").replace("'", "''")
+        with pytest.raises(duckdb.BinderException, match="(?i)already attached"):
+            probe.execute(f"ATTACH '{escaped}' (BLOCK_SIZE {db_retry.HMP_DUCKDB_BLOCK_SIZE})")
+    finally:
+        probe.close()
+        leaked.close()
+
+
+def test_open_succeeds_when_this_process_still_holds_the_deleted_path(tmp_path):
+    leaked = _leak_a_connection_then_delete_the_file(tmp_path)
+    try:
+        connection = db_retry.connect_with_retry(
+            str(tmp_path / "index.duckdb"),
+            block_size=db_retry.HMP_DUCKDB_BLOCK_SIZE,
+        )
+        try:
+            assert connection.execute("SELECT 42").fetchone() == (42,)
+        finally:
+            connection.close()
+    finally:
+        leaked.close()
+
+
+def test_an_unusable_block_size_is_still_reported(tmp_path):
+    with pytest.raises(duckdb.InvalidInputException, match="block size"):
+        db_retry.connect_with_retry(str(tmp_path / "index.duckdb"), block_size=1234)
+
+
+def test_a_pre_create_binder_error_that_is_not_a_path_conflict_propagates(tmp_path, monkeypatch):
+    real_execute = duckdb.DuckDBPyConnection.execute
+
+    def _refuse_attach(self, sql, *args, **kwargs):
+        if sql.lstrip().upper().startswith("ATTACH"):
+            raise duckdb.BinderException('Binder Error: Unrecognized option "block_size"')
+        return real_execute(self, sql, *args, **kwargs)
+
+    monkeypatch.setattr(duckdb.DuckDBPyConnection, "execute", _refuse_attach)
+
+    with pytest.raises(duckdb.BinderException, match="Unrecognized option"):
+        db_retry.connect_with_retry(
+            str(tmp_path / "index.duckdb"),
+            block_size=db_retry.HMP_DUCKDB_BLOCK_SIZE,
+        )

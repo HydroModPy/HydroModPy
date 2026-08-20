@@ -23,6 +23,11 @@ for _var in (
 ):
     os.environ.setdefault(_var, "1")
 os.environ.setdefault("PYTHONHASHSEED", "42")
+# The Whitebox native binding aborts after repeated fd-level dup2 cycles in one
+# long-lived worker. Its backend only avoids that path when PYTEST_CURRENT_TEST
+# happens to be set the first time the cached singleton is built, which depends
+# on test order; pin the Python-level redirect so every pytest process is safe.
+os.environ.setdefault("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", "0")
 
 
 _LAYER_DIR_NAMES = ("unit", "integration", "validation", "regression", "e2e")

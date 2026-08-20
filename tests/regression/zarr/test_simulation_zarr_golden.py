@@ -13,6 +13,20 @@ The constant ``EXPECTED_DIGEST`` was re-captured when the store stopped
 being packed to a zip: the snapshot now covers ``fields.zarr`` as it lives
 on disk, which is exactly what a reader opens. Any drift of the hierarchy,
 of the chunk layout or of the static attributes has to be intentional.
+
+Everything entering the digest is byte-identical on Linux and on Windows:
+
+* member names are ``as_posix()`` relatives, so no path separator and no
+  drive letter reaches the hash, and they are sorted by code point, so the
+  order carries no locale;
+* the member set is frozen in ``STORE_MEMBERS`` and holds Zarr nodes and
+  chunks only, never a runtime artefact whose lifetime is platform-specific
+  (a POSIX file lock outlives its release, its Windows twin does not);
+* payloads are read and hashed as bytes, so no newline translation applies,
+  and the JSON ones are re-serialised canonically, which drops key order and
+  insignificant whitespace;
+* chunk payloads are little-endian arrays compressed by the codec pinned in
+  the node metadata, and nothing samples mtime, size, mode or owner.
 """
 
 from __future__ import annotations
@@ -27,6 +41,7 @@ import pytest
 
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.zarr_finalizer import lock_path_for_store
 
 _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 
@@ -35,6 +50,29 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
 EXPECTED_DIGEST = "698fdddbb832b2d5a03a2ed321e2aeff53b0e2e7b226b0da442cf4a780afd9bc"
+
+STORE_MEMBERS: tuple[str, ...] = (
+    "forcing/zarr.json",
+    "head/c/0/0/0",
+    "head/zarr.json",
+    "mesh/face_node_connectivity/c/0/0",
+    "mesh/face_node_connectivity/zarr.json",
+    "mesh/topography/c/0",
+    "mesh/topography/zarr.json",
+    "mesh/topology/zarr.json",
+    "mesh/vertices/c/0/0",
+    "mesh/vertices/zarr.json",
+    "mesh/z_interfaces/c/0",
+    "mesh/z_interfaces/zarr.json",
+    "mesh/zarr.json",
+    "meta/zarr.json",
+    "particles/zarr.json",
+    "state/zarr.json",
+    "time/c/0",
+    "time/zarr.json",
+    "zarr.json",
+)
+"""Every file the digest walks, in the order it hashes them."""
 
 
 class _FrozenDatetime(datetime):
@@ -72,15 +110,19 @@ def _strip_volatile(payload: bytes) -> bytes:
     return json.dumps(_scrub(obj), sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
-def _content_digest(store_path: Path) -> str:
-    """SHA-256 over sorted ``(relative_path, scrubbed_bytes)`` pairs of the store."""
-    hasher = hashlib.sha256()
-    members = sorted(
+def _store_members(store_path: Path) -> list[tuple[str, Path]]:
+    """Return the sorted ``(posix relative name, path)`` of every store file."""
+    return sorted(
         (path.relative_to(store_path).as_posix(), path)
         for path in store_path.rglob("*")
         if path.is_file()
     )
-    for name, path in members:
+
+
+def _content_digest(store_path: Path) -> str:
+    """SHA-256 over sorted ``(relative_path, scrubbed_bytes)`` pairs of the store."""
+    hasher = hashlib.sha256()
+    for name, path in _store_members(store_path):
         scrubbed = _strip_volatile(path.read_bytes())
         hasher.update(name.encode("utf-8"))
         hasher.update(b"\x00")
@@ -191,3 +233,36 @@ def test_simulation_zarr_store_is_byte_stable(
         f"  actual:   {digest}\n"
         "If the change is intentional, recompute the snapshot."
     )
+
+
+def test_store_holds_only_zarr_hierarchy_members(tmp_path: Path) -> None:
+    """The store carries the Zarr hierarchy and nothing else.
+
+    A stray member shifts the digest without changing any simulation result,
+    and the store stops being what a reader opens: ``zarr`` warns that the
+    entry is not a component of the hierarchy.
+    """
+    store_path = _build_synthetic_store(tmp_path / FIELDS_STORE_NAME)
+
+    assert tuple(name for name, _ in _store_members(store_path)) == STORE_MEMBERS
+
+
+def test_the_write_lock_is_never_a_store_member(tmp_path: Path) -> None:
+    """The write lock is addressed outside the store, on every platform.
+
+    POSIX keeps a lock file on disk after release while Windows unlinks it,
+    so a lock inside the store makes its content platform-dependent. Reading
+    the members while the lock is held catches the defect on both.
+    """
+    store_path = tmp_path / FIELDS_STORE_NAME
+    store = SimulationZarr.create(store_path, n_cells=4, n_layers=1)
+    try:
+        idle = _store_members(store_path)
+        with store._guard_write():
+            held = _store_members(store_path)
+            lock_is_outside = lock_path_for_store(store_path).is_file()
+    finally:
+        store.close()
+
+    assert held == idle
+    assert lock_is_outside

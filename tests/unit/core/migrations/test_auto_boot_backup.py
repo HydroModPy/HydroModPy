@@ -96,6 +96,48 @@ def test_populated_database_keeps_its_backup(tmp_path: Path, versions_dir: Path)
     assert _backup_table_count(backups[0]) > 0
 
 
+def test_a_failed_migration_rolls_the_database_back(tmp_path: Path, versions_dir: Path) -> None:
+    """A migration that raises restores the snapshot instead of leaving a half-migrated file.
+
+    This is the only exercise of the restore-on-failure branch, and it must target a
+    backed-up component: `catalog` and `index` are in NO_BACKUP_COMPONENTS, so with
+    those there is no snapshot to roll back to and the branch is never reached.
+    """
+    db_path = tmp_path / "cache.duckdb"
+    conn = duckdb.connect(str(db_path))
+    try:
+        conn.execute("CREATE TABLE payload (id INTEGER)")
+        conn.execute("INSERT INTO payload VALUES (1)")
+        conn.execute("CHECKPOINT")
+    finally:
+        conn.close()
+
+    def _boom(connection: duckdb.DuckDBPyConnection, *args: object, **kwargs: object) -> None:
+        connection.execute("DROP TABLE IF EXISTS payload")
+        raise RuntimeError("simulated migration crash")
+
+    real_ensure_schema = auto_boot.ensure_schema
+    auto_boot.ensure_schema = _boom  # type: ignore[assignment]
+    conn = duckdb.connect(str(db_path))
+    try:
+        with pytest.raises(RuntimeError, match="simulated"):
+            ensure_schema_safe(
+                conn,
+                db_path=db_path,
+                versions_dir=versions_dir,
+                component=_CACHE_COMPONENT,
+            )
+    finally:
+        auto_boot.ensure_schema = real_ensure_schema
+        conn.close()
+
+    restored = duckdb.connect(str(db_path), read_only=True)
+    try:
+        assert restored.execute("SELECT count(*) FROM payload").fetchone()[0] == 1
+    finally:
+        restored.close()
+
+
 @pytest.mark.parametrize(
     ("component", "filename"),
     [("catalog", CATALOG_FILENAME), ("index", "index.duckdb")],
