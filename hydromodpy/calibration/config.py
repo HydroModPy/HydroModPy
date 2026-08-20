@@ -55,7 +55,7 @@ from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
-OutputSupport = Literal["point", "boundary", "cell"]
+OutputSupport = Literal["point", "boundary", "cell", "lake"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
@@ -244,8 +244,52 @@ class CalibOutputCell(HydroModelBase):
         return self
 
 
+class CalibOutputLake(HydroModelBase):
+    """Observable extracted from a MODFLOW 6 LAK lake state.
+
+    Use this variant to score a lake water level, stored volume or free surface
+    inside a composite objective. ``lake_id`` matches the lake declared under
+    ``flow.sinks_sources.lakes.<lake_id>``.
+
+    For calibration against a real observed chronicle, prefer the top-level
+    ``variable = "lake_level"`` path: it loads the ``lake_levels`` data family
+    and time-aligns the simulated stage to the observations. This output
+    variant scores positionally against ``observed_values``, like the other
+    composite outputs.
+    """
+
+    variable: Annotated[Literal["stage", "volume", "surface_area"], Profile.USER] = Field(
+        default="stage",
+        description=(
+            "Simulated lake quantity: 'stage' (water level, m), 'volume' (m3) or "
+            "'surface_area' (m2). All three are LAK observation states, read in native "
+            "units and never time-scaled."
+        ),
+    )
+    support: Annotated[Literal["lake"], Profile.USER] = Field(
+        default="lake",
+        description="Discriminator tag. 'lake' reads a LAK lake stage by lake_id.",
+    )
+    lake_id: Annotated[str, Profile.USER] = Field(
+        description="Lake identifier, matching flow.sinks_sources.lakes.<lake_id>.",
+    )
+    time: Annotated[OutputTime, Profile.USER] = Field(
+        default="all",
+        description="'all' keeps every time step; 'last' / 'first' selects one; "
+        "a list of ISO timestamps selects specific steps.",
+    )
+    reducer: Annotated[OutputReducer, Profile.USER] = Field(
+        default="none",
+        description="Aggregation over the retained time slice.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Hard-coded observed values (used by twin-synthetic cases).",
+    )
+
+
 CalibOutputDecl: TypeAlias = Annotated[
-    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell,
+    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake,
     Field(
         discriminator="support",
         description="Discriminated union of calibration output variants selected by 'support'.",
@@ -257,7 +301,9 @@ CalibOutputDecl: TypeAlias = Annotated[
 _CALIB_OUTPUT_ADAPTER: TypeAdapter[CalibOutputDecl] = TypeAdapter(CalibOutputDecl)
 
 
-def validate_calib_output(payload: Any) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell:
+def validate_calib_output(
+    payload: Any,
+) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake:
     """Validate one output mapping and return the concrete variant instance."""
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
 
@@ -332,6 +378,18 @@ class CalibrationConfig(HydroModelBase):
         description=(
             "Number of trials evaluated concurrently inside one batch via a "
             "thread pool. parallel=1 keeps the legacy sequential loop."
+        ),
+    )
+    warmup_periods: Annotated[int, Profile.USER] = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Spin-up (burn-in) periods excluded from every objective block. The first "
+            "warmup_periods of each observed/simulated series are dropped before the "
+            "metric, so the window where the state still depends on the initial condition "
+            "does not bias the calibration. Default 0 (no exclusion). Size it by "
+            "increasing it until the objective stops changing (initial-condition "
+            "insensitivity), not a fixed guess."
         ),
     )
     seed: Annotated[int | None, Profile.USER] = Field(
@@ -424,8 +482,8 @@ class CalibrationConfig(HydroModelBase):
         failure happens at config-load time instead of inside the adapter
         constructor.
         """
-        from hydromodpy.calibration.method_config import validate_method_kwargs
-        from hydromodpy.calibration.optimizer import available_optimizers
+        from hydromodpy.calibration.optim.method_config import validate_method_kwargs
+        from hydromodpy.calibration.optim.optimizer import available_optimizers
 
         available = available_optimizers()
         if self.method not in available:
@@ -494,6 +552,7 @@ __all__ = [
     "CalibOutputPoint",
     "CalibOutputBoundary",
     "CalibOutputCell",
+    "CalibOutputLake",
     "CalibObjectiveBlockDecl",
     "SaveRunsMode",
     "ParameterMode",

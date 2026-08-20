@@ -108,12 +108,26 @@ def _resolve_db_path_from_connection(
 
 
 def apply_migrations(db_path: Path, versions_dir: Path | None = None) -> int:
-    """Open ``db_path`` and apply pending catalog migrations."""
-    return _apply_migrations(
-        db_path,
-        versions_dir if versions_dir is not None else MIGRATIONS_DIR,
-        component=CATALOG_COMPONENT,
-    )
+    """Open ``db_path`` and apply pending catalog migrations, then install views.
+
+    Installing the code-managed views here keeps the standalone migrate path
+    (e.g. ``hmp doctor``) consistent with the facade path: a catalog migrated
+    without views would expose no ``v_simulation_summary`` and silently drop out
+    of global federation until reopened through the facade.
+    """
+    versions = versions_dir if versions_dir is not None else MIGRATIONS_DIR
+    applied = _apply_migrations(db_path, versions, component=CATALOG_COMPONENT)
+    if versions.resolve() == MIGRATIONS_DIR.resolve():
+        import duckdb
+
+        from hydromodpy.results.catalog.views import ensure_views
+
+        connection = duckdb.connect(str(db_path))
+        try:
+            ensure_views(connection)
+        finally:
+            connection.close()
+    return applied
 
 
 def current_version(connection: duckdb.DuckDBPyConnection) -> int:

@@ -9,10 +9,9 @@ Two production paths are supported:
    :func:`hydromodpy.display.runs.render_figure`) so analysis stays
    decoupled from the display package.
 2. **Copy existing file** (fallback) - if no callback is available or the
-   figure cannot be rendered, the publisher looks for a matching PNG in
-   one of the candidate subdirectories of the run folder
-   (``_postprocess/_figures``, ``figures``, ``_figures``) and copies it
-   verbatim. Missing assets are listed in the manifest.
+   figure cannot be rendered, the publisher copies the matching PNG from
+   the run's own figures directory (``runs/<run>/figures``). Missing
+   assets are listed in the manifest.
 """
 
 from __future__ import annotations
@@ -42,11 +41,12 @@ DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
     "watershed_id_card.png",
 )
 
-_CANDIDATE_SOURCE_SUBDIRS: tuple[str, ...] = (
-    "_postprocess/_figures",
-    "figures",
-    "_figures",
-)
+
+def _run_figures_dir(run_dir: Path) -> Path:
+    """Return the figures directory of a run (``runs/<run>/figures``)."""
+    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
+
+    return Path(run_dir) / RUN_FIGURES_DIRNAME
 
 
 class CapabilityGalleryConfig(HydroModelBase):
@@ -72,7 +72,7 @@ class CapabilityGalleryConfig(HydroModelBase):
         description=(
             "Asset filenames. Each ``<name>.png`` is first rendered through "
             "the injected render callback when a Run is available, otherwise "
-            "copied from one of the standard figure subdirs of the run folder."
+            "copied from the run's own figures directory."
         ),
     )
 
@@ -93,12 +93,10 @@ def _relative_to_cwd(path: Path) -> str:
         return resolved.as_posix()
 
 
-def _find_existing_asset(run_folder: Path, asset_name: str) -> Path | None:
-    for subdir in _CANDIDATE_SOURCE_SUBDIRS:
-        candidate = Path(run_folder) / subdir / asset_name
-        if candidate.exists():
-            return candidate
-    return None
+def _find_existing_asset(run_dir: Path, asset_name: str) -> Path | None:
+    """Return the already-rendered asset inside the run, if it is there."""
+    candidate = _run_figures_dir(run_dir) / asset_name
+    return candidate if candidate.exists() else None
 
 
 def _try_render(
@@ -108,11 +106,18 @@ def _try_render(
     *,
     render_figure: RenderFigureCallable,
 ) -> bool:
+    """Render one gallery asset when the figure applies to this run.
+
+    Applicability comes from the figure's own declared requirements
+    (:meth:`hydromodpy.display.figure.BaseFigure.unavailable_reason`), so the
+    gallery follows the registry instead of keeping its own list of names.
+    """
+    from hydromodpy.display import get as get_figure
+
     try:
-        capabilities = list(run.display_capabilities)
-    except Exception:
-        capabilities = []
-    if figure_name not in capabilities:
+        if get_figure(figure_name).unavailable_reason(run) is not None:
+            return False
+    except KeyError:
         return False
     try:
         render_figure(figure_name, run, target_path)
@@ -124,7 +129,7 @@ def _try_render(
 def publish_run_to_capability_gallery(
     *,
     run_id: str,
-    run_folder: Path,
+    run_dir: Path,
     config: CapabilityGalleryConfig,
     solvers: tuple[str, ...] = (),
     run: Run | None = None,
@@ -132,12 +137,13 @@ def publish_run_to_capability_gallery(
 ) -> dict[str, object] | None:
     """Publish selected figures into the versioned gallery folder.
 
-    Each asset named ``<figure_name>.png`` is produced as follows:
+    ``run_dir`` is the run directory ``runs/<run>``. Each asset named
+    ``<figure_name>.png`` is produced as follows:
 
-    - if ``run`` and ``render_figure`` are provided and ``figure_name`` is
-      in ``run.display_capabilities``, the callback renders the figure;
-    - otherwise, the publisher looks for a pre-existing PNG of the same
-      name in standard subfolders of ``run_folder`` and copies it;
+    - if ``run`` and ``render_figure`` are provided and the registered
+      figure applies to this run, the callback renders the figure;
+    - otherwise, the publisher copies the PNG of the same name already
+      rendered in the run's ``figures/`` directory;
     - otherwise, the asset is listed as missing in the manifest.
     """
     if not config.enabled:
@@ -174,7 +180,7 @@ def publish_run_to_capability_gallery(
             )
             continue
 
-        existing = _find_existing_asset(Path(run_folder), asset_name)
+        existing = _find_existing_asset(Path(run_dir), asset_name)
         if existing is None:
             missing_assets.append(asset_name)
             continue
@@ -194,7 +200,7 @@ def publish_run_to_capability_gallery(
         "case_slug": str(config.case_slug),
         "run_id": str(run_id),
         "published_at_utc": datetime.now(UTC).isoformat(),
-        "source_run_folder": _relative_to_cwd(Path(run_folder)),
+        "source_run_dir": _relative_to_cwd(Path(run_dir)),
         "solvers": [str(solver) for solver in solvers],
         "assets": copied_assets,
         "missing_assets": missing_assets,

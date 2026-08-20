@@ -57,6 +57,7 @@ Additional root modules keep the public contracts easy to discover:
 
 - `bundle_contracts.py`: bundle protocols and concrete dataclasses
 - `visualization_summary.py`: typed JSON summary contract
+- `long_paths.py`: the one Windows long-path spelling every file read and write goes through
 - `cli.py`: reusable CLI entry point used by `python -m mesh_bundle_viewer`
 
 Minimal tree:
@@ -66,6 +67,7 @@ mesh_bundle_viewer/
   __main__.py
   cli.py
   bundle_contracts.py
+  long_paths.py
   reader.py
   schema.py
   visualization_summary.py
@@ -152,9 +154,7 @@ Minimal Python usage:
 ```python
 from mesh_bundle_viewer.runner.visualization_runner import run_visualization_from_toml
 
-summary = run_visualization_from_toml(
-    "examples/mesh_viewer/config_example.toml"
-)
+summary = run_visualization_from_toml("examples/mesh_viewer/config_example.toml")
 print(summary["cell_count"])
 ```
 

@@ -749,7 +749,7 @@ a ``HydroMesh`` instead of a ``(nrow, ncol)`` grid.
 
 .. code-block:: text
 
-   hydromodpy/mesh/
+   hydromodpy/spatial/mesh/
    ├── __init__.py              # Exports: CellType, CellBlock, HydroMesh
    ├── cell_types.py            # CellType enum + aliases + properties
    ├── hydro_mesh.py            # CellBlock + HydroMesh (frozen dataclasses)

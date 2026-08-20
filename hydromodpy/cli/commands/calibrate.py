@@ -12,14 +12,22 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_SIGINT
+from hydromodpy.cli._conventions import profile_parser
+from hydromodpy.cli.helpers import (
+    EXIT_CONFIG,
+    EXIT_NOT_FOUND,
+    EXIT_SIGINT,
+    profile_arg_from_toml,
+    profile_run,
+    resolve_profile_output,
+)
 
 NAME: str = "calibrate"
 HELP: str = "Run a calibration workflow from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     parser.add_argument("config", type=Path, help="Path to a calibration TOML file")
     parser.set_defaults(_handler=run)
     return parser
@@ -36,8 +44,18 @@ def run(args: argparse.Namespace) -> None:
         print(f"Expected a .toml file, got: {target.suffix}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
+    profile_arg = getattr(args, "profile", None)
+    if profile_arg is None:
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+        try:
+            profile_arg = profile_arg_from_toml(load_toml_with_base_config(target))
+        except Exception:
+            profile_arg = None
+    profile_output = resolve_profile_output(profile_arg, target)
     try:
-        result = hmp.calibrate(target)
+        with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
+            result = hmp.calibrate(target)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)

@@ -11,6 +11,15 @@ For the full history with every entry, see the file on GitHub:
 `CHANGELOG.md
 <https://github.com/HydroModPy/HydroModPy/blob/main/CHANGELOG.md>`_.
 
+Current lines
+-------------
+
+Two lines exist side by side. ``v1.0.0`` is the last published v1 release
+and it is frozen on its own ``v1.0`` branch. ``main`` carries the v2 line
+at version ``2.0.0a1``. That pre-release is not tagged yet, so ``v1.0.0``
+is still the most recent tag. See :doc:`release_policy` for the branch
+and tag rules.
+
 Recent releases
 ---------------
 

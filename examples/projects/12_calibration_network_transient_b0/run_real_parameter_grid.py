@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.results.catalog import SimulationCatalog  # noqa: E402
+from hydromodpy.results.catalog import Catalog  # noqa: E402
 
 from score_candidate_table import load_candidate_specs, score_candidate_specs  # noqa: E402
 
@@ -330,7 +330,7 @@ def _catalog_ready(root: Path) -> bool:
     try:
         if not root.exists():
             return False
-        with SimulationCatalog(root) as catalog:
+        with Catalog(root) as catalog:
             return not catalog.simulations.empty
     except Exception:
         return False

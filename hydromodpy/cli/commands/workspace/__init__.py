@@ -1,13 +1,19 @@
 """``hmp workspace`` family - workspace lifecycle and global-index commands.
 
+The global index registers PROJECTS, one row per project root, because a
+project root is what owns an index database. The workspace-scoped actions
+(``init``, ``clean``) act on a workspace; the index-scoped ones act on the
+projects it contains.
+
 Sub-actions:
 
 - ``hmp workspace init [<path>]``: scaffold a HydroModPy workspace.
-- ``hmp workspace list``: list workspaces registered in the global index.
-- ``hmp workspace register <uri>``: register a workspace in the global index.
-- ``hmp workspace search <term>``: full-text search across registered workspaces.
-- ``hmp workspace forget <workspace_id>``: drop a workspace registration.
-- ``hmp workspace prune``: drop registrations whose catalog.duckdb is missing.
+- ``hmp workspace list``: list the projects registered in the global index.
+- ``hmp workspace register <root_uri>``: register a project, or every project
+  held by a workspace root.
+- ``hmp workspace search <term>``: full-text search across registered projects.
+- ``hmp workspace forget <project_id>``: drop one project registration.
+- ``hmp workspace prune``: drop registrations whose project index is missing.
 - ``hmp workspace clean [--dry-run]``: remove generated workspace artefacts.
 """
 
@@ -29,7 +35,7 @@ from hydromodpy.cli.commands.workspace import (
 )
 
 NAME: str = "workspace"
-HELP: str = "Workspace lifecycle, global-index registration, and maintenance"
+HELP: str = "Workspace lifecycle, project registration in the global index, and maintenance"
 
 ACTIONS = (init_cmd, list_cmd, register_cmd, search, forget, prune, clean)
 

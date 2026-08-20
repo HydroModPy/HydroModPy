@@ -5,9 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
-from hydromodpy.results.simulation_group import SimulationGroup
+from hydromodpy.results.run.group import RunSet
 
 from ._test_simulation_api_builders import _populate, _register, catalog
 
@@ -17,7 +18,7 @@ __all__ = ["catalog"]
 class TestSimulationGroup:
     def test_count_and_len(self, catalog):
         sids = [_register(catalog) for _ in range(3)]
-        group = SimulationGroup(sids, catalog)
+        group = RunSet(sids, catalog)
         assert group.count == 3
         assert len(group) == 3
 
@@ -38,7 +39,7 @@ class TestSimulationGroup:
 
         group = ProjectRunner(project).sweep({"K": [1.0, 2.0]})
 
-        assert isinstance(group, SimulationGroup)
+        assert isinstance(group, RunSet)
         assert group.sim_ids == sids
         assert group[0].sim_id == sids[0]
 
@@ -56,11 +57,11 @@ class TestSimulationGroup:
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None, parallel=False):
+            def run(self, state, *, resume_from=None, parallel=False, model_phase_ready=None):
                 _Pipeline.counter += 1
                 ctx = state.get("ctx")
                 sim_id = str(uuid.uuid4())
-                with SimulationCatalog(ctx.setup.workspace.project_root) as run_catalog:
+                with Catalog(ctx.setup.workspace.project_root) as run_catalog:
                     reg = run_catalog.register_simulation(
                         sim_id,
                         project="project",
@@ -101,8 +102,8 @@ class TestSimulationGroup:
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",
             project_root=project_root,
-            catalog_path=project_root / "catalog.duckdb",
-            simulations_dir=project_root / "simulations",
+            catalog_path=catalog_path_for(project_root),
+            runs_dir=runs_dir_for(project_root),
         )
         ctx = SimpleNamespace(
             setup=SimpleNamespace(
@@ -159,7 +160,7 @@ class TestSimulationGroup:
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None, parallel=False):
+            def run(self, state, *, resume_from=None, parallel=False, model_phase_ready=None):
                 ctx = state.get("ctx")
                 observed.append(ctx.parent_sim_id)
                 ctx.sim_id = None
@@ -243,14 +244,14 @@ class TestSimulationGroup:
 
     def test_iter(self, catalog):
         sids = [_register(catalog) for _ in range(2)]
-        group = SimulationGroup(sids, catalog)
+        group = RunSet(sids, catalog)
         sims = list(group)
         assert len(sims) == 2
         assert all(isinstance(s, Run) for s in sims)
 
     def test_getitem(self, catalog):
         sids = [_register(catalog) for _ in range(3)]
-        group = SimulationGroup(sids, catalog)
+        group = RunSet(sids, catalog)
         sim = group[1]
         assert isinstance(sim, Run)
         assert sim.sim_id == sids[1]
@@ -263,7 +264,7 @@ class TestSimulationGroup:
         catalog.finalize(s1, "completed")
         catalog.finalize(s2, "completed")
 
-        group = SimulationGroup([s1, s2], catalog)
+        group = RunSet([s1, s2], catalog)
         assert group.best("nse").sim_id == s2
         assert group.worst("nse").sim_id == s1
 
@@ -275,7 +276,7 @@ class TestSimulationGroup:
         catalog.write_metric(s2, "P01", "nse", 0.9)
         catalog.write_metric(s3, "P01", "nse", 0.7)
 
-        group = SimulationGroup([s1, s2, s3], catalog)
+        group = RunSet([s1, s2, s3], catalog)
         sorted_g = group.sort_by("nse", ascending=False)
         assert sorted_g.sim_ids[0] == s2
         assert sorted_g.sim_ids[-1] == s1
@@ -286,7 +287,7 @@ class TestSimulationGroup:
         catalog.write_metric(s1, "P01", "nse", 0.6)
         catalog.write_metric(s2, "P01", "nse", 0.9)
 
-        group = SimulationGroup([s1, s2], catalog)
+        group = RunSet([s1, s2], catalog)
         df = group.compare("nse")
         assert len(df) == 2
 
@@ -296,13 +297,13 @@ class TestSimulationGroup:
         s2 = _register(catalog)
         _populate(catalog, s2)
 
-        group = SimulationGroup([s1, s2], catalog)
+        group = RunSet([s1, s2], catalog)
         df = group.to_dataframe()
         assert len(df) == 2
         assert "sim_id" in df.columns
 
     def test_empty_group(self, catalog):
-        group = SimulationGroup([], catalog)
+        group = RunSet([], catalog)
         assert group.count == 0
         assert group.parameters.empty
         assert group.metrics.empty

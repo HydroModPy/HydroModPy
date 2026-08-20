@@ -1,10 +1,15 @@
-"""Export step - save run artifacts, finalize the store, clean scratch."""
+"""Export step - save run artifacts, finalize the store, clean scratch.
+
+Exports published on demand land under ``share/``; the run directory itself
+holds what the run produced.
+"""
 
 from __future__ import annotations
 
 import gc
 import shutil
 import time
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
@@ -13,8 +18,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.results.run import Run
-    from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
 
@@ -36,42 +43,66 @@ def step_save_run_artifacts(
         getattr(analysis_cfg, "capability_gallery", None) if analysis_cfg is not None else None
     )
     if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
-        workspace = ctx.setup.workspace
-        if workspace is None:
+        if ctx.setup.workspace is None:
             raise ExportError("Workspace is required to save run artifacts.")
-        project_root = workspace.project_root
+        if ctx.store is None or ctx.sim_id is None:
+            raise ExportError("A registered run is required to publish the capability gallery.")
         from hydromodpy.analysis.capability_gallery import (
             publish_run_to_capability_gallery,
         )
         from hydromodpy.display.runs import render_figure
+        from hydromodpy.results.run import Run as _Run
 
         plan = ctx.execution.simulation_plan
         solvers_used = {r.solver for r in plan.runs} if plan is not None else set()
-
-        run_wrapper = None
-        if ctx.store is not None and ctx.sim_id is not None:
-            try:
-                from hydromodpy.results.run import Run as _Run
-
-                run_wrapper = _Run(ctx.sim_id, ctx.store)
-            except Exception as exc:
-                logger.warning(
-                    "Could not build Run wrapper for capability gallery: %s",
-                    exc,
-                    exc_info=True,
-                )
-                run_wrapper = None
 
         def _render(figure_name: str, run: object, target_path: Path) -> None:
             render_figure(figure_name, cast("Run", run), save=target_path)
 
         publish_run_to_capability_gallery(
             run_id=str(ctx.setup.run_id),
-            run_folder=project_root,
+            run_dir=ctx.store.run_dir_for(ctx.sim_id),
             config=gallery_cfg,
             solvers=tuple(str(s) for s in solvers_used),
-            run=run_wrapper,
+            run=_Run(ctx.sim_id, ctx.store),
             render_figure=_render,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Intermediate cleanup
+# ---------------------------------------------------------------------------
+
+
+def step_drop_intermediate_budget(ctx: WorkflowContext) -> None:
+    """Drop the per-cell budget group when reconciliation forced it on.
+
+    Computing is not persisting. A user who writes
+    ``[simulation.results.budget] spatial_fields = true`` keeps the group.
+    A user who only asked for a figure gets what the figure needs, not the
+    raw per-cell budget consumed on the way: that one is written, read by
+    the derive phase and by the figures, then removed. It runs last in the
+    export step, after every consumer of the run and just before the store
+    is sealed.
+    """
+    from hydromodpy.workflow.steps.planning import BUDGET_SPATIAL_FLAG
+
+    if BUDGET_SPATIAL_FLAG not in tuple(getattr(ctx, "forced_results_flags", ())):
+        return
+    store = ctx.store
+    sim_id = ctx.sim_id
+    if store is None or sim_id is None:
+        return
+    sz = store.open_zarr(sim_id)
+    try:
+        freed = sz.drop_group("budget")
+    finally:
+        sz.close()
+    if freed:
+        logger.info(
+            "Dropped the intermediate per-cell budget from the store (%.2f MB freed). "
+            "Set [simulation.results.budget] spatial_fields = true to keep it.",
+            freed / 1e6,
         )
 
 
@@ -80,13 +111,46 @@ def step_save_run_artifacts(
 # ---------------------------------------------------------------------------
 
 
+def step_seal_store(
+    ctx: WorkflowContext,
+    *,
+    wall_seconds: float = 0.0,
+    status: str = "completed",
+) -> None:
+    """Finalize the simulation in the store, leaving the store open.
+
+    Sealing is what writes ``manifest.json`` and ``provenance.json`` into the
+    run directory. Whatever reads the *complete* run - the portable package
+    first of all - must therefore run after this call and before
+    :func:`step_close_store`.
+    """
+    if ctx.store is None:
+        return
+    ctx.store.finalize(
+        ctx.sim_id,
+        status=status,
+        duration_s=wall_seconds,
+    )
+    _log_run_epilogue(ctx, wall_seconds=wall_seconds, status=status)
+
+
+def step_close_store(ctx: WorkflowContext) -> None:
+    """Close the store and detach it from the context."""
+    if ctx.store is None:
+        return
+    try:
+        ctx.store.close()
+    finally:
+        ctx.store = None
+
+
 def step_finalize_store(
     ctx: WorkflowContext,
     *,
     wall_seconds: float = 0.0,
     status: str = "completed",
 ) -> None:
-    """Finalize the simulation in the store and close it.
+    """Seal the simulation in the store and close it.
 
     After this step ``ctx.store`` is ``None``.
     """
@@ -94,14 +158,34 @@ def step_finalize_store(
         return
 
     try:
-        ctx.store.finalize(
-            ctx.sim_id,
-            status=status,
-            duration_s=wall_seconds,
-        )
+        step_seal_store(ctx, wall_seconds=wall_seconds, status=status)
     finally:
-        ctx.store.close()
-        ctx.store = None
+        step_close_store(ctx)
+
+
+def _log_run_epilogue(ctx: WorkflowContext, *, wall_seconds: float, status: str) -> None:
+    """Best-effort self-teaching epilogue: identity card + next commands."""
+    try:
+        store = ctx.store
+        sid = str(ctx.sim_id)
+        row = store.backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
+        name = (row[0] if row else None) or sid[:8]
+        nse = store.backend.fetch_one(
+            "SELECT value FROM metrics WHERE sim_id = ? "
+            "AND station_id = '__outlet__' AND metric_name = 'nse'",
+            [sid],
+        )
+        metric = f" nse={nse[0]:.2f}" if nse and nse[0] is not None else ""
+        duration = f" {wall_seconds:.0f}s" if wall_seconds else ""
+        logger.info("Run %s: %s [%s]%s%s", status, name, sid[:8], duration, metric)
+        logger.info(
+            "next: hmp catalog show %s | hmp catalog diff %s <other> | hmp catalog export %s",
+            name,
+            name,
+            name,
+        )
+    except Exception:  # noqa: BLE001 - the epilogue must never disrupt a run
+        return
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +198,7 @@ def step_cleanup_scratch(
     *,
     keep_solver_files: bool = False,
 ) -> None:
-    """Remove .solver_scratch/ unless keep_solver_files is True."""
+    """Remove the solver scratch directory unless keep_solver_files is True."""
     if keep_solver_files:
         return
     workspace = ctx.setup.workspace
@@ -139,6 +223,25 @@ def step_cleanup_scratch(
             raise ExportError(
                 f"Could not remove solver scratch directory: {scratch}: {last_error}"
             ) from last_error
+
+
+def step_cleanup_preprocessing(ctx: WorkflowContext) -> int:
+    """Remove the geographic preprocessing tree and return the bytes freed.
+
+    ``.hmp/scratch/_preprocessing`` hangs off the *project root*, while the
+    solver scratch follows ``workspace.output_root`` when one is set: with a
+    redirected output root, :func:`step_cleanup_scratch` never reaches it. It
+    is dropped here unless ``[geographic] write_intermediates`` asked to keep
+    the rasters on disk.
+    """
+    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+
+    geographic = getattr(getattr(ctx, "setup", None), "geographic", None)
+    if geographic is None:
+        return 0
+    geographic_cfg = getattr(ctx.cfg, "geographic", None)
+    keep = bool(getattr(geographic_cfg, "write_intermediates", False))
+    return cleanup_stable_folder(geographic, keep=keep)
 
 
 def _release_cleanup_handles(ctx: WorkflowContext) -> None:
@@ -178,10 +281,14 @@ class ExportStep:
 
     Composed of four concerns: gallery publication
     (:func:`step_save_run_artifacts`), automatic format export
-    (``auto_export_results``), store finalisation
-    (:func:`step_finalize_store`) and scratch cleanup
-    (:func:`step_cleanup_scratch`). Each remains addressable from
-    notebooks via its function-based helper.
+    (``auto_export_results``), sealing and closing the store
+    (:func:`step_seal_store`, :func:`step_close_store`) and scratch cleanup
+    (:func:`step_cleanup_scratch`, :func:`step_cleanup_preprocessing`). Each
+    remains addressable from notebooks via its function-based helper.
+
+    The portable ``.hmp`` package is written between the seal and the close,
+    never before: an archive built on an unsealed run carries neither the
+    manifest nor the provenance.
     """
 
     name = "export"
@@ -190,7 +297,7 @@ class ExportStep:
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:
-        return ("derive",)
+        return ("display",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
@@ -203,17 +310,23 @@ class ExportStep:
         if ctx.store is not None:
             step_save_run_artifacts(ctx, wall_seconds)
             plan = ctx.execution.simulation_plan
-            if plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None:
+            packaged = plan is not None and not ctx.execution.lightweight and ctx.sim_id is not None
+            export_package: Callable[[], None] | None = None
+            if packaged:
                 from hydromodpy.simulation.extraction.post_run import (
+                    auto_export_package,
                     auto_export_results,
                     cleanup_solver_outputs,
                 )
                 from hydromodpy.simulation.planning.plan import RunContext
 
+                export_cfg = ctx.cfg.export
+                save_catalog = bool(results_cfg.persistence.save_catalog)
                 auto_export_results(
                     sim_id=ctx.sim_id,
                     store=ctx.store,
-                    results_config=results_cfg,
+                    export_config=export_cfg,
+                    save_catalog=save_catalog,
                     run_id=ctx.setup.run_id,
                 )
                 for run in plan.runs:
@@ -224,11 +337,31 @@ class ExportStep:
                         results_config=results_cfg,
                         keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
                     )
-            step_finalize_store(ctx, wall_seconds=wall_seconds)
+                export_package = partial(
+                    auto_export_package,
+                    sim_id=ctx.sim_id,
+                    store=ctx.store,
+                    export_config=export_cfg,
+                    save_catalog=save_catalog,
+                    run_id=ctx.setup.run_id,
+                )
+            step_drop_intermediate_budget(ctx)
+            if export_package is None:
+                step_finalize_store(ctx, wall_seconds=wall_seconds)
+            else:
+                # Seal first, package second: the archive must carry the
+                # manifest and the provenance the seal writes. The store stays
+                # open for the packer, which reads the index and the live Zarr.
+                try:
+                    step_seal_store(ctx, wall_seconds=wall_seconds)
+                    export_package()
+                finally:
+                    step_close_store(ctx)
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
         )
+        step_cleanup_preprocessing(ctx)
 
         return state.advance(
             step_index=state.step_index + 1,
@@ -269,21 +402,25 @@ class ExportStep:
     ) -> PipelineState:
         """Restore the post-export state without re-finalising the store.
 
-        Lists the export artefacts currently on disk (parquet, ro-crate
-        directories under the simulation root) and exposes them on the new
-        state so callers can inspect them.
+        Lists the run directory currently on disk and exposes it on the new
+        state so callers can inspect it.
         """
+        from hydromodpy.core.state.paths import runs_dir_for
+
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("ExportStep.rebuild_state requires 'ctx' in state.data")
         existing: list[Path] = []
         ws = getattr(getattr(ctx, "setup", None), "workspace", None)
         project_root: Path | None = getattr(ws, "project_root", None)
+        store = getattr(ctx, "store", None)
         sim_id = getattr(ctx, "sim_id", None)
-        if project_root is not None and sim_id:
-            for sub in (project_root / "simulations").glob(f"*{sim_id[:8]}*"):
-                if sub.is_dir():
-                    existing.append(sub)
+        if project_root is not None and store is not None and sim_id:
+            run_dir = store.run_dir_for(sim_id)
+            if run_dir.is_dir():
+                existing.append(run_dir)
+        elif project_root is not None:
+            existing.extend(p for p in runs_dir_for(project_root).glob("*") if p.is_dir())
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,

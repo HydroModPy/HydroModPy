@@ -174,7 +174,7 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
     assert ctx.grid.cell_area == pytest.approx((0.5) * (2.0 / 3.0))
 
 
-def test_runtime_planar_mesh_uses_domain_surfaces_before_bundle_vertical_fallback():
+def test_runtime_planar_mesh_samples_domain_surfaces_at_voronoi_generators():
     top = np.full((2, 2), 20.0, dtype=float)
     bottom = np.zeros((2, 2), dtype=float)
     domain = _build_domain_from_dem(top)
@@ -203,10 +203,6 @@ def test_runtime_planar_mesh_uses_domain_surfaces_before_bundle_vertical_fallbac
         ),
     )
     planar_mesh = _RuntimePlanarMesh(hydro_mesh)
-    runtime_mesh_support = SimpleNamespace(
-        cell_z_top_m=np.array([25.0, 30.0], dtype=float),
-        cell_z_bottom_m=np.array([5.0, 10.0], dtype=float),
-    )
 
     ctx = build_spatial_discretization(
         domain=domain,
@@ -218,11 +214,43 @@ def test_runtime_planar_mesh_uses_domain_surfaces_before_bundle_vertical_fallbac
             ),
         ),
         runtime_planar_mesh=planar_mesh,
-        runtime_mesh_support=runtime_mesh_support,
     )
 
-    assert ctx.solver_mesh.top.tolist() == pytest.approx([20.0, 20.0])
-    assert ctx.solver_mesh.botm.reshape(-1).tolist() == pytest.approx([0.0, 0.0])
+    # The runtime triangulation is dualized to a Voronoi solver grid whose top/botm
+    # are sampled from the domain surfaces at the generators: every dual cell takes
+    # the DEM top (20) and substratum (0), whatever the dual cell count.
+    top = ctx.solver_mesh.top.reshape(-1)
+    botm = ctx.solver_mesh.botm.reshape(-1)
+    assert top.tolist() == pytest.approx([20.0] * top.size)
+    assert botm.tolist() == pytest.approx([0.0] * botm.size)
+
+
+def test_grid_dual_triangle_keeps_the_triangulation_cells():
+    top = np.full((2, 2), 20.0, dtype=float)
+    bottom = np.zeros((2, 2), dtype=float)
+    domain = _build_domain_from_dem(top)
+    domain.substratum = _build_surface(bottom, name="substratum")
+    hydro_mesh = HydroMesh(
+        vertices=np.array(
+            [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+            dtype=float,
+        ),
+        cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [0, 2, 3]], dtype=int)),),
+    )
+    planar_mesh = _RuntimePlanarMesh(hydro_mesh)
+
+    ctx = build_spatial_discretization(
+        domain=domain,
+        sgrid_config=SolverSGridConfig(
+            grid_dual="triangle",
+            vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
+        ),
+        runtime_planar_mesh=planar_mesh,
+    )
+
+    # grid_dual="triangle" (e.g. for Boussinesq) keeps the 2 triangulation cells; it
+    # does not dualize to Voronoi.
+    assert ctx.solver_mesh.n_cells == 2
 
 
 def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():

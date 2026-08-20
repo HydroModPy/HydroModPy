@@ -44,7 +44,7 @@ def validate_catchment_report_preflight(
 
     if build_context_artifacts:
         if not run_simulation:
-            _require_file(missing, "simulation export", inputs.simulation_export)
+            _require_simulation_run(missing, inputs)
 
     if build_report_html:
         if not build_context_artifacts:
@@ -61,6 +61,26 @@ def _require_file(
 ) -> None:
     if not path.is_file():
         missing.append(MissingCatchmentReportInput(label, path, "file"))
+
+
+def _require_simulation_run(
+    missing: list[MissingCatchmentReportInput],
+    inputs: CatchmentReportInputs,
+) -> None:
+    """Require the run itself, which is what the report reads its series from."""
+    from hydromodpy.display.catchment_report.simulation_source import (
+        catalog_file,
+        simulation_run_exists,
+    )
+
+    if not simulation_run_exists(inputs):
+        missing.append(
+            MissingCatchmentReportInput(
+                f"simulation run '{inputs.simulation_name}'",
+                catalog_file(inputs),
+                "catalog run",
+            )
+        )
 
 
 def _dedupe(

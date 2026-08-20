@@ -76,10 +76,10 @@ Skeleton:
        logger.info("Exported myfmt: %s", output_path)
        return output_path
 
-Wire it through ``SimulationCatalog.export``
+Wire it through ``Catalog.export``
 --------------------------------------------
 
-The ``SimulationCatalog.export`` method dispatches on ``fmt``. Add the
+The ``Catalog.export`` method dispatches on ``fmt``. Add the
 new branch in ``hydromodpy/results/catalog/reads.py``:
 
 .. code-block:: python
@@ -91,9 +91,9 @@ new branch in ``hydromodpy/results/catalog/reads.py``:
 Wire it through the CLI
 -----------------------
 
-The ``hmp export`` command (``hydromodpy/cli/commands/export.py``)
-forwards ``--myfmt`` to the exporter. Add an argument and a dispatch
-branch:
+The ``hmp catalog export`` command
+(``hydromodpy/cli/commands/catalog/export.py``) forwards ``--myfmt`` to
+the exporter. Add an argument and a dispatch branch:
 
 .. code-block:: python
 
@@ -115,19 +115,18 @@ Most exporters fall in one of three families:
 - **Bundle**: read both plus the catalog rows. ``.hmp`` is the
   reference (see ``hmp_package.py``).
 
-Reuse the connection handed by ``SimulationCatalog`` rather than
+Reuse the connection handed by ``Catalog`` rather than
 opening a new one. Reuse ``Run.field`` rather than reading raw Zarr
 keys.
 
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/results/exporters/`` with a tiny
-  fixture catalog (``conftest.py`` already ships ``catalog_with_data``).
-  Assert the file is created and round-trips for the field's dtype
-  and shape.
+- **Unit** under ``tests/unit/results/`` with a tiny fixture catalog
+  (``conftest.py`` already ships ``catalog_with_data``). Assert the file
+  is created and round-trips for the field's dtype and shape.
 - **Integration** under ``tests/integration/results/`` for an
-  end-to-end ``hmp export`` invocation.
+  end-to-end ``hmp catalog export`` invocation.
 
 Pitfalls flagged by the layer matrix
 ------------------------------------

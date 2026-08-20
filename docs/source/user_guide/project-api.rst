@@ -17,8 +17,13 @@ Minimal paths
 
    import hydromodpy as hmp
 
-   result = hmp.run("examples/projects/00_getting_started/run_demo.toml")
-   catalog = hmp.open("~/hydromodpy")
+   result = hmp.run("examples/projects/00_getting_started/project.toml")
+   catalog = hmp.open("examples/projects/00_getting_started")
+
+``hmp.run`` takes a config file; ``hmp.open`` takes a **project
+directory**, the one holding ``project.toml`` and ``.hmp/index.duckdb``.
+A workspace root (``~/hydromodpy``) is not a project and has no index of
+its own: pass ``~/hydromodpy/projects/<name>`` instead.
 
 For explicit lifecycle control:
 
@@ -65,7 +70,7 @@ Lifecycle methods
 Workflow helpers
 ----------------
 
-The facade exposes ``Project.calibrate()`` for calibration. ``project.simulate()``
+The facade exposes ``project.calibrate()`` for calibration. ``project.simulate()``
 creates a single simulation; a sweep is a plain Python loop over it.
 
 .. list-table::
@@ -74,7 +79,7 @@ creates a single simulation; a sweep is a plain Python loop over it.
 
    * - Method
      - Role
-   * - ``Project.calibrate()``
+   * - ``project.calibrate()``
      - Run calibration from the project configuration.
    * - ``project.simulate()``
      - Run a standard simulation workflow.
@@ -92,10 +97,10 @@ Overview, comparison and testbed runs are V1 TOML workflows executed through
 State accessors
 ---------------
 
-Useful read-only properties include ``phase``, ``status``, ``data``, ``runs``,
-``geographic``, ``domain``, ``store``, ``time_grid``, and ``loaded_data``.
-They expose the same runtime state that TOML workflows populate through the
-pipeline.
+Useful read-only properties include ``config``, ``data``, ``runs``,
+``data_loaded``, ``has_mesh``, ``geographic``, ``domain``, ``store``,
+``time_grid``, and ``loaded_data``. They expose the same runtime state that
+TOML workflows populate through the pipeline.
 
 When to prefer the CLI
 ----------------------

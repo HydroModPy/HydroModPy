@@ -12,9 +12,9 @@ Convert process-level objects into solver-level data structures:
 
 The class is a thin facade. Concerns are split across:
 
-- ``_chd_payloads.py``: initial heads, side BC, ocean CHD, side CHD, BAS validation.
-- ``_well_drainage_payloads.py``: WEL and DRN stress-period payloads.
-- ``_recharge_etp_payloads.py``: RCH and EVT payloads (homogeneous and heterogeneous).
+- ``payloads/chd.py``: initial heads, side BC, ocean CHD, side CHD, BAS validation.
+- ``payloads/well_drainage.py``: WEL and DRN stress-period payloads.
+- ``payloads/recharge_etp.py``: RCH and EVT payloads (homogeneous and heterogeneous).
 
 The adapter does not instantiate FLOPY packages. Package construction is done
 by ``ModflowNwt`` after adaptation is complete.
@@ -39,19 +39,19 @@ from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_required_flow_properties,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.nwt._chd_payloads import (
+from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import (
     build_initial_heads_and_sides,
     build_ocean_chd,
     build_side_chd,
     merge_chd_payloads,
     validate_ibound_strt_contract,
 )
-from hydromodpy.solver.modflow_nwt.nwt._recharge_etp_payloads import (
+from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
     build_etp_payload,
     build_recharge_payload,
     resolve_flow_regime,
 )
-from hydromodpy.solver.modflow_nwt.nwt._well_drainage_payloads import (
+from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import (
     build_drainage_spd,
     build_well_stress_period_data,
 )
@@ -99,8 +99,8 @@ class FlowToModflowAdapter:
     by the caller (`ModflowNwt`), after adaptation is complete.
 
     The class delegates concern-specific work to private modules in this
-    package: see ``_chd_payloads``, ``_well_drainage_payloads``, and
-    ``_recharge_etp_payloads``.
+    package: see ``payloads.chd``, ``payloads.well_drainage``, and
+    ``payloads.recharge_etp``.
     """
 
     def __init__(

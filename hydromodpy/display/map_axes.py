@@ -62,8 +62,8 @@ def style_map_axes(
 def style_relative_km_axes(
     ax: Axes,
     *,
-    xlabel: str = "X relatif (km)",
-    ylabel: str = "Y relatif (km)",
+    xlabel: str = "Relative X (km)",
+    ylabel: str = "Relative Y (km)",
     max_ticks: int = 4,
 ) -> None:
     """Style map axes as relative kilometres from the current lower-left corner."""

@@ -79,16 +79,16 @@ def _resolve_resume_step_index(
 ) -> int:
     """Locate the next step index to execute for a previously interrupted run.
 
-    The workflow journal in ``catalog.duckdb`` is the single source of truth:
+    The workflow journal in the project index is the single source of truth:
     when no row exists for ``run_id`` the run is treated as fresh and starts
     from step 0.
     """
-    from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.workflow.journal import WorkflowJournal
-    from hydromodpy.workflow.resume import ResumePlanner
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+    from hydromodpy.workflow.tracking.resume import ResumePlanner
 
     try:
-        catalog = SimulationCatalog(workspace)
+        catalog = Catalog(workspace)
     except Exception as exc:
         raise ResumeError(
             f"Could not open the catalog at {workspace} to resume '{run_id}': {exc}"
@@ -107,6 +107,28 @@ def _resolve_resume_step_index(
             catalog.close()
         except Exception:
             pass
+
+    # Make a degraded resume visible: a snapshot-rebuilt config or a changed
+    # pipeline can force a full restart, which otherwise looks like a normal run.
+    if plan.full_restart:
+        logger.warning(
+            "resume %r cannot pick up where it left off (%s); restarting from step 0",
+            run_id,
+            plan.reason or "pipeline or config changed",
+        )
+    elif plan.restart_index == 0:
+        logger.warning(
+            "resume %r found no resumable journal (%s); starting fresh from step 0",
+            run_id,
+            plan.reason or "no journal entries",
+        )
+    else:
+        logger.info(
+            "resume %r picks up from step %d (last completed: %s)",
+            run_id,
+            plan.restart_index,
+            plan.last_completed.step_name if plan.last_completed is not None else "?",
+        )
     return plan.restart_index
 
 
@@ -193,6 +215,10 @@ class ProjectRunner:
 
         workspace_path = self._resolve_workspace_path()
 
+        # A model-phase-ready run reuses the model built in this process; its
+        # resume_from > 0 is an in-process skip, not a journal resume of a prior
+        # same-name run (which would otherwise abort on an edited config).
+        model_phase_ready = False
         if from_step is not None:
             resume_from: int | None = _resolve_step_index(from_step, all_steps)
             run_id = resume or name
@@ -206,6 +232,7 @@ class ProjectRunner:
         elif self._is_model_phase_ready():
             resume_from = _resolve_step_index("setup_process", all_steps)
             run_id = name
+            model_phase_ready = True
         else:
             resume_from = None
             run_id = name
@@ -257,15 +284,20 @@ class ProjectRunner:
         )
 
         pipeline = Pipeline(steps, workspace=workspace_path)
-        previous_frozen_mode: bool | None = None
+        restore_frozen_root: Path | None = None
         if frozen:
-            from hydromodpy.data.data_freeze import is_frozen_mode, set_frozen_mode
+            from hydromodpy.data.data_freeze import frozen_project_root, set_frozen_mode
 
-            previous_frozen_mode = is_frozen_mode()
-            set_frozen_mode(True)
+            restore_frozen_root = frozen_project_root()
+            set_frozen_mode(True, project_root=workspace_path)
 
         try:
-            final = pipeline.run(initial, resume_from=resume_from, parallel=parallel)
+            final = pipeline.run(
+                initial,
+                resume_from=resume_from,
+                parallel=parallel,
+                model_phase_ready=model_phase_ready,
+            )
         except Exception:
             from hydromodpy.project import phases as project_phases
 
@@ -287,10 +319,13 @@ class ProjectRunner:
             if project._store is None:
                 project_phases.open_catalog(project)
             _rebind_run_history_catalog(project)
-            if previous_frozen_mode is not None:
+            if frozen:
                 from hydromodpy.data.data_freeze import set_frozen_mode
 
-                set_frozen_mode(previous_frozen_mode)
+                set_frozen_mode(
+                    restore_frozen_root is not None,
+                    project_root=restore_frozen_root,
+                )
 
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
@@ -317,7 +352,7 @@ class ProjectRunner:
         catalog, Zarr store, in-memory ``WorkflowContext``) is not
         pickle-safe.
         """
-        from hydromodpy.results.simulation_group import SimulationGroup
+        from hydromodpy.results.run.group import RunSet
         from hydromodpy.workflow.parallel import run_sweep
 
         self._project._ensure_model_built()
@@ -328,7 +363,7 @@ class ProjectRunner:
             name_template=name_template,
             parallel=parallel,
         )
-        return SimulationGroup(sim_ids, self._project._store)
+        return RunSet(sim_ids, self._project._store)
 
     # -- Helpers ----------------------------------------------------------
 

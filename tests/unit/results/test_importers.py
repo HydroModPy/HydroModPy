@@ -10,7 +10,7 @@ import pytest
 
 from hydromodpy.core.config_kit.export_spec import ExportSpec
 from hydromodpy.core.exceptions import UnknownFieldError
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.importers import (
     import_csv_timeseries,
     import_netcdf_fields,
@@ -178,27 +178,27 @@ class TestImportNetCDFFields:
 class TestImportZarrField:
     def test_read_head(self, catalog_with_data):
         catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.zarr_path_for(sid)
+        zarr_path = catalog.fields_path_for(sid)
 
         data = import_zarr_field(zarr_path, "head")
         assert data.shape == (3, 2, 6)
 
     def test_timestep_subset(self, catalog_with_data):
         catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.zarr_path_for(sid)
+        zarr_path = catalog.fields_path_for(sid)
 
         data = import_zarr_field(zarr_path, "head", timesteps=[1])
         assert data.shape == (1, 2, 6)
 
     def test_unknown_variable_raises(self, catalog_with_data):
         catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.zarr_path_for(sid)
+        zarr_path = catalog.fields_path_for(sid)
         with pytest.raises(UnknownFieldError):
             import_zarr_field(zarr_path, "not_a_field")
 
     def test_missing_field_raises(self, catalog_with_data):
         catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.zarr_path_for(sid)
+        zarr_path = catalog.fields_path_for(sid)
         with pytest.raises(KeyError, match="watertable_depth"):
             import_zarr_field(zarr_path, "watertable_depth")
 

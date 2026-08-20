@@ -72,7 +72,7 @@ def test_lock_subcommands_help(monkeypatch, capsys) -> None:
 
 def test_config_subcommands_help(monkeypatch, capsys) -> None:
     for sub in ("template", "check", "wizard"):
-        code = _run_help(monkeypatch, ["hmp", "dev", "config", sub, "--help"])
+        code = _run_help(monkeypatch, ["hmp", "config", sub, "--help"])
         assert code == 0, f"config {sub} --help failed"
         out = capsys.readouterr().out
         assert "usage" in out.lower()

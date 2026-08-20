@@ -1,38 +1,41 @@
 hmp privacy
 ===========
 
-The :command:`hmp privacy` family hosts privacy-preserving operations
-on a workspace. Unlike :command:`hmp catalog delete`, every action here
-leaves a JSON audit certificate so the deletion stays defensible after
-the fact.
+The :command:`hmp privacy` family hosts privacy-preserving operations on a
+project. Unlike :command:`hmp catalog delete`, which is reversible, every
+action here is final and leaves a JSON certificate so the deletion stays
+defensible after the fact.
 
 purge
 -----
 
-Synopsis: ``hmp privacy purge <sim_ref> [--reason <text>] [--workspace <path>]``
+Synopsis: ``hmp privacy purge <ref> [--reason <text>] [--workspace <path>]
+[-y] [--archive-pii]``
 
-Hard-delete one simulation: the catalog row, the Zarr store, the
-Parquet outputs, and any geographic_cache entry no longer referenced.
-The action emits a certificate under
-``<workspace>/.hmp/purge_certificates/<sim_id>.json`` capturing the
-UTC timestamp, the simulation SHA-256 before deletion, the supplied
-``--reason``, and the list of removed paths. The certificate is the
-only auditable evidence that the simulation ever existed.
+Hard-delete one run: its index rows, its Zarr store, its Parquet outputs,
+and any geographic cache entry no longer referenced.
+
+The action writes a certificate at
+``<workspace>/.hmp/purge_certificates/<sim_id>.json``, with mode ``0o600``,
+holding the simulation id, the UTC timestamp, the operator, the supplied
+``--reason`` and a SHA-256 snapshot taken before deletion. The command also
+prints the removed paths and the certificate path. That certificate, plus
+the ``sim.purge`` rows in the audit log, is the only remaining evidence
+that the run ever existed.
 
 Example::
 
-   hmp privacy purge 1a2b3c4d --reason "GDPR request 2026-05-19"
+   hmp privacy purge 1a2b3c4d --reason "GDPR request 2026-05-19" -y
 
 verify
 ------
 
-Synopsis: ``hmp privacy verify [--workspace <path>]``
+Synopsis: ``hmp privacy verify <certificate> [--strict]``
 
-Walk the ``purge_certificates`` directory and check that every
-certificate parses, that its referenced simulation is indeed absent
-from the catalog, and that no orphan artefact survives on disk. Use it
-on a schedule to detect tampering or partial purges.
+Verify one purge certificate: parse it and check its payload. ``--strict``
+additionally requires the POSIX ``0o600`` permissions the purge sets, which
+is the tamper signal to gate in CI.
 
 Example::
 
-   hmp privacy verify
+   hmp privacy verify .hmp/purge_certificates/<sim_id>.json --strict

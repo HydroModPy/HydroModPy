@@ -9,34 +9,37 @@ hmp.open
 --------
 
 :func:`hydromodpy.open` returns a
-:class:`hydromodpy.results.catalog.SimulationCatalog` rooted at the
-given workspace. It is the read-side complement of
+:class:`hydromodpy.results.catalog.Catalog` rooted at the given
+project. It is the read-side complement of
 :meth:`Project.simulate` and mirrors the ``xarray.open_dataset`` intent:
 one call, a ready-to-query object.
 
 By default ``create=False``: the call raises ``FileNotFoundError`` when
-no ``catalog.duckdb`` exists at the workspace. Pass ``create=True`` to
+no ``.hmp/index.duckdb`` exists in the project. Pass ``create=True`` to
 initialise an empty catalog.
 
 .. code-block:: python
 
    import hydromodpy as hmp
 
-   cat = hmp.open("~/hmp_workspace")
+   cat = hmp.open("~/hmp_workspace/projects/naizin")
    last = cat.latest()
    da = hmp.read(last, "head")
 
-``cat`` exposes the workspace query surface without a project-name
-filter: it sees every simulation persisted in the workspace.
+``cat`` is scoped to one project: it sees every run persisted under
+that project root and nothing from its neighbours. Querying across
+projects is the job of :func:`hmp.index`.
 
 Query surface
 -------------
 
 The catalog is the single door. :meth:`cat.find` is the one filtered
-entry point and returns a ``SimulationGroup``; an unknown filter key
+entry point and returns a ``RunSet``; an unknown filter key
 raises ``ValueError`` listing the valid filters. :attr:`cat.frame`
-returns the full ``DataFrame``. Federation across workspaces lives on
-:func:`hmp.index`. Inputs are reached via
+returns the full ``DataFrame``. Federation across projects lives on
+:func:`hmp.index`, which registers one row per project root and
+expands a workspace root into the project roots it holds. Inputs are
+reached via
 :class:`hydromodpy.catalog.InputsNamespace` or the ``hmp data`` CLI.
 
 .. code-block:: python
@@ -64,7 +67,7 @@ Catalog and reader compose naturally inside a notebook session:
 
    import hydromodpy as hmp
 
-   cat = hmp.open("~/hmp_workspace")
+   cat = hmp.open("~/hmp_workspace/projects/naizin")
    run = cat.latest()
 
    head_t0 = hmp.read(run, "head", time=0)
@@ -79,6 +82,7 @@ kinds.
 See Also
 --------
 
-- :func:`hydromodpy.open` -- workspace-level catalog.
+- :func:`hydromodpy.open` -- project-level catalog.
 - :func:`hydromodpy.read` -- read a variable from a persisted run.
-- :func:`hydromodpy.index` -- machine-wide federation of workspaces.
+- :func:`hydromodpy.index` -- machine-wide federation of registered
+  projects.

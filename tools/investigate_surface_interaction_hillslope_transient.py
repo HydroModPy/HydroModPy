@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from hydromodpy.physics.flow.history_contract import write_time_series_npy
-from hydromodpy.results.derived import (
+from hydromodpy.results.derive.derived import (
     drain_budget_to_positive_outflow,
     find_drain_budget_key,
 )
@@ -435,17 +435,17 @@ def _catalog_array(store: Any, sim_id: str, field_name: str) -> np.ndarray:
     for loc in (grp, grp.get("derived"), grp.get("budget")):
         if loc is not None and field_name in loc:
             return np.asarray(loc[field_name][:], dtype=float)
-    raise KeyError(f"SimulationCatalog field not found: {field_name}")
+    raise KeyError(f"Catalog field not found: {field_name}")
 
 
 def _catalog_drain_outflow_history(store: Any, sim_id: str) -> np.ndarray:
     grp = store.open_zarr_group(sim_id)
     budget_grp = grp.get("budget")
     if budget_grp is None:
-        raise KeyError("SimulationCatalog budget group not found.")
+        raise KeyError("Catalog budget group not found.")
     drn_key = find_drain_budget_key(budget_grp)
     if drn_key is None:
-        raise KeyError("SimulationCatalog drain budget field not found.")
+        raise KeyError("Catalog drain budget field not found.")
 
     drain_budget = np.asarray(budget_grp[drn_key][:], dtype=float)
     head = np.asarray(grp["head"][:], dtype=float)

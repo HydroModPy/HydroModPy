@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.solver.base.protocol import RunResult, SolverAdapter
+from hydromodpy.solver.base.adapter_protocol import RunResult, SolverAdapter
 
 
 class DummyAdapter:

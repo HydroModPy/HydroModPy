@@ -11,10 +11,10 @@ from datetime import datetime
 import pandas as pd
 import requests
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.io_helpers import parse_datetime_column
-from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -87,13 +87,13 @@ def fetch(
         logger.info("Hub'Eau piezo: no piezometers found.")
         return []
 
-    log_step(
+    logger.debug(
         f"Hub'Eau piezo: {len(ids)} piezometers "
         f"[{date_start.strftime('%Y-%m-%d')} -> {date_end.strftime('%Y-%m-%d')}]"
     )
 
     records: list[PointRecord] = []
-    for bss_id in iter_progress(ids, desc="Piezometers"):
+    for bss_id in progress.track(ids, "Fetching piezometers"):
         location = _fetch_piezometer_location(bss_id)
         obs_df = _download_chronicles(bss_id, product, date_start, date_end)
         if obs_df.empty:
@@ -113,7 +113,7 @@ def fetch(
             )
         )
 
-    log_step(f"Hub'Eau piezo: {len(records)} records loaded")
+    logger.debug(f"Hub'Eau piezo: {len(records)} records loaded")
     return records
 
 
@@ -139,7 +139,7 @@ def _keep_nearest(
     best_id: str | None = None
     best_dist = float("inf")
 
-    for bss_id in ids:
+    for bss_id in progress.track(ids, "Locating piezometers"):
         loc = _fetch_piezometer_location(bss_id)
         if loc is None:
             continue

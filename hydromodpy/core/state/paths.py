@@ -20,24 +20,168 @@ from urllib.request import url2pathname
 import platformdirs
 from upath import UPath
 
+from hydromodpy.core.exceptions import ConfigError
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
 _APP_NAME = "hydromodpy"
 
-# Workspace filenames -------------------------------------------------------
+# Project layout -----------------------------------------------------------
+#
+# A project root is::
+#
+#     project.toml            configuration, and the marker of the root
+#     configs/                config variants (user-managed, never created)
+#     runs/<name>/            one directory per run, named after the run
+#     sessions/<name>/        calibration and spin-up sessions
+#     share/                  on-demand exports, reports and portable packages
+#     .hmp/                   disposable internals (index, trash, scratch, ...)
+#
+# Every directory name of that layout is declared here so no layer has to
+# hard-code a literal. The names of the files *inside* one run directory
+# belong to the result-storage contract
+# (:mod:`hydromodpy.results.storage.contract`).
 
-CATALOG_FILENAME = "catalog.duckdb"
-"""Per-project catalog DuckDB file living at ``<project>/catalog.duckdb``."""
+PROJECT_MARKER_FILENAME = "project.toml"
+"""The project configuration file, and the marker of a project root.
 
-PROJECT_TOML_FILENAME = "hydromodpy.toml"
-"""Per-project HydroModPy config file living at ``<project>/hydromodpy.toml``."""
+One file plays both roles: ``<project>/project.toml`` holds the shared
+settings of the project and anchors :func:`resolve_project_root`. Creating a
+project writes it, so a scaffolded project is anchored from its first day.
+"""
+
+CONFIGS_DIRNAME = "configs"
+"""Reserved sub-directory holding the config variants of a project."""
+
+RUNS_DIRNAME = "runs"
+"""Directory holding one sub-directory per run at ``<project>/runs/<name>``."""
+
+SESSIONS_DIRNAME = "sessions"
+"""Directory holding calibration and spin-up sessions."""
+
+SHARE_DIRNAME = "share"
+"""Directory holding on-demand exports and portable packages."""
+
+REPORTS_DIRNAME = "reports"
+"""Report sub-directory of :data:`SHARE_DIRNAME`."""
+
+INTERNAL_DIRNAME = ".hmp"
+"""Disposable internals: index database, trash, scratch, logs, cache."""
+
+CATALOG_FILENAME = "index.duckdb"
+"""Project index database living at ``<project>/.hmp/index.duckdb``."""
 
 WORKSPACE_TOML_FILENAME = "workspace.toml"
 """Workspace-wide metadata file living at ``<workspace>/workspace.toml``."""
 
+PROJECTS_DIRNAME = "projects"
+"""Workspace sub-directory holding one directory per project."""
+
 INDEX_FILENAME = "index.duckdb"
 """Machine-wide global index file living under ``state_dir()``."""
+
+
+def internal_dir(project_root: Path) -> Path:
+    """Return ``<project>/.hmp``, the disposable internals directory."""
+    return Path(project_root) / INTERNAL_DIRNAME
+
+
+def catalog_path_for(project_root: Path) -> Path:
+    """Return the project index database ``<project>/.hmp/index.duckdb``."""
+    return internal_dir(project_root) / CATALOG_FILENAME
+
+
+def runs_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/runs``, the parent of every run directory."""
+    return Path(project_root) / RUNS_DIRNAME
+
+
+def share_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/share``, where on-demand outputs are published."""
+    return Path(project_root) / SHARE_DIRNAME
+
+
+def reports_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/share/reports``."""
+    return share_dir_for(project_root) / REPORTS_DIRNAME
+
+
+def scratch_dir_for(output_root: Path) -> Path:
+    """Return ``<root>/.hmp/scratch``, the solver working directory."""
+    return internal_dir(output_root) / "scratch"
+
+
+def running_sidecar_dir(workspace: Path) -> Path:
+    """Directory of live-run heartbeat sidecars under a project root.
+
+    A solving run keeps ``<workspace>/.hmp/running/<id8>.json`` fresh so
+    ``hmp catalog watch`` and ``hmp catalog gc`` read liveness from a file, never the DuckDB
+    catalog (which a live solve holds locked).
+    """
+    return internal_dir(workspace) / "running"
+
+
+def running_sidecar_path(workspace: Path, sim_id: str) -> Path:
+    """Heartbeat sidecar path for a run, keyed by its first 8 hex digits."""
+    id8 = str(sim_id).replace("-", "")[:8]
+    return running_sidecar_dir(workspace) / f"{id8}.json"
+
+
+# Root granularity ----------------------------------------------------------
+#
+# Two kinds of directory carry a HydroModPy layout and they are not
+# interchangeable. A *project* root holds ``project.toml`` and the index
+# database at ``.hmp/index.duckdb``. A *workspace* root holds the shared
+# ``data/`` tree, ``workspace.toml`` and a ``projects/`` directory; it owns no
+# index database. Anything that federates index databases therefore counts in
+# project roots, and turns a workspace root into the project roots it holds.
+
+
+def is_project_root(path: Path) -> bool:
+    """Return True when ``path`` carries a project marker or an index database."""
+    root = Path(path)
+    return (root / PROJECT_MARKER_FILENAME).is_file() or catalog_path_for(root).is_file()
+
+
+def is_workspace_root(path: Path) -> bool:
+    """Return True when ``path`` carries ``workspace.toml`` or a ``projects/`` directory."""
+    root = Path(path)
+    return (root / WORKSPACE_TOML_FILENAME).is_file() or (root / PROJECTS_DIRNAME).is_dir()
+
+
+def project_roots_under(root: Path) -> list[Path]:
+    """Return the resolved project roots ``root`` stands for.
+
+    A workspace root expands to the project roots it holds: itself when it is
+    also one, then every ``projects/<name>`` that is. Any other directory is
+    taken as a single project root, whether or not its index database exists
+    yet, so a project can be registered before its first run.
+
+    Every returned path is resolved, expanded entries included, so a project
+    reached through a symlinked ``projects/<name>`` yields the same string as
+    the same project named directly. Duplicates are dropped in first-seen
+    order.
+    """
+    resolved = Path(root).expanduser().resolve()
+    if not is_workspace_root(resolved):
+        return [resolved]
+    candidates: list[Path] = []
+    if is_project_root(resolved):
+        candidates.append(resolved)
+    projects_dir = resolved / PROJECTS_DIRNAME
+    if projects_dir.is_dir():
+        candidates.extend(
+            entry.resolve()
+            for entry in sorted(projects_dir.iterdir())
+            if entry.is_dir() and is_project_root(entry)
+        )
+    roots: list[Path] = []
+    for candidate in candidates:
+        if candidate not in roots:
+            roots.append(candidate)
+    return roots
+
 
 # Portable URI schemes ------------------------------------------------------
 
@@ -63,12 +207,26 @@ def state_dir() -> Path | UPath:
 # Workspace-relative path helpers ------------------------------------------
 
 
-def find_catalog_root(project_dir: Path) -> Path:
-    """Walk up from ``project_dir`` to find a project-local catalog."""
-    for parent in [project_dir] + list(project_dir.parents):
-        if (parent / CATALOG_FILENAME).exists():
+def resolve_project_root(start: Path) -> Path:
+    """Walk up from ``start`` to the directory holding ``project.toml``.
+
+    The anchor is the project config file, never a database file: the catalog
+    is a rebuildable index and may be absent. Without a marker the starting
+    directory is the root, so a flat project directory still resolves. A
+    ``configs/`` directory is the exception: anchoring there would scatter the
+    project outputs under the sub-directory, so it raises instead.
+    """
+    base = Path(start)
+    for parent in [base, *base.parents]:
+        if (parent / PROJECT_MARKER_FILENAME).is_file():
             return parent
-    return project_dir
+    if base.name == CONFIGS_DIRNAME:
+        raise ConfigError(
+            f"No {PROJECT_MARKER_FILENAME} found above {base}. A config stored in "
+            f"{CONFIGS_DIRNAME}/ cannot anchor a project root: add "
+            f"{PROJECT_MARKER_FILENAME} to {base.parent}."
+        )
+    return base
 
 
 def to_workspace_relative(workspace: Path | UPath, target: Path | UPath) -> str:
@@ -158,7 +316,11 @@ def to_workspace_uri(path: Path | UPath) -> str:
 
 
 def resolve_workspace(uri: str | Path | UPath) -> Path:
-    """Resolve a portable ``workspace_uri`` to a local :class:`Path`.
+    """Resolve a portable root URI to a local :class:`Path`.
+
+    The URI may point at a workspace root or a project root: this helper only
+    turns a portable string into a filesystem path and says nothing about the
+    granularity of what it points at. Use :func:`project_roots_under` for that.
 
     The argument is widened to ``str | Path | UPath`` so callers can
     pass either a raw URI, a :class:`pathlib.Path`, or a
@@ -186,23 +348,41 @@ def resolve_workspace(uri: str | Path | UPath) -> Path:
             path_text = f"//{parsed.netloc}{path_text}"
         return Path(url2pathname(path_text)).expanduser()
     raise NotImplementedError(
-        f"workspace_uri {text!r} uses scheme {scheme!r} which is not supported "
+        f"root URI {text!r} uses scheme {scheme!r} which is not supported "
         "in this release. Use a local path or a file:// URI."
     )
 
 
 __all__: Iterable[str] = (
     "CATALOG_FILENAME",
+    "CONFIGS_DIRNAME",
     "INDEX_FILENAME",
-    "PROJECT_TOML_FILENAME",
+    "INTERNAL_DIRNAME",
+    "PROJECTS_DIRNAME",
+    "PROJECT_MARKER_FILENAME",
+    "REPORTS_DIRNAME",
+    "RUNS_DIRNAME",
+    "SESSIONS_DIRNAME",
+    "SHARE_DIRNAME",
     "WORKSPACE_TOML_FILENAME",
     "cache_dir",
+    "catalog_path_for",
     "decode_workspace_path",
     "encode_workspace_path",
-    "find_catalog_root",
     "from_workspace_relative",
+    "internal_dir",
+    "is_project_root",
     "is_under_workspace",
+    "is_workspace_root",
+    "project_roots_under",
+    "reports_dir_for",
+    "resolve_project_root",
     "resolve_workspace",
+    "running_sidecar_dir",
+    "running_sidecar_path",
+    "runs_dir_for",
+    "scratch_dir_for",
+    "share_dir_for",
     "state_dir",
     "to_workspace_relative",
     "to_workspace_uri",

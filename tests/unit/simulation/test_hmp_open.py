@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import Catalog
 
 
 class TestHmpOpen:
@@ -8,7 +8,7 @@ class TestHmpOpen:
         import hydromodpy as hmp
 
         cat = hmp.open(tmp_path / "ws", create=True)
-        assert isinstance(cat, SimulationCatalog)
+        assert isinstance(cat, Catalog)
         cat.close()
 
     def test_open_roundtrip(self, tmp_path):

@@ -25,10 +25,10 @@ Code map
   DEM-derived preprocessing outputs (`RiverNetworkProducts`).
 - ``hydromodpy/spatial/geographic/core/derived_features.py``:
   geographic bundle that carries canonical network roles.
-- ``hydromodpy/workflow/steps/prepare_solver.py`` and
+- ``hydromodpy/workflow/steps/prepare_solver/`` and
   ``hydromodpy/spatial/geographic/store_ingestion.py``:
   persistence into the catalog.
-- ``hydromodpy/results/run.py``:
+- ``hydromodpy/results/run/view.py``:
   read facade and comparison accessors.
 - ``hydromodpy/display/figures/hydrographic_network*.py``:
   standalone and comparison figures.
@@ -39,9 +39,9 @@ Recommended reading path
 1. ``hydromodpy/spatial/geographic/core/hydrographic_network.py``
 2. ``hydromodpy/spatial/geographic/core/river_network.py``
 3. ``hydromodpy/spatial/geographic/core/derived_features.py``
-4. ``hydromodpy/workflow/steps/prepare_solver.py`` and
+4. ``hydromodpy/workflow/steps/prepare_solver/`` and
    ``hydromodpy/spatial/geographic/store_ingestion.py``
-5. ``hydromodpy/results/run.py``
+5. ``hydromodpy/results/run/view.py``
 6. ``hydromodpy/display/figures/hydrographic_network.py`` and
    ``hydromodpy/display/figures/hydrographic_network_comparison.py``
 
@@ -96,7 +96,7 @@ From a developer point of view, the most important operational split is:
   ``data.hydrography`` produced one usable vector network.
 - ``store_ingestion.py`` persists the generated role when the geographic
   preprocessing produced one usable DEM-derived network.
-- ``SimulationCatalog`` stores those features under canonical names only.
+- ``Catalog`` stores those features under canonical names only.
 - ``Run`` does not guess. It first exposes the stored roles through
   ``available_hydrographic_network_roles()`` and ``has_hydrographic_network(...)``,
   then only enables comparison if both roles are present.

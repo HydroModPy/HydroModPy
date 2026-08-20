@@ -225,9 +225,16 @@ def _print_subprocess_tail(text: str | None, label: str, *, max_lines: int = 80)
 
 
 def _validate_simulation_outputs(inputs: CatchmentReportInputs) -> None:
+    from hydromodpy.display.catchment_report.simulation_source import (
+        catalog_file,
+        simulation_run_exists,
+    )
+
     missing = []
-    if not inputs.simulation_export.exists():
-        missing.append(f"simulation export: {inputs.simulation_export}")
+    if not simulation_run_exists(inputs):
+        missing.append(
+            f"simulation run '{inputs.simulation_name}' in catalog: {catalog_file(inputs)}"
+        )
     if not inputs.simulation_figures.exists():
         missing.append(f"simulation figures directory: {inputs.simulation_figures}")
     if missing:

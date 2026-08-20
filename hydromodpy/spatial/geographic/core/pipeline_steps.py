@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import rasterio
 
+from hydromodpy.core import progress
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.spatial.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
@@ -152,13 +153,14 @@ def build_standard_domain_polygons(
     crs_project: str | None,
 ) -> CatchmentDomainProducts:
     """Build buffered catchment, box and box-buffer polygons with canonical names."""
-    return derive_catchment_domain(
-        catchment_shp=paths.watershed_shp,
-        output_dir=paths.geographic_path,
-        buff_area=_normalize_buff_area(config.buff_area),
-        dem_init_path=dem_init_path,
-        crs_project=crs_project,
-        watershed_buff_name="watershed_buff.shp",
-        watershed_box_name=Path(paths.watershed_box_shp).name,
-        watershed_box_buff_name=Path(paths.box_buff).name,
-    )
+    with progress.status("Building domain polygons"):
+        return derive_catchment_domain(
+            catchment_shp=paths.watershed_shp,
+            output_dir=paths.geographic_path,
+            buff_area=_normalize_buff_area(config.buff_area),
+            dem_init_path=dem_init_path,
+            crs_project=crs_project,
+            watershed_buff_name="watershed_buff.shp",
+            watershed_box_name=Path(paths.watershed_box_shp).name,
+            watershed_box_buff_name=Path(paths.box_buff).name,
+        )

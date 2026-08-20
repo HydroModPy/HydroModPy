@@ -53,11 +53,9 @@ class ClassCohesion:
         shared = 0
 
         for index, left in enumerate(methods):
-
             left_attrs = self.attributes_by_method[left]
 
-            for right in methods[index + 1:]:
-
+            for right in methods[index + 1 :]:
                 right_attrs = self.attributes_by_method[right]
 
                 if left_attrs.isdisjoint(right_attrs):
@@ -70,9 +68,7 @@ class ClassCohesion:
         return disjoint / total if total else 0.0
 
 
-
 class CohesionVisitor(ast.NodeVisitor):
-
     def __init__(self, module: str) -> None:
         self.module = module
         self.classes: list[ClassCohesion] = []
@@ -80,16 +76,12 @@ class CohesionVisitor(ast.NodeVisitor):
         self.current_class: ClassCohesion | None = None
         self.current_method: str | None = None
 
-
     def visit_ClassDef(self, node: ast.ClassDef) -> Any:
 
         previous_class = self.current_class
         previous_method = self.current_method
 
-        class_info = ClassCohesion(
-            name=node.name,
-            module=self.module
-        )
+        class_info = ClassCohesion(name=node.name, module=self.module)
 
         self.current_class = class_info
         self.current_method = None
@@ -101,8 +93,6 @@ class CohesionVisitor(ast.NodeVisitor):
 
         self.current_class = previous_class
         self.current_method = previous_method
-
-
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
 
@@ -119,26 +109,16 @@ class CohesionVisitor(ast.NodeVisitor):
 
         self.current_method = node.name
 
-        self.current_class.attributes_by_method.setdefault(
-            node.name,
-            set()
-        )
+        self.current_class.attributes_by_method.setdefault(node.name, set())
 
         for stmt in node.body:
             self.visit(stmt)
 
         self.current_method = previous_method
 
-
-
-    def visit_AsyncFunctionDef(
-        self,
-        node: ast.AsyncFunctionDef
-    ) -> Any:
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> Any:
 
         self.visit_FunctionDef(node)  # type: ignore[arg-type]
-
-
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> Any:
 
@@ -149,31 +129,17 @@ class CohesionVisitor(ast.NodeVisitor):
             and self.current_method is None
             and isinstance(node.target, ast.Name)
         ):
-
             self.current_class.declared_fields.add(node.target.id)
 
         self.generic_visit(node)
 
-
-
     def visit_Attribute(self, node: ast.Attribute) -> Any:
 
-        if (
-            self.current_class is not None
-            and self.current_method is not None
-        ):
-
-            if (
-                isinstance(node.value, ast.Name)
-                and node.value.id == "self"
-            ):
-
-                self.current_class.attributes_by_method[
-                    self.current_method
-                ].add(node.attr)
+        if self.current_class is not None and self.current_method is not None:
+            if isinstance(node.value, ast.Name) and node.value.id == "self":
+                self.current_class.attributes_by_method[self.current_method].add(node.attr)
 
         self.generic_visit(node)
-
 
 
 def compute_cohesion(root: Path) -> dict[str, Any]:
@@ -181,21 +147,16 @@ def compute_cohesion(root: Path) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
 
     for path in iter_python_files(root):
-
         tree = parse_ast(path)
 
         classes = []
 
         if tree is not None:
-
-            visitor = CohesionVisitor(
-                module_name_from_path(root, path)
-            )
+            visitor = CohesionVisitor(module_name_from_path(root, path))
 
             visitor.visit(tree)
 
             for class_info in visitor.classes:
-
                 classes.append(
                     {
                         "class": class_info.name,
@@ -209,11 +170,8 @@ def compute_cohesion(root: Path) -> dict[str, Any]:
         rows.append(
             {
                 "module": module_name_from_path(root, path),
-
                 "package": package_name_from_path(root, path),
-
                 "public": is_public_module_path(path),
-
                 "path": str(path),
                 "classes": classes,
             }
@@ -225,67 +183,32 @@ def compute_cohesion(root: Path) -> dict[str, Any]:
     }
 
 
-
 def main() -> None:
 
-    parser = argparse.ArgumentParser(
-        description="Compute cohesion metrics for a repository"
-    )
+    parser = argparse.ArgumentParser(description="Compute cohesion metrics for a repository")
 
-    parser.add_argument(
-        "--root",
-        type=Path,
-        default=Path.cwd()
-    )
+    parser.add_argument("--root", type=Path, default=Path.cwd())
 
-    parser.add_argument(
-        "--repo",
-        type=str,
-        default=None
-    )
+    parser.add_argument("--repo", type=str, default=None)
 
-    parser.add_argument(
-        "--branch",
-        type=str,
-        default=None
-    )
+    parser.add_argument("--branch", type=str, default=None)
 
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None
-    )
+    parser.add_argument("--output", type=Path, default=None)
 
     args = parser.parse_args()
 
-
-    with resolve_repository_root(
-        args.root,
-        args.repo,
-        args.branch
-    ) as root:
-
+    with resolve_repository_root(args.root, args.repo, args.branch) as root:
         result = compute_cohesion(root)
 
-        output = json.dumps(
-            result,
-            indent=2
-        )
+        output = json.dumps(result, indent=2)
 
         if args.output is None:
             print(output)
 
         else:
-            args.output.parent.mkdir(
-                parents=True,
-                exist_ok=True
-            )
+            args.output.parent.mkdir(parents=True, exist_ok=True)
 
-            args.output.write_text(
-                output,
-                encoding="utf-8"
-            )
-
+            args.output.write_text(output, encoding="utf-8")
 
 
 if __name__ == "__main__":

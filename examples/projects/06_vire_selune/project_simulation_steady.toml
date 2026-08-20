@@ -96,10 +96,3 @@ negative_to_evt = true
 enabled = true
 show = false
 save = true
-
-[display.flow]
-enabled = true
-watertable_map = true
-cross_section = false
-streamflow = false
-piezometry = false

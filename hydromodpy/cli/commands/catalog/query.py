@@ -12,10 +12,11 @@ from pathlib import Path
 import duckdb
 
 from hydromodpy.cli._conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, find_catalog_root
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "query"
-HELP: str = "Run a SQL statement against the workspace catalog.duckdb"
+HELP: str = "Run a SQL statement against the project index database"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -40,7 +41,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.catalog import query_catalog
 
-    workspace_root = find_catalog_root(
+    workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:

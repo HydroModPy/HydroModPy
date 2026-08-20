@@ -142,13 +142,14 @@ jobs:
       - name: Install external validity_frame package
         run: pip install -e validity_frame
 
+      # The whitebox-heavy tiers (backends, geographic, delineation) used to run
+      # outside this pass: one serial step plus one fresh process per file. They
+      # run here now that tests/conftest.py pins the Whitebox fd-level stdio
+      # redirect off in every pytest process.
       - name: Run unit tests in parallel
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/architecture \
-            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/geographic \
-            --ignore=tests/unit/delineation \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
             --timeout=300 \
@@ -156,40 +157,6 @@ jobs:
             --cov-report= \
             --cov-fail-under=0 \
             -q
-
-      - name: Run whitebox backend tests
-        run: |
-          python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py \
-            --timeout=300 \
-            --cov=hydromodpy \
-            --cov-append \
-            --cov-report= \
-            --cov-fail-under=0 \
-            -q
-
-      - name: Run delineation tests in fresh processes
-        run: |
-          for f in tests/unit/delineation/test_*.py; do
-            python -m pytest "$f" \
-              --timeout=300 \
-              --cov=hydromodpy \
-              --cov-append \
-              --cov-report= \
-              --cov-fail-under=0 \
-              -q || exit 1
-          done
-
-      - name: Run geographic tests in fresh processes
-        run: |
-          for f in tests/unit/geographic/test_*.py; do
-            python -m pytest "$f" \
-              --timeout=300 \
-              --cov=hydromodpy \
-              --cov-append \
-              --cov-report= \
-              --cov-fail-under=0 \
-              -q || exit 1
-          done
 
       - name: Write unit coverage XML
         if: always()
@@ -225,7 +192,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install -e ".[test,calibration,delineation]"
 
       - name: Install solver binaries for integration tests
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true

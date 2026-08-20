@@ -157,6 +157,7 @@ def _write_asset_readme(
             ]
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -210,6 +211,7 @@ def scaffold_copy_assets_case(
     manifest_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     _write_asset_readme(
         asset_dir_path,

@@ -73,8 +73,8 @@ Foundations
       :link: storage-layout
       :link-type: doc
 
-      DuckDB schema, Zarr stores, Parquet tables, and the basename
-      rule that ties them together.
+      Disk is the truth and the database is an index: the three data
+      classes, run and session folders, Zarr and Parquet payloads.
 
    .. grid-item-card:: Code reading guide
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

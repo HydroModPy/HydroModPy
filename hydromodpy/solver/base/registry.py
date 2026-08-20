@@ -13,12 +13,18 @@ live in ``solver/compatibility`` (class-based) and ``simulation/adapters``
 
 The module also tracks **output extractors** keyed on the same
 ``(process_type, solver_name)`` pair. Extractors parse raw solver outputs
-into the ``SimulationCatalog`` after a run completes.
+into the ``Catalog`` after a run completes.
 
 Built-in adapters and extractors shipped in-tree are declared as dotted
 paths and imported lazily on first lookup. That keeps
 ``hydromodpy.simulation`` free of eager imports of ``hydromodpy.solver``
 concrete backends at package-load time.
+
+The entry-point groups are the **out-of-tree** surface only. An in-tree
+backend declared there too would carry a second name: the loader splits an
+entry-point name at its first underscore, so ``flow_modflownwt`` used to mint
+``flow/modflownwt`` next to the real ``flow/modflow_nwt`` — a pair the config
+accepted, with an adapter but no extractor, losing the run after the solve.
 """
 
 from __future__ import annotations
@@ -29,7 +35,7 @@ from importlib.metadata import entry_points
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.base.protocol import SolverAdapter
+from hydromodpy.solver.base.adapter_protocol import SolverAdapter
 
 logger = get_logger(__name__)
 
@@ -175,7 +181,8 @@ def get(process_type: str, solver_name: str) -> type:
 
     Explicit registrations (via :func:`register` or plugins) are served
     from the cache. Unknown pairs fall back to lazy-loading the in-tree
-    ``_BUILTIN_PATHS`` entry, if any.
+    ``_BUILTIN_PATHS`` entry, then to one entry-point scan: nothing is
+    imported until a lookup actually needs it.
     """
     key = (process_type, solver_name)
     cls = _REGISTRY.get(key)
@@ -184,6 +191,11 @@ def get(process_type: str, solver_name: str) -> type:
     cls = _load_builtin(key)
     if cls is not None:
         return cls
+    if not _PLUGINS_LOADED:
+        load_plugins()
+        cls = _REGISTRY.get(key)
+        if cls is not None:
+            return cls
     known = sorted(set(_REGISTRY) | set(_BUILTIN_PATHS))
     raise KeyError(
         f"No solver adapter registered for {process_type}/{solver_name}. Known pairs: {known}."
@@ -350,12 +362,7 @@ def load_plugins(*, force: bool = False) -> int:
         return 0
 
     count = 0
-    try:
-        eps = entry_points(group=ENTRY_POINT_GROUP)
-    except TypeError:
-        eps = entry_points().get(ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
-
-    for ep in eps:
+    for ep in entry_points(group=ENTRY_POINT_GROUP):
         name = ep.name
         if "_" not in name:
             logger.warning(
@@ -396,12 +403,7 @@ def load_extractor_plugins(*, force: bool = False) -> int:
         return 0
 
     count = 0
-    try:
-        eps = entry_points(group=EXTRACTOR_ENTRY_POINT_GROUP)
-    except TypeError:
-        eps = entry_points().get(EXTRACTOR_ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
-
-    for ep in eps:
+    for ep in entry_points(group=EXTRACTOR_ENTRY_POINT_GROUP):
         name = str(ep.name).strip()
         if "_" not in name:
             logger.warning(

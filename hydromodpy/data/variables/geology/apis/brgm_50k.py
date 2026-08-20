@@ -22,6 +22,7 @@ from pathlib import Path
 import geopandas as gpd
 from shapely.geometry import box
 
+from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -68,7 +69,7 @@ def _download_department(
 
     # Download ZIP
     if not zip_path.exists():
-        logger.info("[geology] Downloading 50K map for department %s...", brgm_code)
+        logger.debug("[geology] Downloading 50K map for department %s...", brgm_code)
         try:
             urllib.request.urlretrieve(url, str(zip_path))
         except urllib.error.HTTPError as exc:
@@ -149,7 +150,7 @@ def fetch_brgm_50k(
     dept_cache.mkdir(parents=True, exist_ok=True)
 
     gdfs = []
-    for code in dept_codes:
+    for code in progress.track(dept_codes, "Downloading BRGM 50K departments"):
         dept_path = _download_department(code, cache_dir=dept_cache)
         if dept_path is not None:
             gdf = gpd.read_file(str(dept_path))
@@ -158,23 +159,21 @@ def fetch_brgm_50k(
     if not gdfs:
         raise ValueError(f"No 50K geology data could be downloaded for departments: {dept_codes}")
 
-    # Step 3: merge all departments
     import pandas as pd
 
-    merged = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
-    if merged.crs is None:
-        merged = merged.set_crs("EPSG:2154")
+    with progress.status("Merging and cropping geological maps"):
+        merged = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
+        if merged.crs is None:
+            merged = merged.set_crs("EPSG:2154")
 
-    # Step 4: crop to bbox
-    bbox_geom = box(*bbox)
-    bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs="EPSG:2154")
-    merged = gpd.clip(merged, bbox_gdf)
+        bbox_geom = box(*bbox)
+        bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs="EPSG:2154")
+        merged = gpd.clip(merged, bbox_gdf)
 
-    if merged.empty:
-        raise ValueError("No geology feature intersects the requested bbox after merging")
+        if merged.empty:
+            raise ValueError("No geology feature intersects the requested bbox after merging")
 
-    # Step 5: save
-    merged.to_file(str(merged_gpkg), driver="GPKG")
-    logger.info("[geology] Merged 50K geology map: %s", merged_gpkg)
+        merged.to_file(str(merged_gpkg), driver="GPKG")
+    logger.debug("[geology] Merged 50K geology map: %s", merged_gpkg)
 
     return merged_gpkg

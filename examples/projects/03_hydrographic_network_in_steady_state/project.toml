@@ -1,0 +1,157 @@
+# ======================================================================
+# HydroModPy - example 03: hydrographic network in steady state
+# ----------------------------------------------------------------------
+# Canut catchment (Brittany, EPSG:2154), extracted from the regional 75 m
+# DEM by outlet snapping. Steady-state groundwater flow with a five-layer
+# aquifer, solved with MODFLOW 6. The catchment stream network is
+# delineated from the DEM and the simulated active network (cells where
+# the water table sustains a drain outflow) is rendered on top of it.
+#
+# This is the "how does the perennial network emerge from groundwater"
+# case: raise or lower K in run_manual.py and watch the active network
+# grow or shrink.
+#
+# Launch:
+#   hmp run examples/projects/03_hydrographic_network_in_steady_state/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "canut_steady_mf6"
+description = "Canut catchment, steady-state MODFLOW 6, five-layer aquifer, DEM-delineated stream network."
+if_exists = "replace"
+
+# One steady groundwater-flow process.
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+domain_extent = "box"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+# Canut outlet, EPSG:2154.
+x_outlet = 327816.965
+y_outlet = 6777886.670
+snap_dist = "150 m"
+buff_area = "10%"
+
+# Stream network delineated from the DEM: the reach cells drive the
+# simulated_active_network and hydrographic_network_generated figures.
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+compute_strahler_order = true
+compute_stream_links = true
+
+
+# ---------------------------------------------------------------------- domain
+[domain]
+
+[domain.depth_model]
+# 50 m aquifer split into five layers below the topography.
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+
+# ---------------------------------------------------------------------- data
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "recharge"]
+inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+
+# Steady mean recharge, mm/day. The legacy monthly climatology averages to
+# ~1.2 mm/day over the Canut; a single constant value drives the steady run.
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.2]
+runoff_ratio = 0.0
+
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+
+# Representative hydraulic conductivity, 1e-5 m/s. run_manual.py sweeps it
+# from 1e-8 to 1e-3 m/s to show the active network respond.
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 1e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.1
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+
+[modflow6.sgrid.planar]
+mode = "keep_native"
+
+[modflow6.sgrid.vertical]
+# Five layers, uniform thickness.
+genmtd_lay = "constant"
+nlay = 5
+
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true
+output_dir = "figures"
+on_error = "raise"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "hydrographic_network_generated",
+    "simulated_active_network",
+    "cross_section",
+    "water_budget",
+]

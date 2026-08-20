@@ -115,6 +115,6 @@ def test_evt_cell_targets_uppermost_active_layer_multilayer_disv() -> None:
 
 
 def test_mf6_and_nwt_share_routing_helper() -> None:
-    from hydromodpy.solver.modflow_nwt.nwt import _recharge_etp_payloads
+    from hydromodpy.solver.modflow_nwt.nwt.payloads import recharge_etp
 
-    assert _recharge_etp_payloads.route_negative_recharge_to_evt is route_negative_recharge_to_evt
+    assert recharge_etp.route_negative_recharge_to_evt is route_negative_recharge_to_evt

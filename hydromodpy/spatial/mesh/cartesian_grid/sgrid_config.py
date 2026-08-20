@@ -186,6 +186,101 @@ class PlanarGridConfig(HydroModelBase):
         return self
 
 
+class TopSamplingConfig(HydroModelBase):
+    """How the DISV mesh top is sampled from the DEM before conditioning.
+
+    MODFLOW 6 runtime-mesh only. The default 'centroid' mode samples the DEM at
+    each Voronoi generator, which under-represents narrow incised channels that
+    fall between generators (the generator lands on a bank, not the thalweg). The
+    'zonal' mode reduces every DEM pixel inside a cell with a per-class statistic
+    (a thalweg-preserving stat on channel pixels, an area stat on hillslope
+    pixels), so channel cells keep their incised low. Ignored for structured
+    grids, MODFLOW-NWT and Boussinesq. Every non-default value changes the
+    calibration params_hash (config-scoped); when the sampling CODE changes, bump
+    the version so the code-blind cache re-solves.
+    """
+
+    mode: Annotated[Literal["centroid", "zonal"], Profile.USER] = Field(
+        default="centroid",
+        description=(
+            "Top-sampling strategy. 'centroid' samples the DEM at each cell "
+            "generator (fast, the current behaviour, byte-identical default). "
+            "'zonal' reduces every DEM pixel inside a cell with per-class stats."
+        ),
+    )
+    hillslope_stat: Annotated[
+        Literal["mean", "median", "min", "max", "p10", "p25"], Profile.USER
+    ] = Field(
+        default="median",
+        description="Zonal statistic over non-channel (hillslope) pixels inside a cell.",
+    )
+    channel_stat: Annotated[Literal["min", "p10", "p25", "median", "mean"], Profile.USER] = Field(
+        default="min",
+        description=(
+            "Zonal statistic over channel pixels inside a cell (thalweg-preserving; "
+            "'min' keeps the incised low)."
+        ),
+    )
+    channel_source: Annotated[Literal["none", "streams_raster"], Profile.USER] = Field(
+        default="streams_raster",
+        description=(
+            "Where channel pixels come from when mode='zonal'. 'streams_raster' uses "
+            "the delineated river-network raster reprojected onto the DEM grid; 'none' "
+            "disables the channel class (every pixel is hillslope)."
+        ),
+    )
+    channel_buffer_px: Annotated[int, Profile.DEV] = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Dilate the channel pixel mask by this many pixels before reducing, to "
+            "capture a channel that grazes a cell without a pixel centre on it."
+        ),
+    )
+    spike_guard_tol_m: Annotated[float, Profile.DEV] = Field(
+        default=2.0,
+        ge=0.0,
+        description=(
+            "Revert a hillslope cell's zonal value to the centroid sample when it "
+            "deviates more than this many metres (guards nodata/edge spikes); channel "
+            "cells are exempt since they are lowered on purpose. 0 disables the guard."
+        ),
+    )
+    min_pixels: Annotated[PositiveInt, Profile.DEV] = Field(
+        default=3,
+        description=(
+            "Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; "
+            "below this the cell falls back to the centroid sample. A channel cell "
+            "uses its channel stat from a single thalweg pixel."
+        ),
+    )
+    min_thickness_m: Annotated[float, Profile.DEV] = Field(
+        default=0.1,
+        ge=0.0,
+        description=(
+            "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved "
+            "channel top never collides with the aquifer bottom."
+        ),
+    )
+    network_safety_net: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Before the priority-flood fill, carve the channel cells into a monotone "
+            "descending thalweg (lower-only) and pin them so the fill never raises "
+            "them. Fixes the fill re-raising a zonal-lowered channel; needs a channel "
+            "source (mode='zonal' with channel_source!='none'). Off by default."
+        ),
+    )
+    max_channel_lowering_m: Annotated[float, Profile.DEV] = Field(
+        default=5.0,
+        ge=0.0,
+        description=(
+            "Cap (m) on how far the network safety net may carve a single channel "
+            "cell below its sampled top."
+        ),
+    )
+
+
 class SolverSGridConfig(HydroModelBase):
     """Solver-facing grid configuration split into explicit planar and vertical parts."""
 
@@ -196,6 +291,42 @@ class SolverSGridConfig(HydroModelBase):
     vertical: Annotated[VerticalGridConfig, Profile.USER] = Field(
         default_factory=VerticalGridConfig,
         description="Vertical layering of the solver grid.",
+    )
+    grid_dual: Annotated[Literal["voronoi", "triangle"], Profile.USER] = Field(
+        default="voronoi",
+        description=(
+            "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for "
+            "structured grids, MODFLOW-NWT and Boussinesq (which keeps its own "
+            "triangulation). 'voronoi' uses the PEBI dual (exact CVFD "
+            "orthogonality, ~half the cells) and is the default; 'triangle' keeps "
+            "the triangulation cells as the DISV grid for simplex comparison runs."
+        ),
+    )
+    condition_top: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it "
+            "holds no closed depression. Sampling the DEM at irregular Voronoi cell "
+            "centroids reintroduces local minima (pits) the raster fill removed. "
+            "When true, a priority-flood epsilon fill on the mesh face graph raises "
+            "only pit cells to their spill level, giving every active non-lake cell "
+            "a strictly descending path to the domain boundary. Lake and boundary "
+            "cells are fixed base levels; the aquifer bottom is untouched. Default "
+            "false keeps the raw projected top."
+        ),
+    )
+    condition_top_epsilon: Annotated[float, Profile.USER] = Field(
+        default=1e-3,
+        ge=0.0,
+        description=(
+            "Minimal downhill increment (m) added along each filled path so "
+            "conditioned cells strictly descend instead of forming flats. Only "
+            "used when condition_top is true."
+        ),
+    )
+    top_sampling: Annotated[TopSamplingConfig, Profile.USER] = Field(
+        default_factory=TopSamplingConfig,
+        description="How the runtime-mesh top is sampled from the DEM before conditioning.",
     )
 
     @classmethod

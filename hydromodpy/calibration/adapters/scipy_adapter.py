@@ -22,13 +22,13 @@ from hydromodpy.calibration.adapters._prior_sampling import (
     transformed_prior_center,
     transformed_prior_samples,
 )
-from hydromodpy.calibration.optimizer import (
+from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
-from hydromodpy.calibration.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace
 
 
 class _BridgeClosed(RuntimeError):

@@ -3,7 +3,7 @@ Frontend Hooks
 
 HydroModPy stays a pure Python library: no HTTP server, no FastAPI, no
 WebSocket. Two stable integration points are exposed for any frontend
-(Streamlit, Angular, React, Jupyter widget) that does not need to
+(Angular, React, Jupyter widget) that does not need to
 import the Python package.
 
 For complementary reading, see :doc:`design-patterns` (item 10) and
@@ -12,9 +12,9 @@ For complementary reading, see :doc:`design-patterns` (item 10) and
 Entry points
 ------------
 
-1. ``hmp schema export --output ./schema/`` writes three JSON files
+1. ``hmp dev schema export --output ./schema/`` writes three JSON files
    that describe the configuration surface.
-2. ``hmp schema validate-field <path> <value>`` runs the partial
+2. ``hmp dev schema validate-field <path> <value>`` runs the partial
    validator used for field-by-field feedback in forms (under 50 ms
    per call).
 
@@ -31,8 +31,8 @@ Both are also accessible from Python:
 Modules: ``hydromodpy/schema/export.py`` and
 ``hydromodpy/schema/partial_validator.py``.
 
-Files emitted by ``hmp schema export``
---------------------------------------
+Files emitted by ``hmp dev schema export``
+------------------------------------------
 
 .. list-table::
    :header-rows: 1
@@ -79,37 +79,12 @@ The Sphinx build emits two additional schema artifacts under
 
 The OpenAPI wrapper exists because Stoplight Elements rejects a raw
 JSON Schema with "failed to parse openapi file". The wrapper keeps the
-``hmp schema export`` route untouched (it remains the canonical export
+``hmp dev schema export`` route untouched (it remains the canonical export
 for frontends) and only adds a second artifact for the doc viewer.
 
 .. seealso::
    :doc:`/user_guide/config_reference/schema_explorer` for the
    user-facing schema browser that consumes the OpenAPI wrapper.
-
-Streamlit (local, Python)
--------------------------
-
-Minimal example of auto-generating a form from the schema:
-
-.. code-block:: python
-
-   import json
-   from pathlib import Path
-   import streamlit as st
-
-   schema = json.loads(Path("schema/config.json").read_text())
-   flow = schema["$defs"]["FlowPhysicalProperties"]["properties"]
-
-   k = st.slider(
-       flow["k_aquifer"]["display_name_fr"],
-       min_value=flow["k_aquifer"]["display_min"],
-       max_value=flow["k_aquifer"]["display_max"],
-       help=flow["k_aquifer"]["help_text_fr"],
-   )
-   st.caption(f"Unit: {flow['k_aquifer']['unit']}")
-
-See ``examples/integrations/streamlit_app.py`` for a self-contained
-example that discovers the sections dynamically.
 
 Angular (external repository)
 -----------------------------
@@ -120,7 +95,7 @@ Angular applications usually pair JSON Schema with ``ngx-formly`` or
 .. code-block:: bash
 
    # 1. Produce the schema on every HydroModPy release.
-   hmp schema export --output ./src/app/api/schema/
+   hmp dev schema export --output ./src/app/api/schema/
 
 .. code-block:: ts
 

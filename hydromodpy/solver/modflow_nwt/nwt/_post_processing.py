@@ -12,14 +12,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import rasterio
-from tqdm import tqdm
 
+from hydromodpy.core import progress
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
-from hydromodpy.solver.modflow_nwt.common.binary_reader import (
+from hydromodpy.solver.modflow_nwt.extractors.binary_reader import (
     open_cell_budget_file,
     open_head_file,
 )
@@ -309,14 +309,7 @@ def run_post_processing(
 
     logger.debug("Post-processing MODFLOW: %s", solver.model_name)
 
-    for item, time in enumerate(
-        tqdm(
-            solver.times,
-            desc="[INFO] Post-processing",
-            unit="sp",
-            disable=len(solver.times) <= 1,
-        )
-    ):
+    for item, time in enumerate(progress.track(solver.times, "Post-processing stress periods")):
         _process_one_period(
             solver,
             options,

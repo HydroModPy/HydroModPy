@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.config import (
         CalibOutputBoundary,
         CalibOutputCell,
+        CalibOutputLake,
         CalibOutputPoint,
     )
 
@@ -64,6 +65,14 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
     return adapter, run_ctx
 
 
+def _adapter_supports_keyword(adapter: Any, keyword: str) -> bool:
+    """Return True when ``extract_calibration_series`` accepts ``keyword``."""
+    signature = inspect.signature(adapter.extract_calibration_series)
+    return keyword in signature.parameters or any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+    )
+
+
 def call_extract_calibration_series(
     adapter: Any,
     run_ctx: RunContext,
@@ -71,9 +80,10 @@ def call_extract_calibration_series(
     variable: str,
     station_cells: Mapping[str, Any] | None = None,
     boundary_id: str | None = None,
+    lake_id: str | None = None,
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.Series:
-    """Call an adapter while enforcing explicit boundary filtering support."""
+    """Call an adapter while enforcing explicit boundary/lake filtering support."""
     kwargs: dict[str, Any] = {
         "variable": variable,
         "time_index": time_index,
@@ -81,16 +91,18 @@ def call_extract_calibration_series(
     if station_cells is not None:
         kwargs["station_cells"] = station_cells
     if boundary_id is not None:
-        signature = inspect.signature(adapter.extract_calibration_series)
-        supports_keyword = "boundary_id" in signature.parameters or any(
-            param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
-        )
-        if not supports_keyword:
+        if not _adapter_supports_keyword(adapter, "boundary_id"):
             raise NotImplementedError(
                 f"Solver {run_ctx.run.solver!r} cannot filter calibration boundary_id="
                 f"{boundary_id!r}"
             )
         kwargs["boundary_id"] = boundary_id
+    if lake_id is not None:
+        if not _adapter_supports_keyword(adapter, "lake_id"):
+            raise NotImplementedError(
+                f"Solver {run_ctx.run.solver!r} cannot extract calibration lake_id={lake_id!r}"
+            )
+        kwargs["lake_id"] = lake_id
     return adapter.extract_calibration_series(run_ctx, None, **kwargs)
 
 
@@ -184,6 +196,29 @@ def extract_boundary(ctx: Any, output: CalibOutputBoundary) -> list[float]:
     )
     if sim.empty:
         raise NotImplementedError("Solver returned no boundary calibration series")
+    return slice_time(sim.values, output.time, output.reducer)
+
+
+def extract_lake(ctx: Any, output: CalibOutputLake) -> list[float]:
+    """Extract a lake state time series for the lake named by ``output.lake_id``.
+
+    ``output.variable`` selects the LAK state (stage, volume or surface area);
+    the adapter receives it as the composed ``lake_<quantity>`` variable.
+    """
+    resolved = resolve_flow_adapter(ctx)
+    if resolved is None:
+        raise NotImplementedError("No flow solver adapter available for lake extraction")
+    adapter, run_ctx = resolved
+
+    sim = call_extract_calibration_series(
+        adapter,
+        run_ctx,
+        variable=f"lake_{output.variable}",
+        lake_id=str(output.lake_id),
+        time_index=None,
+    )
+    if sim.empty:
+        raise NotImplementedError("Solver returned no lake calibration series")
     return slice_time(sim.values, output.time, output.reducer)
 
 
@@ -302,27 +337,41 @@ def _xy_from_record(record: Any) -> tuple[float, float] | None:
 def find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
     """Return the closest ``(layer, row, col)`` to ``(x, y)`` on layer 0.
 
-    Tries cell centroids from ``setup.mesh_planar`` first, then falls back to
-    a MODFLOW-NWT structured grid lookup.
+    The lookup runs on the mesh the solver actually wrote: the flow model's
+    ``solver_mesh`` (MODFLOW 6, structured or Voronoi), then the MODFLOW-NWT
+    structured grid. ``setup.mesh_planar`` is not used, because on a Voronoi
+    grid it holds the seed triangulation whose cell order is not the DISV one.
     """
-    mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
-    if mesh is not None:
-        centroids = getattr(mesh, "cell_centroids", None) or getattr(mesh, "centroids", None)
-        if centroids is not None:
-            try:
-                arr = np.asarray(centroids, dtype=float)
-            except Exception:
-                arr = None
-            if arr is not None and arr.ndim == 2 and arr.shape[1] >= 2:
-                deltas = arr[:, :2] - np.array([x, y], dtype=float)
-                distances = np.einsum("ij,ij->i", deltas, deltas)
-                idx = int(np.argmin(distances))
-                nrow = int(getattr(mesh, "nrow", 0) or 0)
-                ncol = int(getattr(mesh, "ncol", 0) or 0)
-                if nrow > 0 and ncol > 0 and idx < nrow * ncol:
-                    return (0, idx // ncol, idx % ncol)
-
+    cell = _find_cell_in_solver_mesh(ctx, x, y)
+    if cell is not None:
+        return cell
     return _find_cell_in_modflow_grid(ctx, x, y)
+
+
+def _find_cell_in_solver_mesh(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
+    """Locate a cell on the flow model's solver mesh by nearest centroid.
+
+    Returns ``(0, row, col)`` on a structured mesh and ``(0, 0, cell_id)`` on an
+    unstructured one, which is the flat DISV selector the MODFLOW 6 head
+    extractor reads as ``head[layer, 0, cell_id]``.
+    """
+    resolved = resolve_flow_adapter(ctx)
+    if resolved is None:
+        return None
+    _adapter, run_ctx = resolved
+    model = run_ctx.state.execution.models_by_run_id.get(run_ctx.run.id)
+    mesh = getattr(model, "solver_mesh", None)
+    if mesh is None:
+        return None
+    centroids = np.asarray(mesh.cell_centroids(), dtype=float)
+    if centroids.ndim != 2 or centroids.shape[0] == 0 or centroids.shape[1] < 2:
+        return None
+    deltas = centroids[:, :2] - np.array([x, y], dtype=float)
+    idx = int(np.argmin(np.einsum("ij,ij->i", deltas, deltas)))
+    if not mesh.is_structured:
+        return (0, 0, idx)
+    ncol = int(mesh.ncol)
+    return (0, idx // ncol, idx % ncol)
 
 
 def _find_cell_in_modflow_grid(ctx: Any, x: float, y: float) -> tuple[int, int, int] | None:
@@ -362,6 +411,7 @@ __all__ = [
     "extract_point",
     "extract_boundary",
     "extract_cell",
+    "extract_lake",
     "resolve_station_cells",
     "find_cell_at_point",
 ]

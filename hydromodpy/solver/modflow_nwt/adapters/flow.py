@@ -21,6 +21,7 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
 )
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
+    nwt_safe_name,
     resolve_run_model_name,
     run_flow_model,
 )
@@ -106,7 +107,9 @@ class ModflowNwtFlowAdapter:
 
         state = ctx.state
         preprocess_options = build_preprocess_options(state)
-        model_name = resolve_run_model_name(ctx)
+        # MODFLOW-NWT truncates a NAME-file path at the first space, so collapse
+        # whitespace before the name reaches the solver files (mirrors MF6).
+        model_name = nwt_safe_name(resolve_run_model_name(ctx))
         # This is the only MODFLOW-NWT-specific part of the adapter: wiring
         # the correct config section into the concrete solver class.
         model_modflow = ModflowNwt(

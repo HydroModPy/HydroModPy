@@ -9,7 +9,7 @@ TOML section: ``[display]``
 
 Pydantic model: ``DisplayConfig`` defined in ``hydromodpy.display.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L109>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L22>`__
 
 Display behaviour resolved from the ``[display]`` TOML section.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">enabled</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L112>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L25>`__
 
       Master switch. When False, no figure is rendered or saved.
 
@@ -50,7 +50,7 @@ Fields
         <code class="hmp-field-name">backend</code>
       </div>
 
-   :bdg-primary:`Literal['agg', 'qt5agg', 'auto']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L116>`__
+   :bdg-primary:`Literal['agg', 'qt5agg', 'auto']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L29>`__
 
       Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show`` is enabled.
 
@@ -64,7 +64,7 @@ Fields
         <code class="hmp-field-name">preset</code>
       </div>
 
-   :bdg-primary:`Literal['default', 'print', 'dark']` :bdg-secondary:`default = "default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L123>`__
+   :bdg-primary:`Literal['default', 'print', 'dark']` :bdg-secondary:`default = "default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L36>`__
 
       Named theme applied before rendering any figure.
 
@@ -78,7 +78,7 @@ Fields
         <code class="hmp-field-name">show</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L127>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L40>`__
 
       Open an interactive window via ``matplotlib.pyplot.show``.
 
@@ -92,7 +92,7 @@ Fields
         <code class="hmp-field-name">save</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L131>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L44>`__
 
       Write rendered figures to disk under ``output_dir``.
 
@@ -106,9 +106,9 @@ Fields
         <code class="hmp-field-name">output_dir</code>
       </div>
 
-   :bdg-primary:`Path` :bdg-secondary:`default = "figures"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L135>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "figures"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L48>`__
 
-      Directory (relative to project root) for saved figures.
+      Name of the figures directory inside the run directory (<project>/runs/<run>/<output_dir>/). Declared as a name, not a path, so it stays anchored to the run it describes.
 
 
 .. container:: hmp-field hmp-field-level-dev
@@ -120,7 +120,7 @@ Fields
         <code class="hmp-field-name">dpi</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L139>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L56>`__
 
       DPI used when saving raster figures.
 
@@ -134,7 +134,7 @@ Fields
         <code class="hmp-field-name">cmap</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "viridis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L144>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "viridis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L61>`__
 
       Default sequential colormap for spatial figures.
 
@@ -148,9 +148,23 @@ Fields
         <code class="hmp-field-name">figures</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L148>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L65>`__
 
-      Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp display`). Empty list disables auto-rendering; figures can still be produced later with `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
+      Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: display-on-error
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="display.on_error">
+        <code class="hmp-field-name">on_error</code>
+      </div>
+
+   :bdg-primary:`Literal['warn', 'raise']` :bdg-secondary:`default = "warn"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L77>`__
+
+      Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
 
 
 .. container:: hmp-field hmp-field-level-expert
@@ -164,344 +178,9 @@ Fields
         <code class="hmp-field-toml">[display.overrides.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L158>`__
+   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L86>`__
 
       Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
-
-
-.. container:: hmp-field hmp-field-level-user
-   :name: display-flow
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="display.flow">
-        <code class="hmp-field-name">flow</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[display.flow]</code>
-      </div>
-
-   :bdg-primary:`DisplayFlowConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L165>`__
-
-      Flow figure switches.
-
-   .. dropdown:: Fields of ``DisplayFlowConfig``
-      :icon: list-unordered
-      :animate: fade-in-slide-down
-
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-enabled
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.enabled">
-              <code class="hmp-field-name">enabled</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L21>`__
-
-            Master switch for flow figures.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-cross-section
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.cross_section">
-              <code class="hmp-field-name">cross_section</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L25>`__
-
-            Render the flow cross-section plot.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-streamflow
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.streamflow">
-              <code class="hmp-field-name">streamflow</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L29>`__
-
-            Render the streamflow comparison plot.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-piezometry
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.piezometry">
-              <code class="hmp-field-name">piezometry</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L33>`__
-
-            Render the piezometry plot.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-watertable-map
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.watertable_map">
-              <code class="hmp-field-name">watertable_map</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L37>`__
-
-            Render water-table maps.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-dem-map
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.dem_map">
-              <code class="hmp-field-name">dem_map</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L41>`__
-
-            Render a DEM overview map.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-budget
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.budget">
-              <code class="hmp-field-name">budget</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L45>`__
-
-            Render groundwater budget figures.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-hydrography
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.hydrography">
-              <code class="hmp-field-name">hydrography</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L49>`__
-
-            Render hydrography maps.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-boussinesq-state
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_state">
-              <code class="hmp-field-name">boussinesq_state</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L53>`__
-
-            Render the Boussinesq state figure.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-boussinesq-diagnostics
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_diagnostics">
-              <code class="hmp-field-name">boussinesq_diagnostics</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L57>`__
-
-            Render Boussinesq diagnostics.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-boussinesq-mass-balance
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_mass_balance">
-              <code class="hmp-field-name">boussinesq_mass_balance</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L61>`__
-
-            Render Boussinesq mass-balance diagnostics.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-boussinesq-probes
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_probes">
-              <code class="hmp-field-name">boussinesq_probes</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L65>`__
-
-            Render Boussinesq probe time series.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-flow-boussinesq-edge-flux
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_edge_flux">
-              <code class="hmp-field-name">boussinesq_edge_flux</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L69>`__
-
-            Render final Boussinesq edge fluxes.
-
-
-
-
-.. container:: hmp-field hmp-field-level-user
-   :name: display-particles
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="display.particles">
-        <code class="hmp-field-name">particles</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[display.particles]</code>
-      </div>
-
-   :bdg-primary:`DisplayParticlesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L169>`__
-
-      Particle figure switches.
-
-   .. dropdown:: Fields of ``DisplayParticlesConfig``
-      :icon: list-unordered
-      :animate: fade-in-slide-down
-
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-particles-enabled
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.particles.enabled">
-              <code class="hmp-field-name">enabled</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L78>`__
-
-            Master switch for particle figures.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-particles-pathlines
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.particles.pathlines">
-              <code class="hmp-field-name">pathlines</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L82>`__
-
-            Render particle pathlines.
-
-
-
-
-.. container:: hmp-field hmp-field-level-user
-   :name: display-transport
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="display.transport">
-        <code class="hmp-field-name">transport</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[display.transport]</code>
-      </div>
-
-   :bdg-primary:`DisplayTransportConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L173>`__
-
-      Transport figure switches.
-
-   .. dropdown:: Fields of ``DisplayTransportConfig``
-      :icon: list-unordered
-      :animate: fade-in-slide-down
-
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-transport-enabled
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.transport.enabled">
-              <code class="hmp-field-name">enabled</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L91>`__
-
-            Master switch for transport figures.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-transport-concentration
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.transport.concentration">
-              <code class="hmp-field-name">concentration</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L95>`__
-
-            Render concentration plots.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-transport-gif
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.transport.gif">
-              <code class="hmp-field-name">gif</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L99>`__
-
-            Export concentration GIF animation.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: display-transport-web-animation
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="display.transport.web_animation">
-              <code class="hmp-field-name">web_animation</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L103>`__
-
-            Export browser-friendly concentration animation.
-
-
 
 
 Starter TOML snippet
@@ -525,31 +204,7 @@ Starter TOML snippet
       # output_dir = "figures"
       # cmap = "viridis"
       # figures = ...  # uses factory default
-
-      [display.flow]
-      # enabled = true
-      # cross_section = true
-      # streamflow = true
-      # piezometry = true
-      # watertable_map = true
-      # dem_map = true
-      # budget = false
-      # hydrography = true
-      # boussinesq_state = true
-      # boussinesq_diagnostics = true
-      # boussinesq_mass_balance = true
-      # boussinesq_probes = true
-      # boussinesq_edge_flux = true
-
-      [display.particles]
-      # enabled = true
-      # pathlines = false
-
-      [display.transport]
-      # enabled = true
-      # concentration = false
-      # gif = false
-      # web_animation = false
+      # on_error = "warn"
 
 Entity-relationship diagram
 ---------------------------

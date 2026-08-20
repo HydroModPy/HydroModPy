@@ -10,13 +10,13 @@ from tools.verify_docs_refresh_outputs import (
 def test_parse_porcelain_paths_handles_modified_untracked_and_rename() -> None:
     status = (
         " M docs/source/capability_gallery/index.rst\n"
-        "?? validation_cases/reports/latest/modflow6_both.json\n"
+        "?? docs/source/_static/capability_gallery/validation/demo.png\n"
         "R  old_name.txt -> tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json\n"
     )
 
     assert parse_porcelain_paths(status) == (
         "docs/source/capability_gallery/index.rst",
-        "validation_cases/reports/latest/modflow6_both.json",
+        "docs/source/_static/capability_gallery/validation/demo.png",
         "tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json",
     )
 
@@ -25,15 +25,18 @@ def test_partition_changed_paths_uses_default_allowlist() -> None:
     changed = (
         "docs/source/capability_gallery/cases/demo.rst",
         "docs/source/_static/capability_gallery/validation/demo.png",
-        "validation_cases/reports/latest/modflow6_both.json",
         "tools/doc_gallery/manifests/xt3d_irregular_tri_method_choice_report.json",
+        "validation_cases/reports/latest/modflow6_both.json",
         "README.md",
     )
 
     allowed, unexpected = partition_changed_paths(changed)
 
-    assert allowed == changed[:-1]
-    assert unexpected == ("README.md",)
+    assert allowed == changed[:3]
+    assert unexpected == (
+        "validation_cases/reports/latest/modflow6_both.json",
+        "README.md",
+    )
 
 
 def test_partition_changed_paths_honors_custom_policy() -> None:

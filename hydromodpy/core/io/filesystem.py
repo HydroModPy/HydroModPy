@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-
-import pandas as pd
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = get_logger(__name__)
 
@@ -20,11 +22,15 @@ def create_folder(path) -> None:
 
 def load_csv(file_path: str) -> pd.DataFrame:
     """Load a CSV file into a DataFrame."""
+    # Lazy: native_io_path puts this module on the migration boot path, and a
+    # top-level pandas import would cost every command half a second there.
+    import pandas as pandas_module
+
     try:
-        return pd.read_csv(file_path)
+        return pandas_module.read_csv(file_path)
     except Exception:
         logger.exception("Failed to load CSV file %s", file_path)
-        return pd.DataFrame()
+        return pandas_module.DataFrame()
 
 
 def native_io_path(path: Path | str) -> str:

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
@@ -67,7 +68,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -85,7 +86,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         }
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 
@@ -101,28 +102,16 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     assert kwargs["section"] == "mesh_catchment"
     assert kwargs["river_trace"] is None
     assert str(kwargs["output_mesh"]).endswith(
-        str(Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "mesh_2.msh")
+        str(Path("mesh_batch_outlet_2") / PREPROCESSING_DIR / "mesh" / "mesh_2.msh")
     )
     assert str(kwargs["output_summary_json"]).endswith(
-        str(
-            Path("mesh_batch_outlet_2")
-            / ".solver_scratch/_preprocessing"
-            / "mesh"
-            / "summary_2.json"
-        )
+        str(Path("mesh_batch_outlet_2") / PREPROCESSING_DIR / "mesh" / "summary_2.json")
     )
     assert str(kwargs["output_figure"]).endswith(
-        str(
-            Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "figure_2.png"
-        )
+        str(Path("mesh_batch_outlet_2") / PREPROCESSING_DIR / "mesh" / "figure_2.png")
     )
     assert str(kwargs["output_figure_regional"]).endswith(
-        str(
-            Path("mesh_batch_outlet_2")
-            / ".solver_scratch/_preprocessing"
-            / "mesh"
-            / "figure_2_regional.png"
-        )
+        str(Path("mesh_batch_outlet_2") / PREPROCESSING_DIR / "mesh" / "figure_2_regional.png")
     )
 
     manifest_path = Path(summary["manifest_csv"])
@@ -177,7 +166,7 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -195,7 +184,7 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
         }
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 
@@ -259,7 +248,7 @@ def test_mesh_catchment_launcher_batch_can_disable_figures(
         },
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.Workspace",
+        "hydromodpy.spatial.mesh.launcher.runtime.Workspace",
         _DummyBatchWorkspace,
     )
     _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
@@ -277,7 +266,7 @@ def test_mesh_catchment_launcher_batch_can_disable_figures(
         }
 
     monkeypatch.setattr(
-        "hydromodpy.spatial.mesh.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        "hydromodpy.spatial.mesh.launcher.runtime.run_zone_conformal_meshing_from_toml",
         _fake_run_case,
     )
 

@@ -21,6 +21,22 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default="mf6",
         description="MODFLOW 6 executable name or absolute path.",
     )
+    mf6_runner: Annotated[Literal["subprocess", "api"], Profile.EXPERT] = Field(
+        default="subprocess",
+        description=(
+            "MODFLOW 6 solve dispatch: 'subprocess' runs the mf6 executable, 'api' "
+            "drives libmf6 via the optional modflowapi package. Both write the same "
+            "simulation, so output extraction is identical."
+        ),
+    )
+    mf6_api_timeout_s: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve "
+            "in parallel calibration; the child is killed past it so one stuck trial "
+            "cannot wedge the session. None keeps the built-in default (2400 s)."
+        ),
+    )
     mf6_ims_complexity: Annotated[Literal["SIMPLE", "MODERATE", "COMPLEX"], Profile.EXPERT] = Field(
         default="COMPLEX",
         description="IMS complexity preset for MODFLOW 6: SIMPLE, MODERATE, or COMPLEX.",
@@ -87,13 +103,28 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=True,
         description=("Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true."),
     )
+    mf6_ats: Annotated[bool, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Enable MODFLOW 6 adaptive time stepping (ATS) on transient periods. Each "
+            "stress period starts at its full length and MF6 subdivides only the periods "
+            "the solver cannot converge in one step (e.g. littoral wet/dry under Newton), "
+            "instead of carrying budget error at nstp=1. When on, OC saves per period end "
+            "so the extraction still sees one record per period. Default off (baseline)."
+        ),
+    )
+    mf6_ats_dtmin_s: Annotated[PositiveFloat, Profile.EXPERT] = Field(
+        default=60.0,
+        description="Minimum ATS time step in seconds (only used when mf6_ats is true).",
+    )
     mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Enable MF6 NPF XT3D terms. When left to None, HydroModPy "
-            "auto-enables XT3D on unstructured solver meshes. This increases "
-            "computational cost but can improve accuracy on unstructured or "
-            "non-orthogonal grids."
+            "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled "
+            "only when the mesh is significantly non-orthogonal or anisotropic K "
+            "is configured; the default Voronoi/PEBI dual grid is near-orthogonal, "
+            "so XT3D stays off there. It adds cost but improves accuracy on "
+            "non-orthogonal or anisotropic grids."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(
@@ -119,7 +150,14 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
 
     vka: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
-        description="Vertical anisotropy ratio kh/kv (dimensionless, > 0). k33 = k / vka.",
+        description=(
+            "Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. "
+            "Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' "
+            "flow parameter instead, which is mutually exclusive with a non-unit vka and is a "
+            "direct conductivity, never a mode-switched value. Vertical anisotropy is "
+            "grid-aligned and needs no XT3D; a horizontal K22 field or an angle (not exposed "
+            "here) would auto-activate XT3D."
+        ),
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
@@ -128,6 +166,23 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "are routed to EVT. The routed deficit tapers linearly from the cell top "
             "to this depth and stops below it, so a sustained climatic deficit can "
             "saturate near this value."
+        ),
+    )
+    lak_forcing_mode: Annotated[Literal["auto", "inline", "ts6"], Profile.EXPERT] = Field(
+        default="auto",
+        description=(
+            "How time-varying LAK forcings are written. 'inline' expands values "
+            "into the LAK PERIOD block, emitting one row per stress period whenever "
+            "the value changes. 'ts6' always routes non-constant forcings to "
+            "external MF6 TS6 files. 'auto' keeps constant/short forcings inline "
+            "and routes only genuinely long series (nper > ts6_min_periods) to TS6."
+        ),
+    )
+    ts6_min_periods: Annotated[PositiveInt, Profile.EXPERT] = Field(
+        default=120,
+        description=(
+            "Period count above which 'auto' mode offloads a non-constant LAK "
+            "forcing to a TS6 file."
         ),
     )
 

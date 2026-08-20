@@ -59,7 +59,7 @@ class Gr4jAdapter:
           stashed in the per-trial :class:`LumpedRamCache`. This skips every
           DuckDB / Parquet write so calibration trials stay strictly in
           memory.
-        - **Cold (``store`` non-None)**: query the ``SimulationCatalog``.
+        - **Cold (``store`` non-None)**: query the ``Catalog``.
           ``promote_trial`` writes the best GR4J trial under
           ``station_id="outlet"`` (or the id provided via ``station_cells``)
           and this method reads it back for full-fidelity reporting.

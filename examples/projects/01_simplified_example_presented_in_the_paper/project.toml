@@ -1,0 +1,188 @@
+# ======================================================================
+# HydroModPy - example 01: simplified example presented in the paper
+# ----------------------------------------------------------------------
+# Canut catchment (Brittany, EPSG:2154), extracted from the regional 75 m
+# DEM by outlet snapping. Steady-state groundwater flow, five layers that
+# thicken with depth, hydraulic conductivity and storage decaying
+# exponentially with depth, solved with MODFLOW 6, followed by particle
+# tracking. This is the flagship walkthrough: delineation, a layered
+# aquifer with a depth profile, and residence-time pathlines.
+#
+# Launch:
+#   hmp run examples/projects/01_simplified_example_presented_in_the_paper/project.toml
+# ======================================================================
+
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "."
+
+
+[simulation]
+name = "canut_paper_mf6"
+description = "Canut catchment, steady MODFLOW 6, depth-decaying five-layer aquifer with particle tracking."
+if_exists = "replace"
+
+# Steady groundwater flow.
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+# Particle tracking, MODFLOW 6 PRT. PRT tracks forward: particles released
+# over the domain terminate where the water table outcrops, showing the
+# recharge-to-seepage paths and their travel times.
+[[simulation.process]]
+id = "particles"
+type = "transport"
+solvers = ["modflow6_prt"]
+
+
+# ---------------------------------------------------------------------- geographic
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+domain_extent = "box"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+# Canut outlet, EPSG:2154.
+x_outlet = 327816.965
+y_outlet = 6777886.670
+snap_dist = "150 m"
+buff_area = "10%"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+compute_strahler_order = true
+compute_stream_links = true
+
+
+# ---------------------------------------------------------------------- domain
+[domain]
+
+[domain.depth_model]
+# 50 m aquifer below the topography.
+kind = "constant_thickness"
+thickness = "50.0 m"
+
+
+# ---------------------------------------------------------------------- data
+[data]
+project_crs = "EPSG:2154"
+types = ["dem", "recharge"]
+inference_mode = "warn"
+
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_armorican_massif.tif"
+
+# Steady mean recharge: 350 mm/year over the catchment = ~0.96 mm/day.
+[[data.recharge.sources]]
+source = "synthetic"
+values = [0.96]
+runoff_ratio = 0.0
+
+
+# ---------------------------------------------------------------------- flow
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.ic]
+type = "top"
+description = "Water table initialised at the topographic surface."
+
+# Surface hydraulic conductivity 2e-5 m/s, decaying with depth (fractured
+# aquifer: the shallow weathered zone conducts, the deep bedrock does not).
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 2e-5
+
+# exp(-depth / 20 m): about half the surface value at 14 m depth.
+[flow.param.K.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = "20.0 m"
+min_factor = 1e-3
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.01
+
+[flow.param.Sy.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = "20.0 m"
+min_factor = 1e-2
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+kind = "cauchy"
+application_domain = "top"
+description = "Cauchy drainage on the aquifer top face."
+value = 0.0
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+
+# ---------------------------------------------------------------------- particle tracking
+[transport.modflow6prt.parameters]
+release_zone = "domain_nonriver"
+track_dir = "forward"
+porosity = 0.01
+max_particles = 300
+release_times_days = [0.0]
+track_time_step_days = 30.0
+stop_time_days = 36500.0
+extend_tracking = true
+dry_tracking_method = "drop"
+
+
+# ---------------------------------------------------------------------- solver
+[modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+
+[modflow6.sgrid.planar]
+mode = "keep_native"
+
+[modflow6.sgrid.vertical]
+# Five layers thickening with depth (geometric ratio 1.5).
+genmtd_lay = "decay"
+nlay = 5
+lay_decay = 1.5
+
+
+# ---------------------------------------------------------------------- display
+[display]
+enabled = true
+show = false
+save = true
+output_dir = "figures"
+on_error = "raise"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "particle_tracks",
+    "cross_section",
+    "simulated_active_network",
+    "water_budget",
+]
+
+# The paper cross-section runs west to east through the catchment.
+[display.overrides.cross_section]
+orientation = "we"

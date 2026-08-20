@@ -3,6 +3,10 @@
 Tabular ``query_*``, ``list_*``, ``read_geographic_*`` accessors plus a
 DataFrame property over ``simulations`` and the ``export`` dispatch. All
 methods are pure reads and never mutate DuckDB or the on-disk artefacts.
+
+Everything here therefore works on a catalog opened with ``read_only=True``,
+and that is how inspection paths open one: listing, showing, querying or
+plotting a project leaves its index file untouched.
 """
 
 from __future__ import annotations
@@ -102,7 +106,10 @@ def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
 
 
 _SIMULATIONS_VIEW_SELECT = (
-    "SELECT s.*, "
+    # Listing/search path: never pull the two heavy config JSON blobs (per-sim
+    # config access goes through Run._load_row's own query). Dropping them at the
+    # SQL layer keeps `ls` memory bounded on large, federated workspaces.
+    "SELECT s.* EXCLUDE (config_toml, config_snapshot), "
     "sv.code AS solver, sv.category AS solver_category, "
     "st.code AS status, "
     "fr.code AS flow_regime, "
@@ -116,13 +123,13 @@ _SIMULATIONS_VIEW_SELECT = (
 
 
 class ReadsMixin:
-    """Read-only queries for :class:`SimulationCatalog`.
+    """Read-only queries for :class:`Catalog`.
 
     Relies on attributes provided by the facade: ``self._backend``
     (CatalogBackend port), ``self._db`` (DuckDB connection, kept for
     exporters that take a raw cursor), and ``self._paths``
     (StoragePathResolver), plus ``self.open_zarr`` and
-    ``self.zarr_path_for`` for field reads / exports.
+    ``self.fields_path_for`` for field reads / exports.
     """
 
     def query_field(
@@ -132,20 +139,9 @@ class ReadsMixin:
         timestep: int,
         layer: int | None = None,
     ) -> np.ndarray:
-        sz = self.open_zarr(sim_id)
-        try:
-            return sz.read_field(variable, timestep, layer=layer)
-        except KeyError:
-            from hydromodpy.results.virtual_fields import compute_virtual_field
+        from hydromodpy.results.derive.virtual_fields import read_field_or_virtual
 
-            result = compute_virtual_field(self, str(sim_id), variable, timestep)
-            if result is not None:
-                if layer is not None and result.ndim == 2:
-                    return result[layer]
-                return result
-            raise KeyError(f"Variable '{variable}' not found for sim={sim_id}") from None
-        finally:
-            sz.close()
+        return read_field_or_virtual(self, str(sim_id), variable, timestep, layer=layer)
 
     def query_timeseries(
         self,
@@ -154,21 +150,17 @@ class ReadsMixin:
         variable: str,
         period: tuple | None = None,
     ) -> pd.Series:
+        from hydromodpy.results.derive.time_alignment import normalize_period_bounds
+
         query = (
             "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [str(sim_id), station_id, variable]
         if period is not None:
-            # Times are stored as UTC-aware TIMESTAMPTZ; normalize the
-            # caller's bounds to tz-aware UTC so the comparison is stable
-            # regardless of DuckDB's session timezone.
-            lo = pd.Timestamp(period[0])
-            hi = pd.Timestamp(period[1])
-            lo = lo.tz_localize("UTC") if lo.tz is None else lo.tz_convert("UTC")
-            hi = hi.tz_localize("UTC") if hi.tz is None else hi.tz_convert("UTC")
-            query += " AND time >= ? AND time <= ?"
-            params.extend([lo.to_pydatetime(), hi.to_pydatetime()])
+            lo, hi, hi_inclusive = normalize_period_bounds(period)
+            query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")
+            params.extend([lo, hi])
         query += " ORDER BY timestep"
         result = self._backend.query(query, params)
         if result.empty:
@@ -263,7 +255,7 @@ class ReadsMixin:
         feature_name: str,
     ) -> gpd.GeoDataFrame:
         """Read a per-simulation GeoParquet 1.1 feature via geopandas."""
-        from hydromodpy.results.geoparquet_io import read_geoparquet
+        from hydromodpy.core.io.geoparquet import read_geoparquet
 
         row = self._backend.fetch_one(
             "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
@@ -288,6 +280,13 @@ class ReadsMixin:
             if isinstance(props, dict) and props.get("geometry_encoding") != "WKB":
                 raise ValueError(f"Unsupported geometry encoding for feature '{feature_name}'")
         return gdf
+
+    def sims_with_tag(self, tag: str) -> set[str]:
+        """Return the sim_ids carrying ``tag`` as a set of strings."""
+        rows = self._backend.fetch_all(
+            "SELECT CAST(sim_id AS VARCHAR) FROM tags WHERE tag = ?", [str(tag)]
+        )
+        return {str(r[0]) for r in rows}
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
         rows = self._backend.fetch_all(
@@ -378,7 +377,7 @@ class ReadsMixin:
             var = None if (isinstance(spec.var, str) and spec.var == "*") else spec.var_list[0]
             return export_csv(self._db, sid, dest, variable=var)
 
-        zarr_path = str(self.zarr_path_for(sid))
+        zarr_path = str(self.fields_path_for(sid))
 
         if fmt is ExportFormat.netcdf:
             from hydromodpy.results.exporters.netcdf import export_netcdf
@@ -421,7 +420,32 @@ class ReadsMixin:
                 zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
             )
 
+        if fmt is ExportFormat.geopackage:
+            from hydromodpy.results.exporters.geopackage import export_geopackage
+
+            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
+            return export_geopackage(
+                zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
+            )
+
         raise ValueError(f"Unsupported export format '{fmt}'")
+
+    def list_exports(self, ref: str | UUID) -> list[dict]:
+        """Return the artefacts recorded for *ref* in ``export_log``.
+
+        Each entry has ``kind``, ``rel_path``, ``bytes``, ``sha256`` and
+        ``created_at``. Lets ``show``/``gc`` see exports without globbing.
+        """
+        sid = self.resolve(ref)
+        rows = self._backend.fetch_all(
+            "SELECT kind, rel_path, bytes, sha256, created_at "
+            "FROM export_log WHERE sim_id = ? ORDER BY created_at",
+            [sid],
+        )
+        return [
+            {"kind": r[0], "rel_path": r[1], "bytes": r[2], "sha256": r[3], "created_at": r[4]}
+            for r in rows
+        ]
 
     def _export_crs_for(self, sim_id: str) -> str | None:
         row = self._backend.fetch_one(

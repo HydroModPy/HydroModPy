@@ -80,17 +80,6 @@ powershell -File tools/update_capability_gallery.ps1 `
   -OpenHtml
 ```
 
-If the rerun also changed committed analytical batch reports, restrict that step
-to one solver family instead of refreshing every report:
-
-```powershell
-powershell -File tools/update_capability_gallery.ps1 `
-  -IncludeValidationReports `
-  -ValidationSolvers modflow6_irregular_tri `
-  -ValidationRegime steady `
-  -Only modflow6_irregular_tri_xt3d_method_choice
-```
-
 The XT3D irregular-triangle diagnostics note uses its own committed report
 source. Targeting that slug now refreshes the report automatically before the
 gallery rebuild, or you can force that step explicitly:
@@ -256,8 +245,6 @@ Analytical validation cases are discovered automatically from
 - solver coverage is inferred from `[config_files]`
 - gallery pages render one common benchmark description plus solver-specific
   tabs when a case exposes more than one backend
-- the validation landing page also reads committed batch reports from
-  `validation_cases/reports/latest/*.json`
 
 ## How To Add One Case
 
@@ -298,10 +285,10 @@ The repository now carries a dedicated GitHub Actions workflow:
 Its job is intentionally narrow:
 
 - install the lightweight Python environment required by the gallery tooling,
-- run `python -m tools.doc_gallery --check`,
+- run `python -m tools.doc_gallery --check --category mesh,geographic,simulation_comparison,code_comparison`,
 - fail the PR if committed gallery artifacts drift away from the declarative
   inventory or tracked source hashes.
 
-This does not regenerate validation batch reports in CI. Those reports still
-depend on heavier scientific runtimes and are refreshed explicitly when the
-validation report content itself changes.
+It does not run any solver: the checked categories are rebuilt from versioned
+repository inputs only. The validation and calibration categories stay out of
+that job because they need solver binaries and heavier scientific runtimes.

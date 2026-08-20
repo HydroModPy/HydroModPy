@@ -4,9 +4,9 @@ Runs :func:`hydromodpy.calibration.cases.recession_brutsaert.calibrate_brutsaert
 for each runnable method, builds a synthetic iteration trace matching the
 ``calibration_iterations`` schema, and verifies:
 
-1. :func:`hydromodpy.calibration.diagnostics.parameter_correlation` returns a
+1. :func:`hydromodpy.calibration.optim.diagnostics.parameter_correlation` returns a
    sane matrix (diagonal = 1, symmetric, finite).
-2. :func:`hydromodpy.calibration.diagnostics.convergence_rate` yields a finite
+2. :func:`hydromodpy.calibration.optim.diagnostics.convergence_rate` yields a finite
    improvement rate.
 3. Each of the five registered calibration figures (``calibration_convergence``,
    ``calibration_trace``, ``calibration_landscape``, ``calibration_posterior``,
@@ -36,7 +36,7 @@ from hydromodpy.calibration.cases.recession_brutsaert import (  # noqa: E402
     calibrate_brutsaert,
     make_baseflow_simulator,
 )
-from hydromodpy.calibration.diagnostics import (  # noqa: E402
+from hydromodpy.calibration.optim.diagnostics import (  # noqa: E402
     convergence_rate,
     iterations_to_dataframe,
     parameter_correlation,

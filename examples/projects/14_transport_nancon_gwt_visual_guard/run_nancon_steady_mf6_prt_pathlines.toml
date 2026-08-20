@@ -11,7 +11,7 @@ root = "../../"
 name = "nancon_steady_mf6_prt_pathlines"
 run_id = "nancon_steady_mf6_prt_pathlines"
 description = "Nancon steady MODFLOW 6 flow followed by MODFLOW 6 PRT pathline tracking."
-on_collision = "replace"
+if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

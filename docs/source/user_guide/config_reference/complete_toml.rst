@@ -24,6 +24,8 @@ Sub-models are linked back to their per-section page.
       [workflow]
       # Workflow mode dispatched by `hmp run`.
       # mode = ""  # REQUIRED
+      # Profile the run with pyinstrument (honored by the hmp CLI; the --profile flag wins over this field). true writes <config>.profile.html next to the config; a string sets the HTML report path.
+      profile = false
 
 .. dropdown:: ``[workspace]`` (WorkspaceConfig)
    :icon: gear
@@ -39,13 +41,13 @@ Sub-models are linked back to their per-section page.
       # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
       # example: root = "../.."
       # root = ...  # default = None
-      # Explicit path to the project catalog.duckdb. Defaults to <project_root>/catalog.duckdb.
+      # Explicit path to the project index database. Defaults to <project_root>/.hmp/index.duckdb.
       # catalog_path = ...  # default = None
       # Explicit path to the workspace data directory. Defaults to <root>/data.
       # data_dir = ...  # default = None
-      # Explicit path to the simulations Zarr directory. Defaults to <project_root>/simulations.
-      # simulations_dir = ...  # default = None
-      # Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
+      # Explicit path to the directory holding one sub-directory per run. Defaults to <project_root>/runs.
+      # runs_dir = ...  # default = None
+      # Root directory for per-project outputs (.hmp/scratch/, share/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
       # example: output_root = "outputs/run_a"
       # output_root = ...  # default = None
 
@@ -65,6 +67,8 @@ Sub-models are linked back to their per-section page.
       # crs_project = ...  # default = None
       # DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.
       dem_correc_type = "breach"
+      # Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.
+      domain_extent = "box"
       # Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.
       # bottom_path = ...  # default = None
       # Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.
@@ -73,9 +77,13 @@ Sub-models are linked back to their per-section page.
       # synthetic = ...  # uses factory default
       # Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
       # river_network = ...  # uses factory default
+      # Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
+      # enforce_lakes = ...  # uses factory default
+      # Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).
+      # dam_carve = ...  # uses factory default
       # If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
       reuse_existing_outputs = false
-      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), results_stable/ is removed after ingestion into the simulation Zarr store.
+      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/_preprocessing/ is removed after ingestion into the run field store.
       write_intermediates = false
 
 .. dropdown:: ``[domain]`` (DomainConfig)
@@ -103,7 +111,7 @@ Sub-models are linked back to their per-section page.
       [data]
       # EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
       # project_crs = ...  # default = None
-      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
       # types = ...  # uses factory default
       # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
       inference_mode = "warn"
@@ -117,6 +125,20 @@ Sub-models are linked back to their per-section page.
       # hydrometry = ...  # default = None
       # Intermittency configuration (ONDE stream flow-state observations).
       # intermittency = ...  # default = None
+      # Lake abacus configuration (stage-volume-area lookup table).
+      # lake_abacus = ...  # default = None
+      # Lake bathymetry configuration (lake-bed elevation raster).
+      # lake_bathymetry = ...  # default = None
+      # Lake geometry configuration (lake/reservoir footprint vector).
+      # lake_geometry = ...  # default = None
+      # Lake inflow configuration (observed inflow volumetric time series).
+      # lake_inflow = ...  # default = None
+      # Lake levels configuration (observed water-level time series).
+      # lake_levels = ...  # default = None
+      # Lake outflow configuration (observed outflow volumetric time series).
+      # lake_outflow = ...  # default = None
+      # Lake withdrawal configuration (observed withdrawal volumetric time series).
+      # lake_withdrawal = ...  # default = None
       # Oceanic configuration used when 'oceanic' is listed in data.types.
       # oceanic = ...  # default = None
       # Piezometry configuration (groundwater level time-series).
@@ -198,7 +220,7 @@ Sub-models are linked back to their per-section page.
       # example: active_sinks_sources = ["recharge", "wells"]
       # example: active_sinks_sources = ["etp"]
       # active_sinks_sources = ...  # uses factory default
-      # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
+      # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', 'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced package and are only supported by the modflow6 backend. An empty list means no boundary-condition package is assembled by the solver.
       # example: active_bc = ["ocean"]
       # example: active_bc = ["west_side", "east_side", "drainage"]
       # active_bc = ...  # uses factory default
@@ -210,6 +232,8 @@ Sub-models are linked back to their per-section page.
       # example: first_period_steady = true
       # example: first_period_steady = false
       first_period_steady = true
+      # Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic].
+      # restart_from = ...  # default = None
 
 .. dropdown:: ``[transport]`` (TransportConfig)
    :icon: gear
@@ -240,13 +264,13 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [simulation]
-      # Human-readable simulation name.
+      # Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.
+      # example: name = "cheze_baseline"
       name = ""
-      # Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
-      # example: run_id = "steady_nwt"
-      run_id = ""
-      # Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
-      on_collision = "replace"
+      # Free-text tags attached at registration; editable later via 'hmp tag'.
+      # tags = ...  # uses factory default
+      # Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
+      if_exists = "version"
       # Short free-text description of the simulation intent.
       description = ""
       # Scientific objective used for catalog and ML stratification.
@@ -265,7 +289,7 @@ Sub-models are linked back to their per-section page.
       # time = ...  # default = None
       # Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.
       # process = ...  # uses factory default
-      # Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.
+      # Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
       # results = ...  # uses factory default
       # Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
       # rng_seed = ...  # default = None
@@ -331,22 +355,49 @@ Sub-models are linked back to their per-section page.
       show = false
       # Write rendered figures to disk under ``output_dir``.
       save = true
-      # Directory (relative to project root) for saved figures.
+      # Name of the figures directory inside the run directory (<project>/runs/<run>/<output_dir>/). Declared as a name, not a path, so it stays anchored to the run it describes.
       output_dir = "figures"
       # DPI used when saving raster figures.
       dpi = 150
       # Default sequential colormap for spatial figures.
       cmap = "viridis"
-      # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp display`). Empty list disables auto-rendering; figures can still be produced later with `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
+      # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
       # figures = ...  # uses factory default
+      # Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
+      on_error = "warn"
       # Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
       # overrides = ...  # uses factory default
-      # Flow figure switches.
-      # flow = ...  # uses factory default
-      # Particle figure switches.
-      # particles = ...  # uses factory default
-      # Transport figure switches.
-      # transport = ...  # uses factory default
+
+.. dropdown:: ``[export]`` (ExportConfig)
+   :icon: gear
+
+   See :doc:`export` for the full description.
+
+   .. code-block:: toml
+
+      [export]
+      # Export to NetCDF-4/UGRID.
+      netcdf = false
+      # Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export.
+      csv_timeseries = false
+      # Export to VTU (ParaView).
+      vtu = false
+      # Export to GeoTIFF.
+      geotiff = false
+      # Export to Shapefile.
+      shapefile = false
+      # Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
+      package = false
+      # Output directory for exports. Defaults to project results folder.
+      # output_dir = ...  # default = None
+      # Which variables to include in exports.
+      # variables = ...  # uses factory default
+      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
+      times = "last"
+      # GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
+      # resolution = ...  # default = None
+      # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
+      # artifacts = ...  # uses factory default
 
 .. dropdown:: ``[persistence]`` (PersistenceConfig)
    :icon: gear
@@ -362,12 +413,23 @@ Sub-models are linked back to their per-section page.
       save_zarr = true
       # Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
       save_parquet = true
-      # Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.
-      save_lock = true
       # Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
       compression = "zstd"
       # Compression level (codec-dependent). Ignored when compression='none'.
       compression_level = 3
+
+.. dropdown:: ``[observation]`` (ObservationConfig)
+   :icon: gear
+
+   See :doc:`observation` for the full description.
+
+   .. code-block:: toml
+
+      [observation]
+      # Observation points sampled once the run has produced its fields.
+      # points = ...  # uses factory default
+      # Variables sampled at every point that does not name its own. Virtual fields (watertable_depth, seepage_mask ...) are accepted.
+      # variables = ...  # uses factory default
 
 .. dropdown:: ``[analysis]`` (AnalysisConfig)
    :icon: gear
@@ -413,7 +475,7 @@ Sub-models are linked back to their per-section page.
       [mesh_catchment]
       # Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.
       constraints_mode = "geology_rivers"
-      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
+      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
       # output_mesh = ...  # default = None
       # Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output.
       # output_summary_json = ...  # default = None
@@ -425,15 +487,17 @@ Sub-models are linked back to their per-section page.
       figures_enabled = true
       # If true, export the solver-exchange mesh bundle next to the generated mesh. Set it to false for profiling or mesh-only runs that do not need bundle metadata. Downstream solvers that require runtime mesh support may fail without this bundle.
       export_exchange_bundle = true
+      # If true, reuse a previously generated mesh when its inputs (domain geometry, river constraint, lake/dam refinement, mesh and delineation configuration) are unchanged, instead of regenerating it. Gmsh is not reproducible run to run (it reseeds from the system clock), so regeneration yields a different mesh and makes results and calibration objectives irreproducible; caching pins the mesh. Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache.
+      cache = false
       # Pixel density used when rendering the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
       figure_dpi = 300
       # Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
       figure_regional_dpi = 220
-      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
+      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
       output_layout = "standard"
       # If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.
       show_plot = false
-      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
+      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and `.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
       geographic_outputs_mode = "keep"
       # River-constraint section used when constraints_mode includes rivers. The default behavior is to reuse the in-memory river trace already built by the geographic pipeline.
       # rivers = ...  # uses factory default
@@ -447,6 +511,10 @@ Sub-models are linked back to their per-section page.
       # domain = ...  # uses factory default
       # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells.
       # zone_meshing = ...  # uses factory default
+      # Optional local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). Disabled by default; set enabled = true to add the lake size fields.
+      # lake_refinement = ...  # uses factory default
+      # User-provided zones of interest for local refinement. Each entry names one vector layer (polygons = zones, points / lines = corridors) and a target cell size; declare entries as [[mesh_catchment.refinement_zone]] tables.
+      # refinement_zone = ...  # uses factory default
 
 .. dropdown:: ``[mesh_input]`` (MeshInputConfig)
    :icon: gear
@@ -477,6 +545,8 @@ Sub-models are linked back to their per-section page.
       batch_size = 1
       # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
       parallel = 1
+      # Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
+      warmup_periods = 0
       # Random seed for reproducibility.
       # seed = ...  # default = None
       # How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included).
@@ -511,6 +581,25 @@ Sub-models are linked back to their per-section page.
       # candidates_root = ...  # default = None
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
       # persistence = ...  # uses factory default
+
+.. dropdown:: ``[spinup]`` (SpinupConfig)
+   :icon: gear
+
+   See :doc:`spinup` for the full description.
+
+   .. code-block:: toml
+
+      [spinup]
+      # Maximum spin-up cycles before the loop stops without converging.
+      max_cycles = 10
+      # Head convergence tolerance [m]. The loop converges when the largest absolute head change between two cycles (L-inf over active cells) is below this.
+      tol_head = 0.01
+      # Lake-stage convergence tolerance [m]. The loop converges when the largest absolute stage change between two cycles, over every lake, is below this. Ignored when the model has no lake.
+      tol_stage = 0.01
+      # Cycle window start (ISO datetime, e.g. '2019-01-01'). The representative forcing period each cycle repeats. None reuses [simulation.time].
+      # window_start = ...  # default = None
+      # Cycle window end (ISO datetime). None reuses [simulation.time]. Set both window bounds to spin up on a shorter representative period than the production chronicle.
+      # window_end = ...  # default = None
 
 .. dropdown:: ``[testbed]`` (TestbedConfig)
    :icon: gear

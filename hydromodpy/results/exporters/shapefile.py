@@ -3,12 +3,77 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.zarr_store import SimulationZarr
 
+if TYPE_CHECKING:
+    import geopandas as gpd
+
 logger = get_logger(__name__)
+
+
+def build_cell_geodataframe(
+    zarr_path: str | Path,
+    sim_id: str,
+    variable: str,
+    timestep: int,
+    *,
+    layer: int | None = None,
+    crs: str | None = None,
+) -> gpd.GeoDataFrame:
+    """Build a ``GeoDataFrame`` of mesh-cell polygons with one field's values.
+
+    Shared by the Shapefile and GeoPackage exporters. Requires ``geopandas`` and
+    ``shapely`` and an explicit ``crs``.
+    """
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    if crs is None:
+        raise ValueError("Vector export requires an explicit CRS.")
+    descriptor = field_registry.get(variable)
+
+    sz = SimulationZarr(zarr_path)
+    try:
+        grp = sz.root
+        mesh = grp["mesh"]
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
+
+        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
+        if arr is None:
+            raise KeyError(
+                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
+                f"not found for sim={sim_id}"
+            )
+        data = arr[timestep]
+    finally:
+        sz.close()
+    if data.ndim == 2:
+        data = data[layer or 0]
+
+    geometries = []
+    values = []
+    cell_ids = []
+    for i, face in enumerate(connectivity):
+        node_ids = face[face >= 0]
+        coords = vertices[node_ids, :2]
+        if len(coords) < 3:
+            continue
+        poly = Polygon(coords)
+        if poly.is_valid and not poly.is_empty:
+            geometries.append(poly)
+            values.append(float(data[i]))
+            cell_ids.append(i)
+
+    return gpd.GeoDataFrame(
+        {"cell_id": cell_ids, variable: values},
+        geometry=geometries,
+        crs=crs,
+    )
 
 
 def export_shapefile(
@@ -60,54 +125,9 @@ def export_shapefile(
     ...     run_zarr, run.sim_id, "head", -1, "head_cells.shp", crs="EPSG:2154"
     ... )
     """
-    import geopandas as gpd
-    from shapely.geometry import Polygon
-
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    descriptor = field_registry.get(variable)
-    if crs is None:
-        raise ValueError("Shapefile export requires an explicit CRS.")
-
-    sz = SimulationZarr(zarr_path)
-    try:
-        grp = sz.root
-        mesh = grp["mesh"]
-        vertices = mesh["vertices"][:]
-        connectivity = mesh["face_node_connectivity"][:]
-
-        arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-        if arr is None:
-            raise KeyError(
-                f"Variable '{variable}' (zarr_path={descriptor.zarr_path!r}) "
-                f"not found for sim={sim_id}"
-            )
-        data = arr[timestep]
-    finally:
-        sz.close()
-    if data.ndim == 2:
-        data = data[layer or 0]
-
-    geometries = []
-    values = []
-    cell_ids = []
-    for i, face in enumerate(connectivity):
-        node_ids = face[face >= 0]
-        coords = vertices[node_ids, :2]
-        if len(coords) < 3:
-            continue
-        poly = Polygon(coords)
-        if poly.is_valid and not poly.is_empty:
-            geometries.append(poly)
-            values.append(float(data[i]))
-            cell_ids.append(i)
-
-    gdf = gpd.GeoDataFrame(
-        {"cell_id": cell_ids, variable: values},
-        geometry=geometries,
-        crs=crs,
-    )
+    gdf = build_cell_geodataframe(zarr_path, sim_id, variable, timestep, layer=layer, crs=crs)
     gdf.to_file(str(output_path))
     logger.info("Exported Shapefile: %s (%d cells)", output_path, len(gdf))
     return output_path

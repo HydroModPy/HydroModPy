@@ -99,7 +99,12 @@ def extract_discharge_from_cbc(
 ) -> pd.Series:
     """Sum the DRAIN budget component per timestep and return a m3/s series.
 
-    Raises when no CBC file is found or no DRAIN component is recorded.
+    Raises when no CBC file is found or no DRAIN component is recorded. Raises
+    ``NotImplementedError`` when the run routes drainage through MVR (a DRN-TO-MVR
+    record is present): the in-watershed drainage then leaves via SFR/LAK
+    ext-outflow, so the plain DRAIN record is only the buffer drainage and a
+    discharge objective would silently optimize against the wrong water.
+    Calibrate on ``lake_level`` (or disable route_drainage) in that case.
     """
     import flopy.utils.binaryfile as bf
 
@@ -113,6 +118,13 @@ def extract_discharge_from_cbc(
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
+        record_names = [r.decode().strip().lower() for r in cbb.get_unique_record_names()]
+        if any("to-mvr" in name or "to_mvr" in name for name in record_names):
+            raise NotImplementedError(
+                "discharge calibration is not supported on a run that routes drainage "
+                "through MVR (DRN-TO-MVR present): the plain DRAIN record is only the "
+                "buffer drainage. Calibrate on 'lake_level', or disable route_drainage."
+            )
         drain_key = _find_drain_component(cbb)
 
         times = cbb.get_times()

@@ -15,6 +15,7 @@ import pandas as pd
 
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.calibration_extractors import (
     extract_discharge_from_cbc,
@@ -25,6 +26,36 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     resolve_run_model_name,
     run_flow_model,
 )
+
+# Calibration variable -> LAK observation state. The variable carries the quantity
+# because the adapter Protocol takes one ``variable`` string, not a quantity kwarg;
+# every entry must stay a state ``extract_lake_series`` accepts.
+_LAKE_CALIB_QUANTITIES: dict[str, str] = {
+    "lake_stage": "stage",
+    "lake_volume": "volume",
+    "lake_surface_area": "surface_area",
+}
+
+
+def _collapse_to_disv_cells(
+    station_cells: Mapping[str, tuple[int, int, int]],
+    model: Any,
+) -> dict[str, tuple[int, int, int]]:
+    """Map structured ``(layer, row, col)`` station cells to DISV ``(layer, 0, id)``.
+
+    MF6 always writes DISV, whose head array is ``(nlay, 1, ncpl)``. The station
+    resolver returns ``(layer, row, col)`` from the structured planar grid, so the
+    ``(row, col)`` is collapsed to the flat row-major ``cell2d`` id and the head is
+    read as ``head[layer, 0, id]``. Without this, ``head[layer, row, col]`` indexes
+    the size-1 middle axis and raises for any station off the first grid row. On an
+    unstructured mesh (no ``ncol``) the cells are already flat, so they pass
+    through unchanged.
+    """
+    mesh = getattr(model, "solver_mesh", None)
+    if mesh is None or not getattr(mesh, "is_structured", False):
+        return dict(station_cells)
+    ncol = int(mesh.ncol)
+    return {sid: (int(k), 0, int(i) * ncol + int(j)) for sid, (k, i, j) in station_cells.items()}
 
 
 class Modflow6FlowAdapter:
@@ -50,12 +81,16 @@ class Modflow6FlowAdapter:
         *,
         variable: str,
         station_cells: Mapping[str, tuple[int, int, int]] | None = None,
+        lake_id: str | None = None,
         time_index: pd.DatetimeIndex | None = None,
     ) -> pd.Series:
         """Read the simulated calibration series from the scratch CBC/HDS files.
 
         MF6 binaries share the FloPy-readable format used by MODFLOW-NWT, so
         the same helpers in ``modflow_common.calibration_extractors`` apply.
+        The ``lake_*`` variables instead read the LAK obs CSV via
+        ``extractors.lake`` and require ``lake_id``; the suffix names the LAK
+        state (``lake_stage``, ``lake_volume``, ``lake_surface_area``).
         ``store`` is accepted for Protocol uniformity but unused on this path.
         """
         del store
@@ -74,13 +109,23 @@ class Modflow6FlowAdapter:
 
         if variable == "discharge":
             return extract_discharge_from_cbc(output_dir, model_name, time_index)
+        if variable in _LAKE_CALIB_QUANTITIES:
+            if not lake_id:
+                raise ValueError(f"{variable} calibration requires lake_id")
+            return extract_lake_series(
+                output_dir,
+                model_name,
+                lake_id=lake_id,
+                quantity=_LAKE_CALIB_QUANTITIES[variable],
+                time_index=time_index,
+            )
         if variable == "head":
             if not station_cells:
                 raise ValueError("head calibration requires station_cells")
             series_by_station = extract_head_from_hds(
                 output_dir,
                 model_name,
-                station_cells=station_cells,
+                station_cells=_collapse_to_disv_cells(station_cells, model),
                 time_index=time_index,
             )
             if len(station_cells) == 1:
@@ -123,6 +168,15 @@ class Modflow6FlowAdapter:
         """
 
         state = ctx.state
+        if self._reuse_solver_model_enabled(state):
+            raise NotImplementedError(
+                "flow_runtime_overrides['reuse_solver_model'] is disabled: solver-model reuse "
+                "was validated as NOT output-equivalent (identical parameters produced different "
+                "objectives). Profiling (2026-07) also found the per-trial model build is small "
+                "(a lightweight trial builds in ~0.1 s; the solve dominates), so reuse trades a "
+                "real correctness risk for a negligible speedup. Re-enable it only behind an "
+                "integration test that asserts objective equality versus a full rebuild."
+            )
         preprocess_options = build_preprocess_options(state)
         model_name = resolve_run_model_name(ctx)
         model_modflow = None

@@ -17,8 +17,10 @@ from hydromodpy.physics.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
 )
 
-FlowBoundaryFamily = Literal["dirichlet", "head_dependent_exchange"]
-FlowBoundarySupportKind = Literal["side", "ocean_stage", "stream", "top"]
+FlowBoundaryFamily = Literal["dirichlet", "head_dependent_exchange", "advanced_package"]
+FlowBoundarySupportKind = Literal[
+    "side", "ocean_stage", "stream", "stream_reach", "top", "advanced_package"
+]
 FlowBoundaryBackend = Literal["modflow6", "modflow_nwt", "boussinesq"]
 
 SIDE_DIRICHLET_BC_IDS_ORDERED: tuple[str, ...] = (
@@ -55,7 +57,11 @@ class FlowBoundaryDefinition:
 
     def package_for_backend(self, backend: str) -> str | None:
         """Return the backend package/operator name used for this boundary."""
-        return self.backend_packages.get(str(backend).strip())
+        backend_name = str(backend).strip()
+        for known_backend, package in self.backend_packages.items():
+            if known_backend == backend_name:
+                return package
+        return None
 
 
 FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
@@ -159,6 +165,52 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
             "modflow_nwt": "DRN",
             "boussinesq": "top_drainage",
         },
+    ),
+    "lake": FlowBoundaryDefinition(
+        id="lake",
+        family="advanced_package",
+        default_type="lake",
+        default_units="m",
+        application_domain="top",
+        support_kind="advanced_package",
+        supported_backends=("modflow6",),
+        backend_packages={
+            "modflow6": "LAK",
+        },
+        supports_forcing=True,
+    ),
+    # 'reservoir' is an accepted synonym of 'lake': both map to the MF6 LAK
+    # package and read the single flow.sinks_sources['lakes'] payload (there is no
+    # separate 'reservoirs' payload). Either id in active_bc activates the lake.
+    "reservoir": FlowBoundaryDefinition(
+        id="reservoir",
+        family="advanced_package",
+        default_type="reservoir",
+        default_units="m",
+        application_domain="top",
+        support_kind="advanced_package",
+        supported_backends=("modflow6",),
+        backend_packages={
+            "modflow6": "LAK",
+        },
+        supports_forcing=True,
+    ),
+    # SFR (streamflow routing) is a MODFLOW 6 advanced package. It reads the
+    # flow.sinks_sources['sfr'] payload and is lake-independent: 'sfr' in
+    # active_bc routes streamflow on its own; its optional MVR coupling to a lake
+    # is data on the SFR payload, not a separate boundary id.
+    "sfr": FlowBoundaryDefinition(
+        id="sfr",
+        family="advanced_package",
+        default_type="sfr",
+        default_units="m3/s",
+        application_domain="stream_reach",
+        support_kind="stream_reach",
+        supported_backends=("modflow6",),
+        backend_packages={
+            "modflow6": "SFR",
+        },
+        supports_forcing=True,
     ),
 }
 """Canonical boundary-condition definitions supported by the flow process."""

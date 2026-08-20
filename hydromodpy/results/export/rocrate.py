@@ -23,7 +23,7 @@ from hydromodpy.results.export.context import (
     build_context,
     to_json,
 )
-from hydromodpy.results.export.prov import build_prov_document
+from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE, build_prov_document
 
 RO_CRATE_CONFORMS = "https://w3id.org/ro/crate/1.1"
 RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
@@ -90,7 +90,7 @@ def _software_nodes(context: FairExportContext) -> list[dict[str, Any]]:
         "@type": "SoftwareApplication",
         "name": "HydroModPy",
         "softwareVersion": context.hydromodpy_version,
-        "url": "https://hydromodpy-docs.readthedocs.io/",
+        "url": "https://docs.hydromodpy.fr/",
         "codeRepository": "https://github.com/HydroModPy/HydroModPy",
     }
     git_commit = context.runs_env.get("git_commit")
@@ -213,7 +213,7 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
         "@context": [
             RO_CRATE_CONTEXT,
             {
-                "hydromodpy": "https://hydromodpy-docs.readthedocs.io/schema#",
+                "hydromodpy": HYDROMODPY_NAMESPACE,
                 "prov": "http://www.w3.org/ns/prov#",
                 "sha256": "https://www.iana.org/assignments/hashes/sha-256",
             },

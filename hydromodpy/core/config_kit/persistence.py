@@ -1,8 +1,7 @@
 """Single-switch persistence configuration (Principe 8).
 
 ``PersistenceConfig`` is the orthogonal save/no-save knob shared by every
-write path: the DuckDB SimulationCatalog, the per-sim Zarr and Parquet
-artifacts, and the reproducibility lockfile.
+write path: the DuckDB Catalog and the per-run Zarr and Parquet artifacts.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ class PersistenceConfig(HydroModelBase):
     Toggles are independent: disabling ``save_zarr`` does not silence the
     catalog, and vice versa. ``save_catalog`` is the master switch for the
     project DuckDB; when False, every write through
-    :class:`SimulationCatalog` becomes a no-op.
+    :class:`Catalog` becomes a no-op.
     """
 
     save_catalog: Annotated[bool, Profile.USER] = Field(
@@ -40,11 +39,6 @@ class PersistenceConfig(HydroModelBase):
         default=True,
         description="Persist per-simulation tabular outputs (timeseries, "
         "budgets, mass_balance) as Parquet files.",
-    )
-    save_lock: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description="Generate and refresh the ``hydromodpy.lock`` reproducibility "
-        "manifest after data ingestion.",
     )
     compression: Annotated[CompressionCodec, Profile.DEV] = Field(
         default="zstd",

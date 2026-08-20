@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hydromodpy.core import progress
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
     ensure_crs,
@@ -107,29 +108,33 @@ def build_regional_flow_products(
         "d8_flow_accumulation_raster",
     ):
         dem_data = tool.raster.read_raster(dem_in)
-        if dem_correc_type == "fill":
-            # "fill": raise depression cells until drainage continuity is ensured.
-            correc_data = tool.flow.fill_depressions_raster(dem_data)
-        else:
-            # "breach": cut short channels through barriers to restore connectivity.
-            correc_data = tool.flow.breach_depressions_raster(dem_data)
-        # D8 direction: each cell points to one of its 8 neighbors (steepest descent).
-        direc_data = tool.flow.d8_pointer_raster(correc_data, esri_pntr=False)
-        # D8 accumulation: upstream contributing area proxy used for outlet snapping.
-        # `log=True` keeps values in a compact range and matches established behavior.
-        acc_data = tool.flow.d8_flow_accumulation_raster(correc_data, log=True)
+        with progress.status("Correcting DEM"):
+            if dem_correc_type == "fill":
+                # "fill": raise depression cells until drainage continuity is ensured.
+                correc_data = tool.flow.fill_depressions_raster(dem_data)
+            else:
+                # "breach": cut short channels through barriers to restore connectivity.
+                correc_data = tool.flow.breach_depressions_raster(dem_data)
+        with progress.status("Computing flow accumulation"):
+            # D8 direction: each cell points to one of its 8 neighbors (steepest descent).
+            direc_data = tool.flow.d8_pointer_raster(correc_data, esri_pntr=False)
+            # D8 accumulation: upstream contributing area proxy used for outlet snapping.
+            # `log=True` keeps values in a compact range and matches established behavior.
+            acc_data = tool.flow.d8_flow_accumulation_raster(correc_data, log=True)
         tool.raster.write_raster(correc_data, correc)
         tool.raster.write_raster(direc_data, direc)
         tool.raster.write_raster(acc_data, acc)
     else:
-        if dem_correc_type == "fill":
-            # "fill": raise depression cells until drainage continuity is ensured.
-            tool.flow.fill_depressions(dem_in, correc)
-        else:
-            # "breach": cut short channels through barriers to restore connectivity.
-            tool.flow.breach_depressions(dem_in, correc)
-        tool.flow.d8_pointer(correc, direc, esri_pntr=False)
-        tool.flow.d8_flow_accumulation(correc, acc, log=True)
+        with progress.status("Correcting DEM"):
+            if dem_correc_type == "fill":
+                # "fill": raise depression cells until drainage continuity is ensured.
+                tool.flow.fill_depressions(dem_in, correc)
+            else:
+                # "breach": cut short channels through barriers to restore connectivity.
+                tool.flow.breach_depressions(dem_in, correc)
+        with progress.status("Computing flow accumulation"):
+            tool.flow.d8_pointer(correc, direc, esri_pntr=False)
+            tool.flow.d8_flow_accumulation(correc, acc, log=True)
 
     # Normalize CRS metadata to keep downstream GIS/raster steps predictable.
     ensure_crs(correc, crs_project)

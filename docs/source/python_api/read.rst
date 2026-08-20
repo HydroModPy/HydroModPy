@@ -9,7 +9,7 @@ Signature
 
 .. code-block:: python
 
-   hmp.read(sim, var, *, time=None, layer=None, sel=None, bbox=None) -> Any
+   hmp.read(sim, var, *, time=None, layer=None, sel=None, bbox=None) -> Readable
 
 Reference
 ---------
@@ -24,7 +24,7 @@ Example
 
    import hydromodpy as hmp
 
-   catalog = hmp.open("~/hmp_workspace")
+   catalog = hmp.open("~/hmp_workspace/projects/naizin")
    run = catalog.latest()
 
    da = hmp.read(run, "head")                       # xr.DataArray, lazy

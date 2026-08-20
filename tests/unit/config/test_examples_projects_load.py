@@ -4,6 +4,7 @@ import tomllib
 from pathlib import Path
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.config_migration import migrate_config_doc
 
 
 def test_examples_projects_load() -> None:
@@ -26,6 +27,8 @@ def test_examples_projects_load() -> None:
         workflow = payload.get("workflow")
         if not isinstance(workflow, dict) or workflow.get("mode") not in supported_workflows:
             continue
+        # Mirror on-disk loading: migrate legacy [simulation] keys before validating.
+        migrate_config_doc(payload)
         HydroModPyConfig.model_validate(payload, context={"validation_context": "api"})
         validated_files.append(project_file)
 

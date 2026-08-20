@@ -24,7 +24,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog import Catalog
 
 logger = get_logger(__name__)
 
@@ -319,10 +319,10 @@ def _storage_change_series_m3_s(
 
 
 def _load_boussinesq_state_from_store(
-    store: SimulationCatalog,
+    store: Catalog,
     sim_id: str,
 ) -> Mapping[str, Any] | None:
-    """Try reading Boussinesq state arrays from the SimulationCatalog Zarr group.
+    """Try reading Boussinesq state arrays from the Catalog Zarr group.
 
     Returns a dict-like mapping of array names to numpy arrays (same
     interface as ``np.load(...)``), or ``None`` if unavailable.
@@ -365,7 +365,7 @@ def _load_boussinesq_state_from_store(
 
 def _load_boussinesq_budget_rows(
     summary: Mapping[str, Any],
-    store: SimulationCatalog | None = None,
+    store: Catalog | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     run_folder = Path(str(summary.get("run_folder", "")))
@@ -376,9 +376,9 @@ def _load_boussinesq_budget_rows(
     if store is not None and sim_id is not None:
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
-            source_label = f"SimulationCatalog(sim_id={sim_id})"
+            source_label = f"Catalog(sim_id={sim_id})"
             logger.debug(
-                "Loaded Boussinesq state from SimulationCatalog for budget (sim_id=%s).",
+                "Loaded Boussinesq state from Catalog for budget (sim_id=%s).",
                 sim_id,
             )
 
@@ -675,7 +675,7 @@ def _mf_budget_component_value_m3_s(component: str, flux_in: float, flux_out: fl
 
 def _load_catalog_budget_rows(
     summary: Mapping[str, Any],
-    store: SimulationCatalog | None,
+    store: Catalog | None,
     sim_id: str | None,
 ) -> list[dict[str, Any]]:
     """Load generic catalog budget rows and normalize them to comparison terms."""
@@ -770,7 +770,7 @@ def _load_catalog_budget_rows(
                     "time_label": time_label,
                     "is_initial_state": False,
                     "value": float(value),
-                    "source": f"SimulationCatalog budgets(sim_id={sim_id})",
+                    "source": f"Catalog budgets(sim_id={sim_id})",
                 }
             )
     return rows
@@ -801,7 +801,7 @@ BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS = [
 
 def _load_boussinesq_obstacle_diagnostic_rows(
     summary: Mapping[str, Any],
-    store: SimulationCatalog | None = None,
+    store: Catalog | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Load lower/upper obstacle diagnostics from Boussinesq state histories."""
@@ -814,7 +814,7 @@ def _load_boussinesq_obstacle_diagnostic_rows(
     if store is not None and sim_id is not None:
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
-            source_label = f"SimulationCatalog(sim_id={sim_id})"
+            source_label = f"Catalog(sim_id={sim_id})"
 
     if payload is None:
         npz_path = run_folder / "_boussinesq_state_history.npz"

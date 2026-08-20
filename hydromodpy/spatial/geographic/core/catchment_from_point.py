@@ -25,6 +25,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
+from hydromodpy.core import progress
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
     ensure_crs,
@@ -95,79 +96,80 @@ def extract_catchment_from_point(
     gdf.to_file(str(outlet_shp))
     ensure_crs(outlet_shp, crs_project)
 
-    if backend_has_callables(
-        tool,
-        "raster",
-        "read_vector",
-        "read_raster",
-        "write_vector",
-        "write_raster",
-        "vector_record_count",
-    ) and backend_has_callables(
-        tool,
-        "delineation",
-        "snap_pour_points_vector",
-        "watershed_raster",
-        "raster_to_vector_polygons_raster",
-    ):
-        outlet_data = tool.raster.read_vector(str(outlet_shp))
-        acc_input = acc_data if acc_data is not None else tool.raster.read_raster(str(acc_path))
-        snapped_outlet = tool.delineation.snap_pour_points_vector(
-            outlet_data,
-            acc_input,
-            int(snap_dist),
-        )
-        if tool.raster.vector_record_count(snapped_outlet) == 0:
-            raise ValueError(
-                "Outlet snapping produced no feature. Check geographic.x_outlet / "
-                "geographic.y_outlet, increase geographic.snap_dist, or verify "
-                "that the corrected DEM and flow-accumulation rasters cover the outlet."
+    with progress.status("Delineating watershed"):
+        if backend_has_callables(
+            tool,
+            "raster",
+            "read_vector",
+            "read_raster",
+            "write_vector",
+            "write_raster",
+            "vector_record_count",
+        ) and backend_has_callables(
+            tool,
+            "delineation",
+            "snap_pour_points_vector",
+            "watershed_raster",
+            "raster_to_vector_polygons_raster",
+        ):
+            outlet_data = tool.raster.read_vector(str(outlet_shp))
+            acc_input = acc_data if acc_data is not None else tool.raster.read_raster(str(acc_path))
+            snapped_outlet = tool.delineation.snap_pour_points_vector(
+                outlet_data,
+                acc_input,
+                int(snap_dist),
             )
-        tool.raster.write_vector(snapped_outlet, str(outlet_snap_shp))
-        ensure_crs(outlet_snap_shp, crs_project)
+            if tool.raster.vector_record_count(snapped_outlet) == 0:
+                raise ValueError(
+                    "Outlet snapping produced no feature. Check geographic.x_outlet / "
+                    "geographic.y_outlet, increase geographic.snap_dist, or verify "
+                    "that the corrected DEM and flow-accumulation rasters cover the outlet."
+                )
+            tool.raster.write_vector(snapped_outlet, str(outlet_snap_shp))
+            ensure_crs(outlet_snap_shp, crs_project)
 
-        direc_input = (
-            direc_data if direc_data is not None else tool.raster.read_raster(str(direc_path))
-        )
-        watershed_data = tool.delineation.watershed_raster(
-            direc_input,
-            snapped_outlet,
-            esri_pntr=False,
-        )
-        tool.raster.write_raster(watershed_data, str(watershed_tif))
-        ensure_crs(watershed_tif, crs_project)
-
-        # Polygon output is the canonical boundary format used downstream.
-        watershed_vector = tool.delineation.raster_to_vector_polygons_raster(watershed_data)
-        if tool.raster.vector_record_count(watershed_vector) == 0:
-            raise ValueError(
-                "Watershed delineation produced an empty polygon. Check outlet placement, "
-                "DEM conditioning, and snap distance before rerunning the geographic pipeline."
+            direc_input = (
+                direc_data if direc_data is not None else tool.raster.read_raster(str(direc_path))
             )
-        tool.raster.write_vector(watershed_vector, str(watershed_shp))
-        ensure_crs(watershed_shp, crs_project)
-    else:
-        # Snap stabilizes delineation when outlet is not exactly on a flow cell.
-        tool.delineation.snap_pour_points(
-            str(outlet_shp),
-            str(acc_path),
-            str(outlet_snap_shp),
-            int(snap_dist),
-        )
-        ensure_crs(outlet_snap_shp, crs_project)
+            watershed_data = tool.delineation.watershed_raster(
+                direc_input,
+                snapped_outlet,
+                esri_pntr=False,
+            )
+            tool.raster.write_raster(watershed_data, str(watershed_tif))
+            ensure_crs(watershed_tif, crs_project)
 
-        # D8 watershed delineation from snapped outlet.
-        tool.delineation.watershed(
-            str(direc_path),
-            str(outlet_snap_shp),
-            str(watershed_tif),
-            esri_pntr=False,
-        )
-        ensure_crs(watershed_tif, crs_project)
+            # Polygon output is the canonical boundary format used downstream.
+            watershed_vector = tool.delineation.raster_to_vector_polygons_raster(watershed_data)
+            if tool.raster.vector_record_count(watershed_vector) == 0:
+                raise ValueError(
+                    "Watershed delineation produced an empty polygon. Check outlet placement, "
+                    "DEM conditioning, and snap distance before rerunning the geographic pipeline."
+                )
+            tool.raster.write_vector(watershed_vector, str(watershed_shp))
+            ensure_crs(watershed_shp, crs_project)
+        else:
+            # Snap stabilizes delineation when outlet is not exactly on a flow cell.
+            tool.delineation.snap_pour_points(
+                str(outlet_shp),
+                str(acc_path),
+                str(outlet_snap_shp),
+                int(snap_dist),
+            )
+            ensure_crs(outlet_snap_shp, crs_project)
 
-        # Polygon output is the canonical boundary format used downstream.
-        tool.delineation.raster_to_vector_polygons(str(watershed_tif), str(watershed_shp))
-        ensure_crs(watershed_shp, crs_project)
+            # D8 watershed delineation from snapped outlet.
+            tool.delineation.watershed(
+                str(direc_path),
+                str(outlet_snap_shp),
+                str(watershed_tif),
+                esri_pntr=False,
+            )
+            ensure_crs(watershed_tif, crs_project)
+
+            # Polygon output is the canonical boundary format used downstream.
+            tool.delineation.raster_to_vector_polygons(str(watershed_tif), str(watershed_shp))
+            ensure_crs(watershed_shp, crs_project)
 
     return CatchmentFromPointProducts(
         outlet_shp=str(outlet_shp),

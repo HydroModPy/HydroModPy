@@ -8,7 +8,7 @@ root = "../../"
 [simulation]
 name = "nancon_steady_hydrography_structured_shared_case"
 description = "Nancon steady comparison case with observed hydrography and solver-defined structured grids."
-on_collision = "replace"
+if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-01-01 00:00:00"

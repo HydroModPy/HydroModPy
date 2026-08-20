@@ -12,18 +12,9 @@ import uuid
 from pathlib import Path
 
 from hydromodpy.core.exceptions import DataError
+from hydromodpy.core.io.geoparquet import GEOPARQUET_WRITE_DEFAULTS
 
 VECTOR_SUFFIXES = frozenset({".shp", ".geojson", ".json", ".gpkg", ".parquet"})
-
-# OGC GeoParquet 1.1 contract enforced for every vector file produced by HMP v2.
-_GEOPARQUET_OPTIONS: dict[str, object] = {
-    "compression": "zstd",
-    "compression_level": 5,
-    "schema_version": "1.1.0",
-    "geometry_encoding": "WKB",
-    "write_covering_bbox": True,
-    "index": False,
-}
 
 
 class VectorConversionError(DataError):
@@ -66,15 +57,21 @@ def convert_vector_to_geoparquet(
             f"geopandas is required to convert non-Parquet vector files; cannot convert {src.name}"
         ) from None
 
-    read_kwargs = {"layer": layer} if layer else {}
-    gdf = gpd.read_file(src, **read_kwargs)
+    if src.suffix.lower() == ".parquet":
+        # GeoParquet is read with the native reader. gpd.read_file would route
+        # through the GDAL Parquet driver, which many GDAL builds ship without,
+        # so a perfectly valid GeoParquet would fail to ingest.
+        gdf = gpd.read_parquet(src)
+    else:
+        read_kwargs = {"layer": layer} if layer else {}
+        gdf = gpd.read_file(src, **read_kwargs)
     if gdf.crs is None:
         raise VectorConversionError(
             f"{src} has no CRS; add a .prj sidecar or set gdf.crs before ingest"
         )
-    tmp = dest.with_name(f"{dest.name}.tmp-{uuid.uuid4().hex}")
+    tmp = dest.with_name(f"{dest.name}.tmp-{uuid.uuid4().hex[:8]}")
     try:
-        gdf.to_parquet(tmp, **_GEOPARQUET_OPTIONS)
+        gdf.to_parquet(tmp, **GEOPARQUET_WRITE_DEFAULTS)
     except Exception:
         if tmp.exists():
             tmp.unlink()

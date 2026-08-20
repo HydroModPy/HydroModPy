@@ -52,8 +52,8 @@ diagnostics.
    * - Legacy matching streams
      - observed stream raster versus simulated seepage raster, in both
        directions
-     - historically implemented as ``MatchingStreams`` in
-       ``hydromodpy/analysis/postprocess/flow/matching_streams.py``
+     - historically implemented as ``MatchingStreams``; the module was
+       removed and has no replacement in the current tree
      - Closest conceptual match: it created downslope-distance rasters and
        point samples needed to compute the bidirectional criterion.
 

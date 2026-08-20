@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.results.array_fingerprint import fingerprint, verify_fingerprint
+from hydromodpy.results.storage.array_fingerprint import fingerprint, verify_fingerprint
 
 
 class TestFingerprint:

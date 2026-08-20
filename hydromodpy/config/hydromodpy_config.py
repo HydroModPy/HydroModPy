@@ -45,6 +45,7 @@ from hydromodpy.config.toml_section_loader import (
     _load_optional_mesh_catchment_section,
     _load_optional_mesh_input_section,
     _load_optional_overview_section,
+    _load_optional_spinup_section,
     _load_optional_testbed_section,
     _raw_declares_dem_source,
     _validation_context,
@@ -59,16 +60,20 @@ from hydromodpy.core.config_kit.introspect import (
 from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
+from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.core.toml_io.error_locator import format_validation_error
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.data.managers.config_schema import DataManagersConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
+from hydromodpy.simulation.planning.export_config import ExportConfig
+from hydromodpy.simulation.planning.observation_config import ObservationConfig
+from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
@@ -95,10 +100,19 @@ class WorkflowConfig(HydroModelBase):
         ...,
         description="Workflow mode dispatched by `hmp run`.",
     )
+    profile: Annotated[bool | str, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Profile the run with pyinstrument (honored by the hmp CLI; the "
+            "--profile flag wins over this field). true writes "
+            "<config>.profile.html next to the config; a string sets the "
+            "HTML report path."
+        ),
+    )
 
 
-def _derive_run_id_from_filename(toml_path: Path) -> str:
-    """Derive a run_id from a TOML filename.
+def _derive_name_from_filename(toml_path: Path) -> str:
+    """Derive a simulation name from a TOML filename.
 
     ``run_steady_nwt.toml`` -> ``steady_nwt``
     ``config.toml`` -> ``config``
@@ -200,12 +214,31 @@ class HydroModPyConfig(HydroModelBase):
         default_factory=DisplayConfig,
         description=("Optional display and export toggles loaded from the [display] section."),
     )
+    export: Annotated[ExportConfig, Profile.USER] = Field(
+        default_factory=ExportConfig,
+        description=(
+            "Automated export configuration loaded from the top-level [export] "
+            "section. Controls which formats (CSV time series, GeoTIFF, NetCDF, "
+            "VTU, shapefile), which variables and timesteps are written after a "
+            "run, and whether a portable '.hmp' archive is produced."
+        ),
+    )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
         description=(
             "Storage backend toggles loaded from [persistence]. Drives the "
             "DuckDB catalog, Zarr field arrays, Parquet tables, and the "
             "`hydromodpy.lock` reproducibility manifest."
+        ),
+    )
+    observation: Annotated[ObservationConfig, Profile.USER] = Field(
+        default_factory=ObservationConfig,
+        description=(
+            "Observation points declared in [observation] and sampled while the "
+            "run still holds its fields. Each [[observation.points]] entry names "
+            "a location (x, y, and layer or depth); its series land in the run "
+            "timeseries table, so no post-hoc interrogation is needed for a point "
+            "known in advance."
         ),
     )
     analysis: Annotated[AnalysisConfig | None, Profile.DEV] = Field(
@@ -252,6 +285,14 @@ class HydroModPyConfig(HydroModelBase):
             "section.  When present, triggers the calibration workflow."
         ),
     )
+    spinup: Annotated[SpinupConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional cyclic spin-up settings loaded from the [spinup] section. "
+            "Drives 'hmp spinup': repeat a forcing window, restart each cycle from "
+            "the previous state, until the heads and the lake stage converge."
+        ),
+    )
     testbed: Annotated[TestbedConfig | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -272,7 +313,7 @@ class HydroModPyConfig(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
-    def _default_workspace_for_direct_validation(cls, data, info: ValidationInfo):
+    def _default_workspace_for_direct_validation(cls, data: Any, info: ValidationInfo) -> Any:
         """Provide a minimal workspace for direct model_validate callers."""
         if not isinstance(data, Mapping):
             return data
@@ -336,6 +377,55 @@ class HydroModPyConfig(HydroModelBase):
                     "solver.backend='boussinesq' does not support the [transport] section"
                 )
 
+        if flow_cfg is not None and solver_cfg is not None:
+            from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+
+            engine = getattr(solver_cfg, "backend_name", None)
+            engine_value = getattr(engine, "value", engine)
+            active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
+            sinks_sources = getattr(flow_cfg, "sinks_sources", None)
+
+            # Every active boundary must be supported by the chosen backend, or it
+            # would be silently ignored at build time (lake/reservoir/sfr on NWT or
+            # Boussinesq were accepted then dropped).
+            for bc_id in sorted(active_bc):
+                definition = boundary_definition(bc_id)
+                if definition is not None and not definition.supports_backend(str(engine_value)):
+                    supported = ", ".join(definition.supported_backends)
+                    raise IncompatibleCapabilitiesError(
+                        f"solver.backend={engine_value!r} does not support the '{bc_id}' "
+                        f"boundary (supported by: {supported}); it would be silently ignored. "
+                        f"Use a supported backend or remove '{bc_id}' from flow.active_bc."
+                    )
+
+            lakes = getattr(sinks_sources, "lakes", None) or {}
+            if lakes and not ({"lake", "reservoir"} & active_bc):
+                raise ValueError(
+                    "flow.sinks_sources.lakes declares lakes but flow.active_bc lists "
+                    "neither 'lake' nor 'reservoir'; add 'lake' (or 'reservoir') to "
+                    "flow.active_bc to activate the LAK package, or remove the lakes. "
+                    "The LAK builder only activates on active_bc, so as-is the lakes "
+                    "would be silently ignored."
+                )
+            sfr_payload = getattr(sinks_sources, "sfr", None) or {}
+            if sfr_payload and "sfr" not in active_bc:
+                raise ValueError(
+                    "flow.sinks_sources.sfr declares stream networks but flow.active_bc does "
+                    "not list 'sfr'; add 'sfr' to activate the SFR package, or remove the "
+                    "networks. As-is the streams would be silently ignored."
+                )
+
+            # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
+            barriers = getattr(sinks_sources, "flow_barriers", None) or {}
+            has_cutoff = any(
+                getattr(lake_cfg, "cutoff_wall", None) is not None for lake_cfg in lakes.values()
+            )
+            if (barriers or has_cutoff) and engine_value != "modflow6":
+                raise IncompatibleCapabilitiesError(
+                    f"solver.backend={engine_value!r} does not support flow barriers / dam "
+                    "cutoff walls (HFB); they require the 'modflow6' backend."
+                )
+
         return self
 
     @classmethod
@@ -390,10 +480,14 @@ class HydroModPyConfig(HydroModelBase):
         except ValidationError as exc:
             message = format_validation_error(exc, source_path=toml_path)
             raise ValueError(message) from exc
+        except IncompatibleCapabilitiesError as exc:
+            # A typed capability error from the after-validator does not carry the
+            # TOML location; prepend it while keeping the type and error code.
+            raise type(exc)(f"{toml_path}: {exc.message or exc}") from exc
 
-        # Derive run_id from TOML filename if not set explicitly.
-        if not cfg.simulation.run_id:
-            cfg.simulation.run_id = _derive_run_id_from_filename(toml_path)
+        # Derive the simulation name from the TOML filename if not set explicitly.
+        if not cfg.simulation.name:
+            cfg.simulation.name = _derive_name_from_filename(toml_path)
 
         return cfg
 
@@ -486,7 +580,7 @@ class HydroModPyConfig(HydroModelBase):
         parsed_workspace = load_standard_section(workspace_section, WorkspaceConfig, base)
         workspace_data_dir = getattr(parsed_workspace, "data_dir", None)
 
-        def _std(model_cls):
+        def _std(model_cls: type[Any]) -> Callable[[Any, Path], Any]:
             return lambda data, b: load_standard_section(
                 data, model_cls, b, workspace_data_dir=workspace_data_dir
             )
@@ -527,19 +621,25 @@ class HydroModPyConfig(HydroModelBase):
                 {},
                 lambda data, b: _load_data_section(data, b, workspace_data_dir=workspace_data_dir),
             ),
-            "flow": ({}, _load_flow_section),
+            "flow": (
+                {},
+                lambda data, b: _load_flow_section(data, b, workspace_data_dir=workspace_data_dir),
+            ),
             "transport": ({}, _std(TransportConfig)),
             "simulation": ({}, _std(SimulationConfig)),
             "solver": ({}, _std(SolverConfig)),
             "modflownwt": ({}, _std(ModflowConfig)),
             "modflow6": ({}, _std(Modflow6Config)),
             "display": ({}, _std(DisplayConfig)),
+            "export": ({}, _std(ExportConfig)),
             "persistence": ({}, _std(PersistenceConfig)),
+            "observation": ({}, _std(ObservationConfig)),
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
             "mesh_input": (None, _load_optional_mesh_input_section),
             "calibration": (None, _load_optional_calibration_section),
+            "spinup": (None, _load_optional_spinup_section),
             "testbed": (None, _load_optional_testbed_section),
             "site_selection": (
                 None,
@@ -599,8 +699,8 @@ class HydroModPyConfig(HydroModelBase):
     @classmethod
     def from_snapshot(
         cls,
-        snapshot: dict,
-        **overrides,
+        snapshot: dict[str, Any],
+        **overrides: Any,
     ) -> HydroModPyConfig:
         """Reconstruct a config from a stored JSON snapshot.
 

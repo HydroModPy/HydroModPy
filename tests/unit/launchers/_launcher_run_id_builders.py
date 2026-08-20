@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.paths import scratch_dir_for
+
 
 def _make_launcher_test_workspace_root(
     hydromodpy_test_scratch_root: Path,
@@ -21,7 +23,7 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path("workspace")
-        self.solver_scratch_folder = self.project_root / ".solver_scratch"
+        self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
 
 class _DummyGeographic:

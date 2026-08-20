@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any, Final, Literal, TypedDict
 
 WidgetType = Literal["input", "slider", "select"]
-"""UI widget hint consumed by the Streamlit/React frontend."""
+"""UI widget hint consumed by the frontend."""
 
 Stability = Literal["experimental", "stable"]
 """Maturity tag attached to a field."""

@@ -102,6 +102,98 @@ def interpolate_points_to_grid(
     return _griddata_interpolation(pts, vals, target_x, target_y, nrow, ncol, method=method)
 
 
+def interpolate_stack_to_grid(
+    source_stack: np.ndarray,
+    source_x: np.ndarray,
+    source_y: np.ndarray,
+    target_x: np.ndarray,
+    target_y: np.ndarray,
+    nrow: int,
+    ncol: int,
+    method: InterpolationMethod = "nearest",
+    *,
+    idw_power: float = 2.0,
+) -> np.ndarray:
+    """Interpolate a stack of source slices onto a (len(stack), nrow, ncol) grid.
+
+    Result is identical to calling :func:`interpolate_to_grid` per slice. For
+    ``method="nearest"`` with a constant finite-value mask across slices, the
+    neighbor lookup is computed once and reused, which dominates the cost on
+    long transient chronicles.
+    """
+    source_stack = np.asarray(source_stack, dtype=float)
+    n_slices = source_stack.shape[0]
+    out = np.empty((n_slices, nrow, ncol), dtype=float)
+    if n_slices == 0:
+        return out
+
+    shared = _shared_nearest_plan(
+        source_stack, source_x, source_y, target_x, target_y, nrow, ncol, method
+    )
+    if shared is not None:
+        flat_values, valid, idx = shared
+        for i in range(n_slices):
+            out[i] = flat_values[i][valid][idx].reshape(nrow, ncol)
+        return out
+
+    for i in range(n_slices):
+        out[i] = interpolate_to_grid(
+            source_stack[i],
+            source_x,
+            source_y,
+            target_x,
+            target_y,
+            nrow,
+            ncol,
+            method,
+            idw_power=idw_power,
+        )
+    return out
+
+
+def _shared_nearest_plan(
+    source_stack: np.ndarray,
+    source_x: np.ndarray,
+    source_y: np.ndarray,
+    target_x: np.ndarray,
+    target_y: np.ndarray,
+    nrow: int,
+    ncol: int,
+    method: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+    """Precompute a reusable nearest-neighbor index for a slice stack.
+
+    Returns ``(flat_values, valid_mask, target_indices)`` or None when the
+    per-slice path must be used (other method, aligned grids, varying mask).
+    """
+    if method != "nearest":
+        return None
+    if _grids_are_aligned(source_stack[0], source_x, source_y, target_x, target_y, nrow, ncol):
+        return None
+
+    src_x_flat, src_y_flat, first_flat = _flatten_source(source_stack[0], source_x, source_y)
+    if first_flat is None:
+        return None
+
+    flat_values = source_stack.reshape(source_stack.shape[0], -1)
+    finite = np.isfinite(flat_values)
+    valid = finite[0]
+    if not valid.any() or not np.array_equal(finite, np.broadcast_to(valid, finite.shape)):
+        return None
+
+    try:
+        from scipy.spatial import cKDTree
+    except ImportError:
+        return None
+
+    pts = np.column_stack([src_x_flat[valid], src_y_flat[valid]])
+    target_pts = np.column_stack(
+        [np.asarray(target_x, dtype=float).ravel(), np.asarray(target_y, dtype=float).ravel()]
+    )
+    _, idx = cKDTree(pts).query(target_pts)
+    return flat_values, valid, idx
+
+
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------

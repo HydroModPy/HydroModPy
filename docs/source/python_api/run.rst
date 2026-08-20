@@ -29,6 +29,5 @@ See Also
 --------
 
 - :func:`hydromodpy.calibrate` -- dedicated calibration launcher.
-- :func:`hydromodpy.overview` -- overview workflow launcher.
-- :func:`hydromodpy.compare` -- comparison workflow launcher.
+- :func:`hydromodpy.compare_pair` -- pairwise comparison launcher.
 - :mod:`hydromodpy.workflow` -- workflow dispatcher and pipelines.

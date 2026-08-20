@@ -1,7 +1,7 @@
 """``hmp.catalog`` -- input-data cache view for a workspace.
 
 The simulation catalog itself is opened with :func:`hydromodpy.open`, which
-returns a :class:`hydromodpy.results.catalog.SimulationCatalog`. This package
+returns a :class:`hydromodpy.results.catalog.Catalog`. This package
 hosts the read-only view over the workspace data cache
 (``<workspace>/data/cache.duckdb``).
 

@@ -93,7 +93,7 @@ class DataOverviewLauncher:
         from hydromodpy.core.workspace.workspace import Workspace
 
         state.workspace = Workspace(config=state.cfg.workspace)
-        logger.info("[overview] Workspace: %s", state.workspace.project_root)
+        logger.debug("[overview] Workspace: %s", state.workspace.project_root)
 
     # ------------------------------------------------------------------
     # Phase 1b - DEM bootstrap (API download)
@@ -132,7 +132,7 @@ class DataOverviewLauncher:
                 "or:\n"
                 '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )
-        logger.info("[overview] DEM resolved from [data.dem]: %s", resolved)
+        logger.debug("[overview] DEM resolved from [data.dem]: %s", resolved)
         geo_cfg.dem_init_path = resolved
 
     # ------------------------------------------------------------------
@@ -175,8 +175,8 @@ class DataOverviewLauncher:
         mimics ``WorkflowContext``. Overview dates from ``[overview]`` are
         injected into data sections that have no explicit dates of their own.
         """
-        from hydromodpy.data.loader import DataManagersRuntimeLoader
-        from hydromodpy.data.plan import DataLoadPlan
+        from hydromodpy.data.loading.loader import DataManagersRuntimeLoader
+        from hydromodpy.data.managers.plan import DataLoadPlan
         from hydromodpy.spatial.geographic.core.derived_features import (
             attach_reference_hydrographic_network,
         )
