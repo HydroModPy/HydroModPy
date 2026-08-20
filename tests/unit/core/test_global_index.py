@@ -455,6 +455,51 @@ def test_non_contention_io_error_propagates(
         GlobalIndex(index_db)
 
 
+def test_an_index_from_the_workspace_era_keeps_its_registrations(tmp_path: Path) -> None:
+    """A pre-rename index must not be emptied by the rebuild that renames its table.
+
+    The registry table went from ``workspaces`` to ``projects`` inside the SAME
+    migration version, so an index written by an older install fails the checksum
+    and is rebuilt. Its rows are the one piece of state no disk scan can recover,
+    and the rebuild announces it keeps them, so the salvage must read the old
+    table too. Seeding the new schema and corrupting the checksum cannot cover
+    this: it never produces a database whose registry table has the old name.
+    """
+    project = tmp_path / "cheze"
+    _seed_project(project, rows=[("alpha", "first run", "modflow6")])
+    index_db = _index_db(tmp_path)
+    index_db.parent.mkdir(parents=True, exist_ok=True)
+
+    conn = duckdb.connect(str(index_db))
+    conn.execute(
+        "CREATE TABLE workspaces ("
+        " workspace_id UUID DEFAULT uuid() PRIMARY KEY,"
+        " workspace_uri VARCHAR UNIQUE NOT NULL,"
+        " label VARCHAR,"
+        " created_at TIMESTAMPTZ DEFAULT now())"
+    )
+    conn.execute(
+        "INSERT INTO workspaces (workspace_uri, label) VALUES (?, ?)",
+        [str(project.resolve()), "lab"],
+    )
+    conn.execute(
+        "CREATE TABLE schema_migrations ("
+        " version INTEGER, component VARCHAR, slug VARCHAR,"
+        " applied_at TIMESTAMPTZ DEFAULT now(), checksum VARCHAR)"
+    )
+    conn.execute(
+        "INSERT INTO schema_migrations (version, component, slug, checksum)"
+        " VALUES (1, 'index', 'initial', 'checksum-of-the-workspace-era-ddl')"
+    )
+    conn.execute("CHECKPOINT")
+    conn.close()
+
+    with GlobalIndex(index_db) as gi:
+        assert [(p.project_uri, p.label) for p in gi.list_projects()] == [
+            (str(project.resolve()), "lab")
+        ]
+
+
 def test_a_stale_schema_ledger_is_rebuilt_not_fatal(tmp_path: Path) -> None:
     """The registry is reconstructible: an unmigratable ledger must not block boot."""
     project = tmp_path / "cheze"

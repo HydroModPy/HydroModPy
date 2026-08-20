@@ -249,14 +249,22 @@ class GlobalIndex:
         """Return the ``(uri, label)`` pairs the unusable index still holds.
 
         The schema of a file this version refuses to migrate is unknown by
-        definition, so a missing ``projects`` table is one possible answer and
-        simply means there is nothing to carry over.
+        definition, so both the current ``projects`` table and the ``workspaces``
+        table it replaced are tried; finding neither simply means there is
+        nothing to carry over. This registry is the one piece of state no disk
+        scan can rebuild, so a rebuild that silently emptied it would lose the
+        only record of which projects this machine knows.
         """
-        try:
-            rows = self._conn.execute("SELECT project_uri, label FROM projects").fetchall()
-        except duckdb.Error:
-            return []
-        return [(str(row[0]), None if row[1] is None else str(row[1])) for row in rows]
+        for query in (
+            "SELECT project_uri, label FROM projects",
+            "SELECT workspace_uri, label FROM workspaces",
+        ):
+            try:
+                rows = self._conn.execute(query).fetchall()
+            except duckdb.Error:
+                continue
+            return [(str(row[0]), None if row[1] is None else str(row[1])) for row in rows]
+        return []
 
     def _bootstrap_empty_db(self) -> None:
         """Create an empty DuckDB file with the index schema for read-only use."""
