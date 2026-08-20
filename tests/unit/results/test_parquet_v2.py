@@ -20,8 +20,6 @@ import pyarrow.parquet as pq
 import pytest
 from shapely.geometry import Point, Polygon
 
-pl = pytest.importorskip("polars")
-
 from hydromodpy.core.io.geoparquet import (
     GEOPARQUET_SCHEMA_VERSION,
     read_geoparquet,
@@ -278,6 +276,7 @@ class TestBatchWrite:
 
 class TestLazyLoaders:
     def test_lazy_loader_scan_timeseries(self, tmp_path: Path):
+        pl = pytest.importorskip("polars")
         with Catalog(tmp_path) as cat:
             sid1 = _register(cat, name="a")
             sid2 = _register(cat, name="b")

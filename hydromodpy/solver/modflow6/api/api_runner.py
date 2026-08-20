@@ -328,21 +328,13 @@ def run_mf6_api(
 
     Raises
     ------
-    ImportError
-        When the optional ``modflowapi`` package is not installed.
     FileNotFoundError
         When ``sim_ws/mfsim.nam`` or the shared library is missing.
+    ImportError
+        When the optional ``modflowapi`` package is not installed.
     SolverError
         When the developer callback raises (re-raised with step context).
     """
-    try:
-        import modflowapi
-    except ImportError as exc:
-        raise ImportError(
-            "run_mf6_api requires the optional 'modflowapi' package (and 'xmipy'). "
-            "Install with: pip install modflowapi xmipy"
-        ) from exc
-
     workspace = Path(sim_ws).expanduser()
     nam = workspace / "mfsim.nam"
     if not nam.is_file():
@@ -351,6 +343,14 @@ def run_mf6_api(
             f"(e.g. model.sim.write_simulation(...) or "
             f"processing(ModflowRunOptions(run_model=False)))."
         )
+
+    try:
+        import modflowapi
+    except ImportError as exc:
+        raise ImportError(
+            "run_mf6_api requires the optional 'modflowapi' package (and 'xmipy'). "
+            "Install with: pip install modflowapi xmipy"
+        ) from exc
 
     if lib_path is not None:
         resolved_lib = Path(lib_path).expanduser().resolve()

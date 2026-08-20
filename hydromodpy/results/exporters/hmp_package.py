@@ -444,6 +444,11 @@ def _dump_catalog_snapshot(
             snap.execute(f"INSERT INTO {table} SELECT * FROM df")
     finally:
         snap.close()
+        # The migration lock lands in the staging tree the manifest and the tar
+        # rglob, and POSIX keeps it where Windows unlinks it: leaving it makes
+        # the archive differ across platforms.
+        for suffix in (".wal", ".lock"):
+            dst.with_name(f"{dst.name}{suffix}").unlink(missing_ok=True)
 
 
 def _restore_catalog_snapshot(

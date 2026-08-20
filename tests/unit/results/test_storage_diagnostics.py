@@ -81,7 +81,8 @@ def test_orphan_run_directory_and_tmp_parquet_are_reported(tmp_path):
         reg.zarr.close()
         tables_dir = catalog.tables_dir_for(sid)
         tables_dir.mkdir(parents=True, exist_ok=True)
-        (tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp").write_bytes(b"partial")
+        tmp_parquet = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp-0a1b2c3d"
+        tmp_parquet.write_bytes(b"partial")
 
         orphan_run = catalog.runs_dir / "orphan_run"
         (orphan_run / FIELDS_STORE_NAME).mkdir(parents=True)
@@ -92,9 +93,7 @@ def test_orphan_run_directory_and_tmp_parquet_are_reported(tmp_path):
     assert diagnostics["results:orphan_runs"].hint == "first: orphan_run"
     assert diagnostics["results:orphan_runs"].paths == (str(orphan_run),)
     assert diagnostics["results:parquet_tmp"].status == "WARN"
-    assert diagnostics["results:parquet_tmp"].paths == (
-        str(tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp"),
-    )
+    assert diagnostics["results:parquet_tmp"].paths == (str(tmp_parquet),)
 
 
 def test_is_run_directory_recognises_fields_or_tables(tmp_path):
@@ -144,7 +143,7 @@ def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
         reg.zarr.close()
         tables_dir = catalog.tables_dir_for(sid)
         tables_dir.mkdir(parents=True, exist_ok=True)
-        tmp_file = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp"
+        tmp_file = tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}.tmp-0a1b2c3d"
         tmp_file.write_bytes(b"partial")
         orphan = catalog.runs_dir / "orphan_run"
         (orphan / FIELDS_STORE_NAME).mkdir(parents=True)

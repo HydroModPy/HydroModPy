@@ -98,9 +98,10 @@ def scan_view(
     columns: Sequence[str] | None = None,
 ) -> pl.LazyFrame:
     """Return a polars :class:`LazyFrame` over any per-sim view."""
+    paths = list_parquet_paths(catalog, view)
+
     import polars as pl
 
-    paths = list_parquet_paths(catalog, view)
     if not paths:
         return pl.LazyFrame()
     lf = pl.scan_parquet([str(p) for p in paths])
