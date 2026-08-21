@@ -77,6 +77,8 @@ Sub-models are linked back to their per-section page.
       # synthetic = ...  # uses factory default
       # Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
       # river_network = ...  # uses factory default
+      # Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.
+      # enforce_streams = ...  # uses factory default
       # Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
       # enforce_lakes = ...  # uses factory default
       # Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).

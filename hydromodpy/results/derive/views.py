@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
     from hydromodpy.results.run import Run
+    from hydromodpy.results.run.contracts import Mesh
 
 CellFieldActiveMode = Literal[
     "last",
@@ -40,9 +41,19 @@ CellFieldActiveMode = Literal[
     "persistence",
 ]
 
+NetworkDistanceMethod = Literal[
+    "planar_cell_centroid_to_network",
+    "raw_planar_cell_centroid_to_network",
+    "planar_cell_centroid_to_external_network",
+]
+"""Provenance of one planar distance metric. None of these is the Abherve
+downslope criterion: they measure a planar centroid distance, so the label has
+to say which variant produced the numbers."""
+
 
 __all__ = [
     "CellFieldActiveMode",
+    "NetworkDistanceMethod",
     "saturated_fraction",
     "drainage_density",
     "persistence",
@@ -173,47 +184,32 @@ def _stack_field_with_mask(sim: Run, variable: str) -> tuple[np.ndarray, np.ndar
     return stack, mask
 
 
-def _mesh_face_polygons(sim: Run) -> np.ndarray:
-    """Return one Shapely polygon per mesh face."""
-    from shapely.geometry import Polygon
+def _mesh_cell_polygons(sim: Run) -> tuple[Mesh, np.ndarray]:
+    """Read the mesh once and build one Shapely polygon per face."""
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
 
     mesh = sim.mesh
-    vertices = np.asarray(mesh.vertices)
-    face_node_connectivity = np.asarray(mesh.face_node_connectivity)
-    polygons = []
-    for row in face_node_connectivity:
-        nodes = row[row >= 0] if row.dtype.kind in "iu" else row[~np.isnan(row)]
-        if nodes.size < 3:
-            polygons.append(None)
-            continue
-        polygon = Polygon(vertices[nodes.astype(int), :2])
-        polygons.append(polygon if polygon.is_valid and not polygon.is_empty else None)
-    return np.asarray(polygons, dtype=object)
+    return mesh, cell_polygons(mesh.vertices, mesh.face_node_connectivity)
 
 
-def _network_cell_mask(sim: Run, network_gdf, *, buffer_m: float = 0.0) -> np.ndarray:
-    """Boolean mask of mesh cells intersected by one vector network."""
-    polygons = _mesh_face_polygons(sim)
-    mask = np.zeros(polygons.shape[0], dtype=bool)
-    if network_gdf is None or network_gdf.empty:
-        return mask
+def _network_cells(
+    mesh: Mesh,
+    polygons: np.ndarray,
+    network_gdf,
+    geometries: list[BaseGeometry],
+    *,
+    distance_m: float = 0.0,
+) -> np.ndarray:
+    """Boolean mask of the mesh cells one vector network reaches."""
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
 
-    geometries = network_gdf.geometry.dropna()
-    if geometries.empty:
-        return mask
-    if buffer_m > 0.0:
-        geometries = geometries.buffer(float(buffer_m))
-    try:
-        network_union = geometries.union_all()
-    except AttributeError:
-        network_union = geometries.unary_union
-    if network_union is None or network_union.is_empty:
-        return mask
-
-    for idx, polygon in enumerate(polygons):
-        if polygon is not None and polygon.intersects(network_union):
-            mask[idx] = True
-    return mask
+    return vector_cell_mask(
+        polygons,
+        geometries,
+        mesh_crs=mesh.crs,
+        geometry_crs=getattr(network_gdf, "crs", None),
+        distance_m=distance_m,
+    )
 
 
 def _flatten_geometries(geometries: Iterable[BaseGeometry]) -> list[BaseGeometry]:
@@ -240,25 +236,6 @@ def _network_geometries(network_gdf, *, buffer_m: float = 0.0) -> list[BaseGeome
     if buffer_m > 0.0:
         geometries = geometries.buffer(float(buffer_m))
     return _flatten_geometries(geometries)
-
-
-def _intersecting_cell_mask(
-    polygons: np.ndarray,
-    geometries: list[BaseGeometry],
-) -> np.ndarray:
-    """Return cells whose polygon intersects any of ``geometries``."""
-    from shapely.strtree import STRtree
-
-    mask = np.zeros(polygons.shape[0], dtype=bool)
-    if not geometries:
-        return mask
-    tree = STRtree(geometries)
-    for idx, polygon in enumerate(polygons):
-        if polygon is None:
-            continue
-        if tree.query(polygon, predicate="intersects").size:
-            mask[idx] = True
-    return mask
 
 
 def _nearest_distances(
@@ -619,7 +596,14 @@ def cell_field_network_overlap_metrics(
     )
 
     network_gdf = sim.hydrographic_network(network_role)
-    network_cells = _network_cell_mask(sim, network_gdf, buffer_m=float(buffer_m))
+    mesh, polygons = _mesh_cell_polygons(sim)
+    network_cells = _network_cells(
+        mesh,
+        polygons,
+        network_gdf,
+        _network_geometries(network_gdf),
+        distance_m=float(buffer_m),
+    )
     if network_cells.size != values.size:
         raise ValueError(
             "Vector-network cell mask size does not match cell-field size: "
@@ -670,7 +654,8 @@ def cell_field_network_distance_metrics(
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     network_buffer_m: float = 0.0,
-    distance_method: str = "planar_cell_centroid_to_network",
+    distance_method: NetworkDistanceMethod = "planar_cell_centroid_to_network",
+    network_gdf=None,
 ) -> dict[str, float | int | str | None]:
     """Return planar bidirectional distances between active cells and a network.
 
@@ -680,6 +665,9 @@ def cell_field_network_distance_metrics(
       the selected vector hydrographic network;
     - network-to-field: centroid distance from each mesh cell intersected by
       the selected vector network to the union of active cell polygons.
+
+    ``network_gdf`` overrides the persisted role with a caller-supplied layer,
+    for a reference network that lives outside the run.
 
     This is a lazy result view: it reads persisted fields and vector features
     from ``sim`` and does not mutate the catalog.
@@ -693,19 +681,20 @@ def cell_field_network_distance_metrics(
         timestep=timestep,
     )
 
-    polygons = _mesh_face_polygons(sim)
+    mesh, polygons = _mesh_cell_polygons(sim)
     if polygons.size != values.size:
         raise ValueError(
             "Mesh polygon count does not match cell-field size: "
             f"mesh={polygons.size}, field={values.size}."
         )
 
-    network_gdf = sim.hydrographic_network(network_role)
+    if network_gdf is None:
+        network_gdf = sim.hydrographic_network(network_role)
     network_geometries = _network_geometries(
         network_gdf,
         buffer_m=float(network_buffer_m),
     )
-    network_cells = _intersecting_cell_mask(polygons, network_geometries) & valid
+    network_cells = _network_cells(mesh, polygons, network_gdf, network_geometries) & valid
 
     active_polygons = [
         polygon for polygon, is_active in zip(polygons, active, strict=True) if is_active

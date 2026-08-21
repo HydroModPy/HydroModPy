@@ -38,6 +38,14 @@ from hydromodpy.spatial.geographic.core.river_network import (
     _build_river_mesh_trace_from_network_gdf,
     build_river_network_products,
 )
+from hydromodpy.spatial.geographic.core.stream_dem_agreement import (
+    report_network_dem_agreement,
+)
+from hydromodpy.spatial.geographic.core.stream_enforcement import (
+    burned_dem_from_config,
+    catchment_area_without_burn,
+    check_catchment_area_drift,
+)
 from hydromodpy.spatial.geographic.dem_metadata import (
     DemMetadata,
     read_dem_metadata,
@@ -450,10 +458,14 @@ def build_geographic_runtime_context(
         river_network_products = cached_products.river_network_products
         catchment_area_km2 = cached_products.catchment_area_km2
     else:
-        # Lake hydro-enforcement: delineate on a routing DEM with the lakes carved so
-        # streams route INTO the lakes and drain to the outlet. The model top (below,
-        # via build_domain_rasters on setup.dem_init_path) stays on the raw DEM.
-        routing_dem_path = routing_dem_from_config(config, setup)
+        # Routing DEM conditioning, in order: burn the observed stream network, then
+        # carve the lakes so streams route INTO them and drain to the outlet. The model
+        # top (below, via build_domain_rasters on setup.dem_init_path) stays on the raw
+        # DEM, so neither step touches the aquifer geometry.
+        area_before_burn_km2 = catchment_area_without_burn(config=config, setup=setup, backend=tool)
+        routing_dem_path = routing_dem_from_config(
+            config, setup, dem_in_path=burned_dem_from_config(config, setup)
+        )
         flow_products = build_regional_flow_products(
             dem_init_path=routing_dem_path,
             dem_out_dir_path=setup.paths.correcflow_path,
@@ -489,6 +501,11 @@ def build_geographic_runtime_context(
                 unsupported_mode="ignore",
             )
             catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
+            check_catchment_area_drift(
+                config=config,
+                reference_area_km2=area_before_burn_km2,
+                burned_area_km2=catchment_area_km2,
+            )
             domain_products = build_standard_domain_polygons(
                 config=config,
                 paths=setup.paths,
@@ -528,6 +545,7 @@ def build_geographic_runtime_context(
             setup,
             flow_direc=flow_products.direc,
             link_id_tif=getattr(river_network_products, "stream_link_id_full_tif", None),
+            dem_in_path=routing_dem_path,
         )
         if captured_dem is not None and config.catch_def != "dem":
             with progress.status("Re-delineating on captured streams"):
@@ -600,6 +618,9 @@ def build_geographic_runtime_context(
                     network_crs=setup.crs_project,
                     backend=tool,
                 )
+
+        if config.catch_def != "dem":
+            report_network_dem_agreement(config, setup, d8_pointer_path=flow_products.direc)
 
         with progress.status("Clipping domain rasters"):
             # The model TOP: raw DEM, optionally with the dam footprint carved down

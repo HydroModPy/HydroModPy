@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.results.run.geographic import crs_proj_from_metadata
+
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
@@ -91,7 +93,7 @@ def build_grid(run: Run) -> Grid:
 
     cell_size = float(meta["dem_res"])
     shape = (int(meta["nrow"]), int(meta["ncol"]))
-    crs = meta.get("crs_proj")
+    crs = crs_proj_from_metadata(meta)
     catchment_area_m2 = float(meta["catch_area"]) * 1e6 if "catch_area" in meta else 0.0
 
     raster = run.geographic_raster("watershed_dem")
