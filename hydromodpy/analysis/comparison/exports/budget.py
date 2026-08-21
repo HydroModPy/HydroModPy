@@ -15,7 +15,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
-from hydromodpy.physics.flow.history_contract import build_transient_time_axes
+from hydromodpy.physics.flow.history_contract import (
+    build_transient_time_axes,
+    saturated_thickness_from_head_history,
+)
 
 from .base import (
     _as_float,
@@ -91,8 +94,7 @@ def _saturated_thickness_from_head_history(
     z_bottom = np.asarray(z_bottom_m, dtype=float).reshape(-1)
     if not (head.shape[1] == z_top.size == z_bottom.size):
         return None
-    aquifer_thickness = np.maximum(z_top - z_bottom, 0.0)
-    return np.clip(head - z_bottom[None, :], 0.0, aquifer_thickness[None, :])
+    return saturated_thickness_from_head_history(head, top_m=z_top, bottom_m=z_bottom)
 
 
 def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np.ndarray:
