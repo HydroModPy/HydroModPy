@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 28 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 30 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 28 loadable rows split into three enforcement classes (W5 classification):
+The 30 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 28 loadable TOLERANCES.md rows.
+# W5 classification of the 30 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -73,6 +73,10 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "v_valley_support_bench_case_a__root_relative_gap_between_raw_and_closed_observed_network",
         "v_valley_support_bench_case_b__root_drift_under_a_rasterisation_hole",
         "downslope_operator_d4_vs_d8__length_ratio_on_a_pure_diagonal_descent",
+        # Golden comparison against whitebox D-infinity, asserted in
+        # tests/unit/core/test_downslope_whitebox_golden.py.
+        "downslope_operator_vs_whitebox_d_infinity__spearman_rank_correlation_on_a_real_dem",
+        "downslope_operator_vs_whitebox_d_infinity__median_relative_gap",
     }
 )
 
@@ -163,10 +167,10 @@ def _resolve(slug: str) -> str:
 
 @pytest.mark.fast
 def test_classification_partitions_all_loadable_rows() -> None:
-    """INLINE, CASE_TOML and UNUSED partition exactly the 28 loadable rows."""
+    """INLINE, CASE_TOML and UNUSED partition exactly the 30 loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 28, sorted(loadable)
+    assert len(loadable) == 30, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
