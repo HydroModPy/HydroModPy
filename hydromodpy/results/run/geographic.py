@@ -20,9 +20,22 @@ from hydromodpy.results.run.array import lookup_zarr_path
 from hydromodpy.results.run.contracts import Mesh, RasterField
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import geopandas as gpd
 
     from hydromodpy.results.grid import Grid
+
+
+def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
+    """Return the run's projected CRS, ``None`` when absent or empty.
+
+    The single place ``crs_proj`` is read out of ``geographic_metadata``, so the
+    mesh payload and :class:`~hydromodpy.results.grid.Grid` cannot drift apart on
+    what counts as an unknown frame.
+    """
+    crs = metadata.get("crs_proj")
+    return None if crs in (None, "") else str(crs)
 
 
 class RunGeographicMixin:
@@ -225,7 +238,7 @@ class RunGeographicMixin:
         """
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
-        crs = self._catalog.read_geographic_metadata(self._sim_id).get("crs_proj")
+        crs = crs_proj_from_metadata(self._catalog.read_geographic_metadata(self._sim_id))
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             mesh_grp = sz.root["mesh"]
@@ -237,7 +250,7 @@ class RunGeographicMixin:
                 z_interfaces=mesh_grp["z_interfaces"][:],
                 topography=None if topo is None else topo[:],
                 topography_reference=None if topo_ref is None else topo_ref[:],
-                crs=None if crs in (None, "") else str(crs),
+                crs=crs,
             )
         finally:
             sz.close()
