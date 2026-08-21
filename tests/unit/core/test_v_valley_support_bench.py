@@ -27,6 +27,7 @@ from tests._helpers.v_valley import (
     analytic_receiver,
     build_bench,
     cell_id,
+    criterion_slope,
     crossing_thresholds,
     downstream_closure,
     interpolate_at,
@@ -270,6 +271,25 @@ def test_closing_the_simulated_network_lifts_the_observed_zero_fraction(bench) -
     assert summary.n_support == int(observed.sum())
     assert summary.n_reached == summary.n_support
     assert np.isfinite(summary.mean_m)
+
+
+def test_closing_the_simulated_network_does_not_cost_sensitivity(bench) -> None:
+    # Closing the simulated network drives most of the observed side to zero
+    # distance, which looks like a loss of information. It is not: the criterion
+    # gets steeper, because the closure makes D_os collapse faster once the
+    # network is over-extended. Measured at +21 per cent here, +22 per cent in
+    # the support study.
+    observed = observed_network("aligned")
+    raw = sweep_distances(
+        bench, observed, close_simulated=False, close_observed=False, seal_outlet=True
+    )
+    closed = sweep_distances(
+        bench, observed, close_simulated=True, close_observed=False, seal_outlet=True
+    )
+
+    raw_slope = criterion_slope(*raw, _only_root(*raw))
+    closed_slope = criterion_slope(*closed, _only_root(*closed))
+    assert closed_slope >= raw_slope
 
 
 def test_lower_axis_cells_never_leave_the_catchment(bench) -> None:
