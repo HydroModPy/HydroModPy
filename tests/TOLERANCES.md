@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 55 tolerances enforced today. Every tolerance
+The table below records the 58 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -83,6 +83,9 @@ must carry a rationale before it is merged.
 | 53 | Mesh surface conditioning / Q3 channel accumulation carriers | n channel cells below 0.5x their raster accumulation | `< 10 of 75 (vs 23 baseline)` | Plan 2026-07-10 §5 Phase-1 gate | `tools/diagnostics/mesh_flow_qc.py` (q3_n_channel_below_half_raster_acc) |
 | 54 | Mesh surface conditioning / mass balance | stranded accumulation area | `0 km2 (exact; all area exits to lake or boundary)` | Plan 2026-07-10 §0 measured verdict | `tools/diagnostics/mesh_flow_qc.py` (q3_acc_stranded_km2) |
 | 55 | Mesh surface conditioning / Phase-2 5 m KGE non-regression | KGE drift vs validated Cheze preretenue chronicle (0.769) | `within calibration envelope (see row 3, absolute NSE drift 0.01)` | Plan 2026-07-10 §5 Phase-2 gate; guards zonal top change | params_hash invalidated; measured on `cheze_calibration_preretenue_chronicle` |
+| 56 | V-valley support bench, case A | root relative gap between raw and closed observed network | `1e-12` | **Exact.** At `alpha = 1` the downslope closure of the observed network is the network itself, so the two runs share every float | `tests/unit/core/test_v_valley_support_bench.py`; proves the closure brings nothing on a well-registered network |
+| 57 | V-valley support bench, case B | root drift under a rasterisation hole | `0.05` | **Declared choice.** Bounds the effect of one missing cell in the middle of the observed network; measured at 3.7 % on the rebuilt bench | A hole creates no infinite distance, so it does not justify closing the observed network |
+| 58 | Downslope operator, D4 vs D8 | length ratio on a pure diagonal descent | `1.41421` | **Exact**, geometry: shared-edge adjacency walks `2 res`, shared-node adjacency walks `res sqrt(2)` | `tests/unit/core/test_topographic_distance.py` |
 
 ## Update policy
 

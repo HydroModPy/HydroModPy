@@ -13,9 +13,11 @@ from hydromodpy.core.topographic_distance import (
     longest_descent_length,
     mean_downslope_distance,
 )
+from tests._helpers.tolerances import tol
 from tests._helpers.ugrid_meshes import quad_mesh
 
 RESOLUTION = 10.0
+D4_OVER_D8 = tol("length_ratio_on_a_pure_diagonal_descent")
 
 
 def _plane(nrow: int, ncol: int) -> np.ndarray:
@@ -117,7 +119,7 @@ def test_structured_grid_diagonal_descent_length() -> None:
 
     assert d4[0] == pytest.approx(2.0 * RESOLUTION * (size - 1), rel=1e-12)
     assert d8[0] == pytest.approx(math.sqrt(2.0) * RESOLUTION * (size - 1), rel=1e-12)
-    assert d4[0] / d8[0] == pytest.approx(math.sqrt(2.0), rel=1e-12)
+    assert d4[0] / d8[0] == pytest.approx(D4_OVER_D8, rel=1e-5)
 
 
 def test_diagonal_neighbors_rejects_a_non_quad_mesh() -> None:
