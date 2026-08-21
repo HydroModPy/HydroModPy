@@ -255,6 +255,11 @@ def test_empty_support_is_not_a_number() -> None:
     assert summary.n_support == 0
 
 
+def test_weight_length_is_validated_even_on_an_empty_support() -> None:
+    with pytest.raises(ValueError, match="weights must have 2 entries"):
+        mean_downslope_distance(np.array([1.0, 2.0]), np.zeros(2, dtype=bool), weights=np.ones(3))
+
+
 def test_non_positive_weight_is_rejected() -> None:
     distance = np.array([1.0, np.inf])
     with pytest.raises(ValueError, match="finite and strictly positive"):

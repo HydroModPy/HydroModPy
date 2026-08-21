@@ -118,6 +118,12 @@ def build_downslope_metric(
     reference = np.asarray(reference_values, dtype=float).reshape(-1)
     n_cells = int(reference.size)
 
+    centroids = cell_centroids_from_mesh(vertices, face_node_connectivity)
+    if centroids.shape[0] != n_cells:
+        raise ValueError(
+            f"the mesh carries {centroids.shape[0]} faces but the surface has {n_cells} values."
+        )
+
     adjacency = None
     if diagonal_neighbors:
         adjacency = _shared_node_adjacency(face_node_connectivity, n_cells=n_cells)
@@ -129,12 +135,6 @@ def build_downslope_metric(
         inactive_mask=inactive_mask,
         adjacency=adjacency,
     )
-
-    centroids = cell_centroids_from_mesh(vertices, face_node_connectivity)
-    if centroids.shape[0] != n_cells:
-        raise ValueError(
-            f"the mesh carries {centroids.shape[0]} faces but the surface has {n_cells} values."
-        )
 
     has_receiver = graph.downstream >= 0
     edge_length = np.full(n_cells, np.nan, dtype="float64")
@@ -211,6 +211,11 @@ def mean_downslope_distance(
     support = np.asarray(support_mask, dtype=bool).reshape(-1)
     if support.size != values.size:
         raise ValueError(f"support_mask must have {values.size} entries, got {support.size}.")
+    all_weights = None
+    if weights is not None:
+        all_weights = np.asarray(weights, dtype=float).reshape(-1)
+        if all_weights.size != values.size:
+            raise ValueError(f"weights must have {values.size} entries, got {all_weights.size}.")
 
     undefined = support & np.isnan(values)
     unreachable = support & np.isinf(values)
@@ -229,14 +234,9 @@ def mean_downslope_distance(
         max_m = float("nan")
     else:
         scored_values = capped[scored]
-        if weights is None:
+        if all_weights is None:
             scored_weights = np.ones(scored_values.size, dtype="float64")
         else:
-            all_weights = np.asarray(weights, dtype=float).reshape(-1)
-            if all_weights.size != values.size:
-                raise ValueError(
-                    f"weights must have {values.size} entries, got {all_weights.size}."
-                )
             scored_weights = all_weights[scored]
             if not np.all(np.isfinite(scored_weights)) or np.any(scored_weights <= 0.0):
                 raise ValueError(
