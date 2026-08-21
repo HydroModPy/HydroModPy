@@ -18,6 +18,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -26,7 +27,12 @@ from hydromodpy.calibration.metrics import build_metric_extractor
 from hydromodpy.calibration.metrics import composite as _composite_module
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract_module
 from hydromodpy.calibration.metrics.series import load_observed
-from hydromodpy.calibration.metrics.solver_extract import extract_lake as _extract_lake
+from hydromodpy.calibration.metrics.solver_extract import extract_outputs as _extract_outputs
+from hydromodpy.core.contracts.observables import (
+    ObservableRequest,
+    ObservableResult,
+)
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 
@@ -148,34 +154,68 @@ class TestAdapterBranch:
             ),
         )
 
-    def test_lake_stage_requires_lake_id(self, tmp_path: Path):
-        adapter = Modflow6FlowAdapter()
-        with pytest.raises(ValueError, match="lake_stage calibration requires lake_id"):
-            adapter.extract_calibration_series(self._ctx(tmp_path), None, variable="lake_stage")
+    def test_lake_request_needs_a_lake_key(self):
+        # The contract refuses a lake request with no lake, so the adapter is
+        # never reached with an unusable request.
+        with pytest.raises(ValueError, match="needs a key"):
+            ObservableRequest(id="l", name="stage", support="lake")
 
     def test_lake_stage_reads_series(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m", stages=(86.0, 87.0))
         adapter = Modflow6FlowAdapter()
-        series = adapter.extract_calibration_series(
-            self._ctx(tmp_path), None, variable="lake_stage", lake_id="lac0"
+        results = adapter.extract_observables(
+            self._ctx(tmp_path),
+            None,
+            [ObservableRequest(id="l", name="stage", support="lake", key="lac0")],
         )
-        assert list(series.values) == pytest.approx([86.0, 87.0])
+        assert list(results["l"].values) == pytest.approx([86.0, 87.0])
+        assert results["l"].units == "m"
 
     def test_lake_volume_reads_the_volume_column(self, tmp_path: Path):
-        """The variable suffix selects the LAK state, not just the stage column."""
+        """The request name selects the LAK state, not just the stage column."""
         _write_lake_outputs(tmp_path, "m", stages=(86.0, 87.0))
         adapter = Modflow6FlowAdapter()
-        series = adapter.extract_calibration_series(
-            self._ctx(tmp_path), None, variable="lake_volume", lake_id="lac0"
+        results = adapter.extract_observables(
+            self._ctx(tmp_path),
+            None,
+            [ObservableRequest(id="l", name="volume", support="lake", key="lac0")],
         )
-        assert list(series.values) == pytest.approx([86000.0, 87000.0])
+        assert list(results["l"].values) == pytest.approx([86000.0, 87000.0])
+        assert results["l"].units == "m3"
 
-    def test_unknown_lake_variable_is_not_implemented(self, tmp_path: Path):
+    def test_two_lake_states_come_back_from_one_call(self, tmp_path: Path):
+        _write_lake_outputs(tmp_path, "m", stages=(86.0, 87.0))
         adapter = Modflow6FlowAdapter()
-        with pytest.raises(NotImplementedError, match="lake_inflow"):
-            adapter.extract_calibration_series(
-                self._ctx(tmp_path), None, variable="lake_inflow", lake_id="lac0"
+        results = adapter.extract_observables(
+            self._ctx(tmp_path),
+            None,
+            [
+                ObservableRequest(id="stage", name="stage", support="lake", key="lac0"),
+                ObservableRequest(id="vol", name="volume", support="lake", key="lac0"),
+            ],
+        )
+        assert sorted(results) == ["stage", "vol"]
+        assert list(results["stage"].values) == pytest.approx([86.0, 87.0])
+        assert list(results["vol"].values) == pytest.approx([86000.0, 87000.0])
+
+    def test_unknown_lake_state_is_refused_by_name(self, tmp_path: Path):
+        adapter = Modflow6FlowAdapter()
+        with pytest.raises(ObservableNotAvailableError, match="inflow"):
+            adapter.extract_observables(
+                self._ctx(tmp_path),
+                None,
+                [ObservableRequest(id="l", name="inflow", support="lake", key="lac0")],
             )
+
+    def test_last_timestep_only_is_honoured(self, tmp_path: Path):
+        _write_lake_outputs(tmp_path, "m", stages=(86.0, 87.0))
+        adapter = Modflow6FlowAdapter()
+        results = adapter.extract_observables(
+            self._ctx(tmp_path),
+            None,
+            [ObservableRequest(id="l", name="stage", support="lake", key="lac0", times="last")],
+        )
+        assert list(results["l"].values) == pytest.approx([87.0])
 
 
 # ---------------------------------------------------------------------------
@@ -184,29 +224,42 @@ class TestAdapterBranch:
 
 
 class _LakeAdapter:
-    """Stub solver adapter that accepts lake_id and returns a fixed series."""
+    """Stub solver adapter that serves any lake request with a fixed series."""
 
-    def extract_calibration_series(self, ctx, store, *, variable, lake_id=None, time_index=None):
-        del ctx, store, variable, time_index
-        return pd.Series([1.0, 2.0, 3.0], name=f"stage@{lake_id}")
+    def extract_observables(self, ctx, store, requests, *, time_index=None):
+        del ctx, store, time_index
+        return {
+            request.id: ObservableResult(
+                request_id=request.id,
+                values=np.array([1.0, 2.0, 3.0]),
+                units="m",
+            )
+            for request in requests
+        }
 
 
 class _NoLakeAdapter:
-    """Stub adapter without lake_id support."""
+    """Stub adapter that refuses lake observables, as MODFLOW-NWT does."""
 
-    def extract_calibration_series(self, ctx, store, *, variable, time_index=None):
-        del ctx, store, variable, time_index
-        return pd.Series([1.0])
+    def extract_observables(self, ctx, store, requests, *, time_index=None):
+        del ctx, store, time_index
+        for request in requests:
+            if request.support == "lake":
+                raise ObservableNotAvailableError(
+                    f"this backend does not produce observable {request.name!r} on support "
+                    f"{request.support!r}."
+                )
+        return {}
 
 
 class TestBridge:
-    def test_extract_lake_raises_without_flow_run(self):
+    def test_lake_output_raises_without_flow_run(self):
         ctx = SimpleNamespace(execution=None)
         out = validate_calib_output({"support": "lake", "lake_id": "lac0"})
         with pytest.raises(NotImplementedError, match="No flow solver adapter"):
-            _extract_lake(ctx, out)
+            _extract_outputs(ctx, {"lake": out})
 
-    def test_extract_lake_slices_last(self, monkeypatch):
+    def test_lake_output_slices_last(self, monkeypatch):
         run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"))
         monkeypatch.setattr(
             _solver_extract_module,
@@ -216,9 +269,11 @@ class TestBridge:
         out = validate_calib_output(
             {"support": "lake", "lake_id": "lac0", "time": "last", "reducer": "last"}
         )
-        assert _extract_lake(SimpleNamespace(), out) == [3.0]
+        assert _extract_outputs(SimpleNamespace(), {"lake": out}) == {"lake": [3.0]}
 
-    def test_extract_lake_requires_adapter_lake_support(self, monkeypatch):
+    def test_a_backend_without_lakes_refuses_by_name(self, monkeypatch):
+        # The refusal now comes from the backend itself rather than from the
+        # caller reading its signature.
         run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow_nwt"))
         monkeypatch.setattr(
             _solver_extract_module,
@@ -226,28 +281,27 @@ class TestBridge:
             lambda ctx: (_NoLakeAdapter(), run_ctx),
         )
         out = validate_calib_output({"support": "lake", "lake_id": "lac0"})
-        with pytest.raises(NotImplementedError, match="cannot extract calibration lake_id"):
-            _extract_lake(SimpleNamespace(), out)
+        with pytest.raises(ObservableNotAvailableError, match="on support 'lake'"):
+            _extract_outputs(SimpleNamespace(), {"lake": out})
 
-    @pytest.mark.parametrize(
-        ("declared", "expected_variable"),
-        [
-            ("stage", "lake_stage"),
-            ("volume", "lake_volume"),
-            ("surface_area", "lake_surface_area"),
-        ],
-    )
-    def test_declared_quantity_reaches_the_adapter(self, monkeypatch, declared, expected_variable):
+    @pytest.mark.parametrize("declared", ["stage", "volume", "surface_area"])
+    def test_declared_quantity_reaches_the_adapter(self, monkeypatch, declared):
         """The config quantity is what the adapter is asked for, not a fixed stage."""
         seen: dict[str, str] = {}
 
         class _Recorder:
-            def extract_calibration_series(
-                self, ctx, store, *, variable, lake_id=None, time_index=None
-            ):
-                del ctx, store, lake_id, time_index
-                seen["variable"] = variable
-                return pd.Series([1.0])
+            def extract_observables(self, ctx, store, requests, *, time_index=None):
+                del ctx, store, time_index
+                seen["name"] = requests[0].name
+                seen["key"] = requests[0].key
+                seen["support"] = requests[0].support
+                return {
+                    requests[0].id: ObservableResult(
+                        request_id=requests[0].id,
+                        values=np.array([1.0]),
+                        units="m",
+                    )
+                }
 
         run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"))
         monkeypatch.setattr(
@@ -256,8 +310,10 @@ class TestBridge:
             lambda ctx: (_Recorder(), run_ctx),
         )
         out = validate_calib_output({"support": "lake", "lake_id": "lac0", "variable": declared})
-        _extract_lake(SimpleNamespace(), out)
-        assert seen["variable"] == expected_variable
+        _extract_outputs(SimpleNamespace(), {"lake": out})
+        # No composed lake_<quantity> string any more: the state is the name and
+        # the lake is the key.
+        assert seen == {"name": declared, "key": "lac0", "support": "lake"}
 
 
 # ---------------------------------------------------------------------------
@@ -308,12 +364,18 @@ class TestSingleMetricLakeLevelPath:
         observed_dates = pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"])
 
         class _AlignedAdapter:
-            def extract_calibration_series(
-                self, ctx, store, *, variable, lake_id=None, time_index=None
-            ):
-                del ctx, store, variable, lake_id, time_index
+            def extract_observables(self, ctx, store, requests, *, time_index=None):
+                del ctx, store, time_index
                 # Observed is [10, 11, 12]; offset by 0.5 -> rmse == 0.5.
-                return pd.Series([10.5, 11.5, 12.5], index=observed_dates, name="stage")
+                return {
+                    request.id: ObservableResult(
+                        request_id=request.id,
+                        values=np.array([10.5, 11.5, 12.5]),
+                        units="m",
+                        times=observed_dates,
+                    )
+                    for request in requests
+                }
 
         run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"))
         monkeypatch.setattr(

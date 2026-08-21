@@ -64,7 +64,9 @@ class TestCliWiring:
             outputs=cfg.outputs or None,
             objective_blocks=cfg.objective_blocks or None,
         )
-        with pytest.raises(RuntimeError, match="Output 'head_A' extraction failed"):
+        # The composite path is engaged: it fails on the missing flow run, not
+        # on the single-metric branch, which would complain about observations.
+        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
             metric_fn(ctx)
 
     def test_composite_evaluates_when_simulated_provided(self):

@@ -9,13 +9,14 @@ that identify the supported pair and its dependencies.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import pandas as pd
 
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 
 
@@ -54,23 +55,29 @@ class SolverAdapter(Protocol):
     def cleanup(self, ctx: RunContext) -> None:
         """Release temporary scratch files after extraction completes."""
 
-    def extract_calibration_series(
+    def extract_observables(
         self,
         ctx: RunContext,
         store: Any,
+        requests: Sequence[ObservableRequest],
         *,
-        variable: str,
-        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
-        """Read the simulated calibration series for ``variable`` from this run.
+    ) -> dict[str, ObservableResult]:
+        """Read every requested observable from this run, keyed by request id.
 
-        Lightweight calibration trials read straight from the solver scratch dir
-        via ``ctx.state.execution.output_dirs_by_run_id``; ``store`` is the
-        cold-path :class:`Catalog` reserved for backends that already
-        wrote results to it. ``station_cells``
-        carries a station-id to ``(layer, row, col)`` mapping for head-style
-        targets and is unused by discharge-style targets.
+        The whole batch arrives at once so a backend opens each binary file
+        once instead of once per request, and a backend driven through an API
+        knows before the solve which timesteps it has to keep.
+
+        Lightweight calibration trials read straight from the solver scratch
+        dir via ``ctx.state.execution.output_dirs_by_run_id``; ``store`` is the
+        cold-path :class:`Catalog` reserved for backends that already wrote
+        results to it.
+
+        An adapter that cannot produce a requested observable raises
+        :class:`~hydromodpy.core.exceptions.ObservableNotAvailableError` naming
+        it. That refusal is the contract: a caller never reads a signature to
+        find out what a backend supports.
         """
 
 

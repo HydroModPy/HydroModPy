@@ -29,11 +29,11 @@ class DummyAdapter:
     def cleanup(self, ctx: object) -> None:
         self.calls.append("cleanup")
 
-    def extract_calibration_series(self, ctx: object, store: object, **kwargs: object) -> object:
-        self.calls.append("extract_calibration_series")
-        import pandas as pd
-
-        return pd.Series(dtype=float)
+    def extract_observables(
+        self, ctx: object, store: object, requests: object, **kwargs: object
+    ) -> object:
+        self.calls.append("extract_observables")
+        return {}
 
 
 class PartialAdapter:

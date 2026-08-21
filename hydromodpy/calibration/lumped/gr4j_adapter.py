@@ -2,20 +2,27 @@
 
 GR4J runs in-memory through ``simulation.extraction.calibration_bridge``: it
 never writes solver binaries, and ``execute`` is therefore not wired into the
-staged flow runner. The class exposes ``extract_calibration_series`` so the
+staged flow runner. The class exposes ``extract_observables`` so the
 calibration engine can read the catalogued series back from the cold-path
 ``store`` after ``promote_trial`` has persisted the best run, using the same
-shape as the MODFLOW backend adapters.
+contract as the MODFLOW backend adapters.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Sequence
 from typing import Any
 
 import pandas as pd
 
+from hydromodpy.core.contracts.observables import (
+    ObservableRequest,
+    ObservableResult,
+    require_unique_request_ids,
+)
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.solver.base.observables import series_observable
 
 
 class Gr4jAdapter:
@@ -42,32 +49,56 @@ class Gr4jAdapter:
     def cleanup(self, ctx: RunContext) -> None:
         """No scratch files to clean: GR4J keeps everything in RAM."""
 
-    def extract_calibration_series(
+    def extract_observables(
         self,
         ctx: RunContext,
         store: Any,
+        requests: Sequence[ObservableRequest],
         *,
-        variable: str,
-        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
-        """Read the simulated series for *variable* from RAM or the cold store.
+    ) -> dict[str, ObservableResult]:
+        """Read the requested series from RAM or from the cold store.
 
         Two paths are supported:
 
         - **Lightweight (``store=None``)**: read the series the GR4J runner
           stashed in the per-trial :class:`LumpedRamCache`. This skips every
-          DuckDB / Parquet write so calibration trials stay strictly in
-          memory.
+          DuckDB / Parquet write so calibration trials stay strictly in memory.
         - **Cold (``store`` non-None)**: query the ``Catalog``.
           ``promote_trial`` writes the best GR4J trial under
-          ``station_id="outlet"`` (or the id provided via ``station_cells``)
+          ``station_id="outlet"`` (or the id carried by the request ``key``)
           and this method reads it back for full-fidelity reporting.
-        """
-        station_id = "outlet"
-        if station_cells:
-            station_id = next(iter(station_cells))
 
+        GR4J is lumped, so every observable sits on the ``domain`` support and
+        the request ``key`` names the station when it is not the outlet.
+        """
+        require_unique_request_ids(requests)
+        served: dict[str, ObservableResult] = {}
+        for request in requests:
+            if request.support != "domain":
+                raise ObservableNotAvailableError(
+                    f"GR4J is lumped: it has no {request.support!r} support, only 'domain'."
+                )
+            series = self._read_series(
+                ctx,
+                store,
+                station_id=request.key or "outlet",
+                variable=request.name,
+                time_index=time_index,
+            )
+            served[request.id] = series_observable(request, series, units="")
+        return served
+
+    def _read_series(
+        self,
+        ctx: RunContext,
+        store: Any,
+        *,
+        station_id: str,
+        variable: str,
+        time_index: pd.DatetimeIndex | None,
+    ) -> pd.Series:
+        """Return one GR4J series, from the RAM cache or from the catalog."""
         if store is None:
             from hydromodpy.calibration.lumped.ram_cache import load_series
 

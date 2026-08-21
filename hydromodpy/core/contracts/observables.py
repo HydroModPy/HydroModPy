@@ -22,6 +22,7 @@ driven through an API knows before the solve which timesteps it must keep.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -30,9 +31,14 @@ import numpy as np
 if TYPE_CHECKING:  # pragma: no cover - a runtime pandas import costs half a second
     import pandas as pd
 
-ObservableSupport = Literal["domain", "point", "cell", "boundary", "lake", "cells"]
-"""Where an observable lives: the whole domain, one point, one cell, a named
-boundary, a named lake, or every cell of the mesh."""
+ObservableSupport = Literal["domain", "cell", "cells", "boundary", "lake"]
+"""Where an observable lives: the whole domain, one cell, every cell of the
+mesh, a named boundary, or a named lake.
+
+There is no ``point`` support on purpose. A request carries a cell, never
+coordinates, so a caller holding an ``(x, y)`` resolves it against the mesh
+first and asks for that cell; a ``point`` member would be a name no request
+could ever be built with."""
 
 TimeSelector = Literal["all", "last", "first"] | tuple[int, ...]
 """Which timesteps to keep. Explicit indices are allowed so a caller can ask
@@ -97,6 +103,24 @@ class ObservableResult:
     times: pd.DatetimeIndex | None = None
 
 
+def require_unique_request_ids(requests: Sequence[ObservableRequest]) -> None:
+    """Refuse a batch holding two requests with the same id.
+
+    The returned mapping is keyed by id, so duplicates would silently collapse
+    into whichever request an adapter happened to serve last.
+    """
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for request in requests:
+        if request.id in seen:
+            duplicates.add(request.id)
+        seen.add(request.id)
+    if duplicates:
+        raise ValueError(
+            f"observable requests must have distinct ids; {sorted(duplicates)} repeat."
+        )
+
+
 def select_time_indices(n_times: int, selector: TimeSelector) -> np.ndarray:
     """Resolve a time selector against a run holding ``n_times`` timesteps.
 
@@ -131,5 +155,6 @@ __all__ = (
     "ObservableResult",
     "ObservableSupport",
     "TimeSelector",
+    "require_unique_request_ids",
     "select_time_indices",
 )

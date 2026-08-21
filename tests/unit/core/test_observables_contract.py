@@ -8,6 +8,7 @@ import pytest
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
+    require_unique_request_ids,
     select_time_indices,
 )
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
@@ -100,3 +101,15 @@ def test_observable_error_is_a_solver_error() -> None:
     error = ObservableNotAvailableError("release_flux is not available")
     assert isinstance(error, SolverError)
     assert error.code == "HMPY.E408"
+
+
+def test_duplicate_request_ids_are_refused() -> None:
+    # The returned mapping is keyed by id, so a duplicate would silently drop
+    # one of the two requests instead of answering both.
+    first = ObservableRequest(id="q", name="discharge", support="domain")
+    second = ObservableRequest(id="q", name="head", support="cell", cell=(0, 0, 0))
+
+    require_unique_request_ids([first])
+    require_unique_request_ids([])
+    with pytest.raises(ValueError, match=r"distinct ids; \['q'\] repeat"):
+        require_unique_request_ids([first, second])

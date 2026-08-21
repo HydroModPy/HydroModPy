@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 
 from hydromodpy.calibration.metrics.scalar import score
 from hydromodpy.calibration.metrics.series import (
@@ -21,21 +22,30 @@ from hydromodpy.calibration.metrics.series import (
     resolve_time_index,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
-    call_extract_calibration_series,
-    extract_boundary,
-    extract_cell,
-    extract_lake,
-    extract_point,
+    extract_outputs,
+    observable_series,
     resolve_flow_adapter,
     resolve_station_cells,
 )
 from hydromodpy.calibration.optim.objective import build_objective_from_config
+from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
 
 logger = get_logger(__name__)
+
+# Station id the discharge target uses when a run has a single catchment outlet.
+_CATCHMENT = "_catchment"
+
+
+def _series_for(results: Mapping[str, Any], request_id: str, *, name: str) -> pd.Series:
+    """Read one observable out of a batch, or say which one is missing."""
+    result = results.get(request_id)
+    if result is None:
+        raise NotImplementedError(f"Solver returned no {name} observable for {request_id!r}")
+    return observable_series(result, name=name)
 
 
 def build_metric_extractor(
@@ -76,12 +86,13 @@ def build_metric_extractor(
         time_idx = resolve_time_index(trial_ctx, n_timesteps=0)
         try:
             if variable == "discharge":
-                simulated = adapter.extract_calibration_series(
+                results = adapter.extract_observables(
                     run_ctx,
                     None,
-                    variable="discharge",
+                    [ObservableRequest(id=_CATCHMENT, name="discharge", support="domain")],
                     time_index=time_idx,
                 )
+                simulated = _series_for(results, _CATCHMENT, name="discharge")
                 if simulated.empty:
                     raise NotImplementedError(
                         f"Solver {run_ctx.run.solver!r} returned no discharge calibration series"
@@ -108,17 +119,26 @@ def build_metric_extractor(
                     )
                 components = {}
                 costs = []
+                # One call for every piezometer: the head file opens once.
+                results = adapter.extract_observables(
+                    run_ctx,
+                    None,
+                    [
+                        ObservableRequest(
+                            id=obs_rec.station_id,
+                            name="head",
+                            support="cell",
+                            cell=station_cells[obs_rec.station_id],
+                        )
+                        for obs_rec in observed
+                        if obs_rec.station_id in station_cells
+                    ],
+                    time_index=time_idx,
+                )
                 for obs_rec in observed:
-                    cell = station_cells.get(obs_rec.station_id)
-                    if cell is None:
+                    if obs_rec.station_id not in station_cells:
                         continue
-                    sim = adapter.extract_calibration_series(
-                        run_ctx,
-                        None,
-                        variable="head",
-                        station_cells={obs_rec.station_id: cell},
-                        time_index=time_idx,
-                    )
+                    sim = _series_for(results, obs_rec.station_id, name="head")
                     if sim.empty:
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no head calibration series"
@@ -134,14 +154,22 @@ def build_metric_extractor(
             elif variable == "lake_level":
                 components = {}
                 costs = []
+                results = adapter.extract_observables(
+                    run_ctx,
+                    None,
+                    [
+                        ObservableRequest(
+                            id=obs_rec.station_id,
+                            name="stage",
+                            support="lake",
+                            key=obs_rec.station_id,
+                        )
+                        for obs_rec in observed
+                    ],
+                    time_index=time_idx,
+                )
                 for obs_rec in observed:
-                    sim = call_extract_calibration_series(
-                        adapter,
-                        run_ctx,
-                        variable="lake_stage",
-                        lake_id=obs_rec.station_id,
-                        time_index=time_idx,
-                    )
+                    sim = _series_for(results, obs_rec.station_id, name="stage")
                     if sim.empty:
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no lake stage series"
@@ -173,22 +201,14 @@ def _build_composite_metric_extractor(
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
         del objective, variable
-        simulated_by_output: dict[str, list[float]] = {}
-        for name, decl in outputs.items():
-            try:
-                if decl.support == "point":
-                    simulated_by_output[name] = extract_point(trial_ctx, decl)
-                elif decl.support == "boundary":
-                    simulated_by_output[name] = extract_boundary(trial_ctx, decl)
-                elif decl.support == "lake":
-                    simulated_by_output[name] = extract_lake(trial_ctx, decl)
-                else:
-                    simulated_by_output[name] = extract_cell(trial_ctx, decl)
-            except Exception as exc:
-                logger.exception("Output %r extraction failed", name)
-                raise RuntimeError(
-                    f"Output {name!r} extraction failed: {type(exc).__name__}: {exc}"
-                ) from exc
+        try:
+            simulated_by_output = extract_outputs(trial_ctx, outputs)
+        except RuntimeError:
+            logger.exception("Output extraction failed")
+            raise
+        except Exception as exc:
+            logger.exception("Output extraction failed")
+            raise RuntimeError(f"Output extraction failed: {type(exc).__name__}: {exc}") from exc
 
         try:
             value = composite.evaluate(simulated_by_output)

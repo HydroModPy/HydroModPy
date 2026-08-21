@@ -9,7 +9,7 @@ physics in this module, so these tests drive the *real* adapter against a
 - round-trip fidelity of the stored series (machine-eps),
 - survival of a water-balance closure built into the synthetic forcing,
 - non-negativity of simulated flow and storage,
-- the parameter-wiring / edge branches in ``extract_calibration_series``
+- the request-wiring / edge branches in ``extract_observables``
   and ``_latest_sim_id`` (the dark 90-124 block).
 
 The science (mass conservation) lives in the synthetic series we build
@@ -29,6 +29,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.lumped import Gr4jAdapter, LumpedRamCache, stash_series
+from hydromodpy.core.contracts.observables import ObservableRequest
 from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.tolerances import tol
 
@@ -37,6 +38,19 @@ from tests._helpers.tolerances import tol
 ATOL = tol("regression_goldens_arrays__atol")
 # Water-balance closure tolerance: TOLERANCES.md global-budget row.
 BUDGET_RTOL = tol("global_water_budget_closure__relative_error_in_out_in")
+
+
+def _domain_request(
+    name: str,
+    *,
+    request_id: str = "q",
+    station: str | None = None,
+) -> ObservableRequest:
+    """Build the only request shape GR4J answers: a lumped domain series.
+
+    The station travels in ``key`` and falls back to the outlet when absent.
+    """
+    return ObservableRequest(id=request_id, name=name, support="domain", key=station)
 
 
 @dataclass
@@ -135,10 +149,33 @@ class TestHotPathRamCache:
         stash_series(execution, "outlet", "discharge", run["outlet_discharge"])
         ctx = _FakeCtx(state=_FakeState(execution=execution))
 
-        out = Gr4jAdapter().extract_calibration_series(ctx, None, variable="discharge")
+        served = Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
 
-        np.testing.assert_allclose(out.to_numpy(), run["outlet_discharge"].to_numpy(), atol=ATOL)
-        assert out.name == "discharge"
+        result = served["q"]
+        np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
+        assert result.request_id == "q"
+        # The RAM cache declares no unit, so the adapter must not invent one.
+        assert result.units == ""
+
+    def test_batch_serves_each_request_under_its_own_id(self, run):
+        execution = _FakeExecution()
+        stash_series(execution, "outlet", "discharge", run["outlet_discharge"])
+        stash_series(execution, "outlet", "storage", run["outlet_storage"])
+        ctx = _FakeCtx(state=_FakeState(execution=execution))
+
+        served = Gr4jAdapter().extract_observables(
+            ctx,
+            None,
+            [_domain_request("discharge"), _domain_request("storage", request_id="s")],
+        )
+
+        assert set(served) == {"q", "s"}
+        assert served["q"].request_id == "q"
+        assert served["s"].request_id == "s"
+        np.testing.assert_allclose(
+            served["q"].values, run["outlet_discharge"].to_numpy(), atol=ATOL
+        )
+        np.testing.assert_allclose(served["s"].values, run["outlet_storage"].to_numpy(), atol=ATOL)
 
     def test_time_index_reattached_when_lengths_match(self, run):
         execution = _FakeExecution()
@@ -148,11 +185,11 @@ class TestHotPathRamCache:
         ctx = _FakeCtx(state=_FakeState(execution=execution))
 
         idx = run["outlet_discharge"].index
-        out = Gr4jAdapter().extract_calibration_series(
-            ctx, None, variable="discharge", time_index=idx
-        )
-        assert isinstance(out.index, pd.DatetimeIndex)
-        assert out.index.equals(idx)
+        result = Gr4jAdapter().extract_observables(
+            ctx, None, [_domain_request("discharge")], time_index=idx
+        )["q"]
+        assert isinstance(result.times, pd.DatetimeIndex)
+        assert result.times.equals(idx)
 
     def test_mismatched_time_index_falls_back_to_positional(self, run):
         execution = _FakeExecution()
@@ -160,40 +197,40 @@ class TestHotPathRamCache:
         ctx = _FakeCtx(state=_FakeState(execution=execution))
 
         short_idx = run["outlet_discharge"].index[:5]
-        out = Gr4jAdapter().extract_calibration_series(
-            ctx, None, variable="discharge", time_index=short_idx
-        )
-        # Length mismatch -> positional RangeIndex, values intact.
-        assert isinstance(out.index, pd.RangeIndex)
-        np.testing.assert_allclose(out.to_numpy(), run["outlet_discharge"].to_numpy(), atol=ATOL)
+        result = Gr4jAdapter().extract_observables(
+            ctx, None, [_domain_request("discharge")], time_index=short_idx
+        )["q"]
+        # Length mismatch -> positional series, no times, values intact.
+        assert result.times is None
+        np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
 
-    def test_station_cells_selects_station_id(self, run):
+    def test_request_key_selects_station_id(self, run):
         execution = _FakeExecution()
         stash_series(execution, "BV2", "discharge", run["outlet_discharge"])
         ctx = _FakeCtx(state=_FakeState(execution=execution))
 
-        out = Gr4jAdapter().extract_calibration_series(
-            ctx, None, variable="discharge", station_cells={"BV2": (0, 0, 0)}
-        )
-        np.testing.assert_allclose(out.to_numpy(), run["outlet_discharge"].to_numpy(), atol=ATOL)
+        result = Gr4jAdapter().extract_observables(
+            ctx, None, [_domain_request("discharge", station="BV2")]
+        )["q"]
+        np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
 
     def test_missing_execution_state_raises(self, run):
         ctx = _FakeCtx(state=_FakeState(execution=None))
         with pytest.raises(NotImplementedError):
-            Gr4jAdapter().extract_calibration_series(ctx, None, variable="discharge")
+            Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
 
     def test_absent_series_raises_keyerror(self, run):
         execution = _FakeExecution(lumped_ram_cache=LumpedRamCache())
         ctx = _FakeCtx(state=_FakeState(execution=execution))
         with pytest.raises(KeyError):
-            Gr4jAdapter().extract_calibration_series(ctx, None, variable="discharge")
+            Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
 
     def test_empty_series_raises_keyerror(self):
         execution = _FakeExecution()
         stash_series(execution, "outlet", "discharge", pd.Series(dtype=float))
         ctx = _FakeCtx(state=_FakeState(execution=execution))
         with pytest.raises(KeyError):
-            Gr4jAdapter().extract_calibration_series(ctx, None, variable="discharge")
+            Gr4jAdapter().extract_observables(ctx, None, [_domain_request("discharge")])
 
 
 class TestColdPathCatalog:
@@ -210,11 +247,14 @@ class TestColdPathCatalog:
         self._persist(catalog, run)
         ctx = _FakeCtx()
 
-        out = Gr4jAdapter().extract_calibration_series(ctx, catalog, variable="discharge")
+        served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
 
         # Catalog returns rows ordered by timestep, so values line up 1:1.
-        np.testing.assert_allclose(out.to_numpy(), run["outlet_discharge"].to_numpy(), atol=ATOL)
-        assert out.name == "discharge"
+        result = served["q"]
+        np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
+        assert result.request_id == "q"
+        # The catalog unit is not read back, so the adapter declares none.
+        assert result.units == ""
 
     def test_water_balance_survives_round_trip(self, catalog, run):
         self._persist(catalog, run)
@@ -223,8 +263,8 @@ class TestColdPathCatalog:
 
         # The catalog preserves insertion order (ORDER BY timestep), so the
         # round-tripped values line up positionally with the original series.
-        q = adapter.extract_calibration_series(ctx, catalog, variable="discharge").to_numpy()
-        s = adapter.extract_calibration_series(ctx, catalog, variable="storage").to_numpy()
+        q = adapter.extract_observables(ctx, catalog, [_domain_request("discharge")])["q"].values
+        s = adapter.extract_observables(ctx, catalog, [_domain_request("storage")])["q"].values
         precip = run["precip"].to_numpy()
         evap = run["actual_evap"].to_numpy()
 
@@ -241,38 +281,39 @@ class TestColdPathCatalog:
         self._persist(catalog, run)
         ctx = _FakeCtx()
         adapter = Gr4jAdapter()
-        q = adapter.extract_calibration_series(ctx, catalog, variable="discharge")
-        store = adapter.extract_calibration_series(ctx, catalog, variable="storage")
-        assert (q.to_numpy() >= -ATOL).all()
-        assert (store.to_numpy() >= -ATOL).all()
+        q = adapter.extract_observables(ctx, catalog, [_domain_request("discharge")])["q"]
+        store = adapter.extract_observables(ctx, catalog, [_domain_request("storage")])["q"]
+        assert (q.values >= -ATOL).all()
+        assert (store.values >= -ATOL).all()
 
     def test_time_index_reattached_when_lengths_match(self, catalog, run):
         self._persist(catalog, run)
         ctx = _FakeCtx()
-        idx = pd.RangeIndex(len(run["outlet_discharge"]))
-        out = Gr4jAdapter().extract_calibration_series(
-            ctx, catalog, variable="discharge", time_index=idx
-        )
-        assert out.index.equals(idx)
+        idx = pd.date_range("2021-01-01", periods=len(run["outlet_discharge"]), freq="D")
+        result = Gr4jAdapter().extract_observables(
+            ctx, catalog, [_domain_request("discharge")], time_index=idx
+        )["q"]
+        assert result.times is not None
+        assert result.times.equals(idx)
 
-    def test_station_cells_selects_station_id(self, catalog, run):
+    def test_request_key_selects_station_id(self, catalog, run):
         self._persist(catalog, run, station_id="gauge_A")
         ctx = _FakeCtx()
-        out = Gr4jAdapter().extract_calibration_series(
-            ctx, catalog, variable="discharge", station_cells={"gauge_A": (0, 0, 0)}
-        )
-        assert len(out) == len(run["outlet_discharge"])
+        result = Gr4jAdapter().extract_observables(
+            ctx, catalog, [_domain_request("discharge", station="gauge_A")]
+        )["q"]
+        assert len(result.values) == len(run["outlet_discharge"])
 
     def test_unknown_variable_raises_keyerror(self, catalog, run):
         self._persist(catalog, run)
         ctx = _FakeCtx()
         with pytest.raises(KeyError):
-            Gr4jAdapter().extract_calibration_series(ctx, catalog, variable="recharge")
+            Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("recharge")])
 
     def test_no_simulation_in_store_raises_keyerror(self, catalog):
         ctx = _FakeCtx()
         with pytest.raises(KeyError):
-            Gr4jAdapter().extract_calibration_series(ctx, catalog, variable="discharge")
+            Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
 
     def test_latest_sim_id_matches_catalog_listing_tail(self, catalog, run):
         # With two GR4J sims, the adapter reads whichever sim_id the catalog
@@ -288,8 +329,8 @@ class TestColdPathCatalog:
         expected = catalog.query_timeseries(expected_sid, "outlet", "discharge")
 
         ctx = _FakeCtx()
-        out = Gr4jAdapter().extract_calibration_series(ctx, catalog, variable="discharge")
-        np.testing.assert_allclose(out.to_numpy(), expected.to_numpy(), atol=ATOL)
+        served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
+        np.testing.assert_allclose(served["q"].values, expected.to_numpy(), atol=ATOL)
 
 
 class TestLatestSimIdEdgeBranches:
@@ -363,3 +404,13 @@ class TestAdapterRunnerContract:
         assert adapter.solver_name == "gr4j"
         assert adapter.process_type == "flow"
         assert adapter.requires == ()
+
+
+def test_gr4j_refuses_a_support_it_cannot_have(ctx_factory=None):
+    """GR4J is lumped: a cell or lake request is a declaration error, not a series."""
+    from hydromodpy.core.contracts.observables import ObservableRequest
+    from hydromodpy.core.exceptions import ObservableNotAvailableError
+
+    request = ObservableRequest(id="h", name="head", support="cell", cell=(0, 0, 0))
+    with pytest.raises(ObservableNotAvailableError, match="only 'domain'"):
+        Gr4jAdapter().extract_observables(None, None, [request])
