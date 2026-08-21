@@ -63,15 +63,18 @@ def cell_polygons(
 
 
 def vector_cell_mask(
-    *,
-    vertices: np.ndarray,
-    connectivity: np.ndarray | Sequence[np.ndarray],
+    polygons: np.ndarray,
     geometries: Sequence[BaseGeometry],
+    *,
     mesh_crs: CrsLike,
     geometry_crs: CrsLike,
     distance_m: float = 0.0,
 ) -> np.ndarray:
     """Boolean per-cell mask of the cells one vector layer reaches.
+
+    ``polygons`` comes from :func:`cell_polygons`; it is an argument rather than
+    an internal step because a caller that also needs cell centroids or areas
+    already holds it, and rebuilding it costs about a second on a large mesh.
 
     ``distance_m`` widens the test to every cell within that distance of a
     geometry. It is a ``dwithin`` predicate, never a buffer: buffering the
@@ -80,7 +83,6 @@ def vector_cell_mask(
     """
     from shapely.strtree import STRtree
 
-    polygons = cell_polygons(vertices, connectivity)
     mask = np.zeros(polygons.shape[0], dtype=bool)
 
     parts = _to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs)

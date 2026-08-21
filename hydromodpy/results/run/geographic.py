@@ -225,6 +225,7 @@ class RunGeographicMixin:
         """
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
+        crs = self._catalog.read_geographic_metadata(self._sim_id).get("crs_proj")
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             mesh_grp = sz.root["mesh"]
@@ -236,6 +237,7 @@ class RunGeographicMixin:
                 z_interfaces=mesh_grp["z_interfaces"][:],
                 topography=None if topo is None else topo[:],
                 topography_reference=None if topo_ref is None else topo_ref[:],
+                crs=None if crs in (None, "") else str(crs),
             )
         finally:
             sz.close()

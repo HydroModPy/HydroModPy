@@ -138,96 +138,19 @@ def distance_metrics_with_external_network(
     network_buffer_m: float = 0.0,
 ) -> dict[str, float | int | str | None]:
     """Compute network-distance metrics using an externally supplied reference network."""
-    import numpy as np
+    from hydromodpy.results.derive import views
 
-    from hydromodpy.results.derive.views import (
-        _cell_field_active_state,
-        _distance_stats,
-        _finite_mean,
-        _intersecting_cell_mask,
-        _mesh_face_polygons,
-        _nearest_distances,
-        _network_geometries,
-    )
-
-    resolved_mode, values, valid, active = _cell_field_active_state(
+    return views.cell_field_network_distance_metrics(
         run,
         variable=variable,
         threshold=threshold,
         mode=mode,
         persistence_threshold=persistence_threshold,
         timestep=timestep,
+        network_buffer_m=network_buffer_m,
+        distance_method="planar_cell_centroid_to_external_network",
+        network_gdf=network_gdf,
     )
-    polygons = _mesh_face_polygons(run)
-    if polygons.size != values.size:
-        raise ValueError(
-            "Mesh polygon count does not match cell-field size: "
-            f"mesh={polygons.size}, field={values.size}."
-        )
-    network_geometries = _network_geometries(
-        network_gdf,
-        buffer_m=float(network_buffer_m),
-    )
-    network_cells = _intersecting_cell_mask(polygons, network_geometries) & valid
-    active_polygons = [
-        polygon for polygon, is_active in zip(polygons, active, strict=True) if is_active
-    ]
-    active_polygons = [polygon for polygon in active_polygons if polygon is not None]
-    active_centroids = [polygon.centroid for polygon in active_polygons]
-    network_centroids = [
-        polygon.centroid
-        for polygon, is_network in zip(polygons, network_cells, strict=True)
-        if is_network and polygon is not None
-    ]
-    sim_to_network = _distance_stats(
-        _nearest_distances(active_centroids, network_geometries),
-        prefix="sim_to_network",
-    )
-    network_to_sim = _distance_stats(
-        _nearest_distances(network_centroids, active_polygons),
-        prefix="network_to_sim",
-    )
-    sim_mean = _finite_mean(sim_to_network["sim_to_network_distance_mean_m"])
-    network_mean = _finite_mean(network_to_sim["network_to_sim_distance_mean_m"])
-    if sim_mean is None or network_mean is None:
-        bidirectional_mean = None
-        bidirectional_quadratic_mean = None
-        bidirectional_absolute_difference_m = None
-        distance_ratio = None
-        distance_log10_ratio = None
-    else:
-        bidirectional_mean = float(0.5 * (sim_mean + network_mean))
-        bidirectional_quadratic_mean = float(np.hypot(sim_mean, network_mean))
-        bidirectional_absolute_difference_m = float(abs(sim_mean - network_mean))
-        if sim_mean == 0.0 and network_mean == 0.0:
-            distance_ratio = 1.0
-            distance_log10_ratio = 0.0
-        elif network_mean > 0.0 and sim_mean > 0.0:
-            distance_ratio = float(sim_mean / network_mean)
-            distance_log10_ratio = float(np.log10(distance_ratio))
-        else:
-            distance_ratio = None
-            distance_log10_ratio = None
-    return {
-        "network_role": "reference",
-        "source_variable": variable,
-        "threshold": float(threshold),
-        "mode": resolved_mode,
-        "persistence_threshold": float(persistence_threshold),
-        "timestep": int(timestep) if timestep is not None else -1,
-        "network_buffer_m": float(network_buffer_m),
-        "distance_method": "planar_cell_centroid_to_external_network",
-        "catchment_cell_count": int(valid.sum()),
-        "active_cell_count": int(active.sum()),
-        "network_cell_count": int(network_cells.sum()),
-        **sim_to_network,
-        **network_to_sim,
-        "bidirectional_distance_mean_m": bidirectional_mean,
-        "bidirectional_distance_quadratic_mean_m": bidirectional_quadratic_mean,
-        "bidirectional_distance_absolute_difference_m": bidirectional_absolute_difference_m,
-        "planar_distance_ratio": distance_ratio,
-        "planar_distance_log10_ratio": distance_log10_ratio,
-    }
 
 
 def reference_network_for_run(run, fallback_provider: Callable[[], object]):

@@ -33,9 +33,8 @@ def _quad_grid(*, x0: float = 0.0, y0: float = 0.0, size: float = 100.0, n: int 
 
 def _mask(vertices, connectivity, geometries, **kwargs) -> np.ndarray:
     return vector_cell_mask(
-        vertices=vertices,
-        connectivity=connectivity,
-        geometries=geometries,
+        cell_polygons(vertices, connectivity),
+        geometries,
         mesh_crs=kwargs.pop("mesh_crs", _LAMBERT),
         geometry_crs=kwargs.pop("geometry_crs", _LAMBERT),
         **kwargs,

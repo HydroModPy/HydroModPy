@@ -47,6 +47,9 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
             face_node_connectivity,
             np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
         )
+        # The frame the mesh coordinates live in, same as the network features
+        # below: network metrics overlay the two and refuse to guess.
+        catalog.write_geographic_metadata(sid, {"crs_proj": "EPSG:2154"})
     sz = catalog.open_zarr(sid)
     try:
         mesh = sz.root.require_group("mesh")

@@ -29,6 +29,10 @@ class Mesh:
     """Per-face model top (conditioned), when persisted in the mesh group."""
     topography_reference: np.ndarray | None = None
     """Per-face model top BEFORE conditioning, when persisted (for the impact map)."""
+    crs: str | None = None
+    """Projected CRS the vertices are expressed in (``crs_proj``), ``None`` when
+    the run pre-dates geographic ingestion. Overlaying a vector layer on this mesh
+    needs it: bare coordinates say nothing about the frame they belong to."""
 
 
 @dataclass(frozen=True, slots=True)

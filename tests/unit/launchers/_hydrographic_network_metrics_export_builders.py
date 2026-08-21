@@ -98,6 +98,9 @@ def _register_completed_run(
             face_node_connectivity,
             np.array([10.0, 9.0, 8.0], dtype="float64"),
         )
+        # The frame the mesh coordinates live in, same as the network features
+        # below: network metrics overlay the two and refuse to guess.
+        catalog.write_geographic_metadata(sim_id, {"crs_proj": "EPSG:2154"})
         sz = catalog.open_zarr(sim_id)
         try:
             sz.root["mesh"].create_array(
@@ -194,6 +197,9 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
         face_node_connectivity,
         np.array([10.0, 9.0, 8.0], dtype="float64"),
     )
+    # The frame the mesh coordinates live in, same as the network features below:
+    # network metrics overlay the two and refuse to guess.
+    catalog.write_geographic_metadata(sim_id, {"crs_proj": "EPSG:2154"})
     sz = catalog.open_zarr(sim_id)
     try:
         sz.root["mesh"].create_array(
