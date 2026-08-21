@@ -44,6 +44,14 @@ from hydromodpy.spatial.geographic.core.river_network import (
     RiverNetworkProducts,
     build_river_network_products,
 )
+from hydromodpy.spatial.geographic.core.stream_dem_agreement import (
+    report_network_dem_agreement,
+)
+from hydromodpy.spatial.geographic.core.stream_enforcement import (
+    burned_dem_from_config,
+    catchment_area_without_burn,
+    check_catchment_area_drift,
+)
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.spatial.surface import Surface
 
@@ -249,10 +257,14 @@ def build_geographic_derived_features(
     if config.buff_area is None:
         raise ValueError("geographic.buff_area is required")
 
-    # Routing DEM for delineation: carve the lakes if enforcement is on so streams
-    # route into the lakes and drain to the outlet. The model top (clip below) stays
-    # on the raw DEM, so this never touches the lake-aquifer geometry.
-    routing_dem_path = routing_dem_from_config(config, setup)
+    # Routing DEM for delineation, conditioned in order: burn the observed stream
+    # network, then carve the lakes, then (in _delineate) fill or breach and D8. The
+    # model top (clip below) stays on the raw DEM, so neither step touches the
+    # aquifer geometry.
+    reference_area_km2 = catchment_area_without_burn(config=config, setup=setup)
+    routing_dem_path = routing_dem_from_config(
+        config, setup, dem_in_path=burned_dem_from_config(config, setup)
+    )
 
     flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
         config=config, setup=setup, routing_dem_path=routing_dem_path
@@ -267,6 +279,7 @@ def build_geographic_derived_features(
         link_id_tif=getattr(
             generated_hydrographic_network_products, "stream_link_id_full_tif", None
         ),
+        dem_in_path=routing_dem_path,
     )
     if captured_dem is not None:
         flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
@@ -274,6 +287,12 @@ def build_geographic_derived_features(
         )
 
     catchment_area_km2 = compute_catchment_area_km2(setup.paths.watershed_shp)
+    check_catchment_area_drift(
+        config=config,
+        reference_area_km2=reference_area_km2,
+        burned_area_km2=float(catchment_area_km2),
+    )
+    report_network_dem_agreement(config, setup, d8_pointer_path=flow.direc)
 
     build_standard_domain_polygons(
         config=config,

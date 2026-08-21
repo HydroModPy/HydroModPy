@@ -9369,6 +9369,11 @@
             "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.",
             "x-hmp-profile": "user"
           },
+          "enforce_streams": {
+            "$ref": "#/components/schemas/StreamEnforcementConfig",
+            "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.",
+            "x-hmp-profile": "user"
+          },
           "enforce_lakes": {
             "$ref": "#/components/schemas/LakeEnforcementConfig",
             "description": "Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.",
@@ -19571,6 +19576,87 @@
           }
         },
         "title": "StrategyConfig",
+        "type": "object"
+      },
+      "StreamEnforcementConfig": {
+        "additionalProperties": false,
+        "description": "Burn the observed stream network into the ROUTING DEM before D8 routing.\n\nA mapped stream network is surveyed independently of the DEM, so its trace\nrarely follows the thalwegs the DEM computes: on five Armorican catchments at\n75 m, a quarter to a third of the D8 trace seeded on the mapped cells leaves\nthat network at the first step. Any length measured along those paths then\nreports a DEM-versus-map disagreement instead of hydrogeology. When enabled,\nthe mapped cells are lowered in a SEPARATE routing DEM used only for\ndelineation, before the lake carve and the fill/breach pass. The model grid\ntop stays on the raw DEM, which matters more here than for lakes: a top\nlowered along the observed network would agree with that network by\nconstruction.\n\nThe whole supplied linework is burned, fictitious arcs included: filtering\nthem out cuts the trench at every water body and caps the agreement below\n0.97 whatever the depth. Selecting reaches by nature belongs to the metric,\nnot to the preprocessing.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Lower the mapped stream cells in the routing DEM before D8 so the computed flow paths follow the observed network.",
+            "examples": [
+              false
+            ],
+            "title": "Enabled",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "stream_geometry_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. Required when enabled.",
+            "title": "Stream Geometry Path",
+            "x-hmp-profile": "user"
+          },
+          "mode": {
+            "default": "constant",
+            "description": "Trench depth rule. 'constant' lowers every stream cell by depth_m. 'adaptive' derives one depth from the measured local relief along the network. Either way a single depth is used, so the along-channel gradient the trench exists to preserve is not rewritten.",
+            "enum": [
+              "constant",
+              "adaptive"
+            ],
+            "examples": [
+              "constant"
+            ],
+            "title": "Mode",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "depth_m": {
+            "default": 30.0,
+            "description": "Trench depth (metres) for mode='constant'. It must exceed the local drop between a stream cell and its lowest non-stream neighbour; 5 m clears 0.90 agreement on every measured catchment, 10 to 20 m are needed for 0.95 to 0.99 on the difficult ones, and 1 m buys almost nothing. Accepts inline units (e.g. 30, '30 m').",
+            "examples": [
+              30.0
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Depth M",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "adaptive_percentile": {
+            "default": 95.0,
+            "description": "Percentile of the local relief along the network used as the trench depth when mode='adaptive'.",
+            "examples": [
+              95.0
+            ],
+            "maximum": 100.0,
+            "minimum": 50.0,
+            "title": "Adaptive Percentile",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "max_catchment_area_drift": {
+            "default": 0.05,
+            "description": "Relative change of the delineated catchment area the burn may cause. A trench that crosses a divide (mis-georeferenced trace, canal, flat area) reconnects two catchments and the delineation changes without any other sign, so the catchment is delineated before and after the burn and a larger drift raises. This costs one extra delineation pass whenever the burn is on.",
+            "examples": [
+              0.05
+            ],
+            "minimum": 0.0,
+            "title": "Max Catchment Area Drift",
+            "type": "number",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "StreamEnforcementConfig",
         "type": "object"
       },
       "SyntheticGeographicConfig": {

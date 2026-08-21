@@ -446,20 +446,22 @@ def _outlet_from_config(config: object) -> tuple[float, float] | None:
     return (float(x), float(y))
 
 
-def routing_dem_from_config(config: object, setup: object) -> str:
-    """Return the flow-routing DEM: lakes carved if enforcement is on, else the raw DEM.
+def routing_dem_from_config(config: object, setup: object, *, dem_in_path: str | Path) -> str:
+    """Return the flow-routing DEM: lakes carved if enforcement is on, else ``dem_in_path``.
 
     Duck-typed on ``config`` (``enforce_lakes``, ``x_outlet``/``y_outlet``) and ``setup``
     (``dem_init_path``, ``paths.correcflow_path``, ``crs_project``), so BOTH geographic
-    entry points can share it. The raw DEM (model top) is never modified.
+    entry points can share it. ``dem_in_path`` is the surface to carve into: the raw DEM,
+    or the stream-burned routing DEM when ``enforce_streams`` ran first. The raw DEM
+    (model top) is never modified.
     """
     enforce = getattr(config, "enforce_lakes", None)
     if enforce is None or not getattr(enforce, "enabled", False):
-        return str(setup.dem_init_path)
+        return str(dem_in_path)
     lakes = _lakes_from_config(enforce, setup)
     out_path = str(Path(setup.paths.correcflow_path) / "dem_routing_enforced.tif")
     carve_routing_dem(
-        dem_in_path=setup.dem_init_path,
+        dem_in_path=dem_in_path,
         dem_out_path=out_path,
         lake_polygons=lakes,
         outlet_xy=_outlet_from_config(config),
@@ -592,12 +594,19 @@ def top_dem_from_config(config: object, setup: object) -> str:
 
 
 def capture_from_config(
-    config: object, setup: object, *, flow_direc: str, link_id_tif: str | None
+    config: object,
+    setup: object,
+    *,
+    flow_direc: str,
+    link_id_tif: str | None,
+    dem_in_path: str | Path,
 ) -> str | None:
     """Carve near-miss streams to the lakes; return the captured routing DEM or None.
 
-    The caller re-delineates on the returned DEM. Returns None when capture is off or
-    no near-miss was found.
+    ``dem_in_path`` is the routing DEM the delineation just ran on, so the capture
+    keeps whatever conditioning (stream burn, lake carve) produced it. The caller
+    re-delineates on the returned DEM. Returns None when capture is off or no
+    near-miss was found.
     """
     enforce = getattr(config, "enforce_lakes", None)
     if enforce is None or not getattr(enforce, "enabled", False):
@@ -613,13 +622,7 @@ def capture_from_config(
             link_tif,
         )
         return None
-    routing = str(Path(setup.paths.correcflow_path) / "dem_routing_enforced.tif")
-    src = routing if Path(routing).exists() else str(setup.dem_init_path)
-    if not Path(routing).exists():
-        logger.info(
-            "stream capture: no lake-enforced routing DEM yet, capturing on the raw DEM %s.",
-            src,
-        )
+    src = str(dem_in_path)
     out_path = str(Path(setup.paths.correcflow_path) / "dem_routing_captured.tif")
     acc_tif = str(Path(setup.paths.correcflow_path) / "dem_acc_cells.tif")
     report = capture_stream_gaps(

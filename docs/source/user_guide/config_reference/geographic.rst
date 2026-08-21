@@ -9,7 +9,7 @@ TOML section: ``[geographic]``
 
 Pydantic model: ``GeographicConfig`` defined in ``hydromodpy.spatial.geographic.geographic_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L387>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L476>`__
 
 Geographic configuration for watershed delineation.
 
@@ -44,7 +44,7 @@ Fields
         <code class="hmp-field-name">source_mode</code>
       </div>
 
-   :bdg-primary:`Literal['standard', 'synthetic']` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L399>`__
+   :bdg-primary:`Literal['standard', 'synthetic']` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L488>`__
 
       Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic].
 
@@ -60,7 +60,7 @@ Fields
         <code class="hmp-field-toml">[geographic.catchment]</code>
       </div>
 
-   :bdg-primary:`catch_def = "dem" | "txt" | "from_outlet_coord" | "from_polyg_shp"` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L407>`__
+   :bdg-primary:`catch_def = "dem" | "txt" | "from_outlet_coord" | "from_polyg_shp"` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L496>`__
 
       Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.
 
@@ -260,7 +260,7 @@ Fields
         <code class="hmp-field-name">crs_project</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L419>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L508>`__
 
       Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.
 
@@ -274,7 +274,7 @@ Fields
         <code class="hmp-field-name">dem_correc_type</code>
       </div>
 
-   :bdg-primary:`Literal['breach', 'fill']` :bdg-secondary:`default = "breach"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L423>`__
+   :bdg-primary:`Literal['breach', 'fill']` :bdg-secondary:`default = "breach"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L512>`__
 
       DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.
 
@@ -288,7 +288,7 @@ Fields
         <code class="hmp-field-name">domain_extent</code>
       </div>
 
-   :bdg-primary:`Literal['box', 'watershed_buff', 'watershed']` :bdg-secondary:`default = "box"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L427>`__
+   :bdg-primary:`Literal['box', 'watershed_buff', 'watershed']` :bdg-secondary:`default = "box"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L516>`__
 
       Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.
 
@@ -302,7 +302,7 @@ Fields
         <code class="hmp-field-name">bottom_path</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L439>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L528>`__
 
       Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.
 
@@ -316,7 +316,7 @@ Fields
         <code class="hmp-field-name">reg_fold</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L447>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L536>`__
 
       Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.
 
@@ -332,7 +332,7 @@ Fields
         <code class="hmp-field-toml">[geographic.synthetic]</code>
       </div>
 
-   :bdg-primary:`SyntheticGeographicConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L451>`__
+   :bdg-primary:`SyntheticGeographicConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L540>`__
 
       Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files.
 
@@ -657,7 +657,7 @@ Fields
         <code class="hmp-field-toml">[geographic.river_network]</code>
       </div>
 
-   :bdg-primary:`RiverNetworkConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L458>`__
+   :bdg-primary:`RiverNetworkConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L547>`__
 
       Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
 
@@ -796,6 +796,113 @@ Fields
 
 
 .. container:: hmp-field hmp-field-level-user
+   :name: geographic-enforce-streams
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="geographic.enforce_streams">
+        <code class="hmp-field-name">enforce_streams</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[geographic.enforce_streams]</code>
+      </div>
+
+   :bdg-primary:`StreamEnforcementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L554>`__
+
+      Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.
+
+   .. dropdown:: Fields of ``StreamEnforcementConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: geographic-enforce-streams-enabled
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="geographic.enforce_streams.enabled">
+              <code class="hmp-field-name">enabled</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L355>`__
+
+            Lower the mapped stream cells in the routing DEM before D8 so the computed flow paths follow the observed network.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: geographic-enforce-streams-stream-geometry-path
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="geographic.enforce_streams.stream_geometry_path">
+              <code class="hmp-field-name">stream_geometry_path</code>
+            </div>
+
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L362>`__
+
+            Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. Required when enabled.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: geographic-enforce-streams-mode
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="geographic.enforce_streams.mode">
+              <code class="hmp-field-name">mode</code>
+            </div>
+
+         :bdg-primary:`Literal['constant', 'adaptive']` :bdg-secondary:`default = "constant"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L373>`__
+
+            Trench depth rule. 'constant' lowers every stream cell by depth_m. 'adaptive' derives one depth from the measured local relief along the network. Either way a single depth is used, so the along-channel gradient the trench exists to preserve is not rewritten.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: geographic-enforce-streams-depth-m
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="geographic.enforce_streams.depth_m">
+              <code class="hmp-field-name">depth_m</code>
+            </div>
+
+         :bdg-primary:`float` :bdg-secondary:`default = 30.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L382>`__
+
+            Trench depth (metres) for mode='constant'. It must exceed the local drop between a stream cell and its lowest non-stream neighbour; 5 m clears 0.90 agreement on every measured catchment, 10 to 20 m are needed for 0.95 to 0.99 on the difficult ones, and 1 m buys almost nothing. Accepts inline units (e.g. 30, '30 m').
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: geographic-enforce-streams-adaptive-percentile
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="geographic.enforce_streams.adaptive_percentile">
+              <code class="hmp-field-name">adaptive_percentile</code>
+            </div>
+
+         :bdg-primary:`float` :bdg-secondary:`default = 95.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L397>`__
+
+            Percentile of the local relief along the network used as the trench depth when mode='adaptive'.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: geographic-enforce-streams-max-catchment-area-drift
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="geographic.enforce_streams.max_catchment_area_drift">
+              <code class="hmp-field-name">max_catchment_area_drift</code>
+            </div>
+
+         :bdg-primary:`float` :bdg-secondary:`default = 0.05` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L410>`__
+
+            Relative change of the delineated catchment area the burn may cause. A trench that crosses a divide (mis-georeferenced trace, canal, flat area) reconnects two catchments and the delineation changes without any other sign, so the catchment is delineated before and after the burn and a larger drift raises. This costs one extra delineation pass whenever the burn is on.
+
+
+
+
+.. container:: hmp-field hmp-field-level-user
    :name: geographic-enforce-lakes
 
    .. raw:: html
@@ -806,7 +913,7 @@ Fields
         <code class="hmp-field-toml">[geographic.enforce_lakes]</code>
       </div>
 
-   :bdg-primary:`LakeEnforcementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L465>`__
+   :bdg-primary:`LakeEnforcementConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L562>`__
 
       Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
 
@@ -927,7 +1034,7 @@ Fields
         <code class="hmp-field-toml">[geographic.dam_carve]</code>
       </div>
 
-   :bdg-primary:`DamCarveConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L473>`__
+   :bdg-primary:`DamCarveConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L570>`__
 
       Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).
 
@@ -946,7 +1053,7 @@ Fields
               <code class="hmp-field-name">enabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L348>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L437>`__
 
             Carve the dam footprint of the model-top DEM down to the local valley floor so the cutoff wall sits at the true dam on a raw DEM.
 
@@ -960,7 +1067,7 @@ Fields
               <code class="hmp-field-name">line_path</code>
             </div>
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L355>`__
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L444>`__
 
             Dam trace (gpkg/shp/csv) along which the top is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled.
 
@@ -974,7 +1081,7 @@ Fields
               <code class="hmp-field-name">buffer_m</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 40.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L367>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 40.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L456>`__
 
             Half-width (metres) of the carved corridor around the dam trace. Make it a bit wider than one DEM/cell size so the whole dam body is brought to the valley floor.
 
@@ -988,7 +1095,7 @@ Fields
               <code class="hmp-field-name">search_radius_m</code>
             </div>
 
-         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L376>`__
+         :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L465>`__
 
             Radius (metres) of the neighborhood whose minimum elevation defines the valley floor the corridor is carved to. When omitted, derives 3 * buffer_m.
 
@@ -1004,7 +1111,7 @@ Fields
         <code class="hmp-field-name">reuse_existing_outputs</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L481>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L578>`__
 
       If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
 
@@ -1018,7 +1125,7 @@ Fields
         <code class="hmp-field-name">write_intermediates</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L491>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L588>`__
 
       Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/_preprocessing/ is removed after ingestion into the run field store.
 
@@ -1063,6 +1170,14 @@ Starter TOML snippet
       # compute_strahler_order = true
       # compute_stream_links = true
       # all_vertices = false
+
+      [geographic.enforce_streams]
+      # enabled = false
+      # stream_geometry_path = ...  # default = None
+      # mode = "constant"
+      # depth_m = 30.0
+      # adaptive_percentile = 95.0
+      # max_catchment_area_drift = 0.05
 
       [geographic.enforce_lakes]
       # enabled = false
