@@ -228,8 +228,14 @@ def build_downhill_graph(
     *,
     vertices: Any | None = None,
     inactive_mask: Any | None = None,
+    adjacency: list[set[int]] | None = None,
 ) -> DownhillGraph:
-    """Build the steepest downhill receiver graph for a static surface."""
+    """Build the steepest downhill receiver graph for a static surface.
+
+    ``adjacency`` replaces the shared-edge neighbor graph derived from the face
+    connectivity. Pass one to route over shared nodes instead, which is how a
+    structured grid recovers its diagonal descents.
+    """
     reference = np.asarray(reference_values, dtype=float).reshape(-1)
     n_cells = int(reference.size)
     if inactive_mask is None:
@@ -238,16 +244,19 @@ def build_downhill_graph(
         inactive = np.asarray(inactive_mask, dtype=bool).reshape(-1)
         if inactive.size != n_cells:
             raise ValueError(f"inactive_mask must have {n_cells} entries, got {inactive.size}.")
+    if adjacency is not None and len(adjacency) != n_cells:
+        raise ValueError(f"adjacency must have {n_cells} entries, got {len(adjacency)}.")
 
     active = (~inactive) & np.isfinite(reference)
     downstream = np.full(n_cells, -1, dtype=int)
     if not np.any(active):
         return DownhillGraph(downstream=downstream, order=np.empty(0, dtype=int), active=active)
 
-    adjacency = cell_adjacency_from_face_connectivity(
-        face_node_connectivity,
-        n_cells=n_cells,
-    )
+    if adjacency is None:
+        adjacency = cell_adjacency_from_face_connectivity(
+            face_node_connectivity,
+            n_cells=n_cells,
+        )
     centroids = None
     if vertices is not None:
         centroids = cell_centroids_from_mesh(vertices, face_node_connectivity)
