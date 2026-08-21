@@ -205,6 +205,18 @@ class IncompatibleCapabilitiesError(SolverError):
     code = "HMPY.E407"
 
 
+class ObservableNotAvailableError(SolverError):
+    """Solver adapter cannot produce the requested observable for this run.
+
+    Distinct from :class:`IncompatibleCapabilitiesError`, which is raised at
+    configuration time against a solver's declared capabilities. This one is
+    raised during extraction, about one named observable of one run, and it is
+    what replaces reading an adapter's signature to guess what it supports.
+    """
+
+    code = "HMPY.E408"
+
+
 # -- Pipeline ------------------------------------------------------------------
 
 
@@ -450,6 +462,7 @@ __all__ = [
     "SolverInputError",
     "SolverEnvironmentError",
     "IncompatibleCapabilitiesError",
+    "ObservableNotAvailableError",
     # Pipeline
     "PipelineError",
     "StepError",
