@@ -38,6 +38,7 @@ from hydromodpy.calibration.optim.optimizer import (
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -69,7 +70,7 @@ def signed_residual(
     if not matches:
         return None
     if len(matches) > 1:
-        raise ValueError(
+        raise OptimizerError(
             f"several outputs publish a {name!r} residual ({sorted(matches)}); a root "
             "search needs exactly one."
         )
@@ -94,18 +95,27 @@ class BisectionAdapter:
     ) -> None:
         del seed  # a root search is deterministic
         if space.dim != 1:
-            raise ValueError(
+            raise OptimizerError(
                 "the bisection adapter searches one parameter; the space declares "
                 f"{space.dim} ({', '.join(space.names)}). A two-parameter space silently "
                 "bisected along its first axis is the worst failure this method has."
             )
+        parameter = space.parameters[0]
+        if parameter.transform != "log":
+            raise OptimizerError(
+                f"the bisection adapter walks a log10 variable, but parameter "
+                f"{parameter.name!r} declares transform = {parameter.transform!r}. Its "
+                "stopping rule is a width in that variable, so on any other transform it "
+                "reads as an absolute width and reports convergence on a bracket orders "
+                'of magnitude wide. Declare transform = "log" for this parameter.'
+            )
         if float(rel_tol) <= 0.0:
-            raise ValueError(f"rel_tol must be strictly positive, got {rel_tol}.")
+            raise OptimizerError(f"rel_tol must be strictly positive, got {rel_tol}.")
         if int(sweep_points) < 0:
-            raise ValueError(f"sweep_points must be positive or zero, got {sweep_points}.")
+            raise OptimizerError(f"sweep_points must be positive or zero, got {sweep_points}.")
 
         self.space = space
-        self._parameter = space.parameters[0]
+        self._parameter = parameter
         self._signed_component = str(signed_component)
         self._sweep_points = int(sweep_points)
         self._max_expansions = max(0, int(bracket_expand))
@@ -185,13 +195,13 @@ class BisectionAdapter:
         """Raise, naming both ends, rather than returning the better of the two."""
         pairs = self._evaluated()
         if not pairs:
-            raise ValueError(
+            raise OptimizerError(
                 "the bisection adapter has no usable residual: every evaluation failed. "
                 f"Check that the outputs publish a {self._signed_component!r} component."
             )
         (x_low, r_low), (x_high, r_high) = pairs[0], pairs[-1]
         name = self._parameter.name
-        raise ValueError(
+        raise OptimizerError(
             "the residual keeps the same sign over the whole bracket: "
             f"{self._signed_component} = {r_low:+.4g} at {name} = "
             f"{self._parameter.to_physical(x_low):.4g}, and {r_high:+.4g} at {name} = "
@@ -245,7 +255,7 @@ class BisectionAdapter:
     def suggest_next(self) -> ParamSuggestion:
         points = self.ask(1)
         if not points:
-            raise ValueError("the bisection adapter has nothing left to suggest.")
+            raise OptimizerError("the bisection adapter has nothing left to suggest.")
         return points[0]
 
     def tell(self, results: Sequence[EvaluationResult]) -> None:
@@ -255,7 +265,7 @@ class BisectionAdapter:
             residual = signed_residual(result.components, name=self._signed_component)
             if residual is None:
                 if result.status == "completed":
-                    raise ValueError(
+                    raise ObjectiveError(
                         f"trial {result.trial_id} published no {self._signed_component!r} "
                         "component, so its sign is unknown and a root search is blind. "
                         "Declare a network output, whose criterion emits it."

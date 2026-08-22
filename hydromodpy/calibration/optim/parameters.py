@@ -364,7 +364,7 @@ def apply_parameter_to_config(
     if path is None:
         raise ValueError(f"Parameter {param.name!r} has no target or path")
     if param.mode == "replace":
-        _set_by_path(cfg, path, float(value))
+        set_by_path(cfg, path, float(value))
         return
     if param.mode == "scale":
         base = _get_by_path(cfg, path)
@@ -380,14 +380,14 @@ def apply_parameter_to_config(
                 f"Parameter {param.name!r}: scale mode requires a numeric base "
                 f"value at {path!r}; got {base!r}."
             ) from exc
-        _set_by_path(cfg, path, base_f * float(value))
+        set_by_path(cfg, path, base_f * float(value))
         return
     raise ValueError(
         f"Parameter {param.name!r}: unsupported mode {param.mode!r} (expected 'replace' or 'scale')"
     )
 
 
-def _set_by_path(cfg: Any, path: str, value: Any) -> None:
+def set_by_path(cfg: Any, path: str, value: Any) -> None:
     """Set ``value`` at ``path`` on ``cfg``. Accepts Pydantic and Mapping."""
     parts = path.split(".")
     target: Any = cfg
@@ -431,4 +431,5 @@ __all__ = [
     "ParameterSpace",
     "discover_calibrable",
     "apply_parameter_to_config",
+    "set_by_path",
 ]

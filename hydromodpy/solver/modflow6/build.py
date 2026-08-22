@@ -729,6 +729,12 @@ def run_pre_processing(  # noqa: PLR0915
     # CONNECTIONDATA (built later from this same lake mask).
     lake_cell_ids_by_lake = resolve_lake_cells_for_active_lakes(model, solver_mesh)
     occupied_layers_by_lake = resolve_lake_occupied_layers(model)
+    # The open-water footprint of the run: every lake cell, marnage included.
+    # It answers "is this cell open water", not "is this lake modelled as
+    # active", so it is deliberately wider than the inactive-only list below.
+    model.open_water_cell_ids = sorted(
+        {int(cid) for cells in lake_cell_ids_by_lake.values() for cid in cells}
+    )
     model._lake_cell_ids = []
     if lake_cell_ids_by_lake:
         # Carve the real lake bed from bathymetry (opt-in per lake) before the

@@ -25,6 +25,7 @@ from hydromodpy.core.contracts.observables import (
     ObservableResult,
     TimeSelector,
 )
+from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
@@ -245,7 +246,7 @@ def score_network_output(
         roptim_max=float(output.roptim_max),
     )
     if scored.status == "failed":
-        raise ValueError(
+        raise ObjectiveError(
             f"Output {name!r}: more than {output.max_unreachable_fraction:.0%} of a support "
             "never reaches its target. The routing surface is not conditioned, and the "
             "averages would be a fiction; condition the surface rather than filtering "
@@ -261,7 +262,7 @@ def score_network_output(
             "value is wrong."
         )
         if output.on_roptim_violation == "error":
-            raise ValueError(message)
+            raise ObjectiveError(message)
         logger.warning(message)
 
     logger.info("Output %s scored with distance method %s.", name, DISTANCE_METHOD)

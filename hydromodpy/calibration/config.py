@@ -313,10 +313,10 @@ class CalibOutputNetwork(HydroModelBase):
         default="network",
         description="Discriminator: compare a simulated stream network to a mapped one.",
     )
-    stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Vector file holding the mapped stream network. Unset falls back "
-        "to the geometry the hydrography data family already resolved.",
+    stream_geometry_path: Annotated[str, Profile.USER] = Field(
+        description="Vector file holding the mapped stream network. Required, and "
+        "read only from here: the criterion resolves no geometry of its own and "
+        "does not reuse the one the hydrography data family loaded.",
     )
     tau_specific_ratio: Annotated[float, Profile.USER] = Field(
         default=1.0e-4,
@@ -580,6 +580,13 @@ class CalibPhaseDecl(HydroModelBase):
     optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
         default_factory=dict,
         description="Extra keyword arguments forwarded to this phase's optimizer.",
+    )
+    overrides: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description="Configuration values this phase runs with, as dotted paths into "
+        "the project configuration. The two stages of a stream-network calibration "
+        "are one steady and one transient, which is a property of the model and not "
+        "of the search, so a phase has to be able to say it.",
     )
     scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
         default=None,
@@ -851,6 +858,25 @@ class CalibrationConfig(HydroModelBase):
                     f"phase {phase.name!r} declares a scoring_window while the "
                     "calibration declares warmup_periods; pick one convention."
                 )
+            for path in phase.overrides:
+                if not path or path.startswith(".") or path.endswith("."):
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}, which is not a "
+                        "dotted path into the configuration."
+                    )
+                if path.startswith("calibration."):
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}: a phase declares its "
+                        "own search through its own fields, not by rewriting the "
+                        "calibration section under itself."
+                    )
+                owner = frozen_by.get(path)
+                if owner is not None:
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}, which phase {owner!r} "
+                        "freezes; the calibrated value would be overwritten and nothing "
+                        "downstream would say which one the model ran with."
+                    )
             if phase.is_single_metric and (phase.outputs or phase.objective_blocks):
                 raise ValueError(
                     f"phase {phase.name!r} declares a single-metric objective and also "
@@ -858,35 +884,6 @@ class CalibrationConfig(HydroModelBase):
                     "different routes and only one of them would run. Pick one "
                     "convention."
                 )
-        return self
-
-    @model_validator(mode="after")
-    def _check_network_criterion_is_paired(self) -> CalibrationConfig:
-        """The signed-gap metric and a network output only make sense together."""
-        network_outputs = {
-            name for name, output in self.outputs.items() if output.support == "network"
-        }
-        distance_blocks = {
-            block.name
-            for block in self.objective_blocks
-            if block.metric in ("distance_gap", "distance_mean")
-        }
-        for block in self.objective_blocks:
-            if block.name not in distance_blocks:
-                continue
-            without = sorted(set(block.uses_outputs) - network_outputs)
-            if without:
-                raise ValueError(
-                    f"block {block.name!r} scores {block.metric!r} on {without}, which "
-                    "is not a network output. That metric reads the pair (D_so, D_os) "
-                    "only a network output produces."
-                )
-        if network_outputs and not distance_blocks and self.objective_blocks:
-            raise ValueError(
-                f"the network output(s) {sorted(network_outputs)} produce the pair "
-                "(D_so, D_os), which only 'distance_gap' or 'distance_mean' can read; "
-                "no block declares either."
-            )
         return self
 
     @model_validator(mode="after")
@@ -918,6 +915,41 @@ class CalibrationConfig(HydroModelBase):
                 uses_outputs=[variable],
             )
             self.objective_blocks = [implicit]
+        return self
+
+    @model_validator(mode="after")
+    def _check_network_criterion_is_paired(self) -> CalibrationConfig:
+        """A network output and a distance metric only make sense together.
+
+        Runs after the implicit block is built, so the ``(objective, variable)``
+        route counts as a declaration. An unpaired network output would fall
+        through to the single-metric head route, which reads none of the
+        network fields and still returns a plausible number.
+        """
+        network_outputs = {
+            name for name, output in self.outputs.items() if output.support == "network"
+        }
+        distance_metrics = ("distance_gap", "distance_mean")
+        scored: set[str] = set()
+        for block in self.objective_blocks:
+            if block.metric not in distance_metrics:
+                continue
+            without = sorted(set(block.uses_outputs) - network_outputs)
+            if without:
+                raise ValueError(
+                    f"block {block.name!r} scores {block.metric!r} on {without}, which "
+                    "is not a network output. That metric reads the pair (D_so, D_os) "
+                    "only a network output produces."
+                )
+            scored.update(block.uses_outputs)
+        unpaired = sorted(network_outputs - scored)
+        if unpaired:
+            raise ValueError(
+                f"the network output(s) {unpaired} produce the pair (D_so, D_os), which "
+                "only the metrics 'distance_gap' and 'distance_mean' can read; no block "
+                "declares either on them. Left unscored they are silently ignored and "
+                "the calibration falls back to its single metric."
+            )
         return self
 
     @model_validator(mode="after")

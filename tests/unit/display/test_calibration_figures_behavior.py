@@ -78,7 +78,9 @@ def test_calibration_convergence_rejects_missing_iteration_data(mpl) -> None:
     fig, ax = mpl.subplots()
 
     try:
-        with pytest.raises(ValueError, match="no iteration data available"):
+        # Neither an objective series nor a trial table: the one trial reader
+        # names what it could not read from.
+        with pytest.raises(ValueError, match="no calibration trial can be read"):
             CalibrationConvergenceFigure().render(run, ax)
     finally:
         mpl.close(fig)

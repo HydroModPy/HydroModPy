@@ -69,12 +69,19 @@ def build_metric_extractor(
     Both branches are supported: the single-metric one is the standard TOML
     route taken whenever no ``objective_blocks`` are declared.
 
-    ``scoring_window`` bounds the scored samples in dates. It reaches the
-    single-metric branch only: the composite branch scores plain value vectors
-    that carry no time axis to cut on.
+    ``warmup_periods`` reaches both branches. ``scoring_window`` bounds the
+    scored samples in dates, which only the single-metric branch can do: the
+    composite branch scores plain value vectors that carry no time axis to cut
+    on, so a window declared with objective blocks is refused rather than
+    ignored.
     """
     if outputs and objective_blocks:
-        return _build_composite_metric_extractor(outputs, objective_blocks)
+        return _build_composite_metric_extractor(
+            outputs,
+            objective_blocks,
+            warmup_periods=warmup_periods,
+            scoring_window=scoring_window,
+        )
 
     observed = load_observed(ctx, variable) if variable else []
     if not observed:
@@ -215,9 +222,27 @@ def build_metric_extractor(
 def _build_composite_metric_extractor(
     outputs: Mapping[str, CalibOutputDecl],
     objective_blocks: list[CalibObjectiveBlockDecl],
+    *,
+    warmup_periods: int = 0,
+    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Build a metric_fn that routes through ``build_objective_from_config``."""
-    cfg_subset = SimpleNamespace(outputs=dict(outputs), objective_blocks=list(objective_blocks))
+    if scoring_window is not None and any(bound is not None for bound in scoring_window):
+        start, end = scoring_window
+        # extract_outputs returns plain value vectors, with no date to compare the
+        # bounds against. Honouring the window is impossible, and dropping it would
+        # report a cost over the whole run under the name of a windowed one.
+        raise ValueError(
+            f"scoring_window {start} to {end} cannot be applied to the objective "
+            f"block(s) {[str(block.name) for block in objective_blocks]}: a block "
+            "scores extracted value vectors, which carry no time axis to cut on. "
+            "Use warmup_periods, which counts samples, or score on a single variable."
+        )
+    cfg_subset = SimpleNamespace(
+        outputs=dict(outputs),
+        objective_blocks=list(objective_blocks),
+        warmup_periods=int(warmup_periods),
+    )
     composite = build_objective_from_config(cfg_subset)
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):

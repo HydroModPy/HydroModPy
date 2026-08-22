@@ -57,6 +57,7 @@ from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     prepare_trials,
 )
+from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -86,7 +87,41 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     raw = load_toml_with_base_config(path)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
-    return CalibrationConfig.model_validate(raw["calibration"]), raw
+    cfg = CalibrationConfig.model_validate(raw["calibration"])
+    _resolve_stream_geometry_paths(cfg, path)
+    return cfg, raw
+
+
+def _resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
+    """Anchor every relative ``stream_geometry_path`` to the file that declares it.
+
+    A path in a TOML is relative to that TOML, the way ``base_config`` is, and a
+    bare filename falls back to ``<project>/data/hydrography/`` like every other
+    data path. Reading it against the working directory instead made the run
+    depend on where it was launched from.
+
+    A path that resolves to nothing is left exactly as declared. Loading a
+    configuration must not require its data to be present: ``--list-phases`` has
+    to work on a machine that holds none of it, and the criterion already names
+    the file it could not read.
+    """
+    base = config_path.expanduser().resolve().parent
+    for output in cfg.outputs.values():
+        declared = getattr(output, "stream_geometry_path", None)
+        if not declared or Path(declared).is_absolute():
+            continue
+        candidate = Path(declared)
+        found = next(
+            (
+                trial
+                for root in (base, base.parent, base.parent.parent)
+                for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
+                if trial.exists()
+            ),
+            None,
+        )
+        if found is not None:
+            output.stream_geometry_path = str(found.resolve())
 
 
 def _api_isolation_needed(parallel: int) -> bool:
@@ -149,6 +184,40 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
                     f"calibration parameter {param.name!r} {label} bound {value:g} is outside "
                     f"the valid range for {param.effective_path!r}: {detail}"
                 ) from exc
+
+
+def _assert_network_conductance_proportional(cfg: CalibrationConfig, trial_ctx: Any) -> None:
+    """Refuse a stream-network criterion whose drain conductance is fixed.
+
+    The criterion calibrates the ratio K/R, and that only holds while the drain
+    conductance follows the conductivity: ``C = K * cell_area / top_thickness``
+    on both MODFLOW backends, ``C = K * cell_area`` on Boussinesq. All three
+    apply it as a fallback, and only when the configured conductance is not
+    strictly positive. A fixed value breaks the invariance from a factor 1.05
+    onwards, and the run still completes and returns a number, so it has to be
+    refused before the first solve.
+    """
+    network_outputs = sorted(
+        name for name, output in cfg.outputs.items() if output.support == "network"
+    )
+    if not network_outputs:
+        return
+    flow = getattr(getattr(trial_ctx, "base_cfg", None), "flow", None)
+    if flow is None or "drainage" not in flow.active_bc:
+        return
+    boundary = flow.bc.get("drainage")
+    if boundary is None or boundary.value is None or float(boundary.value) <= 0.0:
+        return
+    names = ", ".join(repr(name) for name in network_outputs)
+    raise ObjectiveError(
+        f"Network calibration output(s) {names}: flow.bc.{boundary.kind}.drainage.value is "
+        f"{float(boundary.value):g} {boundary.units}, a fixed drain conductance. The criterion "
+        "calibrates the ratio K/R, which holds only while the conductance follows the "
+        "conductivity (C = K * cell_area / top_thickness, the fallback applied when the "
+        "configured value is not strictly positive). A fixed conductance leaves that "
+        "invariance from a factor 1.05 onwards, so the calibrated ratio would mean nothing. "
+        "Set the value to zero."
+    )
 
 
 def _search_space_payload(space: ParameterSpace) -> dict[str, Any]:
@@ -284,6 +353,7 @@ def run_calibration_core(
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)
     _assert_bounds_valid(trial_ctx, space)
+    _assert_network_conductance_proportional(cfg, trial_ctx)
 
     session_id = chain.session_id if chain is not None else uuid.uuid4().hex
     persistence.start_session(

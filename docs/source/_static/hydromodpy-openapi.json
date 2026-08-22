@@ -1159,17 +1159,12 @@
             "x-hmp-profile": "user"
           },
           "stream_geometry_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "description": "Vector file holding the mapped stream network. Required, and read only from here: the criterion resolves no geometry of its own and does not reuse the one the hydrography data family loaded.",
+            "examples": [
+              "example"
             ],
-            "default": null,
-            "description": "Vector file holding the mapped stream network. Unset falls back to the geometry the hydrography data family already resolved.",
             "title": "Stream Geometry Path",
+            "type": "string",
             "x-hmp-profile": "user"
           },
           "tau_specific_ratio": {
@@ -1333,6 +1328,9 @@
             "x-hmp-profile": "user"
           }
         },
+        "required": [
+          "stream_geometry_path"
+        ],
         "title": "CalibOutputNetwork",
         "type": "object"
       },
@@ -1741,6 +1739,13 @@
             "title": "Optimizer Kwargs",
             "type": "object",
             "x-hmp-profile": "dev"
+          },
+          "overrides": {
+            "additionalProperties": true,
+            "description": "Configuration values this phase runs with, as dotted paths into the project configuration. The two stages of a stream-network calibration are one steady and one transient, which is a property of the model and not of the search, so a phase has to be able to say it.",
+            "title": "Overrides",
+            "type": "object",
+            "x-hmp-profile": "user"
           },
           "scoring_window": {
             "anyOf": [

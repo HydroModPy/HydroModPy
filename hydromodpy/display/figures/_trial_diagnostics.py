@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.results.calibration_trials import calibration_trials
+
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
@@ -117,19 +119,14 @@ class TrialTable:
 
 
 def trial_table(sim: Run, *, session_id: str | None = None) -> TrialTable:
-    """Read ``calibration_iterations`` of one run into a flat trial table."""
-    iterations = getattr(sim, "calibration_iterations", None)
-    if iterations is None:
-        raise ValueError("the run carries no calibration_iterations table.")
-    frame = (
-        iterations.copy()
-        if isinstance(iterations, pd.DataFrame)
-        else pd.DataFrame(list(iterations))
-    )
-    if session_id is not None and "session_id" in frame.columns:
-        frame = frame[frame["session_id"].astype(str) == str(session_id)]
-    if frame.empty:
-        raise ValueError("the calibration_iterations table holds no trial.")
+    """Read the calibration trials of one run into a flat trial table.
+
+    The rows come from :func:`hydromodpy.results.calibration_trials`, which
+    reads them on the same key ``Run.has_table`` answers on. Reading them any
+    other way makes the availability gate and the render disagree, and the
+    figure then reports itself available and raises mid-render.
+    """
+    frame = calibration_trials(sim, session_id=session_id)
 
     frame, parameters = _expand_parameters(frame)
     frame = _expand_metrics(frame)

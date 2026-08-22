@@ -56,9 +56,9 @@ def _agreement(tmp_path, *, code: int, stream_lines=None):
 
 
 def test_agreement_is_one_when_the_paths_never_leave_the_network(tmp_path) -> None:
-    # Everything flows due south (code 4), so the closure of a north-south trace
-    # down column 10 is that column and nothing more.
-    agreement = _agreement(tmp_path, code=4)
+    # Everything flows due south (WBT code 8), so the closure of a north-south
+    # trace down column 10 is that column and nothing more.
+    agreement = _agreement(tmp_path, code=8)
 
     assert agreement.n_network_cells == _N
     assert agreement.n_closure_cells == _N
@@ -67,9 +67,10 @@ def test_agreement_is_one_when_the_paths_never_leave_the_network(tmp_path) -> No
 
 
 def test_agreement_falls_when_the_paths_leave_the_network(tmp_path) -> None:
-    # Everything flows south-east (code 2): a trace down column 10 walks off it at
-    # the first step, so the closure is a staircase far larger than the trace.
-    agreement = _agreement(tmp_path, code=2)
+    # Everything flows south-east (WBT code 4): a trace down column 10 walks off
+    # it at the first step, so the closure is a staircase far larger than the
+    # trace.
+    agreement = _agreement(tmp_path, code=4)
 
     assert agreement.n_network_cells == _N
     assert agreement.n_closure_cells > _N
@@ -80,9 +81,9 @@ def test_a_network_outside_the_catchment_raises(tmp_path) -> None:
     far_away = [LineString([(50_000.0, 50_000.0), (50_100.0, 50_100.0)])]
 
     with pytest.raises(ValueError, match="do not share a single cell"):
-        _agreement(tmp_path, code=4, stream_lines=far_away)
+        _agreement(tmp_path, code=8, stream_lines=far_away)
 
 
 def test_no_geometry_raises(tmp_path) -> None:
     with pytest.raises(ValueError, match="no stream geometry"):
-        _agreement(tmp_path, code=4, stream_lines=[])
+        _agreement(tmp_path, code=8, stream_lines=[])

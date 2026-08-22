@@ -39,7 +39,7 @@ def _write_products(tmp_path: Path) -> dict[str, str]:
     dem = np.zeros((_N, _N))
     for row in range(_N):
         dem[row, :] = 100.0 - row
-    d8 = np.full((_N, _N), 4.0)  # everything flows south (WBT code 4)
+    d8 = np.full((_N, _N), 8.0)  # everything flows south (WBT code 8)
     link = np.zeros((_N, _N))
     link[1:4, 3] = 1.0
     link[4:7, 3] = 2.0

@@ -128,7 +128,7 @@ def test_capture_carves_a_near_miss_stream_to_the_lake(tmp_path) -> None:
     link = np.zeros((_N, _N), dtype="int32")
     link[10, 2:9] = 1
     d8 = np.zeros((_N, _N), dtype="int32")
-    d8[10, 2:9] = 1  # East
+    d8[10, 2:9] = 2  # East (WBT code 2)
     link_tif = str(tmp_path / "link.tif")
     d8_tif = str(tmp_path / "d8.tif")
     _write_int(link_tif, link)

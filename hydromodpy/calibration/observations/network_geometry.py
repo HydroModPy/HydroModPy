@@ -48,6 +48,7 @@ class NetworkGeometry:
     distance_to_observed_raw: np.ndarray
     cell_area_m2: np.ndarray
     threshold_m3_s: np.ndarray
+    mean_recharge_m_s: float
     length_scale_m: float
     saturation_cap_m: float
     excluded: np.ndarray | None
@@ -56,12 +57,46 @@ class NetworkGeometry:
 
     @property
     def diagnostics(self) -> dict[str, float]:
-        """The three numbers that qualify the data rather than the trial."""
+        """The numbers that qualify the data rather than the trial.
+
+        ``R_mean_m_s`` is the denominator of the calibrated ratio: the criterion
+        fits ``K/R``, so a per-trial record of ``R`` is what makes a recharge
+        moving mid-session readable in ``trials.jsonl`` afterwards.
+        """
         return {
             "alpha_obs_closure": self.alpha_obs_closure,
             "frac_reachable_obs_raw": self.frac_reachable_obs_raw,
             "n_outlet_sealed": float(0.0 if self.observed[self.outlet] else 1.0),
+            "R_mean_m_s": self.mean_recharge_m_s,
         }
+
+
+_last_mean_recharge: float | None = None
+
+
+def _warn_if_recharge_moved(recharge: float) -> None:
+    """Warn when the recharge changes between two geometries of one process.
+
+    The criterion fits ``K/R``, so a recharge that moves between two trials
+    changes the calibrated quantity while every declared parameter looks
+    unchanged. Warning rather than refusing: this module knows a mesh, not a
+    session, and two consecutive builds can legitimately belong to two
+    projects; a refusal would abort those, while the ``R_mean_m_s`` diagnostic
+    already records the value per trial and the warning only makes the move
+    visible while it happens.
+    """
+    global _last_mean_recharge
+    previous, _last_mean_recharge = _last_mean_recharge, recharge
+    if previous is None or previous == recharge:
+        return
+    logger.warning(
+        "The mean recharge moved between two network criterion builds: %r then %r m/s. "
+        "The criterion calibrates the ratio K/R, so a bound of one per cent holds on the "
+        "conductivity only while R stays put. Freeze the recharge for the whole session, "
+        "or read R_mean_m_s per trial before reading the calibrated value as a K.",
+        previous,
+        recharge,
+    )
 
 
 def reference_length(cell_area_m2: np.ndarray, support: np.ndarray) -> float:
@@ -169,6 +204,9 @@ def build_network_geometry(
         # divides the denominator without improving the agreement.
         length_scale = max(length_scale, float(observed_position_accuracy_m))
 
+    recharge = float(mean_recharge_m_s)
+    _warn_if_recharge_moved(recharge)
+
     return NetworkGeometry(
         metric=metric,
         observed=observed_mask,
@@ -177,9 +215,8 @@ def build_network_geometry(
         distance_to_observed=distance_sealed,
         distance_to_observed_raw=distance_raw,
         cell_area_m2=areas,
-        threshold_m3_s=specific_seepage_threshold(
-            areas, mean_recharge_m_s, ratio=tau_specific_ratio
-        ),
+        threshold_m3_s=specific_seepage_threshold(areas, recharge, ratio=tau_specific_ratio),
+        mean_recharge_m_s=recharge,
         length_scale_m=length_scale,
         saturation_cap_m=longest_descent_length(metric, outlet_mask),
         excluded=None if excluded is None else np.asarray(excluded, dtype=bool).reshape(-1),

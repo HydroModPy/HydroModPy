@@ -17,6 +17,7 @@ from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 from hydromodpy.calibration.runners.trial import TrialContext
+from hydromodpy.core.exceptions import CalibrationError
 
 K_PATH = "flow.param.K.field.value"
 SY_PATH = "flow.param.Sy.field.value"
@@ -326,7 +327,7 @@ def test_a_best_cost_at_the_failure_sentinel_is_not_a_convergence(tmp_path, monk
 
 
 def test_selecting_a_phase_whose_dependency_did_not_run_is_refused(tmp_path, runner) -> None:
-    with pytest.raises(ValueError, match="steady_k"):
+    with pytest.raises(CalibrationError, match="steady_k"):
         run_staged_calibration(_write(tmp_path), phase="transient_sy")
 
     assert runner.calls == []
@@ -340,12 +341,12 @@ def test_selecting_an_independent_phase_runs_only_it(tmp_path, runner) -> None:
 
 
 def test_selecting_an_undeclared_phase_lists_the_declared_ones(tmp_path, runner) -> None:
-    with pytest.raises(ValueError, match="transient_sy"):
+    with pytest.raises(CalibrationError, match="transient_sy"):
         run_staged_calibration(_write(tmp_path), phase="nowhere")
 
 
 def test_a_calibration_without_phases_is_refused(tmp_path, runner) -> None:
-    with pytest.raises(ValueError, match="run_calibration_cli"):
+    with pytest.raises(CalibrationError, match="run_calibration_cli"):
         run_staged_calibration(_write(tmp_path, ""))
 
 

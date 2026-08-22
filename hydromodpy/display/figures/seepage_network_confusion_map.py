@@ -63,6 +63,21 @@ class SeepageNetworkConfusionMap(BaseFigure):
         default_figsize=(7.0, 5.5),
     )
 
+    def unavailable_reason(self, sim: Run) -> str | None:
+        """Refuse a run-driven render: the three masks are never persisted.
+
+        The criterion builds ``valid``, ``excess`` and ``missing`` while a
+        calibration runs and a run keeps none of them, so nothing can hand
+        them to a gallery. Saying so here turns the crash of a figure driven
+        by name into a skip carrying the reason.
+        """
+        del sim
+        return (
+            "needs the valid, excess and missing cell masks the stream-network "
+            "criterion builds during a calibration; a run does not persist them, "
+            "so this figure is drawn by passing the three masks to render()"
+        )
+
     def render(
         self,
         sim: Run,

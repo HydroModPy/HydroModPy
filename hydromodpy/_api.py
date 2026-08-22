@@ -318,6 +318,21 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
         return dispatch_workflow(mode, materialized_path, **kwargs)
 
 
+def _phase_summaries(declarations: Any) -> list[dict[str, Any]]:
+    """Describe declared calibration phases, in declaration order."""
+    return [
+        {
+            "name": decl.name,
+            "description": decl.description,
+            "method": decl.method,
+            "parameters": list(decl.parameters),
+            "depends_on": decl.depends_on,
+            "freeze_on_success": decl.freeze_on_success,
+        }
+        for decl in (declarations or [])
+    ]
+
+
 def calibrate(
     config: Any,
     *,
@@ -331,9 +346,12 @@ def calibrate(
     objects open a lazy :class:`Project` so :func:`run_calibration_programmatic`
     has the project context it requires.
 
-    A configuration declaring ``[[calibration.phases]]`` runs staged: each phase
-    calibrates its own parameters and freezes them for the next. Without that
-    table nothing changes.
+    A TOML declaring ``[[calibration.phases]]`` **routes** to
+    :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`:
+    each phase calibrates its own parameters and freezes them for the next. The
+    same declaration carried by an in-memory config object is **refused**: a
+    phase forks its configuration from the source file, and there is none.
+    Write the config out and pass the path.
 
     Parameters
     ----------
@@ -354,16 +372,22 @@ def calibrate(
     Returns
     -------
     Any
-        Calibration report or workflow-specific result.
+        Calibration report or workflow-specific result. A ``list`` of phase
+        descriptions when ``list_phases`` is set.
 
     Raises
     ------
     FileNotFoundError
         If the calibration TOML path does not exist.
+    hydromodpy.core.exceptions.ConfigError
+        If the configuration cannot be read and the answer depends on reading
+        it (``phase`` or ``list_phases``).
     hydromodpy.core.exceptions.ConfigMissingError
         If neither ``config_path`` nor ``parameters`` is supplied.
     hydromodpy.core.exceptions.CalibrationError
-        If the optimizer or objective evaluation fails.
+        If a staged calibration cannot be run as declared, if ``phase`` names a
+        phase the configuration does not declare, or if the optimizer or
+        objective evaluation fails.
 
     Examples
     --------
@@ -374,11 +398,16 @@ def calibrate(
     --------
     hydromodpy.calibration.runners.cli_runner.run_calibration_cli
         TOML entry point used by the path branch.
+    hydromodpy.calibration.runners.staged_runner.run_staged_calibration
+        Staged entry point used when the TOML declares phases.
     hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic
         Python entry point used by the config-object branch.
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
+    from hydromodpy.core.exceptions import CalibrationError, ConfigError
+    from hydromodpy.project.dispatch.workflow import in_memory_staged_refusal, no_such_phase
+
     if isinstance(config, (str, Path)):
         from hydromodpy.calibration.runners.cli_runner import (
             load_toml_calibration,
@@ -388,35 +417,31 @@ def calibrate(
 
         kwargs.pop("headless", None)
         target = Path(config).expanduser().resolve()
-        # Probe the file only to decide staged or not. Anything wrong with it is
-        # reported by the runner, with its context; failing here would replace a
-        # precise error by one raised while choosing a code path.
+        # Probe the file to decide staged or not. When that decision is all
+        # that hangs on the read, a failure is left to the runner, which
+        # reports it with its own context. When the answer itself is what the
+        # file says, no runner is reached, so the read failure surfaces here.
         try:
             cfg, _raw = load_toml_calibration(target)
-        except Exception:
-            cfg = None
+        except Exception as exc:
+            if list_phases or phase is not None:
+                raise ConfigError(f"{target} cannot be read: {exc}") from exc
+            return run_calibration_cli(target, **kwargs)
         if list_phases:
-            if cfg is None:
-                return []
-            return [
-                {
-                    "name": decl.name,
-                    "description": decl.description,
-                    "method": decl.method,
-                    "parameters": list(decl.parameters),
-                    "depends_on": decl.depends_on,
-                    "freeze_on_success": decl.freeze_on_success,
-                }
-                for decl in (cfg.phases or [])
-            ]
-        if cfg is not None and cfg.phases:
+            return _phase_summaries(cfg.phases)
+        if cfg.phases:
             return run_staged_calibration(target, phase=phase, **kwargs)
         if phase is not None:
-            raise ValueError(
-                f"{target.name} declares no [[calibration.phases]], so there is no "
-                f"phase {phase!r} to run."
-            )
+            raise CalibrationError(no_such_phase(target.name, phase))
         return run_calibration_cli(target, **kwargs)
+
+    declared = getattr(getattr(config, "calibration", None), "phases", None)
+    if list_phases:
+        return _phase_summaries(declared)
+    if declared:
+        raise CalibrationError(in_memory_staged_refusal([decl.name for decl in declared]))
+    if phase is not None:
+        raise CalibrationError(no_such_phase("this configuration", phase))
 
     from hydromodpy.project import Project
 

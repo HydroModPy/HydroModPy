@@ -53,7 +53,20 @@ def _save_outflow_map_grid(
 
     from hydromodpy.calibration.metrics.network import active_network_mask
 
-    d_ref = np.load(truth_dir / "steady_network_drain_by_cell.npz")["outflow_drain"]
+    # A synthetic truth package carries a real per-cell outflow; a natural one
+    # only knows which cells are on the network, and writes that mask under its
+    # own name so nothing can read it as a flux.
+    flux_path = truth_dir / "steady_network_drain_by_cell.npz"
+    mask_path = truth_dir / "steady_network_active_mask.npz"
+    if flux_path.is_file():
+        d_ref = np.load(flux_path)["outflow_drain"]
+    elif mask_path.is_file():
+        d_ref = np.load(mask_path)["active_mask"].astype("float64")
+    else:
+        raise FileNotFoundError(
+            f"No steady network reference in {truth_dir}: expected {flux_path.name} "
+            f"or {mask_path.name}."
+        )
     normalization = _read_json(truth_dir / "normalization.json")
     threshold = float(normalization.get("tau_network", 0.0))
 
