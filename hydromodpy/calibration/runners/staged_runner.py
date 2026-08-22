@@ -40,6 +40,7 @@ from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,
+    set_by_path,
 )
 from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
@@ -224,6 +225,21 @@ def _injected_paths(
 # ---------------------------------------------------------------------------
 
 
+def _apply_overrides(trial_ctx: TrialContext, decl: CalibPhaseDecl) -> None:
+    """Write this phase's configuration overrides into the baseline it forks from.
+
+    Applied before the frozen values, so a phase that overrides a path another
+    phase freezes is refused at validation rather than silently winning here.
+    """
+    for path, value in decl.overrides.items():
+        try:
+            set_by_path(trial_ctx.base_cfg, path, value)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"phase {decl.name!r} cannot override {path!r}: {exc}"
+            ) from exc
+
+
 def _freeze_into_baseline(trial_ctx: TrialContext, frozen: list[FrozenParameter]) -> None:
     """Write the frozen values into the baseline the phase forks from.
 
@@ -379,6 +395,7 @@ def run_staged_calibration(
             override_paths=_injected_paths(phase_cfg, frozen),
             parameter_space=space,
         )
+        _apply_overrides(trial_ctx, decl)
         _freeze_into_baseline(trial_ctx, frozen)
 
         session_id = uuid.uuid4().hex

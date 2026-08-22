@@ -581,6 +581,13 @@ class CalibPhaseDecl(HydroModelBase):
         default_factory=dict,
         description="Extra keyword arguments forwarded to this phase's optimizer.",
     )
+    overrides: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description="Configuration values this phase runs with, as dotted paths into "
+        "the project configuration. The two stages of a stream-network calibration "
+        "are one steady and one transient, which is a property of the model and not "
+        "of the search, so a phase has to be able to say it.",
+    )
     scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
         default=None,
         description="Dates bounding the samples this phase scores on.",
@@ -851,6 +858,25 @@ class CalibrationConfig(HydroModelBase):
                     f"phase {phase.name!r} declares a scoring_window while the "
                     "calibration declares warmup_periods; pick one convention."
                 )
+            for path in phase.overrides:
+                if not path or path.startswith(".") or path.endswith("."):
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}, which is not a "
+                        "dotted path into the configuration."
+                    )
+                if path.startswith("calibration."):
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}: a phase declares its "
+                        "own search through its own fields, not by rewriting the "
+                        "calibration section under itself."
+                    )
+                owner = frozen_by.get(path)
+                if owner is not None:
+                    raise ValueError(
+                        f"phase {phase.name!r} overrides {path!r}, which phase {owner!r} "
+                        "freezes; the calibrated value would be overwritten and nothing "
+                        "downstream would say which one the model ran with."
+                    )
             if phase.is_single_metric and (phase.outputs or phase.objective_blocks):
                 raise ValueError(
                     f"phase {phase.name!r} declares a single-metric objective and also "
