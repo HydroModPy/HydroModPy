@@ -147,21 +147,29 @@ The paper averages one pixel one vote, which on a regular grid is the same as
 weighting by area. It stops being the same as soon as the mesh is refined along
 the streams, which is the usual refinement: cell density is then highest
 exactly where distances are smallest, so an unweighted mean over-samples the
-river corridor. HydroModPy reports both weightings at every trial, and their
-gap measures the effect of the refinement directly.
+river corridor. HydroModPy reports both weightings at every trial, as
+``D_so_cell`` and ``D_so_area`` beside ``D_os_cell`` and ``D_os_area``, and
+their gap measures the effect of the refinement directly. Which pair enters the
+criterion is what ``weighting`` selects, one cell one vote by default.
 
 :math:`L_{ref}` is the square root of the **median** cell area over the
 catchment, not the mean. On a mesh refined along the streams a handful of large
 buffer cells inflate the mean, and for a size ratio of three the two
-conventions differ enough to move :math:`r_{optim}` across its bound.
+conventions differ enough to move :math:`r_{optim}` across its bound. Declaring
+``observed_position_accuracy`` raises :math:`L_{ref}` to that accuracy when it
+is the larger of the two, because a finer mesh otherwise divides the
+denominator without improving the agreement.
 
 The validity bound and what it does not mean
 --------------------------------------------
 
-Equation 4 of the paper reads :math:`r_{optim} \leq 2`. HydroModPy computes it,
-reports it, and **does not let it withhold the calibrated value**. A
-calibration is asked for a number; a coarse agreement qualifies that number, it
-does not replace it with nothing.
+Equation 4 of the paper reads :math:`r_{optim} \leq 2`. HydroModPy computes it
+against ``roptim_max``, reports it as ``roptim`` and ``roptim_valid``, and
+**does not let it withhold the calibrated value**: a violation logs a warning
+and the value comes back. A calibration is asked for a number; a coarse
+agreement qualifies that number, it does not replace it with nothing. Setting
+``on_roptim_violation = "error"`` turns that warning into a raise, which is an
+explicit choice to be handed nothing rather than a qualified value.
 
 Why the criterion has a root, and why the search brackets it
 -------------------------------------------------------------
@@ -174,17 +182,28 @@ than reaching it. On one real catchment :math:`\lvert J \rvert` never falls
 below 3.18 m while the root is bracketed to a factor 1.0015. **The stopping
 rule is therefore the width of the bracket in the calibrated parameter, never
 the size of the residual**; a search stopping on :math:`\lvert J \rvert <
-\varepsilon` may never stop.
+\varepsilon` may never stop. The search walks the base-ten logarithm of the
+parameter, and ``rel_tol`` becomes a width in that variable, so a ``rel_tol``
+of 0.01 closes the bracket at one per cent on the parameter itself, which is
+the paper's criterion read literally. On any other transform that width would read
+as an absolute one, and the adapter refuses a parameter that does not declare
+``transform = "log"`` rather than reporting convergence on a bracket orders of
+magnitude wide.
 
 **Monotonicity is not proven.** The paper establishes the direction of
 variation on three points and generalises it over twenty-four catchments. A
-coarse logarithmic sweep is run before the bisection: it checks the property
-instead of assuming it, it sees every crossing rather than one, and the
-crossing curves come out of the same solves.
+coarse logarithmic sweep of ``sweep_points`` points, seven by default, is run
+before the bisection: it checks the property instead of assuming it, it sees
+every crossing rather than one, and the crossing curves come out of the same
+solves. Several crossings warn and the tightest one is closed. Setting
+``sweep_points`` to zero drops the sweep and brackets on the two bounds, which
+is the pure bisection of the paper.
 
-**A bracket without a sign change is a result.** The search raises and prints
-both residuals rather than returning the better of the two ends, because
-returning the better end is a minimised mean distance in disguise.
+**A bracket without a sign change is a result.** The search first widens the
+interval by a decade on each side, up to ``bracket_expand`` times, four by
+default; if the sign still does not change it raises and prints both residuals
+rather than returning the better of the two ends, because returning the better
+end is a minimised mean distance in disguise.
 
 Why the ratio is what gets calibrated
 -------------------------------------
@@ -241,7 +260,10 @@ altered. Do not read :math:`r_{optim}` as a quality indicator of the model.
 **Publish** :math:`T/R`, **not** :math:`K`. The conductivity inherits the
 recharge series entirely: changing reanalysis moves it by +3, +25 and -28 per
 cent on three catchments. On a five-layer model, :math:`T/R` is stable to 1.21
-where the mean distance no longer separates anything.
+where the mean distance no longer separates anything. The ratio is not computed
+for you: the calibration returns the conductivity raw in ``best_parameters`` and
+emits neither the ratio nor the recharge that divides it, so forming
+:math:`T/R` and naming that recharge series beside it is the author's work.
 
 **The positional uncertainty of the mapped network is oriented.** Displacing it
 by one cell moves the ratio by a factor 3.7 to 8.9 depending on the catchment,
@@ -261,7 +283,8 @@ cells, because the two networks share a common trunk. Reading
 :math:`r_{optim} \leq 2` as "the typical gap is under two pixels" is wrong: the
 typical gap is zero and the criterion lives in the tail. HydroModPy therefore
 reports the median, the ninetieth percentile and the share carried by the top
-five per cent beside each mean.
+five per cent beside each mean, as ``D_so_median``, ``D_so_p90`` and
+``D_so_top5_share``, and the same three for :math:`D_{os}`.
 
 **A second phase calibrating storage identifies** :math:`S_y/T`, **not**
 :math:`S_y`. For an unconfined Dupuit aquifer the recession constant behaves as
@@ -292,9 +315,15 @@ The indicator is :math:`\alpha`, the ratio between the mapped network and its
 own downslope closure. Measured with no pre-treatment on five catchments at
 75 m: 0.68 to 0.95, so on four of five, a quarter to a third of the D8 trace
 leaving the mapped cells exits the network at the first step. At 25 m it falls
-to 0.49 to 0.64. The disagreement is the rule, not the exception, and
-HydroModPy reports :math:`\alpha` on every run whether or not the burning is
-active.
+to 0.49 to 0.64. The disagreement is the rule, not the exception.
+
+HydroModPy measures :math:`\alpha` on every run declaring
+``geographic.enforce_streams.stream_geometry_path``, whether or not ``enabled``
+is set, which is what makes it usable to decide that the burning is needed. It
+is written to ``stream_dem_agreement.json`` in the geographic directory and
+logged with a warning below 0.90. A run declaring no network there measures
+nothing. A calibration declaring a network output recomputes the same ratio on
+the solver mesh and publishes it per trial as ``alpha_obs_closure``.
 
 References
 ----------
