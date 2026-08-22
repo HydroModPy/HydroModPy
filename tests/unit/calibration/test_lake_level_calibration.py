@@ -269,7 +269,9 @@ class TestBridge:
         out = validate_calib_output(
             {"support": "lake", "lake_id": "lac0", "time": "last", "reducer": "last"}
         )
-        assert _extract_outputs(SimpleNamespace(), {"lake": out}) == {"lake": [3.0]}
+        simulated, diagnostics = _extract_outputs(SimpleNamespace(), {"lake": out})
+        assert simulated == {"lake": [3.0]}
+        assert diagnostics == {}
 
     def test_a_backend_without_lakes_refuses_by_name(self, monkeypatch):
         # The refusal now comes from the backend itself rather than from the

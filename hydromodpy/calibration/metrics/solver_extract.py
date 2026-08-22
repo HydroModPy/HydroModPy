@@ -13,17 +13,30 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.calibration.metrics.downslope_network import (
+    DISTANCE_METHOD,
+    seepage_distance_cost,
+)
 from hydromodpy.calibration.metrics.series import ObservedSeries
+from hydromodpy.calibration.observations.network_geometry import geometry_from_run
+from hydromodpy.calibration.observations.simulated_network import build_simulated_network
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
     TimeSelector,
 )
+from hydromodpy.core.logging import get_logger
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 
+logger = get_logger(__name__)
+
 if TYPE_CHECKING:
-    from hydromodpy.calibration.config import CalibOutputDecl, CalibOutputPoint
+    from hydromodpy.calibration.config import (
+        CalibOutputDecl,
+        CalibOutputNetwork,
+        CalibOutputPoint,
+    )
 
 
 def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
@@ -170,6 +183,11 @@ def observable_request_for_output(
             key=str(output.lake_id),
             times=times,
         )
+    if support == "network":
+        # The whole per-cell release field, read at the declared timesteps. The
+        # backend decides which of its packages count as a resurgence; this
+        # layer never names one.
+        return ObservableRequest(id=name, name=str(output.variable), support="cells", times=times)
     if support == "cell":
         if output.row is None or output.col is None:
             raise NotImplementedError(
@@ -186,13 +204,93 @@ def observable_request_for_output(
     raise ValueError(f"Unknown calibration output support {support!r} on output {name!r}")
 
 
-def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> dict[str, list[float]]:
+def score_network_output(
+    run_ctx: RunContext,
+    name: str,
+    output: CalibOutputNetwork,
+    result: ObservableResult,
+) -> tuple[list[float], dict[str, float]]:
+    """Turn one per-cell release field into the pair ``(D_so, D_os)``.
+
+    The pair is what a block scores; every other number the criterion produces
+    travels beside it as a diagnostic, which is how a session records thirty
+    quantities per trial without promoting a single run.
+
+    The static geometry is rebuilt here at every trial. It is one graph build
+    and three ``O(n_cells)`` passes, measured under a second on a seven
+    thousand cell mesh, which is nothing beside one solve; hoisting it would
+    mean caching mesh identity across forked trial contexts for no measurable
+    gain.
+    """
+    geometry = geometry_from_run(run_ctx, output)
+    simulated = build_simulated_network(
+        result.values,
+        threshold_m3_s=geometry.threshold_m3_s,
+        metric=geometry.metric,
+    )
+    scored = seepage_distance_cost(
+        simulated=simulated,
+        observed=geometry.observed,
+        outlet=geometry.outlet,
+        catchment=geometry.catchment,
+        metric=geometry.metric,
+        distance_to_observed=geometry.distance_to_observed,
+        distance_to_observed_raw=geometry.distance_to_observed_raw,
+        cell_area_m2=geometry.cell_area_m2,
+        length_scale_m=geometry.length_scale_m,
+        saturation_cap_m=geometry.saturation_cap_m,
+        excluded=geometry.excluded,
+        weighting=output.weighting,
+        max_unreachable_fraction=float(output.max_unreachable_fraction),
+        roptim_max=float(output.roptim_max),
+    )
+    if scored.status == "failed":
+        raise ValueError(
+            f"Output {name!r}: more than {output.max_unreachable_fraction:.0%} of a support "
+            "never reaches its target. The routing surface is not conditioned, and the "
+            "averages would be a fiction; condition the surface rather than filtering "
+            "those cells away."
+        )
+
+    roptim = scored.components["roptim"]
+    if np.isfinite(roptim) and roptim > float(output.roptim_max):
+        message = (
+            f"Output {name!r}: roptim = {roptim:.2f} exceeds the validity bound "
+            f"{output.roptim_max:.2f}. The agreement between the two networks is coarser "
+            "than the mesh, which qualifies the result; it does not say the calibrated "
+            "value is wrong."
+        )
+        if output.on_roptim_violation == "error":
+            raise ValueError(message)
+        logger.warning(message)
+
+    logger.info("Output %s scored with distance method %s.", name, DISTANCE_METHOD)
+
+    # D_so has no support when the network is empty, and the pair still has to
+    # reproduce the signed residual the bracket reads: it is rebuilt from D_os
+    # and the residual so the two never disagree.
+    d_os = float(scored.components["D_os"])
+    pair = [d_os + scored.signed_gap, d_os]
+    diagnostics = {
+        f"{name}.{key}": float(value)
+        for key, value in {**scored.components, **geometry.diagnostics}.items()
+    }
+    return pair, diagnostics
+
+
+def extract_outputs(
+    ctx: Any, outputs: Mapping[str, CalibOutputDecl]
+) -> tuple[dict[str, list[float]], dict[str, float]]:
     """Ask the flow adapter for every declared output, in one batch.
 
     One adapter resolution and one call per trial, whatever the number of
     outputs, so a backend opens each binary file once. Translation errors are
     reported per output because they name a declaration the user wrote; the
     extraction itself is a single operation and fails as one.
+
+    Returns the scored values per output and, beside them, the diagnostics the
+    network criterion produces, which the caller merges into the components of
+    the trial.
     """
     resolved = resolve_flow_adapter(ctx)
     if resolved is None:
@@ -211,12 +309,17 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> dict[st
     results = adapter.extract_observables(run_ctx, None, requests, time_index=None)
 
     simulated: dict[str, list[float]] = {}
+    diagnostics: dict[str, float] = {}
     for name, output in outputs.items():
         result = results.get(name)
         if result is None or np.asarray(result.values).size == 0:
             raise NotImplementedError(f"Solver returned no calibration series for output {name!r}")
-        simulated[name] = slice_time(result.values, output.time, output.reducer)
-    return simulated
+        if output.support == "network":
+            simulated[name], scored = score_network_output(run_ctx, name, output, result)
+            diagnostics.update(scored)
+        else:
+            simulated[name] = slice_time(result.values, output.time, output.reducer)
+    return simulated, diagnostics
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +479,7 @@ def _find_cell_in_modflow_grid(
 
 __all__ = [
     "extract_outputs",
+    "score_network_output",
     "find_cell_at_point",
     "observable_request_for_output",
     "observable_series",

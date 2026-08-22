@@ -232,13 +232,15 @@ class TestHelpers:
             ),
         }
 
-        simulated = _extract_outputs(_empty_ctx(), outputs)
+        simulated, diagnostics = _extract_outputs(_empty_ctx(), outputs)
 
         # Two outputs, one adapter call: that is what the batch buys.
         assert seen["n_calls"] == 1
         assert seen["ids"] == ["lake", "cell"]
         assert simulated["lake"] == [3.0]
         assert simulated["cell"] == [1.0, 2.0, 3.0]
+        # Only a network output produces diagnostics beside its values.
+        assert diagnostics == {}
 
     def test_extract_outputs_names_the_output_whose_declaration_is_wrong(self, monkeypatch):
         class _Adapter:

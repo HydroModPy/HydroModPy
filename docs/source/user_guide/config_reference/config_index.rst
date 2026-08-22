@@ -9331,103 +9331,103 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L418>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L523>`__
    * - ``calibration.max_iter``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-max-iter>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L425>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L530>`__
    * - ``calibration.batch_size``
      - ``int``
      - dev
      - -
      - `calibration <calibration.html#calibration-batch-size>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L430>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L535>`__
    * - ``calibration.parallel``
      - ``int``
      - dev
      - -
      - `calibration <calibration.html#calibration-parallel>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L435>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L540>`__
    * - ``calibration.warmup_periods``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-warmup-periods>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L443>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L548>`__
    * - ``calibration.scoring_window``
      - ``CalibScoringWindow | None``
      - user
      - -
      - `calibration <calibration.html#calibration-scoring-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L455>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L560>`__
    * - ``calibration.scoring_window.start``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-scoring-window-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L321>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L426>`__
    * - ``calibration.scoring_window.end``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-scoring-window-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L325>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L430>`__
    * - ``calibration.seed``
      - ``int | None``
      - user
      - -
      - `calibration <calibration.html#calibration-seed>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L462>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L567>`__
    * - ``calibration.save_runs``
      - ``Literal['none', 'best_n', 'all']``
      - user
      - -
      - `calibration <calibration.html#calibration-save-runs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L466>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L571>`__
    * - ``calibration.save_best_n``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-save-best-n>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L475>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L580>`__
    * - ``calibration.use_cache``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-use-cache>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L480>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L585>`__
    * - ``calibration.lightweight_extraction``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-lightweight-extraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L484>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L589>`__
    * - ``calibration.objective``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-objective>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L490>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L595>`__
    * - ``calibration.variable``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-variable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L494>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L599>`__
    * - ``calibration.optimizer_kwargs``
      - ``dict[str, Any]``
      - dev
      - -
      - `calibration <calibration.html#calibration-optimizer-kwargs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L498>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L603>`__
    * - ``calibration.parameters``
      - ``dict[str, CalibParameterDecl]``
      - user
      - -
      - `calibration <calibration.html#calibration-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L502>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L607>`__
    * - ``calibration.parameters.<id>.bounds``
      - ``list[float] | None``
      - user
@@ -9471,11 +9471,11 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `calibration <calibration.html#calibration-parameters-id-units>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L107>`__
    * - ``calibration.outputs``
-     - ``dict[str, CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake]``
+     - ``dict[str, CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake | CalibOutputNetwork]``
      - user
      - -
      - `calibration <calibration.html#calibration-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L506>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L611>`__
    * - ``calibration.outputs.point.<id>.variable``
      - ``str``
      - user
@@ -9650,90 +9650,168 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `calibration <calibration.html#calibration-outputs-lake-id-observed-values>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L285>`__
+   * - ``calibration.outputs.network.<id>.variable``
+     - ``str``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-variable>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L307>`__
+   * - ``calibration.outputs.network.<id>.support``
+     - ``Literal['network']``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-support>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L312>`__
+   * - ``calibration.outputs.network.<id>.stream_geometry_path``
+     - ``str | None``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-stream-geometry-path>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L316>`__
+   * - ``calibration.outputs.network.<id>.tau_specific_ratio``
+     - ``float``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-tau-specific-ratio>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L321>`__
+   * - ``calibration.outputs.network.<id>.weighting``
+     - ``Literal['cell', 'area']``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-weighting>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L329>`__
+   * - ``calibration.outputs.network.<id>.diagonal_neighbors``
+     - ``bool``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-diagonal-neighbors>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L335>`__
+   * - ``calibration.outputs.network.<id>.observed_position_accuracy``
+     - ``Optional[Any]``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-observed-position-accuracy>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L340>`__
+   * - ``calibration.outputs.network.<id>.roptim_max``
+     - ``float``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-roptim-max>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L347>`__
+   * - ``calibration.outputs.network.<id>.on_roptim_violation``
+     - ``Literal['warn', 'error']``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-on-roptim-violation>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L353>`__
+   * - ``calibration.outputs.network.<id>.max_unreachable_fraction``
+     - ``float``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-max-unreachable-fraction>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L358>`__
+   * - ``calibration.outputs.network.<id>.time``
+     - ``Union[Literal['all', 'last', 'first'], list[str]]``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-time>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L366>`__
+   * - ``calibration.outputs.network.<id>.reducer``
+     - ``Literal['mean', 'sum', 'last', 'none']``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-reducer>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L371>`__
+   * - ``calibration.outputs.network.<id>.observed_values``
+     - ``list[float] | None``
+     - user
+     - -
+     - `calibration <calibration.html#calibration-outputs-network-id-observed-values>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L376>`__
    * - ``calibration.objective_blocks``
      - ``list[CalibObjectiveBlockDecl]``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L510>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L615>`__
    * - ``calibration.objective_blocks.name``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L370>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L475>`__
    * - ``calibration.objective_blocks.metric``
-     - ``Literal['rmse', 'nse', 'kge', 'mae', 'nse_log']``
+     - ``Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'distance_gap', 'distance_mean']``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-metric>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L373>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L478>`__
    * - ``calibration.objective_blocks.weight``
      - ``float``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-weight>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L377>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L482>`__
    * - ``calibration.objective_blocks.uses_outputs``
      - ``list[str]``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-uses-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L381>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L486>`__
    * - ``calibration.objective_blocks.normalize_cost``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-normalize-cost>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L385>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L490>`__
    * - ``calibration.objective_blocks.transform``
      - ``Literal['identity', 'log', 'inverse']``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-transform>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L390>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L495>`__
    * - ``calibration.objective_blocks.warmup``
      - ``Optional[int]``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-warmup>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L396>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L501>`__
    * - ``calibration.persist_iteration_detail``
      - ``Literal['none', 'summary', 'full']``
      - dev
      - -
      - `calibration <calibration.html#calibration-persist-iteration-detail>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L515>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L620>`__
    * - ``calibration.persist_model_distribution``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-persist-model-distribution>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L520>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L625>`__
    * - ``calibration.rerun_best_with_outputs``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-rerun-best-with-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L524>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L629>`__
    * - ``calibration.materialize_candidates``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-materialize-candidates>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L528>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L633>`__
    * - ``calibration.candidates_root``
      - ``PurePosixPath | None``
      - dev
      - -
      - `calibration <calibration.html#calibration-candidates-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L533>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L638>`__
    * - ``calibration.persistence``
      - ``PersistenceConfig``
      - user
      - -
      - `calibration <calibration.html#calibration-persistence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L538>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L643>`__
    * - ``calibration.persistence.save_catalog``
      - ``bool``
      - user

@@ -135,6 +135,42 @@ def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
     return 0.5 * float(seasonal) + 0.5 * float(increments)
 
 
+def _distance_pair(simulated: np.ndarray) -> tuple[float, float]:
+    """Read the ``(D_so, D_os)`` pair a network output produces."""
+    values = np.asarray(simulated, dtype=float).ravel()
+    if values.size != 2:
+        raise ValueError(
+            "a distance metric scores the pair (D_so, D_os) a network output "
+            f"produces; got {values.size} value(s)."
+        )
+    return float(values[0]), float(values[1])
+
+
+def distance_gap(simulated: np.ndarray, observed: np.ndarray) -> float:
+    """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
+
+    ``observed`` is ignored and structurally so: the criterion balances an
+    excess of simulated stream against a missing one, both simulated. There is
+    no observed vector to fit, which is why the zero of this cost is an
+    intersection and not a minimum of distance.
+    """
+    del observed
+    d_so, d_os = _distance_pair(simulated)
+    return abs(d_so - d_os)
+
+
+def distance_mean(simulated: np.ndarray, observed: np.ndarray) -> float:
+    """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
+
+    It is legitimate as a cost in the outer loop that picks between structures
+    already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
+    different estimator, and nothing puts its interior minimum at the crossing.
+    """
+    del observed
+    d_so, d_os = _distance_pair(simulated)
+    return 0.5 * (d_so + d_os)
+
+
 METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "nse": nse,
     "rmse": rmse,
@@ -143,6 +179,8 @@ METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "nse_delta": nse_delta,
     "nse_seasonal": nse_seasonal,
     "nse_log": log_nse,
+    "distance_gap": distance_gap,
+    "distance_mean": distance_mean,
     "reservoir": _reservoir_score,
 }
 
@@ -573,6 +611,8 @@ __all__ = [
     "METRICS",
     "HIGHER_IS_BETTER",
     "LOG_METRICS",
+    "distance_gap",
+    "distance_mean",
     "clip_negatives_for_log_metric",
     "evaluate_objective",
 ]

@@ -222,14 +222,15 @@ def _build_composite_metric_extractor(
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
         del objective, variable
+        # extract_outputs already names the output whose declaration is at
+        # fault, so there is nothing to add by re-wrapping here. Note that
+        # NotImplementedError is a RuntimeError, which is why catching the
+        # latter to "pass typed errors through" would swallow the former.
         try:
-            simulated_by_output = extract_outputs(trial_ctx, outputs)
-        except RuntimeError:
+            simulated_by_output, extraction_diagnostics = extract_outputs(trial_ctx, outputs)
+        except Exception:
             logger.exception("Output extraction failed")
             raise
-        except Exception as exc:
-            logger.exception("Output extraction failed")
-            raise RuntimeError(f"Output extraction failed: {type(exc).__name__}: {exc}") from exc
 
         try:
             value = composite.evaluate(simulated_by_output)
@@ -240,6 +241,10 @@ def _build_composite_metric_extractor(
             ) from exc
 
         components = {key: float(val) for key, val in value.components.items()}
+        # The criterion emits its thirty diagnostics beside the cost, so a
+        # session records them in trials.jsonl and in the iteration table
+        # without promoting a single run.
+        components.update({key: float(val) for key, val in extraction_diagnostics.items()})
         total = float(value.total)
         return total, components
 

@@ -55,11 +55,11 @@ from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
-OutputSupport = Literal["point", "boundary", "cell", "lake"]
+OutputSupport = Literal["point", "boundary", "cell", "lake", "network"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
-MetricKind = Literal["rmse", "nse", "kge", "mae", "nse_log"]
+MetricKind = Literal["rmse", "nse", "kge", "mae", "nse_log", "distance_gap", "distance_mean"]
 CalibrationMethod = NonEmptyStr
 OutputTime = Literal["all", "last", "first"] | list[str]
 
@@ -288,8 +288,111 @@ class CalibOutputLake(HydroModelBase):
     )
 
 
+class CalibOutputNetwork(HydroModelBase):
+    """The mapped stream network as a calibration target.
+
+    The model is compared to a hydrographic network rather than to a gauge:
+    for every cell where it releases water to the surface, the descent to the
+    mapped network is measured, and reciprocally. The output produces the pair
+    ``(D_so, D_os)``; the metric on top of it is ``distance_gap``, their signed
+    difference in absolute value, whose zero is the balance between an excess
+    of simulated stream and a missing one.
+
+    ``observed_values`` is not asked of the user and defaults to a pair of
+    zeros: the criterion balances two simulated quantities against each other,
+    so there is no observed vector to fit. The mapped network enters through
+    ``stream_geometry_path``, as a geometry, not as a series.
+    """
+
+    variable: Annotated[str, Profile.USER] = Field(
+        default="release_flux",
+        description="Per-cell observable read from the solver, in m3/s, positive "
+        "when the aquifer feeds the surface.",
+    )
+    support: Annotated[Literal["network"], Profile.USER] = Field(
+        default="network",
+        description="Discriminator: compare a simulated stream network to a mapped one.",
+    )
+    stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Vector file holding the mapped stream network. Unset falls back "
+        "to the geometry the hydrography data family already resolved.",
+    )
+    tau_specific_ratio: Annotated[float, Profile.USER] = Field(
+        default=1.0e-4,
+        ge=0.0,
+        description="A cell releasing less than this fraction of its own recharge is "
+        "not a seepage face. Zero reproduces the purely geometric criterion of the "
+        "paper. Frozen over the whole search: a threshold moving with the trial would "
+        "cost the criterion its monotonicity.",
+    )
+    weighting: Annotated[Literal["cell", "area"], Profile.USER] = Field(
+        default="cell",
+        description="Average one cell one vote (the paper) or weighted by cell area. "
+        "Both values are always reported; use 'area' on a mesh refined along the "
+        "streams, where cell density is highest exactly where distances are smallest.",
+    )
+    diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Route over shared nodes rather than shared edges, which recovers "
+        "the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh.",
+    )
+    observed_position_accuracy: Annotated[Length | None, Profile.USER] = Field(
+        default=None,
+        description="Positional accuracy of the mapped network. The validity ratio is "
+        "normalised by max(cell size, this), because the error floor is set by the "
+        "network's own precision and not by the model resolution. Unset is the "
+        "literal reading of the paper.",
+    )
+    roptim_max: Annotated[PositiveFloat, Profile.USER] = Field(
+        default=2.0,
+        description="Validity bound of Eq. 4. It qualifies the result and never "
+        "penalises the cost: a bad ratio says the agreement is coarse, not that the "
+        "calibrated value should be discarded.",
+    )
+    on_roptim_violation: Annotated[Literal["warn", "error"], Profile.USER] = Field(
+        default="warn",
+        description="What a violation of the validity bound does. Default warns and "
+        "returns the value, because a calibration is asked for a number.",
+    )
+    max_unreachable_fraction: Annotated[float, Profile.USER] = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="Share of a support whose descent may end without meeting its "
+        "target before the trial fails. Beyond a few per cent the surface is not "
+        "conditioned and the averages would be a fiction.",
+    )
+    time: Annotated[OutputTime, Profile.USER] = Field(
+        default="last",
+        description="Which timesteps the release flux is read at. Phase one runs a "
+        "single steady period, so 'last' is the whole run.",
+    )
+    reducer: Annotated[OutputReducer, Profile.USER] = Field(
+        default="none",
+        description="Kept for symmetry with the other supports; the pair this output "
+        "produces is already reduced.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Structurally absent: the criterion balances two simulated "
+        "quantities. Defaults to a pair of zeros so a block can be declared on it.",
+    )
+
+    @model_validator(mode="after")
+    def _default_observed_pair(self) -> CalibOutputNetwork:
+        if self.observed_values is None:
+            self.observed_values = [0.0, 0.0]
+        elif len(self.observed_values) != 2:
+            raise ValueError(
+                "a network output produces the pair (D_so, D_os); observed_values must "
+                f"hold two entries, got {len(self.observed_values)}."
+            )
+        return self
+
+
 CalibOutputDecl: TypeAlias = Annotated[
-    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake,
+    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake | CalibOutputNetwork,
     Field(
         discriminator="support",
         description="Discriminated union of calibration output variants selected by 'support'.",
@@ -303,7 +406,9 @@ _CALIB_OUTPUT_ADAPTER: TypeAdapter[CalibOutputDecl] = TypeAdapter(CalibOutputDec
 
 def validate_calib_output(
     payload: Any,
-) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake:
+) -> (
+    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell | CalibOutputLake | CalibOutputNetwork
+):
     """Validate one output mapping and return the concrete variant instance."""
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
 
@@ -634,6 +739,7 @@ __all__ = [
     "CalibOutputBoundary",
     "CalibOutputCell",
     "CalibOutputLake",
+    "CalibOutputNetwork",
     "CalibObjectiveBlockDecl",
     "SaveRunsMode",
     "ParameterMode",

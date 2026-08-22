@@ -479,7 +479,9 @@
             "nse",
             "kge",
             "mae",
-            "nse_log"
+            "nse_log",
+            "distance_gap",
+            "distance_mean"
           ],
           "examples": [
             "rmse"
@@ -907,6 +909,209 @@
         "lake_id"
       ],
       "title": "CalibOutputLake",
+      "type": "object"
+    },
+    "CalibOutputNetwork": {
+      "additionalProperties": false,
+      "description": "The mapped stream network as a calibration target.\n\nThe model is compared to a hydrographic network rather than to a gauge:\nfor every cell where it releases water to the surface, the descent to the\nmapped network is measured, and reciprocally. The output produces the pair\n``(D_so, D_os)``; the metric on top of it is ``distance_gap``, their signed\ndifference in absolute value, whose zero is the balance between an excess\nof simulated stream and a missing one.\n\n``observed_values`` is not asked of the user and defaults to a pair of\nzeros: the criterion balances two simulated quantities against each other,\nso there is no observed vector to fit. The mapped network enters through\n``stream_geometry_path``, as a geometry, not as a series.",
+      "properties": {
+        "variable": {
+          "default": "release_flux",
+          "description": "Per-cell observable read from the solver, in m3/s, positive when the aquifer feeds the surface.",
+          "examples": [
+            "release_flux"
+          ],
+          "title": "Variable",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "support": {
+          "const": "network",
+          "default": "network",
+          "description": "Discriminator: compare a simulated stream network to a mapped one.",
+          "examples": [
+            "network"
+          ],
+          "title": "Support",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "stream_geometry_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector file holding the mapped stream network. Unset falls back to the geometry the hydrography data family already resolved.",
+          "title": "Stream Geometry Path",
+          "x-hmp-profile": "user"
+        },
+        "tau_specific_ratio": {
+          "default": 0.0001,
+          "description": "A cell releasing less than this fraction of its own recharge is not a seepage face. Zero reproduces the purely geometric criterion of the paper. Frozen over the whole search: a threshold moving with the trial would cost the criterion its monotonicity.",
+          "examples": [
+            0.0001
+          ],
+          "minimum": 0.0,
+          "title": "Tau Specific Ratio",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "weighting": {
+          "default": "cell",
+          "description": "Average one cell one vote (the paper) or weighted by cell area. Both values are always reported; use 'area' on a mesh refined along the streams, where cell density is highest exactly where distances are smallest.",
+          "enum": [
+            "cell",
+            "area"
+          ],
+          "examples": [
+            "cell"
+          ],
+          "title": "Weighting",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "diagonal_neighbors": {
+          "default": false,
+          "description": "Route over shared nodes rather than shared edges, which recovers the diagonal descents of a D8 grid. Only meaningful on a structured quad mesh.",
+          "examples": [
+            false
+          ],
+          "title": "Diagonal Neighbors",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "observed_position_accuracy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Positional accuracy of the mapped network. The validity ratio is normalised by max(cell size, this), because the error floor is set by the network's own precision and not by the model resolution. Unset is the literal reading of the paper.",
+          "title": "Observed Position Accuracy",
+          "x-hmp-profile": "user"
+        },
+        "roptim_max": {
+          "default": 2.0,
+          "description": "Validity bound of Eq. 4. It qualifies the result and never penalises the cost: a bad ratio says the agreement is coarse, not that the calibrated value should be discarded.",
+          "examples": [
+            2.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Roptim Max",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "on_roptim_violation": {
+          "default": "warn",
+          "description": "What a violation of the validity bound does. Default warns and returns the value, because a calibration is asked for a number.",
+          "enum": [
+            "warn",
+            "error"
+          ],
+          "examples": [
+            "warn"
+          ],
+          "title": "On Roptim Violation",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "max_unreachable_fraction": {
+          "default": 0.05,
+          "description": "Share of a support whose descent may end without meeting its target before the trial fails. Beyond a few per cent the surface is not conditioned and the averages would be a fiction.",
+          "examples": [
+            0.05
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Unreachable Fraction",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "enum": [
+                "all",
+                "last",
+                "first"
+              ],
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "last",
+          "description": "Which timesteps the release flux is read at. Phase one runs a single steady period, so 'last' is the whole run.",
+          "examples": [
+            "last"
+          ],
+          "title": "Time",
+          "x-hmp-profile": "user"
+        },
+        "reducer": {
+          "default": "none",
+          "description": "Kept for symmetry with the other supports; the pair this output produces is already reduced.",
+          "enum": [
+            "mean",
+            "sum",
+            "last",
+            "none"
+          ],
+          "examples": [
+            "mean"
+          ],
+          "title": "Reducer",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "observed_values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Structurally absent: the criterion balances two simulated quantities. Defaults to a pair of zeros so a block can be declared on it.",
+          "title": "Observed Values",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibOutputNetwork",
       "type": "object"
     },
     "CalibOutputPoint": {
@@ -1397,6 +1602,7 @@
                 "boundary": "#/$defs/CalibOutputBoundary",
                 "cell": "#/$defs/CalibOutputCell",
                 "lake": "#/$defs/CalibOutputLake",
+                "network": "#/$defs/CalibOutputNetwork",
                 "point": "#/$defs/CalibOutputPoint"
               },
               "propertyName": "support"
@@ -1413,6 +1619,9 @@
               },
               {
                 "$ref": "#/$defs/CalibOutputLake"
+              },
+              {
+                "$ref": "#/$defs/CalibOutputNetwork"
               }
             ]
           },
