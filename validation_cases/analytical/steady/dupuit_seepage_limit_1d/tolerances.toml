@@ -1,0 +1,9 @@
+[seepage_limit]
+position_error = 10.0
+head_profile_max_abs_error = 0.02
+
+[invariance]
+head_max_abs_error = 2e-3
+
+[control]
+drain_outflow_ratio_error = 1e-4

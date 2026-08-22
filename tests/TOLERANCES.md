@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 60 tolerances enforced today. Every tolerance
+The table below records the 64 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -88,6 +88,10 @@ must carry a rationale before it is merged.
 | 58 | Downslope operator, D4 vs D8 | length ratio on a pure diagonal descent | `1.41421` | **Exact**, geometry: shared-edge adjacency walks `2 res`, shared-node adjacency walks `res sqrt(2)` | `tests/unit/core/test_topographic_distance.py` |
 | 59 | Downslope operator vs whitebox D-infinity | Spearman rank correlation on a real DEM | `0.95` | **Declared choice.** D8 on the receiver graph and D-infinity are not the same operator, so equality is not expected; measured 0.988 on the 75 m Cheze DEM | `tests/unit/core/test_downslope_whitebox_golden.py` |
 | 60 | Downslope operator vs whitebox D-infinity | median relative gap | `0.20` | **Declared choice.** Same reason as row 59; also bounds the mean and the p90 ratios, measured 1.068 and 1.057 | The p90 is checked because a few long branches carry most of the criterion |
+| 61 | Dupuit seepage limit 1D (MF6) | seepage-limit position error | `10 m` | **Derived.** The finite drain conductance smears the tangency over the local saturated thickness `slope * x_e` = 4 m, and the cell mask quantises the limit to `dx / 2` = 2.5 m; the 6.5 m envelope is rounded up to 10 m (2.5 % of L) to absorb one cell flip (`validation_cases/analytical/steady/dupuit_seepage_limit_1d/tolerances.toml`) | Measured 5.0 m on the reference and both scaled scenarios, 1.7 m on the K-only control. The water table leaves the surface tangentially, so the crossing point is the ill-conditioned reading of an otherwise 6 mm-accurate profile |
+| 62 | Dupuit seepage limit 1D (MF6) | head-profile max abs error vs the closed form | `0.02 m` | **Derived.** A DRN cell only discharges above its elevation, so the seeping water table sits `(R/K + slope**2) * z` above the surface (6.4 mm at the divide relief of 7.95 m); that offset propagates upslope as a constant in `h**2` | Measured 6.2 mm (reference and both scaled scenarios) to 7.9 mm (K-only control); the band is 2.5x the worst case |
+| 63 | Dupuit seepage limit 1D, K/R invariance | water-table max abs difference across the K/R sweep | `2e-3 m` | **Derived.** IMS closes on an ABSOLUTE flux residual, so a 1e4 span on the forcing is not solved to one relative precision: the residual budget `n_cells * inner_rclose / (R * area)` allows 4e-4 on the x0.01 scenario, i.e. ~1.2e-3 m of head | Measured 1.1e-4 m (x0.01) and 1.1e-6 m (x100), masks identical cell for cell. 2e-3 m of head displaces the seepage limit by 2 m (0.4 cell): the head band cannot let the mask move |
+| 64 | Dupuit seepage limit 1D, K-only control | total drain-outflow relative drift | `1e-4` | **Derived.** Steady mass balance pins the drain outflow at `R * area` whatever K does; the only drift is the solver residual, bounded by `n_cells * inner_rclose / (R * area)` = 4e-6, so the band is 25x the numerical floor | Measured 5e-8 while a factor 2 on K alone moves 70 cells of the seepage mask. This row exists to document WHY the invariance is never asserted on the discharge |
 
 ## Update policy
 

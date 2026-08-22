@@ -1,0 +1,92 @@
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "Dupuit seepage limit validation"
+description = "Synthetic steady hillslope draining at the surface, closed on both sides."
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflow6"]
+
+[simulation.results.budget]
+spatial_fields = true
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_dupuit_seepage_limit"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "25.0 m"
+nx = 80
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 0.05
+right_to_left_amplitude = 7.9
+
+[domain]
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = 0.0
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "2.5e-4 m/s"
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+kind = "cauchy"
+value = "0.0 m2/s"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [8.64]
+runoff_ratio = 0.0
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-8
+mf6_inner_dvclose = 1e-9
+mf6_inner_rclose = 1e-11
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+
+[modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 80
+ny = 5
+resampling = "nearest"
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false
