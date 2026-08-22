@@ -1518,6 +1518,13 @@
           "type": "object",
           "x-hmp-profile": "dev"
         },
+        "overrides": {
+          "additionalProperties": true,
+          "description": "Configuration values this phase runs with, as dotted paths into the project configuration. The two stages of a stream-network calibration are one steady and one transient, which is a property of the model and not of the search, so a phase has to be able to say it.",
+          "title": "Overrides",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
         "scoring_window": {
           "anyOf": [
             {
