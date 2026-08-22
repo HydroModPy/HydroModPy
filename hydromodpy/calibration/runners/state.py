@@ -6,7 +6,8 @@ The functions in this module deal with the *out-of-loop* concerns:
 - params_hash cache preload from DuckDB,
 - input-file fingerprinting feeding the params_hash context,
 - helpers to translate a TOML calibration declaration into a runtime
-  :class:`ParameterSpace`.
+  :class:`ParameterSpace`,
+- :class:`SessionChain`, the place one session holds in a chain of phases.
 
 They are intentionally decoupled from the ask/tell loop so the CLI and
 programmatic runners can share the same plumbing.
@@ -18,6 +19,7 @@ import hashlib
 import importlib
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -39,6 +41,23 @@ def default_store_factory(workspace: Path, persistence: object) -> Any:
     from hydromodpy.results.catalog import Catalog
 
     return Catalog(workspace, persistence=persistence)
+
+
+@dataclass(frozen=True, slots=True)
+class SessionChain:
+    """Where one calibration session sits in a chain of phases.
+
+    A staged calibration writes one session per phase. These values travel
+    unchanged to ``CalibrationPersistence.start_session``, which records them
+    in ``session.json`` and in the index, so a rebuild gives the chain back.
+    The first phase of a chain is its own root and has no parent.
+    """
+
+    session_id: str
+    root_session_id: str
+    phase_name: str
+    phase_index: int
+    parent_session_id: str | None = None
 
 
 # ---------------------------------------------------------------------------

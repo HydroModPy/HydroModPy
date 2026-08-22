@@ -44,6 +44,7 @@ from hydromodpy.calibration.optim.promotion import promote_iterations
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
     CalibrationStoreFactory,
+    SessionChain,
     build_cache_context,
     default_store_factory,
     load_metric_fn_entry_point,
@@ -73,7 +74,8 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
+def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
+    """Return the validated ``[calibration]`` section of ``path`` and the raw TOML."""
     with open(path, "rb") as f:
         raw = tomllib.load(f)
     if "calibration" not in raw:
@@ -223,6 +225,7 @@ def run_calibration_core(
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
     store_factory: CalibrationStoreFactory | None = None,
+    chain: SessionChain | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop. Caller-agnostic.
 
@@ -234,6 +237,9 @@ def run_calibration_core(
     - building the :class:`ParameterSpace`,
     - providing ``cfg_path`` when ``cfg.materialize_candidates`` is True
       (overlays are derived from the on-disk TOML).
+
+    ``chain`` names the session and places it in a chain of phases. A
+    standalone calibration leaves it unset and gets a fresh session id.
     """
     from hydromodpy.calibration.persistence import CalibrationPersistence
     from hydromodpy.calibration.report import CalibrationReport
@@ -273,7 +279,7 @@ def run_calibration_core(
     use_api_isolation = _api_isolation_needed(cfg.parallel)
     _assert_bounds_valid(trial_ctx, space)
 
-    session_id = uuid.uuid4().hex
+    session_id = chain.session_id if chain is not None else uuid.uuid4().hex
     persistence.start_session(
         session_id=session_id,
         project=project_label,
@@ -281,6 +287,10 @@ def run_calibration_core(
         objective_name=cfg.objective,
         search_space=_search_space_payload(space),
         config=cfg.model_dump(),
+        parent_session_id=chain.parent_session_id if chain is not None else None,
+        root_session_id=chain.root_session_id if chain is not None else None,
+        phase_name=chain.phase_name if chain is not None else None,
+        phase_index=chain.phase_index if chain is not None else None,
     )
 
     optimizer = build_optimizer(
@@ -360,7 +370,13 @@ def run_calibration_core(
             metadata=meta,
         )
 
+    # An EvaluationResult carries no parameters, and a cache hit never reaches
+    # the evaluator, so the suggestion is the only place the values of a trial
+    # are seen. Keeping them is what lets the report name the best candidate.
+    values_by_trial: dict[int, dict[str, float]] = {}
+
     def on_iteration(sugg: ParamSuggestion, result: EvaluationResult) -> None:
+        values_by_trial[sugg.trial_id] = {k: float(v) for k, v in sugg.values.items()}
         persistence.append_iteration(
             session_id,
             sugg,
@@ -473,6 +489,7 @@ def run_calibration_core(
         n_iterations=len(session.history),
         best_objective=best.objective_value if best else None,
         best_sim_id=best_sim_id,
+        best_parameters=values_by_trial.get(best.trial_id) if best else None,
         duration_s=float(session.duration_s if session.duration_s else elapsed),
         save_runs=cfg.save_runs,
         promoted=promotion_count,
@@ -518,7 +535,7 @@ def run_calibration_cli(
         instead of its ``to_dict()`` payload.
     """
     cfg_path = Path(config_path).expanduser().resolve()
-    cfg, _raw = _load_toml_calibration(cfg_path)
+    cfg, _raw = load_toml_calibration(cfg_path)
     space = space_from_config(cfg)
     paths = resolve_override_paths(cfg)
 
@@ -549,4 +566,4 @@ def run_calibration_cli(
     return report.to_dict()
 
 
-__all__ = ["run_calibration_cli", "run_calibration_core"]
+__all__ = ["load_toml_calibration", "run_calibration_cli", "run_calibration_core"]

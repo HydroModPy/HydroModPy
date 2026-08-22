@@ -56,6 +56,10 @@ class CalibrationReport:
     best_sim_id
         UUID of the promoted best run when ``save_runs != "none"``,
         otherwise ``None``.
+    best_parameters
+        Physical values of the best candidate, keyed by calibrated parameter
+        name. ``None`` when no candidate was evaluated. A staged calibration
+        reads it to freeze what a phase calibrated.
     duration_s
         Wall-clock duration of the calibration loop in seconds.
     save_runs
@@ -76,6 +80,7 @@ class CalibrationReport:
     duration_s: float
     save_runs: str
     promoted: int
+    best_parameters: dict[str, float] | None = None
     workspace: Path | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     store_factory: Callable[[Path], Any] | None = field(
@@ -135,6 +140,8 @@ class CalibrationReport:
             "save_runs": self.save_runs,
             "promoted": int(self.promoted),
         }
+        if self.best_parameters is not None:
+            payload["best_parameters"] = dict(self.best_parameters)
         if self.workspace is not None:
             payload["workspace"] = str(self.workspace)
         if self.extra:
