@@ -1613,6 +1613,180 @@
         "title": "CalibParameterDecl",
         "type": "object"
       },
+      "CalibPhaseDecl": {
+        "additionalProperties": false,
+        "description": "One stage of a calibration that runs in several.\n\nA phase selects, by name, from the parameters, outputs and objective blocks\nthe calibration already declares: nothing is redeclared, so the two stages\nof a method cannot drift apart in a single file. What a phase carries of\nits own is its search: a method, a budget, and which parameters it is\nallowed to move.\n\n``freeze_on_success`` means the parameters this phase calibrated are held\nfixed for the phases that depend on it. It reads \"freeze if the phase\nconverged\", never \"freeze if the result is good\": a validity indicator\nqualifies a result, and a phase that returns a coarse agreement still\nreturns a number. The state of that indicator travels to the dependent\nphase and into the report, so a value calibrated on top of a doubtful one\ncarries the mention all the way out.",
+        "properties": {
+          "name": {
+            "description": "Phase identifier, unique in the calibration and used in the session directory and in the report.",
+            "examples": [
+              "example"
+            ],
+            "title": "Name",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "description": {
+            "default": "",
+            "description": "What this phase calibrates and against what, in one sentence.",
+            "examples": [
+              ""
+            ],
+            "title": "Description",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "method": {
+            "default": "grid",
+            "description": "Optimization method for this phase only.",
+            "examples": [
+              "grid"
+            ],
+            "title": "Method",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "max_iter": {
+            "default": 100,
+            "description": "Maximum number of evaluations for this phase.",
+            "examples": [
+              100
+            ],
+            "minimum": 1,
+            "title": "Max Iter",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "batch_size": {
+            "default": 1,
+            "description": "Suggestions drawn per ask. A root search returns one point at a time during its refinement, whatever this asks for.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Batch Size",
+            "type": "integer",
+            "x-hmp-profile": "dev"
+          },
+          "parallel": {
+            "default": 1,
+            "description": "Trials evaluated concurrently inside one batch.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Parallel",
+            "type": "integer",
+            "x-hmp-profile": "dev"
+          },
+          "parameters": {
+            "description": "Names of the calibration parameters this phase may move. Every other parameter keeps the value it entered the phase with.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Parameters",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "outputs": {
+            "description": "Names of the calibration outputs this phase scores on. Empty means every declared output.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Outputs",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "objective_blocks": {
+            "description": "Names of the objective blocks this phase evaluates. Empty means every declared block.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Objective Blocks",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "variable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Single-metric variable, when this phase does not use blocks.",
+            "title": "Variable",
+            "x-hmp-profile": "user"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Single-metric objective, when this phase does not use blocks.",
+            "title": "Objective",
+            "x-hmp-profile": "user"
+          },
+          "optimizer_kwargs": {
+            "additionalProperties": true,
+            "description": "Extra keyword arguments forwarded to this phase's optimizer.",
+            "title": "Optimizer Kwargs",
+            "type": "object",
+            "x-hmp-profile": "dev"
+          },
+          "scoring_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibScoringWindow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Dates bounding the samples this phase scores on.",
+            "x-hmp-profile": "user"
+          },
+          "depends_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the phase that must run first. Its frozen parameters enter this one as fixed values.",
+            "title": "Depends On",
+            "x-hmp-profile": "user"
+          },
+          "freeze_on_success": {
+            "default": true,
+            "description": "Hold the parameters this phase calibrated fixed for the phases that depend on it. Success means the phase converged, not that its validity indicator is good.",
+            "examples": [
+              true
+            ],
+            "title": "Freeze On Success",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "name",
+          "parameters"
+        ],
+        "title": "CalibPhaseDecl",
+        "type": "object"
+      },
       "CalibScoringWindow": {
         "additionalProperties": false,
         "description": "Dates bounding the samples a metric is computed on.\n\nA window in dates rather than in sample counts: it says the same thing\nwhatever the output frequency, whereas ``warmup_periods`` counts samples\nafter alignment and therefore means a different span at daily and at weekly\nresolution. The two are mutually exclusive, which\n:class:`CalibrationConfig` enforces.",
@@ -1718,6 +1892,23 @@
             ],
             "default": null,
             "description": "Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.",
+            "x-hmp-profile": "user"
+          },
+          "phases": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CalibPhaseDecl"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is None and not an empty list on purpose: the resume lock hashes the configuration with exclude_none, so an absent table leaves that hash untouched and checkpoints stay resumable.",
+            "title": "Phases",
             "x-hmp-profile": "user"
           },
           "seed": {

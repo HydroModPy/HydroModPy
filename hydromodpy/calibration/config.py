@@ -508,6 +508,96 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
 
 
+class CalibPhaseDecl(HydroModelBase):
+    """One stage of a calibration that runs in several.
+
+    A phase selects, by name, from the parameters, outputs and objective blocks
+    the calibration already declares: nothing is redeclared, so the two stages
+    of a method cannot drift apart in a single file. What a phase carries of
+    its own is its search: a method, a budget, and which parameters it is
+    allowed to move.
+
+    ``freeze_on_success`` means the parameters this phase calibrated are held
+    fixed for the phases that depend on it. It reads "freeze if the phase
+    converged", never "freeze if the result is good": a validity indicator
+    qualifies a result, and a phase that returns a coarse agreement still
+    returns a number. The state of that indicator travels to the dependent
+    phase and into the report, so a value calibrated on top of a doubtful one
+    carries the mention all the way out.
+    """
+
+    name: Annotated[NonEmptyStr, Profile.USER] = Field(
+        description="Phase identifier, unique in the calibration and used in the "
+        "session directory and in the report.",
+    )
+    description: Annotated[str, Profile.USER] = Field(
+        default="",
+        description="What this phase calibrates and against what, in one sentence.",
+    )
+    method: Annotated[CalibrationMethod, Profile.USER] = Field(
+        default="grid",
+        description="Optimization method for this phase only.",
+    )
+    max_iter: Annotated[int, Profile.USER] = Field(
+        default=100,
+        ge=1,
+        description="Maximum number of evaluations for this phase.",
+    )
+    batch_size: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        ge=1,
+        description="Suggestions drawn per ask. A root search returns one point at a "
+        "time during its refinement, whatever this asks for.",
+    )
+    parallel: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        ge=1,
+        description="Trials evaluated concurrently inside one batch.",
+    )
+    parameters: Annotated[list[str], Profile.USER] = Field(
+        min_length=1,
+        description="Names of the calibration parameters this phase may move. Every "
+        "other parameter keeps the value it entered the phase with.",
+    )
+    outputs: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description="Names of the calibration outputs this phase scores on. Empty "
+        "means every declared output.",
+    )
+    objective_blocks: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description="Names of the objective blocks this phase evaluates. Empty means "
+        "every declared block.",
+    )
+    variable: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Single-metric variable, when this phase does not use blocks.",
+    )
+    objective: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Single-metric objective, when this phase does not use blocks.",
+    )
+    optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
+        default_factory=dict,
+        description="Extra keyword arguments forwarded to this phase's optimizer.",
+    )
+    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+        default=None,
+        description="Dates bounding the samples this phase scores on.",
+    )
+    depends_on: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Name of the phase that must run first. Its frozen parameters "
+        "enter this one as fixed values.",
+    )
+    freeze_on_success: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Hold the parameters this phase calibrated fixed for the phases "
+        "that depend on it. Success means the phase converged, not that its validity "
+        "indicator is good.",
+    )
+
+
 class CalibrationConfig(HydroModelBase):
     """Top-level ``[calibration]`` section.
 
@@ -562,6 +652,17 @@ class CalibrationConfig(HydroModelBase):
         description=(
             "Dates bounding the samples every metric is computed on. Mutually "
             "exclusive with warmup_periods, which counts samples instead of dates."
+        ),
+    )
+    phases: Annotated[list[CalibPhaseDecl] | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Stages run one after the other, each calibrating its own parameters and "
+            "freezing them for the next. Declaring this table is what switches the "
+            "runner to staged mode; without it nothing changes for an existing "
+            "configuration. The default is None and not an empty list on purpose: the "
+            "resume lock hashes the configuration with exclude_none, so an absent "
+            "table leaves that hash untouched and checkpoints stay resumable."
         ),
     )
     seed: Annotated[int | None, Profile.USER] = Field(
@@ -677,6 +778,100 @@ class CalibrationConfig(HydroModelBase):
         return PurePosixPath(str(value).replace("\\", "/"))
 
     @model_validator(mode="after")
+    def _check_phases(self) -> CalibrationConfig:
+        """Refuse a phase table that cannot run, before the first solve."""
+        phases = self.phases or []
+        if not phases:
+            return self
+
+        seen: list[str] = []
+        for phase in phases:
+            if phase.name in seen:
+                raise ValueError(f"phase {phase.name!r} is declared twice.")
+            seen.append(phase.name)
+
+        declared_parameters = set(self.parameters)
+        declared_outputs = set(self.outputs)
+        declared_blocks = {block.name for block in self.objective_blocks}
+        frozen_by: dict[str, str] = {}
+
+        for index, phase in enumerate(phases):
+            unknown = sorted(set(phase.parameters) - declared_parameters)
+            if unknown:
+                raise ValueError(
+                    f"phase {phase.name!r} calibrates undeclared parameter(s) {unknown}; "
+                    f"declared: {sorted(declared_parameters)}."
+                )
+            for parameter in phase.parameters:
+                path = self.parameters[parameter].resolve_target()
+                if not path:
+                    raise ValueError(
+                        f"phase {phase.name!r} calibrates {parameter!r}, which declares "
+                        "no path into the configuration, so nothing would be injected."
+                    )
+                if phase.freeze_on_success:
+                    owner = frozen_by.get(path)
+                    if owner is not None:
+                        raise ValueError(
+                            f"phases {owner!r} and {phase.name!r} both freeze {path!r}; "
+                            "the second would overwrite what the first calibrated."
+                        )
+                    frozen_by[path] = phase.name
+
+            unknown_outputs = sorted(set(phase.outputs) - declared_outputs)
+            if unknown_outputs:
+                raise ValueError(
+                    f"phase {phase.name!r} scores on undeclared output(s) {unknown_outputs}."
+                )
+            unknown_blocks = sorted(set(phase.objective_blocks) - declared_blocks)
+            if unknown_blocks:
+                raise ValueError(
+                    f"phase {phase.name!r} uses undeclared objective block(s) {unknown_blocks}."
+                )
+
+            if phase.depends_on is not None:
+                if phase.depends_on not in seen[:index]:
+                    raise ValueError(
+                        f"phase {phase.name!r} depends on {phase.depends_on!r}, which is "
+                        "not declared before it."
+                    )
+            if phase.scoring_window is not None and self.warmup_periods:
+                raise ValueError(
+                    f"phase {phase.name!r} declares a scoring_window while the "
+                    "calibration declares warmup_periods; pick one convention."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _check_network_criterion_is_paired(self) -> CalibrationConfig:
+        """The signed-gap metric and a network output only make sense together."""
+        network_outputs = {
+            name for name, output in self.outputs.items() if output.support == "network"
+        }
+        distance_blocks = {
+            block.name
+            for block in self.objective_blocks
+            if block.metric in ("distance_gap", "distance_mean")
+        }
+        for block in self.objective_blocks:
+            if block.name not in distance_blocks:
+                continue
+            without = sorted(set(block.uses_outputs) - network_outputs)
+            if without:
+                raise ValueError(
+                    f"block {block.name!r} scores {block.metric!r} on {without}, which "
+                    "is not a network output. That metric reads the pair (D_so, D_os) "
+                    "only a network output produces."
+                )
+        if network_outputs and not distance_blocks and self.objective_blocks:
+            raise ValueError(
+                f"the network output(s) {sorted(network_outputs)} produce the pair "
+                "(D_so, D_os), which only 'distance_gap' or 'distance_mean' can read; "
+                "no block declares either."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _refuse_two_burn_in_conventions(self) -> CalibrationConfig:
         """A window in dates and a count of samples must not both be declared.
 
@@ -740,6 +935,7 @@ __all__ = [
     "CalibOutputCell",
     "CalibOutputLake",
     "CalibOutputNetwork",
+    "CalibPhaseDecl",
     "CalibObjectiveBlockDecl",
     "SaveRunsMode",
     "ParameterMode",

@@ -551,6 +551,8 @@ Sub-models are linked back to their per-section page.
       warmup_periods = 0
       # Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.
       # scoring_window = ...  # default = None
+      # Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is None and not an empty list on purpose: the resume lock hashes the configuration with exclude_none, so an absent table leaves that hash untouched and checkpoints stay resumable.
+      # phases = ...  # default = None
       # Random seed for reproducibility.
       # seed = ...  # default = None
       # How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included).

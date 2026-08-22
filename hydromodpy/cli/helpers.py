@@ -32,10 +32,10 @@ EXIT_VALIDATION = 16
 EXIT_CROSS_PROJECTS = 17
 EXIT_BACKUP_FAILED = 18
 EXIT_MIGRATION_FAILED = 19
-# The 10..19 band is fully assigned above, so this new category takes 20.
-# CLAUDE.md documents the range as 10..19; the extra slot is intentional and
-# tracked for the doc update.
+# The 10..19 band is fully assigned above, so the categories added since take
+# the following slots. CLAUDE.md documents the band as 10..21.
 EXIT_AMBIGUOUS_REFERENCE = 20
+EXIT_CALIBRATION = 21
 EXIT_SIGINT = 130
 
 
@@ -47,6 +47,7 @@ def exit_code_for(exc: BaseException) -> int:
     """
     from hydromodpy.core.exceptions import (
         BackupFailedError,
+        CalibrationError,
         ConfigError,
         ConfigMissingError,
         CrossProjectsError,
@@ -81,6 +82,10 @@ def exit_code_for(exc: BaseException) -> int:
         (CrossProjectsError, EXIT_CROSS_PROJECTS),
         (BackupFailedError, EXIT_BACKUP_FAILED),
         (MigrationFailedError, EXIT_MIGRATION_FAILED),
+        # Last of the list on purpose: CalibrationError is a sibling of the
+        # others, but ObjectiveError and OptimizerError derive from it, so a
+        # more specific mapping would have to come before this one.
+        (CalibrationError, EXIT_CALIBRATION),
     )
     for exc_type, code in mapping:
         if isinstance(exc, exc_type):
