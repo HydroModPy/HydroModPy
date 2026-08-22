@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.results.calibration_trials import calibration_trials
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -82,9 +83,7 @@ class CalibrationLandscapeFigure(BaseFigure):
         import matplotlib.pyplot as plt
         import pandas as pd
 
-        iters = getattr(sim, "calibration_iterations", None)
-        if iters is None:
-            raise ValueError("calibration_landscape: simulation has no calibration_iterations")
+        iters = calibration_trials(sim)
         df = pd.DataFrame(iters)
         if session_id is not None and "session_id" in df.columns:
             df = df[df["session_id"].astype(str) == str(session_id)]

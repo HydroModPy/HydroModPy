@@ -8,6 +8,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.results.calibration_trials import calibration_trials
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -40,8 +41,8 @@ class CalibrationConvergenceFigure(BaseFigure):
         except (KeyError, AttributeError):
             df = None
         if df is None or len(df) == 0:
-            if hasattr(sim, "calibration_iterations"):
-                df = sim.calibration_iterations  # type: ignore[attr-defined]
+            # No objective series was recorded: read the trials themselves.
+            df = calibration_trials(sim)
         if df is None or len(df) == 0:
             raise ValueError("calibration_convergence: no iteration data available")
         values = np.asarray(getattr(df, "values", df), dtype=float)

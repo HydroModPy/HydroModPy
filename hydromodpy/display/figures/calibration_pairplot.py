@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.results.calibration_trials import calibration_trials
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -57,9 +58,7 @@ class CalibrationPairplotFigure(BaseFigure):
         import matplotlib.pyplot as plt
         import pandas as pd
 
-        iters = getattr(sim, "calibration_iterations", None)
-        if iters is None:
-            raise ValueError("calibration_pairplot: simulation has no calibration_iterations")
+        iters = calibration_trials(sim)
         df = pd.DataFrame(iters)
         if parameters is None:
             parameters = [c for c in df.columns if c not in {objective, "iter", "i"}]
