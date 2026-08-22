@@ -87,7 +87,41 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     raw = load_toml_with_base_config(path)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
-    return CalibrationConfig.model_validate(raw["calibration"]), raw
+    cfg = CalibrationConfig.model_validate(raw["calibration"])
+    _resolve_stream_geometry_paths(cfg, path)
+    return cfg, raw
+
+
+def _resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
+    """Anchor every relative ``stream_geometry_path`` to the file that declares it.
+
+    A path in a TOML is relative to that TOML, the way ``base_config`` is, and a
+    bare filename falls back to ``<project>/data/hydrography/`` like every other
+    data path. Reading it against the working directory instead made the run
+    depend on where it was launched from.
+
+    A path that resolves to nothing is left exactly as declared. Loading a
+    configuration must not require its data to be present: ``--list-phases`` has
+    to work on a machine that holds none of it, and the criterion already names
+    the file it could not read.
+    """
+    base = config_path.expanduser().resolve().parent
+    for output in cfg.outputs.values():
+        declared = getattr(output, "stream_geometry_path", None)
+        if not declared or Path(declared).is_absolute():
+            continue
+        candidate = Path(declared)
+        found = next(
+            (
+                trial
+                for root in (base, base.parent, base.parent.parent)
+                for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
+                if trial.exists()
+            ),
+            None,
+        )
+        if found is not None:
+            output.stream_geometry_path = str(found.resolve())
 
 
 def _api_isolation_needed(parallel: int) -> bool:
