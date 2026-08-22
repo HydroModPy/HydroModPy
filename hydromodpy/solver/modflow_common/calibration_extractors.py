@@ -10,7 +10,8 @@ helpers are reused across the two backends.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -93,6 +94,16 @@ def _read_itmuni_from_dis(dis_path: Path) -> int:
     return 1
 
 
+def _resolve_cbc_path(output_dir: Path, model_name: str) -> Path:
+    """Return the cell-by-cell budget written by either backend."""
+    cbc_path = output_dir / f"{model_name}.cbc"
+    if not cbc_path.exists():
+        cbc_path = output_dir / f"{model_name}.cbb"
+    if not cbc_path.exists():
+        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
+    return cbc_path
+
+
 def extract_discharge_from_cbc(
     output_dir: Path,
     model_name: str,
@@ -109,12 +120,7 @@ def extract_discharge_from_cbc(
     """
     import flopy.utils.binaryfile as bf
 
-    cbc_path = output_dir / f"{model_name}.cbc"
-    if not cbc_path.exists():
-        cbc_path = output_dir / f"{model_name}.cbb"
-    if not cbc_path.exists():
-        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
-
+    cbc_path = _resolve_cbc_path(output_dir, model_name)
     seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
     cbb = bf.CellBudgetFile(str(cbc_path))
@@ -162,115 +168,153 @@ def _find_drain_component(cbb: object) -> str:
     return drain_key
 
 
-def drain_budget_array_to_positive_outflow_by_cell(
-    component_field: object,
-    *,
-    n_cells: int | None = None,
-) -> np.ndarray:
-    """Convert one signed DRAIN budget array to positive per-cell outflow.
+@dataclass(frozen=True)
+class ReleasePackage:
+    """One MODFLOW package able to release groundwater to the surface.
 
-    MODFLOW budgets usually store groundwater release to drains as negative
-    fluxes. Some derived arrays are already positive; when no negative finite
-    value exists but positive finite values do, the helper keeps the positive
-    convention. If ``n_cells`` is provided, leading dimensions are summed as
-    layers/stress-period components for the same cell support.
+    ``record_aliases`` are the CBC record names the two backends write for that
+    package. ``cell_mask`` restricts it to the cells carrying the release role,
+    which is what separates a stream CHD from an ocean or a side CHD inside the
+    single CHD package MF6 writes.
+    """
+
+    name: str
+    record_aliases: tuple[str, ...]
+    cell_mask: np.ndarray | None = None
+
+
+def _normalize_record_name(record_name: str) -> str:
+    return " ".join(str(record_name).strip().upper().split())
+
+
+def _resolve_release_record(package: ReleasePackage, record_names: Sequence[str]) -> str:
+    """Return the CBC record of one package, padding included, or refuse by name.
+
+    An active package whose record is absent is a missing observation, not a
+    zero release: read as zero it would turn a seeping reach into dry land.
+
+    The padded name is returned as FloPy stores it because FloPy resolves a
+    record by substring: stripped, ``DRN`` also matches ``DRN-TO-MVR``, and the
+    two would read the same array.
+    """
+    aliases = {_normalize_record_name(alias) for alias in package.record_aliases}
+    for name in record_names:
+        if _normalize_record_name(name) in aliases:
+            return name
+    raise KeyError(
+        f"package {package.name} is active on this run but none of its budget records "
+        f"{sorted(aliases)} is in the CBC, whose records are "
+        f"{[_normalize_record_name(name) for name in record_names]}. "
+        "A missing record is a missing observation, not a zero release."
+    )
+
+
+def _positive_release_by_cell(component_field: object, *, n_cells: int | None) -> np.ndarray:
+    """Positive per-cell release read off one signed budget array.
+
+    MODFLOW signs a budget from the aquifer's point of view, so negative is
+    water leaving it. Water entering the aquifer (a losing reach, an
+    infiltrating boundary) releases nothing and clamps to zero. When
+    ``n_cells`` is given, the leading dimensions are summed as layers onto the
+    cell support.
     """
 
     field = np.asarray(component_field, dtype=float)
-    if field.size == 0:
-        return np.zeros(0, dtype="float64")
-    finite = np.isfinite(field)
-    signed = np.where(finite, field, 0.0)
+    signed = np.where(np.isfinite(field), field, 0.0)
     positive = np.maximum(-signed, 0.0)
-    if (
-        np.any(finite)
-        and not np.any(positive[finite] > 0.0)
-        and np.any(signed[finite] > 0.0)
-        and not np.any(signed[finite] < 0.0)
-    ):
-        positive = np.where(finite, signed, 0.0)
-
     if n_cells is None:
         return positive.reshape(-1).astype("float64", copy=False)
-
-    n_cells_int = int(n_cells)
-    if n_cells_int <= 0:
+    width = int(n_cells)
+    if width <= 0:
         raise ValueError("n_cells must be > 0 when provided.")
-    if positive.size % n_cells_int != 0:
+    if positive.size % width != 0:
         raise ValueError(
-            "DRAIN budget array size must be a multiple of n_cells "
-            f"({positive.size} % {n_cells_int} != 0)."
+            "release budget array size must be a multiple of n_cells "
+            f"({positive.size} % {width} != 0)."
         )
-    return positive.reshape(-1, n_cells_int).sum(axis=0).astype("float64", copy=False)
+    return positive.reshape(-1, width).sum(axis=0).astype("float64", copy=False)
 
 
-def extract_drain_outflow_by_cell_from_cbc(
+def extract_release_flux_by_cell_from_cbc(
     output_dir: Path,
     model_name: str,
     *,
+    packages: Sequence[ReleasePackage],
     time_index: pd.DatetimeIndex | None = None,
     n_cells: int | None = None,
 ) -> pd.DataFrame:
-    """Return positive DRAIN outflow by timestep and cell in m3/s.
+    """Return positive per-cell release to the surface, by timestep, in m3/s.
+
+    The release is the union of the declared packages: DRN where the hillslope
+    seeps, SFR where a reach drains the aquifer, CHD where a stream boundary
+    holds the head. They are summed onto the same cell index, so a cell served
+    by two packages carries their total once.
 
     The returned frame has one row per CBC timestep and integer cell columns.
-    For single-layer B0 runs, ``n_cells`` can be omitted because the full DRAIN
-    array is already the cell support. For multi-layer outputs, pass
-    ``n_cells`` so layers are summed onto the cell index.
+    For single-layer runs ``n_cells`` can be omitted; pass it for multi-layer
+    outputs so the layers are summed onto the cell index.
     """
 
     import flopy.utils.binaryfile as bf
 
-    cbc_path = output_dir / f"{model_name}.cbc"
-    if not cbc_path.exists():
-        cbc_path = output_dir / f"{model_name}.cbb"
-    if not cbc_path.exists():
-        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
+    if not packages:
+        raise ValueError("extract_release_flux_by_cell_from_cbc needs at least one package.")
 
+    cbc_path = _resolve_cbc_path(output_dir, model_name)
     seconds_per_unit = _resolve_seconds_per_unit(output_dir, model_name)
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
-        drain_key = _find_drain_component(cbb)
+        record_names = [r.decode() for r in cbb.get_unique_record_names()]
+        keyed = [(package, _resolve_release_record(package, record_names)) for package in packages]
         times = cbb.get_times()
         kstpkpers = cbb.get_kstpkper()
+        width = int(n_cells) if n_cells is not None else None
         rows: list[np.ndarray | None] = []
-        detected_n_cells = int(n_cells) if n_cells is not None else None
 
         for time, ksk in zip(times, kstpkpers, strict=False):
-            try:
-                data = cbb.get_data(text=drain_key, kstpkper=ksk, totim=time, full3D=True)
-            except Exception:
-                data = None
-            if not data:
-                rows.append(None)
-                continue
-            vec = drain_budget_array_to_positive_outflow_by_cell(
-                data[0],
-                n_cells=detected_n_cells,
-            )
-            if detected_n_cells is None:
-                detected_n_cells = int(vec.size)
-            elif vec.size != detected_n_cells:
-                raise ValueError(
-                    "DRAIN per-cell vector length changed across timesteps "
-                    f"({vec.size} != {detected_n_cells})."
-                )
-            rows.append(vec / seconds_per_unit)
+            total: np.ndarray | None = None
+            for package, key in keyed:
+                # A package can hold no row at a given timestep; that step is a
+                # real zero for it, unlike a record missing from the whole file.
+                try:
+                    data = cbb.get_data(text=key, kstpkper=ksk, totim=time, full3D=True)
+                except Exception:
+                    data = None
+                if not data:
+                    continue
+                vec = _positive_release_by_cell(data[0], n_cells=width)
+                if width is None:
+                    width = int(vec.size)
+                elif vec.size != width:
+                    raise ValueError(
+                        f"{package.name} per-cell vector length changed across timesteps "
+                        f"({vec.size} != {width})."
+                    )
+                if package.cell_mask is not None:
+                    mask = np.asarray(package.cell_mask, dtype=bool).reshape(-1)
+                    if mask.size != vec.size:
+                        raise ValueError(
+                            f"{package.name} cell mask holds {mask.size} cells where the "
+                            f"budget holds {vec.size}."
+                        )
+                    vec = np.where(mask, vec, 0.0)
+                total = vec if total is None else total + vec
+            rows.append(total)
     finally:
         cbb.close()
 
-    if detected_n_cells is None:
-        raise KeyError("No readable DRAIN data array was found in the CBC file.")
+    if width is None:
+        raise KeyError("No readable release budget array was found in the CBC file.")
 
     filled_rows = [
-        np.zeros(detected_n_cells, dtype="float64") if row is None else row for row in rows
+        np.zeros(width, dtype="float64") if row is None else row / seconds_per_unit for row in rows
     ]
     if time_index is not None and len(time_index) == len(filled_rows):
-        index = time_index
+        index: pd.Index = time_index
     else:
         index = pd.Index(times, name="totim")
-    return pd.DataFrame(filled_rows, index=index, columns=np.arange(detected_n_cells))
+    return pd.DataFrame(filled_rows, index=index, columns=np.arange(width))
 
 
 def extract_head_from_hds(
@@ -376,9 +420,9 @@ def extract_saturated_thickness_by_cell_from_hds(
 
 
 __all__ = [
-    "drain_budget_array_to_positive_outflow_by_cell",
+    "ReleasePackage",
     "extract_discharge_from_cbc",
-    "extract_drain_outflow_by_cell_from_cbc",
     "extract_head_from_hds",
+    "extract_release_flux_by_cell_from_cbc",
     "extract_saturated_thickness_by_cell_from_hds",
 ]

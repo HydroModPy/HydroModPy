@@ -26,9 +26,10 @@ from hydromodpy.core.contracts.observables import (
 )
 from hydromodpy.solver.base.observables import field_observable, series_observable
 from hydromodpy.solver.modflow_common.calibration_extractors import (
+    ReleasePackage,
     extract_discharge_from_cbc,
-    extract_drain_outflow_by_cell_from_cbc,
     extract_head_from_hds,
+    extract_release_flux_by_cell_from_cbc,
     extract_saturated_thickness_by_cell_from_hds,
 )
 
@@ -37,6 +38,11 @@ StationCellMapper = Callable[[Mapping[str, tuple[int, int, int]]], dict[str, tup
 _DISCHARGE_UNITS = "m3 s-1"
 _HEAD_UNITS = "m"
 _THICKNESS_UNITS = "m"
+
+_DRAIN_RECORDS = ("DRN", "DRAIN", "DRAINS")
+_DRAIN_TO_MOVER_RECORDS = ("DRN-TO-MVR",)
+_STREAM_RECORDS = ("SFR",)
+_CONSTANT_HEAD_RECORDS = ("CHD", "CONSTANT HEAD")
 
 
 def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Path, Any, str]:
@@ -60,6 +66,71 @@ def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Pat
     if model_name is None:
         raise RuntimeError(f"Model name is missing for run {ctx.run.id!r}")
     return Path(output_dir), model, str(model_name)
+
+
+def _stream_role_cells(model: Any) -> np.ndarray | None:
+    """Cells whose CHD rows carry the stream role, as the builder recorded them.
+
+    The MF6 build stores the mask it used to place the stream boundary, and it
+    is the only thing that tells a stream CHD apart from an ocean or a side CHD
+    once they share a single package in the budget.
+    """
+    mask = getattr(model, "_stream_support_mask", None)
+    if mask is None:
+        return None
+    flat = np.asarray(mask, dtype=bool).reshape(-1)
+    return flat if bool(flat.any()) else None
+
+
+def _drain_routes_to_mover(model: Any) -> bool:
+    """True when the DRN package hands part of its flux to the water mover.
+
+    MF6 subtracts the moved flux from the DRN term of the model budget, so DRN
+    and DRN-TO-MVR are disjoint halves of one seepage, never a total and its
+    subset. Only the MF6 package carries the option; the NWT drain has no
+    ``mover`` attribute and answers False.
+    """
+    mover = getattr(getattr(model, "drn", None), "mover", None)
+    if mover is None:
+        return False
+    return bool(mover.get_data())
+
+
+def release_packages_for_model(model: Any) -> list[ReleasePackage]:
+    """Declare the packages that release groundwater to the surface on this run.
+
+    The builder drops the DRN rows of every cell an SFR reach or a stream-role
+    CHD already owns, so reading DRN alone reports dry land exactly where a
+    stream-network calibration aims. Under ``route_drainage`` the seepage of a
+    hillslope cell also leaves the DRN term for DRN-TO-MVR, which is why that
+    record joins the union whenever the DRN package feeds the mover. A package
+    the run never built is skipped; a package it built keeps its record
+    mandatory downstream.
+    """
+    packages: list[ReleasePackage] = []
+    if getattr(model, "drn", None) is not None:
+        packages.append(ReleasePackage(name="DRN", record_aliases=_DRAIN_RECORDS))
+        if _drain_routes_to_mover(model):
+            packages.append(
+                ReleasePackage(name="DRN-TO-MVR", record_aliases=_DRAIN_TO_MOVER_RECORDS)
+            )
+    if getattr(model, "sfr", None) is not None:
+        packages.append(ReleasePackage(name="SFR", record_aliases=_STREAM_RECORDS))
+    stream_cells = _stream_role_cells(model)
+    if getattr(model, "chd", None) is not None and stream_cells is not None:
+        packages.append(
+            ReleasePackage(
+                name="CHD",
+                record_aliases=_CONSTANT_HEAD_RECORDS,
+                cell_mask=stream_cells,
+            )
+        )
+    if not packages:
+        raise RuntimeError(
+            "release_flux needs a package that releases groundwater to the surface, and "
+            "this run declares no DRN, no SFR and no stream-role CHD."
+        )
+    return packages
 
 
 def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
@@ -128,9 +199,10 @@ def extract_common_modflow_observables(
             served[request.id] = series_observable(request, series, units=_HEAD_UNITS)
 
     if release_requests:
-        frame = extract_drain_outflow_by_cell_from_cbc(
+        frame = extract_release_flux_by_cell_from_cbc(
             output_dir,
             model_name,
+            packages=release_packages_for_model(model),
             time_index=time_index,
             n_cells=_n_cells(model),
         )
@@ -163,5 +235,6 @@ def _n_cells(model: Any) -> int | None:
 
 __all__ = (
     "extract_common_modflow_observables",
+    "release_packages_for_model",
     "resolve_run_output",
 )
