@@ -191,7 +191,12 @@ def write_natural_observation_package(
     warmup_periods: int = 0,
     scored_periods: int | None = None,
 ) -> NaturalObservationPackageSummary:
-    """Write a natural observation package with B0-compatible aliases."""
+    """Write a natural observation package.
+
+    The B0-compatible aliases are the active mask and the transient discharge
+    table. Observed hydrography carries no per-cell reference flux, so no
+    ``steady_network_drain_by_cell`` file is written.
+    """
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -273,14 +278,12 @@ def write_natural_observation_package(
     )
     metadata_out.setdefault("discharge_observable", "observed_streamflow_nse_log")
 
-    pseudo_ref = obs_mask.astype("float64")
     np.savez_compressed(out_dir / "observed_network_active_mask.npz", active_mask=obs_mask)
     np.savez_compressed(
         out_dir / "observed_network_distance_by_cell.npz",
         distance_to_network=distance_arr,
     )
     np.savez_compressed(out_dir / "steady_network_active_mask.npz", active_mask=obs_mask)
-    np.savez_compressed(out_dir / "steady_network_drain_by_cell.npz", outflow_drain=pseudo_ref)
     np.savez_compressed(
         out_dir / "cell_geometry.npz", centroids=centroids_arr, cell_area=cell_area_arr
     )

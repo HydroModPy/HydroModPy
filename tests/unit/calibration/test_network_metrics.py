@@ -137,3 +137,50 @@ def test_component_weights_are_normalized() -> None:
     assert out.components["weight_flux"] == pytest.approx(0.4)
     assert out.components["weight_dist"] == pytest.approx(0.4)
     assert out.components["weight_len"] == pytest.approx(0.2)
+
+
+def test_binary_reference_is_refused_where_a_flux_is_required() -> None:
+    centroids, cell_area = _grid_5x5()
+    mask_ref = np.zeros((5, 5), dtype=float)
+    mask_ref[:, 2] = 1.0
+    ref = mask_ref.reshape(-1)
+    sim = _reference_network()
+
+    with pytest.raises(ValueError, match="binary 0/1 mask"):
+        network_flux_error(sim, ref)
+    with pytest.raises(ValueError, match="per-cell drainage outflow"):
+        network_cost(sim, ref, centroids, cell_area, d_tol=1.0)
+
+
+def test_binary_reference_message_reports_what_it_got_and_what_it_needed() -> None:
+    ref = np.array([0.0, 1.0, 0.0, 1.0])
+    sim = np.array([0.0, 2.5, 0.0, 1.5])
+
+    with pytest.raises(ValueError) as excinfo:
+        network_flux_error(sim, ref)
+
+    message = str(excinfo.value)
+    assert "4 cells" in message
+    assert "2 active" in message
+    assert "per-cell drainage outflow" in message
+
+
+def test_natural_observation_package_writes_no_flux_named_mask(tmp_path) -> None:
+    from hydromodpy.calibration.observations.natural_observations import (
+        write_natural_observation_package,
+    )
+
+    centroids = np.column_stack([np.arange(5, dtype=float), np.zeros(5)])
+    write_natural_observation_package(
+        tmp_path,
+        observed_q_total_release=np.array([1.0, 1.2, 0.9]),
+        observed_network_mask=np.array([False, True, True, False, False]),
+        observed_network_distance_by_cell=np.array([1.0, 0.0, 0.0, 1.0, 2.0]),
+        centroids=centroids,
+        cell_area=np.ones(5),
+        d_tol=1.0,
+    )
+
+    assert not (tmp_path / "steady_network_drain_by_cell.npz").exists()
+    assert (tmp_path / "steady_network_active_mask.npz").is_file()
+    assert (tmp_path / "observed_network_active_mask.npz").is_file()

@@ -98,7 +98,8 @@ def test_write_natural_package_and_score_identity(tmp_path: Path) -> None:
     assert metadata["package_type"] == "natural_observation_package"
     assert metadata["discharge_observable"] == "observed_streamflow_nse_log"
     assert normalization["discharge_metric"] == "nse_log"
-    assert (tmp_path / "steady_network_drain_by_cell.npz").is_file()
+    assert not (tmp_path / "steady_network_drain_by_cell.npz").exists()
+    assert (tmp_path / "steady_network_active_mask.npz").is_file()
     assert (tmp_path / "transient_q_total_release.csv").is_file()
     assert (tmp_path / "observed_network_distance_by_cell.npz").is_file()
 
