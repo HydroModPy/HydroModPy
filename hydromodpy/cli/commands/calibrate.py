@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from hydromodpy.cli._conventions import profile_parser
 from hydromodpy.cli.helpers import (
+    EXIT_CALIBRATION,
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
@@ -21,6 +22,7 @@ from hydromodpy.cli.helpers import (
     profile_run,
     resolve_profile_output,
 )
+from hydromodpy.core.exceptions import CalibrationError
 
 NAME: str = "calibrate"
 HELP: str = "Run a calibration workflow from a TOML config"
@@ -29,6 +31,17 @@ HELP: str = "Run a calibration workflow from a TOML config"
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser()])
     parser.add_argument("config", type=Path, help="Path to a calibration TOML file")
+    parser.add_argument(
+        "--phase",
+        default=None,
+        help="Run only this phase of a staged calibration. Its dependency must have "
+        "run, otherwise the phase would calibrate against un-frozen parameters.",
+    )
+    parser.add_argument(
+        "--list-phases",
+        action="store_true",
+        help="List the declared phases and exit without running anything.",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -52,10 +65,23 @@ def run(args: argparse.Namespace) -> None:
             profile_arg = profile_arg_from_toml(load_toml_with_base_config(target))
         except Exception:
             profile_arg = None
+    if args.list_phases:
+        try:
+            phases = hmp.calibrate(target, list_phases=True)
+        except ValidationError as exc:
+            print(f"Config invalid: {exc}", file=sys.stderr)
+            sys.exit(EXIT_CONFIG)
+        if not phases:
+            print(f"{target.name} declares no phases.", file=sys.stderr)
+            return
+        for index, phase in enumerate(phases):
+            print(f"{index}\t{phase['name']}\t{phase['method']}\t{phase['description']}")
+        return
+
     profile_output = resolve_profile_output(profile_arg, target)
     try:
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
-            result = hmp.calibrate(target)
+            result = hmp.calibrate(target, phase=args.phase)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
@@ -65,6 +91,9 @@ def run(args: argparse.Namespace) -> None:
     except FileNotFoundError as exc:
         print(f"Missing file: {exc}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+    except CalibrationError as exc:
+        print(f"Calibration failed: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CALIBRATION)
 
     print(f"Calibration finished: {target.name}", file=sys.stderr)
     if result is None:

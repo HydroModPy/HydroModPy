@@ -25,7 +25,6 @@ covers the standard NSE / KGE / RMSE cases.
 from __future__ import annotations
 
 import time
-import tomllib
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -75,9 +74,16 @@ logger = get_logger(__name__)
 
 
 def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
-    """Return the validated ``[calibration]`` section of ``path`` and the raw TOML."""
-    with open(path, "rb") as f:
-        raw = tomllib.load(f)
+    """Return the validated ``[calibration]`` section of ``path`` and the raw TOML.
+
+    Read through ``base_config`` resolution, the same way the pipeline reads the
+    file. Reading it raw instead made a ``[calibration]`` section inherited from
+    a base configuration invisible here while the pipeline resolved it, so a
+    calibration overlay of two lines failed on "No [calibration] section".
+    """
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    raw = load_toml_with_base_config(path)
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
     return CalibrationConfig.model_validate(raw["calibration"]), raw
