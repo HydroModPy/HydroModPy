@@ -54,6 +54,7 @@ from hydromodpy.calibration.runners.state import (
     override_paths as resolve_override_paths,
 )
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
+from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -195,7 +196,7 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     try:
         return CalibrationConfig.model_validate(payload)
     except ValidationError as exc:
-        raise ValueError(
+        raise ConfigValidationError(
             f"phase {decl.name!r} does not describe a runnable calibration: {exc}"
         ) from exc
 
@@ -266,7 +267,7 @@ def _frozen_by(
     values = report.best_parameters or {}
     missing = [name for name in decl.parameters if name not in values]
     if missing:
-        raise ValueError(
+        raise CalibrationError(
             f"phase {decl.name!r} converged but its best candidate carries no value for "
             f"{missing}; there is nothing to freeze for the phases that depend on it."
         )
@@ -288,7 +289,7 @@ def _phases_to_run(
     """Return the declared phases to run, in declaration order."""
     declared = cfg.phases or []
     if not declared:
-        raise ValueError(
+        raise CalibrationError(
             "the calibration declares no [[calibration.phases]]; run it through "
             "run_calibration_cli instead."
         )
@@ -297,7 +298,7 @@ def _phases_to_run(
         return ordered
     selected = [item for item in ordered if item[1].name == phase]
     if not selected:
-        raise ValueError(
+        raise CalibrationError(
             f"unknown phase {phase!r}; the calibration declares {[item.name for item in declared]}."
         )
     return selected
@@ -313,7 +314,7 @@ def _require_dependency(decl: CalibPhaseDecl, ran: set[str]) -> None:
     """
     if decl.depends_on is None or decl.depends_on in ran:
         return
-    raise ValueError(
+    raise CalibrationError(
         f"phase {decl.name!r} depends on {decl.depends_on!r}, which did not run in this "
         f"invocation, so the values {decl.depends_on!r} freezes are missing. Running "
         f"{decl.name!r} alone would calibrate it against un-frozen parameters. Run the "
