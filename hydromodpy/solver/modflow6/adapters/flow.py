@@ -7,33 +7,35 @@ shared flow execution lifecycle lives in
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from pathlib import Path
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import pandas as pd
 
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from hydromodpy.solver.base.observables import series_observable
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
-from hydromodpy.solver.modflow_common.calibration_extractors import (
-    extract_discharge_from_cbc,
-    extract_head_from_hds,
-)
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     build_preprocess_options,
     resolve_run_model_name,
     run_flow_model,
 )
+from hydromodpy.solver.modflow_common.observable_extraction import (
+    extract_common_modflow_observables,
+    resolve_run_output,
+)
 
-# Calibration variable -> LAK observation state. The variable carries the quantity
-# because the adapter Protocol takes one ``variable`` string, not a quantity kwarg;
-# every entry must stay a state ``extract_lake_series`` accepts.
-_LAKE_CALIB_QUANTITIES: dict[str, str] = {
-    "lake_stage": "stage",
-    "lake_volume": "volume",
-    "lake_surface_area": "surface_area",
+# LAK observation states this adapter serves, and the unit each carries. The
+# request names the state directly now that it also carries the lake in its
+# ``key``, so there is no composed ``lake_<quantity>`` variable any more.
+_LAKE_STATE_UNITS: dict[str, str] = {
+    "stage": "m",
+    "volume": "m3",
+    "surface_area": "m2",
 }
 
 
@@ -74,73 +76,53 @@ class Modflow6FlowAdapter:
         if solver_output_dir is not None:
             cleanup_solver_files(solver_output_dir)
 
-    def extract_calibration_series(
+    def extract_observables(
         self,
         ctx: RunContext,
         store: Any,
+        requests: Sequence[ObservableRequest],
         *,
-        variable: str,
-        station_cells: Mapping[str, tuple[int, int, int]] | None = None,
-        lake_id: str | None = None,
         time_index: pd.DatetimeIndex | None = None,
-    ) -> pd.Series:
-        """Read the simulated calibration series from the scratch CBC/HDS files.
+    ) -> dict[str, ObservableResult]:
+        """Read observables from the scratch CBC, HDS and LAK observation files.
 
-        MF6 binaries share the FloPy-readable format used by MODFLOW-NWT, so
-        the same helpers in ``modflow_common.calibration_extractors`` apply.
-        The ``lake_*`` variables instead read the LAK obs CSV via
-        ``extractors.lake`` and require ``lake_id``; the suffix names the LAK
-        state (``lake_stage``, ``lake_volume``, ``lake_surface_area``).
+        MF6 binaries share the FloPy-readable format MODFLOW-NWT uses, so
+        discharge, head and the per-cell fields come out of the shared helper.
+        Lake states are MF6-only: the request names the state in ``name`` and
+        the lake in ``key``, and they are read from the LAK observation CSV.
         ``store`` is accepted for Protocol uniformity but unused on this path.
         """
         del store
-        output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
-        model = ctx.state.execution.models_by_run_id.get(ctx.run.id)
-        if output_dir is None or model is None:
-            raise RuntimeError(f"No solver output recorded for run {ctx.run.id!r}")
-        model_name = (
-            getattr(model, "model_output_name", None)
-            or getattr(model, "model_name", None)
-            or getattr(model, "name", None)
+        if not requests:
+            return {}
+        output_dir, model, model_name = resolve_run_output(
+            ctx, name_attributes=("model_output_name", "model_name", "name")
         )
-        if model_name is None:
-            raise RuntimeError(f"Model name is missing for run {ctx.run.id!r}")
-        output_dir = Path(output_dir)
-
-        if variable == "discharge":
-            return extract_discharge_from_cbc(output_dir, model_name, time_index)
-        if variable in _LAKE_CALIB_QUANTITIES:
-            if not lake_id:
-                raise ValueError(f"{variable} calibration requires lake_id")
-            return extract_lake_series(
+        served, unserved = extract_common_modflow_observables(
+            output_dir,
+            model_name,
+            model,
+            requests,
+            time_index=time_index,
+            station_cell_mapper=lambda cells: _collapse_to_disv_cells(cells, model),
+        )
+        for request in unserved:
+            if request.support != "lake" or request.name not in _LAKE_STATE_UNITS:
+                raise ObservableNotAvailableError(
+                    f"MODFLOW 6 does not produce observable {request.name!r} on support "
+                    f"{request.support!r}."
+                )
+            series = extract_lake_series(
                 output_dir,
                 model_name,
-                lake_id=lake_id,
-                quantity=_LAKE_CALIB_QUANTITIES[variable],
+                lake_id=str(request.key),
+                quantity=request.name,
                 time_index=time_index,
             )
-        if variable == "head":
-            if not station_cells:
-                raise ValueError("head calibration requires station_cells")
-            series_by_station = extract_head_from_hds(
-                output_dir,
-                model_name,
-                station_cells=_collapse_to_disv_cells(station_cells, model),
-                time_index=time_index,
+            served[request.id] = series_observable(
+                request, series, units=_LAKE_STATE_UNITS[request.name]
             )
-            if len(station_cells) == 1:
-                station_id = next(iter(station_cells))
-                try:
-                    return series_by_station[station_id]
-                except KeyError as exc:
-                    raise KeyError(f"No head series extracted for station {station_id!r}") from exc
-            raise ValueError(
-                "extract_calibration_series returns one series; pass station_cells "
-                "with a single entry per call for head calibration."
-            )
-        raise NotImplementedError(
-            f"MODFLOW 6 calibration extraction is not implemented for variable {variable!r}."
-        )
+        return served
 
     @staticmethod
     def _solver_runtime_cache(state) -> dict[tuple[str, str, str], Modflow6]:

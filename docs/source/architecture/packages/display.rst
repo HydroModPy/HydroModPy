@@ -50,7 +50,7 @@ The renderer is currently used by overview reporting, site-selection
 review reports, the catchment report pipeline, and the
 network/transient calibration diagnostic page.
 
-Figure inventory (45 today)
+Figure inventory (48 today)
 ---------------------------
 
 Grouped by ``FigureSpec.kind``. ``hmp viz list`` prints the live list;
@@ -62,14 +62,15 @@ Spatial (8): ``concentration_map``, ``mesh_map``, ``piezometric_map``,
 
 Section (1): ``cross_section``.
 
-Time series (8): ``calibration_convergence``, ``calibration_trace``,
-``duration_curve``, ``hydrograph``, ``recession``,
-``seasonal_boxplot``, ``sfr_longitudinal_profile``,
-``sfr_reach_timeseries``.
+Time series (10): ``bisection_bracket_trace``,
+``calibration_convergence``, ``calibration_trace``,
+``downslope_distance_crossing``, ``duration_curve``,
+``hydrograph``, ``recession``, ``seasonal_boxplot``,
+``sfr_longitudinal_profile``, ``sfr_reach_timeseries``.
 
 Balance (2): ``flux_timeseries``, ``water_budget``.
 
-Comparison (22): ``calibration_landscape``,
+Comparison (23): ``calibration_landscape``,
 ``calibration_objective_surface``, ``calibration_pairplot``,
 ``calibration_posterior``, ``conditioning_impact_map``,
 ``difference_map``, ``ensemble_band``, ``hydrograph_sim_obs``,
@@ -80,8 +81,8 @@ Comparison (22): ``calibration_landscape``,
 ``hydrographic_network_reference_missing_only``,
 ``lake_abacus_comparison``, ``lake_stage_sim_obs``,
 ``lake_volume_sim_obs``, ``piezo_timeseries_sim_obs``, ``residuals``,
-``scatter_one_to_one``, ``side_by_side``,
-``simulated_active_network_reference_overlay``,
+``scatter_one_to_one``, ``seepage_network_confusion_map``,
+``side_by_side``, ``simulated_active_network_reference_overlay``,
 ``watershed_id_card``.
 
 Table (3): ``piper_diagram``, ``schoeller_diagram``,

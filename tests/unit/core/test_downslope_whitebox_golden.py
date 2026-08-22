@@ -123,13 +123,14 @@ def test_numpy_operator_agrees_with_whitebox_d_infinity(downslope_fields) -> Non
     assert float(np.median(relative_gap)) <= RELATIVE_GAP
 
     # The tail matters more than the mean here: a handful of long branches
-    # carry most of the criterion, so the p90 is checked as well.
+    # carry most of the criterion, so the p90 is checked as well. Measured on
+    # this DEM: 1.068 on the mean, 1.071 on the median, 1.057 on the p90. D8
+    # quantizes every step to eight directions and walks the longer path, but
+    # that holds cell by cell, not necessarily on an aggregate over a changing
+    # set of cells, so only the two-sided bound is asserted.
     for statistic in (np.mean, np.median, lambda values: np.percentile(values, 90)):
         ratio = float(statistic(ours) / statistic(theirs))
         assert abs(ratio - 1.0) <= RELATIVE_GAP, ratio
-        # D8 quantizes every step to eight directions, so it can only walk a
-        # path at least as long as the D-infinity one.
-        assert ratio >= 1.0
 
 
 def test_whitebox_d8_mode_yields_no_usable_distance(downslope_fields) -> None:

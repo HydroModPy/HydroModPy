@@ -62,8 +62,8 @@ def test_solver_extract_module_exposes_extractors() -> None:
     from hydromodpy.calibration.metrics import solver_extract
 
     assert callable(solver_extract.resolve_flow_adapter)
-    assert callable(solver_extract.extract_point)
-    assert callable(solver_extract.extract_boundary)
-    assert callable(solver_extract.extract_cell)
+    assert callable(solver_extract.extract_outputs)
+    assert callable(solver_extract.observable_request_for_output)
+    assert callable(solver_extract.observable_series)
     assert callable(solver_extract.resolve_station_cells)
     assert callable(solver_extract.find_cell_at_point)

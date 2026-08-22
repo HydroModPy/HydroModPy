@@ -516,7 +516,9 @@ Tables of the project index. The authoritative DDL is
    * - ``calibration_sessions``
      - reconstructible
      - ``session_id``, ``project``, ``method``, ``objective_name``,
-       ``n_iterations``, ``best_sim_id``, ``status_id``
+       ``n_iterations``, ``best_sim_id``, ``status_id``,
+       ``parent_session_id``, ``root_session_id``, ``phase_name``,
+       ``phase_index``
    * - ``calibration_iterations``
      - reconstructible
      - ``session_id``, ``iteration``, ``sim_id``, ``params_hash``,

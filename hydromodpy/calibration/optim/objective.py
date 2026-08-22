@@ -16,6 +16,7 @@ import numpy as np
 
 from hydromodpy.core.metrics import (
     kge,
+    log_nse,
     mae,
     nse,
     nse_delta,
@@ -134,6 +135,42 @@ def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
     return 0.5 * float(seasonal) + 0.5 * float(increments)
 
 
+def _distance_pair(simulated: np.ndarray) -> tuple[float, float]:
+    """Read the ``(D_so, D_os)`` pair a network output produces."""
+    values = np.asarray(simulated, dtype=float).ravel()
+    if values.size != 2:
+        raise ValueError(
+            "a distance metric scores the pair (D_so, D_os) a network output "
+            f"produces; got {values.size} value(s)."
+        )
+    return float(values[0]), float(values[1])
+
+
+def distance_gap(simulated: np.ndarray, observed: np.ndarray) -> float:
+    """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
+
+    ``observed`` is ignored and structurally so: the criterion balances an
+    excess of simulated stream against a missing one, both simulated. There is
+    no observed vector to fit, which is why the zero of this cost is an
+    intersection and not a minimum of distance.
+    """
+    del observed
+    d_so, d_os = _distance_pair(simulated)
+    return abs(d_so - d_os)
+
+
+def distance_mean(simulated: np.ndarray, observed: np.ndarray) -> float:
+    """``(D_so + D_os) / 2``, Eq. 2. A diagnostic, and a cost only outside.
+
+    It is legitimate as a cost in the outer loop that picks between structures
+    already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
+    different estimator, and nothing puts its interior minimum at the crossing.
+    """
+    del observed
+    d_so, d_os = _distance_pair(simulated)
+    return 0.5 * (d_so + d_os)
+
+
 METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "nse": nse,
     "rmse": rmse,
@@ -141,12 +178,40 @@ METRICS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "kge": _kge_score,
     "nse_delta": nse_delta,
     "nse_seasonal": nse_seasonal,
+    "nse_log": log_nse,
+    "distance_gap": distance_gap,
+    "distance_mean": distance_mean,
     "reservoir": _reservoir_score,
 }
 
 HIGHER_IS_BETTER: frozenset[str] = frozenset(
-    {"nse", "kge", "nse_delta", "nse_seasonal", "reservoir"}
+    {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
 )
+
+# Metrics that take the logarithm of the series and therefore refuse a negative
+# value. Do not confuse ``nse_log``, an NSE computed on log-transformed series,
+# with ``transform = "log"``, which takes the log of an already-computed cost:
+# the two names look alike and mean unrelated things.
+LOG_METRICS: frozenset[str] = frozenset({"nse_log"})
+
+
+def clip_negatives_for_log_metric(
+    simulated: np.ndarray,
+    observed: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """Clip negatives to zero for a log metric and count what was clipped.
+
+    ``log_nse`` refuses a negative value, and a discharge series reconstructed
+    below a dam with releases legitimately holds a few. Clipping keeps the
+    series scorable; returning the count is what stops the clipping from
+    passing unnoticed, which would hide a sign error in the reconstruction.
+    """
+    sim = np.asarray(simulated, dtype=float)
+    obs = np.asarray(observed, dtype=float)
+    n_clipped = int(np.count_nonzero(sim < 0.0) + np.count_nonzero(obs < 0.0))
+    if n_clipped == 0:
+        return sim, obs, 0
+    return np.maximum(sim, 0.0), np.maximum(obs, 0.0), n_clipped
 
 
 class ScalarObjective:
@@ -456,6 +521,9 @@ class ConfigBlockObjective:
                 f"Block {self.name!r}: simulated length {simulated.size} does not match "
                 f"observed length {observed.size}"
             )
+        n_clipped = 0
+        if self._metric in LOG_METRICS:
+            simulated, observed, n_clipped = clip_negatives_for_log_metric(simulated, observed)
         raw = float(self._metric_fn(simulated, observed))
         if not np.isfinite(raw):
             return ObjectiveValue(
@@ -471,6 +539,8 @@ class ConfigBlockObjective:
             f"{self.name}.reference_scale": float(self._reference_scale),
             f"{self.name}.n_values": float(observed.size),
         }
+        if self._metric in LOG_METRICS:
+            components[f"{self.name}.n_clipped"] = float(n_clipped)
         return ObjectiveValue(total=float(transformed), components=components)
 
 
@@ -494,8 +564,10 @@ def build_objective_from_config(cfg: Any) -> Objective:
         values = getattr(decl, "observed_values", None)
         if values is not None:
             observed_by_output[str(output_name)] = tuple(float(v) for v in values)
-    # Burn-in periods excluded from every block's metric (spin-up window). A block can
-    # override the calibration-wide default with its own ``warmup``.
+    # Burn-in periods excluded from every block's metric (spin-up window). A block
+    # overrides the calibration-wide default with its own ``warmup``; the test is on
+    # ``is None`` and not on truthiness, otherwise ``warmup = 0`` would fall back to
+    # the default and a block could never switch the burn-in off.
     default_warmup = int(getattr(cfg, "warmup_periods", 0) or 0)
     block_objectives: list[Objective] = []
     for block in blocks:
@@ -504,7 +576,8 @@ def build_objective_from_config(cfg: Any) -> Objective:
         metric = str(getattr(block, "metric", "rmse"))
         normalize_cost = bool(getattr(block, "normalize_cost", False))
         transform = str(getattr(block, "transform", "identity"))
-        warmup = int(getattr(block, "warmup", default_warmup) or default_warmup)
+        block_warmup = getattr(block, "warmup", None)
+        warmup = default_warmup if block_warmup is None else int(block_warmup)
         block_objectives.append(
             ConfigBlockObjective(
                 name=name,
@@ -537,5 +610,9 @@ __all__ = [
     "build_objective_from_config",
     "METRICS",
     "HIGHER_IS_BETTER",
+    "LOG_METRICS",
+    "distance_gap",
+    "distance_mean",
+    "clip_negatives_for_log_metric",
     "evaluate_objective",
 ]

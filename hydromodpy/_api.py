@@ -318,17 +318,33 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
         return dispatch_workflow(mode, materialized_path, **kwargs)
 
 
-def calibrate(config: Any, **kwargs: Any) -> Any:
+def calibrate(
+    config: Any,
+    *,
+    phase: str | None = None,
+    list_phases: bool = False,
+    **kwargs: Any,
+) -> Any:
     """Run a calibration workflow from a TOML file or config object.
 
     Paths route directly to :func:`run_calibration_cli`; in-memory config
     objects open a lazy :class:`Project` so :func:`run_calibration_programmatic`
     has the project context it requires.
 
+    A configuration declaring ``[[calibration.phases]]`` runs staged: each phase
+    calibrates its own parameters and freezes them for the next. Without that
+    table nothing changes.
+
     Parameters
     ----------
     config
         Calibration TOML path or validated configuration object.
+    phase
+        Run only the named phase. It still needs the parameters its dependency
+        froze, so a phase whose dependency has not run is refused rather than
+        calibrated against un-frozen values.
+    list_phases
+        Return the declared phases without running anything.
     kwargs
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the
@@ -364,10 +380,43 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
         Structured calibration result.
     """
     if isinstance(config, (str, Path)):
-        from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
+        from hydromodpy.calibration.runners.cli_runner import (
+            load_toml_calibration,
+            run_calibration_cli,
+        )
+        from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
         kwargs.pop("headless", None)
-        return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
+        target = Path(config).expanduser().resolve()
+        # Probe the file only to decide staged or not. Anything wrong with it is
+        # reported by the runner, with its context; failing here would replace a
+        # precise error by one raised while choosing a code path.
+        try:
+            cfg, _raw = load_toml_calibration(target)
+        except Exception:
+            cfg = None
+        if list_phases:
+            if cfg is None:
+                return []
+            return [
+                {
+                    "name": decl.name,
+                    "description": decl.description,
+                    "method": decl.method,
+                    "parameters": list(decl.parameters),
+                    "depends_on": decl.depends_on,
+                    "freeze_on_success": decl.freeze_on_success,
+                }
+                for decl in (cfg.phases or [])
+            ]
+        if cfg is not None and cfg.phases:
+            return run_staged_calibration(target, phase=phase, **kwargs)
+        if phase is not None:
+            raise ValueError(
+                f"{target.name} declares no [[calibration.phases]], so there is no "
+                f"phase {phase!r} to run."
+            )
+        return run_calibration_cli(target, **kwargs)
 
     from hydromodpy.project import Project
 

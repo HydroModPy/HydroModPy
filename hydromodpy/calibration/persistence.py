@@ -62,7 +62,16 @@ class CalibrationPersistence:
         objective_name: str,
         search_space: dict[str, Any],
         config: dict,
+        parent_session_id: str | None = None,
+        root_session_id: str | None = None,
+        phase_name: str | None = None,
+        phase_index: int | None = None,
     ) -> None:
+        """Open a session, in the journal then in the index.
+
+        The four chaining arguments place the session in a phase chain and
+        stay empty for a standalone calibration.
+        """
         if not self._persistence.save_catalog:
             return
         started_at = datetime.now(UTC)
@@ -76,22 +85,32 @@ class CalibrationPersistence:
                 search_space=search_space,
                 config=config,
                 started_at=started_at,
+                parent_session_id=parent_session_id,
+                root_session_id=root_session_id,
+                phase_name=phase_name,
+                phase_index=phase_index,
             )
         self._conn.execute(
             """
             INSERT INTO calibration_sessions
                 (session_id, project, method, objective_name,
-                 n_iterations, config, started_at, status_id)
+                 n_iterations, config, started_at, status_id,
+                 parent_session_id, root_session_id, phase_name, phase_index)
             VALUES (?, ?, ?, ?, 0, ?, ?,
-                    (SELECT id FROM statuses WHERE code = 'running'))
+                    (SELECT id FROM statuses WHERE code = 'running'),
+                    ?, ?, ?, ?)
             """,
             [
-                uuid.UUID(session_id) if len(session_id) == 32 else session_id,
+                _session_key(session_id),
                 project,
                 method,
                 objective_name,
                 json.dumps(config, default=str),
                 started_at,
+                _session_key(parent_session_id),
+                _session_key(root_session_id),
+                phase_name,
+                None if phase_index is None else int(phase_index),
             ],
         )
 
@@ -110,7 +129,7 @@ class CalibrationPersistence:
             self._journal.append(trial)
         params_json = json.dumps(trial.parameters, default=str)
         metrics_json = None if trial.metrics is None else json.dumps(trial.metrics, default=str)
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sid = _session_key(session_id)
         sim_uuid = None
         if trial.sim_id:
             try:
@@ -178,7 +197,7 @@ class CalibrationPersistence:
                 best_sim_id=best_run,
                 error_message=error,
             )
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sid = _session_key(session_id)
         best_sim_uuid = None
         if best_run:
             try:
@@ -210,7 +229,7 @@ class CalibrationPersistence:
         )
 
     def load_iterations(self, session_id: str) -> list[dict]:
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sid = _session_key(session_id)
         rows = self._conn.execute(
             """
             SELECT iteration, sim_id, params_hash, parameters,
@@ -250,7 +269,7 @@ class CalibrationPersistence:
 
     def top_n(self, session_id: str, n: int) -> list[dict]:
         """Return the N best completed iterations (lowest objective)."""
-        sid = uuid.UUID(session_id) if len(session_id) == 32 else session_id
+        sid = _session_key(session_id)
         rows = self._conn.execute(
             """
             SELECT iteration, sim_id, params_hash, parameters,
@@ -278,6 +297,17 @@ class CalibrationPersistence:
                 }
             )
         return out
+
+
+def _session_key(session_id: str | None) -> uuid.UUID | str | None:
+    """Return a session id in the form the index stores it.
+
+    A journal writes the identity as bare 32-character hex, which DuckDB
+    does not read as a UUID on its own; every other spelling it casts.
+    """
+    if session_id is None:
+        return None
+    return uuid.UUID(session_id) if len(session_id) == 32 else session_id
 
 
 def _build_trial(

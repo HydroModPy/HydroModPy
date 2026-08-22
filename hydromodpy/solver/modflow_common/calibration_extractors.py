@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.units.time import factor_to_seconds
+from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
 
 
 def _seconds_per_itmuni(itmuni: int) -> float:
@@ -315,9 +316,69 @@ def extract_head_from_hds(
     return out
 
 
+def extract_saturated_thickness_by_cell_from_hds(
+    output_dir: Path,
+    model_name: str,
+    *,
+    top: np.ndarray,
+    bottom: np.ndarray,
+    time_index: pd.DatetimeIndex | None = None,
+) -> pd.DataFrame:
+    """Return saturated thickness by timestep and cell, in metres.
+
+    The water table is the head of the uppermost layer, the definition
+    ``results/derive/derived.py`` already applies; a MODFLOW head array is
+    layer-major, so the first ``n_cells`` values of the flattened snapshot are
+    that layer. ``bottom`` is the base of the whole aquifer, ``botm[-1]``, not
+    the bottom of layer 0: what the method calibrates is the transmissivity of
+    the aquifer, not of its top slice.
+
+    MODFLOW writes a large sentinel into dry and no-flow cells; those become
+    ``NaN`` here, as in :func:`extract_head_from_hds`, rather than a full or
+    zero thickness that would read as a real value.
+    """
+
+    import flopy.utils.binaryfile as bf
+
+    hds_path = output_dir / f"{model_name}.hds"
+    if not hds_path.exists():
+        raise FileNotFoundError(f"HDS file not found for model {model_name!r} in {output_dir}")
+
+    top_m = np.asarray(top, dtype=float).reshape(-1)
+    bottom_m = np.asarray(bottom, dtype=float).reshape(-1)
+    n_cells = int(top_m.size)
+    if bottom_m.size != n_cells:
+        raise ValueError(f"top holds {n_cells} cells but bottom holds {bottom_m.size}.")
+
+    hf = bf.HeadFile(str(hds_path))
+    try:
+        times = hf.get_times()
+        heads = np.full((len(times), n_cells), np.nan, dtype="float64")
+        for step, totim in enumerate(times):
+            snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)
+            if snapshot.size < n_cells:
+                raise ValueError(
+                    f"head snapshot holds {snapshot.size} values, fewer than the "
+                    f"{n_cells} cells declared by top."
+                )
+            heads[step] = snapshot[:n_cells]
+    finally:
+        hf.close()
+
+    heads[np.abs(heads) > 1e6] = np.nan
+    thickness = saturated_thickness_from_head_history(heads, top_m=top_m, bottom_m=bottom_m)
+
+    if time_index is not None and len(time_index) == len(times):
+        index: pd.Index = time_index
+    else:
+        index = pd.Index(times, name="totim")
+    return pd.DataFrame(thickness, index=index, columns=np.arange(n_cells))
+
+
 __all__ = [
     "drain_budget_array_to_positive_outflow_by_cell",
     "extract_discharge_from_cbc",
     "extract_drain_outflow_by_cell_from_cbc",
     "extract_head_from_hds",
+    "extract_saturated_thickness_by_cell_from_hds",
 ]

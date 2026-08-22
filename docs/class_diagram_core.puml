@@ -150,7 +150,7 @@ package "solver" {
     + validate(ctx) : void
     + execute(ctx) : RunExecutionResult
     + cleanup(ctx) : void
-    + extract_calibration_series(ctx, store, variable) : Series
+    + extract_observables(ctx, store, requests) : dict[str, ObservableResult]
   }
 
   interface SolverRegistryProvider <<Protocol>> {

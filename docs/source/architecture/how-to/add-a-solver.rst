@@ -23,15 +23,14 @@ A solver implements the ``SolverAdapter`` Protocol declared in
        def validate(self, ctx: RunContext) -> None: ...
        def execute(self, ctx: RunContext) -> RunExecutionResult: ...
        def cleanup(self, ctx: RunContext) -> None: ...
-       def extract_calibration_series(
+       def extract_observables(
            self,
            ctx: RunContext,
            store,
+           requests: "Sequence[ObservableRequest]",
            *,
-           variable: str,
-           station_cells,
-           time_index,
-       ) -> "pandas.Series": ...
+           time_index=None,
+       ) -> "dict[str, ObservableResult]": ...
 
 ``RunExecutionResult`` is a small dataclass exposing
 ``success: bool`` and ``outputs: dict | None``.
@@ -98,10 +97,10 @@ Minimal adapter skeleton
            # remove scratch files; leave persisted outputs alone
            ...
 
-       def extract_calibration_series(
-           self, ctx, store, *, variable, station_cells, time_index
-       ):
-           # cheap series extraction used inside the calibration loop
+       def extract_observables(self, ctx, store, requests, *, time_index=None):
+           # cheap extraction inside the calibration loop: the whole batch
+           # arrives at once, so each binary file is opened once. Refuse what
+           # the backend cannot produce with ObservableNotAvailableError.
            ...
 
 Registration

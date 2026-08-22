@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 30 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 34 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 30 loadable rows split into three enforcement classes (W5 classification):
+The 34 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 30 loadable TOLERANCES.md rows.
+# W5 classification of the 34 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -88,6 +88,13 @@ CASE_TOML_ROWS: frozenset[str] = frozenset(
         # Dupuit fixed-head head RMSE, per-solver tolerances*.toml head_profile.rmse.
         "dupuit_fixed_head_1d_nwt__head_rmse",
         "dupuit_fixed_head_1d_mf6__head_rmse",
+        # Dupuit seepage limit, tolerances.toml blocks [seepage_limit], [invariance]
+        # and [control]; asserted in
+        # tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py.
+        "dupuit_seepage_limit_1d_mf6__seepage_limit_position_error",
+        "dupuit_seepage_limit_1d_mf6__head_profile_max_abs_error_vs_the_closed_form",
+        "dupuit_seepage_limit_1d_k_r_invariance__water_table_max_abs_difference_across_the_k_r_sweep",
+        "dupuit_seepage_limit_1d_k_only_control__total_drain_outflow_relative_drift",
         # Linearized transient cross-row spread, *_modflow6_irregular_tri.toml
         # space_time.row_spread (values match the doc exactly: 0.006/0.006/0.012/
         # 0.005/0.0007).
@@ -167,10 +174,10 @@ def _resolve(slug: str) -> str:
 
 @pytest.mark.fast
 def test_classification_partitions_all_loadable_rows() -> None:
-    """INLINE, CASE_TOML and UNUSED partition exactly the 30 loadable rows."""
+    """INLINE, CASE_TOML and UNUSED partition exactly the 34 loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 30, sorted(loadable)
+    assert len(loadable) == 34, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
@@ -195,7 +202,7 @@ def test_every_tol_call_resolves_to_one_real_row() -> None:
 
 @pytest.mark.fast
 def test_referenced_rows_are_subset_of_loadable_keys() -> None:
-    """Every row reached through tol() is one of the 25 loadable keys."""
+    """Every row reached through tol() is one of the 34 loadable keys."""
     referenced = {_resolve(slug) for slug in _collect_tol_arguments()}
     assert referenced <= set(TOLERANCES), sorted(referenced - set(TOLERANCES))
 

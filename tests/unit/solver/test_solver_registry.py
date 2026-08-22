@@ -27,10 +27,8 @@ class FakeAdapter:
     def cleanup(self, ctx):
         pass
 
-    def extract_calibration_series(self, ctx, store, **kwargs):
-        import pandas as pd
-
-        return pd.Series(dtype=float)
+    def extract_observables(self, ctx, store, requests, **kwargs):
+        return {}
 
 
 class AnotherFakeAdapter(FakeAdapter):

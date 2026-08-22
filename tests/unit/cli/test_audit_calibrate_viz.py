@@ -50,10 +50,11 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
-    captured: dict[str, Path] = {}
+    captured: dict[str, object] = {}
 
-    def fake_calibrate(path: Path):
+    def fake_calibrate(path: Path, *, phase=None):
         captured["path"] = path
+        captured["phase"] = phase
         return SimpleNamespace(summary={"session_id": "s1", "best_objective": 0.25})
 
     monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
@@ -62,6 +63,7 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
 
     assert code == 0
     assert captured["path"] == config.resolve()
+    assert captured["phase"] is None
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
     assert "session_id: s1" in err
@@ -229,3 +231,53 @@ def test_privacy_verify_strict_rejects_wrong_permissions(monkeypatch, tmp_path) 
     os.chmod(cert, 0o644)
     code = _run(monkeypatch, ["hmp", "privacy", "verify", "--strict", str(cert)])
     assert code == 14
+
+
+def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
+    """``--phase`` reaches the API, which is what runs one stage of a chain."""
+    import hydromodpy as hmp
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_calibrate(path: Path, *, phase=None):
+        captured["phase"] = phase
+        return SimpleNamespace(summary={})
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--phase", "transient_sy"])
+
+    assert code == 0
+    assert captured["phase"] == "transient_sy"
+
+
+def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsys) -> None:
+    import hydromodpy as hmp
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    calls: list[dict] = []
+
+    def fake_calibrate(path: Path, *, phase=None, list_phases=False):
+        calls.append({"phase": phase, "list_phases": list_phases})
+        return [
+            {
+                "name": "steady_k_over_r",
+                "description": "zero of the signed gap",
+                "method": "bisection",
+                "parameters": ["K"],
+                "depends_on": None,
+                "freeze_on_success": True,
+            }
+        ]
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
+
+    assert code == 0
+    # Listing must not run anything.
+    assert calls == [{"phase": None, "list_phases": True}]
+    assert "steady_k_over_r" in capsys.readouterr().out

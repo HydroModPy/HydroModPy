@@ -263,14 +263,19 @@ def _insert_session(
     ``n_iterations`` is counted from the trial journal rather than read from
     the descriptor: an interrupted session never wrote its closing count, and
     the lines on disk are what the session actually evaluated.
+
+    The phase chain comes back with the row: it lives in ``session.json``, so
+    a rebuild restores which session continues which instead of flattening a
+    chain into unrelated calibrations.
     """
     backend.execute(
         """INSERT INTO calibration_sessions
            (session_id, project, method, objective_name, n_iterations,
             best_sim_id, best_objective, config, started_at, ended_at,
-            duration_s, status_id, error_message)
+            duration_s, status_id, error_message,
+            parent_session_id, root_session_id, phase_name, phase_index)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                   (SELECT id FROM statuses WHERE code = ?), ?)""",
+                   (SELECT id FROM statuses WHERE code = ?), ?, ?, ?, ?, ?)""",
         [
             _as_uuid(descriptor.session_id),
             descriptor.project,
@@ -285,6 +290,12 @@ def _insert_session(
             descriptor.duration_s,
             descriptor.status,
             descriptor.error_message,
+            None
+            if descriptor.parent_session_id is None
+            else _as_uuid(descriptor.parent_session_id),
+            None if descriptor.root_session_id is None else _as_uuid(descriptor.root_session_id),
+            descriptor.phase_name,
+            descriptor.phase_index,
         ],
     )
 
