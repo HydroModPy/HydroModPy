@@ -32,8 +32,11 @@ Recommended Reading Path
 6. Use :doc:`nancon-k-sweep-results` and
    :doc:`network-metrics-and-extreme-k-sweep` when you want concrete results,
    figures, and comparison metrics. The latter page is the metric map:
-   overlap, planar bidirectional distance, and the remaining downslope
-   distance work needed to reproduce the article-style criterion.
+   overlap and planar bidirectional distance.
+7. Use :doc:`downslope-distance-calibration` for the criterion that calibrates
+   a catchment against the extent of its stream network instead of against a
+   gauge. It is the one page to read before reusing a value that method
+   produced: its section on known biases says which way each of them points.
 
 The pages are ordered this way because the equations are meaningful only after
 the modelling question is clear. A prescribed stream head, a seepage threshold,
@@ -129,5 +132,6 @@ The important separation is:
    Status and limitations <status-and-limitations>
    Nancon K-sweep results <nancon-k-sweep-results>
    Network metrics and extreme K-sweep <network-metrics-and-extreme-k-sweep>
+   Downslope-distance calibration <downslope-distance-calibration>
    Boundary semantics <../hydrology/stream-ocean-and-drainage-semantics>
    Simulated active network <../hydrology/simulated-active-network>

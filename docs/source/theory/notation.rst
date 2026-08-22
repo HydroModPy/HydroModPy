@@ -155,6 +155,56 @@ Time and calibration
      - Kling-Gupta efficiency
      - dimensionless
      - Optional alternative to NSE.
+   * - ``NSElog``
+     - Nash-Sutcliffe efficiency on log-transformed series
+     - dimensionless
+     - Weights the recessions rather than the peaks. Not to be confused with
+       ``transform = "log"``, which takes the logarithm of an already-computed
+       cost; the two names look alike and mean unrelated things.
+   * - ``D_so``
+     - Mean downslope distance from the simulated stream network to the mapped
+       one
+     - m
+     - A tail statistic, not a typical gap: its median is usually zero. See
+       :doc:`streams_and_seepage/downslope-distance-calibration`.
+   * - ``D_os``
+     - Mean downslope distance from the mapped stream network to the simulated
+       one
+     - m
+     - Same page. ``D_so`` large means an excess of simulated stream, ``D_os``
+       large a deficit.
+   * - ``J``
+     - ``|D_so - D_os|``, the calibrated cost
+     - m
+     - Its zero is the intersection of two curves, not the minimum of a
+       distance. The signed residual travels separately, because a root search
+       needs its sign.
+   * - ``Doptim``
+     - ``(D_so + D_os) / 2``
+     - m
+     - A diagnostic. Legitimate as a cost only in the outer loop that picks
+       between structures already balanced at ``J = 0``.
+   * - ``roptim``
+     - ``Doptim / L_ref``
+     - dimensionless
+     - Validity indicator. It measures agreement, never correctness: measured
+       on synthetic truth it improves as the bias worsens.
+   * - ``L_ref``
+     - Square root of the median cell area over the catchment
+     - m
+     - The median and not the mean: a few large buffer cells would otherwise
+       set the scale.
+   * - ``alpha``
+     - Ratio of the mapped network to its own downslope closure
+     - dimensionless
+     - Measures the agreement between the routing surface and the mapped
+       network. Below 0.90, the distances read a dataset disagreement rather
+       than hydrogeology.
+   * - ``T/R``
+     - Transmissivity over recharge
+     - m
+     - The output to publish. ``K`` inherits the recharge series entirely,
+       measured at plus or minus 25 per cent between reanalyses.
 
 Conventions
 -----------
