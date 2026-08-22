@@ -1,0 +1,154 @@
+# ======================================================================
+# Nancon - calibration en deux etages (methode Abherve)
+# ----------------------------------------------------------------------
+# Etage 1  K/R  : zero de l'ecart signe D_so - D_os entre le reseau de
+#                 suintement simule et le lineaire cartographie, en
+#                 permanent, par dichotomie. Aucune donnee de debit.
+# Etage 2  Sy   : NSE sur les logarithmes du debit observe, en
+#                 transitoire au pas journalier, K etant gele.
+#
+# Lancement :
+#   hmp calibrate examples/projects/21_nancon_network_calibration/calibration_two_stage.toml
+#   hmp calibrate .../calibration_two_stage.toml --list-phases
+#   hmp calibrate .../calibration_two_stage.toml --phase steady_k_over_r
+#
+# Le second etage ne peut pas etre lance seul : il depend des valeurs que
+# le premier gele, et le runner refuse plutot que de le calibrer contre
+# des parametres non geles.
+# ======================================================================
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_two_stage"
+description = "Nancon - K/R sur le reseau puis Sy sur le debit."
+
+
+# ----------------------------------------------------------------------
+# Parametres
+# ----------------------------------------------------------------------
+# K est cherche en log : le critere porte sur le rapport K/R et l'ecart
+# signe change de signe une seule fois sur plusieurs decades. La
+# dichotomie REFUSE un parametre qui n'est pas en `transform = "log"`,
+# parce que sa tolerance et son expansion d'une decade sont des enonces
+# sur la variable logarithmique.
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.parameters.Sy]
+bounds = [0.005, 0.30]
+transform = "log"
+path = "flow.param.Sy.field.value"
+units = "-"
+
+
+# ----------------------------------------------------------------------
+# Sortie reseau et bloc objectif du premier etage
+# ----------------------------------------------------------------------
+
+[calibration.outputs.seepage_network]
+support = "network"
+# Nom de fichier nu, resolu sous <projet>/data/hydrography/ comme tous les
+# autres chemins de donnees.
+stream_geometry_path = "nancon_stream_network.gpkg"
+# Ponderation par la surface de maille : recommandee des que le maillage
+# est raffine le long des cours d'eau. Les deux ponderations sont
+# publiees a chaque essai, leur ecart mesure directement cet effet.
+weighting = "area"
+# Une maille qui relache moins de ce quart de millieme de sa propre
+# recharge n'est pas un cours d'eau. Specifique et non absolu, donc le
+# masque suit la physique et non le raffinement du maillage.
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+
+[[calibration.objective_blocks]]
+name = "abherve_gap"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+
+# ----------------------------------------------------------------------
+# Etage 1 : K/R par dichotomie sur le zero de l'ecart signe
+# ----------------------------------------------------------------------
+
+[[calibration.phases]]
+name = "steady_k_over_r"
+description = "Zero de l'ecart signe D_so - D_os, par dichotomie sur K."
+method = "bisection"
+max_iter = 20
+parameters = ["K"]
+objective_blocks = ["abherve_gap"]
+freeze_on_success = true
+
+[calibration.phases.optimizer_kwargs]
+# Arret sur la largeur du crochet, jamais sur la taille du residu :
+# l'ecart signe est une fonction en escalier qui saute par-dessus zero et
+# ne devient jamais petit.
+rel_tol = 0.01
+# Balayage logarithmique grossier avant la dichotomie. Il verifie la
+# monotonie au lieu de la supposer, il voit tous les croisements, et les
+# courbes de la figure F3 sortent des memes resolutions.
+sweep_points = 7
+
+[calibration.phases.overrides]
+# Le premier etage est permanent : le critere lit un masque de
+# suintement a l'equilibre, pas une chronique.
+"flow.flow_regime" = "steady"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2000-12-31"
+"simulation.time.step_value" = "1 year"
+
+
+# ----------------------------------------------------------------------
+# Etage 2 : Sy sur l'hydrogramme, K gele
+# ----------------------------------------------------------------------
+
+[[calibration.phases]]
+name = "transient_sy"
+description = "NSE sur les logarithmes du debit observe, K gele."
+method = "grid"
+max_iter = 9
+parallel = 3
+parameters = ["Sy"]
+# Declarer `variable` et `objective` choisit la route mono-metrique :
+# cette phase n'herite ni des sorties ni des blocs de la precedente, donc
+# elle n'est pas scoree sur le critere de reseau.
+variable = "discharge"
+objective = "nse_log"
+depends_on = "steady_k_over_r"
+
+[calibration.phases.scoring_window]
+# Une fenetre en dates, pas un nombre d'echantillons : la meme duree
+# quelle que soit la frequence de sortie. La premiere annee sert de mise
+# en regime et n'est pas scoree.
+start = "2001-01-01"
+end = "2009-12-31"
+
+[calibration.phases.overrides]
+# Le second etage est transitoire au pas mensuel : c'est ce pas qui rend
+# l'emmagasinement identifiable, et le journalier couterait dix fois plus
+# de solves pour la meme information sur les recessions.
+"flow.flow_regime" = "transient"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2009-12-31"
+"simulation.time.step_value" = "1 month"
+
+
+# ----------------------------------------------------------------------
+# Session
+# ----------------------------------------------------------------------
+
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+use_cache = true
