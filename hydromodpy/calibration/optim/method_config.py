@@ -90,6 +90,41 @@ class CmaEsMethodConfig(BaseModel):
     restarts: int = 0
 
 
+class BisectionMethodConfig(BaseModel):
+    """Configuration for the one-dimensional root search."""
+
+    model_config = _MODEL_CONFIG
+
+    method: Literal["bisection"] = "bisection"
+    rel_tol: float = Field(
+        default=0.01,
+        gt=0.0,
+        description="Relative width of the bracket at which the search stops, on the "
+        "calibrated parameter. The paper's one per cent. The criterion is never the "
+        "size of the residual: it steps over zero and would never get small enough.",
+    )
+    signed_component: str = Field(
+        default="J_signed",
+        description="Name of the component carrying the signed residual whose sign "
+        "the search brackets.",
+    )
+    sweep_points: int = Field(
+        default=7,
+        ge=0,
+        description="Points of the coarse log sweep run before the bisection. It "
+        "checks the monotonicity the paper assumes instead of supposing it, sees every "
+        "crossing, and produces the crossing curves for free. Zero gives the pure "
+        "bisection of the paper.",
+    )
+    bracket_expand: int = Field(
+        default=4,
+        ge=0,
+        description="How many times the interval may be widened by one decade when no "
+        "sign change is found. Beyond that the search raises rather than returning the "
+        "better of the two ends.",
+    )
+
+
 class OptunaMethodConfig(BaseModel):
     """Configuration for the Optuna adapter."""
 
@@ -140,7 +175,8 @@ class DaMhGpMethodConfig(BaseModel):
 
 
 CalibrationMethodConfig = Annotated[
-    GridMethodConfig
+    BisectionMethodConfig
+    | GridMethodConfig
     | RandomSearchMethodConfig
     | ScipyDEMethodConfig
     | ScipyNelderMeadMethodConfig
@@ -172,6 +208,7 @@ def validate_method_kwargs(
 
 
 __all__ = [
+    "BisectionMethodConfig",
     "GridMethodConfig",
     "RandomSearchMethodConfig",
     "ScipyDEMethodConfig",
