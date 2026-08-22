@@ -21,6 +21,7 @@ from hydromodpy.calibration.observations.simulated_network import (
     downstream_closure,
     specific_seepage_threshold,
 )
+from hydromodpy.core.depression_filling import fill_depressions_on_graph
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph, active_surface_mask
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.topographic_distance import (
@@ -28,6 +29,7 @@ from hydromodpy.core.topographic_distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
     longest_descent_length,
+    shared_node_adjacency,
 )
 
 if TYPE_CHECKING:
@@ -115,15 +117,21 @@ def reference_length(cell_area_m2: np.ndarray, support: np.ndarray) -> float:
     return float(np.sqrt(np.median(kept)))
 
 
-def resolve_outlet(metric: DownslopeMetric) -> int:
+def resolve_outlet(metric: DownslopeMetric, *, within: np.ndarray | None = None) -> int:
     """Return the cell every path ends in: the largest drained area.
 
     The outlet is not a product of the DEM, it is the closing point of the
     catchment, usually the gauging station. Writing that it belongs to the
     stream network is true by definition, which is what makes sealing it into
     the target legitimate rather than a fudge.
+
+    ``within`` restricts the search to a catchment. Without it the accumulation
+    is read over the whole mesh, and on an unconditioned surface the maximum
+    sits in the largest internal depression rather than at the gauge.
     """
     active = metric.graph.active
+    if within is not None:
+        active = active & np.asarray(within, dtype=bool).reshape(-1)
     accumulated = accumulate_on_downhill_graph(metric.graph, np.ones(active.size))
     scored = np.where(active & np.isfinite(accumulated), accumulated, -np.inf)
     if not np.any(np.isfinite(scored)):
@@ -142,6 +150,7 @@ def build_network_geometry(
     tau_specific_ratio: float,
     inactive_mask: np.ndarray | None = None,
     excluded: np.ndarray | None = None,
+    delineated_catchment: np.ndarray | None = None,
     diagonal_neighbors: bool = False,
     observed_position_accuracy_m: float | None = None,
 ) -> NetworkGeometry:
@@ -157,6 +166,38 @@ def build_network_geometry(
         if inactive_mask is None
         else np.asarray(inactive_mask, dtype=bool).reshape(-1)
     )
+    fill_report = None
+    catchment_outlet: int | None = None
+    if delineated_catchment is not None:
+        # Condition the surface ON THIS GRAPH before measuring lengths along it.
+        # A raster conditioned before delineation is pit-free on its own grid
+        # only; sampled onto the mesh it grows new pits, and the descent then
+        # stops in depressions that do not exist hydrologically. Measured on the
+        # Nancon: 13.6 per cent of the seepage support never reached its target
+        # before the flood, 0.0 per cent after, and the outlet moved from an
+        # internal depression at 130.3 m to the true low point at 106.4 m.
+        catchment_seed = np.asarray(delineated_catchment, dtype=bool).reshape(-1)
+        candidates = np.where(catchment_seed & ~inactive, surface, np.inf)
+        # The flood and the criterion must seal the SAME cell. After the flood
+        # every path in the catchment ends at this one by construction, so
+        # resolving a different outlet afterwards leaves the cells that drain
+        # here unable to reach the sealed target.
+        catchment_outlet = int(np.argmin(candidates))
+        outlets = np.zeros(surface.size, dtype=bool)
+        outlets[catchment_outlet] = True
+        fill_report = fill_depressions_on_graph(
+            np.where(inactive, np.nan, surface),
+            shared_node_adjacency(face_node_connectivity, n_cells=surface.size),
+            outlets,
+        )
+        surface = fill_report.surface
+        logger.info(
+            "Network criterion: %d cell(s) raised to close the depressions of the "
+            "surface it measures on, up to %.2f m.",
+            fill_report.n_filled,
+            fill_report.max_fill,
+        )
+
     metric = build_downslope_metric(
         surface,
         face_node_connectivity,
@@ -173,10 +214,27 @@ def build_network_geometry(
             "and that both its CRS and the mesh CRS are declared."
         )
 
-    outlet = resolve_outlet(metric)
+    if delineated_catchment is not None:
+        # The catchment the geographic pipeline closed on the declared gauge,
+        # delineated on the conditioned routing surface. The model top is never
+        # conditioned, so descending it to its own largest basin picks an
+        # internal depression instead: measured on the Nancon, 2.3 per cent of
+        # the mesh and not one cell of the mapped network.
+        catchment = np.asarray(delineated_catchment, dtype=bool).reshape(-1) & active
+        if not np.any(catchment):
+            raise ValueError(
+                "the delineated catchment projects onto no active cell of the mesh: "
+                "check the CRS of the watershed the geographic step wrote."
+            )
+        outlet = catchment_outlet
+    else:
+        outlet = resolve_outlet(metric)
+        seed = np.zeros(active.size, dtype=bool)
+        seed[outlet] = True
+        catchment = np.isfinite(downslope_distance_to_mask(metric, seed)) & active
+
     outlet_mask = np.zeros(active.size, dtype=bool)
     outlet_mask[outlet] = True
-    catchment = np.isfinite(downslope_distance_to_mask(metric, outlet_mask)) & active
 
     distance_raw = downslope_distance_to_mask(metric, observed_mask)
     sealed = observed_mask.copy()
@@ -277,6 +335,7 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
     inside a numpy call.
     """
     from hydromodpy.calibration.observations.observed_network import (
+        delineated_catchment_mask,
         observed_network_mask,
         water_body_mask,
     )
@@ -294,6 +353,13 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
     connectivity = dense_face_connectivity(planar_mesh)
     inactive = np.asarray(solver_mesh.inactive_mask, dtype=bool)[0]
 
+    # The model top, conditioned on the mesh graph by build_network_geometry.
+    # Sampling the raster the geographic step conditioned is NOT equivalent:
+    # that surface is pit-free on its own grid, and reading it at mesh centroids
+    # both grows new pits and drops the cells whose centroid falls on nodata.
+    # Measured on the Nancon, the sampled route left 51.9 per cent of the
+    # simulated support unreachable against 0.0 per cent for the flood on the
+    # mesh graph itself.
     return build_network_geometry(
         topography=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
         face_node_connectivity=connectivity,
@@ -304,6 +370,7 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
         tau_specific_ratio=float(output.tau_specific_ratio),
         inactive_mask=inactive,
         excluded=water_body_mask(model, n_cells=int(solver_mesh.n_cells)),
+        delineated_catchment=delineated_catchment_mask(run_ctx, planar_mesh, connectivity),
         diagonal_neighbors=bool(output.diagonal_neighbors),
         observed_position_accuracy_m=_accuracy_in_m(output),
     )

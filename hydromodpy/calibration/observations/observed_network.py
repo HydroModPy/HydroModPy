@@ -14,6 +14,7 @@ zero is the equality of two terms moves the root.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -122,4 +123,47 @@ def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
     return mask
 
 
-__all__ = ("observed_network_mask", "water_body_mask")
+def delineated_catchment_mask(
+    run_ctx: Any,
+    planar_mesh: Any,
+    face_node_connectivity: np.ndarray,
+) -> np.ndarray | None:
+    """Project the catchment the geographic pipeline delineated onto the cells.
+
+    That catchment is closed on the gauge the user declared and is delineated on
+    the CONDITIONED routing surface. Re-deriving one by descending the model top
+    instead gives the largest internal depression of an unconditioned surface: on
+    a real basin it holds a few per cent of the mesh and none of the mapped
+    network, and every trial then fails on an empty support.
+
+    Returns ``None`` when the run declares no watershed, which is the case for a
+    synthetic domain; the caller then falls back to descending to its own outlet.
+    """
+    import geopandas as gpd
+
+    setup = getattr(getattr(run_ctx, "state", None), "setup", None) or getattr(
+        run_ctx, "setup", None
+    )
+    # ``setup.geographic`` is the delineation object, the same handle
+    # spatial.geographic.structure_binders reads the catchment from.
+    shp = getattr(getattr(setup, "geographic", None), "watershed_shp", None)
+    if shp is None or not Path(str(shp)).exists():
+        return None
+
+    frame = gpd.read_file(str(shp))
+    if frame.empty:
+        return None
+    mesh_crs = _declared_crs(run_ctx)
+    if not mesh_crs:
+        return None
+
+    polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
+    return vector_cell_mask(
+        polygons,
+        list(frame.geometry),
+        mesh_crs=mesh_crs,
+        geometry_crs=frame.crs,
+    )
+
+
+__all__ = ("delineated_catchment_mask", "observed_network_mask", "water_body_mask")

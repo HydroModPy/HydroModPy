@@ -247,10 +247,15 @@ def score_network_output(
     )
     if scored.status == "failed":
         raise ObjectiveError(
-            f"Output {name!r}: more than {output.max_unreachable_fraction:.0%} of a support "
-            "never reaches its target. The routing surface is not conditioned, and the "
-            "averages would be a fiction; condition the surface rather than filtering "
-            "those cells away."
+            f"Output {name!r}: {scored.components.get('frac_unreachable_so', float('nan')):.1%} "
+            f"of the simulated support and "
+            f"{scored.components.get('frac_unreachable_os', float('nan')):.1%} of the mapped one "
+            f"never reach their target, over the {output.max_unreachable_fraction:.0%} bound. "
+            "Averaging over a truncated support is a fiction, and the cells dropped are "
+            "never a random sample. Two causes read the same here: a routing surface "
+            "whose depressions are not resolved, and a trial whose simulated network is "
+            "too small for the mapped one to descend into, which is what the ends of a "
+            "sweep look like."
         )
 
     roptim = scored.components["roptim"]

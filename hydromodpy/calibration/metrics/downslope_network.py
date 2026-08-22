@@ -150,9 +150,17 @@ def seepage_distance_cost(
     support_so = simulated.network & keep
     support_os = observed_mask & keep
     if not np.any(support_os):
+        # Say WHICH of the three intersections emptied it: a CRS mismatch, a
+        # catchment that closed on the wrong cell and a mesh whose active domain
+        # misses the streams all produce the same empty support otherwise.
         raise ValueError(
-            "the observed stream network holds no cell inside the catchment: check its "
-            "geometry, its CRS and the outlet the catchment was delineated from."
+            "the observed stream network holds no cell inside the catchment. "
+            f"{int(observed_mask.sum())} mapped cell(s) on the mesh, "
+            f"{int(active.sum())} active cell(s), "
+            f"{int(catchment_mask.sum())} in the catchment, "
+            f"{int((observed_mask & catchment_mask).sum())} mapped inside it, "
+            f"{int(support_os.sum())} left after the exclusions. "
+            "Check the CRS of the network, and the outlet the catchment closed on."
         )
 
     weights = np.asarray(cell_area_m2, dtype=float).reshape(-1) if weighting == "area" else None

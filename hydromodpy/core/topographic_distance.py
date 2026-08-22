@@ -53,7 +53,7 @@ class DownslopeDistanceSummary:
     n_undefined: int
 
 
-def _shared_node_adjacency(
+def shared_node_adjacency(
     face_node_connectivity: Any,
     *,
     n_cells: int,
@@ -126,7 +126,7 @@ def build_downslope_metric(
 
     adjacency = None
     if diagonal_neighbors:
-        adjacency = _shared_node_adjacency(face_node_connectivity, n_cells=n_cells)
+        adjacency = shared_node_adjacency(face_node_connectivity, n_cells=n_cells)
 
     graph = build_downhill_graph(
         reference,
