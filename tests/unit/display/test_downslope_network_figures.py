@@ -355,6 +355,35 @@ def test_confusion_map_refuses_a_mask_of_the_wrong_size(mpl) -> None:
         mpl.close(fig)
 
 
+def test_confusion_map_is_skipped_by_the_gallery_rather_than_crashing(mpl, tmp_path) -> None:
+    # The three masks live inside the criterion and no run persists them, so
+    # driven from a config the figure must report itself as not applicable
+    # instead of dying on its own signature.
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.runs import render_figures_for_run
+
+    cfg = DisplayConfig(
+        enabled=True,
+        figures=["seepage_network_confusion_map"],
+        on_error="raise",
+    )
+
+    report = render_figures_for_run(_mesh_run(4), cfg, output_dir=tmp_path)
+
+    assert report.rendered == ()
+    assert [item.name for item in report.skipped] == ["seepage_network_confusion_map"]
+    reason = report.skipped[0].reason
+    assert all(word in reason for word in ("valid", "excess", "missing"))
+    assert "render failed" not in reason
+
+
+def test_confusion_map_names_what_it_needs_when_it_cannot_be_drawn() -> None:
+    reason = SeepageNetworkConfusionMap().unavailable_reason(_mesh_run(2))
+
+    assert reason is not None
+    assert "calibration" in reason
+
+
 # --------------------------------------------------------------------------- #
 # bisection_bracket_trace
 # --------------------------------------------------------------------------- #
