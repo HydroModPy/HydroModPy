@@ -146,6 +146,13 @@ What each choice buys you
    recessions. Do not write ``transform = "log"`` for this: that takes the
    logarithm of an already-computed cost and is an unrelated operation.
 
+``variable`` and ``objective`` on the second stage only
+   Declaring either one picks the single-metric route for that phase. The
+   phase then inherits neither the outputs nor the objective blocks the
+   calibration declares, which is what keeps the transient stage off the
+   network criterion of the first one. Declaring both conventions on the same
+   phase is refused rather than silently resolved.
+
 ``scoring_window`` rather than ``warmup_periods``
    A window in dates means the same span whatever the output frequency; a count
    of samples does not. The two are mutually exclusive and declaring both is
