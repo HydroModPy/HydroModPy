@@ -18,6 +18,7 @@ from hydromodpy.calibration.optim.optimizer import (
     build_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
 
 ROOT = 600.0
 """The truth the search must find, in physical units."""
@@ -89,7 +90,7 @@ class TestDimension:
                 CalibParameter(name="Sy", lower=0.01, upper=0.3),
             ]
         )
-        with pytest.raises(ValueError, match="searches one parameter"):
+        with pytest.raises(OptimizerError, match="searches one parameter"):
             BisectionAdapter(space)
 
 
@@ -151,13 +152,13 @@ class TestRootSearch:
 class TestRefusal:
     def test_a_bracket_without_a_sign_change_raises(self) -> None:
         adapter = BisectionAdapter(_space(1.0, 10.0), sweep_points=3, bracket_expand=0)
-        with pytest.raises(ValueError, match="keeps the same sign"):
+        with pytest.raises(OptimizerError, match="keeps the same sign"):
             # The root sits far above the interval, so every residual is positive.
             _run(adapter, root=1.0e9)
 
     def test_the_refusal_names_both_ends(self) -> None:
         adapter = BisectionAdapter(_space(1.0, 10.0), sweep_points=3, bracket_expand=0)
-        with pytest.raises(ValueError) as failure:
+        with pytest.raises(OptimizerError) as failure:
             _run(adapter, root=1.0e9)
         message = str(failure.value)
         assert "J_signed" in message
@@ -182,7 +183,7 @@ class TestRefusal:
             status="completed",
             components={"rmse": 1.0},
         )
-        with pytest.raises(ValueError, match="published no 'J_signed'"):
+        with pytest.raises(ObjectiveError, match="published no 'J_signed'"):
             adapter.tell([blind])
 
 
@@ -194,9 +195,43 @@ class TestSignedComponentLookup:
         assert signed_residual({"net.J_signed": 3.0}) == 3.0
 
     def test_two_candidates_are_an_error(self) -> None:
-        with pytest.raises(ValueError, match="several outputs"):
+        with pytest.raises(OptimizerError, match="several outputs"):
             signed_residual({"a.J_signed": 1.0, "b.J_signed": 2.0})
 
     def test_an_absent_key_is_not_an_error_here(self) -> None:
         assert signed_residual({"rmse": 1.0}) is None
         assert signed_residual(None) is None
+
+
+class TestTransform:
+    """The whole search walks a log10 variable, so it must be given one."""
+
+    def test_an_identity_transform_parameter_is_refused(self) -> None:
+        # Bounds [1e-9, 1e-3] in identity space are 1e-3 wide, which is already
+        # below the tolerance: the search would report convergence on a bracket
+        # a factor 1e6 wide, and _expand would subtract 1 m/s from a K.
+        space = ParameterSpace([CalibParameter(name="K", lower=1.0e-9, upper=1.0e-3)])
+        with pytest.raises(OptimizerError) as failure:
+            BisectionAdapter(space)
+        message = str(failure.value)
+        assert "K" in message
+        assert "identity" in message
+        assert 'transform = "log"' in message
+
+    def test_a_logit_transform_parameter_is_refused(self) -> None:
+        space = ParameterSpace(
+            [CalibParameter(name="Sy", lower=0.01, upper=0.3, transform="logit")]
+        )
+        with pytest.raises(OptimizerError, match="logit"):
+            BisectionAdapter(space)
+
+    def test_a_log_parameter_is_accepted(self) -> None:
+        adapter = BisectionAdapter(_space(), sweep_points=0)
+        assert adapter.ask(n=2)
+
+    def test_an_identity_space_does_not_report_convergence_after_the_sweep(self) -> None:
+        # The regression, stated as behaviour: no adapter reaches a converged
+        # state on an untransformed parameter.
+        space = ParameterSpace([CalibParameter(name="K", lower=1.0e-9, upper=1.0e-3)])
+        with pytest.raises(OptimizerError):
+            BisectionAdapter(space, sweep_points=7)
