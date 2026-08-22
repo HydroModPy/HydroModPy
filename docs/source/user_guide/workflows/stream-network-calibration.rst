@@ -53,10 +53,12 @@ invariance from a factor 1.05 onwards.
 
 **The recharge must be frozen during the first stage.** The criterion at one
 per cent is on the ratio, which equals one per cent on the conductivity only
-when the recharge does not move. Nothing checks that for you: the criterion
-reads the mean recharge back from the built model to set its seepage threshold,
-but it publishes neither that value nor the ratio. Keep the recharge out of
-``[calibration.parameters]``, and out of anything the first phase moves.
+when the recharge does not move. Every trial publishes ``R_mean_m_s``, the mean
+recharge the criterion actually read back from the built model, and a move
+between two builds raises a warning naming both values. Nothing refuses the run,
+because this check knows a mesh and not a session: keep the recharge out of
+``[calibration.parameters]`` and out of anything the first phase moves, and read
+``R_mean_m_s`` across the trials before reading the calibrated value as a ``K``.
 
 Declaring the two stages
 ------------------------
@@ -226,6 +228,11 @@ to look at first:
    agreement, not correctness, so do not read it as a quality score of the
    model.
 
+``R_mean_m_s``
+   The denominator of the calibrated ratio. It is what makes the result a
+   ``K/R`` rather than a ``K``, and comparing it across the trials of a session
+   is how you check the first stage really held the recharge still.
+
 ``alpha_obs_closure`` and ``frac_reachable_obs_raw``
    The two numbers that say whether the pre-treatment was done and whether it
    was enough. They describe the geometry, not the trial, so they are identical
@@ -255,10 +262,9 @@ Publish the ratio, not the conductivity. That advice stands, and it is work you
 have to do yourself: the calibration returns the calibrated conductivity raw, in
 ``best_parameters`` of the report, and it publishes no ratio at all. There is no
 ``t_over_r``, no ``k_over_r`` and no ``k_optim`` anywhere in the output. Divide
-by the mean recharge the run used, which the criterion reads from the built
-model but does not write out either, and state that recharge series beside the
-number: the conductivity inherits it entirely, and changing reanalysis moves it
-by up to a quarter.
+by ``R_mean_m_s``, which every trial publishes, and state the recharge series it
+came from beside the number: the conductivity inherits it entirely, and changing
+reanalysis moves it by up to a quarter.
 
 What the code does publish, and what belongs in the paper beside the value, is
 the diagnostic set above: ``D_so`` and ``D_os``, the cost ``J`` with its signed
