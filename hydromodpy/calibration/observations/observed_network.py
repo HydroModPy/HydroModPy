@@ -102,16 +102,22 @@ def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
     This is the same cut the stream-network builder already applies on the
     simulated side, where a reach is cut at the lake cell and its flow handed
     over at the shoreline. One rule, two consumers.
+
+    The backend publishes that footprint as ``open_water_cell_ids``: every lake
+    cell of the run, whether the lake is solved as an inactive fixed-area
+    reservoir or kept active for its varying level. Reading the inactive subset
+    instead would leave a marnage reservoir inside both supports, and the
+    question asked here is whether the cell is open water, not how the lake is
+    discretised.
     """
-    cells: set[int] = set()
-    by_lake = getattr(model, "lake_cell_ids_by_lake", None)
-    if isinstance(by_lake, dict):
-        for ids in by_lake.values():
-            cells.update(int(cell) for cell in ids)
-    if not cells:
+    ids = getattr(model, "open_water_cell_ids", None)
+    if ids is None:
         return None
-    mask = np.zeros(int(n_cells), dtype=bool)
-    inside = [cell for cell in cells if 0 <= cell < int(n_cells)]
+    limit = int(n_cells)
+    inside = sorted({int(cell) for cell in ids if 0 <= int(cell) < limit})
+    if not inside:
+        return None
+    mask = np.zeros(limit, dtype=bool)
     mask[inside] = True
     return mask
 

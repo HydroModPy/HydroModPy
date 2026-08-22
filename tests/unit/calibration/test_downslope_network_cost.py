@@ -7,13 +7,18 @@ standing in for ``K/R``, and the residual read at each point.
 
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
+import hydromodpy
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     seepage_distance_cost,
 )
+from hydromodpy.calibration.observations.observed_network import water_body_mask
 from hydromodpy.calibration.observations.simulated_network import (
     build_simulated_network,
     downstream_closure,
@@ -24,6 +29,7 @@ from hydromodpy.core.topographic_distance import (
     longest_descent_length,
 )
 from tests._helpers.v_valley import (
+    AXIS_COL,
     CELL_SIZE,
     LENGTH_SCALE,
     N_CELLS,
@@ -234,3 +240,51 @@ class TestSupportsAndDiagnostics:
 
     def test_the_distance_method_has_one_name(self) -> None:
         assert DISTANCE_METHOD == "downslope_simclosed_obsraw_outletsealed"
+
+
+class TestWaterBodyWiring:
+    """The bridge between the built model and the two supports.
+
+    The mask is only as good as the attribute it reads: a name no backend ever
+    writes gives an empty exclusion and a silently wrong criterion on every
+    catchment holding a reservoir.
+    """
+
+    def _lake_cells(self) -> list[int]:
+        return [cell_id(row, AXIS_COL) for row in range(40, 45)]
+
+    def test_the_lake_cells_a_model_carries_leave_both_supports(self, bench, geometry) -> None:
+        cells = self._lake_cells()
+        model = SimpleNamespace(open_water_cell_ids=list(cells))
+        mask = water_body_mask(model, n_cells=N_CELLS)
+
+        assert mask is not None
+        assert sorted(np.flatnonzero(mask).tolist()) == sorted(cells)
+
+        observed = observed_network("aligned")
+        without = _evaluate(bench, geometry, observed, 200.0)
+        with_lake = _evaluate(bench, geometry, observed, 200.0, excluded=mask)
+        assert with_lake.components["n_network_obs"] < without.components["n_network_obs"]
+        assert with_lake.components["n_network_sim"] < without.components["n_network_sim"]
+
+    def test_a_model_without_lakes_leaves_the_supports_untouched(self, bench, geometry) -> None:
+        assert water_body_mask(SimpleNamespace(open_water_cell_ids=[]), n_cells=N_CELLS) is None
+        assert water_body_mask(SimpleNamespace(), n_cells=N_CELLS) is None
+
+        observed = observed_network("aligned")
+        without = _evaluate(bench, geometry, observed, 200.0)
+        with_none = _evaluate(bench, geometry, observed, 200.0, excluded=None)
+        assert with_none.signed_gap == pytest.approx(without.signed_gap)
+
+    def test_a_cell_outside_the_mesh_is_dropped(self) -> None:
+        model = SimpleNamespace(open_water_cell_ids=[3, N_CELLS, -1])
+        mask = water_body_mask(model, n_cells=N_CELLS)
+        assert np.flatnonzero(mask).tolist() == [3]
+
+    def test_the_modflow6_builder_writes_the_attribute_the_criterion_reads(self) -> None:
+        # The defect this guards is invisible at runtime: the criterion reads an
+        # attribute, gets None, and reports a plausible number.
+        source = (Path(hydromodpy.__file__).parent / "solver" / "modflow6" / "build.py").read_text(
+            encoding="utf-8"
+        )
+        assert "model.open_water_cell_ids = " in source
