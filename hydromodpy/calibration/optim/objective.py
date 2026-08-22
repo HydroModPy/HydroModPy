@@ -194,6 +194,12 @@ HIGHER_IS_BETTER: frozenset[str] = frozenset(
 # the two names look alike and mean unrelated things.
 LOG_METRICS: frozenset[str] = frozenset({"nse_log"})
 
+# Output supports whose values carry no time axis. A ``network`` output produces the
+# pair (D_so, D_os), two distances in metres, so nothing in it can be read as "the
+# first periods of the run". Compared as strings because this layer must not import
+# the config layer.
+TIMELESS_SUPPORTS: frozenset[str] = frozenset({"network"})
+
 
 def clip_negatives_for_log_metric(
     simulated: np.ndarray,
@@ -432,6 +438,9 @@ class ConfigBlockObjective:
     the simulated vectors at evaluation time via ``sim.values``
     (``Mapping[output_name, Sequence[float]]``), computes the block metric
     and applies the configured normalisation and transform.
+
+    ``timeless_outputs`` names the outputs whose values carry no time axis, on
+    which a burn-in in samples is refused rather than applied.
     """
 
     def __init__(
@@ -444,6 +453,7 @@ class ConfigBlockObjective:
         normalize_cost: bool = False,
         transform: str = "identity",
         warmup: int = 0,
+        timeless_outputs: Iterable[str] = (),
     ) -> None:
         metric_key = str(metric).strip().lower()
         if metric_key not in METRICS:
@@ -468,6 +478,19 @@ class ConfigBlockObjective:
         self._observed = observed
         self._observed_parts = observed_parts
         self._warmup = max(0, int(warmup))
+        # A burn-in counts samples along a time axis. A network output carries none:
+        # it produces the pair (D_so, D_os), two distances in metres. Truncating it
+        # empties the pair and the block returns inf, which a staged run only ever
+        # shows as a phase that did not converge. Refusing here, at build time and by
+        # name, is the one behaviour that cannot return a wrong number: skipping the
+        # truncation in silence would score a block the user believes is burnt in.
+        timeless = sorted(set(outputs) & {str(item) for item in timeless_outputs})
+        if self._warmup > 0 and timeless:
+            raise ValueError(
+                f"Block {self.name!r}: warmup={self._warmup} cannot be dropped from "
+                f"output(s) {timeless}, which carry no time axis. Declare warmup = 0 on "
+                "this block to keep the calibration-wide burn-in for the others."
+            )
         self._normalize_cost = bool(normalize_cost)
         self._transform_name = str(transform).strip().lower() if transform else "identity"
         self._transform_fn = _resolve_transform(self._transform_name)
@@ -507,7 +530,8 @@ class ConfigBlockObjective:
             simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
         # Burn-in: drop the first _warmup periods of EACH output before concatenation, so the
         # spin-up window (state still depending on the initial condition) does not enter the
-        # metric. Slicing per output keeps every series' own leading periods aligned.
+        # metric. Slicing per output keeps every series' own leading periods aligned. Outputs
+        # with no time axis never reach here with a burn-in: __init__ refuses that pairing.
         if self._warmup > 0:
             simulated = np.concatenate([part[self._warmup :] for part in simulated_parts])
             observed = np.concatenate([part[self._warmup :] for part in self._observed_parts])
@@ -551,6 +575,9 @@ def build_objective_from_config(cfg: Any) -> Objective:
     (metric + normalise + transform applied per block). When a single block
     is declared, the block is returned directly; otherwise the blocks are
     wrapped in a :class:`CompositeObjective` with normalised weights.
+
+    A block that inherits a burn-in while consuming an output with no time
+    axis is refused here, by name, rather than scored on a truncated vector.
     """
     blocks = getattr(cfg, "objective_blocks", None) or []
     outputs = getattr(cfg, "outputs", None) or {}
@@ -560,10 +587,13 @@ def build_objective_from_config(cfg: Any) -> Objective:
             "or populate cfg.outputs so the implicit block can be synthesised."
         )
     observed_by_output: dict[str, tuple[float, ...]] = {}
+    timeless_outputs: set[str] = set()
     for output_name, decl in outputs.items():
         values = getattr(decl, "observed_values", None)
         if values is not None:
             observed_by_output[str(output_name)] = tuple(float(v) for v in values)
+        if getattr(decl, "support", None) in TIMELESS_SUPPORTS:
+            timeless_outputs.add(str(output_name))
     # Burn-in periods excluded from every block's metric (spin-up window). A block
     # overrides the calibration-wide default with its own ``warmup``; the test is on
     # ``is None`` and not on truthiness, otherwise ``warmup = 0`` would fall back to
@@ -587,6 +617,7 @@ def build_objective_from_config(cfg: Any) -> Objective:
                 normalize_cost=normalize_cost,
                 transform=transform,
                 warmup=warmup,
+                timeless_outputs=timeless_outputs,
             )
         )
     if len(block_objectives) == 1:
@@ -611,6 +642,7 @@ __all__ = [
     "METRICS",
     "HIGHER_IS_BETTER",
     "LOG_METRICS",
+    "TIMELESS_SUPPORTS",
     "distance_gap",
     "distance_mean",
     "clip_negatives_for_log_metric",
