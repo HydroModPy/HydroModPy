@@ -159,8 +159,10 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
 
     The phase carries its own search (method, budget, parameters) and selects
     by name from what the calibration declares. An empty selection of outputs
-    or of objective blocks means every declared one. ``phases`` is cleared so
-    the sub-run is an ordinary calibration.
+    or of objective blocks means every declared one. A phase declaring its own
+    ``variable`` or ``objective`` takes the single-metric route instead, and
+    inherits neither. ``phases`` is cleared so the sub-run is an ordinary
+    calibration.
     """
     payload = cfg.model_dump()
     payload["method"] = decl.method
@@ -175,13 +177,20 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     if decl.scoring_window is not None:
         payload["scoring_window"] = decl.scoring_window.model_dump()
     payload["parameters"] = {name: payload["parameters"][name] for name in decl.parameters}
-    if decl.outputs:
-        payload["outputs"] = {name: payload["outputs"][name] for name in decl.outputs}
-    if decl.objective_blocks:
-        selected = set(decl.objective_blocks)
-        payload["objective_blocks"] = [
-            block for block in payload["objective_blocks"] if block["name"] in selected
-        ]
+    if decl.is_single_metric:
+        # The extractor prefers blocks over the variable whenever both are
+        # present, so a phase inheriting the blocks of another one would be
+        # scored on that other criterion without saying so.
+        payload["outputs"] = {}
+        payload["objective_blocks"] = []
+    else:
+        if decl.outputs:
+            payload["outputs"] = {name: payload["outputs"][name] for name in decl.outputs}
+        if decl.objective_blocks:
+            selected = set(decl.objective_blocks)
+            payload["objective_blocks"] = [
+                block for block in payload["objective_blocks"] if block["name"] in selected
+            ]
     payload["phases"] = None
     try:
         return CalibrationConfig.model_validate(payload)

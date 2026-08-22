@@ -597,6 +597,17 @@ class CalibPhaseDecl(HydroModelBase):
         "indicator is good.",
     )
 
+    @property
+    def is_single_metric(self) -> bool:
+        """Whether this phase scores one variable rather than objective blocks.
+
+        Declaring ``variable`` or ``objective`` picks the single-metric route.
+        The phase then ignores the outputs and the blocks the calibration
+        declares for the other phases, which would otherwise take precedence
+        and score it on a criterion it never asked for.
+        """
+        return self.variable is not None or self.objective is not None
+
 
 class CalibrationConfig(HydroModelBase):
     """Top-level ``[calibration]`` section.
@@ -839,6 +850,13 @@ class CalibrationConfig(HydroModelBase):
                 raise ValueError(
                     f"phase {phase.name!r} declares a scoring_window while the "
                     "calibration declares warmup_periods; pick one convention."
+                )
+            if phase.is_single_metric and (phase.outputs or phase.objective_blocks):
+                raise ValueError(
+                    f"phase {phase.name!r} declares a single-metric objective and also "
+                    "selects outputs or objective blocks; the two are scored by "
+                    "different routes and only one of them would run. Pick one "
+                    "convention."
                 )
         return self
 
