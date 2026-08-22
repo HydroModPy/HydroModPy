@@ -11,8 +11,16 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from hydromodpy.calibration.optim.objective import HIGHER_IS_BETTER, METRICS
+from hydromodpy.calibration.optim.objective import (
+    HIGHER_IS_BETTER,
+    LOG_METRICS,
+    METRICS,
+    clip_negatives_for_log_metric,
+)
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
+
+logger = get_logger(__name__)
 
 
 def score(
@@ -21,6 +29,8 @@ def score(
     objective: str,
     *,
     warmup_periods: int = 0,
+    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    metric_kwargs: dict[str, object] | None = None,
 ) -> float:
     """Align both series at the simulation frequency, compute the scalar metric.
 
@@ -33,6 +43,13 @@ def score(
     than about the parameters; scoring them makes the optimiser chase the warm-up.
     The setting comes from ``[calibration].warmup_periods``, which until now was
     honoured only on the synthetic-truth paths and silently ignored here.
+
+    ``scoring_window`` says the same thing in dates rather than in samples, which
+    is what a transient calibration wants: it means the same span whatever the
+    output frequency. The two are mutually exclusive at the schema level.
+
+    ``metric_kwargs`` reaches the metric function, which is how ``nse_log``
+    receives an explicit ``eps`` instead of its adaptive default.
     """
     metric = METRICS.get(objective.lower())
     if metric is None:
@@ -43,6 +60,14 @@ def score(
     paired = align_observed_simulated(observed, simulated)
     if paired.empty:
         raise ValueError("No overlapping finite observation/simulation samples for calibration")
+    if scoring_window is not None:
+        start, end = scoring_window
+        if start is not None:
+            paired = paired[paired.index >= start]
+        if end is not None:
+            paired = paired[paired.index <= end]
+        if paired.empty:
+            raise ValueError(f"scoring_window {start} to {end} leaves no aligned sample to score")
     skip = max(0, int(warmup_periods))
     if skip:
         if skip >= len(paired):
@@ -51,7 +76,19 @@ def score(
                 f"({len(paired)} aligned periods available)"
             )
         paired = paired.iloc[skip:]
-    value = float(metric(paired["sim"].values, paired["obs"].values))
+    sim_values = paired["sim"].values
+    obs_values = paired["obs"].values
+    if objective.lower() in LOG_METRICS:
+        sim_values, obs_values, n_clipped = clip_negatives_for_log_metric(sim_values, obs_values)
+        if n_clipped:
+            logger.warning(
+                "Metric %s: %d negative value(s) clipped to zero before the log transform. "
+                "A reconstructed discharge below a dam can be negative; a sign error looks "
+                "the same, so check the series.",
+                objective,
+                n_clipped,
+            )
+    value = float(metric(sim_values, obs_values, **(metric_kwargs or {})))
     if not np.isfinite(value):
         raise ValueError(f"Calibration metric {objective!r} returned a non-finite value")
     return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value

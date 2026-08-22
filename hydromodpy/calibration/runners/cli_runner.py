@@ -30,7 +30,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config import CalibrationConfig, scoring_window_bounds
 from hydromodpy.calibration.metrics import build_metric_extractor
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.engine import CalibrationEngine
@@ -267,6 +267,7 @@ def run_calibration_core(
                 outputs=cfg.outputs or None,
                 objective_blocks=cfg.objective_blocks or None,
                 warmup_periods=int(cfg.warmup_periods),
+                scoring_window=scoring_window_bounds(cfg.scoring_window),
             )
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)

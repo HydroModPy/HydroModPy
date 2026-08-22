@@ -56,6 +56,7 @@ def build_metric_extractor(
     outputs: Mapping[str, CalibOutputDecl] | None = None,
     objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
     warmup_periods: int = 0,
+    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -67,6 +68,10 @@ def build_metric_extractor(
     single-metric path runs against ``loaded_data`` (variable + objective).
     Both branches are supported: the single-metric one is the standard TOML
     route taken whenever no ``objective_blocks`` are declared.
+
+    ``scoring_window`` bounds the scored samples in dates. It reaches the
+    single-metric branch only: the composite branch scores plain value vectors
+    that carry no time axis to cut on.
     """
     if outputs and objective_blocks:
         return _build_composite_metric_extractor(outputs, objective_blocks)
@@ -102,7 +107,11 @@ def build_metric_extractor(
                 costs: list[float] = []
                 for obs_rec in observed:
                     cost = score(
-                        obs_rec.series, simulated, objective, warmup_periods=warmup_periods
+                        obs_rec.series,
+                        simulated,
+                        objective,
+                        warmup_periods=warmup_periods,
+                        scoring_window=scoring_window,
                     )
                     components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
@@ -143,7 +152,13 @@ def build_metric_extractor(
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no head calibration series"
                         )
-                    cost = score(obs_rec.series, sim, objective, warmup_periods=warmup_periods)
+                    cost = score(
+                        obs_rec.series,
+                        sim,
+                        objective,
+                        warmup_periods=warmup_periods,
+                        scoring_window=scoring_window,
+                    )
                     components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)
@@ -174,7 +189,13 @@ def build_metric_extractor(
                         raise NotImplementedError(
                             f"Solver {run_ctx.run.solver!r} returned no lake stage series"
                         )
-                    cost = score(obs_rec.series, sim, objective, warmup_periods=warmup_periods)
+                    cost = score(
+                        obs_rec.series,
+                        sim,
+                        objective,
+                        warmup_periods=warmup_periods,
+                        scoring_window=scoring_window,
+                    )
                     components[f"cost:{objective}@{obs_rec.station_id}"] = cost
                     if np.isfinite(cost):
                         costs.append(cost)

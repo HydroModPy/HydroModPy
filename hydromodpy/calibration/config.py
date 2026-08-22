@@ -59,7 +59,7 @@ OutputSupport = Literal["point", "boundary", "cell", "lake"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
-MetricKind = Literal["rmse", "nse", "kge", "mae"]
+MetricKind = Literal["rmse", "nse", "kge", "mae", "nse_log"]
 CalibrationMethod = NonEmptyStr
 OutputTime = Literal["all", "last", "first"] | list[str]
 
@@ -308,6 +308,56 @@ def validate_calib_output(
     return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
 
 
+class CalibScoringWindow(HydroModelBase):
+    """Dates bounding the samples a metric is computed on.
+
+    A window in dates rather than in sample counts: it says the same thing
+    whatever the output frequency, whereas ``warmup_periods`` counts samples
+    after alignment and therefore means a different span at daily and at weekly
+    resolution. The two are mutually exclusive, which
+    :class:`CalibrationConfig` enforces.
+    """
+
+    start: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="First date scored, ISO 8601. Unset means from the first sample.",
+    )
+    end: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Last date scored, ISO 8601. Unset means up to the last sample.",
+    )
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> CalibScoringWindow:
+        bounds = _parsed_scoring_bounds(self)
+        if bounds[0] is not None and bounds[1] is not None and bounds[0] > bounds[1]:
+            raise ValueError(f"scoring_window start {self.start!r} is after end {self.end!r}.")
+        return self
+
+
+def _parsed_scoring_bounds(window: CalibScoringWindow) -> tuple[Any, Any]:
+    """Parse the window bounds into timestamps, raising on a bad date."""
+    import pandas as pd
+
+    parsed = []
+    for label, raw in (("start", window.start), ("end", window.end)):
+        if raw is None:
+            parsed.append(None)
+            continue
+        try:
+            parsed.append(pd.Timestamp(raw))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"scoring_window {label}={raw!r} is not a date.") from exc
+    return parsed[0], parsed[1]
+
+
+def scoring_window_bounds(window: CalibScoringWindow | None) -> tuple[Any, Any] | None:
+    """Return the parsed ``(start, end)`` of a window, or None when unset."""
+    if window is None:
+        return None
+    return _parsed_scoring_bounds(window)
+
+
 class CalibObjectiveBlockDecl(HydroModelBase):
     """Weighted metric block used by a composite objective.
 
@@ -322,7 +372,7 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
     metric: Annotated[MetricKind, Profile.USER] = Field(
         default="rmse",
-        description="Metric key. One of rmse, nse, kge, mae.",
+        description="Metric key. One of rmse, nse, kge, mae, nse_log.",
     )
     weight: Annotated[PositiveFloat, Profile.USER] = Field(
         default=1.0,
@@ -339,7 +389,17 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
     transform: Annotated[ObjectiveTransform, Profile.USER] = Field(
         default="identity",
-        description="Per-block cost transform applied before weighting.",
+        description="Per-block cost transform applied before weighting. Note that "
+        "transform='log' takes the logarithm of the cost, which is not the same "
+        "thing as metric='nse_log', an NSE computed on log-transformed series.",
+    )
+    warmup: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Burn-in periods dropped from this block only, overriding "
+            "[calibration].warmup_periods. Leave unset to inherit it; set it to 0 to "
+            "switch the burn-in off for this block."
+        ),
     )
 
 
@@ -390,6 +450,13 @@ class CalibrationConfig(HydroModelBase):
             "does not bias the calibration. Default 0 (no exclusion). Size it by "
             "increasing it until the objective stops changing (initial-condition "
             "insensitivity), not a fixed guess."
+        ),
+    )
+    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Dates bounding the samples every metric is computed on. Mutually "
+            "exclusive with warmup_periods, which counts samples instead of dates."
         ),
     )
     seed: Annotated[int | None, Profile.USER] = Field(
@@ -503,6 +570,20 @@ class CalibrationConfig(HydroModelBase):
         if isinstance(value, Path):
             return PurePosixPath(value.as_posix())
         return PurePosixPath(str(value).replace("\\", "/"))
+
+    @model_validator(mode="after")
+    def _refuse_two_burn_in_conventions(self) -> CalibrationConfig:
+        """A window in dates and a count of samples must not both be declared.
+
+        They say the same thing in two units, and the count means a different
+        span at every output frequency, so honouring both would make the scored
+        span depend on which one the reader noticed.
+        """
+        if self.scoring_window is not None and self.warmup_periods:
+            raise ValueError(
+                "declare either scoring_window (dates) or warmup_periods (samples), not both."
+            )
+        return self
 
     @model_validator(mode="after")
     def _ensure_implicit_objective_block(self) -> CalibrationConfig:

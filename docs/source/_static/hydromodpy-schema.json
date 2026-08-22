@@ -473,12 +473,13 @@
         },
         "metric": {
           "default": "rmse",
-          "description": "Metric key. One of rmse, nse, kge, mae.",
+          "description": "Metric key. One of rmse, nse, kge, mae, nse_log.",
           "enum": [
             "rmse",
             "nse",
             "kge",
-            "mae"
+            "mae",
+            "nse_log"
           ],
           "examples": [
             "rmse"
@@ -520,7 +521,7 @@
         },
         "transform": {
           "default": "identity",
-          "description": "Per-block cost transform applied before weighting.",
+          "description": "Per-block cost transform applied before weighting. Note that transform='log' takes the logarithm of the cost, which is not the same thing as metric='nse_log', an NSE computed on log-transformed series.",
           "enum": [
             "identity",
             "log",
@@ -531,6 +532,22 @@
           ],
           "title": "Transform",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "warmup": {
+          "anyOf": [
+            {
+              "description": "Non-negative integer.",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Burn-in periods dropped from this block only, overriding [calibration].warmup_periods. Leave unset to inherit it; set it to 0 to switch the burn-in off for this block.",
+          "title": "Warmup",
           "x-hmp-profile": "user"
         }
       },
@@ -1169,6 +1186,42 @@
       "title": "CalibParameterDecl",
       "type": "object"
     },
+    "CalibScoringWindow": {
+      "additionalProperties": false,
+      "description": "Dates bounding the samples a metric is computed on.\n\nA window in dates rather than in sample counts: it says the same thing\nwhatever the output frequency, whereas ``warmup_periods`` counts samples\nafter alignment and therefore means a different span at daily and at weekly\nresolution. The two are mutually exclusive, which\n:class:`CalibrationConfig` enforces.",
+      "properties": {
+        "start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First date scored, ISO 8601. Unset means from the first sample.",
+          "title": "Start",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Last date scored, ISO 8601. Unset means up to the last sample.",
+          "title": "End",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibScoringWindow",
+      "type": "object"
+    },
     "CalibrationConfig": {
       "additionalProperties": false,
       "description": "Top-level ``[calibration]`` section.\n\nThe config selects the optimizer, iteration budget, candidate persistence\npolicy, parameter declarations, observable outputs, and objective blocks.\nIt is the stable user-facing schema used by CLI calibration and\n``Project.calibrate``.\n\nWhen no explicit objective block is declared, HydroModPy can synthesize one\nfrom ``objective`` and ``variable`` if the matching output exists.",
@@ -1225,6 +1278,19 @@
           "minimum": 0,
           "title": "Warmup Periods",
           "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "scoring_window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibScoringWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.",
           "x-hmp-profile": "user"
         },
         "seed": {
