@@ -33,17 +33,30 @@ the layer matrix: ``calibration`` writes the journal while it optimises, and
 ``calibration_iterations``. The rebuild may not import ``calibration``, so
 the shape of a session and of a trial is declared here and used there.
 
+Chaining
+--------
+A calibration is often run in phases: a coarse sweep, then a refinement
+seeded by its result. ``parent_session_id``, ``root_session_id``,
+``phase_name`` and ``phase_index`` say where a session sits in such a
+chain. They are written to ``session.json`` and not only to the index,
+because a rebuild reads the disk and would otherwise flatten every chain
+into unrelated sessions without a single error.
+
 Format
 ------
 .. code-block:: json
 
     {
-      "journal_version": 1,
+      "journal_version": 2,
       "session_id": "3f2a1b7c9d0e4f118a2b5c6d7e8f9012",
       "project": "cheze",
       "method": "optuna",
       "objective_name": "rmse",
       "status": "completed",
+      "parent_session_id": "8a2b5c6d7e8f90123f2a1b7c9d0e4f11",
+      "root_session_id": "8a2b5c6d7e8f90123f2a1b7c9d0e4f11",
+      "phase_name": "refine",
+      "phase_index": 1,
       "started_at": "2026-07-26T01:42:33+00:00",
       "ended_at": "2026-07-26T01:44:02+00:00",
       "duration_s": 88.6,
@@ -84,8 +97,13 @@ from hydromodpy.results.storage.contract import (
     SESSION_TRIALS_FILENAME,
 )
 
-SESSION_JOURNAL_VERSION = 1
-"""Schema version of the session journal."""
+SESSION_JOURNAL_VERSION = 2
+"""Schema version of the session journal.
+
+Version 2 adds the phase chaining keys. Nothing validates the number on
+read: :func:`read_descriptor` accepts a descriptor written by any version
+and defaults the keys it does not find. The bump is provenance, not a gate.
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +123,10 @@ class SessionTrial:
 
 @dataclass(frozen=True, slots=True)
 class SessionDescriptor:
-    """Identity, search space and outcome of one calibration session."""
+    """Identity, search space, outcome and phase chain of one session.
+
+    A session that starts no chain leaves the four chaining fields empty.
+    """
 
     session_id: str
     project: str
@@ -121,6 +142,10 @@ class SessionDescriptor:
     best_objective: float | None = None
     best_sim_id: str | None = None
     error_message: str | None = None
+    parent_session_id: str | None = None
+    root_session_id: str | None = None
+    phase_name: str | None = None
+    phase_index: int | None = None
 
 
 def sessions_dir_for(project_root: Path | str) -> Path:
@@ -186,11 +211,17 @@ class SessionJournal:
         search_space: dict[str, Any],
         config: dict[str, Any],
         started_at: datetime,
+        parent_session_id: str | None = None,
+        root_session_id: str | None = None,
+        phase_name: str | None = None,
+        phase_index: int | None = None,
     ) -> SessionJournal:
         """Create ``sessions/<name>/`` and write the opening descriptor.
 
         ``started_at`` is read once by the caller and shared with the index,
-        so a rebuilt session starts at the very instant the live one did.
+        so a rebuilt session starts at the very instant the live one did. The
+        four chaining arguments place the session in a phase chain and stay
+        empty for a standalone calibration.
         """
         directory = sessions_dir_for(project_root) / session_dir_name(
             session_id, method, started_at
@@ -206,6 +237,10 @@ class SessionJournal:
                 started_at=started_at.isoformat(),
                 search_space=dict(search_space),
                 config=dict(config),
+                parent_session_id=_text_or_none(parent_session_id),
+                root_session_id=_text_or_none(root_session_id),
+                phase_name=_text_or_none(phase_name),
+                phase_index=_int_or_none(phase_index),
             ),
         )
         journal._write_descriptor()
@@ -264,7 +299,9 @@ def read_descriptor(session_dir: Path | str) -> SessionDescriptor:
     """Read ``session.json`` of one session directory.
 
     A malformed or incomplete descriptor raises: the rebuild reports the
-    session instead of indexing a calibration it cannot describe.
+    session instead of indexing a calibration it cannot describe. Only the
+    identity keys are required, so a descriptor written before the phase
+    chaining keys existed still reads, with an empty chain.
     """
     target = Path(session_dir) / SESSION_DESCRIPTOR_FILENAME
     payload = json.loads(target.read_text(encoding="utf-8"))
@@ -292,6 +329,10 @@ def read_descriptor(session_dir: Path | str) -> SessionDescriptor:
         best_objective=_float_or_none(payload.get("best_objective")),
         best_sim_id=_text_or_none(payload.get("best_sim_id")),
         error_message=_text_or_none(payload.get("error_message")),
+        parent_session_id=_text_or_none(payload.get("parent_session_id")),
+        root_session_id=_text_or_none(payload.get("root_session_id")),
+        phase_name=_text_or_none(payload.get("phase_name")),
+        phase_index=_int_or_none(payload.get("phase_index")),
     )
 
 
@@ -341,6 +382,10 @@ def _descriptor_payload(descriptor: SessionDescriptor) -> dict[str, Any]:
         "best_objective": descriptor.best_objective,
         "best_sim_id": descriptor.best_sim_id,
         "error_message": descriptor.error_message,
+        "parent_session_id": descriptor.parent_session_id,
+        "root_session_id": descriptor.root_session_id,
+        "phase_name": descriptor.phase_name,
+        "phase_index": descriptor.phase_index,
         "search_space": descriptor.search_space,
         "config": descriptor.config,
     }

@@ -700,11 +700,18 @@ class LifecycleMixin:
         return [str(r[0]) for r in rows]
 
     def list_orphan_calibration_sessions(self) -> list[str]:
-        """Return session_ids whose ``best_sim_id`` no longer exists."""
+        """Return session_ids whose ``best_sim_id`` no longer exists.
+
+        A session that another phase declares as its parent is never an
+        orphan, whatever became of its best run: collecting it would cut the
+        chain and leave the child pointing at nothing.
+        """
         rows = self._backend.fetch_all(
             "SELECT CAST(cs.session_id AS VARCHAR) FROM calibration_sessions cs "
             "LEFT JOIN simulations s ON s.sim_id = cs.best_sim_id "
-            "WHERE cs.best_sim_id IS NOT NULL AND s.sim_id IS NULL"
+            "WHERE cs.best_sim_id IS NOT NULL AND s.sim_id IS NULL "
+            "AND NOT EXISTS (SELECT 1 FROM calibration_sessions c "
+            "WHERE c.parent_session_id = cs.session_id)"
         )
         return [str(r[0]) for r in rows]
 
