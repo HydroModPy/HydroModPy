@@ -313,10 +313,10 @@ class CalibOutputNetwork(HydroModelBase):
         default="network",
         description="Discriminator: compare a simulated stream network to a mapped one.",
     )
-    stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Vector file holding the mapped stream network. Unset falls back "
-        "to the geometry the hydrography data family already resolved.",
+    stream_geometry_path: Annotated[str, Profile.USER] = Field(
+        description="Vector file holding the mapped stream network. Required, and "
+        "read only from here: the criterion resolves no geometry of its own and "
+        "does not reuse the one the hydrography data family loaded.",
     )
     tau_specific_ratio: Annotated[float, Profile.USER] = Field(
         default=1.0e-4,
@@ -861,35 +861,6 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
-    def _check_network_criterion_is_paired(self) -> CalibrationConfig:
-        """The signed-gap metric and a network output only make sense together."""
-        network_outputs = {
-            name for name, output in self.outputs.items() if output.support == "network"
-        }
-        distance_blocks = {
-            block.name
-            for block in self.objective_blocks
-            if block.metric in ("distance_gap", "distance_mean")
-        }
-        for block in self.objective_blocks:
-            if block.name not in distance_blocks:
-                continue
-            without = sorted(set(block.uses_outputs) - network_outputs)
-            if without:
-                raise ValueError(
-                    f"block {block.name!r} scores {block.metric!r} on {without}, which "
-                    "is not a network output. That metric reads the pair (D_so, D_os) "
-                    "only a network output produces."
-                )
-        if network_outputs and not distance_blocks and self.objective_blocks:
-            raise ValueError(
-                f"the network output(s) {sorted(network_outputs)} produce the pair "
-                "(D_so, D_os), which only 'distance_gap' or 'distance_mean' can read; "
-                "no block declares either."
-            )
-        return self
-
-    @model_validator(mode="after")
     def _refuse_two_burn_in_conventions(self) -> CalibrationConfig:
         """A window in dates and a count of samples must not both be declared.
 
@@ -918,6 +889,41 @@ class CalibrationConfig(HydroModelBase):
                 uses_outputs=[variable],
             )
             self.objective_blocks = [implicit]
+        return self
+
+    @model_validator(mode="after")
+    def _check_network_criterion_is_paired(self) -> CalibrationConfig:
+        """A network output and a distance metric only make sense together.
+
+        Runs after the implicit block is built, so the ``(objective, variable)``
+        route counts as a declaration. An unpaired network output would fall
+        through to the single-metric head route, which reads none of the
+        network fields and still returns a plausible number.
+        """
+        network_outputs = {
+            name for name, output in self.outputs.items() if output.support == "network"
+        }
+        distance_metrics = ("distance_gap", "distance_mean")
+        scored: set[str] = set()
+        for block in self.objective_blocks:
+            if block.metric not in distance_metrics:
+                continue
+            without = sorted(set(block.uses_outputs) - network_outputs)
+            if without:
+                raise ValueError(
+                    f"block {block.name!r} scores {block.metric!r} on {without}, which "
+                    "is not a network output. That metric reads the pair (D_so, D_os) "
+                    "only a network output produces."
+                )
+            scored.update(block.uses_outputs)
+        unpaired = sorted(network_outputs - scored)
+        if unpaired:
+            raise ValueError(
+                f"the network output(s) {unpaired} produce the pair (D_so, D_os), which "
+                "only the metrics 'distance_gap' and 'distance_mean' can read; no block "
+                "declares either on them. Left unscored they are silently ignored and "
+                "the calibration falls back to its single metric."
+            )
         return self
 
     @model_validator(mode="after")

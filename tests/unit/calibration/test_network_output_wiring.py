@@ -25,6 +25,7 @@ from hydromodpy.calibration.observations.network_geometry import (
     resolve_outlet,
 )
 from hydromodpy.core.contracts.observables import ObservableResult
+from hydromodpy.core.exceptions import ObjectiveError
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
@@ -269,7 +270,7 @@ class TestEndToEnd:
     def test_a_violation_of_the_validity_bound_can_be_made_fatal(
         self, monkeypatch, bench, stream_file
     ) -> None:
-        with pytest.raises(ValueError, match="exceeds the validity bound"):
+        with pytest.raises(ObjectiveError, match="exceeds the validity bound"):
             self._extract(
                 monkeypatch,
                 bench,
@@ -287,3 +288,68 @@ class TestEndToEnd:
         simulated, _ = self._extract(monkeypatch, bench, stream_file, 200.0, roptim_max=1e-6)
         assert np.isfinite(simulated["net"][0])
         assert "validity bound" in caplog.text
+
+
+class TestTheGuardOnAnUnpairedNetworkOutput:
+    """A declared network output that nothing scores is a silent wrong answer.
+
+    The single-metric route reads neither ``stream_geometry_path`` nor the
+    thresholds, so a configuration slipping through it reports a head/NSE
+    number while the user believes the stream network was calibrated on.
+    """
+
+    def _config(self, stream_file, **overrides):
+        return CalibrationConfig.model_validate(
+            {
+                "method": "grid",
+                "outputs": {"net": _network_output(stream_file).model_dump()},
+                **overrides,
+            }
+        )
+
+    def test_a_network_output_with_no_block_at_all_is_refused(self, stream_file) -> None:
+        with pytest.raises(ValueError, match="distance_gap"):
+            self._config(stream_file)
+
+    def test_the_message_names_the_output(self, stream_file) -> None:
+        with pytest.raises(ValueError, match="'net'"):
+            self._config(stream_file)
+
+    def test_a_head_block_does_not_pair_it(self, stream_file) -> None:
+        with pytest.raises(ValueError, match="distance_mean"):
+            self._config(
+                stream_file,
+                outputs={
+                    "net": _network_output(stream_file).model_dump(),
+                    "piezo": {"support": "point", "x": 0.0, "y": 0.0, "variable": "head"},
+                },
+                objective_blocks=[{"name": "heads", "metric": "rmse", "uses_outputs": ["piezo"]}],
+            )
+
+    def test_a_distance_block_pairs_it(self, stream_file) -> None:
+        cfg = self._config(
+            stream_file,
+            objective_blocks=[{"name": "gap", "metric": "distance_gap", "uses_outputs": ["net"]}],
+        )
+        assert cfg.objective_blocks[0].metric == "distance_gap"
+
+    def test_the_implicit_block_pairs_it_too(self, stream_file) -> None:
+        # (objective, variable) builds the block the composite route needs, so
+        # the guard must read the config after that block exists.
+        cfg = self._config(stream_file, objective="distance_gap", variable="net")
+        assert [block.metric for block in cfg.objective_blocks] == ["distance_gap"]
+
+    def test_a_config_with_no_network_output_is_left_alone(self) -> None:
+        # A single-metric phase sub-configuration has zero outputs and zero
+        # blocks; there is nothing to guard there.
+        cfg = CalibrationConfig.model_validate(
+            {"method": "grid", "variable": "discharge", "objective": "nse_log"}
+        )
+        assert cfg.objective_blocks == []
+
+
+class TestTheMappedNetworkIsRequired:
+    def test_a_network_output_without_a_geometry_is_refused(self) -> None:
+        # observations/observed_network.py has no fallback: it raises.
+        with pytest.raises(ValueError, match="stream_geometry_path"):
+            validate_calib_output({"support": "network"})
