@@ -459,6 +459,7 @@ class Project:
         max_iter: int | None = None,
         save_runs: str | None = None,
         seed: int | None = None,
+        phase: str | None = None,
         **kwargs,
     ):
         """Run a calibration campaign on this project.
@@ -474,6 +475,14 @@ class Project:
         * Embedded mode (neither supplied): use the ``[calibration]`` section
           carried by this project's config, so a fully in-memory
           ``HydroModPyConfig`` calibrates without re-declaring parameters.
+
+        A configuration declaring ``[[calibration.phases]]`` **routes** to
+        :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`
+        in TOML mode, and in embedded mode when this project was built from a
+        file. An embedded declaration on a project built in memory is
+        **refused**: each phase forks a fresh configuration from the source
+        file, and there is none. Python mode declares its own parameter space,
+        so the phases of the project config do not apply to it.
 
         Parameters
         ----------
@@ -493,12 +502,14 @@ class Project:
             Policy controlling which trial runs remain persisted.
         seed
             Optional optimizer seed.
+        phase
+            Run only the named phase of a staged calibration.
         kwargs
             Extra options forwarded to the calibration runner.
 
         Returns
         -------
-        CalibrationReport or Any
+        CalibrationReport or StagedCalibrationReport or Any
             Structured calibration report when ``return_report`` is true,
             otherwise the runner-specific result.
 
@@ -506,13 +517,28 @@ class Project:
         ------
         ConfigMissingError
             Raised when neither ``config_path`` nor ``parameters`` is supplied.
+        CalibrationError
+            Raised when ``[[calibration.phases]]`` cannot be run as declared,
+            and when ``phase`` names a phase no configuration declares.
         """
-        from hydromodpy.core.exceptions import ConfigMissingError
+        from hydromodpy.core.exceptions import CalibrationError, ConfigMissingError
+        from hydromodpy.project.dispatch.workflow import (
+            declared_calibration_phases,
+            in_memory_staged_refusal,
+            no_such_phase,
+        )
 
         if config_path is not None:
             from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
-            return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
+            target = Path(config_path).expanduser().resolve()
+            if declared_calibration_phases(target):
+                from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
+
+                return run_staged_calibration(target, phase=phase, **kwargs)
+            if phase is not None:
+                raise CalibrationError(no_such_phase(target.name, phase))
+            return run_calibration_cli(target, **kwargs)
 
         from hydromodpy.calibration.config import CalibrationConfig
         from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
@@ -523,6 +549,18 @@ class Project:
             # re-declaring parameters= (matches the TOML path).
             embedded = getattr(getattr(self, "config", None), "calibration", None)
             if embedded is not None:
+                declared = [decl.name for decl in (getattr(embedded, "phases", None) or [])]
+                source = self._config_path
+                if declared and source is not None:
+                    from hydromodpy.calibration.runners.staged_runner import (
+                        run_staged_calibration,
+                    )
+
+                    return run_staged_calibration(Path(source).resolve(), phase=phase, **kwargs)
+                if declared:
+                    raise CalibrationError(in_memory_staged_refusal(declared))
+                if phase is not None:
+                    raise CalibrationError(no_such_phase("this configuration", phase))
                 return run_calibration_programmatic(
                     embedded,
                     project=self,
@@ -537,6 +575,9 @@ class Project:
                 "(Python-mode declaration), or a [calibration] section in the "
                 "project config."
             )
+
+        if phase is not None:
+            raise CalibrationError(no_such_phase("this parameters= declaration", phase))
 
         payload: dict[str, object] = {}
         if method is not None:

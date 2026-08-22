@@ -281,3 +281,41 @@ def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsy
     # Listing must not run anything.
     assert calls == [{"phase": None, "list_phases": True}]
     assert "steady_k_over_r" in capsys.readouterr().out
+
+
+def test_calibrate_refusal_exits_with_the_calibration_code(monkeypatch, tmp_path, capsys) -> None:
+    """A refusal of the method is typed, so it exits 21 and not 1."""
+    import hydromodpy as hmp
+    from hydromodpy.core.exceptions import CalibrationError
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+
+    def fake_calibrate(path: Path, *, phase=None):
+        raise CalibrationError("residual keeps a constant sign over the bracket")
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config)])
+
+    assert code == 21
+    assert "residual keeps a constant sign" in capsys.readouterr().err
+
+
+def test_calibrate_list_phases_reports_an_unreadable_config(monkeypatch, tmp_path, capsys) -> None:
+    """``--list-phases`` on a file that cannot be read exits 14, not 0."""
+    import hydromodpy as hmp
+    from hydromodpy.core.exceptions import ConfigError
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+
+    def fake_calibrate(path: Path, *, phase=None, list_phases=False):
+        raise ConfigError("calib.toml: 1 validation error for CalibrationConfig")
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
+
+    assert code == 14
+    assert "validation error" in capsys.readouterr().err

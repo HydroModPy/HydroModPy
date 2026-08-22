@@ -22,7 +22,7 @@ from hydromodpy.cli.helpers import (
     profile_run,
     resolve_profile_output,
 )
-from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.exceptions import CalibrationError, ConfigError
 
 NAME: str = "calibrate"
 HELP: str = "Run a calibration workflow from a TOML config"
@@ -68,7 +68,7 @@ def run(args: argparse.Namespace) -> None:
     if args.list_phases:
         try:
             phases = hmp.calibrate(target, list_phases=True)
-        except ValidationError as exc:
+        except ConfigError as exc:
             print(f"Config invalid: {exc}", file=sys.stderr)
             sys.exit(EXIT_CONFIG)
         if not phases:
@@ -85,7 +85,7 @@ def run(args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
-    except ValidationError as exc:
+    except (ConfigError, ValidationError) as exc:
         print(f"Config invalid: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except FileNotFoundError as exc:
