@@ -18,6 +18,7 @@ from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     seepage_distance_cost,
 )
+from hydromodpy.calibration.observations.network_geometry import build_network_geometry
 from hydromodpy.calibration.observations.observed_network import water_body_mask
 from hydromodpy.calibration.observations.simulated_network import (
     build_simulated_network,
@@ -28,11 +29,14 @@ from hydromodpy.core.topographic_distance import (
     downslope_distance_to_mask,
     longest_descent_length,
 )
+from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
     CELL_SIZE,
     LENGTH_SCALE,
     N_CELLS,
+    N_COLS,
+    N_ROWS,
     THRESHOLDS,
     build_bench,
     cell_id,
@@ -288,3 +292,57 @@ class TestWaterBodyWiring:
             encoding="utf-8"
         )
         assert "model.open_water_cell_ids = " in source
+
+
+class TestRechargeProvenance:
+    """The denominator of the calibrated ratio has to leave a trace.
+
+    The criterion calibrates ``K/R``, so the one per cent bound holds on the
+    conductivity alone while ``R`` stays put. A recharge that moves between two
+    trials changes the calibrated quantity without changing any declared
+    parameter, which is invisible unless every trial records the value it ran
+    with.
+    """
+
+    def _geometry(self, bench, recharge: float, ratio: float = 1e-2):
+        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
+        return build_network_geometry(
+            topography=bench.elevation,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed_network("aligned"),
+            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
+            mean_recharge_m_s=recharge,
+            tau_specific_ratio=ratio,
+            diagonal_neighbors=True,
+        )
+
+    def test_the_geometry_publishes_the_recharge_it_used(self, bench) -> None:
+        geometry = self._geometry(bench, 3.2e-8)
+        assert geometry.diagnostics["R_mean_m_s"] == pytest.approx(3.2e-8)
+
+    def test_the_published_recharge_is_the_one_the_threshold_was_built_from(self, bench) -> None:
+        # Read the recharge back out of the seepage threshold rather than out
+        # of the call: the diagnostic is only provenance if it is the number
+        # that actually divided the ratio.
+        geometry = self._geometry(bench, 3.2e-8, ratio=1e-2)
+        area = CELL_SIZE * CELL_SIZE
+        applied = float(geometry.threshold_m3_s[0]) / (area * 1e-2)
+        assert applied == pytest.approx(geometry.diagnostics["R_mean_m_s"], rel=1e-12)
+
+    def test_a_recharge_that_moves_is_warned_about_and_names_both_values(
+        self, bench, caplog
+    ) -> None:
+        self._geometry(bench, 3.2e-8)
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            self._geometry(bench, 6.4e-8)
+        assert "3.2e-08" in caplog.text
+        assert "6.4e-08" in caplog.text
+
+    def test_a_frozen_recharge_stays_silent(self, bench, caplog) -> None:
+        self._geometry(bench, 3.2e-8)
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            self._geometry(bench, 3.2e-8)
+        assert "recharge" not in caplog.text
