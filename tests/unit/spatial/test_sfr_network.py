@@ -26,8 +26,10 @@ from hydromodpy.spatial.geographic.core.sfr_network import (
     delineate_sfr_reaches,
 )
 
-# WhiteboxTools D8 codes used to wire the synthetic network.
-_S, _SE, _SW = 4, 2, 8
+# WhiteboxTools D8 codes used to wire the synthetic network. Clockwise from
+# the north-east: 1 NE, 2 E, 4 SE, 8 S, 16 SW, 32 W, 64 NW, 128 N. NOT the
+# ESRI table, which is the same octants rotated by one.
+_S, _SE, _SW = 8, 4, 16
 _NONE = 0  # pit / no flow
 
 # 6 rows x 3 cols. Two tributaries (links 1, 2) join the main channel (link 3),
