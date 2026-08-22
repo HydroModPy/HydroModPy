@@ -1094,9 +1094,9 @@ Fields
                     <code class="hmp-field-name">stream_geometry_path</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L316>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L316>`__
 
-                  Vector file holding the mapped stream network. Unset falls back to the geometry the hydrography data family already resolved.
+                  Vector file holding the mapped stream network. Required, and read only from here: the criterion resolves no geometry of its own and does not reuse the one the hydrography data family loaded.
 
 
             .. container:: hmp-field hmp-field-level-user

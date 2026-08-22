@@ -1159,17 +1159,12 @@
             "x-hmp-profile": "user"
           },
           "stream_geometry_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "description": "Vector file holding the mapped stream network. Required, and read only from here: the criterion resolves no geometry of its own and does not reuse the one the hydrography data family loaded.",
+            "examples": [
+              "example"
             ],
-            "default": null,
-            "description": "Vector file holding the mapped stream network. Unset falls back to the geometry the hydrography data family already resolved.",
             "title": "Stream Geometry Path",
+            "type": "string",
             "x-hmp-profile": "user"
           },
           "tau_specific_ratio": {
@@ -1333,6 +1328,9 @@
             "x-hmp-profile": "user"
           }
         },
+        "required": [
+          "stream_geometry_path"
+        ],
         "title": "CalibOutputNetwork",
         "type": "object"
       },

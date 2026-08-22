@@ -9771,7 +9771,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `calibration <calibration.html#calibration-outputs-network-id-support>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L312>`__
    * - ``calibration.outputs.network.<id>.stream_geometry_path``
-     - ``str | None``
+     - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-outputs-network-id-stream-geometry-path>`__
