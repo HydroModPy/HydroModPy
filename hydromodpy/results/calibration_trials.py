@@ -35,10 +35,32 @@ def _rows_carried_by(source: Any) -> pd.DataFrame | None:
 
 
 def _rows_in_the_catalog(run: Run) -> pd.DataFrame:
-    """Return the rows the catalog holds for this run, keyed on its sim_id."""
-    return run._catalog.backend.query(  # noqa: SLF001 - same package, one reader
-        f"SELECT * FROM {_TABLE} WHERE sim_id = ? ORDER BY iteration",  # noqa: S608
-        [run._sim_id],  # noqa: SLF001
+    """Return the trials of the calibration this run belongs to.
+
+    Keyed on the SESSION, not on the run. A promoted run carries the single row
+    of the trial it was promoted from, and a figure about a calibration wants
+    the calibration: read by sim_id, the crossing of two distances and the trace
+    of a bisection both come back as one point.
+
+    A run that belongs to no session falls back to its own rows, which is what
+    a run-shaped adapter with a hand-built table gets.
+    """
+    backend = run._catalog.backend  # noqa: SLF001 - same package, one reader
+    sid = run._sim_id  # noqa: SLF001
+    sessions = backend.query(
+        f"SELECT DISTINCT session_id FROM {_TABLE} WHERE sim_id = ?",  # noqa: S608
+        [sid],
+    )
+    if sessions.empty:
+        return backend.query(
+            f"SELECT * FROM {_TABLE} WHERE sim_id = ? ORDER BY iteration",  # noqa: S608
+            [sid],
+        )
+    return backend.query(
+        f"SELECT * FROM {_TABLE} WHERE session_id IN "  # noqa: S608
+        f"(SELECT DISTINCT session_id FROM {_TABLE} WHERE sim_id = ?) "
+        "ORDER BY session_id, iteration",
+        [sid],
     )
 
 
