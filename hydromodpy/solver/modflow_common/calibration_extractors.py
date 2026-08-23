@@ -260,9 +260,10 @@ _SURFACE_RELEASE_RECORDS: frozenset[str] = frozenset(
 )
 
 
-#: Package budgets MODFLOW 6 writes to their OWN file beside the model one.
-#: Their per-cell exchange never appears in the model CBC, so a union built by
-#: reading that file alone cannot see them at all.
+#: Package budgets MODFLOW 6 can write to their OWN file beside the model one,
+#: mapped to the record the package writes into the model budget. The two are
+#: independent options, so a sibling file is a hint that a package exists, never
+#: proof that the model budget is silent about it.
 _SIBLING_BUDGETS: dict[str, str] = {
     ".sfr.cbc": "SFR",
     ".lak.cbc": "LAK",
@@ -274,33 +275,38 @@ _SIBLING_BUDGETS: dict[str, str] = {
 def _refuse_sibling_budgets_the_union_cannot_read(
     cbc_path: Path,
     packages: Sequence[ReleasePackage],
+    record_names: Sequence[str],
 ) -> None:
-    """Refuse when a package wrote its budget to its own file next to this one.
+    """Refuse when a package wrote its exchange only to its own file.
 
-    MODFLOW 6 sends an advanced package's budget to ``<stem>.<pkg>.cbc`` when it
-    is given a ``budget_filerecord``, and the model CBC then holds no record for
-    it. Reading the model CBC alone reports that package as absent rather than
-    as unread, which is the silent failure this refuses.
+    ``budget_filerecord`` and ``save_flows`` are independent MODFLOW 6 options.
+    A package given both writes its per-reach budget to ``<stem>.<pkg>.cbc``
+    AND its per-cell exchange to the model budget, and the SFR and LAK builders
+    here set both. Measured on a MODFLOW 6 run of the production SFR builder:
+    the model budget holds an ``SFR`` record per aquifer cell, and
+    ``<stem>.sfr.cbc`` holds a ``GWF`` record per reach carrying the same flux
+    with the opposite sign. The union reads the model record, so reading the
+    sibling as well would count that water twice.
 
-    Measured on the Nancon with the streams in SFR: the aquifer sent 1.33 of its
-    2.10 m3/s through the stream package, the union read the 0.80 of the drain,
-    and the criterion measured a seepage network missing two thirds of its
-    water. The simulated network then stopped retracting with the conductivity
-    and the search closed three decades outside its declared bounds, with a
-    validity indicator inside its bound.
+    So a sibling file alone proves nothing. What the union really cannot see is
+    a package whose record is absent from the model budget, and that is the only
+    case refused here; a record present but unread belongs to
+    :func:`_refuse_records_the_union_misses`, which reads the requirement off
+    the file.
     """
     declared = {package.name.upper() for package in packages}
+    present = {_normalize_record_name(name) for name in record_names}
     stem = Path(cbc_path).with_suffix("")
     for suffix, name in _SIBLING_BUDGETS.items():
         sibling = Path(str(stem) + suffix)
-        if not sibling.exists() or name in declared:
+        if not sibling.exists() or name in declared or name in present:
             continue
         raise KeyError(
-            f"{sibling.name} sits beside the model budget: the {name} package wrote its "
-            "exchange to its own file, so the model CBC holds no record for it and this "
-            f"union reads {sorted(declared) or 'nothing'}. Water leaving the aquifer "
-            f"through {name} would be reported as dry land, exactly where that package "
-            "drains, which is where a stream-network criterion aims."
+            f"{sibling.name} sits beside the model budget and the model budget holds no "
+            f"{name} record: the {name} package wrote its exchange to its own file alone, "
+            f"and this union reads {sorted(declared) or 'nothing'}. Water leaving the "
+            f"aquifer through {name} would be reported as dry land, exactly where that "
+            "package drains, which is where a stream-network criterion aims."
         )
 
 
@@ -310,11 +316,12 @@ def _refuse_records_the_union_misses(
 ) -> None:
     """Refuse when the budget holds a release record no declared package reads.
 
-    The declaration comes from the model object, which can be silent about a
-    package the run really built: on a MODFLOW 6 run with the streams in SFR,
-    the aquifer sent 1.33 of its 2.10 m3/s through the stream package while the
-    union read the 0.80 of the drain alone, and nothing said so. The criterion
-    then measured a seepage network missing two thirds of its water.
+    The declaration comes from the model object; the water comes from the file.
+    A run can therefore carry a release record no package in the union reads,
+    and read as dry land exactly where that package drains. Measured on a
+    MODFLOW 6 run with a lake: the model budget holds a ``LAK`` record and
+    ``release_packages_for_model`` declares none, so the union would have
+    counted the aquifer loss to the lake as zero.
 
     Reading the requirement off the FILE instead of the model catches that, and
     catches the next package the same way without naming it in advance.
@@ -365,7 +372,7 @@ def extract_release_flux_by_cell_from_cbc(
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
         record_names = [r.decode() for r in cbb.get_unique_record_names()]
-        _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages)
+        _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages, record_names)
         _refuse_records_the_union_misses(packages, record_names)
         keyed = [(package, _resolve_release_record(package, record_names)) for package in packages]
         times = cbb.get_times()

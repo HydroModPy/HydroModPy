@@ -353,22 +353,52 @@ def _positive_cell_flux_stack(component_stack: Any, *, n_cells: int) -> np.ndarr
     return positive.sum(axis=1).astype("float64", copy=False)
 
 
+#: Persisted budget components that carry groundwater OUT of the aquifer to the
+#: surface, beside the drain, each with the sign a value takes when it LEAVES.
+#:
+#: The two conventions really do meet here. MODFLOW signs a budget from the
+#: aquifer's point of view, so ``stream`` (SFR) and ``lake`` (LAK) are negative
+#: when the aquifer loses water. The Boussinesq ``surface_excess`` is already an
+#: outflow and is positive. Reading them all with one clamp silently dropped
+#: whichever half had the other sign, which is how a run with its streams in SFR
+#: reported the drain alone.
+_SURFACE_RELEASE_BUDGETS: dict[str, float] = {
+    "stream": -1.0,
+    "lake": -1.0,
+    "surface_excess": 1.0,
+}
+
+
 def _release_flux_stack(
     sim_id: str,
     store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> np.ndarray:
-    """Read drain plus surface-excess outflow as a solver-neutral stack."""
+    """Sum every path groundwater takes out of the aquifer, as a solver-neutral stack.
+
+    Every path, not the drain alone. A run whose streams are in SFR sends most
+    of its water through the stream package: measured on the Nancon, 1.3276 of
+    the 2.1018 m3/s left through ``stream`` and 0.7986 through ``drain``, and a
+    ``release_flux`` holding the drain alone reported dry land over 63 per cent
+    of the outgoing water, exactly where a stream-network criterion aims.
+
+    The calibration extractor already unions the packages when it reads the
+    binary budget; this is the same union over what the run persisted, so the
+    field named after the release means the same thing on both paths.
+    """
     with _zarr_root(store, sim_id) as grp:
         budget_grp = grp.get("budget")
         if budget_grp is None:
             raise KeyError("No budget fields")
 
         drn_key = find_drain_budget_key(budget_grp)
-        has_surface_excess = "surface_excess" in budget_grp
-        if drn_key is None and not has_surface_excess:
-            raise KeyError("No drain or surface_excess budget field")
+        extra = [name for name in _SURFACE_RELEASE_BUDGETS if name in budget_grp]
+        if drn_key is None and not extra:
+            raise KeyError(
+                "No release budget field: expected a drain component or one of "
+                f"{sorted(_SURFACE_RELEASE_BUDGETS)}."
+            )
 
         if int(n_timesteps) <= 0:
             return np.empty((0, int(n_cells)), dtype="float64")
@@ -376,9 +406,10 @@ def _release_flux_stack(
         drn_stack = _drn_raw_stack_with_mvr(budget_grp, drn_key, n_timesteps)
         if drn_stack is not None:
             release += drain_budget_stack_to_positive_outflow(drn_stack, n_cells=n_cells)
-        if has_surface_excess:
-            excess_stack = np.asarray(budget_grp["surface_excess"][:], dtype="float64")
-            release += _positive_cell_flux_stack(excess_stack[:n_timesteps], n_cells=n_cells)
+        for name in extra:
+            stack = np.asarray(budget_grp[name][:], dtype="float64")
+            outward = stack[:n_timesteps] * _SURFACE_RELEASE_BUDGETS[name]
+            release += _positive_cell_flux_stack(outward, n_cells=n_cells)
     return release
 
 
