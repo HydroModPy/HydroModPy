@@ -22,7 +22,11 @@ from hydromodpy.calibration.observations.simulated_network import (
     specific_seepage_threshold,
 )
 from hydromodpy.core.depression_filling import fill_depressions_on_graph
-from hydromodpy.core.field_routing import accumulate_on_downhill_graph, active_surface_mask
+from hydromodpy.core.field_routing import (
+    accumulate_on_downhill_graph,
+    active_surface_mask,
+    cell_adjacency_from_face_connectivity,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
@@ -185,10 +189,19 @@ def build_network_geometry(
         catchment_outlet = int(np.argmin(candidates))
         outlets = np.zeros(surface.size, dtype=bool)
         outlets[catchment_outlet] = True
+        # THE SAME neighbour graph the metric will descend. The flood only
+        # guarantees a strictly lower neighbour among the cells it walked: fed
+        # the eight-neighbour graph while the metric reads the four-neighbour
+        # one, it leaves every filled cell spilling over a diagonal the metric
+        # cannot take, and 99.8 per cent of the catchment stops reaching the
+        # outlet instead of 0.
+        adjacency = (
+            shared_node_adjacency(face_node_connectivity, n_cells=surface.size)
+            if diagonal_neighbors
+            else cell_adjacency_from_face_connectivity(face_node_connectivity, n_cells=surface.size)
+        )
         fill_report = fill_depressions_on_graph(
-            np.where(inactive, np.nan, surface),
-            shared_node_adjacency(face_node_connectivity, n_cells=surface.size),
-            outlets,
+            np.where(inactive, np.nan, surface), adjacency, outlets
         )
         surface = fill_report.surface
         logger.info(
@@ -235,6 +248,18 @@ def build_network_geometry(
 
     outlet_mask = np.zeros(active.size, dtype=bool)
     outlet_mask[outlet] = True
+
+    if fill_report is not None:
+        # After the flood every catchment cell must reach the sealed outlet.
+        # Anything else means the surface the flood conditioned is not the one
+        # the metric descends.
+        to_outlet = downslope_distance_to_mask(metric, outlet_mask)
+        stranded = float(np.mean(~np.isfinite(to_outlet[catchment])))
+        logger.info(
+            "Network criterion: %.2f%% of the catchment does not reach the sealed outlet "
+            "after conditioning.",
+            100.0 * stranded,
+        )
 
     distance_raw = downslope_distance_to_mask(metric, observed_mask)
     sealed = observed_mask.copy()
@@ -351,7 +376,14 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
         )
     planar_mesh = solver_mesh.planar_mesh
     connectivity = dense_face_connectivity(planar_mesh)
-    inactive = np.asarray(solver_mesh.inactive_mask, dtype=bool)[0]
+    # The criterion routes on the TOPOGRAPHIC catchment, never on the model's
+    # active domain: section 4.4 measures 0.03 to 2.5 per cent of unreachable
+    # cells on the first against 10.5 to 14.4 on the second. Cutting the graph
+    # on the model domain also breaks the catchment into pieces the flood
+    # cannot cross, and the descent then stops at the domain boundary rather
+    # than at a stream. The domain restricts what the SOLVER computes; the
+    # supports are restricted by the catchment, below.
+    inactive = ~np.isfinite(np.asarray(solver_mesh.top, dtype=float).reshape(-1))
 
     # The model top, conditioned on the mesh graph by build_network_geometry.
     # Sampling the raster the geographic step conditioned is NOT equivalent:
