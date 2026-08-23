@@ -245,6 +245,7 @@ def prepare_trials(
     override_paths: Mapping[str, str] | Iterable[str],
     steps: Sequence[TrialStep] | None = None,
     parameter_space: Any = None,
+    config_overrides: Mapping[str, Any] | None = None,
 ) -> TrialContext:
     """Load TOML, run steps ``[0..earliest)`` once, return a fork-able context.
 
@@ -265,6 +266,17 @@ def prepare_trials(
         When supplied, :meth:`TrialContext.fork` injects values through the
         calibration helper (``mode="replace"``/``"scale"``). Otherwise, it
         falls back to the raw dotted-path writer.
+    config_overrides
+        Dotted paths written into the configuration BEFORE the prefix runs.
+        This is how a phase says what model it calibrates: a flow regime or a
+        time step written after the prefix is prepared changes the baseline the
+        forks copy, but not the time grid the prefix already built, so the
+        phase silently runs the discretisation of the one before it.
+
+        This is not ``override_paths``, which names what VARIES per trial and
+        therefore decides how much of the pipeline re-runs. An entry there
+        cuts the prepared prefix; an entry here changes what the prefix is
+        prepared from.
     """
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -274,6 +286,9 @@ def prepare_trials(
     # from_toml handles base_config inheritance + resolves relative paths
     # against the TOML directory (e.g. data.dem.source_path -> absolute).
     cfg = get_root_config_provider().from_toml(cfg_path)
+
+    for dotted, value in (config_overrides or {}).items():
+        _set_by_path(cfg, str(dotted), value)
 
     if isinstance(override_paths, Mapping):
         path_map: dict[str, str] = {str(k): str(v) for k, v in override_paths.items()}

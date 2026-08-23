@@ -23,6 +23,35 @@ from hydromodpy.results.derive.time_alignment import align_observed_simulated
 logger = get_logger(__name__)
 
 
+def _non_finite_diagnosis(observed: np.ndarray, simulated: np.ndarray) -> str:
+    """Say which property of the two aligned series makes a metric undefined.
+
+    Every metric here divides by the spread of the observations, so a constant
+    record is undefined however good the simulation is. A single non-finite
+    sample poisons the whole score the same way, and neither is visible from
+    the value alone.
+    """
+    obs = np.asarray(observed, dtype="float64")
+    sim = np.asarray(simulated, dtype="float64")
+    reasons: list[str] = []
+    if not np.all(np.isfinite(obs)):
+        reasons.append(f"{int(np.count_nonzero(~np.isfinite(obs)))} of {obs.size} observed")
+    if not np.all(np.isfinite(sim)):
+        reasons.append(f"{int(np.count_nonzero(~np.isfinite(sim)))} of {sim.size} simulated")
+    if reasons:
+        return "Non-finite samples reached the metric: " + ", ".join(reasons) + "."
+    finite_obs = obs[np.isfinite(obs)]
+    if finite_obs.size and float(np.var(finite_obs)) == 0.0:
+        return (
+            f"The {obs.size} observed samples are all {finite_obs[0]:.6g}: every metric here "
+            "divides by their spread, so none is defined on a constant record."
+        )
+    return (
+        f"{obs.size} sample(s) scored, observed in [{np.min(obs):.6g}, {np.max(obs):.6g}], "
+        f"simulated in [{np.min(sim):.6g}, {np.max(sim):.6g}]."
+    )
+
+
 def score(
     observed: pd.Series,
     simulated: pd.Series,
@@ -90,7 +119,10 @@ def score(
             )
     value = float(metric(sim_values, obs_values, **(metric_kwargs or {})))
     if not np.isfinite(value):
-        raise ValueError(f"Calibration metric {objective!r} returned a non-finite value")
+        raise ValueError(
+            f"Calibration metric {objective!r} returned a non-finite value. "
+            + _non_finite_diagnosis(obs_values, sim_values)
+        )
     return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value
 
 

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
@@ -124,6 +125,7 @@ class FakeRunner:
         self.best_objective = best_objective
         self.values = {"K": K_CALIBRATED, "Sy": SY_CALIBRATED}
         self.prepared: list[dict[str, str]] = []
+        self.overridden: list[dict[str, object]] = []
         self.calls: list[SimpleNamespace] = []
 
     @property
@@ -137,10 +139,15 @@ class FakeRunner:
         override_paths,
         steps=None,
         parameter_space=None,
+        config_overrides=None,
     ) -> TrialContext:
         self.prepared.append(dict(override_paths))
+        self.overridden.append(dict(config_overrides or {}))
+        baseline = _baseline()
+        for dotted, value in (config_overrides or {}).items():
+            set_by_path(baseline, str(dotted), value)
         return TrialContext(
-            base_cfg=_baseline(),
+            base_cfg=baseline,
             ctx=None,
             earliest=0,
             downstream_steps=(),

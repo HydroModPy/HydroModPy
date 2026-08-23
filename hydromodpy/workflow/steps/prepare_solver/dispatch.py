@@ -252,8 +252,12 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
     """Walk the config tree and persist every InputFile-marked path."""
     from hydromodpy.core.tracking import collect_input_files
 
+    # Anchor relative paths on the project, not on the shell's working
+    # directory: a bare filename is resolved under <workspace>/data/<family>/
+    # everywhere else, and tracking it from the cwd silently dropped it.
+    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
     try:
-        entries = collect_input_files(ctx.cfg)
+        entries = collect_input_files(ctx.cfg, base=project_root)
     except Exception as exc:
         logger.warning("Skipping tracked-file registration: %s", exc)
         return
