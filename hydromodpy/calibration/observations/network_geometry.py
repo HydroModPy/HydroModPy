@@ -172,6 +172,19 @@ def build_network_geometry(
     )
     fill_report = None
     catchment_outlet: int | None = None
+    if delineated_catchment is None:
+        # Never silent: without the delineated catchment the criterion falls back
+        # to descending the raw model top to its own largest basin, which on a
+        # real surface is an internal depression holding a few per cent of the
+        # mesh. A synthetic domain legitimately has no watershed; a real run that
+        # lost it (a concurrent run cleaning the preparation directory, for one)
+        # produces a plausible number from the wrong support.
+        logger.warning(
+            "Network criterion: no delineated catchment for this run. Falling back to "
+            "the largest basin of the raw model top, whose depressions are not "
+            "resolved. Check that the geographic step ran and that its preparation "
+            "directory was not removed while the trial was scoring."
+        )
     if delineated_catchment is not None:
         # Condition the surface ON THIS GRAPH before measuring lengths along it.
         # A raster conditioned before delineation is pit-free on its own grid

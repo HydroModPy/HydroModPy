@@ -86,6 +86,33 @@ def test_the_gate_and_the_reader_agree_when_no_trial_exists(catalog) -> None:
         calibration_trials(run)
 
 
+def test_a_promoted_run_reads_the_whole_session_it_came_from(catalog) -> None:
+    """A figure about a calibration wants the calibration, not one trial.
+
+    A promoted run carries the single row of the trial it was promoted from.
+    Read by sim_id, the crossing of two distances and the trace of a bisection
+    both came back as one point.
+    """
+    _insert_trials(catalog, 4)
+    # The promoted run is a NEW simulation carrying one row of the same session;
+    # (session_id, iteration) is the primary key, so it takes its own iteration.
+    promoted = "44444444-4444-4444-4444-444444444444"
+    catalog.backend.execute(
+        """
+        INSERT INTO calibration_iterations
+            (session_id, iteration, sim_id, params_hash, parameters,
+             objective_value, metrics, status, from_cache, duration_s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [SESSION_ID, 9, promoted, "hash9", '{"K": 3e-05}', 2.0, "{}", "completed", False, 1.0],
+    )
+
+    frame = calibration_trials(Run(promoted, catalog))
+
+    assert len(frame) == 5, "the promoted run must see the session, not its own row"
+    assert set(frame["session_id"].astype(str)) == {SESSION_ID}
+
+
 def test_a_session_filter_keeps_only_that_session(catalog) -> None:
     _insert_trials(catalog, 2)
     run = Run(SIM_ID, catalog)

@@ -235,6 +235,105 @@ def _positive_release_by_cell(component_field: object, *, n_cells: int | None) -
     return positive.reshape(-1, width).sum(axis=0).astype("float64", copy=False)
 
 
+#: Budget records that can carry groundwater OUT of the aquifer to the surface.
+#: The guard below reads them off the file, so a package the model object does
+#: not expose still gets caught.
+_SURFACE_RELEASE_RECORDS: frozenset[str] = frozenset(
+    {
+        "DRN",
+        "DRAIN",
+        "DRAINS",
+        "DRN-TO-MVR",
+        "SFR",
+        "STREAM",
+        "STREAMFLOW-ROUTING",
+        "SFR-GWF",
+        "CHD",
+        "CONSTANT HEAD",
+        "LAK",
+        "LAKE",
+        "LAK-GWF",
+        "UZF",
+        "RIV",
+        "RIVER",
+    }
+)
+
+
+#: Package budgets MODFLOW 6 writes to their OWN file beside the model one.
+#: Their per-cell exchange never appears in the model CBC, so a union built by
+#: reading that file alone cannot see them at all.
+_SIBLING_BUDGETS: dict[str, str] = {
+    ".sfr.cbc": "SFR",
+    ".lak.cbc": "LAK",
+    ".uzf.cbc": "UZF",
+    ".maw.cbc": "MAW",
+}
+
+
+def _refuse_sibling_budgets_the_union_cannot_read(
+    cbc_path: Path,
+    packages: Sequence[ReleasePackage],
+) -> None:
+    """Refuse when a package wrote its budget to its own file next to this one.
+
+    MODFLOW 6 sends an advanced package's budget to ``<stem>.<pkg>.cbc`` when it
+    is given a ``budget_filerecord``, and the model CBC then holds no record for
+    it. Reading the model CBC alone reports that package as absent rather than
+    as unread, which is the silent failure this refuses.
+
+    Measured on the Nancon with the streams in SFR: the aquifer sent 1.33 of its
+    2.10 m3/s through the stream package, the union read the 0.80 of the drain,
+    and the criterion measured a seepage network missing two thirds of its
+    water. The simulated network then stopped retracting with the conductivity
+    and the search closed three decades outside its declared bounds, with a
+    validity indicator inside its bound.
+    """
+    declared = {package.name.upper() for package in packages}
+    stem = Path(cbc_path).with_suffix("")
+    for suffix, name in _SIBLING_BUDGETS.items():
+        sibling = Path(str(stem) + suffix)
+        if not sibling.exists() or name in declared:
+            continue
+        raise KeyError(
+            f"{sibling.name} sits beside the model budget: the {name} package wrote its "
+            "exchange to its own file, so the model CBC holds no record for it and this "
+            f"union reads {sorted(declared) or 'nothing'}. Water leaving the aquifer "
+            f"through {name} would be reported as dry land, exactly where that package "
+            "drains, which is where a stream-network criterion aims."
+        )
+
+
+def _refuse_records_the_union_misses(
+    packages: Sequence[ReleasePackage],
+    record_names: Sequence[str],
+) -> None:
+    """Refuse when the budget holds a release record no declared package reads.
+
+    The declaration comes from the model object, which can be silent about a
+    package the run really built: on a MODFLOW 6 run with the streams in SFR,
+    the aquifer sent 1.33 of its 2.10 m3/s through the stream package while the
+    union read the 0.80 of the drain alone, and nothing said so. The criterion
+    then measured a seepage network missing two thirds of its water.
+
+    Reading the requirement off the FILE instead of the model catches that, and
+    catches the next package the same way without naming it in advance.
+    """
+    declared = {
+        _normalize_record_name(alias) for package in packages for alias in package.record_aliases
+    }
+    present = {_normalize_record_name(name) for name in record_names}
+    missed = sorted((present & _SURFACE_RELEASE_RECORDS) - declared)
+    if not missed:
+        return
+    raise KeyError(
+        f"the budget holds the release record(s) {missed} that no declared package reads: "
+        f"the union covers {sorted(declared)}. Water leaving the aquifer through them would "
+        "be reported as dry land, so the seepage network would be missing exactly where "
+        "that package drains."
+    )
+
+
 def extract_release_flux_by_cell_from_cbc(
     output_dir: Path,
     model_name: str,
@@ -266,6 +365,8 @@ def extract_release_flux_by_cell_from_cbc(
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
         record_names = [r.decode() for r in cbb.get_unique_record_names()]
+        _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages)
+        _refuse_records_the_union_misses(packages, record_names)
         keyed = [(package, _resolve_release_record(package, record_names)) for package in packages]
         times = cbb.get_times()
         kstpkpers = cbb.get_kstpkper()

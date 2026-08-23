@@ -1,0 +1,43 @@
+# ======================================================================
+# Nancon - reseau modelise en SFR, versants en DRN
+# ----------------------------------------------------------------------
+# Les cours d'eau principaux deviennent des biefs SFR ; les versants
+# gardent leur drain de Cauchy. Le critere doit lire le suintement des
+# DEUX packages : c'est exactement ce que l'union DRN + SFR + CHD du
+# `release_flux` existe pour couvrir.
+#
+# `route_drainage = false` : le routage MVR du drainage vers les biefs
+# rend l'enregistrement DRAIN illisible pour une calibration en debit
+# (l'extracteur le refuse explicitement). Le premier etage n'en a pas
+# besoin, il lit le suintement par maille.
+# ======================================================================
+
+base_config = "project_mf6.toml"
+
+# Les biefs sont traces sur le reseau que le MNT derive : SFR a besoin des
+# produits de reseau du pipeline geographique, pas du lineaire cartographie
+# (celui-la reste la reference que le critere compare).
+[geographic.river_network]
+enabled = true
+# Meme seuil que celui des biefs, pour que le reseau trace et le reseau
+# equipe en SFR soient le meme objet.
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+
+[flow]
+active_bc = ["sfr", "drainage"]
+
+[flow.sinks_sources.sfr.nancon]
+# Un bief demarre au-dela d'un km2 draine. Sur 64,7 km2 cela donne le
+# reseau principal en SFR et laisse les tetes de bassin au drain.
+stream_threshold_km2 = 1.0
+streambed_k = 0.08
+streambed_k_unit = "m/day"
+streambed_thickness = "0.1 m"
+manning = 0.035
+connected_to_aquifer = true
+route_drainage = false
+
+[flow.sinks_sources.sfr.nancon.width]
+kind = "constant"
+value = "2 m"

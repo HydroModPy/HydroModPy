@@ -123,6 +123,10 @@ class BisectionAdapter:
         # log variable, which is what the search actually halves.
         self._tolerance = math.log10(1.0 + float(rel_tol))
 
+        self._declared = (
+            float(self._parameter.lower_transformed),
+            float(self._parameter.upper_transformed),
+        )
         self._low = float(self._parameter.lower_transformed)
         self._high = float(self._parameter.upper_transformed)
         self._history: list[EvaluationResult] = []
@@ -285,7 +289,46 @@ class BisectionAdapter:
         valid = [result for result in self._history if result.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda result: result.objective_value)
+        winner = min(valid, key=lambda result: result.objective_value)
+        self._warn_if_outside_the_declared_bounds(winner)
+        return winner
+
+    def _warn_if_outside_the_declared_bounds(self, winner: EvaluationResult) -> None:
+        """Say it when the root only exists outside the interval that was declared.
+
+        The search widens its bracket by a decade at a time, which is what lets
+        it find a sign change a cautious prior missed. But a root several decades
+        outside the declared bounds is usually not a surprising conductivity: it
+        is the residual failing to respond to the parameter at all. Measured on
+        the Nancon with the streams in SFR, the simulated network holds the
+        reaches by construction whatever the conductivity, the residual stays
+        positive across the whole declared interval, and the search closes on a
+        value three decades above it that means nothing.
+        """
+        if self._expansions == 0:
+            return
+        transformed = self._points.get(winner.trial_id)
+        if transformed is None:
+            return
+        low, high = self._declared
+        if low <= float(transformed) <= high:
+            return
+        value = self._parameter.to_physical(float(transformed))
+        lower = self._parameter.to_physical(low)
+        upper = self._parameter.to_physical(high)
+        logger.warning(
+            "The root closed on %s = %.4g, OUTSIDE the declared bounds [%.4g, %.4g], after "
+            "%d bracket expansion(s). Either the prior was too narrow, or the residual does "
+            "not respond to this parameter over the declared range: a simulated network "
+            "holding cells that are prescribed rather than computed never retracts, and the "
+            "search then balances against that fixed skeleton. Check n_excess at the low end "
+            "of the sweep: it should collapse as the parameter rises.",
+            self._parameter.name,
+            float(value),
+            lower,
+            upper,
+            self._expansions,
+        )
 
     def converged(self) -> bool:
         return self._done
