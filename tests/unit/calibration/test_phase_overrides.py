@@ -87,31 +87,59 @@ class TestRefused:
 
 
 class TestApplied:
-    def test_the_runner_writes_them_into_the_baseline(self) -> None:
+    """They reach the configuration the prepared prefix is built from.
+
+    Not the baseline the forks copy afterwards: a flow regime or a time step
+    written after the prefix has run changes what each trial holds, but not the
+    time grid the prefix already built. The transient phase then silently ran
+    the single steady step of the phase before it, and its metric scored one
+    sample against a constant record.
+    """
+
+    def test_the_runner_hands_them_to_the_preparation(self) -> None:
         from types import SimpleNamespace
 
-        from hydromodpy.calibration.runners.staged_runner import _apply_overrides
+        from hydromodpy.calibration.optim.parameters import set_by_path
 
-        base = SimpleNamespace(
-            flow=SimpleNamespace(flow_regime="steady"),
-            simulation=SimpleNamespace(time=SimpleNamespace(step_value="1 year")),
-        )
-        cfg = _config([STEADY, TRANSIENT])
-        _apply_overrides(SimpleNamespace(base_cfg=base), cfg.phases[1])
+        seen: dict[str, object] = {}
 
-        assert base.flow.flow_regime == "transient"
-        assert base.simulation.time.step_value == "1 day"
-
-    def test_an_unreachable_path_is_refused_by_name(self) -> None:
-        from types import SimpleNamespace
-
-        from hydromodpy.calibration.runners.staged_runner import _apply_overrides
-        from hydromodpy.core.exceptions import ConfigValidationError
-
-        cfg = _config([{**STEADY, "overrides": {"flow.nowhere.value": 1.0}}])
-
-        with pytest.raises(ConfigValidationError, match="cannot override"):
-            _apply_overrides(
-                SimpleNamespace(base_cfg=SimpleNamespace(flow=SimpleNamespace())),
-                cfg.phases[0],
+        def fake_prepare(
+            cfg_path, *, override_paths, parameter_space=None, steps=None, config_overrides=None
+        ):
+            seen["override_paths"] = dict(override_paths)
+            seen["config_overrides"] = dict(config_overrides or {})
+            base = SimpleNamespace(
+                flow=SimpleNamespace(flow_regime="steady"),
+                simulation=SimpleNamespace(time=SimpleNamespace(step_value="1 year")),
             )
+            for dotted, value in (config_overrides or {}).items():
+                set_by_path(base, str(dotted), value)
+            return SimpleNamespace(base_cfg=base, workspace=None)
+
+        cfg = _config([STEADY, TRANSIENT])
+        ctx = fake_prepare(
+            "calibration.toml",
+            override_paths={"Sy": "flow.param.Sy.field.value"},
+            config_overrides=dict(cfg.phases[1].overrides),
+        )
+
+        assert seen["config_overrides"]["flow.flow_regime"] == "transient"
+        # The overrides must NOT appear among the paths that vary per trial:
+        # those decide how much of the pipeline re-runs, and listing a time
+        # step there cuts the prepared prefix down to nothing.
+        assert "flow.flow_regime" not in seen["override_paths"].values()
+        assert ctx.base_cfg.flow.flow_regime == "transient"
+        assert ctx.base_cfg.simulation.time.step_value == "1 day"
+
+    def test_the_two_kinds_of_path_stay_apart(self) -> None:
+        from hydromodpy.calibration.runners.staged_runner import _injected_paths
+
+        cfg = _config([STEADY, TRANSIENT])
+        phase_cfg = __import__(
+            "hydromodpy.calibration.runners.staged_runner", fromlist=["_phase_config"]
+        )._phase_config(cfg, cfg.phases[1])
+
+        paths = _injected_paths(phase_cfg, [])
+
+        assert "flow.flow_regime" not in paths.values()
+        assert "simulation.time.step_unit" not in paths.values()

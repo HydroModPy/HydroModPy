@@ -40,7 +40,6 @@ from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,
-    set_by_path,
 )
 from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
@@ -208,10 +207,14 @@ def _injected_paths(
 ) -> dict[str, str]:
     """Return the config paths the trial pipeline must treat as varying.
 
-    The phase's own parameters, plus the frozen ones: a preparation step that
-    reads a frozen path has to re-run per trial, otherwise the prepared prefix
-    would keep the value the TOML declared and the freeze would never reach
-    the solver.
+    Three families. The phase's own parameters. The values a previous phase
+    froze: a preparation step that reads a frozen path has to re-run per trial,
+    otherwise the prepared prefix keeps the value the TOML declared and the
+    freeze never reaches the solver. And the phase's own overrides, for the
+    A phase's own overrides do NOT belong here: they say what model the phase
+    runs, not what varies between its trials, and they reach the pipeline
+    through ``prepare_trials(config_overrides=...)`` instead. Listed here they
+    would cut the prepared prefix down to nothing.
     """
     paths = resolve_override_paths(phase_cfg)
     for item in frozen:
@@ -223,21 +226,6 @@ def _injected_paths(
 # ---------------------------------------------------------------------------
 # Freezing
 # ---------------------------------------------------------------------------
-
-
-def _apply_overrides(trial_ctx: TrialContext, decl: CalibPhaseDecl) -> None:
-    """Write this phase's configuration overrides into the baseline it forks from.
-
-    Applied before the frozen values, so a phase that overrides a path another
-    phase freezes is refused at validation rather than silently winning here.
-    """
-    for path, value in decl.overrides.items():
-        try:
-            set_by_path(trial_ctx.base_cfg, path, value)
-        except ValueError as exc:
-            raise ConfigValidationError(
-                f"phase {decl.name!r} cannot override {path!r}: {exc}"
-            ) from exc
 
 
 def _freeze_into_baseline(trial_ctx: TrialContext, frozen: list[FrozenParameter]) -> None:
@@ -393,9 +381,9 @@ def run_staged_calibration(
         trial_ctx = prepare_trials(
             cfg_path,
             override_paths=_injected_paths(phase_cfg, frozen),
+            config_overrides=dict(decl.overrides),
             parameter_space=space,
         )
-        _apply_overrides(trial_ctx, decl)
         _freeze_into_baseline(trial_ctx, frozen)
 
         session_id = uuid.uuid4().hex
