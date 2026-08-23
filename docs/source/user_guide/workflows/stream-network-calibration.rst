@@ -215,25 +215,24 @@ What each choice buys you
    measures that effect directly.
 
 ``tau_specific_ratio``
-   A cell releasing less than this fraction of what the whole model receives is
-   not a stream: the threshold is ``ratio * R * A``, one number for the mesh.
+   A cell releasing less than this fraction of its own recharge is not a
+   stream. Zero reproduces the criterion of the paper, which gives no threshold
+   at all.
 
-   Read that carefully, because it is **not** a fraction of the cell's own
-   recharge. That was the definition until it was measured, and it is the one
-   that follows the mesh rather than the physics: a cell releases the drainage
-   it collects from everything upslope, so ``q / (R * area)`` is a
-   concentration factor with the discretisation in its denominator. Aggregating
-   one solved field of the Nancon from 50 m to 400 m cells moves its median
-   from 49.6 to 4.1, so a threshold on it selects whatever the grid gives it.
-   Against the total, the same declared ratio means the same thing on both.
+   **Leave it at its default, and do not read it as a working knob.** It is
+   inert as defined: a cell that releases at all carries the drainage it
+   collects from everything upslope, a hundred to a thousand times its own
+   recharge, so a fraction of that recharge never excludes anything. Measured on
+   the Nancon at the calibrated conductivity, over 321 releasing cells, not one
+   had a flux below the threshold, and raising the ratio to 100 still kept 28.
 
-   One residual: ``A`` is the extent of the mesh, not of the catchment, which
-   is what makes ``R * A`` the total release exactly. Widening the buffer
-   around one catchment therefore raises the threshold at a fixed ratio, so a
-   ratio is comparable across refinements of one domain and not across two
-   domains buffered differently.
-
-   Zero reproduces the criterion of the paper, which gives no threshold at all.
+   Thresholding the total release instead was tried and is worse: at
+   ``1e-4`` of ``R * A`` the cut lands at 4.9e-4 m3/s, above the many small
+   releases a low conductivity spreads over the catchment and below the few
+   large ones a high conductivity concentrates. The simulated network then
+   GROWS with the conductivity instead of retracting, the residual loses its
+   monotonicity, and the root moves three decades. What the threshold should be
+   a fraction of is an open question; neither answer tried so far is right.
 
 ``objective = "nse_log"`` in the second stage
    The Nash-Sutcliffe efficiency on log-transformed series, which weights the
