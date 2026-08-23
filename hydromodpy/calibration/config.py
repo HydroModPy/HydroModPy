@@ -321,10 +321,15 @@ class CalibOutputNetwork(HydroModelBase):
     tau_specific_ratio: Annotated[float, Profile.USER] = Field(
         default=1.0e-4,
         ge=0.0,
-        description="A cell releasing less than this fraction of its own recharge is "
-        "not a seepage face. Zero reproduces the purely geometric criterion of the "
-        "paper. Frozen over the whole search: a threshold moving with the trial would "
-        "cost the criterion its monotonicity.",
+        description="A cell releasing less than this fraction of what the whole model "
+        "receives is not a seepage face: the threshold is ratio * R * A, one number for "
+        "the mesh. NOT a fraction of the cell's own recharge, which was the definition "
+        "until it was measured inert: a cell releases the drainage it collects from "
+        "upslope, so that ratio carries the mesh in its denominator and its median fell "
+        "from 49.6 to 4.1 when one solved field was aggregated from 50 m to 400 m. Zero "
+        "reproduces the purely geometric criterion of the paper. Frozen over the whole "
+        "search: a threshold moving with the trial would cost the criterion its "
+        "monotonicity.",
     )
     weighting: Annotated[Literal["cell", "area"], Profile.USER] = Field(
         default="cell",

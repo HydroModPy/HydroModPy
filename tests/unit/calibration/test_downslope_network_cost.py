@@ -125,12 +125,32 @@ class TestSimulatedNetwork:
             build_simulated_network(np.zeros(7), threshold_m3_s=np.zeros(7), metric=bench.metric)
 
 
-class TestSpecificThreshold:
-    def test_it_scales_with_the_cell_area(self) -> None:
+class TestSeepageThreshold:
+    """What the threshold is a share of, and why it is not the cell.
+
+    A cell releases the drainage it collects, not the recharge that falls on
+    it, so a threshold read against the cell's own recharge carries the mesh in
+    its denominator. These tests pin the reference to the water the model
+    receives, which is a property of the forcing and of the catchment.
+    """
+
+    def test_it_is_a_share_of_what_the_model_receives(self) -> None:
         threshold = specific_seepage_threshold(np.array([100.0, 900.0]), 1e-8, ratio=1e-4)
-        # A cell nine times larger carries a threshold nine times larger, so the
-        # mask follows the physics rather than the mesh refinement.
-        assert threshold[1] / threshold[0] == pytest.approx(9.0)
+        assert float(threshold[0]) == pytest.approx(1e-4 * 1e-8 * 1000.0)
+
+    def test_it_is_uniform_over_the_mesh(self) -> None:
+        threshold = specific_seepage_threshold(np.array([100.0, 900.0]), 1e-8, ratio=1e-4)
+        # A cell nine times larger carries the same threshold: the quantity
+        # compared against it is a discharge, not a flux density.
+        assert threshold[0] == threshold[1]
+
+    def test_refining_the_mesh_leaves_the_threshold_where_it_was(self) -> None:
+        coarse = specific_seepage_threshold(np.full(64, 2500.0), 1e-8, ratio=1e-3)
+        fine = specific_seepage_threshold(np.full(256, 625.0), 1e-8, ratio=1e-3)
+        # Same catchment, four times the cells. The definition this replaced
+        # divided the threshold by four here, and the set it kept followed the
+        # discretisation instead of the hydrogeology.
+        assert float(fine[0]) == pytest.approx(float(coarse[0]))
 
     def test_a_zero_ratio_reproduces_the_paper(self) -> None:
         threshold = specific_seepage_threshold(np.array([100.0]), 1e-8, ratio=0.0)
@@ -139,6 +159,52 @@ class TestSpecificThreshold:
     def test_a_negative_ratio_is_refused(self) -> None:
         with pytest.raises(ValueError, match="must be positive"):
             specific_seepage_threshold(np.array([1.0]), 1e-8, ratio=-1.0)
+
+    def test_a_mesh_covering_no_area_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="no finite area"):
+            specific_seepage_threshold(np.array([np.nan, np.nan]), 1e-8, ratio=1e-4)
+
+
+class TestThresholdRejection:
+    """The threshold has to say how much water it sent back to dry land.
+
+    Below a fraction of a per cent it is a floor on numerical dribble; past one
+    per cent it shortens the simulated network, which is what the calibrated
+    ratio is there to do, and the root moves with it.
+    """
+
+    def _network(self, bench, threshold: float):
+        flux = np.zeros(N_CELLS)
+        flux[cell_id(30, AXIS_COL)] = 100.0
+        flux[cell_id(20, AXIS_COL)] = 2.0
+        return build_simulated_network(
+            flux, threshold_m3_s=np.full(N_CELLS, threshold), metric=bench.metric
+        )
+
+    def test_a_floor_rejects_nothing_and_says_so(self, bench) -> None:
+        network = self._network(bench, 1.0)
+        assert network.rejected_flux_share == pytest.approx(0.0)
+        assert network.n_seepage == 2
+
+    def test_the_rejected_share_is_the_flux_and_not_the_count(self, bench) -> None:
+        network = self._network(bench, 3.0)
+        # One cell of the two dropped, but it carried two per cent of the water:
+        # counting cells would report fifty per cent and read as a catastrophe.
+        assert network.n_seepage == 1
+        assert network.rejected_flux_share == pytest.approx(2.0 / 102.0)
+
+    def test_a_threshold_that_shortens_the_network_warns(self, bench, caplog) -> None:
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            self._network(bench, 3.0)
+        assert "1.96%" in caplog.text
+        assert "shortening the simulated" in caplog.text
+
+    def test_a_threshold_under_the_bound_stays_silent(self, bench, caplog) -> None:
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            self._network(bench, 1.0)
+        assert "seepage threshold" not in caplog.text
 
 
 class TestSignedGap:
@@ -326,8 +392,8 @@ class TestRechargeProvenance:
         # of the call: the diagnostic is only provenance if it is the number
         # that actually divided the ratio.
         geometry = self._geometry(bench, 3.2e-8, ratio=1e-2)
-        area = CELL_SIZE * CELL_SIZE
-        applied = float(geometry.threshold_m3_s[0]) / (area * 1e-2)
+        catchment_area = N_CELLS * CELL_SIZE * CELL_SIZE
+        applied = float(geometry.threshold_m3_s[0]) / (catchment_area * 1e-2)
         assert applied == pytest.approx(geometry.diagnostics["R_mean_m_s"], rel=1e-12)
 
     def test_a_recharge_that_moves_is_warned_about_and_names_both_values(
