@@ -251,8 +251,9 @@ def _input_file_fingerprints(config: object) -> list[dict[str, object]]:
         return []
     if not getattr(type(config), "model_fields", None):
         return []
+    project_root = getattr(getattr(config, "workspace", None), "project_root", None)
     try:
-        entries = collect_input_files(config)
+        entries = collect_input_files(config, base=project_root)
     except Exception:
         return []
 
