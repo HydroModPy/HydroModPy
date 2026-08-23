@@ -179,6 +179,13 @@ Time and calibration
      - Its zero is the intersection of two curves, not the minimum of a
        distance. The signed residual travels separately, because a root search
        needs its sign.
+   * - ``J_signed``
+     - ``D_so - D_os``, the residual the root search drives to zero
+     - m
+     - Positive means an excess of simulated stream, negative a deficit. It
+       travels in the trial components and never in the cost, so picking the
+       best trial by lowest cost gives the one closest to zero rather than the
+       most negative one.
    * - ``Doptim``
      - ``(D_so + D_os) / 2``
      - m
@@ -188,12 +195,21 @@ Time and calibration
      - ``Doptim / L_ref``
      - dimensionless
      - Validity indicator. It measures agreement, never correctness: measured
-       on synthetic truth it improves as the bias worsens.
+       on synthetic truth it improves as the bias worsens, and it improved from
+       4.58 to 2.21 on one catchment purely because the grid was coarser. Two
+       values from different meshes are not comparable.
    * - ``L_ref``
      - Square root of the median cell area over the catchment
      - m
      - The median and not the mean: a few large buffer cells would otherwise
-       set the scale.
+       set the scale. Declaring ``observed_position_accuracy`` floors it, so
+       that refining the mesh stops shrinking the denominator on its own.
+   * - ``L_cap``
+     - Longest downslope descent to the outlet inside the catchment
+     - m
+     - The value a cell whose descent never meets its target saturates at.
+       Counting it as ``+inf`` makes the mean infinite; dropping it moves the
+       support with the calibrated parameter.
    * - ``alpha``
      - Ratio of the mapped network to its own downslope closure
      - dimensionless

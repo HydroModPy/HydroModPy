@@ -13,7 +13,7 @@ which way each of its known biases points.
 Before you start
 ----------------
 
-Three things have to be true, and the first is the one people skip.
+Four things have to be true, and the first is the one people skip.
 
 **The mapped network must sit in the talwegs of the routing surface.** The
 criterion measures lengths along the flow paths of the DEM, so if the linework
@@ -39,10 +39,20 @@ A project declaring that path gets the agreement measured whether or not
 goes to ``stream_dem_agreement.json`` in the geographic directory, as
 ``alpha``: the ratio between the mapped network and its own downslope closure,
 where one means the linework follows the talwegs and below 0.90 the run warns.
-The calibration recomputes the same ratio on the solver mesh and publishes it
-per trial as ``alpha_obs_closure``, warning on the same threshold. Redo the
-burning at every change of resolution: the ratio between the width of the
-linework and the cell size changes with it.
+Redo the burning at every change of resolution: the ratio between the width of
+the linework and the cell size changes with it.
+
+**That number is not the one the criterion publishes, and the two cannot
+agree.** The burn is cut into the routing DEM alone; the model top stays on the
+raw DEM, because a top lowered along the mapped network would give a model that
+seeps along it by construction. The criterion measures its distances on that
+top, so the ratio it recomputes on the solver mesh and publishes per trial as
+``alpha_obs_closure`` describes a different surface. On the Nancon the routing
+DEM reaches ``alpha = 0.994`` after a 30 m burn while ``alpha_obs_closure``
+sits at 0.306, below the 0.90 threshold, and every trial says so. Read both:
+the first says the delineation and the flow paths follow the map, the second
+says how much of the criterion's own measurement is a top-versus-map
+disagreement.
 
 **The drain conductance must stay proportional to the conductivity.** Leave
 ``[flow.bc.cauchy.drainage] value`` at zero, or at anything not strictly
@@ -59,6 +69,26 @@ between two builds raises a warning naming both values. Nothing refuses the run,
 because this check knows a mesh and not a session: keep the recharge out of
 ``[calibration.parameters]`` and out of anything the first phase moves, and read
 ``R_mean_m_s`` across the trials before reading the calibrated value as a ``K``.
+
+**The union has to cover every package that carries water out of the aquifer.**
+The criterion reads the per-cell release as the union of the packages that can
+feed the surface: drains, streams, release-role constant heads. Whenever the
+stream reaches are modelled rather than drained, most of the seepage leaves
+through the stream package and not through the drain. Measured on the Nancon
+with the main reaches in SFR: the aquifer sent 1.33 of its 2.10 m3/s through
+the stream package while 0.80 stayed on the drain. A union reading the drain
+alone would report 63 per cent of that water as dry land, exactly where the
+package drains, which is exactly where the criterion aims. Both extractors now
+read the requirement off the budget file rather than off the model object, and
+refuse a release record no declared package covers instead of returning a
+partial network.
+
+The visible symptom, if that guard is ever bypassed, is a root that stops
+responding to the parameter: on that same run the search closed on a
+conductivity three decades above its declared bounds, with a validity indicator
+comfortably inside its own. A simulated network holding its cells by
+construction never retracts, and the criterion then balances against a fixed
+skeleton.
 
 Declaring the two stages
 ------------------------
@@ -113,6 +143,13 @@ Declaring the two stages
    rel_tol      = 0.01
    sweep_points = 7
 
+   [calibration.phases.overrides]
+   "flow.flow_regime"                = "steady"
+   "simulation.time.start_datetime"  = "2012-01-01"
+   "simulation.time.end_datetime"    = "2012-12-31"
+   "simulation.time.step_unit"       = "year"
+   "simulation.time.step_value"      = 1
+
    [[calibration.phases]]
    name       = "transient_sy"
    method     = "grid"
@@ -126,6 +163,16 @@ Declaring the two stages
    [calibration.phases.scoring_window]
    start = "2012-01-01"
    end   = "2015-12-31"
+
+   [calibration.phases.optimizer_kwargs]
+   points_per_dim = 9
+
+   [calibration.phases.overrides]
+   "flow.flow_regime"                = "transient"
+   "simulation.time.start_datetime"  = "2011-01-01"
+   "simulation.time.end_datetime"    = "2015-12-31"
+   "simulation.time.step_unit"       = "month"
+   "simulation.time.step_value"      = 1
 
 Declaring the ``[[calibration.phases]]`` table is what switches the runner to
 staged mode. Without it nothing changes for an existing configuration.
@@ -148,6 +195,19 @@ What each choice buys you
    crossing curves come out of the same solves. Set it to zero for the pure
    bisection of the paper.
 
+``[calibration.phases.overrides]``
+   The two stages do not run the same model: the first is steady and reads a
+   seepage mask at equilibrium, the second is transient over a span long enough
+   to shape the recessions. The flow regime and the simulated period are
+   properties of the model rather than of the search, so the phase declares
+   them. A phase is refused if it overrides a path another phase freezes, or if
+   it rewrites the calibration section under itself.
+
+``points_per_dim`` on a grid phase
+   What sets the number of points, not ``max_iter``. The grid adapter defaults
+   to five per dimension and ``max_iter`` is only a ceiling, so a phase asking
+   for nine trials without this keyword runs five.
+
 ``weighting = "area"``
    Recommended as soon as the mesh is refined along the streams, which is the
    usual refinement: an unweighted mean over-samples the river corridor, where
@@ -155,10 +215,25 @@ What each choice buys you
    measures that effect directly.
 
 ``tau_specific_ratio``
-   A cell releasing less than this fraction of its own recharge is not a
-   stream. Specific and not absolute, so the mask follows the physics and not
-   the mesh refinement. Zero reproduces the criterion of the paper, which gives
-   no threshold at all.
+   A cell releasing less than this fraction of what the whole model receives is
+   not a stream: the threshold is ``ratio * R * A``, one number for the mesh.
+
+   Read that carefully, because it is **not** a fraction of the cell's own
+   recharge. That was the definition until it was measured, and it is the one
+   that follows the mesh rather than the physics: a cell releases the drainage
+   it collects from everything upslope, so ``q / (R * area)`` is a
+   concentration factor with the discretisation in its denominator. Aggregating
+   one solved field of the Nancon from 50 m to 400 m cells moves its median
+   from 49.6 to 4.1, so a threshold on it selects whatever the grid gives it.
+   Against the total, the same declared ratio means the same thing on both.
+
+   One residual: ``A`` is the extent of the mesh, not of the catchment, which
+   is what makes ``R * A`` the total release exactly. Widening the buffer
+   around one catchment therefore raises the threshold at a fixed ratio, so a
+   ratio is comparable across refinements of one domain and not across two
+   domains buffered differently.
+
+   Zero reproduces the criterion of the paper, which gives no threshold at all.
 
 ``objective = "nse_log"`` in the second stage
    The Nash-Sutcliffe efficiency on log-transformed series, which weights the
@@ -217,8 +292,12 @@ to look at first:
    on, and it is what the search brackets. If it never changes sign over the
    sweep, the search widens the interval by a decade on each side, up to
    ``bracket_expand`` times (four by default), then raises and names both ends
-   rather than returning the better of the two. A failed evaluation at an end
-   skips the widening: the surface is the problem, not the interval.
+   rather than returning the better of the two. One failed evaluation anywhere
+   in the sweep skips the widening: the surface is the problem, not the
+   interval. A root that only exists outside the declared bounds is returned
+   with a warning naming both, because several decades out is usually a
+   residual that stopped responding to the parameter rather than a surprising
+   value.
 
 ``roptim`` and ``roptim_valid``
    The validity indicator of Equation 4, against the ``roptim_max`` bound (two
@@ -234,10 +313,14 @@ to look at first:
    is how you check the first stage really held the recharge still.
 
 ``alpha_obs_closure`` and ``frac_reachable_obs_raw``
-   The two numbers that say whether the pre-treatment was done and whether it
-   was enough. They describe the geometry, not the trial, so they are identical
-   across a session: the static geometry is rebuilt at every trial from the
-   same topography and comes out the same.
+   How much of the criterion's own measurement is a top-versus-map
+   disagreement, and how much of the mapped support has a descent that reaches
+   the network at all. ``alpha_obs_closure`` is measured on the model top and
+   not on the burned routing DEM, so a low value is not evidence the burning
+   was skipped: read it beside the ``alpha`` of the geographic step, as the
+   second item of "Before you start" says. They describe the geometry, not the
+   trial, so they are identical across a session: the static geometry is
+   rebuilt at every trial from the same topography and comes out the same.
 
 ``frac_unreachable_so`` and ``frac_unreachable_os``
    The share of each support whose descent ends without meeting its target.
@@ -255,6 +338,52 @@ to look at first:
    The three-class counts. The criterion balances the last two against each
    other, which is what the confusion map draws.
 
+What it looks like on a real catchment
+--------------------------------------
+
+``examples/projects/21_nancon_network_calibration`` runs the configuration
+above on the Nancon at Fougeres, 64.68 km2 in Brittany, and its ``README.md``
+carries the measured numbers. In short: fifteen trials, a seven-point sweep
+across four decades with exactly one sign change, and a root at
+:math:`K = 2.103 \times 10^{-4}` m/s where the criterion balances 550 cells of
+excess against 517 missing. ``roptim`` comes out at 4.58, above its bound, so
+the value is returned qualified. The second stage then pins ``Sy`` on its lower
+bound at an ``nse_log`` of -0.001, which is what a stage that identifies
+:math:`S_y/T` does when it is handed a biased :math:`T`: it saturates instead
+of absorbing.
+
+Two things that example shows and this page cannot: the same catchment
+calibrated under both MODFLOW backends, eleven per cent apart on the root; and
+the same catchment again with the reaches in SFR, which is what puts the
+release union of the previous section under load.
+
+The figures, and the one thing they need
+----------------------------------------
+
+Eight figures are registered for this method: ``downslope_distance_crossing``,
+``bisection_bracket_trace``, ``parameter_cost_profile``,
+``abherve_two_stage_card``, ``seepage_network_reference_overlay``,
+``seepage_network_confusion_map``, ``downslope_distance_map`` and
+``hydrograph_log_nse``.
+
+The first four read the trials of the session straight off the run.
+``hydrograph_log_nse`` reads the simulated and observed series off the run too,
+and takes the score and the scoring window as arguments, because ``display``
+may not import ``calibration`` and those two are calibration notions.
+
+The three network maps are the ones that need work. The criterion builds its
+per-cell supports during a trial, and nothing persists them, so a caller that
+wants those maps has to rebuild the supports from the promoted run and pass
+them to ``render()``. ``render_figures.py`` of the example project does exactly
+that, replaying the same chain the criterion runs: specific seepage threshold,
+downstream closure, both supports cut to the delineated catchment, and the
+descent measured on a surface whose depressions are resolved on the mesh graph.
+Check the rebuild against ``n_valid``, ``n_excess`` and ``n_missing`` of the
+trial; if the three counts do not match, the maps are drawing something else.
+
+``abherve_two_stage_card`` is a grid of panels and draws through ``plot()``,
+not through ``render(sim, ax)``.
+
 What to publish
 ---------------
 
@@ -264,9 +393,16 @@ have to do yourself: the calibration returns the calibrated conductivity raw, in
 ``t_over_r``, no ``k_over_r`` and no ``k_optim`` anywhere in the output. Divide
 by ``R_mean_m_s``, which every trial publishes, and state the recharge series it
 came from beside the number: the conductivity inherits it entirely, and changing
-reanalysis moves it by up to a quarter.
+reanalysis moved it by +3, +25 and -28 per cent on the three catchments the
+theory page reports.
 
 What the code does publish, and what belongs in the paper beside the value, is
 the diagnostic set above: ``D_so`` and ``D_os``, the cost ``J`` with its signed
 form ``J_signed``, ``Doptim`` and ``roptim`` with ``roptim_valid``. See the
 section on known biases of the theory page before reusing any of them.
+
+And state the density of the mapped network beside the value, because the bias
+scales with it. On the Nancon the map is the permanent network alone, 0.70 km
+per km2 inside the catchment, and the calibrated conductivity came out 3.3
+times the prior the project declares, inside the documented factor of 2.7 to
+7.5 for a thinned network.

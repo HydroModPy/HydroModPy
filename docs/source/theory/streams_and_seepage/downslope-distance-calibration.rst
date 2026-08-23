@@ -8,7 +8,11 @@ spatial extent of its stream network rather than against a gauge
 that answer a different question.
 
 Read it before running the method, and read the section on known biases before
-reusing a number it produced.
+reusing a number it produced. Two sections are prerequisites rather than
+commentary: the surface the distances are measured on, and what the method
+needs from the flow model. Both are enforced, because both had been silently
+violated on a real catchment and both returned a plausible number while doing
+it.
 
 What it does, and why it is worth the trouble
 ---------------------------------------------
@@ -60,6 +64,42 @@ It is not symmetric, and the asymmetry is the mechanism. :math:`d(a,b)` and
 become two means of the same kernel over two supports, and their difference
 would measure nothing but a difference of support.
 
+The surface the distances are measured on
+-----------------------------------------
+
+A downslope distance is a length along a flow path, and a flow path only exists
+once the depressions are resolved. On a raw surface the descent stops in a pit
+that has no hydrological existence, and every cell behind that pit has no
+distance at all: it enters the average as an unreachable cell rather than as a
+length.
+
+**The conditioning has to happen on the graph the distances are measured on.**
+A raster conditioned before delineation is pit-free on its own grid and under
+its own neighbourhood only. Read at mesh centroids it grows new pits, and it
+drops the cells whose centroid falls on nodata. That route was measured on the
+Nancon and left 51.9 per cent of the simulated support unreachable. The
+criterion therefore floods the mesh itself, by the priority flood of Barnes,
+Lehman and Mulla (2014) written over an explicit neighbour list instead of over
+a raster, so that it applies to cells of any arity
+(``hydromodpy/core/depression_filling.py``). Water is walked inwards from the
+outlet through the lowest reachable rim, anything below that rim is raised onto
+it, and one millimetre is added per step so the filled floor drains instead of
+lying flat, which a steepest-descent graph needs in order to leave it at all.
+
+Two objects have to be shared with the metric or the flood repairs nothing.
+The neighbour graph is the first: fed the eight-neighbour graph while the
+metric descends the four-neighbour one, every filled cell spills over a
+diagonal the metric cannot take, and 99.8 per cent of the catchment stops
+reaching the outlet instead of none of it. The outlet is the second: the flood
+only guarantees a path to the cell it was seeded on, so the criterion seals
+that same cell into the target rather than resolving an outlet of its own
+afterwards.
+
+Measured on the Nancon, a 60 395-cell MODFLOW-NWT mesh at 50 m: **17 166 cells
+raised, by up to 48.7 m**; the unreachable share of the simulated support fell
+from **13.6 per cent to 0.0**; and the outlet moved from an internal depression
+at 130.3 m to the true low point of the catchment at 106.4 m.
+
 The two mean distances and the criterion
 ----------------------------------------
 
@@ -100,6 +140,190 @@ that both balance. Between structures already balanced at :math:`J = 0`, only
 ``distance_gap`` and ``distance_mean``, precisely so that the substitution
 cannot be made by accident.
 
+What counts as a seepage cell
+-----------------------------
+
+The simulated network starts from a mask: the cells where the aquifer returns
+water to the surface. That mask is a strict test on the **release flux**, never
+a test on :math:`h \geq z_{top}`. The flux is anchored by the mass balance and
+the geometric reading is not; over eight decades of drain conductance the
+median cell flux holds to three decimals while the geometric mask loses most of
+its cells.
+
+Under that test sits a threshold :math:`\tau`, there to reject what a boundary
+package leaves on a cell that is dry for every practical purpose. What
+:math:`\tau` is read against decides whether it is a floor or a second
+calibration knob.
+
+**The threshold is a share of what the model receives**, :math:`\tau =
+\tau_{ratio} \cdot R \cdot A`, with :math:`A` the area the mesh covers. It is
+one number for the whole mesh. Reading: a cell releasing less than
+:math:`\tau_{ratio}` of the water the model is fed is not a source.
+:math:`\tau_{ratio} = 0` removes the threshold entirely, which is the purely
+geometric criterion of the paper.
+
+:math:`A` is the extent of the mesh, not of the catchment, and on a buffered
+domain the two differ: the Nancon mesh covers 151.0 km2 against 67.3 km2 of
+delineated catchment. The choice is what makes :math:`R \cdot A` equal to the
+total release exactly, which is the invariant the next paragraph rests on, but
+it has a price. Widening the buffer around the same catchment raises :math:`A`
+and therefore :math:`\tau` at a fixed :math:`\tau_{ratio}`, so a declared ratio
+is comparable across refinements of one domain and across catchments buffered
+alike, and not across two domains buffered differently. That residual is a
+domain choice rather than a refinement, which is the failure mode the previous
+definition had and this one does not.
+
+**Not a share of the cell's own recharge.** That was the earlier definition,
+justified by the observation that a fixed m3/s cut is nine times harsher on a
+cell three times smaller. The argument assumes the release is a surface flux
+that converges under refinement. It is not: a cell releases the drainage it
+collects from upslope, so :math:`q / (R\,a)` is a concentration factor and
+carries the mesh in its denominator. Aggregating one solved field of the Nancon
+from 50 m to 400 m cells:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 14 16 22 24 24
+
+   * - cell side
+     - seepage cells
+     - median :math:`q / (R\,a)`
+     - water kept at 100 times the cell's own recharge
+     - water kept at :math:`4.5 \times 10^{-4}` of the production
+   * - 50 m
+     - 380
+     - 49.6
+     - 0.51
+     - 0.94
+   * - 100 m
+     - 230
+     - 19.9
+     - 0.18
+     - 0.97
+   * - 200 m
+     - 138
+     - 7.7
+     - 0.00
+     - 0.99
+   * - 400 m
+     - 76
+     - 4.1
+     - 0.00
+     - 0.996
+
+A converged surface flux would hold the third column constant. It falls by a
+factor 12, so a threshold read against it selects whatever the discretisation
+gives it: the same declared value keeps half the released water at 50 m and
+nothing at all at 200 m, while the same declared share of the production stays
+within six points of itself over a factor eight in cell size. :math:`R` is a
+property of the forcing and :math:`A` of the model domain, and neither moves
+when that domain is refined.
+
+**The reference is frozen over the search by construction**, which the method
+requires: a threshold moving with the trial would cost :math:`D_{so}(K/R)` its
+monotonicity and the root search its meaning. A steady model whose only sink is
+seepage returns every drop it receives, so :math:`R \cdot A` is also the total
+release at every trial. Measured on the Nancon, 2.1018 m3/s of recharge against
+2.1025 of drain outflow, unchanged from :math:`K = 10^{-7}` to :math:`10^{-3}`.
+
+**Where the threshold stops filtering and starts calibrating.** Swept at the
+root of the criterion on the Nancon, 60 395 cells at 50 m, 380 of them
+releasing inside the catchment:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 14 20 18 22 26
+
+   * - :math:`\tau_{ratio}`
+     - :math:`\tau` (m3/s)
+     - seepage cells
+     - released water rejected
+     - shift in the calibrated :math:`K`
+   * - 0
+     - 0
+     - 380
+     - 0 %
+     - reference
+   * - :math:`10^{-6}`
+     - 2.1e-6
+     - 380
+     - 0.000 %
+     - 0.0 %
+   * - :math:`10^{-5}`
+     - 2.1e-5
+     - 377
+     - 0.002 %
+     - +0.9 %
+   * - :math:`3 \times 10^{-5}`
+     - 6.3e-5
+     - 372
+     - 0.013 %
+     - +1.3 %
+   * - :math:`10^{-4}`
+     - 2.1e-4
+     - 349
+     - 0.23 %
+     - +0.8 %
+   * - :math:`3 \times 10^{-4}`
+     - 6.3e-4
+     - 310
+     - 1.96 %
+     - +14 %
+   * - :math:`10^{-3}`
+     - 2.1e-3
+     - 155
+     - 19.2 %
+     - +29 %
+   * - :math:`3 \times 10^{-3}`
+     - 6.3e-3
+     - 22
+     - 67.4 %
+     - +188 %
+
+The last column is not a re-run bisection. Only the residual was recomputed, at
+the one conductivity the search had already closed on, and converted through
+the local slope of the residual, :math:`-598` m per decade of :math:`K`, the
+secant between the two bracketing trials of that session. Read it as an order
+of magnitude and not as a calibrated value: the secants of the tighter
+bracketing pairs are half again as steep, near :math:`-970`, which would put
+the :math:`3 \times 10^{-4}` row nearer eight per cent than fourteen, and the
+last row is an extrapolation far outside any range where one slope holds.
+
+The criterion is a staircase in the parameter, so the three figures under one
+per cent say one thing and not three: nothing moved. What moved is the last
+three rows, by an amount of the same order as the eleven per cent that
+separates two solvers on this same catchment. **Past about two per cent of the
+released water, the threshold is no longer filtering the sources, it is
+shortening the network.** Shortening the
+network is exactly what the calibrated ratio is there to do, so the two knobs
+then pull against each other and the calibrated value becomes conditional on a
+number nobody tuned. HydroModPy measures the rejected share at every trial and warns above
+one per cent.
+
+**The default is** :math:`\tau_{ratio} = 10^{-4}`. It drops the 31 weakest
+emitters of the 380, which carry 0.23 per cent of the released water, and moves
+the calibrated conductivity by 0.8 per cent, a factor thirteen under the
+solver-to-solver spread.
+
+Do not read that default as clearance above a dribble floor, because this run
+has no dribble floor to clear. Its DRN cells release either exactly zero
+(59 640 of 60 395) or more than :math:`1.9 \times 10^{-6}` m3/s: there is no
+population of near-zero releases between the two. The default :math:`\tau`
+of :math:`2.1 \times 10^{-4}` m3/s therefore sits about 1.5 decades above the
+weakest release in the catchment and lands near the sixth percentile of the
+release distribution, inside its body rather than under it. It cuts real
+emitters, and the 0.23 per cent above is the measure of how little that costs.
+A package that does dribble, which DRN here does not, is the case the floor is
+held in reserve for.
+
+**The number is unchanged and its meaning is not.** Under the earlier
+definition the same :math:`10^{-4}` was a threshold of 3.5e-9 m3/s on this
+catchment, three decades below the smallest release the model produces, and it
+excluded nothing until :math:`\tau_{ratio}` passed 0.2. Reproducing the current
+default under
+the old reading would take :math:`\tau_{ratio} = 6`, not :math:`10^{-4}`: a
+knob documented as a small fraction whose usable band ran from 1 to 500.
+
 Which cells enter which average
 -------------------------------
 
@@ -122,16 +346,31 @@ and accepts; the correct reading returns :math:`9.44` and rejects.
 mapped linework stops short of it, the distance is infinite downstream of the
 last reach, and since the simulated network retreats towards exactly that reach
 as the ratio grows, the criterion loses its sign change at the high end of the
-bracket and there is no root left to close. The outlet is not a product of the
-DEM, it is the closing point of the catchment, so writing that it belongs to
-the stream network is true by definition.
+bracket and there is no root left to close. That cell is the low point of the
+catchment the geographic step closed on the declared gauge, and it is the cell
+the flood was seeded on, so writing that it belongs to the stream network is
+true by definition rather than a fudge.
 
-**Both supports are intersected with the topographic catchment.** On a buffered
-model domain, ten to fifteen per cent of cells drain outside the basin and
-never meet the mapped network; on the catchment alone the figure falls to a
-fraction of a per cent. Measured on one real mesh: 14.9 per cent against 0.11
-per cent. Without the intersection the unreachable guard aborts on every real
-catchment.
+**Both supports are intersected with the catchment the geographic step
+delineated.** Re-deriving one instead, by descending the model top to its own
+largest basin, fails for the reason given in the section above: the model top
+is never conditioned, so that descent ends in whichever internal depression is
+biggest. Measured on the Nancon, the re-derived catchment held 1 368 cells of
+the 60 395 in the mesh and **not one cell of the mapped network**, so every
+trial refused; the delineated catchment holds 26 907 cells and 1 119 of the
+mapped network. A run reaching the criterion without a delineated catchment
+falls back to the re-derived one and says so with a warning: a synthetic domain
+legitimately has no watershed, while a real run that lost one would otherwise
+produce a plausible number from the wrong support.
+
+The intersection itself is not a detail either. On a buffered model domain, ten
+to fifteen per cent of the cells drain outside the basin and never meet the
+mapped network; on the catchment alone the figure falls to a fraction of a per
+cent. Measured on one real mesh: 14.9 per cent against 0.11 per cent. The
+catchment is also what restricts the supports, never the solver's active
+domain: cutting the graph on the model domain breaks the catchment into pieces
+the flood cannot cross, and the descent then stops at a domain boundary instead
+of at a stream.
 
 **Water bodies stay in the graph and in the target, and leave both supports.**
 A hillslope cell upstream of a reservoir has to be able to descend through it,
@@ -139,6 +378,35 @@ and open water must absorb a path that reaches it, but a line of hydrography
 drawn across a reservoir is not the observation of a stream. Keeping lake cells
 in the support of :math:`D_{so}` would inject one zero per lake cell and move
 the root with the size of the reservoir.
+
+The unreachable fraction, and the one direction its bound guards
+----------------------------------------------------------------
+
+A cell whose descent never meets the target has no finite distance. The
+criterion never drops such a cell in silence: it saturates at :math:`L_{cap}`,
+the longest descent to the outlet inside the catchment, computed once on the
+static geometry and published per trial as ``L_cap``. Counting :math:`+\infty`
+instead would make the mean infinite; censoring the cell instead would move the
+support with the parameter, which is a moving denominator.
+
+The fractions are counted on both sides and reported as
+``frac_unreachable_so`` and ``frac_unreachable_os``. **The bound**
+``max_unreachable_fraction`` **guards one of them, and only one.**
+
+It guards :math:`D_{so}`, whose target is the mapped network with the outlet
+sealed in. That target is static: it does not move from trial to trial, and on
+a conditioned catchment every cell reaches it. Anything past a few per cent
+there means the surface is not conditioned, and the mean would be a fiction
+built on the saturation value. This is the direction the 0.03 to 2.5 per cent
+of the reference measurement belongs to.
+
+It does not guard :math:`D_{os}`, and must not. That target is the *simulated*
+network, which is exactly what the calibration moves: at a high conductivity
+the simulated network retracts into the talwegs and the mapped cells
+legitimately have nothing left to descend into. At the high end of one Nancon
+sweep, **81.4 per cent** of the mapped support was unreachable. That is the
+measurement working, not failing, and it is the signal the root search reads to
+close its bracket from above.
 
 Weighting, and the reference length
 -----------------------------------
@@ -158,7 +426,9 @@ buffer cells inflate the mean, and for a size ratio of three the two
 conventions differ enough to move :math:`r_{optim}` across its bound. Declaring
 ``observed_position_accuracy`` raises :math:`L_{ref}` to that accuracy when it
 is the larger of the two, because a finer mesh otherwise divides the
-denominator without improving the agreement.
+denominator without improving the agreement. That is not a hypothetical: the
+known biases below carry a measured case of :math:`r_{optim}` halving on a
+coarser grid with nothing else changed.
 
 The validity bound and what it does not mean
 --------------------------------------------
@@ -203,7 +473,12 @@ is the pure bisection of the paper.
 interval by a decade on each side, up to ``bracket_expand`` times, four by
 default; if the sign still does not change it raises and prints both residuals
 rather than returning the better of the two ends, because returning the better
-end is a minimised mean distance in disguise.
+end is a minimised mean distance in disguise. When the widening does find a
+sign change, but only outside the declared bounds, the value comes back with a
+warning naming how many expansions it took: a root several decades outside a
+declared interval is rarely a surprising conductivity, it is usually the
+residual failing to respond to the parameter at all. The next section names one
+way that happens.
 
 Why the ratio is what gets calibrated
 -------------------------------------
@@ -235,6 +510,55 @@ the **flux**, not to :math:`h \geq z_{top}`: the flux is anchored by the mass
 balance and its median cell value holds over eight decades of conductance,
 while :math:`h - z_{top}` travels twelve.
 
+What the method needs from the flow model
+-----------------------------------------
+
+**Every package that releases groundwater to the surface has to reach the
+criterion.** The simulated network is built from the release flux, so a package
+whose outflow the criterion cannot read becomes a stretch of catchment read as
+dry land, and it reads as dry precisely where that package drains, which is
+where the criterion aims.
+
+MODFLOW 6 makes that easy to do by accident. An advanced package given a
+``budget_filerecord`` writes its exchange to its own file beside the model
+budget, and the model budget then holds no record for it at all. Measured on
+the Nancon with the streams in SFR: the aquifer released 2.10 m3/s in total,
+1.33 of it through the stream package. Reading the model budget alone saw the
+drain and nothing else, which made **63 per cent of the outgoing water
+invisible** and left the criterion measuring a seepage network missing two
+thirds of its water. That network was then a skeleton of prescribed reaches
+that never retracted as the conductivity rose: the residual stayed positive
+across the whole declared interval, and the search closed three decades above
+it on a value that means nothing, with a validity indicator comfortably inside
+its bound.
+
+HydroModPy refuses rather than measure that. The requirement is read off the
+budget file and not off the model object, which can be silent about a package
+the run really built: a release record that no declared package covers, or a
+sibling package budget sitting next to the model one, raises and names the
+package. That is also what catches the next package the same way, without
+naming it in advance.
+
+What the criterion reproduces, and how far that goes
+----------------------------------------------------
+
+The Nancon was calibrated twice with nothing shared but the mapped network and
+the forcing: MODFLOW-NWT on the catchment mesh, and MODFLOW 6 on a structured
+grid. Over a parameter searched across four decades, the two roots are
+:math:`K = 2.10 \times 10^{-4}` and :math:`1.87 \times 10^{-4}` m/s, **eleven
+per cent apart**.
+
+Both runs find exactly one sign change over the sweep, and each balances its
+two error classes at the root, which is what the criterion is asked to do: 550
+cells of excess against 517 missing under MODFLOW-NWT, 196 against 212 under
+MODFLOW 6.
+
+Read that for what it is. Eleven per cent over four decades of search is the
+reproducibility of the criterion across a change of solver, of grid and of
+discretisation. It is not the accuracy of the calibrated conductivity, which
+the biases below bound far more loosely, and it says nothing about whether
+either number is right.
+
 Known biases, and how to read the output
 -----------------------------------------
 
@@ -257,13 +581,25 @@ of one model, all accepted by Equation 4, the calibrated ratio spans a factor
 29, and the two best ratios belong to the two variants whose model top had been
 altered. Do not read :math:`r_{optim}` as a quality indicator of the model.
 
+**The validity ratio also moves with the grid, and it flatters the coarser
+one.** Between the two runs of the section above, :math:`r_{optim}` went from
+4.58 to 2.21 with nothing about the model improved: the coarser grid carries
+larger cells, :math:`L_{ref}` is the square root of the median cell area, and
+the denominator grew. Same catchment, same mapped network, indicator halved.
+Refining a mesh therefore degrades the indicator at constant agreement, which
+is what ``observed_position_accuracy`` is for: declaring the positional
+accuracy of the mapped network floors :math:`L_{ref}` at a length the model
+resolution cannot shrink. Two :math:`r_{optim}` values measured on different
+meshes are not comparable unless that floor is declared and identical.
+
 **Publish** :math:`T/R`, **not** :math:`K`. The conductivity inherits the
 recharge series entirely: changing reanalysis moves it by +3, +25 and -28 per
 cent on three catchments. On a five-layer model, :math:`T/R` is stable to 1.21
 where the mean distance no longer separates anything. The ratio is not computed
 for you: the calibration returns the conductivity raw in ``best_parameters`` and
-emits neither the ratio nor the recharge that divides it, so forming
-:math:`T/R` and naming that recharge series beside it is the author's work.
+emits the recharge that divides it as ``R_mean_m_s`` per trial, read back from
+the built model rather than from the TOML, so forming :math:`T/R` and naming
+that recharge series beside it is the author's work.
 
 **The positional uncertainty of the mapped network is oriented.** Displacing it
 by one cell moves the ratio by a factor 3.7 to 8.9 depending on the catchment,
@@ -324,6 +660,14 @@ is written to ``stream_dem_agreement.json`` in the geographic directory and
 logged with a warning below 0.90. A run declaring no network there measures
 nothing. A calibration declaring a network output recomputes the same ratio on
 the solver mesh and publishes it per trial as ``alpha_obs_closure``.
+
+Burning and flooding are two different repairs, and neither replaces the other.
+Burning fixes the registration between two datasets, once, on the routing
+raster; the flood described above fixes the surface itself, on the mesh graph,
+at every trial. A network burned into a routing raster still descends into the
+pits the mesh grows when it reads that raster back, and a flooded mesh still
+measures a dataset disagreement if the linework was never in the talwegs to
+begin with.
 
 References
 ----------
