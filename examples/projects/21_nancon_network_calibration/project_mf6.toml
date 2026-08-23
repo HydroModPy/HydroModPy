@@ -1,0 +1,33 @@
+# ======================================================================
+# Nancon - meme bassin, meme physique, resolu par MODFLOW 6
+# ----------------------------------------------------------------------
+# Sert de temoin a la variante SFR : elle change de package, celle-ci ne
+# change que de solveur. Comparer les trois isole ce qui vient du
+# solveur de ce qui vient du reseau.
+# ======================================================================
+
+base_config = "project.toml"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-3
+mf6_inner_dvclose = 1e-4
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf6_enable_rewet = false
+
+# Grille structuree sur la boite du bassin. Le critere ne s'en trouve pas
+# affecte : il prend le bassin que le pipeline geographique delimite, et
+# resout les cuvettes sur le graphe du maillage.
+[modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 110
+ny = 120
+
+[modflow6.sgrid.vertical]
+nlay = 1

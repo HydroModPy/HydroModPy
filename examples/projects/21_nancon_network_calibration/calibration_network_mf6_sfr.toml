@@ -1,0 +1,51 @@
+# Premier etage seul : c'est lui qui teste le critere.
+base_config = "project_mf6_sfr.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "network_mf6_sfr"
+
+[flow]
+flow_regime = "steady"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_unit = "year"
+step_value = 1
+
+[calibration]
+method = "bisection"
+max_iter = 16
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+transform = "log"
+path = "flow.param.K.field.value"
+units = "m/s"
+
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+
+[[calibration.objective_blocks]]
+name = "abherve_gap"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+[calibration.optimizer_kwargs]
+rel_tol = 0.01
+sweep_points = 7
+
+[simulation.results.derived]
+release_flux = true

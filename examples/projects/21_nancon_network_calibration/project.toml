@@ -208,6 +208,13 @@ type = "flow"
 solvers = ["modflow_nwt"]
 
 
+# Le suintement par maille est ce que le critere lit, et ce dont les
+# cartes de comparaison ont besoin. Sans lui les figures de reseau ne
+# peuvent pas etre redessinees apres coup.
+[simulation.results.derived]
+release_flux = true
+
+
 # ----------------------------------------------------------------------
 # Display
 # ----------------------------------------------------------------------
