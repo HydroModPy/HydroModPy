@@ -210,15 +210,22 @@ def seepage_distance_cost(
     n_support_os = max(os_["n_support"], 1.0)
     frac_unreachable_so = so["n_unreachable"] / n_support_so
     frac_unreachable_os = os_["n_unreachable"] / n_support_os
-    if status == "ok" and max(frac_unreachable_so, frac_unreachable_os) > float(
-        max_unreachable_fraction
-    ):
-        # Beyond a few per cent the surface is not conditioned and the number
-        # would be a fiction. Filtering the unreachable cells away instead is
-        # exactly the silent failure this guard exists to prevent. An empty
-        # network is exempt: every observed cell is then unreachable by
-        # definition, not because the surface is unusable, and that end of the
-        # bracket has to stay evaluable.
+    if status == "ok" and frac_unreachable_so > float(max_unreachable_fraction):
+        # The bound guards ONE direction: D_so, whose target is the mapped
+        # network with the outlet sealed into it. That target does not move
+        # between trials, and every cell of a conditioned catchment reaches it,
+        # so anything beyond a few per cent means the surface is not conditioned
+        # and the number would be a fiction. This is the direction the 0.03 to
+        # 2.5 per cent of the specification was measured on.
+        #
+        # D_os is NOT guarded. Its target is the SIMULATED network, which is
+        # what the calibration moves: a high K retracts the simulated network
+        # into the talwegs, and mapped cells then legitimately have nothing to
+        # descend into. That is not a broken surface, it is the measurement
+        # saying the model has no stream there, and it is the very signal the
+        # search reads at the high end of its bracket. Those cells saturate at
+        # the basin's longest descent, the policy section 3.6 chose over
+        # counting +inf and over dropping them from the support.
         status = "failed"
 
     roptim = optimal / float(length_scale_m) if np.isfinite(optimal) else float("nan")

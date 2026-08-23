@@ -104,7 +104,11 @@ sweep_points = 7
 "flow.flow_regime" = "steady"
 "simulation.time.start_datetime" = "2000-01-01"
 "simulation.time.end_datetime" = "2000-12-31"
-"simulation.time.step_value" = "1 year"
+# L'unite AVANT la valeur : la configuration normalise "1 year" en
+# (1, "year"), donc ecrire une valeur portant une autre unite pendant que
+# step_unit vaut encore l'ancienne est refuse.
+"simulation.time.step_unit" = "year"
+"simulation.time.step_value" = 1
 
 
 # ----------------------------------------------------------------------
@@ -139,7 +143,8 @@ end = "2009-12-31"
 "flow.flow_regime" = "transient"
 "simulation.time.start_datetime" = "2000-01-01"
 "simulation.time.end_datetime" = "2009-12-31"
-"simulation.time.step_value" = "1 month"
+"simulation.time.step_unit" = "month"
+"simulation.time.step_value" = 1
 
 
 # ----------------------------------------------------------------------
