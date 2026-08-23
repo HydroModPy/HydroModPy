@@ -9,6 +9,7 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.period_aggregation import period_mean_on_index
 
 logger = get_logger(__name__)
 
@@ -282,15 +283,15 @@ def _add_runoff_to_discharge_series(
         return discharge
 
     runoff_mm_per_d = pd.concat(series_list, axis=1).mean(axis=1)
-    target_index = discharge.index
-    runoff_index = runoff_mm_per_d.index
-    if runoff_index.tz is None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(target_index.tz)
-    elif runoff_index.tz is not None and target_index.tz is None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
-    elif runoff_index.tz is not None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    aligned = runoff_mm_per_d.reindex(target_index, method="nearest")
+    target_index = pd.DatetimeIndex(discharge.index)
+    # AVERAGE the daily forcing over each stress period, never sample it.
+    # ``reindex(method="nearest")`` handed a whole period the value of the one
+    # day closest to its stamp: on a yearly steady step the Nancon received the
+    # 1.36 mm of 1 January instead of the 0.33 mm the year averaged, and the
+    # reported discharge came out 67 per cent above what its own water balance
+    # allowed. observed_on_simulation_index is the one place that alignment is
+    # written; the calibration metric has always used it.
+    aligned = period_mean_on_index(runoff_mm_per_d, target_index)
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     return discharge.add(runoff_m3_per_s, fill_value=0.0)
 
