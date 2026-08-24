@@ -7,10 +7,13 @@ talwegs of the routing surface entirely. That failure is obvious to the eye
 and invisible in the cost, so the check is a picture and not a scalar.
 
 The relief is a hillshade computed from the per-cell topography the run
-persisted, in greys only, so the two networks keep the whole colour axis. They
-are told apart by shape as well as by hue: the mapped network fills its cells,
-the simulated one is drawn inset on top, and the pair survives a greyscale
-print.
+persisted, in greys only, so the two networks keep the whole colour axis. Both
+are cased in white before they are drawn: laid straight on the hillshade, the
+simulated network came out at a contrast ratio of 1.32 against the darkest
+shade of it, which is unreadable on screen and gone in print. The casing also
+gives a one-cell line the weight it needs to survive the page, and the two
+networks are still told apart by shape as well as by hue, the mapped one
+filling its cells and the simulated one drawn inset on top.
 
 Both networks are rebuilt from what the run persisted, through the
 construction the criterion scores, so the picture answers for the numbers
@@ -28,10 +31,15 @@ from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
-    annotate_note,
+    CELL_WEIGHT_PT,
+    MapExtentName,
     cell_count,
     checked_cells,
     comparison_from_run,
+    draw_cells,
+    map_extent,
+    map_legend,
+    select_cells,
     threshold_note,
 )
 from hydromodpy.display.map_axes import style_map_axes
@@ -50,11 +58,33 @@ NETWORK_COLORS: dict[str, str] = {
 }
 """One colour per network, the darkest for the mapped reference."""
 
+NETWORK_HALO = "#FFFFFF"
+"""The casing both networks are drawn on, and what lifts them off the relief.
+
+A hillshade needs its dark end to show a talweg, and a stream cell drawn
+straight on that end is unreadable whatever hue it carries. The casing puts a
+known, maximal ground under the linework instead, so the separation of the two
+networks from the ground no longer depends on how steep the catchment is.
+"""
+
 RELIEF_GREYS: tuple[str, str] = ("#8a8a8a", "#fafafa")
 """Shadow and light of the hillshade, both lighter than either network."""
 
+HALO_WEIGHT_PT = 1.8
+"""Stroke of the casing, in points. Wider than the weight of a network."""
+
 _SIMULATED_INSET = 0.58
 """Side of the simulated patch as a fraction of its cell."""
+
+_INSET_WEIGHT_PT = 0.0
+"""The simulated patch carries no stroke of its own, or it is not inset at all.
+
+The casing already gives both networks the weight a one-cell line needs. A
+stroke on top of that grows the patch back over the rim of mapped cell it is
+supposed to sit inside: measured on the Nancon, an inset patch drawn at
+``CELL_WEIGHT_PT`` covered 8.99 px of a 8.8 px cell, so the agreement read as
+a simulated network with no mapped one under it.
+"""
 
 _RELIEF_MIN_SPREAD = 0.02
 """Below this illumination range, the relief is flat and keeps the full scale."""
@@ -71,6 +101,9 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
     the simulated one is what the release flux generates downslope. Where they
     overlap the figure shows the simulated patch sitting inside the mapped
     cell, which is the agreement.
+
+    ``extent`` picks the frame: ``catchment`` crops to the delineated
+    watershed, where both networks live, ``mesh`` keeps the whole domain.
     """
 
     spec = FigureSpec(
@@ -78,7 +111,7 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
         title="Simulated network over reference",
         kind="comparison",
         required_fields=("release_flux",),
-        default_figsize=(7.8, 5.8),
+        default_figsize=(7.8, 6.4),
     )
 
     def unavailable_reason(self, sim: Run) -> str | None:
@@ -96,6 +129,7 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
         azimuth_deg: float = 315.0,
         altitude_deg: float = 45.0,
         overlays: tuple[str, ...] | list[str] | None = None,
+        extent: MapExtentName = "catchment",
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
@@ -130,19 +164,29 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
                 ),
             )
 
-        _add_cells(
+        draw_cells(
             ax,
-            [polygons[index] for index in np.flatnonzero(observed_mask)],
+            select_cells(polygons, observed_mask | simulated_mask),
+            color=NETWORK_HALO,
+            label="_network casing",
+            zorder=2,
+            weight_pt=HALO_WEIGHT_PT,
+        )
+        draw_cells(
+            ax,
+            select_cells(polygons, observed_mask),
             color=NETWORK_COLORS["observed"],
             label="_observed network",
-            zorder=2,
+            zorder=3,
+            weight_pt=CELL_WEIGHT_PT,
         )
-        _add_cells(
+        draw_cells(
             ax,
-            [_inset(polygons[index]) for index in np.flatnonzero(simulated_mask)],
+            [_inset(polygon) for polygon in select_cells(polygons, simulated_mask)],
             color=NETWORK_COLORS["simulated"],
             label="_simulated network",
-            zorder=3,
+            zorder=4,
+            weight_pt=_INSET_WEIGHT_PT,
         )
         if not observed_mask.any():
             notes.append("the mapped network is empty: nothing to compare the simulated one to")
@@ -168,8 +212,10 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
             ),
         ]
         extra, _labels = ax.get_legend_handles_labels()
-        ax.legend(handles=handles + extra, loc="best", fontsize=9, framealpha=0.9)
-        annotate_note(ax, "\n".join(notes))
+        window = map_extent(sim, polygons, extent=extent)
+        notes.append(f"frame: {window.name}")
+        map_legend(ax, handles + extra, note="\n".join(notes))
+        window.apply(ax)
         return ax
 
 
@@ -205,30 +251,6 @@ def _relief_limits(shading: np.ndarray) -> tuple[float, float]:
         return (0.0, 1.0)
     low, high = (float(value) for value in np.percentile(finite, [2.0, 98.0]))
     return (low, high) if high - low > _RELIEF_MIN_SPREAD else (0.0, 1.0)
-
-
-def _add_cells(
-    ax: Axes,
-    polygons: list[np.ndarray],
-    *,
-    color: str,
-    label: str,
-    zorder: int,
-) -> None:
-    """Draw one network as flat patches, or nothing when it holds no cell."""
-    from matplotlib.collections import PolyCollection
-
-    if not polygons:
-        return
-    ax.add_collection(
-        PolyCollection(
-            polygons,
-            facecolors=color,
-            edgecolors="none",
-            label=label,
-            zorder=zorder,
-        )
-    )
 
 
 def _inset(polygon: np.ndarray) -> np.ndarray:

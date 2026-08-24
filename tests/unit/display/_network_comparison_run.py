@@ -156,6 +156,25 @@ def _grid(cell_m: float) -> tuple[np.ndarray, np.ndarray]:
     return vertices, faces
 
 
+def map_key(ax):
+    """Return the key of a map, which belongs to the figure and not the axes.
+
+    The layout engine can only reserve room below the axis labels for a
+    figure legend, so that is where these maps put theirs.
+    """
+    return ax.figure.legends[-1]
+
+
+def legend_note(ax) -> str:
+    """Return the note a map carries, which is the title of its key."""
+    return map_key(ax).get_title().get_text()
+
+
+def legend_labels(ax) -> list[str]:
+    """Return the entries of the key, in the order the map lists them."""
+    return [text.get_text() for text in map_key(ax).get_texts()]
+
+
 def drawn_cells(collection, cell_m: float = CELL_M) -> list[int]:
     """Return the grid cells one drawn collection covers, in index order."""
     cells = []
