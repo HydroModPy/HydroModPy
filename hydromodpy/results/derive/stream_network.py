@@ -147,6 +147,15 @@ def network_comparison_from_run(
     and needs no recharge; any other value needs the run to carry its recharge
     budget, and the run is refused by name when it does not.
 
+    One number does NOT reproduce the trial: ``alpha_obs_closure``. The
+    criterion reads the mapped network from the file the calibration output
+    declares, whole; a run persists its ``reference`` network CLIPPED to the
+    catchment. Measured on the Nancon, 945 features and 181.7 km against 226
+    features and 45.6 km. Inside the catchment the two agree cell for cell, so
+    every scored quantity matches, but alpha is a whole-mesh ratio and reads
+    0.306 on the raw linework against 0.766 on the clipped one. Read the alpha
+    of a figure as the catchment one, and the alpha of a trial as the raw one.
+
     The centres used here are the polygon centroids of the faces, because a
     persisted mesh stores no other. On a Voronoi dual the solver sampled its top
     at the generator seeds instead, so a comparison redrawn from the store can
