@@ -27,10 +27,15 @@ from hydromodpy.core.contracts.observables import (
 )
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 
 logger = get_logger(__name__)
+
+RELEASE_FLUX_UNIT = "m3/s"
+"""The one unit the network criterion can threshold a release field in."""
+
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import (
@@ -205,6 +210,32 @@ def observable_request_for_output(
     raise ValueError(f"Unknown calibration output support {support!r} on output {name!r}")
 
 
+def require_release_flux_unit(units: str, *, name: str) -> None:
+    """Refuse a release field the criterion would threshold in the wrong unit.
+
+    The seepage threshold is a recharge in m/s times a cell area, so it is a
+    volumetric flow in m3/s and the field it is compared to has to be one too.
+    Adapters spell that unit the CF way (``m3 s-1``) and the catalog the solidus
+    way (``m3/s``); the space becomes a product so both reach the one
+    volumetric-flow vocabulary the repository keeps.
+    """
+    try:
+        canonical = normalize_m3_per_s_unit(units)
+    except ValueError as exc:
+        raise ObjectiveError(
+            f"Output {name!r}: the solver served the release field in {units!r}, a token the "
+            "volumetric-flow vocabulary does not hold, so the criterion cannot tell whether "
+            f"it is the {RELEASE_FLUX_UNIT} it thresholds in. ({exc})"
+        ) from exc
+    if canonical != RELEASE_FLUX_UNIT:
+        raise ObjectiveError(
+            f"Output {name!r}: the solver served the release field in {units!r}, that is "
+            f"{canonical}, and the criterion thresholds in {RELEASE_FLUX_UNIT}. The two "
+            "sides differ by a constant factor, so the simulated network would follow the "
+            "unit rather than the hydrogeology."
+        )
+
+
 def score_network_output(
     run_ctx: RunContext,
     name: str,
@@ -223,6 +254,7 @@ def score_network_output(
     mean caching mesh identity across forked trial contexts for no measurable
     gain.
     """
+    require_release_flux_unit(result.units, name=name)
     geometry = geometry_from_run(run_ctx, output)
     simulated = build_simulated_network(
         result.values,
@@ -247,15 +279,18 @@ def score_network_output(
     )
     if scored.status == "failed":
         raise ObjectiveError(
-            f"Output {name!r}: {scored.components.get('frac_unreachable_so', float('nan')):.1%} "
-            f"of the simulated support and "
-            f"{scored.components.get('frac_unreachable_os', float('nan')):.1%} of the mapped one "
-            f"never reach their target, over the {output.max_unreachable_fraction:.0%} bound. "
-            "Averaging over a truncated support is a fiction, and the cells dropped are "
-            "never a random sample. Two causes read the same here: a routing surface "
-            "whose depressions are not resolved, and a trial whose simulated network is "
-            "too small for the mapped one to descend into, which is what the ends of a "
-            "sweep look like."
+            f"Output {name!r}: frac_unreachable_so = "
+            f"{scored.components.get('frac_unreachable_so', float('nan')):.1%} of the simulated "
+            "network never reaches the mapped one, over the "
+            f"{output.max_unreachable_fraction:.0%} bound. That target is fixed for the whole "
+            "search, so the trial cannot have shrunk it: the routing surface still holds "
+            "depressions, and averaging D_so over a support truncated by them is a fiction, "
+            "the cells dropped being never a random sample. Condition the surface, or raise "
+            "max_unreachable_fraction knowing what it buys. The reciprocal diagnostic, "
+            "frac_unreachable_os = "
+            f"{scored.components.get('frac_unreachable_os', float('nan')):.1%}, is reported and "
+            "not bounded: it descends onto the simulated network, which the search itself "
+            "retracts at the high end of its bracket."
         )
 
     roptim = scored.components["roptim"]
@@ -490,6 +525,7 @@ __all__ = [
     "observable_request_for_output",
     "observable_series",
     "point_xy_from_output",
+    "require_release_flux_unit",
     "resolve_flow_adapter",
     "resolve_station_cells",
     "slice_time",

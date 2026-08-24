@@ -30,6 +30,7 @@ from typing import Literal
 
 import numpy as np
 
+from hydromodpy.calibration.observations.network_supports import criterion_supports
 from hydromodpy.calibration.observations.simulated_network import SimulatedNetwork
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
@@ -49,19 +50,16 @@ algorithm, which made it commentary rather than provenance.
 
 @dataclass(frozen=True, slots=True)
 class SeepageDistanceResult:
-    """The cost, the signed residual and everything needed to read them."""
+    """The signed residual and everything needed to read it.
 
-    cost: float
-    """``J``, what the optimizer minimises."""
+    ``J`` and ``Doptim`` live in ``components`` beside the thirty other
+    quantities one trial produces, and are read from there.
+    """
 
     signed_gap: float
     """``J_signed``. It travels in the components, never in the cost, so that
     picking the best trial by lowest cost gives the trial closest to zero and
     not the most negative one."""
-
-    optimal_distance: float
-    """``Doptim``. An indicator. It cannot separate two models at the same
-    ``J``, and ``J`` cannot separate two structures at the same ``Doptim``."""
 
     status: Literal["ok", "empty_network", "failed"]
     components: dict[str, float]
@@ -143,12 +141,15 @@ def seepage_distance_cost(
     active = metric.graph.active
     observed_mask = np.asarray(observed, dtype=bool).reshape(-1)
     catchment_mask = np.asarray(catchment, dtype=bool).reshape(-1)
-    keep = catchment_mask & active
-    if excluded is not None:
-        keep = keep & ~np.asarray(excluded, dtype=bool).reshape(-1)
-
-    support_so = simulated.network & keep
-    support_os = observed_mask & keep
+    supports = criterion_supports(
+        simulated=simulated,
+        observed=observed_mask,
+        catchment=catchment_mask,
+        active=active,
+        excluded=excluded,
+    )
+    support_so = supports.support_so
+    support_os = supports.support_os
     if not np.any(support_os):
         # Say WHICH of the three intersections emptied it: a CRS mismatch, a
         # catchment that closed on the wrong cell and a mesh whose active domain
@@ -229,19 +230,15 @@ def seepage_distance_cost(
         status = "failed"
 
     roptim = optimal / float(length_scale_m) if np.isfinite(optimal) else float("nan")
-    counts_valid = int(np.sum(support_so & observed_mask))
-    counts_excess = int(np.sum(support_so & ~observed_mask))
-    counts_missing = int(np.sum(support_os & ~simulated.network))
 
     # Share of the simulated support whose descent meets the target only at the
     # sealed outlet: it says how much of D_so rests on that one added cell.
     outlet_only = np.isinf(distance_to_observed_raw) & support_so
     frac_outlet = float(outlet_only.sum() / n_support_so)
 
-    seepage_support = simulated.seepage & keep
     d_so_seepage_only = mean_downslope_distance(
         distance_to_observed,
-        seepage_support,
+        supports.seepage,
         weights=weights,
         saturation_cap_m=saturation_cap_m,
     ).mean_m
@@ -267,12 +264,10 @@ def seepage_distance_cost(
         "D_os_area": by_area_os,
         "L_ref": float(length_scale_m),
         "L_cap": float(saturation_cap_m),
-        "n_seepage": float(int(seepage_support.sum())),
+        "n_seepage": float(int(supports.seepage.sum())),
         "n_network_sim": float(so["n_support"]),
         "n_network_obs": float(os_["n_support"]),
-        "n_valid": float(counts_valid),
-        "n_excess": float(counts_excess),
-        "n_missing": float(counts_missing),
+        **supports.counts,
         "n_unreachable_so": so["n_unreachable"],
         "n_unreachable_os": os_["n_unreachable"],
         "frac_unreachable_so": frac_unreachable_so,
@@ -284,9 +279,7 @@ def seepage_distance_cost(
         "n_outlet_sealed": float(0.0 if observed_mask[outlet] else 1.0),
     }
     return SeepageDistanceResult(
-        cost=abs(signed_gap),
         signed_gap=signed_gap,
-        optimal_distance=optimal,
         status=status,
         components=components,
     )

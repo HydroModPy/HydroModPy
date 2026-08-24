@@ -20,6 +20,7 @@ and is never stubbed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
@@ -28,8 +29,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import hydromodpy
 from hydromodpy.calibration.lumped import Gr4jAdapter, LumpedRamCache, stash_series
+from hydromodpy.calibration.lumped.gr4j_adapter import GR4J_SERIES_UNITS
 from hydromodpy.core.contracts.observables import ObservableRequest
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.tolerances import tol
 
@@ -154,8 +158,9 @@ class TestHotPathRamCache:
         result = served["q"]
         np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
         assert result.request_id == "q"
-        # The RAM cache declares no unit, so the adapter must not invent one.
-        assert result.units == ""
+        # The unit does not travel with the cached values, so the adapter
+        # restates the one GR4J publishes for that series.
+        assert result.units == "m3/s"
 
     def test_batch_serves_each_request_under_its_own_id(self, run):
         execution = _FakeExecution()
@@ -253,8 +258,8 @@ class TestColdPathCatalog:
         result = served["q"]
         np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
         assert result.request_id == "q"
-        # The catalog unit is not read back, so the adapter declares none.
-        assert result.units == ""
+        # The catalog unit is not read back either, and the answer is the same.
+        assert result.units == "m3/s"
 
     def test_water_balance_survives_round_trip(self, catalog, run):
         self._persist(catalog, run)
@@ -304,10 +309,13 @@ class TestColdPathCatalog:
         )["q"]
         assert len(result.values) == len(run["outlet_discharge"])
 
-    def test_unknown_variable_raises_keyerror(self, catalog, run):
+    def test_an_unserved_variable_is_refused_by_name(self, catalog, run):
+        # Refused on the unit it declares no value for, before the read: what a
+        # user sees is the variable and the list of what GR4J publishes, not a
+        # KeyError about a cache entry that was never going to be there.
         self._persist(catalog, run)
         ctx = _FakeCtx()
-        with pytest.raises(KeyError):
+        with pytest.raises(ObservableNotAvailableError, match="no unit for 'recharge'"):
             Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("recharge")])
 
     def test_no_simulation_in_store_raises_keyerror(self, catalog):
@@ -384,6 +392,38 @@ class TestLatestSimIdEdgeBranches:
     def test_missing_sim_id_column_returns_none(self):
         store = SimpleNamespace(list_simulations=lambda **kw: pd.DataFrame({"other_col": [1, 2]}))
         assert Gr4jAdapter._latest_sim_id(store) is None
+
+
+class TestTheUnitsGr4jDeclares:
+    """An observable served unitless cannot be checked by the cost reading it.
+
+    The map is not free to say anything: it has to be the unit the GR4J
+    extractor writes beside the very same series, which is read off that file
+    rather than restated here.
+    """
+
+    def test_the_declared_units_are_the_ones_the_extractor_writes(self):
+        source = (
+            Path(hydromodpy.__file__).parent / "calibration" / "lumped" / "gr4j_flow.py"
+        ).read_text(encoding="utf-8")
+        for variable, unit in GR4J_SERIES_UNITS.items():
+            assert f'"{variable}", {variable}, unit="{unit}"' in source, variable
+
+    def test_a_series_gr4j_declares_no_unit_for_is_refused_by_name(self, run):
+        execution = _FakeExecution()
+        stash_series(execution, "outlet", "actual_evap", run["actual_evap"])
+        ctx = _FakeCtx(state=_FakeState(execution=execution))
+
+        with pytest.raises(ObservableNotAvailableError, match="actual_evap"):
+            Gr4jAdapter().extract_observables(ctx, None, [_domain_request("actual_evap")])
+
+    def test_storage_is_not_served_as_a_flow(self, run):
+        execution = _FakeExecution()
+        stash_series(execution, "outlet", "storage", run["outlet_storage"])
+        ctx = _FakeCtx(state=_FakeState(execution=execution))
+
+        served = Gr4jAdapter().extract_observables(ctx, None, [_domain_request("storage")])
+        assert served["q"].units == "mm"
 
 
 class TestAdapterRunnerContract:

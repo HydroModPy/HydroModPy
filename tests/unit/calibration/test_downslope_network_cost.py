@@ -16,11 +16,14 @@ import pytest
 import hydromodpy
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
+    SeepageDistanceResult,
     seepage_distance_cost,
 )
 from hydromodpy.calibration.observations.network_geometry import build_network_geometry
+from hydromodpy.calibration.observations.network_supports import criterion_supports
 from hydromodpy.calibration.observations.observed_network import water_body_mask
 from hydromodpy.calibration.observations.simulated_network import (
+    SimulatedNetwork,
     build_simulated_network,
     downstream_closure,
     specific_seepage_threshold,
@@ -33,6 +36,7 @@ from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
     CELL_SIZE,
+    FIRST_OBSERVED_ROW,
     LENGTH_SCALE,
     N_CELLS,
     N_COLS,
@@ -161,9 +165,17 @@ class TestSignedGap:
 
     def test_the_cost_is_the_absolute_residual(self, bench, geometry) -> None:
         result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
-        assert result.cost == pytest.approx(abs(result.signed_gap))
-        assert result.components["J"] == pytest.approx(result.cost)
+        assert result.components["J"] == pytest.approx(abs(result.signed_gap))
         assert result.components["J_signed"] == pytest.approx(result.signed_gap)
+
+    def test_the_result_carries_no_field_the_optimizer_does_not_read(self) -> None:
+        # The optimizer reads the components; a second copy of J and Doptim on
+        # the dataclass was read by nothing and its docstring claimed otherwise.
+        assert set(SeepageDistanceResult.__dataclass_fields__) == {
+            "signed_gap",
+            "status",
+            "components",
+        }
 
     def test_an_empty_network_is_the_high_end_of_the_bracket(self, bench, geometry) -> None:
         # No network at all must give a defined, negative residual: a large
@@ -196,6 +208,73 @@ class TestValidityCriterion:
         # over a truncated support.
         observed = observed_network("aligned")
         result = _evaluate(bench, geometry, observed, 200.0, max_unreachable_fraction=-1.0)
+        assert result.status == "failed"
+
+
+class TestTheUnreachableGuardIsOneSided:
+    """The bound holds on ``D_so`` and on nothing else.
+
+    The two directions do not mean the same thing. ``D_so`` descends onto the
+    mapped network, which does not move over the search, so a cell that never
+    arrives there is a depression left in the routing surface. ``D_os`` descends
+    onto the SIMULATED network, which the search retracts on purpose at the high
+    end of its bracket, so a cell that never arrives there is the measurement
+    saying the model has no stream below it.
+    """
+
+    LAST_SIMULATED_ROW = 40
+
+    def _truncated_network(self) -> SimulatedNetwork:
+        """The valley axis down to one row, stopping well short of the outlet."""
+        mask = np.zeros(N_CELLS, dtype=bool)
+        for row in range(FIRST_OBSERVED_ROW, self.LAST_SIMULATED_ROW + 1):
+            mask[cell_id(row, AXIS_COL)] = True
+        return SimulatedNetwork(seepage=mask, network=mask, threshold_m3_s=np.zeros(N_CELLS))
+
+    def _evaluate(self, bench, geometry, simulated, distance_to_observed):
+        observed = observed_network("aligned")
+        return seepage_distance_cost(
+            simulated=simulated,
+            observed=observed,
+            outlet=geometry["outlet"],
+            catchment=geometry["catchment"],
+            metric=bench.metric,
+            distance_to_observed=distance_to_observed,
+            distance_to_observed_raw=downslope_distance_to_mask(bench.metric, observed),
+            cell_area_m2=geometry["areas"],
+            length_scale_m=LENGTH_SCALE,
+            saturation_cap_m=geometry["cap"],
+            max_unreachable_fraction=0.05,
+        )
+
+    def test_a_mapped_support_that_cannot_descend_leaves_the_trial_standing(
+        self, bench, geometry
+    ) -> None:
+        # Water runs south, so the twenty mapped cells below the last simulated
+        # one have nothing downstream to descend into: unreachable by
+        # construction, and far past the five per cent bound.
+        simulated = self._truncated_network()
+        sealed = observed_network("aligned").copy()
+        sealed[geometry["outlet"]] = True
+        result = self._evaluate(
+            bench, geometry, simulated, downslope_distance_to_mask(bench.metric, sealed)
+        )
+
+        assert result.components["n_unreachable_os"] == pytest.approx(
+            float(N_ROWS - 1 - self.LAST_SIMULATED_ROW)
+        )
+        assert result.components["frac_unreachable_os"] > 0.05
+        assert result.components["frac_unreachable_so"] == 0.0
+        assert result.status == "ok"
+
+    def test_a_simulated_support_that_cannot_descend_fails_the_trial(self, bench, geometry) -> None:
+        # The same trial, with the descent to the mapped network taken away:
+        # this is the side the bound is on.
+        result = self._evaluate(
+            bench, geometry, self._truncated_network(), np.full(N_CELLS, np.inf)
+        )
+
+        assert result.components["frac_unreachable_so"] == pytest.approx(1.0)
         assert result.status == "failed"
 
 
@@ -486,3 +565,59 @@ class TestWaterBodiesInTheTarget:
         assert with_lake.diagnostics["alpha_obs_closure"] == pytest.approx(
             without.diagnostics["alpha_obs_closure"]
         )
+
+
+class TestSupportPartition:
+    """One derivation of the three classes, for the counts and for a map.
+
+    A confusion map draws what a trial counted. Deriving the partition twice is
+    how a figure comes to disagree with the number it illustrates, so the cost
+    reads it from the same place a caller would.
+    """
+
+    def _supports(self, bench, geometry, observed, threshold, excluded=None):
+        return criterion_supports(
+            simulated=_network_from_threshold(bench, threshold),
+            observed=observed,
+            catchment=geometry["catchment"],
+            active=bench.metric.graph.active,
+            excluded=excluded,
+        )
+
+    def test_the_three_classes_partition_the_two_supports(self, bench, geometry) -> None:
+        supports = self._supports(bench, geometry, observed_network("aligned"), 200.0)
+        assert np.array_equal(supports.valid | supports.excess, supports.support_so)
+        assert np.array_equal(supports.valid | supports.missing, supports.support_os)
+        assert not np.any(supports.excess & supports.missing)
+        assert not np.any(supports.excess & supports.valid)
+
+    def test_what_the_trial_counts_is_what_a_map_would_draw(self, bench, geometry) -> None:
+        observed = observed_network("aligned")
+        result = _evaluate(bench, geometry, observed, 200.0)
+        supports = self._supports(bench, geometry, observed, 200.0)
+
+        assert supports.counts == {
+            "n_valid": result.components["n_valid"],
+            "n_excess": result.components["n_excess"],
+            "n_missing": result.components["n_missing"],
+        }
+        assert float(int(supports.seepage.sum())) == result.components["n_seepage"]
+        assert float(int(supports.support_so.sum())) == result.components["n_network_sim"]
+        assert float(int(supports.support_os.sum())) == result.components["n_network_obs"]
+
+    def test_a_water_body_leaves_every_class(self, bench, geometry) -> None:
+        observed = observed_network("aligned")
+        lake = np.zeros(N_CELLS, dtype=bool)
+        lake[[cell_id(row, AXIS_COL) for row in range(40, 45)]] = True
+        supports = self._supports(bench, geometry, observed, 200.0, excluded=lake)
+
+        for mask in (
+            supports.keep,
+            supports.support_so,
+            supports.support_os,
+            supports.valid,
+            supports.excess,
+            supports.missing,
+            supports.seepage,
+        ):
+            assert not np.any(mask & lake)
