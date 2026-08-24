@@ -30,9 +30,11 @@ network into the routing surface first:
 
 ``stream_geometry_path`` is not optional. Without it the geographic pipeline
 stops on ``geographic.enforce_streams.stream_geometry_path is unset.`` at the
-first step, before anything is calibrated. A bare filename is looked up under
-``<data>/hydrography/``, where ``<data>`` is the parent of the DEM family
-directory.
+first step, before anything is calibrated. The path is anchored once, when
+the configuration is loaded: a relative value against the directory of the TOML
+that declares it, a bare filename under ``<workspace>/data/hydrography/`` then
+``<workspace>/data/``. Nothing is probed when the file is read, so the run
+takes the same network whatever directory it was launched from.
 
 A project declaring that path gets the agreement measured whether or not
 ``enabled`` is set, which is how you find out that the burning is needed. It
@@ -223,7 +225,7 @@ What each choice buys you
    inert as defined: a cell that releases at all carries the drainage it
    collects from everything upslope, a hundred to a thousand times its own
    recharge, so a fraction of that recharge never excludes anything. Measured on
-   the Nancon at the calibrated conductivity, over 321 releasing cells, not one
+   the Nancon at the calibrated conductivity, over the 380 cells releasing inside the catchment, not one
    had a flux below the threshold, and raising the ratio to 100 still kept 28.
 
    Thresholding the total release instead was tried and is worse: at
@@ -323,9 +325,17 @@ to look at first:
 
 ``frac_unreachable_so`` and ``frac_unreachable_os``
    The share of each support whose descent ends without meeting its target.
-   Beyond ``max_unreachable_fraction`` (five per cent by default) the trial
+   The bound holds on ``frac_unreachable_so`` alone: its target is the mapped
+   network with the outlet sealed in, which does not move between trials, so
+   beyond ``max_unreachable_fraction`` (five per cent by default) the trial
    fails loudly, because averaging over a truncated support is a fiction and
    the cells dropped are never a random sample: they sit upstream of a pit.
+   ``frac_unreachable_os`` is reported and deliberately unbounded. Its target
+   is the SIMULATED network, which the calibration moves: at a high
+   conductivity the simulated streams retract into the talwegs and mapped cells
+   legitimately have nothing left to descend into. Those cells saturate at
+   ``L_cap``, and the value is the signal the search reads at the high end of
+   its bracket, not a broken surface.
 
 ``D_so_median``, ``D_so_p90``, ``D_so_top5_share``
    The shape of the tail, with ``D_os_median``, ``D_os_p90`` and

@@ -383,9 +383,22 @@ def _release_flux_stack(
     ``release_flux`` holding the drain alone reported dry land over 63 per cent
     of the outgoing water, exactly where a stream-network criterion aims.
 
-    The calibration extractor already unions the packages when it reads the
-    binary budget; this is the same union over what the run persisted, so the
-    field named after the release means the same thing on both paths.
+    This union is not the calibration criterion's, and it differs in both
+    directions. Persisted here: the drain and DRN-TO-MVR, plus ``stream``
+    (SFR), ``lake`` (LAK) and the Boussinesq ``surface_excess``. Read off the
+    binary budget by the calibration extractor: DRN, DRN-TO-MVR, SFR and a CHD
+    restricted to its stream-role cells. So a lake enters this field and never
+    the criterion, and a stream-role constant head enters the criterion and
+    never this field.
+
+    The two cannot become one declaration as they stand. A persisted
+    ``constant_head`` component carries no role, so adding it here would count
+    every constant head the run declares, an ocean or a lateral boundary
+    included, as groundwater released to the surface. And ``simulation`` may
+    not import ``solver``, so this list cannot read the criterion's; the
+    reverse edge is allowed, so a shared declaration would have to live below
+    both. Scoring this field against a mapped network therefore measures a
+    neighbouring quantity, not the one the criterion balanced.
     """
     with _zarr_root(store, sim_id) as grp:
         budget_grp = grp.get("budget")
