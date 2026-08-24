@@ -1,0 +1,111 @@
+# ======================================================================
+# Nancon - run de DIAGNOSTIC
+# ----------------------------------------------------------------------
+# Un seul solve permanent sur une annee, avec tout ce qu'il faut persister
+# pour que les dix-sept figures de diagnostic se rendent d'un coup. Ce
+# n'est pas une calibration : `K` et `Sy` sont poses aux valeurs que la
+# calibration en deux etages a retenues, et on regarde le modele qu'elles
+# donnent.
+#
+#   hmp run examples/projects/21_nancon_network_calibration/diagnostic.toml
+#
+# Ce que ce run coute en plus d'un run ordinaire : les champs de budget
+# par maille. Le message de fin d'une calibration le chiffre, environ
+# 1,1 Go sur ce bassin pour une chronique journaliere. En permanent sur un
+# pas, c'est negligeable, et c'est la seule facon de savoir quelle maille
+# porte quel package.
+# ======================================================================
+
+base_config = "project.toml"
+
+[simulation]
+name = "nancon_diagnostic"
+description = "Nancon - run de diagnostic aux parametres calibres."
+if_exists = "replace"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_unit = "year"
+step_value = 1
+
+[flow]
+flow_regime = "steady"
+
+# Racine de l'etage 1, dichotomie sur le zero de l'ecart signe D_so - D_os.
+[flow.param.K.field]
+value = 2.0535e-4
+
+# Borne basse retenue par l'etage 2 : le NSE des logarithmes decroit de
+# facon monotone des qu'on emmagasine davantage.
+[flow.param.Sy.field]
+value = 5.0e-3
+
+
+# ----------------------------------------------------------------------
+# Ce qu'il faut persister
+# ----------------------------------------------------------------------
+
+[simulation.results.derived]
+release_flux = true
+accumulation_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+
+[simulation.results.budget]
+# L'interrupteur unique des champs `budget/<nom>` par maille. Sans lui,
+# `boundary_package_map` ne peut attribuer aucune maille a un package et
+# le dit au lieu de dessiner un panneau vide.
+spatial_fields = true
+
+
+# ----------------------------------------------------------------------
+# Les figures du diagnostic
+# ----------------------------------------------------------------------
+
+[display]
+enabled = true
+show = false
+save = true
+output_dir = "figures"
+# Un rendu de diagnostic doit tomber si une figure casse : on est ici
+# pour voir ce qui ne va pas, pas pour perdre une carte en silence.
+on_error = "raise"
+
+figures = [
+    # -- le terrain et sa delimitation --
+    "mesh_map",
+    "watershed_id_card",
+    "conditioning_impact_map",
+    "cross_section",
+    # -- le routage de surface --
+    "flow_direction_map",
+    "depression_map",
+    "accumulation_map",
+    "simulated_active_network",
+    # -- le reseau observe et sa comparaison --
+    "hydrographic_network_reference",
+    "simulated_active_network_reference_overlay",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    # -- ce que le modele fait --
+    "boundary_package_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "water_budget",
+]
+
+[display.overrides.flow_direction_map]
+# Le critere route sur les aretes partagees par defaut, donc quatre
+# octants sur huit restent vides et la rose le montre. Mettre `true` ici
+# pour lire la carte que le meme maillage donnerait en huit directions.
+diagonal_neighbors = false
+
+[display.overrides.boundary_package_map]
+# Balayer tout le run et non le dernier pas : mesure sur Cheze, DRN passe
+# de 2 mailles au 1er janvier a 94 sur l'annee, SFR de 46 a 180. Le
+# dernier pas sous-declare l'emprise d'un package.
+over = "run"
