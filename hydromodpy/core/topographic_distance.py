@@ -256,18 +256,33 @@ def mean_downslope_distance(
     )
 
 
-def longest_descent_length(metric: DownslopeMetric, outlet_mask: Any) -> float:
+def longest_descent_length(
+    metric: DownslopeMetric,
+    outlet_mask: Any,
+    *,
+    within: Any | None = None,
+) -> float:
     """Longest finite descent to the outlet: the catchment saturation cap.
 
-    It is a real length of the catchment, it majors every finite distance, and
-    it is static, so substituting it for an unreachable path is conservative and
-    does not drift between trials.
+    It majors every finite distance and it is static, so substituting it for an
+    unreachable path is conservative and does not drift between trials.
+
+    ``within`` restricts the maximum to a catchment, and a caller that measures
+    on a catchment must pass it. The graph spans the whole active surface, and
+    a depression flood seeded on one outlet gives EVERY active cell a descent
+    to it, so without the restriction the cap is the longest descent anywhere
+    on the buffered model domain: it would then follow the domain buffer rather
+    than the basin, while being the value most of ``D_os`` takes at the high end
+    of a bracket.
     """
     distance = downslope_distance_to_mask(metric, outlet_mask)
     finite = np.isfinite(distance)
+    if within is not None:
+        finite = finite & np.asarray(within, dtype=bool).reshape(-1)
     if not np.any(finite):
         raise ValueError(
-            "no cell descends to the outlet mask: it is empty, or none of its cells is active."
+            "no cell descends to the outlet mask inside the requested support: it is empty, "
+            "none of its cells is active, or none of them reaches the outlet."
         )
     return float(distance[finite].max())
 

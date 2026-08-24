@@ -346,3 +346,143 @@ class TestRechargeProvenance:
         with caplog.at_level("WARNING"):
             self._geometry(bench, 3.2e-8)
         assert "recharge" not in caplog.text
+
+
+class TestSaturationCapSupport:
+    """``L_cap`` has to be a length of the CATCHMENT, not of the model domain.
+
+    The flood is seeded on the single catchment outlet and walks the whole
+    active surface, so after it every active cell holds a descent to that
+    outlet. A maximum taken over the graph therefore follows the model domain,
+    while ``L_cap`` is the value most of ``D_os`` takes at the high end of a
+    bracket. The bench makes the two differ by construction: the top third of
+    the valley is declared out of the catchment while staying in the mesh, and
+    its cells reach the outlet by a path that crosses the whole catchment
+    first, so they are strictly longer than anything inside it.
+    """
+
+    FIRST_ROW = 20
+
+    def _geometry(self, bench, **kwargs):
+        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
+        catchment = np.zeros(N_CELLS, dtype=bool)
+        for row in range(self.FIRST_ROW, N_ROWS):
+            for col in range(N_COLS):
+                catchment[cell_id(row, col)] = True
+        return build_network_geometry(
+            topography=bench.elevation,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed_network("aligned"),
+            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
+            mean_recharge_m_s=3.2e-8,
+            tau_specific_ratio=1e-2,
+            delineated_catchment=catchment,
+            **kwargs,
+        )
+
+    def test_the_cap_majors_every_descent_of_the_catchment(self, bench) -> None:
+        geometry = self._geometry(bench)
+        outlet_mask = np.zeros(N_CELLS, dtype=bool)
+        outlet_mask[geometry.outlet] = True
+        to_outlet = downslope_distance_to_mask(geometry.metric, outlet_mask)
+
+        inside = geometry.catchment & np.isfinite(to_outlet)
+        assert inside.any()
+        assert geometry.saturation_cap_m == pytest.approx(float(to_outlet[inside].max()))
+        assert np.all(to_outlet[inside] <= geometry.saturation_cap_m + 1e-9)
+
+    def test_the_cap_ignores_what_lies_outside_the_catchment(self, bench) -> None:
+        geometry = self._geometry(bench)
+        outlet_mask = np.zeros(N_CELLS, dtype=bool)
+        outlet_mask[geometry.outlet] = True
+        to_outlet = downslope_distance_to_mask(geometry.metric, outlet_mask)
+
+        outside = ~geometry.catchment & np.isfinite(to_outlet)
+        # The rows above the catchment stay in the graph and reach the outlet by
+        # crossing the catchment first, so their descent is strictly longer.
+        assert outside.any()
+        assert float(to_outlet[outside].max()) > geometry.saturation_cap_m
+        assert longest_descent_length(geometry.metric, outlet_mask) > geometry.saturation_cap_m
+
+    def test_an_empty_support_is_refused_by_name(self, bench) -> None:
+        geometry = self._geometry(bench)
+        outlet_mask = np.zeros(N_CELLS, dtype=bool)
+        outlet_mask[geometry.outlet] = True
+        with pytest.raises(ValueError, match="inside the requested support"):
+            longest_descent_length(
+                geometry.metric, outlet_mask, within=np.zeros(N_CELLS, dtype=bool)
+            )
+
+
+class TestWaterBodiesInTheTarget:
+    """Open water is surface water, so it belongs to the target of ``D_so``.
+
+    A seepage cell fifty metres from a bank stops at the reservoir. Leaving the
+    water body out of the target makes its descent cross the reservoir and carry
+    on to the next mapped reach, which is kilometres on a real one, and inflates
+    ``D_so`` with the size of the lake rather than with the hydrogeology.
+    """
+
+    def _lake(self) -> np.ndarray:
+        # Off the mapped axis, on the hillside, so the union really adds cells.
+        lake = np.zeros(N_CELLS, dtype=bool)
+        lake[[cell_id(row, 8) for row in range(28, 34)]] = True
+        return lake
+
+    def _geometry(self, bench, excluded):
+        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
+        return build_network_geometry(
+            topography=bench.elevation,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed_network("aligned"),
+            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
+            mean_recharge_m_s=3.2e-8,
+            tau_specific_ratio=1e-2,
+            excluded=excluded,
+            diagonal_neighbors=True,
+        )
+
+    def test_a_water_body_cell_is_at_distance_zero_from_the_target(self, bench) -> None:
+        lake = self._lake()
+        with_lake = self._geometry(bench, lake)
+        without = self._geometry(bench, None)
+
+        assert np.all(with_lake.distance_to_observed[lake] == 0.0)
+        assert np.all(with_lake.distance_to_observed_raw[lake] == 0.0)
+        # The same cells were a plain hillside before, so they had to descend.
+        assert np.any(without.distance_to_observed[lake] > 0.0)
+
+    def test_adding_the_water_body_can_only_shorten_a_descent(self, bench) -> None:
+        lake = self._lake()
+        with_lake = self._geometry(bench, lake)
+        without = self._geometry(bench, None)
+
+        finite = np.isfinite(without.distance_to_observed) & np.isfinite(
+            with_lake.distance_to_observed
+        )
+        assert np.all(
+            with_lake.distance_to_observed[finite] <= without.distance_to_observed[finite] + 1e-9
+        )
+        shortened = with_lake.distance_to_observed[finite] < without.distance_to_observed[finite]
+        assert shortened.sum() > lake.sum(), "no cell upslope of the reservoir stops at it"
+
+    def test_the_water_body_still_leaves_the_supports(self, bench) -> None:
+        lake = self._lake()
+        geometry = self._geometry(bench, lake)
+        assert geometry.excluded is not None
+        assert np.array_equal(geometry.excluded & lake, lake)
+
+    def test_the_reachability_diagnostic_stays_on_the_mapped_network(self, bench) -> None:
+        # Otherwise a reservoir absorbing paths would flatter the number that
+        # says how well the linework agrees with the routing surface.
+        lake = self._lake()
+        with_lake = self._geometry(bench, lake)
+        without = self._geometry(bench, None)
+        assert with_lake.diagnostics["frac_reachable_obs_raw"] == pytest.approx(
+            without.diagnostics["frac_reachable_obs_raw"]
+        )
+        assert with_lake.diagnostics["alpha_obs_closure"] == pytest.approx(
+            without.diagnostics["alpha_obs_closure"]
+        )

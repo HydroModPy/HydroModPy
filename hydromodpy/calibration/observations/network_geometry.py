@@ -274,14 +274,30 @@ def build_network_geometry(
             100.0 * stranded,
         )
 
-    distance_raw = downslope_distance_to_mask(metric, observed_mask)
-    sealed = observed_mask.copy()
+    excluded_mask = (
+        None if excluded is None else np.asarray(excluded, dtype=bool).reshape(-1) & active
+    )
+
+    # Open water is surface water: a seepage cell fifty metres from a bank stops
+    # at the reservoir, it does not swim across it and carry on to the next
+    # mapped reach. Water bodies therefore JOIN the target of both distance
+    # fields, while leaving both supports, which the cost does on its own side.
+    # They stay in the graph, so an upslope cell still descends through them.
+    target = observed_mask if excluded_mask is None else (observed_mask | excluded_mask)
+    distance_raw = downslope_distance_to_mask(metric, target)
+    sealed = target.copy()
     sealed[outlet] = True
     distance_sealed = downslope_distance_to_mask(metric, sealed)
 
     closure = downstream_closure(metric, observed_mask)
     alpha = float(observed_mask.sum() / closure.sum()) if closure.any() else float("nan")
-    reachable = float(np.mean(np.isfinite(distance_raw[active]))) if active.any() else float("nan")
+    # Measured on the MAPPED network alone even when water bodies joined the
+    # target: the diagnostic answers "how much of the surface descends into the
+    # linework", and a reservoir absorbing paths would flatter it.
+    reach_from = (
+        distance_raw if excluded_mask is None else downslope_distance_to_mask(metric, observed_mask)
+    )
+    reachable = float(np.mean(np.isfinite(reach_from[active]))) if active.any() else float("nan")
     if np.isfinite(alpha) and alpha < 0.90:
         logger.warning(
             "The mapped stream network agrees poorly with the routing surface: "
@@ -314,8 +330,8 @@ def build_network_geometry(
         threshold_m3_s=specific_seepage_threshold(areas, recharge, ratio=tau_specific_ratio),
         mean_recharge_m_s=recharge,
         length_scale_m=length_scale,
-        saturation_cap_m=longest_descent_length(metric, outlet_mask),
-        excluded=None if excluded is None else np.asarray(excluded, dtype=bool).reshape(-1),
+        saturation_cap_m=longest_descent_length(metric, outlet_mask, within=catchment),
+        excluded=excluded_mask,
         alpha_obs_closure=alpha,
         frac_reachable_obs_raw=reachable,
     )
