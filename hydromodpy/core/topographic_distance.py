@@ -102,6 +102,7 @@ def build_downslope_metric(
     face_node_connectivity: Any,
     *,
     vertices: Any,
+    centroids: Any | None = None,
     inactive_mask: Any | None = None,
     diagonal_neighbors: bool = False,
 ) -> DownslopeMetric:
@@ -110,6 +111,14 @@ def build_downslope_metric(
     ``vertices`` is required: an edge length is a centroid-to-centroid
     distance, which is the D8 convention of the paper on an isotropic grid and
     is exact by construction on an unstructured mesh.
+
+    ``centroids`` names the points ``reference_values`` were sampled at. Pass
+    them whenever the mesh carries explicit cell centres: on a Voronoi dual the
+    elevation is sampled at the generator seed while the polygon centroid the
+    vertices give back sits elsewhere, and measuring the drop between seeds
+    over the distance between vertex means is a slope of two different
+    segments. Left out, the polygon centroid is used, which is the same point
+    on a parallelogram cell.
     """
     if vertices is None:
         raise ValueError(
@@ -118,10 +127,15 @@ def build_downslope_metric(
     reference = np.asarray(reference_values, dtype=float).reshape(-1)
     n_cells = int(reference.size)
 
-    centroids = cell_centroids_from_mesh(vertices, face_node_connectivity)
+    if centroids is None:
+        centroids = cell_centroids_from_mesh(vertices, face_node_connectivity)
+    else:
+        centroids = np.asarray(centroids, dtype=float)
+        if centroids.ndim != 2 or centroids.shape[1] != 2:
+            raise ValueError(f"centroids must be (n_cells, 2), got {centroids.shape}.")
     if centroids.shape[0] != n_cells:
         raise ValueError(
-            f"the mesh carries {centroids.shape[0]} faces but the surface has {n_cells} values."
+            f"the mesh carries {centroids.shape[0]} centres but the surface has {n_cells} values."
         )
 
     adjacency = None
@@ -132,6 +146,7 @@ def build_downslope_metric(
         reference,
         face_node_connectivity,
         vertices=vertices,
+        centroids=centroids,
         inactive_mask=inactive_mask,
         adjacency=adjacency,
     )

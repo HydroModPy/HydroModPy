@@ -150,6 +150,7 @@ def build_network_geometry(
     vertices: np.ndarray,
     observed: np.ndarray,
     cell_area_m2: np.ndarray,
+    cell_centroids: np.ndarray | None = None,
     mean_recharge_m_s: float,
     tau_specific_ratio: float,
     inactive_mask: np.ndarray | None = None,
@@ -163,6 +164,11 @@ def build_network_geometry(
     ``excluded`` holds the cells whose surface-water extent is an input rather
     than an output: a lake, an ocean-role boundary, a mapped wetland. They stay
     in the graph and in the target, and only leave the two supports.
+
+    ``cell_centroids`` are the points ``topography`` was sampled at. On a
+    Voronoi dual that is the generator seed, not the polygon centroid the
+    vertices give back, and routing on one while measuring the drop on the
+    other builds the slope out of two different segments.
     """
     surface = np.asarray(topography, dtype=float).reshape(-1)
     inactive = (
@@ -228,6 +234,7 @@ def build_network_geometry(
         surface,
         face_node_connectivity,
         vertices=vertices,
+        centroids=cell_centroids,
         inactive_mask=inactive,
         diagonal_neighbors=diagonal_neighbors,
     )
@@ -403,6 +410,12 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
             "the network criterion needs the solver mesh of the run: the backend "
             "exposes no 'solver_mesh' attribute."
         )
+    if not hasattr(solver_mesh, "cell_centroids"):
+        raise ValueError(
+            "the network criterion needs the cell centres the solver mesh sampled its top "
+            "at: the mesh exposes no 'cell_centroids' method, and deriving them from the "
+            "vertices would route on other points than the elevations were read at."
+        )
     planar_mesh = solver_mesh.planar_mesh
     connectivity = dense_face_connectivity(planar_mesh)
     # The criterion routes on the TOPOGRAPHIC catchment, never on the model's
@@ -427,6 +440,10 @@ def geometry_from_run(run_ctx: Any, output: CalibOutputNetwork) -> NetworkGeomet
         vertices=np.asarray(planar_mesh.vertices, dtype=float),
         observed=observed_network_mask(run_ctx, output, planar_mesh, connectivity),
         cell_area_m2=np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1),
+        # The centres MODFLOW 6 itself sees: on a Voronoi grid these are the
+        # generator seeds written to the DISV file, which is where the mesh
+        # sampled the top the criterion routes on.
+        cell_centroids=np.asarray(solver_mesh.cell_centroids(), dtype=float),
         mean_recharge_m_s=mean_recharge_m_s(model),
         tau_specific_ratio=float(output.tau_specific_ratio),
         inactive_mask=inactive,
