@@ -45,7 +45,8 @@ def build_drainage_spd(
     - If drainage BC value > 0: use this explicit conductance.
     - Otherwise: derive conductance from ``hk * cell_area / top_layer_thickness``
       (m2/s), shared with the MODFLOW 6 backend.
-    - With ``sink_fill=True``: cells flagged as sink receive zero conductance.
+    - With ``sink_fill=True``: cells in a closed depression receive zero
+      conductance, so the ponded water they hold has no invented outlet.
 
     Returns ``None`` when drainage is not activated.
     """
@@ -56,7 +57,10 @@ def build_drainage_spd(
         return None
 
     if adapter.sink_fill and adapter.sink is None:
-        raise ValueError("sink_fill=True requires geographic.depressions_data (sink raster)")
+        raise ValueError(
+            "solver.sink_fill is on but no closed-depression mask reached the DRN "
+            "builder; the drains of every depression would discharge as if it were off."
+        )
 
     drn_data = np.zeros((int(np.sum(drain_array)), 5), dtype=float)
     drn_data[:, 0] = 0
@@ -84,18 +88,12 @@ def build_drainage_spd(
             drn_data[count, 2] = j
             drn_data[count, 3] = adapter.dem[i, j]
 
-            if not adapter.sink_fill:
-                if drainage_value > 0:
-                    drn_data[count, 4] = drainage_value
-                else:
-                    drn_data[count, 4] = _fallback(i, j)
+            if adapter.sink_fill and adapter.sink[i, j]:
+                drn_data[count, 4] = 0.0
+            elif drainage_value > 0:
+                drn_data[count, 4] = drainage_value
             else:
-                if adapter.sink[i, j] > 0:
-                    drn_data[count, 4] = 0.0
-                elif drainage_value > 0:
-                    drn_data[count, 4] = drainage_value
-                else:
-                    drn_data[count, 4] = _fallback(i, j)
+                drn_data[count, 4] = _fallback(i, j)
             count += 1
 
     return {0: drn_data}

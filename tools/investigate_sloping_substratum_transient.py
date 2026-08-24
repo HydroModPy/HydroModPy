@@ -215,7 +215,6 @@ def _build_structured_geographic(output_dir: Path):
     geographic.dem_box_buff_data = top_values.copy()
     geographic.dem_buff_data = top_values.copy()
     geographic.dem_data = top_values.copy()
-    geographic.depressions_data = np.zeros_like(top_values, dtype=float)
     geographic.y_pixel = int(STRUCTURED_NY)
     geographic.x_pixel = int(STRUCTURED_NX)
     geographic.catch_area = float(LENGTH_X_M * WIDTH_Y_M / 1_000_000.0)

@@ -375,12 +375,17 @@ def build_drain_stress_period_data(
     When no conductance is configured, the fallback conductance is
     ``C = hk * cell_area / top_layer_thickness`` (m2/s), shared with NWT.
 
+    With ``sink_fill=True``, a cell in a closed depression keeps its row and
+    gets zero conductance, the same rule the NWT backend applies: the ponded
+    water of a pit has no outlet, so its drain must not discharge.
+
     The drain geometry and elevation are static, so the per-cell conductance is a
     pure function of the period's configured conductance value. A period is
     emitted only when that value changes (period 0 always); MF6 reuses the
     last-specified stress_period_data for the omitted periods. This keeps a static
     drain from rewriting all its rows for every period of a long daily run.
     """
+    sink_flat = _sink_mask_flat(model, n_cells=int(model.ncpl)) if model.sink_fill else None
     drn_spd: dict[int, list[list[float]]] = {}
     top_flat = solver_mesh.top
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
@@ -398,7 +403,9 @@ def build_drain_stress_period_data(
         for cid in range(int(model.ncpl)):
             if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
                 continue
-            if configured_cond_value > 0.0:
+            if sink_flat is not None and sink_flat[cid]:
+                cond_value = 0.0
+            elif configured_cond_value > 0.0:
                 cond_value = max(configured_cond_value, 1e-12)
             else:
                 cond_value = hk_fallback_drain_conductance(
@@ -409,6 +416,20 @@ def build_drain_stress_period_data(
             period_cells.append([0, cid, float(top_flat[cid]), cond_value])
         drn_spd[kper] = period_cells
     return drn_spd
+
+
+def _sink_mask_flat(model, *, n_cells: int) -> np.ndarray:
+    """Return the model's closed-depression mask, or refuse by name."""
+    sink = model.sink
+    if sink is None:
+        raise ValueError(
+            "solver.sink_fill is on but no closed-depression mask reached the DRN "
+            "builder; the drains of every depression would discharge as if it were off."
+        )
+    mask = np.asarray(sink, dtype=bool).reshape(-1)
+    if mask.size != n_cells:
+        raise ValueError(f"the sink mask holds {mask.size} cells, the mesh {n_cells}.")
+    return mask
 
 
 def _period_payloads_equal(left: object, right: object) -> bool:

@@ -159,7 +159,6 @@ class SyntheticGeographic:
         self.dem_box_buff_data = values.copy()
         self.dem_buff_data = values.copy()
         self.dem_data = values.copy()
-        self.depressions_data = np.zeros_like(values, dtype=float)
 
         self.dem_res = float(grid.dx)
         self.dx = float(grid.dx)

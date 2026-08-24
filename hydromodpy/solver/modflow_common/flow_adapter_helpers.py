@@ -148,11 +148,15 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
 
     Both supported flow backends consume the same preprocessing contract, so
     this helper keeps the mapping from launcher state to solver options in one
-    place.  Uses ``ModflowPreprocessOptions`` defaults directly.
+    place.  Every option not declared under ``[solver]`` keeps its
+    ``ModflowPreprocessOptions`` default.
     """
 
     time_grid = getattr(state.setup, "time_grid", None)
-    return ModflowPreprocessOptions(time_grid=time_grid)
+    return ModflowPreprocessOptions(
+        time_grid=time_grid,
+        sink_fill=bool(state.cfg.solver.sink_fill),
+    )
 
 
 def _requires_mt3dms_link(ctx: RunContext) -> bool:
