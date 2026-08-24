@@ -17,8 +17,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
+
+logger = get_logger(__name__)
 
 
 def _seconds_per_itmuni(itmuni: int) -> float:
@@ -313,6 +316,8 @@ def _refuse_sibling_budgets_the_union_cannot_read(
 def _refuse_records_the_union_misses(
     packages: Sequence[ReleasePackage],
     record_names: Sequence[str],
+    *,
+    excluded_records: Mapping[str, str] | None = None,
 ) -> None:
     """Refuse when the budget holds a release record no declared package reads.
 
@@ -325,19 +330,32 @@ def _refuse_records_the_union_misses(
 
     Reading the requirement off the FILE instead of the model catches that, and
     catches the next package the same way without naming it in advance.
+
+    ``excluded_records`` are the records the model LOOKED AT and ruled out, each
+    with the reason it gave. They are subtracted from the requirement and logged,
+    because a run whose only constant head is a lateral boundary is a normal run
+    and refusing it would be refusing the common case.
     """
     declared = {
         _normalize_record_name(alias) for package in packages for alias in package.record_aliases
     }
+    ruled_out = {
+        _normalize_record_name(name): reason for name, reason in (excluded_records or {}).items()
+    }
     present = {_normalize_record_name(name) for name in record_names}
-    missed = sorted((present & _SURFACE_RELEASE_RECORDS) - declared)
+    for name in sorted(present & set(ruled_out)):
+        logger.info(
+            "release_flux leaves the %s record out of the union: %s.", name, ruled_out[name]
+        )
+    missed = sorted((present & _SURFACE_RELEASE_RECORDS) - declared - set(ruled_out))
     if not missed:
         return
     raise KeyError(
-        f"the budget holds the release record(s) {missed} that no declared package reads: "
-        f"the union covers {sorted(declared)}. Water leaving the aquifer through them would "
-        "be reported as dry land, so the seepage network would be missing exactly where "
-        "that package drains."
+        f"the budget holds the release record(s) {missed} that no declared package reads "
+        f"and none of which the model ruled out: the union covers {sorted(declared)} and "
+        f"excludes {sorted(ruled_out) or 'nothing'}. Water leaving the aquifer through them "
+        "would be reported as dry land, so the seepage network would be missing exactly "
+        "where that package drains."
     )
 
 
@@ -346,6 +364,7 @@ def extract_release_flux_by_cell_from_cbc(
     model_name: str,
     *,
     packages: Sequence[ReleasePackage],
+    excluded_records: Mapping[str, str] | None = None,
     time_index: pd.DatetimeIndex | None = None,
     n_cells: int | None = None,
 ) -> pd.DataFrame:
@@ -373,7 +392,7 @@ def extract_release_flux_by_cell_from_cbc(
     try:
         record_names = [r.decode() for r in cbb.get_unique_record_names()]
         _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages, record_names)
-        _refuse_records_the_union_misses(packages, record_names)
+        _refuse_records_the_union_misses(packages, record_names, excluded_records=excluded_records)
         keyed = [(package, _resolve_release_record(package, record_names)) for package in packages]
         times = cbb.get_times()
         kstpkpers = cbb.get_kstpkper()

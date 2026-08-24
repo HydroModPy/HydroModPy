@@ -25,10 +25,10 @@ from typing import Any, ClassVar
 
 import pytest
 
+from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.runners.trial import (
     TrialContext,
     TrialResult,
-    _set_by_path,
     run_trial_light,
 )
 from hydromodpy.core.state.execution import ExecutionRegistry
@@ -371,13 +371,13 @@ class TestRunTrialLight:
 class TestSetByPath:
     def test_sets_nested_leaf(self) -> None:
         cfg = _FakeCfg()
-        _set_by_path(cfg, "flow.K.value", 5.5)
+        set_by_path(cfg, "flow.K.value", 5.5)
         assert cfg.flow.K.value == 5.5
 
     def test_deep_copy_isolates_mutation(self) -> None:
         base = _FakeCfg()
         forked = base.model_copy(deep=True)
-        _set_by_path(forked, "flow.K.value", 9.0)
+        set_by_path(forked, "flow.K.value", 9.0)
         assert forked.flow.K.value == 9.0
         assert base.flow.K.value == 1.0
 

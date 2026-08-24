@@ -16,30 +16,50 @@ target has no distance at all, and drawing it as "more than 1000 m" would
 state a length the algorithm never found; it gets a hatched state of its own,
 named in the legend.
 
-The field is not persisted: the criterion builds it per trial and keeps it in
-memory, so it arrives as an argument of :meth:`DownslopeDistanceMap.render`.
+Both distances are rebuilt from the run through the construction the criterion
+scores: ``D_so`` descends from the simulated cells to the mapped network,
+``D_os`` the other way. The support of each is the network the mean is taken
+over, and the pair moves with the seepage threshold the figure names on the
+page.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._stream_comparison import (
+    annotate_note,
+    cell_count,
+    checked_cells,
+    comparison_from_run,
+    threshold_note,
+)
 from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.mesh_geometry import face_polygons
+from hydromodpy.results.derive.stream_network import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
+    from hydromodpy.results.derive.stream_network import NetworkComparison
     from hydromodpy.results.run import Run
+
+DistanceDirection = Literal["to_mapped", "to_simulated"]
 
 DISTANCE_CLASS_EDGES_M: tuple[float, ...] = (0.0, 75.0, 500.0, 1000.0)
 """Lower edge of each distance class, in metres. The classes of the paper."""
+
+DIRECTION_LABELS: dict[str, tuple[str, str]] = {
+    "to_mapped": ("D_so", "descent of the simulated cells down to the mapped network"),
+    "to_simulated": ("D_os", "descent of the mapped cells down to the simulated network"),
+}
+"""Per direction: the symbol a trial publishes it under, and what it measures."""
 
 _CLASS_RAMP: tuple[str, ...] = (
     "#E5CE8C",
@@ -91,60 +111,60 @@ def class_colors(n_classes: int) -> tuple[str, ...]:
     return tuple(to_hex(ramp(position)) for position in np.linspace(0.0, 1.0, n_classes))
 
 
-# The values do not come from the run, and the scale is four discrete classes
-# rather than a continuous colorbar, so ScalarFaceMap gives nothing here: its
-# render() reads sim.field() and calls render_face_field(). BaseFigure it is.
+# The scale is four discrete classes rather than a continuous colorbar, and the
+# values are a derived field rather than a persisted one, so ScalarFaceMap gives
+# nothing here: its render() reads sim.field() and calls render_face_field().
+# BaseFigure it is.
 @register
 class DownslopeDistanceMap(BaseFigure):
-    """Plan map of the downslope distance from one support to its target.
+    """Plan map of the downslope distance from one network to the other.
 
-    ``distance`` is the ``(n_cells,)`` field the criterion computes: a length
-    in metres where the descent arrives, ``inf`` where it ends without meeting
-    the target, ``nan`` where nothing was measured. ``support`` is the mask of
-    the cells the mean is taken over; it defaults to every measured cell.
+    ``direction`` picks which of the two the criterion averages: ``to_mapped``
+    is ``D_so``, measured over the simulated cells, ``to_simulated`` is
+    ``D_os``, measured over the mapped ones.
     """
 
     spec = FigureSpec(
         name="downslope_distance_map",
         title="Downslope distance classes",
         kind="spatial",
+        required_fields=("release_flux",),
         default_figsize=(7.0, 5.5),
     )
 
     def unavailable_reason(self, sim: Run) -> str | None:
-        """Refuse a run-driven render: the distance field is never persisted.
-
-        The criterion computes the descent of every cell at each trial and
-        keeps it in memory, so a gallery has nothing to hand this figure.
-        Saying it here turns the crash of a figure driven by name into a skip
-        carrying the reason.
-        """
-        del sim
-        return (
-            "needs the per-cell downslope distance field the stream-network "
-            "criterion computes during a calibration; a run does not persist it, "
-            "so this figure is drawn by passing distance= to render()"
-        )
+        """Return why this run holds no stream comparison, or None when it does."""
+        return unavailable_reason_for_comparison(sim) or super().unavailable_reason(sim)
 
     def render(
         self,
         sim: Run,
         ax: Axes,
         *,
-        distance: np.ndarray,
-        support: np.ndarray | None = None,
+        direction: DistanceDirection = "to_mapped",
+        tau_specific_ratio: float | None = None,
+        diagonal_neighbors: bool | None = None,
+        timestep: int | None = None,
         class_edges: Sequence[float] | None = None,
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
 
+        symbol, measures = DIRECTION_LABELS[_checked_direction(direction)]
+        edges = _checked_edges(DISTANCE_CLASS_EDGES_M if class_edges is None else class_edges)
+        comparison = comparison_from_run(
+            sim,
+            tau_specific_ratio=tau_specific_ratio,
+            diagonal_neighbors=diagonal_neighbors,
+            timestep=timestep,
+        )
         polygons = face_polygons(sim)
         n_faces = len(polygons)
-        edges = _checked_edges(DISTANCE_CLASS_EDGES_M if class_edges is None else class_edges)
-        values = _checked_distance(distance, n_faces)
+        values = checked_cells(_distance_field(comparison, direction), n_faces, f"{symbol} field")
+        support = checked_cells(_support(comparison, direction), n_faces, f"{symbol} support")
 
         measured = ~np.isnan(values)
-        on_support = measured if support is None else _checked_mask(support, n_faces) & measured
+        on_support = support & measured
         unreachable = on_support & np.isinf(values)
         reached = on_support & ~np.isinf(values)
 
@@ -182,13 +202,13 @@ class DownslopeDistanceMap(BaseFigure):
 
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}")
+        ax.set_title(f"{self.spec.title} ({symbol}) - {sim.name or sim.sim_id}")
 
         handles = [
             Patch(
                 facecolor=colors[index],
                 edgecolor="none",
-                label=f"{label} ({_cell_count(classes == index)})",
+                label=f"{label} ({cell_count(classes == index)})",
             )
             for index, label in enumerate(labels)
         ]
@@ -200,7 +220,7 @@ class DownslopeDistanceMap(BaseFigure):
                     hatch=_UNREACHABLE_HATCH,
                     label=(
                         "unreachable: the descent never reaches the target "
-                        f"({_cell_count(unreachable)})"
+                        f"({cell_count(unreachable)})"
                     ),
                 )
             )
@@ -209,24 +229,38 @@ class DownslopeDistanceMap(BaseFigure):
                 Patch(
                     facecolor=_OFF_SUPPORT_COLOR,
                     edgecolor="none",
-                    label=f"not on the measured support ({_cell_count(~on_support)})",
+                    label=f"not on the measured support ({cell_count(~on_support)})",
                 )
             )
         ax.legend(handles=handles, loc="best", fontsize=9, framealpha=0.9)
 
-        note = _absence_note(on_support, reached)
-        if note is not None:
-            ax.annotate(
-                note,
-                xy=(0.5, 0.03),
-                xycoords="axes fraction",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                bbox={"facecolor": "white", "alpha": 0.9, "edgecolor": "#c8c8c8"},
-                zorder=10,
-            )
+        notes = [f"{symbol}: {measures}", threshold_note(comparison)]
+        absence = _absence_note(on_support, reached)
+        if absence is not None:
+            notes.append(absence)
+        annotate_note(ax, "\n".join(notes))
         return ax
+
+
+def _checked_direction(direction: str) -> str:
+    """Return the direction, checked against the two the criterion measures."""
+    if direction not in DIRECTION_LABELS:
+        raise ValueError(f"direction must be one of {tuple(DIRECTION_LABELS)}, got {direction!r}.")
+    return direction
+
+
+def _distance_field(comparison: NetworkComparison, direction: str) -> np.ndarray:
+    """Return the descent one direction measures."""
+    if direction == "to_mapped":
+        return comparison.distance_to_mapped_m
+    return comparison.distance_to_simulated_m
+
+
+def _support(comparison: NetworkComparison, direction: str) -> np.ndarray:
+    """Return the cells one direction averages its descent over."""
+    if direction == "to_mapped":
+        return comparison.supports.support_so
+    return comparison.supports.support_os
 
 
 def _classify(values: np.ndarray, reached: np.ndarray, edges: tuple[float, ...]) -> np.ndarray:
@@ -279,12 +313,6 @@ def _add_layer(
     ax.autoscale_view()
 
 
-def _cell_count(mask: np.ndarray) -> str:
-    """Return the size of one group, written for a legend entry."""
-    count = int(mask.sum())
-    return f"{count} cell" if count == 1 else f"{count} cells"
-
-
 def _checked_edges(edges: Sequence[float]) -> tuple[float, ...]:
     """Return the class edges, checked for a usable scale."""
     values = tuple(float(edge) for edge in edges)
@@ -302,26 +330,10 @@ def _checked_edges(edges: Sequence[float]) -> tuple[float, ...]:
     return values
 
 
-def _checked_distance(distance: np.ndarray, n_faces: int) -> np.ndarray:
-    """Return the distance field as floats, checked against the mesh."""
-    values = np.asarray(distance, dtype="float64").reshape(-1)
-    if values.size != n_faces:
-        raise ValueError(f"the distance field holds {values.size} cells, the mesh holds {n_faces}.")
-    if np.any(values[~np.isnan(values)] < 0.0):
-        raise ValueError("the distance field holds a negative length; a descent cannot be one.")
-    return values
-
-
-def _checked_mask(support: np.ndarray, n_faces: int) -> np.ndarray:
-    """Return the support as a boolean mask, checked against the mesh."""
-    mask = np.asarray(support).reshape(-1)
-    if mask.size != n_faces:
-        raise ValueError(f"the support mask holds {mask.size} cells, the mesh holds {n_faces}.")
-    return mask.astype(bool)
-
-
 __all__ = [
+    "DIRECTION_LABELS",
     "DISTANCE_CLASS_EDGES_M",
+    "DistanceDirection",
     "DownslopeDistanceMap",
     "class_colors",
     "class_labels",

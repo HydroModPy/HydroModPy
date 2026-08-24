@@ -36,7 +36,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             runtime_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else runtime_cfg.geographic
@@ -137,7 +137,7 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             runtime_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else runtime_cfg.geographic
@@ -217,7 +217,7 @@ def test_mesh_catchment_launcher_batch_can_disable_figures(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             runtime_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else runtime_cfg.geographic
@@ -295,7 +295,7 @@ def test_mesh_catchment_launcher_batch_rejects_fixed_single_output_without_batch
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             runtime_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else runtime_cfg.geographic
@@ -360,7 +360,7 @@ def test_mesh_catchment_launcher_batch_rejects_outlets_outside_dem_extent(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             runtime_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else runtime_cfg.geographic

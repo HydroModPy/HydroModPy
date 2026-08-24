@@ -24,6 +24,14 @@ from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.observables import series_observable
 
+GR4J_SERIES_UNITS: dict[str, str] = {"discharge": "m3/s", "storage": "mm"}
+"""Unit of every series GR4J publishes, the ones ``Gr4jFlowExtractor`` writes.
+
+Neither the RAM cache nor the catalog query hands the unit back, so it is
+restated here rather than left empty: an observable whose unit is the empty
+string cannot be checked by the cost that reads it.
+"""
+
 
 class Gr4jAdapter:
     """GR4J calibration adapter (lumped model, no solver binary)."""
@@ -79,6 +87,13 @@ class Gr4jAdapter:
                 raise ObservableNotAvailableError(
                     f"GR4J is lumped: it has no {request.support!r} support, only 'domain'."
                 )
+            units = GR4J_SERIES_UNITS.get(request.name)
+            if units is None:
+                raise ObservableNotAvailableError(
+                    f"GR4J declares no unit for {request.name!r}; it publishes "
+                    f"{sorted(GR4J_SERIES_UNITS)}. Serving the series unitless would let a "
+                    "cost threshold it without being able to check what it received."
+                )
             series = self._read_series(
                 ctx,
                 store,
@@ -86,7 +101,7 @@ class Gr4jAdapter:
                 variable=request.name,
                 time_index=time_index,
             )
-            served[request.id] = series_observable(request, series, units="")
+            served[request.id] = series_observable(request, series, units=units)
         return served
 
     def _read_series(
@@ -155,4 +170,4 @@ class Gr4jAdapter:
             return None
 
 
-__all__ = ["Gr4jAdapter"]
+__all__ = ["GR4J_SERIES_UNITS", "Gr4jAdapter"]

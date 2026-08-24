@@ -16,11 +16,13 @@ import pytest
 import hydromodpy
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
+    SeepageDistanceResult,
     seepage_distance_cost,
 )
-from hydromodpy.calibration.observations.network_geometry import build_network_geometry
 from hydromodpy.calibration.observations.observed_network import water_body_mask
-from hydromodpy.calibration.observations.simulated_network import (
+from hydromodpy.core.stream_geometry import build_network_geometry, criterion_supports
+from hydromodpy.core.stream_network import (
+    SimulatedNetwork,
     build_simulated_network,
     downstream_closure,
     specific_seepage_threshold,
@@ -33,6 +35,7 @@ from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
     CELL_SIZE,
+    FIRST_OBSERVED_ROW,
     LENGTH_SCALE,
     N_CELLS,
     N_COLS,
@@ -161,9 +164,17 @@ class TestSignedGap:
 
     def test_the_cost_is_the_absolute_residual(self, bench, geometry) -> None:
         result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
-        assert result.cost == pytest.approx(abs(result.signed_gap))
-        assert result.components["J"] == pytest.approx(result.cost)
+        assert result.components["J"] == pytest.approx(abs(result.signed_gap))
         assert result.components["J_signed"] == pytest.approx(result.signed_gap)
+
+    def test_the_result_carries_no_field_the_optimizer_does_not_read(self) -> None:
+        # The optimizer reads the components; a second copy of J and Doptim on
+        # the dataclass was read by nothing and its docstring claimed otherwise.
+        assert set(SeepageDistanceResult.__dataclass_fields__) == {
+            "signed_gap",
+            "status",
+            "components",
+        }
 
     def test_an_empty_network_is_the_high_end_of_the_bracket(self, bench, geometry) -> None:
         # No network at all must give a defined, negative residual: a large
@@ -196,6 +207,73 @@ class TestValidityCriterion:
         # over a truncated support.
         observed = observed_network("aligned")
         result = _evaluate(bench, geometry, observed, 200.0, max_unreachable_fraction=-1.0)
+        assert result.status == "failed"
+
+
+class TestTheUnreachableGuardIsOneSided:
+    """The bound holds on ``D_so`` and on nothing else.
+
+    The two directions do not mean the same thing. ``D_so`` descends onto the
+    mapped network, which does not move over the search, so a cell that never
+    arrives there is a depression left in the routing surface. ``D_os`` descends
+    onto the SIMULATED network, which the search retracts on purpose at the high
+    end of its bracket, so a cell that never arrives there is the measurement
+    saying the model has no stream below it.
+    """
+
+    LAST_SIMULATED_ROW = 40
+
+    def _truncated_network(self) -> SimulatedNetwork:
+        """The valley axis down to one row, stopping well short of the outlet."""
+        mask = np.zeros(N_CELLS, dtype=bool)
+        for row in range(FIRST_OBSERVED_ROW, self.LAST_SIMULATED_ROW + 1):
+            mask[cell_id(row, AXIS_COL)] = True
+        return SimulatedNetwork(seepage=mask, network=mask, threshold_m3_s=np.zeros(N_CELLS))
+
+    def _evaluate(self, bench, geometry, simulated, distance_to_observed):
+        observed = observed_network("aligned")
+        return seepage_distance_cost(
+            simulated=simulated,
+            observed=observed,
+            outlet=geometry["outlet"],
+            catchment=geometry["catchment"],
+            metric=bench.metric,
+            distance_to_observed=distance_to_observed,
+            distance_to_observed_raw=downslope_distance_to_mask(bench.metric, observed),
+            cell_area_m2=geometry["areas"],
+            length_scale_m=LENGTH_SCALE,
+            saturation_cap_m=geometry["cap"],
+            max_unreachable_fraction=0.05,
+        )
+
+    def test_a_mapped_support_that_cannot_descend_leaves_the_trial_standing(
+        self, bench, geometry
+    ) -> None:
+        # Water runs south, so the twenty mapped cells below the last simulated
+        # one have nothing downstream to descend into: unreachable by
+        # construction, and far past the five per cent bound.
+        simulated = self._truncated_network()
+        sealed = observed_network("aligned").copy()
+        sealed[geometry["outlet"]] = True
+        result = self._evaluate(
+            bench, geometry, simulated, downslope_distance_to_mask(bench.metric, sealed)
+        )
+
+        assert result.components["n_unreachable_os"] == pytest.approx(
+            float(N_ROWS - 1 - self.LAST_SIMULATED_ROW)
+        )
+        assert result.components["frac_unreachable_os"] > 0.05
+        assert result.components["frac_unreachable_so"] == 0.0
+        assert result.status == "ok"
+
+    def test_a_simulated_support_that_cannot_descend_fails_the_trial(self, bench, geometry) -> None:
+        # The same trial, with the descent to the mapped network taken away:
+        # this is the side the bound is on.
+        result = self._evaluate(
+            bench, geometry, self._truncated_network(), np.full(N_CELLS, np.inf)
+        )
+
+        assert result.components["frac_unreachable_so"] == pytest.approx(1.0)
         assert result.status == "failed"
 
 
@@ -346,3 +424,199 @@ class TestRechargeProvenance:
         with caplog.at_level("WARNING"):
             self._geometry(bench, 3.2e-8)
         assert "recharge" not in caplog.text
+
+
+class TestSaturationCapSupport:
+    """``L_cap`` has to be a length of the CATCHMENT, not of the model domain.
+
+    The flood is seeded on the single catchment outlet and walks the whole
+    active surface, so after it every active cell holds a descent to that
+    outlet. A maximum taken over the graph therefore follows the model domain,
+    while ``L_cap`` is the value most of ``D_os`` takes at the high end of a
+    bracket. The bench makes the two differ by construction: the top third of
+    the valley is declared out of the catchment while staying in the mesh, and
+    its cells reach the outlet by a path that crosses the whole catchment
+    first, so they are strictly longer than anything inside it.
+    """
+
+    FIRST_ROW = 20
+
+    def _geometry(self, bench, **kwargs):
+        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
+        catchment = np.zeros(N_CELLS, dtype=bool)
+        for row in range(self.FIRST_ROW, N_ROWS):
+            for col in range(N_COLS):
+                catchment[cell_id(row, col)] = True
+        return build_network_geometry(
+            topography=bench.elevation,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed_network("aligned"),
+            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
+            mean_recharge_m_s=3.2e-8,
+            tau_specific_ratio=1e-2,
+            delineated_catchment=catchment,
+            **kwargs,
+        )
+
+    def test_the_cap_majors_every_descent_of_the_catchment(self, bench) -> None:
+        geometry = self._geometry(bench)
+        outlet_mask = np.zeros(N_CELLS, dtype=bool)
+        outlet_mask[geometry.outlet] = True
+        to_outlet = downslope_distance_to_mask(geometry.metric, outlet_mask)
+
+        inside = geometry.catchment & np.isfinite(to_outlet)
+        assert inside.any()
+        assert geometry.saturation_cap_m == pytest.approx(float(to_outlet[inside].max()))
+        assert np.all(to_outlet[inside] <= geometry.saturation_cap_m + 1e-9)
+
+    def test_the_cap_ignores_what_lies_outside_the_catchment(self, bench) -> None:
+        geometry = self._geometry(bench)
+        outlet_mask = np.zeros(N_CELLS, dtype=bool)
+        outlet_mask[geometry.outlet] = True
+        to_outlet = downslope_distance_to_mask(geometry.metric, outlet_mask)
+
+        outside = ~geometry.catchment & np.isfinite(to_outlet)
+        # The rows above the catchment stay in the graph and reach the outlet by
+        # crossing the catchment first, so their descent is strictly longer.
+        assert outside.any()
+        assert float(to_outlet[outside].max()) > geometry.saturation_cap_m
+        assert longest_descent_length(geometry.metric, outlet_mask) > geometry.saturation_cap_m
+
+    def test_an_empty_support_is_refused_by_name(self, bench) -> None:
+        geometry = self._geometry(bench)
+        outlet_mask = np.zeros(N_CELLS, dtype=bool)
+        outlet_mask[geometry.outlet] = True
+        with pytest.raises(ValueError, match="inside the requested support"):
+            longest_descent_length(
+                geometry.metric, outlet_mask, within=np.zeros(N_CELLS, dtype=bool)
+            )
+
+
+class TestWaterBodiesInTheTarget:
+    """Open water is surface water, so it belongs to the target of ``D_so``.
+
+    A seepage cell fifty metres from a bank stops at the reservoir. Leaving the
+    water body out of the target makes its descent cross the reservoir and carry
+    on to the next mapped reach, which is kilometres on a real one, and inflates
+    ``D_so`` with the size of the lake rather than with the hydrogeology.
+    """
+
+    def _lake(self) -> np.ndarray:
+        # Off the mapped axis, on the hillside, so the union really adds cells.
+        lake = np.zeros(N_CELLS, dtype=bool)
+        lake[[cell_id(row, 8) for row in range(28, 34)]] = True
+        return lake
+
+    def _geometry(self, bench, excluded):
+        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
+        return build_network_geometry(
+            topography=bench.elevation,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed_network("aligned"),
+            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
+            mean_recharge_m_s=3.2e-8,
+            tau_specific_ratio=1e-2,
+            excluded=excluded,
+            diagonal_neighbors=True,
+        )
+
+    def test_a_water_body_cell_is_at_distance_zero_from_the_target(self, bench) -> None:
+        lake = self._lake()
+        with_lake = self._geometry(bench, lake)
+        without = self._geometry(bench, None)
+
+        assert np.all(with_lake.distance_to_observed[lake] == 0.0)
+        assert np.all(with_lake.distance_to_observed_raw[lake] == 0.0)
+        # The same cells were a plain hillside before, so they had to descend.
+        assert np.any(without.distance_to_observed[lake] > 0.0)
+
+    def test_adding_the_water_body_can_only_shorten_a_descent(self, bench) -> None:
+        lake = self._lake()
+        with_lake = self._geometry(bench, lake)
+        without = self._geometry(bench, None)
+
+        finite = np.isfinite(without.distance_to_observed) & np.isfinite(
+            with_lake.distance_to_observed
+        )
+        assert np.all(
+            with_lake.distance_to_observed[finite] <= without.distance_to_observed[finite] + 1e-9
+        )
+        shortened = with_lake.distance_to_observed[finite] < without.distance_to_observed[finite]
+        assert shortened.sum() > lake.sum(), "no cell upslope of the reservoir stops at it"
+
+    def test_the_water_body_still_leaves_the_supports(self, bench) -> None:
+        lake = self._lake()
+        geometry = self._geometry(bench, lake)
+        assert geometry.excluded is not None
+        assert np.array_equal(geometry.excluded & lake, lake)
+
+    def test_the_reachability_diagnostic_stays_on_the_mapped_network(self, bench) -> None:
+        # Otherwise a reservoir absorbing paths would flatter the number that
+        # says how well the linework agrees with the routing surface.
+        lake = self._lake()
+        with_lake = self._geometry(bench, lake)
+        without = self._geometry(bench, None)
+        assert with_lake.diagnostics["frac_reachable_obs_raw"] == pytest.approx(
+            without.diagnostics["frac_reachable_obs_raw"]
+        )
+        assert with_lake.diagnostics["alpha_obs_closure"] == pytest.approx(
+            without.diagnostics["alpha_obs_closure"]
+        )
+
+
+class TestSupportPartition:
+    """One derivation of the three classes, for the counts and for a map.
+
+    A confusion map draws what a trial counted. Deriving the partition twice is
+    how a figure comes to disagree with the number it illustrates, so the cost
+    reads it from the same place a caller would.
+    """
+
+    def _supports(self, bench, geometry, observed, threshold, excluded=None):
+        return criterion_supports(
+            simulated=_network_from_threshold(bench, threshold),
+            observed=observed,
+            catchment=geometry["catchment"],
+            active=bench.metric.graph.active,
+            excluded=excluded,
+        )
+
+    def test_the_three_classes_partition_the_two_supports(self, bench, geometry) -> None:
+        supports = self._supports(bench, geometry, observed_network("aligned"), 200.0)
+        assert np.array_equal(supports.valid | supports.excess, supports.support_so)
+        assert np.array_equal(supports.valid | supports.missing, supports.support_os)
+        assert not np.any(supports.excess & supports.missing)
+        assert not np.any(supports.excess & supports.valid)
+
+    def test_what_the_trial_counts_is_what_a_map_would_draw(self, bench, geometry) -> None:
+        observed = observed_network("aligned")
+        result = _evaluate(bench, geometry, observed, 200.0)
+        supports = self._supports(bench, geometry, observed, 200.0)
+
+        assert supports.counts == {
+            "n_valid": result.components["n_valid"],
+            "n_excess": result.components["n_excess"],
+            "n_missing": result.components["n_missing"],
+        }
+        assert float(int(supports.seepage.sum())) == result.components["n_seepage"]
+        assert float(int(supports.support_so.sum())) == result.components["n_network_sim"]
+        assert float(int(supports.support_os.sum())) == result.components["n_network_obs"]
+
+    def test_a_water_body_leaves_every_class(self, bench, geometry) -> None:
+        observed = observed_network("aligned")
+        lake = np.zeros(N_CELLS, dtype=bool)
+        lake[[cell_id(row, AXIS_COL) for row in range(40, 45)]] = True
+        supports = self._supports(bench, geometry, observed, 200.0, excluded=lake)
+
+        for mask in (
+            supports.keep,
+            supports.support_so,
+            supports.support_os,
+            supports.valid,
+            supports.excess,
+            supports.missing,
+            supports.seepage,
+        ):
+            assert not np.any(mask & lake)

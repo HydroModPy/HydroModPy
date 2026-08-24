@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.results.calibration_trials import calibration_trials
+from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -49,24 +49,30 @@ class CalibrationPairplotFigure(BaseFigure):
         sim: Run,
         *,
         parameters: list[str] | None = None,
-        objective: str = "objective",
+        objective: str | None = None,
+        session_id: str | None = None,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
         **_,
     ) -> MplFigure:
         import matplotlib.pyplot as plt
-        import pandas as pd
 
-        iters = calibration_trials(sim)
-        df = pd.DataFrame(iters)
-        if parameters is None:
-            parameters = [c for c in df.columns if c not in {objective, "iter", "i"}]
-        if len(parameters) < 2:
-            raise ValueError("calibration_pairplot: need at least two parameter columns")
-        obj = df[objective].to_numpy(dtype=float) if objective in df.columns else None
+        table = trial_table(sim, session_id=session_id)
+        names = list(parameters) if parameters is not None else list(table.parameters)
+        if len(names) < 2:
+            raise ValueError(
+                "calibration_pairplot: need at least two parameter columns; the session "
+                f"sampled {', '.join(names) or '<none>'}"
+            )
+        sampled = dict(table.parameter_values(name) for name in names)
+        objective_name, obj = (
+            table.objective_values(objective)
+            if objective is not None or table.has_objective()
+            else (None, None)
+        )
 
-        n = len(parameters)
+        n = len(names)
         fig, axes = plt.subplots(
             n,
             n,
@@ -74,21 +80,21 @@ class CalibrationPairplotFigure(BaseFigure):
             dpi=dpi,
             constrained_layout=True,
         )
-        for i, pi in enumerate(parameters):
-            for j, pj in enumerate(parameters):
+        for i, pi in enumerate(names):
+            for j, pj in enumerate(names):
                 ax = axes[i, j] if n > 1 else axes
                 if i == j:
-                    ax.hist(df[pi].to_numpy(dtype=float), bins=20, color="steelblue")
+                    ax.hist(sampled[pi], bins=20, color="steelblue")
                 else:
                     sc = ax.scatter(
-                        df[pj].to_numpy(dtype=float),
-                        df[pi].to_numpy(dtype=float),
+                        sampled[pj],
+                        sampled[pi],
                         c=obj,
                         cmap="viridis",
                         s=8,
                     )
                     if i == n - 1 and j == n - 1 and obj is not None:
-                        fig.colorbar(sc, ax=axes[:, -1], label=objective)
+                        fig.colorbar(sc, ax=axes[:, -1], label=objective_name)
                 if i == n - 1:
                     ax.set_xlabel(pj)
                 if j == 0:

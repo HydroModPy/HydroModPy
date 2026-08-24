@@ -359,19 +359,17 @@ class CalibOutputNetwork(HydroModelBase):
         default=0.05,
         ge=0.0,
         le=1.0,
-        description="Share of a support whose descent may end without meeting its "
-        "target before the trial fails. Beyond a few per cent the surface is not "
-        "conditioned and the averages would be a fiction.",
+        description="Bound on 'frac_unreachable_so' alone: the share of the simulated "
+        "network whose descent never meets the mapped one, whose target does not move "
+        "between trials. Beyond a few per cent the routing surface is not conditioned "
+        "and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is "
+        "reported and deliberately left unbounded: its target is the simulated network, "
+        "which the search itself retracts.",
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="last",
         description="Which timesteps the release flux is read at. Phase one runs a "
         "single steady period, so 'last' is the whole run.",
-    )
-    reducer: Annotated[OutputReducer, Profile.USER] = Field(
-        default="none",
-        description="Kept for symmetry with the other supports; the pair this output "
-        "produces is already reduced.",
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,

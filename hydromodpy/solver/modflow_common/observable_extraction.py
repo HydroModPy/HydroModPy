@@ -133,6 +133,33 @@ def release_packages_for_model(model: Any) -> list[ReleasePackage]:
     return packages
 
 
+def excluded_release_records_for_model(model: Any) -> dict[str, str]:
+    """Budget records this run writes that are NOT a release to the surface.
+
+    Declaring an exclusion is not the same as forgetting one. The union is
+    checked against the records the FILE holds, so a release record no package
+    reads refuses the run rather than reading as dry land; a record the model
+    looked at and ruled out has to say so, or every run with a lateral boundary
+    is refused for carrying one.
+
+    The reason travels with the record, because "CHD is excluded" is only safe
+    while it means "this CHD holds no stream".
+
+    Keyed on the stream-role mask alone, never on which package attribute a
+    backend happens to expose: MODFLOW-NWT builds its lateral boundary without
+    a ``chd`` attribute on the model, so asking for one ruled nothing out and
+    refused every NWT catchment for closing on a boundary.
+    """
+    if _stream_role_cells(model) is not None:
+        return {}
+    reason = (
+        "no cell of the constant head carries the stream role, so it is an ocean or a "
+        "lateral boundary: water crossing it leaves the domain sideways instead of "
+        "surfacing, and counting it would put a stream on the model edge"
+    )
+    return {"CHD": reason, "CONSTANT HEAD": reason}
+
+
 def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
     """Return the top and the base of the aquifer, one value per cell."""
     mesh = getattr(model, "solver_mesh", None)
@@ -203,6 +230,7 @@ def extract_common_modflow_observables(
             output_dir,
             model_name,
             packages=release_packages_for_model(model),
+            excluded_records=excluded_release_records_for_model(model),
             time_index=time_index,
             n_cells=_n_cells(model),
         )

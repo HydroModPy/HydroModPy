@@ -51,6 +51,47 @@ def mpl():
 # --------------------------------------------------------------------------- #
 
 
+PUBLISHED = {
+    "roptim": 0.87,
+    "roptim_valid": 1.0,
+    "n_valid": 120.0,
+    "n_excess": 30.0,
+    "n_missing": 18.0,
+    "L_ref": 250.0,
+}
+
+
+def _criterion_diagnostics(mean_recharge: float) -> dict[str, float]:
+    """The diagnostics a real trial publishes, asked of their own producer.
+
+    The card cannot import ``calibration``, so it spells the recharge key by
+    hand; building the dict here from ``NetworkGeometry`` is what proves the
+    two spellings are the same one. Only the fields ``diagnostics`` reads
+    carry meaning, the rest of the geometry is filler.
+    """
+    import numpy as np
+
+    from hydromodpy.calibration.observations.network_geometry import NetworkGeometry
+
+    geometry = NetworkGeometry(
+        metric=None,
+        observed=np.array([True, False]),
+        outlet=0,
+        catchment=np.array([True, True]),
+        distance_to_observed=np.zeros(2),
+        distance_to_observed_raw=np.zeros(2),
+        cell_area_m2=np.ones(2),
+        threshold_m3_s=np.ones(2),
+        mean_recharge_m_s=mean_recharge,
+        length_scale_m=250.0,
+        saturation_cap_m=1.0,
+        excluded=None,
+        alpha_obs_closure=1.0,
+        frac_reachable_obs_raw=1.0,
+    )
+    return geometry.diagnostics
+
+
 def _root_rows(
     *,
     residuals: list[float] | None = None,
@@ -59,14 +100,7 @@ def _root_rows(
     session_id: str | None = ROOT_ID,
 ) -> list[dict]:
     """Stage one: the root search on the ratio, with its criterion diagnostics."""
-    published = {
-        "roptim": 0.87,
-        "roptim_valid": 1.0,
-        "n_valid": 120.0,
-        "n_excess": 30.0,
-        "n_missing": 18.0,
-        "L_ref": 250.0,
-    }
+    published = dict(PUBLISHED)
     if diagnostics is not None:
         published = dict(diagnostics)
     rows = []
@@ -495,18 +529,12 @@ def test_the_mean_recharge_is_carried_on_the_card(mpl) -> None:
 
 
 def test_a_recharge_the_session_published_is_read_from_the_trials(mpl) -> None:
-    run = _staged_run(
-        diagnostics={
-            "roptim": 0.87,
-            "roptim_valid": 1.0,
-            "n_valid": 120.0,
-            "n_excess": 30.0,
-            "n_missing": 18.0,
-            "R_mean": 4.5e-8,
-        }
-    )
+    # The trial publishes what the criterion publishes, under the name the
+    # criterion gives it, prefixed by the output the way a scored output is.
+    published = {**PUBLISHED, **_criterion_diagnostics(4.5e-8)}
+    assert 4.5e-8 in published.values()
 
-    fig = AbherveTwoStageCard().plot(run)
+    fig = AbherveTwoStageCard().plot(_staged_run(diagnostics=published))
 
     try:
         assert "4.5e-08" in _texts(_panel(fig, "Stage 1"))

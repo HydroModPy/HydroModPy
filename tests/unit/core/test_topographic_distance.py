@@ -284,3 +284,49 @@ def test_longest_descent_length_rejects_an_empty_outlet() -> None:
 
     with pytest.raises(ValueError, match="no cell descends to the outlet"):
         longest_descent_length(metric, np.zeros(9, dtype=bool))
+
+
+def _uneven_row() -> tuple[np.ndarray, np.ndarray]:
+    """One row of three quads, the last one four times wider than the others.
+
+    Vertex means: (5, 5), (15, 5), (40, 5). The middle cell therefore sits
+    10 m from its left neighbour and 25 m from its right one, so a drop that
+    is larger to the right can still lose on slope.
+    """
+    xs = [0.0, 10.0, 20.0, 60.0]
+    vertices = np.asarray(
+        [(x, y) for y in (0.0, 10.0) for x in xs],
+        dtype=float,
+    )
+    connectivity = np.asarray(
+        [[col, col + 1, col + 5, col + 4] for col in range(3)],
+        dtype=int,
+    )
+    return vertices, connectivity
+
+
+def test_the_receiver_is_chosen_on_the_points_the_surface_was_sampled_at() -> None:
+    vertices, connectivity = _uneven_row()
+    # Middle cell: drop 6 m over 10 m to the left, drop 10 m over 25 m to the
+    # right. On slope the left wins, on drop alone the right would.
+    surface = np.asarray([4.0, 10.0, 0.0])
+
+    by_polygon = build_downslope_metric(surface, connectivity, vertices=vertices)
+    assert int(by_polygon.graph.downstream[1]) == 0
+    assert by_polygon.edge_length[1] == pytest.approx(10.0)
+
+    # Same mesh, same surface, but the values were sampled at centres that put
+    # the right neighbour 3 m away: the slope to the right is now the steepest.
+    seeds = np.asarray([(5.0, 5.0), (15.0, 5.0), (18.0, 5.0)])
+    by_seed = build_downslope_metric(surface, connectivity, vertices=vertices, centroids=seeds)
+    assert int(by_seed.graph.downstream[1]) == 2
+    assert by_seed.edge_length[1] == pytest.approx(3.0)
+
+
+def test_centroids_of_the_wrong_shape_are_refused_by_name() -> None:
+    vertices, connectivity = _uneven_row()
+    surface = np.asarray([4.0, 10.0, 0.0])
+    with pytest.raises(ValueError, match="centroids must be"):
+        build_downslope_metric(surface, connectivity, vertices=vertices, centroids=np.zeros((3, 3)))
+    with pytest.raises(ValueError, match="centres but the surface has"):
+        build_downslope_metric(surface, connectivity, vertices=vertices, centroids=np.zeros((2, 2)))

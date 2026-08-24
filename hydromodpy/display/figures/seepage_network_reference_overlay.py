@@ -10,8 +10,12 @@ The relief is a hillshade computed from the per-cell topography the run
 persisted, in greys only, so the two networks keep the whole colour axis. They
 are told apart by shape as well as by hue: the mapped network fills its cells,
 the simulated one is drawn inset on top, and the pair survives a greyscale
-print. The two masks are passed in: a run persists the fields a solver
-produced, never the supports a criterion built out of them.
+print.
+
+Both networks are rebuilt from what the run persisted, through the
+construction the criterion scores, so the picture answers for the numbers
+beside it. The simulated one moves with the seepage threshold, which the
+figure names on the page.
 """
 
 from __future__ import annotations
@@ -23,9 +27,17 @@ import numpy as np
 from hydromodpy.display.colormaps import HIGH_CONTRAST_TRIPLET
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._stream_comparison import (
+    annotate_note,
+    cell_count,
+    checked_cells,
+    comparison_from_run,
+    threshold_note,
+)
 from hydromodpy.display.map_axes import style_map_axes
 from hydromodpy.display.mesh_geometry import face_centroids, face_polygons
 from hydromodpy.display.overlays import apply_overlays
+from hydromodpy.results.derive.stream_network import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -54,41 +66,33 @@ _DEFAULT_OVERLAYS: tuple[str, ...] = ("watershed", "outlet")
 class SeepageNetworkReferenceOverlay(BaseFigure):
     """Simulated stream cells over the mapped ones, on a shaded relief.
 
-    Both masks are ``(n_cells,)`` booleans over the mesh faces: ``observed``
-    is the mapped network burnt onto the mesh, ``simulated`` the one the model
-    produced. They may overlap freely, and where they do the figure shows the
-    simulated patch sitting inside the mapped cell, which is the agreement.
+    Both networks are read from the run inside the scored catchment: the
+    mapped one is the linework the project declares, projected onto the mesh,
+    the simulated one is what the release flux generates downslope. Where they
+    overlap the figure shows the simulated patch sitting inside the mapped
+    cell, which is the agreement.
     """
 
     spec = FigureSpec(
         name="seepage_network_reference_overlay",
         title="Simulated network over reference",
         kind="comparison",
+        required_fields=("release_flux",),
         default_figsize=(7.8, 5.8),
     )
 
     def unavailable_reason(self, sim: Run) -> str | None:
-        """Refuse a run-driven render: neither network mask is persisted.
-
-        The criterion burns the observed network onto the mesh and extracts
-        the simulated one while a calibration runs; a run keeps neither, so
-        nothing can hand them to a gallery. Saying so here turns the crash of
-        a figure driven by name into a skip carrying the reason.
-        """
-        del sim
-        return (
-            "needs the simulated and observed stream-cell masks the stream-network "
-            "criterion builds during a calibration; a run does not persist them, "
-            "so this figure is drawn by passing the two masks to render()"
-        )
+        """Return why this run holds no stream comparison, or None when it does."""
+        return unavailable_reason_for_comparison(sim) or super().unavailable_reason(sim)
 
     def render(
         self,
         sim: Run,
         ax: Axes,
         *,
-        simulated: np.ndarray,
-        observed: np.ndarray,
+        tau_specific_ratio: float | None = None,
+        diagonal_neighbors: bool | None = None,
+        timestep: int | None = None,
         azimuth_deg: float = 315.0,
         altitude_deg: float = 45.0,
         overlays: tuple[str, ...] | list[str] | None = None,
@@ -96,12 +100,18 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
     ) -> Axes:
         from matplotlib.patches import Patch
 
+        comparison = comparison_from_run(
+            sim,
+            tau_specific_ratio=tau_specific_ratio,
+            diagonal_neighbors=diagonal_neighbors,
+            timestep=timestep,
+        )
         polygons = face_polygons(sim)
         n_faces = len(polygons)
-        observed_mask = _as_mask(observed, n_faces, "observed")
-        simulated_mask = _as_mask(simulated, n_faces, "simulated")
+        observed_mask = checked_cells(comparison.mapped, n_faces, "mapped network")
+        simulated_mask = checked_cells(comparison.simulated, n_faces, "simulated network")
 
-        notes: list[str] = []
+        notes: list[str] = [threshold_note(comparison)]
         elevation = _read_topography(sim, n_faces)
         if elevation is None:
             notes.append("no per-cell topography in this run: the relief background is missing")
@@ -149,27 +159,17 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
             Patch(
                 facecolor=NETWORK_COLORS["observed"],
                 edgecolor="none",
-                label=f"mapped network ({_cell_count(observed_mask)})",
+                label=f"mapped network ({cell_count(observed_mask)})",
             ),
             Patch(
                 facecolor=NETWORK_COLORS["simulated"],
                 edgecolor="none",
-                label=f"simulated network ({_cell_count(simulated_mask)})",
+                label=f"simulated network ({cell_count(simulated_mask)})",
             ),
         ]
         extra, _labels = ax.get_legend_handles_labels()
         ax.legend(handles=handles + extra, loc="best", fontsize=9, framealpha=0.9)
-        if notes:
-            ax.annotate(
-                "\n".join(notes),
-                xy=(0.5, 0.03),
-                xycoords="axes fraction",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                bbox={"facecolor": "white", "alpha": 0.9, "edgecolor": "#c8c8c8"},
-                zorder=7,
-            )
+        annotate_note(ax, "\n".join(notes))
         return ax
 
 
@@ -240,20 +240,6 @@ def _inset(polygon: np.ndarray) -> np.ndarray:
     """
     centre = polygon.mean(axis=0)
     return centre + (polygon - centre) * _SIMULATED_INSET
-
-
-def _cell_count(mask: np.ndarray) -> str:
-    """Return the size of one network, written for a legend entry."""
-    count = int(mask.sum())
-    return f"{count} cell" if count == 1 else f"{count} cells"
-
-
-def _as_mask(values: np.ndarray, n_faces: int, label: str) -> np.ndarray:
-    """Return one boolean mask, checked against the number of mesh faces."""
-    mask = np.asarray(values).reshape(-1)
-    if mask.size != n_faces:
-        raise ValueError(f"the {label} mask holds {mask.size} cells, the mesh holds {n_faces}.")
-    return mask.astype(bool)
 
 
 def _read_topography(sim: Run, n_faces: int) -> np.ndarray | None:

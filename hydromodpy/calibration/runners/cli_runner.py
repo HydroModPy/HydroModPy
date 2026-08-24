@@ -100,6 +100,11 @@ def _resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) ->
     data path. Reading it against the working directory instead made the run
     depend on where it was launched from.
 
+    Called from :func:`run_calibration_core`, where the CLI, the staged and the
+    programmatic routes converge, and again from :func:`load_toml_calibration`
+    for the readers that never run a calibration. Running twice is harmless: the
+    second pass sees absolute paths and skips them.
+
     A path that resolves to nothing is left exactly as declared. Loading a
     configuration must not require its data to be present: ``--list-phases`` has
     to work on a machine that holds none of it, and the criterion already names
@@ -315,10 +320,21 @@ def run_calibration_core(
 
     ``chain`` names the session and places it in a chain of phases. A
     standalone calibration leaves it unset and gets a fresh session id.
+
+    ``cfg_path`` is also what a declared ``stream_geometry_path`` is anchored
+    on. The three entry points converge here and all three pass it, whereas only
+    the CLI one goes through :func:`load_toml_calibration`; anchoring anywhere
+    else leaves the two programmatic routes reading the working directory.
     """
     from hydromodpy.calibration.persistence import CalibrationPersistence
     from hydromodpy.calibration.report import CalibrationReport
 
+    if cfg_path is not None:
+        _resolve_stream_geometry_paths(cfg, cfg_path)
+    # Same refusal for a mono-phase run as for a staged one: an optimizer_kwarg
+    # foreign to the declared method used to die as a bare TypeError inside the
+    # adapter constructor, after the first solve.
+    cfg.validate_registry()
     override_paths = resolve_override_paths(cfg)
 
     factory = store_factory or default_store_factory

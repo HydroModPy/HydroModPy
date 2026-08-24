@@ -29,6 +29,7 @@ import rasterio
 from rasterio.features import rasterize
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.lake_enforcement import routing_dem_from_config
@@ -173,24 +174,36 @@ def burn_streams_into_routing_dem(
 
 
 def streams_from_config(enforce: object, setup: object) -> list:
-    """Read the observed network geometries, resolving the path against the DEM data dir."""
+    """Read the observed network geometries from the path the config declares.
+
+    The path is anchored once, when the configuration is loaded: relative to the
+    TOML that declares it, and a bare filename under
+    ``<workspace>/data/hydrography/``. Nothing is probed and nothing is guessed
+    here, so the run reads the same file whatever directory it was launched
+    from. A value that arrives relative was never anchored (a configuration
+    built without the loader): it is still read, from the working directory, but
+    it says so.
+    """
     import geopandas as gpd
 
     declared = getattr(enforce, "stream_geometry_path", None)
     if declared is None:
         raise ValueError("geographic.enforce_streams.stream_geometry_path is unset.")
     path = Path(declared)
-    if not path.exists():
-        # A bare filename (or a mis-resolved one): look under <data>/hydrography/,
-        # where <data> is the parent of the DEM's family dir (data/dem/x.tif -> data).
-        data_dir = Path(str(setup.dem_init_path)).resolve().parent.parent
-        candidate = data_dir / "hydrography" / path.name
-        if candidate.exists():
-            path = candidate
+    if not is_declared_absolute_path(path):
+        logger.warning(
+            "geographic.enforce_streams.stream_geometry_path is relative (%s), so it is read "
+            "from the working directory. Loading the configuration through HydroModPyConfig "
+            "anchors it on the TOML that declares it instead.",
+            declared,
+        )
     if not path.exists():
         raise FileNotFoundError(
-            f"geographic.enforce_streams.stream_geometry_path not found: {declared} "
-            "(tried as-is and under <data>/hydrography/)."
+            f"geographic.enforce_streams.stream_geometry_path points to nothing: {path}. "
+            f"It was declared as {declared!r} and anchored at load: a relative value against "
+            "the directory of the TOML that declares it, a bare filename under "
+            "<workspace>/data/hydrography/ then <workspace>/data/. The path above is the "
+            "first of those that the anchoring settled on; nothing is tried here."
         )
     gdf = gpd.read_file(path)
     if getattr(setup, "crs_project", None) is not None:

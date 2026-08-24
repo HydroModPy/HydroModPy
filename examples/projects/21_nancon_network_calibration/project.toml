@@ -233,4 +233,14 @@ figures = [
     "seepage_map",
     "simulated_active_network",
     "water_budget",
+    # Les huit figures de la methode. Elles sont declarees ici et le run promu
+    # par la calibration les ecrit : aucune n'a besoin d'un script.
+    "downslope_distance_crossing",
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrograph_log_nse",
+    "abherve_two_stage_card",
 ]

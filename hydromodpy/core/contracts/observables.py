@@ -94,7 +94,10 @@ class ObservableResult:
 
     ``units`` travels with the values because the registry and the comparison
     layer already disagree on the unit of at least one field, and a cost that
-    cannot check the unit it is given cannot catch that.
+    cannot check the unit it is given cannot catch that. The network criterion
+    is the consumer that does check: it refuses a per-cell release field that
+    is not a volumetric flow in m3/s rather than compare it to a threshold
+    built in m3/s.
     """
 
     request_id: str

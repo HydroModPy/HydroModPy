@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import math
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -201,6 +202,48 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         ) from exc
 
 
+@dataclass(frozen=True, slots=True)
+class _PhasePlan:
+    """One selected phase, with the calibration and the space it runs under."""
+
+    index: int
+    decl: CalibPhaseDecl
+    config: CalibrationConfig
+    space: ParameterSpace
+
+
+def _phase_plans(
+    cfg: CalibrationConfig,
+    selected: Sequence[tuple[int, CalibPhaseDecl]],
+) -> list[_PhasePlan]:
+    """Build every selected phase before the first one runs.
+
+    ``_check_phases`` validates the phase table against the calibration it
+    narrows, not against the configuration each phase ends up with, so a phase
+    that cannot describe a runnable calibration of its own is only found when
+    its turn comes: after the phases before it have spent their whole solve
+    budget. Building them all here moves that refusal before the first solve,
+    and the loop then runs what was built instead of building it again.
+    """
+    plans: list[_PhasePlan] = []
+    for index, decl in selected:
+        phase_cfg = _phase_config(cfg, decl)
+        try:
+            phase_cfg.validate_registry()
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"phase {decl.name!r} declares a search its optimizer refuses: {exc}"
+            ) from exc
+        try:
+            space = space_from_config(phase_cfg)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"phase {decl.name!r} declares a parameter space that cannot be built: {exc}"
+            ) from exc
+        plans.append(_PhasePlan(index=index, decl=decl, config=phase_cfg, space=space))
+    return plans
+
+
 def _injected_paths(
     phase_cfg: CalibrationConfig,
     frozen: list[FrozenParameter],
@@ -281,6 +324,35 @@ def _frozen_by(
     )
 
 
+def _require_result_for_dependents(
+    decl: CalibPhaseDecl,
+    report: CalibrationReport,
+    remaining: Sequence[_PhasePlan],
+) -> None:
+    """Stop the chain when a phase froze nothing the phases after it need.
+
+    A phase nobody builds on may fail harmlessly: it freezes nothing, says so,
+    and the chain goes on. A phase a later one declares as its dependency is
+    another matter. ``_require_dependency`` is satisfied because that phase
+    ran, so the dependent would calibrate against the values the TOML declares
+    instead of against what its dependency was meant to fix, and nothing in the
+    result would say so.
+    """
+    if not decl.freeze_on_success or _converged(report):
+        return
+    dependents = [plan.decl.name for plan in remaining if plan.decl.depends_on == decl.name]
+    if not dependents:
+        return
+    raise CalibrationError(
+        f"phase {decl.name!r} freezes what {dependents} calibrate on top of, but its "
+        f"session {report.session_id} produced no result over {report.n_iterations} "
+        "trial(s): no best candidate, or a best cost at the failed-evaluation "
+        f"sentinel. Running {dependents} now would calibrate them against the values "
+        f"the TOML declares. Make {decl.name!r} produce a candidate, then run the "
+        "staged calibration again."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Phase selection
 # ---------------------------------------------------------------------------
@@ -340,7 +412,8 @@ def run_staged_calibration(
     project: str = "calibration",
     metric_fn: TrialMetricFn | None = None,
     store_factory: CalibrationStoreFactory | None = None,
-) -> StagedCalibrationReport:
+    return_report: bool = True,
+) -> StagedCalibrationReport | dict[str, Any]:
     """Run the phases of ``config_path`` one after the other.
 
     Parameters
@@ -362,10 +435,15 @@ def run_staged_calibration(
         Programmatic override for the metric extractor.
     store_factory
         Override for the calibration store, forwarded to every phase.
+    return_report
+        When True (the default), return the structured
+        :class:`StagedCalibrationReport`; when False, its ``to_dict()``
+        payload. Same choice as ``run_calibration_cli``, opposite default:
+        every caller of the staged runner asks the report for its summary.
     """
     cfg_path = Path(config_path).expanduser().resolve()
     cfg, _raw = load_toml_calibration(cfg_path)
-    selected = _phases_to_run(cfg, phase)
+    plans = _phase_plans(cfg, _phases_to_run(cfg, phase))
     declared = space_from_config(cfg)
 
     frozen: list[FrozenParameter] = []
@@ -374,16 +452,20 @@ def run_staged_calibration(
     parent_session_id: str | None = None
     root_session_id: str | None = None
 
-    for index, decl in selected:
+    for position, plan in enumerate(plans):
+        index, decl, phase_cfg, space = plan.index, plan.decl, plan.config, plan.space
         _require_dependency(decl, ran)
-        phase_cfg = _phase_config(cfg, decl)
-        space = space_from_config(phase_cfg)
-        trial_ctx = prepare_trials(
-            cfg_path,
-            override_paths=_injected_paths(phase_cfg, frozen),
-            config_overrides=dict(decl.overrides),
-            parameter_space=space,
-        )
+        try:
+            trial_ctx = prepare_trials(
+                cfg_path,
+                override_paths=_injected_paths(phase_cfg, frozen),
+                config_overrides=dict(decl.overrides),
+                parameter_space=space,
+            )
+        except ConfigValidationError as exc:
+            raise ConfigValidationError(
+                f"phase {decl.name!r} cannot prepare its trials: {exc}"
+            ) from exc
         _freeze_into_baseline(trial_ctx, frozen)
 
         session_id = uuid.uuid4().hex
@@ -422,6 +504,7 @@ def run_staged_calibration(
             chain=chain,
         )
 
+        _require_result_for_dependents(decl, report, plans[position + 1 :])
         froze = _frozen_by(decl, report, declared)
         frozen.extend(froze)
         runs.append(
@@ -438,11 +521,12 @@ def run_staged_calibration(
         parent_session_id = session_id
         ran.add(decl.name)
 
-    return StagedCalibrationReport(
+    staged = StagedCalibrationReport(
         phases=tuple(runs),
         frozen=tuple(frozen),
         root_session_id=str(root_session_id),
     )
+    return staged if return_report else staged.to_dict()
 
 
 __all__ = [

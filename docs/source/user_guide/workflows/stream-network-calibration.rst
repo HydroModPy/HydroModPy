@@ -30,9 +30,11 @@ network into the routing surface first:
 
 ``stream_geometry_path`` is not optional. Without it the geographic pipeline
 stops on ``geographic.enforce_streams.stream_geometry_path is unset.`` at the
-first step, before anything is calibrated. A bare filename is looked up under
-``<data>/hydrography/``, where ``<data>`` is the parent of the DEM family
-directory.
+first step, before anything is calibrated. The path is anchored once, when
+the configuration is loaded: a relative value against the directory of the TOML
+that declares it, a bare filename under ``<workspace>/data/hydrography/`` then
+``<workspace>/data/``. Nothing is probed when the file is read, so the run
+takes the same network whatever directory it was launched from.
 
 A project declaring that path gets the agreement measured whether or not
 ``enabled`` is set, which is how you find out that the burning is needed. It
@@ -223,7 +225,7 @@ What each choice buys you
    inert as defined: a cell that releases at all carries the drainage it
    collects from everything upslope, a hundred to a thousand times its own
    recharge, so a fraction of that recharge never excludes anything. Measured on
-   the Nancon at the calibrated conductivity, over 321 releasing cells, not one
+   the Nancon at the calibrated conductivity, over the 380 cells releasing inside the catchment, not one
    had a flux below the threshold, and raising the ratio to 100 still kept 28.
 
    Thresholding the total release instead was tried and is worse: at
@@ -323,9 +325,17 @@ to look at first:
 
 ``frac_unreachable_so`` and ``frac_unreachable_os``
    The share of each support whose descent ends without meeting its target.
-   Beyond ``max_unreachable_fraction`` (five per cent by default) the trial
+   The bound holds on ``frac_unreachable_so`` alone: its target is the mapped
+   network with the outlet sealed in, which does not move between trials, so
+   beyond ``max_unreachable_fraction`` (five per cent by default) the trial
    fails loudly, because averaging over a truncated support is a fiction and
    the cells dropped are never a random sample: they sit upstream of a pit.
+   ``frac_unreachable_os`` is reported and deliberately unbounded. Its target
+   is the SIMULATED network, which the calibration moves: at a high
+   conductivity the simulated streams retract into the talwegs and mapped cells
+   legitimately have nothing left to descend into. Those cells saturate at
+   ``L_cap``, and the value is the signal the search reads at the high end of
+   its bracket, not a broken surface.
 
 ``D_so_median``, ``D_so_p90``, ``D_so_top5_share``
    The shape of the tail, with ``D_os_median``, ``D_os_p90`` and
@@ -356,8 +366,8 @@ calibrated under both MODFLOW backends, eleven per cent apart on the root; and
 the same catchment again with the reaches in SFR, which is what puts the
 release union of the previous section under load.
 
-The figures, and the one thing they need
-----------------------------------------
+The figures
+-----------
 
 Eight figures are registered for this method: ``downslope_distance_crossing``,
 ``bisection_bracket_trace``, ``parameter_cost_profile``,
@@ -365,20 +375,51 @@ Eight figures are registered for this method: ``downslope_distance_crossing``,
 ``seepage_network_confusion_map``, ``downslope_distance_map`` and
 ``hydrograph_log_nse``.
 
-The first four read the trials of the session straight off the run.
-``hydrograph_log_nse`` reads the simulated and observed series off the run too,
-and takes the score and the scoring window as arguments, because ``display``
-may not import ``calibration`` and those two are calibration notions.
+All eight are declared, never scripted. List them in ``[display].figures`` of
+the project or of the calibration TOML and the promoted run renders them like
+any other figure of the gallery:
 
-The three network maps are the ones that need work. The criterion builds its
-per-cell supports during a trial, and nothing persists them, so a caller that
-wants those maps has to rebuild the supports from the promoted run and pass
-them to ``render()``. ``render_figures.py`` of the example project does exactly
-that, replaying the same chain the criterion runs: specific seepage threshold,
-downstream closure, both supports cut to the delineated catchment, and the
-descent measured on a surface whose depressions are resolved on the mesh graph.
-Check the rebuild against ``n_valid``, ``n_excess`` and ``n_missing`` of the
-trial; if the three counts do not match, the maps are drawing something else.
+.. code-block:: toml
+
+   [display]
+   figures = [
+       "downslope_distance_crossing",
+       "bisection_bracket_trace",
+       "parameter_cost_profile",
+       "seepage_network_reference_overlay",
+       "seepage_network_confusion_map",
+       "downslope_distance_map",
+       "hydrograph_log_nse",
+       "abherve_two_stage_card",
+   ]
+
+The first four read the trials of the session straight off the run. The three
+network maps rebuild the per-cell partition the criterion scored, through the
+same construction it used
+(:mod:`hydromodpy.core.stream_geometry`, reached from
+:func:`hydromodpy.results.derive.stream_network.network_comparison_from_run`),
+so a map cannot disagree with the ``n_valid``, ``n_excess`` and ``n_missing``
+the trial published. They need three things from the run and say which one is
+missing when it is: a per-cell ``release_flux``, a ``reference`` hydrographic
+network, and a delineated watershed. The first comes from
+``[simulation.results.derived] release_flux = true``, the second from
+``[[data.hydrography.sources]]``.
+
+Their knobs go through ``[display.overrides]``, so a reader can move the
+threshold the partition depends on, or read the other direction of the
+distance, without touching code:
+
+.. code-block:: toml
+
+   [display.overrides.seepage_network_confusion_map]
+   tau_specific_ratio = 0.0
+
+   [display.overrides.downslope_distance_map]
+   direction = "to_simulated"
+
+A ninth figure, ``roptim_validity_chart``, compares the calibrated agreement of
+SEVERAL catchments, and a run holds one. It refuses a run-driven render by name
+rather than drawing one point, and it is fed per-site records directly.
 
 ``abherve_two_stage_card`` is a grid of panels and draws through ``plot()``,
 not through ``render(sim, ax)``.

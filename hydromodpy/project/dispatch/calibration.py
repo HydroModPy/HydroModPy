@@ -30,7 +30,7 @@ class ProjectTrialPromotionProvider:
         session_id: str | None = None,
     ) -> str:
         """Run the full simulation pipeline with calibration values baked in."""
-        from hydromodpy.calibration.runners.trial import _set_by_path
+        from hydromodpy.calibration.optim.parameters import set_by_path
         from hydromodpy.project import Project
 
         resolved_cfg_path = Path(cfg_path).expanduser().resolve()
@@ -40,7 +40,7 @@ class ProjectTrialPromotionProvider:
                 for pname, pvalue in values.items():
                     dotted = paths.get(pname)
                     if dotted:
-                        _set_by_path(project.config, dotted, pvalue)
+                        set_by_path(project.config, dotted, pvalue)
                 run = project.simulate(name=name or "promoted")
             else:
                 run_kwargs: dict[str, Any] = dict(values)

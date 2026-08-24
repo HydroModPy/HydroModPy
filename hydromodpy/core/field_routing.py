@@ -227,6 +227,7 @@ def build_downhill_graph(
     face_node_connectivity: Any,
     *,
     vertices: Any | None = None,
+    centroids: Any | None = None,
     inactive_mask: Any | None = None,
     adjacency: list[set[int]] | None = None,
 ) -> DownhillGraph:
@@ -235,6 +236,13 @@ def build_downhill_graph(
     ``adjacency`` replaces the shared-edge neighbor graph derived from the face
     connectivity. Pass one to route over shared nodes instead, which is how a
     structured grid recovers its diagonal descents.
+
+    ``centroids`` are the points ``reference_values`` were sampled at, used to
+    normalize a drop into a slope. Without them the polygon centroid is derived
+    from ``vertices``, which is the same point on a parallelogram cell and NOT
+    on a Voronoi dual: there the generator seed carries the elevation while the
+    vertex mean sits elsewhere, so the drop and the length would span two
+    different segments and the ratio would be a slope of nothing.
     """
     reference = np.asarray(reference_values, dtype=float).reshape(-1)
     n_cells = int(reference.size)
@@ -257,11 +265,19 @@ def build_downhill_graph(
             face_node_connectivity,
             n_cells=n_cells,
         )
-    centroids = None
-    if vertices is not None:
+    if centroids is not None:
+        centroids = np.asarray(centroids, dtype=float)
+        if centroids.ndim != 2 or centroids.shape != (n_cells, 2):
+            raise ValueError(
+                f"centroids must be ({n_cells}, 2), got {centroids.shape}. They are the points "
+                "the reference values were sampled at, one per cell."
+            )
+    elif vertices is not None:
         centroids = cell_centroids_from_mesh(vertices, face_node_connectivity)
-        if centroids.shape[0] != n_cells or not np.any(np.isfinite(centroids)):
-            centroids = None
+    if centroids is not None and (
+        centroids.shape[0] != n_cells or not np.any(np.isfinite(centroids))
+    ):
+        centroids = None
 
     max_degree = max((len(cells) for cells in adjacency), default=0)
     neighbors = np.full((n_cells, max(max_degree, 1)), -1, dtype=int)

@@ -18,7 +18,7 @@ from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 from hydromodpy.calibration.runners.trial import TrialContext
-from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 
 K_PATH = "flow.param.K.field.value"
 SY_PATH = "flow.param.Sy.field.value"
@@ -96,6 +96,42 @@ method = "grid"
 max_iter = 30
 parameters = ["Sy", "K"]
 depends_on = "steady_k"
+"""
+
+# Same two phases, but the second one is not written against what the first
+# freezes. A phase nobody builds on may fail and hand nothing over; that is
+# what the two "freezes nothing" tests below are about, and it is only
+# observable on a table where no phase depends on the one that failed.
+INDEPENDENT = """
+[[calibration.phases]]
+name = "steady_k"
+method = "bisection"
+max_iter = 12
+parameters = ["K"]
+
+[[calibration.phases]]
+name = "transient_sy"
+method = "grid"
+max_iter = 30
+parameters = ["Sy"]
+"""
+
+# ``rel_tol`` is a setting of the one-dimensional root search. The second phase
+# searches on a grid, which has no such knob, so this table cannot build the
+# calibration of its second phase -- and nothing says so until its turn.
+BAD_SECOND_PHASE = """
+[[calibration.phases]]
+name = "steady_k"
+method = "bisection"
+max_iter = 12
+parameters = ["K"]
+
+[[calibration.phases]]
+name = "transient_sy"
+method = "grid"
+max_iter = 30
+parameters = ["Sy"]
+optimizer_kwargs = { rel_tol = 0.01 }
 """
 
 
@@ -307,11 +343,13 @@ def test_freeze_on_success_false_leaves_the_next_phase_free_to_move_it(tmp_path,
 
 
 def test_a_phase_that_did_not_converge_freezes_nothing(tmp_path, monkeypatch) -> None:
+    # No phase of INDEPENDENT is written against what another one freezes, so
+    # the chain survives the failure and what it hands over stays observable.
     fake = FakeRunner(best_objective=None)
     monkeypatch.setattr(staged_runner, "prepare_trials", fake.prepare_trials)
     monkeypatch.setattr(staged_runner, "run_calibration_core", fake.run_calibration_core)
 
-    report = run_staged_calibration(_write(tmp_path))
+    report = run_staged_calibration(_write(tmp_path, INDEPENDENT))
 
     assert report.frozen == ()
     assert fake.calls[1].baseline.flow.param.K.field.value == pytest.approx(K_TOML)
@@ -325,9 +363,30 @@ def test_a_best_cost_at_the_failure_sentinel_is_not_a_convergence(tmp_path, monk
     monkeypatch.setattr(staged_runner, "prepare_trials", fake.prepare_trials)
     monkeypatch.setattr(staged_runner, "run_calibration_core", fake.run_calibration_core)
 
-    report = run_staged_calibration(_write(tmp_path))
+    report = run_staged_calibration(_write(tmp_path, INDEPENDENT))
 
     assert report.frozen == ()
+
+
+def test_a_freezing_phase_that_produced_no_result_stops_the_chain(tmp_path, monkeypatch) -> None:
+    """TWO_PHASES writes ``transient_sy`` against what ``steady_k`` freezes.
+
+    When ``steady_k`` hands nothing over, running ``transient_sy`` would
+    calibrate it against the values the TOML declares. Its dependency did run,
+    so nothing else in the chain is in a position to notice.
+    """
+    fake = FakeRunner(best_objective=None)
+    monkeypatch.setattr(staged_runner, "prepare_trials", fake.prepare_trials)
+    monkeypatch.setattr(staged_runner, "run_calibration_core", fake.run_calibration_core)
+
+    with pytest.raises(CalibrationError) as refusal:
+        run_staged_calibration(_write(tmp_path))
+
+    assert fake.phases_run == ["steady_k"]
+    message = str(refusal.value)
+    assert "steady_k" in message
+    assert "transient_sy" in message
+    assert fake.calls[0].chain.session_id in message
 
 
 # -- selecting one phase -----------------------------------------------------
@@ -355,6 +414,97 @@ def test_selecting_an_undeclared_phase_lists_the_declared_ones(tmp_path, runner)
 def test_a_calibration_without_phases_is_refused(tmp_path, runner) -> None:
     with pytest.raises(CalibrationError, match="run_calibration_cli"):
         run_staged_calibration(_write(tmp_path, ""))
+
+
+# -- what is checked before the first solve ----------------------------------
+
+
+def test_a_phase_that_cannot_be_built_is_refused_before_the_first_one_runs(
+    tmp_path, runner
+) -> None:
+    """The phase table validates against the calibration, not against itself.
+
+    ``transient_sy`` narrows to a grid search while carrying a setting of the
+    root search, so the calibration it builds declares an optimizer keyword its
+    own method refuses. The refusal used to wait for its turn, by which time
+    ``steady_k`` had spent its twelve solves.
+    """
+    with pytest.raises(ConfigValidationError, match="transient_sy"):
+        run_staged_calibration(_write(tmp_path, BAD_SECOND_PHASE))
+
+    assert runner.calls == []
+    assert runner.prepared == []
+
+
+def test_a_phase_override_that_names_no_field_is_refused_with_its_path(
+    tmp_path, monkeypatch
+) -> None:
+    """A dotted override is checked at every segment, not only at its leaf.
+
+    The configuration below has a ``flow`` and no ``flowx``, so the answer is
+    known before the writer runs. A non-leaf typo used to leave the runner as
+    a bare ``AttributeError``, which the CLI has no code for.
+    """
+    from pydantic import BaseModel, ConfigDict
+
+    from hydromodpy.calibration.runners import trial as trial_module
+
+    class Flow(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        flow_regime: str = "steady"
+
+    class Root(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        flow: Flow = Flow()
+
+    monkeypatch.setattr(
+        trial_module,
+        "get_root_config_provider",
+        lambda: SimpleNamespace(from_toml=lambda path: Root()),
+    )
+    cfg_path = tmp_path / "project.toml"
+    cfg_path.write_text('[simulation]\nname = "toy"\n', encoding="utf-8")
+
+    with pytest.raises(ConfigValidationError, match=r"flowx\.flow_regime"):
+        trial_module.prepare_trials(
+            cfg_path,
+            override_paths={"K": "flow.flow_regime"},
+            config_overrides={"flowx.flow_regime": "transient"},
+        )
+
+
+def test_a_refused_preparation_is_reported_with_the_phase_that_asked_for_it(
+    tmp_path, monkeypatch
+) -> None:
+    """The preparation does not know which phase asked; the runner does.
+
+    A staged calibration prepares once per phase, so a refusal that names only
+    the path leaves the reader to guess which of the declared phases owns it.
+    """
+
+    def refuse(*args, **kwargs):
+        raise ConfigValidationError("config override 'flowx.flow_regime' cannot be written")
+
+    monkeypatch.setattr(staged_runner, "prepare_trials", refuse)
+
+    with pytest.raises(ConfigValidationError) as refusal:
+        run_staged_calibration(_write(tmp_path))
+
+    message = str(refusal.value)
+    assert "steady_k" in message
+    assert "flowx.flow_regime" in message
+
+
+# -- return shape ------------------------------------------------------------
+
+
+def test_the_runner_can_return_the_payload_instead_of_the_report(tmp_path, runner) -> None:
+    """``Project.calibrate`` documents ``return_report`` for every mode."""
+    payload = run_staged_calibration(_write(tmp_path), return_report=False)
+
+    assert isinstance(payload, dict)
+    assert [item["phase"] for item in payload["phases"]] == ["steady_k", "transient_sy"]
+    assert payload["root_session_id"] == payload["phases"][0]["session_id"]
 
 
 # -- session chain -----------------------------------------------------------

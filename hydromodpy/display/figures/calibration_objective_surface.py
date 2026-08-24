@@ -12,11 +12,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.results.calibration_trials import calibration_trials
+from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -25,14 +24,23 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-def _load_iterations(sim: Run, session_id: str | None) -> pd.DataFrame:
-    iters = calibration_trials(sim)
-    df = pd.DataFrame(iters)
-    if session_id is not None and "session_id" in df.columns:
-        df = df[df["session_id"] == session_id]
-    if df.empty:
-        raise ValueError("calibration_objective_surface: iteration set is empty")
-    return df.reset_index(drop=True)
+def _pair(table: TrialTable, parameters: tuple[str, ...] | list[str] | None) -> tuple[str, str]:
+    """Name the two parameters the surface spans, and refuse to guess."""
+    if parameters is None:
+        sampled = table.parameters
+        if len(sampled) != 2:
+            raise ValueError(
+                "calibration_objective_surface: a surface spans exactly two parameters, "
+                f"and the session sampled {', '.join(sampled) or '<none>'}. Use the "
+                "`parameters=` kwarg to pick two."
+            )
+        return sampled[0], sampled[1]
+    if not isinstance(parameters, (list, tuple)) or len(parameters) != 2:
+        raise ValueError(
+            "calibration_objective_surface: `parameters=` must be a length-2 "
+            "sequence (e.g. parameters=('K', 'Sy'))"
+        )
+    return str(parameters[0]), str(parameters[1])
 
 
 def _interp_cubic_then_linear(
@@ -72,40 +80,34 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        parameters: tuple[str, ...] = ("K", "Sy"),
-        objective: str = "objective_value",
+        parameters: tuple[str, ...] | list[str] | None = None,
+        objective: str | None = None,
         session_id: str | None = None,
         grid_size: int = 120,
         **_,
     ) -> Axes:
-        if not isinstance(parameters, (list, tuple)) or len(parameters) != 2:
-            raise ValueError(
-                "calibration_objective_surface: `parameters=` must be a length-2 "
-                "sequence (e.g. parameters=('K', 'Sy'))"
-            )
-
-        df = _load_iterations(sim, session_id)
-
-        if objective not in df.columns and "objective" in df.columns:
-            objective = "objective"
-        missing = [p for p in parameters if p not in df.columns]
-        if missing or objective not in df.columns:
-            available = ", ".join(sorted(df.columns))
-            raise ValueError(
-                "calibration_objective_surface: missing columns "
-                f"{missing + ([objective] if objective not in df.columns else [])}"
-                f" (available: {available}). Use the `parameters=` kwarg to pick two."
-            )
-
-        px = df[parameters[0]].to_numpy(dtype=float)
-        py = df[parameters[1]].to_numpy(dtype=float)
-        pz = df[objective].to_numpy(dtype=float)
+        table = trial_table(sim, session_id=session_id)
+        first, second = _pair(table, parameters)
+        _, px = table.parameter_values(first)
+        _, py = table.parameter_values(second)
+        objective_name, pz = table.objective_values(objective)
         finite = np.isfinite(px) & np.isfinite(py) & np.isfinite(pz)
         px, py, pz = px[finite], py[finite], pz[finite]
         if px.size < 4:
             raise ValueError(
                 "calibration_objective_surface: need at least 4 finite evaluations "
                 f"(have {px.size})"
+            )
+        # A surface needs a plane to be drawn on. A one-dimensional search, or
+        # two parameters a phase moved together, gives collinear points: the
+        # triangulation is then degenerate and the interpolation returns an
+        # all-NaN grid that draws as an empty panel with a colour bar.
+        spread = np.column_stack([px - px.mean(), py - py.mean()])
+        if np.linalg.matrix_rank(spread) < 2:
+            raise ValueError(
+                f"calibration_objective_surface: the trials of {first!r} and {second!r} are "
+                "collinear, so they span no surface to interpolate. A one-dimensional search "
+                "is read on calibration_trace or parameter_cost_profile."
             )
 
         n = max(25, int(grid_size))
@@ -124,9 +126,9 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         ax.scatter([px[best]], [py[best]], marker="*", s=180, c="red", edgecolors="black", lw=0.6)
 
         fig = ax.figure
-        fig.colorbar(pcm, ax=ax, label=objective)
-        ax.set_xlabel(parameters[0])
-        ax.set_ylabel(parameters[1])
+        fig.colorbar(pcm, ax=ax, label=objective_name)
+        ax.set_xlabel(first)
+        ax.set_ylabel(second)
         ax.set_title(f"Objective surface ({method}) - {sim.name or sim.sim_id}")
         return ax
 

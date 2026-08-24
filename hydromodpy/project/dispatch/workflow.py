@@ -7,8 +7,9 @@ it depends on :class:`hydromodpy.project.Project`; the lower
 ``hydromodpy.workflow`` package stays independent from that facade.
 
 It also owns the staged-calibration routing question
-(:func:`declared_calibration_phases`, :func:`in_memory_staged_refusal`), which
-every calibration entry point asks before choosing a runner.
+(:func:`declared_calibration_phases`, :func:`calibration_phases_or_raise`,
+:func:`in_memory_staged_refusal`), which every calibration entry point asks
+before choosing a runner.
 """
 
 from __future__ import annotations
@@ -31,7 +32,8 @@ def declared_calibration_phases(config_path: str | Path) -> list[str]:
     Non-fatal on purpose: this answers the routing question and nothing else. A
     file that cannot be read declares no phase here, and its real error is
     raised by the runner that reads it next, with its context. Callers whose
-    answer depends on reading the file must not use this.
+    answer depends on reading the file use :func:`calibration_phases_or_raise`
+    instead.
     """
     from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
 
@@ -39,6 +41,25 @@ def declared_calibration_phases(config_path: str | Path) -> list[str]:
         cfg, _raw = load_toml_calibration(Path(config_path).expanduser().resolve())
     except Exception:
         return []
+    return [decl.name for decl in (cfg.phases or [])]
+
+
+def calibration_phases_or_raise(config_path: str | Path) -> list[str]:
+    """Names of the declared phases, reporting a file that cannot be read.
+
+    The raising sibling of :func:`declared_calibration_phases`, for the caller
+    that reaches no runner afterwards: selecting a phase by name answers from
+    the file itself, so a file that fails to validate must be reported as such
+    and not as a file declaring no phase.
+    """
+    from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+    from hydromodpy.core.exceptions import ConfigError
+
+    target = Path(config_path).expanduser().resolve()
+    try:
+        cfg, _raw = load_toml_calibration(target)
+    except Exception as exc:
+        raise ConfigError(f"{target} cannot be read: {exc}") from exc
     return [decl.name for decl in (cfg.phases or [])]
 
 
@@ -76,10 +97,22 @@ def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dic
     from hydromodpy.core.exceptions import CalibrationError
 
     target = Path(config_path).expanduser().resolve()
-    if declared_calibration_phases(target):
-        from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
+    # A caller naming a phase gets the reading that raises: answering "declares
+    # no phases" for a file that declares them but fails to validate sends the
+    # user to a block that is present and correct while the real error is lost.
+    declared = (
+        calibration_phases_or_raise(target)
+        if phase is not None
+        else declared_calibration_phases(target)
+    )
+    if declared:
+        from hydromodpy.calibration.runners.staged_runner import (
+            StagedCalibrationReport,
+            run_staged_calibration,
+        )
 
-        return run_staged_calibration(target, phase=phase).to_dict()
+        staged = run_staged_calibration(target, phase=phase)
+        return cast(StagedCalibrationReport, staged).to_dict()
     if phase is not None:
         raise CalibrationError(no_such_phase(target.name, phase))
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
@@ -253,6 +286,7 @@ def dispatch_workflow(workflow: str, config_path: Path, **kwargs: Any) -> dict[s
 __all__ = [
     "DISPATCH",
     "ProjectTestbedRunnerProvider",
+    "calibration_phases_or_raise",
     "declared_calibration_phases",
     "dispatch_workflow",
     "in_memory_staged_refusal",

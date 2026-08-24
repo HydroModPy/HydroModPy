@@ -153,33 +153,58 @@ its cells.
 Under that test sits a threshold :math:`\tau`, there to reject what a boundary
 package leaves on a cell that is dry for every practical purpose. What
 :math:`\tau` is read against decides whether it is a floor or a second
-calibration knob.
+calibration knob, and **that reference is an open question of the method**. Two
+answers have been written and measured on the same catchment. They miss in
+opposite directions, the shipped one is the inert one, and what follows reports
+both rather than announcing a winner the method does not have.
 
-**The threshold is a share of what the model receives**, :math:`\tau =
-\tau_{ratio} \cdot R \cdot A`, with :math:`A` the area the mesh covers. It is
-one number for the whole mesh. Reading: a cell releasing less than
-:math:`\tau_{ratio}` of the water the model is fed is not a source.
-:math:`\tau_{ratio} = 0` removes the threshold entirely, which is the purely
-geometric criterion of the paper.
+**What the code applies is a share of the cell's own recharge**, :math:`\tau(c)
+= \tau_{ratio} \cdot R \cdot a(c)`, with :math:`a(c)` the area of that cell and
+:math:`R` the mean recharge of the built model. It is one number per cell.
+Reading: a cell releasing less than :math:`\tau_{ratio}` of the water that falls
+on it is not a source. The ratio is declared as ``tau_specific_ratio``, its
+default is :math:`10^{-4}`, and zero removes the threshold entirely, which is
+the purely geometric criterion of the paper.
 
-:math:`A` is the extent of the mesh, not of the catchment, and on a buffered
-domain the two differ: the Nancon mesh covers 151.0 km2 against 67.3 km2 of
-delineated catchment. The choice is what makes :math:`R \cdot A` equal to the
-total release exactly, which is the invariant the next paragraph rests on, but
-it has a price. Widening the buffer around the same catchment raises :math:`A`
-and therefore :math:`\tau` at a fixed :math:`\tau_{ratio}`, so a declared ratio
-is comparable across refinements of one domain and across catchments buffered
-alike, and not across two domains buffered differently. That residual is a
-domain choice rather than a refinement, which is the failure mode the previous
-definition had and this one does not.
+**That reference is frozen over the search**, which the method requires: a
+threshold moving with the trial would cost :math:`D_{so}(K/R)` its monotonicity
+and the root search its meaning. Cell areas are static geometry and :math:`R` is
+a property of the forcing, so :math:`\tau` moves only if the recharge does, and
+that is checked rather than assumed: every trial publishes ``R_mean_m_s``, read
+back from the built model, and a move between two builds warns and names both
+values.
 
-**Not a share of the cell's own recharge.** That was the earlier definition,
-justified by the observation that a fixed m3/s cut is nine times harsher on a
-cell three times smaller. The argument assumes the release is a surface flux
-that converges under refinement. It is not: a cell releases the drainage it
-collects from upslope, so :math:`q / (R\,a)` is a concentration factor and
-carries the mesh in its denominator. Aggregating one solved field of the Nancon
-from 50 m to 400 m cells:
+**What the threshold excluded is not measured.** The surviving cells INSIDE THE
+SCORED CATCHMENT are counted per trial as ``n_seepage``, so the water bodies and
+the out-of-catchment cells are already gone from that count; no diagnostic
+carries the share of released water
+:math:`\tau` rejected. Comparing ``n_seepage`` against a run at
+:math:`\tau_{ratio} = 0` is the only reading of what a declared ratio cost.
+
+**As defined it excludes nothing, and that is measured.** A cell does not
+release the recharge that fell on it. It releases the drainage it collects from
+everything upslope, a hundred to a thousand times its own recharge, so a small
+fraction of that recharge sits far below anything the model produces. On the
+Nancon at the calibrated conductivity, over the 380 cells releasing inside the catchment, **not one had a
+flux below the default threshold**, and raising :math:`\tau_{ratio}` to 100
+still kept 28. The default :math:`\tau` is :math:`3.5 \times 10^{-9}` m3/s on a
+50 m cell there, three decades below the smallest release the model produces, and
+nothing is excluded until :math:`\tau_{ratio}` passes 0.2. A knob documented as
+a small fraction whose usable band starts near one is not a filter with a
+conservative default, it is an inert declaration.
+
+There is also nothing for it to clear on that run. Its DRN cells release either
+exactly zero (59 640 of 60 395) or more than :math:`1.9 \times 10^{-6}` m3/s:
+there is no population of near-zero releases between the two. A package that
+does dribble, which DRN here does not, is the case the floor is held in reserve
+for.
+
+**And the reference carries the mesh.** The argument for a specific threshold is
+that a fixed m3/s cut is nine times harsher on a cell three times smaller, which
+assumes the release is a surface flux that converges under refinement. It is
+not: :math:`q / (R\,a)` is a concentration factor with the discretisation in its
+denominator. Aggregating one solved field of the Nancon from 50 m to 400 m
+cells:
 
 .. list-table::
    :header-rows: 1
@@ -189,7 +214,7 @@ from 50 m to 400 m cells:
      - seepage cells
      - median :math:`q / (R\,a)`
      - water kept at 100 times the cell's own recharge
-     - water kept at :math:`4.5 \times 10^{-4}` of the production
+     - water kept at :math:`4.5 \times 10^{-4}` of what the model receives
    * - 50 m
      - 380
      - 49.6
@@ -214,21 +239,40 @@ from 50 m to 400 m cells:
 A converged surface flux would hold the third column constant. It falls by a
 factor 12, so a threshold read against it selects whatever the discretisation
 gives it: the same declared value keeps half the released water at 50 m and
-nothing at all at 200 m, while the same declared share of the production stays
-within six points of itself over a factor eight in cell size. :math:`R` is a
-property of the forcing and :math:`A` of the model domain, and neither moves
-when that domain is refined.
+nothing at all at 200 m, while the same declared share of what the whole model
+receives stays within six points of itself over a factor eight in cell size.
+That last column is what motivated the other answer.
 
-**The reference is frozen over the search by construction**, which the method
-requires: a threshold moving with the trial would cost :math:`D_{so}(K/R)` its
-monotonicity and the root search its meaning. A steady model whose only sink is
-seepage returns every drop it receives, so :math:`R \cdot A` is also the total
-release at every trial. Measured on the Nancon, 2.1018 m3/s of recharge against
-2.1025 of drain outflow, unchanged from :math:`K = 10^{-7}` to :math:`10^{-3}`.
+The other answer, written, measured and reverted
+------------------------------------------------
 
-**Where the threshold stops filtering and starts calibrating.** Swept at the
-root of the criterion on the Nancon, 60 395 cells at 50 m, 380 of them
-releasing inside the catchment:
+Thresholding what the model receives instead, :math:`\tau = \tau_{ratio} \cdot
+R \cdot A` with :math:`A` the area the mesh covers, is one number for the whole
+mesh and does not move under refinement. It also holds still over the search on
+its own: a steady model whose only sink is seepage returns every drop it
+receives, so :math:`R \cdot A` is the total release at every trial, measured on
+the Nancon at 2.1018 m3/s of recharge against 2.1025 of drain outflow,
+unchanged from :math:`K = 10^{-7}` to :math:`10^{-3}`.
+
+**It was implemented, swept, and rolled back the same evening. The code at HEAD
+does not carry it**, and neither does the per-trial rejected-share warning that
+shipped with it: a reader who remembers that instrument will not find it among
+the diagnostics.
+
+It fails on the property the root search rests on. At :math:`\tau_{ratio} =
+10^{-4}` the cut lands at :math:`4.9 \times 10^{-4}` m3/s, above the many small
+releases a low conductivity spreads over the catchment and below the few large
+ones a high conductivity concentrates. The simulated network then **grows** with
+the conductivity instead of retracting: on the Nancon variant with the reaches
+in SFR the residual lost its monotonicity, running :math:`-270`, :math:`-7`,
+:math:`+46`, :math:`+929`, :math:`+87`, :math:`+40` over the sweep, and the root
+left for :math:`2.8 \times 10^{-8}`, three decades under the expected value.
+
+Swept on the drain-only variant, where the direction of variation survives, the
+same threshold shows where it stops filtering and starts calibrating. On the
+Nancon, 60 395 cells at 50 m, 380 of them releasing inside the catchment, and
+:math:`R \cdot A = 2.1` m3/s so that the second column is that product times the
+ratio:
 
 .. list-table::
    :header-rows: 1
@@ -294,35 +338,31 @@ per cent say one thing and not three: nothing moved. What moved is the last
 three rows, by an amount of the same order as the eleven per cent that
 separates two solvers on this same catchment. **Past about two per cent of the
 released water, the threshold is no longer filtering the sources, it is
-shortening the network.** Shortening the
-network is exactly what the calibrated ratio is there to do, so the two knobs
-then pull against each other and the calibrated value becomes conditional on a
-number nobody tuned. HydroModPy measures the rejected share at every trial and warns above
-one per cent.
+shortening the network.** Shortening the network is exactly what the calibrated
+ratio is there to do, so the two knobs then pull against each other and the
+calibrated value becomes conditional on a number nobody tuned.
 
-**The default is** :math:`\tau_{ratio} = 10^{-4}`. It drops the 31 weakest
-emitters of the 380, which carry 0.23 per cent of the released water, and moves
-the calibrated conductivity by 0.8 per cent, a factor thirteen under the
-solver-to-solver spread.
+What the threshold should be a fraction of
+------------------------------------------
 
-Do not read that default as clearance above a dribble floor, because this run
-has no dribble floor to clear. Its DRN cells release either exactly zero
-(59 640 of 60 395) or more than :math:`1.9 \times 10^{-6}` m3/s: there is no
-population of near-zero releases between the two. The default :math:`\tau`
-of :math:`2.1 \times 10^{-4}` m3/s therefore sits about 1.5 decades above the
-weakest release in the catchment and lands near the sixth percentile of the
-release distribution, inside its body rather than under it. It cuts real
-emitters, and the 0.23 per cent above is the measure of how little that costs.
-A package that does dribble, which DRN here does not, is the case the floor is
-held in reserve for.
+Open. Neither reference is right, and the two miss in opposite ways. The cell's
+own recharge is two orders of magnitude below the flux a releasing cell carries,
+so it never selects anything. What the whole model receives is a single number
+facing a population that spans decades, so it selects the wrong tail and inverts
+the response of the criterion to its own parameter, which is the one property
+the root search cannot do without.
 
-**The number is unchanged and its meaning is not.** Under the earlier
-definition the same :math:`10^{-4}` was a threshold of 3.5e-9 m3/s on this
-catchment, three decades below the smallest release the model produces, and it
-excluded nothing until :math:`\tau_{ratio}` passed 0.2. Reproducing the current
-default under
-the old reading would take :math:`\tau_{ratio} = 6`, not :math:`10^{-4}`: a
-knob documented as a small fraction whose usable band ran from 1 to 500.
+One scale has not been tried: what the upslope contributing area of a cell
+delivers to it, the accumulation, which is the only quantity that follows the
+flux that cell actually carries. The accumulation itself is already computed on
+the graph the criterion routes on, at every trial, to place the outlet and to
+close the seepage pattern downslope; what does not exist is anything reading a
+threshold against it, and nothing here claims that would work.
+
+Until the question is settled, leave :math:`\tau_{ratio}` at its default and
+read the simulated network as the unthresholded one, because on every run
+measured so far that is what it is. A run whose release package really does
+dribble needs this answered before its network means anything.
 
 Which cells enter which average
 -------------------------------

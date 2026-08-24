@@ -30,6 +30,10 @@ _M3_PER_S_UNIT_ALIASES: dict[str, str] = {
     "m3.s-1": "m3/s",
     "m3*s-1": "m3/s",
     "m3*s^-1": "m3/s",
+    # CF spelling, as the solver adapters write it on an observable. The
+    # canonical token drops the space, so "m3 s-1" arrives here as "m3s-1".
+    "m3s-1": "m3/s",
+    "m3s^-1": "m3/s",
     "m3/day": "m3/day",
     "m3/d": "m3/day",
     "m^3/day": "m3/day",

@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel
 
+from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     get_trial_pipeline_provider,
@@ -48,6 +49,7 @@ from hydromodpy.calibration.runners.contracts import (
 from hydromodpy.calibration.runners.sandbox import TrialSandbox
 from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
 
@@ -184,7 +186,7 @@ class TrialContext:
             for pname, pvalue in values.items():
                 path = self.override_paths.get(pname)
                 if path:
-                    _set_by_path(new_cfg, path, pvalue)
+                    set_by_path(new_cfg, path, pvalue)
 
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
@@ -271,7 +273,9 @@ def prepare_trials(
         This is how a phase says what model it calibrates: a flow regime or a
         time step written after the prefix is prepared changes the baseline the
         forks copy, but not the time grid the prefix already built, so the
-        phase silently runs the discretisation of the one before it.
+        phase silently runs the discretisation of the one before it. A path
+        that names no field, at any segment, raises
+        :class:`~hydromodpy.core.exceptions.ConfigValidationError`.
 
         This is not ``override_paths``, which names what VARIES per trial and
         therefore decides how much of the pipeline re-runs. An entry there
@@ -288,7 +292,12 @@ def prepare_trials(
     cfg = get_root_config_provider().from_toml(cfg_path)
 
     for dotted, value in (config_overrides or {}).items():
-        _set_by_path(cfg, str(dotted), value)
+        try:
+            set_by_path(cfg, str(dotted), value)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"config override {dotted!r} cannot be written into the configuration: {exc}"
+            ) from exc
 
     if isinstance(override_paths, Mapping):
         path_map: dict[str, str] = {str(k): str(v) for k, v in override_paths.items()}
@@ -680,28 +689,6 @@ def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _set_by_path(cfg: Any, path: str, value: Any) -> None:
-    """Set ``value`` on the leaf at dotted ``path`` under ``cfg``.
-
-    Traversal handles Pydantic attributes (``getattr``/``setattr``) and
-    mapping entries (``"cfg.flow.param.K"`` where ``param`` is a dict
-    keyed by parameter name) transparently.
-    """
-    parts = path.split(".")
-    target: Any = cfg
-    for part in parts[:-1]:
-        if isinstance(target, Mapping):
-            target = target[part]
-        else:
-            target = getattr(target, part)
-    leaf_key = parts[-1]
-    if isinstance(target, Mapping):
-        target[leaf_key] = value
-    else:
-        setattr(target, leaf_key, value)
-
 
 __all__ = (
     "TrialContext",
