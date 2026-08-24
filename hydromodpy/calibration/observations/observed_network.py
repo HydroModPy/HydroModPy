@@ -158,11 +158,16 @@ def delineated_catchment_mask(
         return None
 
     polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
+    # A catchment is areal, so a cell belongs to it when its CENTRE is inside.
+    # The touch rule of the linework would add one exterior ring of cells that
+    # lie mostly outside the divide, and that ring is averaged into both D_so
+    # and D_os and sets L_ref through reference_length.
     return vector_cell_mask(
         polygons,
         list(frame.geometry),
         mesh_crs=mesh_crs,
         geometry_crs=frame.crs,
+        rule="centroid",
     )
 
 

@@ -2,10 +2,18 @@
 
 Vector twin of :mod:`~hydromodpy.spatial.mesh.ops.zonal_stats`: instead of
 reducing raster pixels onto cells, it answers which cells a linework (or any
-geometry set) reaches. A cell belongs to the layer when the geometry intersects
-its polygon, never when it merely contains the cell centre: on a Voronoi mesh
-the centroid rule drops roughly half the cells of a one-cell-wide line, and any
-distance measured from a mask that thin is biased by half a cell.
+geometry set) reaches. A LINEWORK reaches every cell its geometry touches,
+never only the cells whose centre it contains: on a Voronoi mesh the centroid
+rule drops roughly half the cells of a one-cell-wide line, and any distance
+measured from a mask that thin is biased by half a cell.
+
+An AREAL layer takes the opposite rule, ``rule="centroid"``, because touch
+inclusion adds a full exterior ring of cells that lie mostly outside the
+polygon. The two rules are the ``all_touched`` choice the raster path already
+makes for the same pair of objects, in
+:mod:`~hydromodpy.spatial.geographic.core.stream_dem_agreement`, where the
+network is rasterized with ``all_touched=True`` and the catchment with
+``all_touched=False``.
 
 Both CRS are mandatory arguments. Neither mesh container in the repository
 carries one (``HydroMesh`` and the persisted UGRID mesh both store bare
@@ -21,7 +29,7 @@ import the layer that owns the second one.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -31,7 +39,9 @@ if TYPE_CHECKING:
 
     CrsLike = str | int | CRS
 
-__all__ = ["cell_polygons", "vector_cell_mask"]
+CellMaskRule = Literal["touch", "centroid"]
+
+__all__ = ["CellMaskRule", "cell_polygons", "vector_cell_mask"]
 
 
 def cell_polygons(
@@ -69,6 +79,7 @@ def vector_cell_mask(
     mesh_crs: CrsLike,
     geometry_crs: CrsLike,
     distance_m: float = 0.0,
+    rule: CellMaskRule = "touch",
 ) -> np.ndarray:
     """Boolean per-cell mask of the cells one vector layer reaches.
 
@@ -76,12 +87,28 @@ def vector_cell_mask(
     an internal step because a caller that also needs cell centroids or areas
     already holds it, and rebuilding it costs about a second on a large mesh.
 
+    ``rule`` says what "reaches" means. ``"touch"`` keeps every cell the
+    geometry intersects, the rule a linework needs. ``"centroid"`` keeps the
+    cells whose centre the geometry contains, the rule an areal layer needs: a
+    catchment taken by touch is the delineated basin plus one exterior ring, and
+    that ring is measured by whatever is averaged over the mask.
+
     ``distance_m`` widens the test to every cell within that distance of a
     geometry. It is a ``dwithin`` predicate, never a buffer: buffering the
     linework would also enlarge the geometry a caller then measures distances
-    against, which is a different question.
+    against, which is a different question. It applies to ``"touch"`` only;
+    widening a centroid rule by a distance is two rules at once and is refused.
     """
     from shapely.strtree import STRtree
+
+    if rule not in ("touch", "centroid"):
+        raise ValueError(f"rule must be 'touch' or 'centroid', got {rule!r}.")
+    if rule == "centroid" and float(distance_m) > 0.0:
+        raise ValueError(
+            "distance_m widens a touch rule; combining it with rule='centroid' asks for a "
+            "cell whose centre is inside AND whose polygon is within a distance, which are "
+            "two different masks. Pick one."
+        )
 
     mask = np.zeros(polygons.shape[0], dtype=bool)
 
@@ -93,12 +120,19 @@ def vector_cell_mask(
     if not usable.any():
         return mask
 
-    tree = STRtree(list(polygons[usable]))
+    kept = list(polygons[usable])
     query = np.empty(len(parts), dtype=object)
     query[:] = parts
-    if float(distance_m) > 0.0:
+    if rule == "centroid":
+        # The tree holds the cell centres, so "the geometry contains the cell"
+        # is exactly the raster ``all_touched=False`` rule.
+        tree = STRtree([polygon.centroid for polygon in kept])
+        hits = tree.query(query, predicate="contains")
+    elif float(distance_m) > 0.0:
+        tree = STRtree(kept)
         hits = tree.query(query, predicate="dwithin", distance=float(distance_m))
     else:
+        tree = STRtree(kept)
         hits = tree.query(query, predicate="intersects")
     if hits.size:
         mask[np.flatnonzero(usable)[np.unique(hits[1])]] = True

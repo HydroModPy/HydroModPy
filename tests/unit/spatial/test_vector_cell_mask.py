@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Polygon
 
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, vector_cell_mask
 
@@ -171,3 +171,55 @@ def test_a_missing_crs_raises(missing):
 
     with pytest.raises(ValueError, match=missing):
         _mask(vertices, connectivity, [LineString([(10.0, 10.0), (20.0, 20.0)])], **crs)
+
+
+def test_an_areal_layer_by_touch_keeps_a_full_exterior_ring():
+    # 3 x 3 grid of 100 m cells; the polygon covers the middle cell exactly.
+    vertices, connectivity = _quad_grid()
+    middle = Polygon([(100.0, 100.0), (200.0, 100.0), (200.0, 200.0), (100.0, 200.0)])
+
+    touched = _mask(vertices, connectivity, [middle])
+    centred = _mask(vertices, connectivity, [middle], rule="centroid")
+
+    # Touch takes the whole 3 x 3 block, the eight neighbours sharing an edge
+    # or a corner with the polygon boundary. The centroid rule takes the one
+    # cell the polygon really covers.
+    assert touched.sum() == 9
+    assert np.flatnonzero(centred).tolist() == [4]
+
+
+def test_the_centroid_rule_keeps_a_cell_straddling_the_boundary_by_its_centre():
+    vertices, connectivity = _quad_grid()
+    # The polygon covers the left 60 m of the middle column, so the centre of
+    # the middle cell (150, 150) is inside while most of its area is not.
+    polygon = Polygon([(100.0, 100.0), (160.0, 100.0), (160.0, 200.0), (100.0, 200.0)])
+    centred = _mask(vertices, connectivity, [polygon], rule="centroid")
+    assert np.flatnonzero(centred).tolist() == [4]
+
+    # Shifted so the centre falls outside, the same overlap is dropped.
+    outside = Polygon([(100.0, 100.0), (140.0, 100.0), (140.0, 200.0), (100.0, 200.0)])
+    assert not _mask(vertices, connectivity, [outside], rule="centroid").any()
+
+
+def test_a_linework_would_lose_half_its_cells_under_the_centroid_rule():
+    vertices, connectivity = _quad_grid()
+    line = LineString([(10.0, 150.0), (290.0, 150.0)])
+    assert _mask(vertices, connectivity, [line]).sum() == 3
+    # The line runs through the cell centres of the middle row here, but a line
+    # that does not is dropped entirely, which is why touch is the linework rule.
+    off_centre = LineString([(10.0, 190.0), (290.0, 190.0)])
+    assert _mask(vertices, connectivity, [off_centre]).sum() == 3
+    assert not _mask(vertices, connectivity, [off_centre], rule="centroid").any()
+
+
+def test_the_two_rules_cannot_be_combined():
+    vertices, connectivity = _quad_grid()
+    polygon = Polygon([(100.0, 100.0), (200.0, 100.0), (200.0, 200.0), (100.0, 200.0)])
+    with pytest.raises(ValueError, match="two different masks"):
+        _mask(vertices, connectivity, [polygon], rule="centroid", distance_m=50.0)
+
+
+def test_an_unknown_rule_is_refused_by_name():
+    vertices, connectivity = _quad_grid()
+    with pytest.raises(ValueError, match="rule must be"):
+        _mask(vertices, connectivity, [], rule="nearest")
