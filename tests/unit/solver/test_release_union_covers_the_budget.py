@@ -82,6 +82,103 @@ def test_a_package_declared_but_absent_from_the_file_is_not_this_guard_s_busines
     _refuse_records_the_union_misses([DRN, SFR], ["         DRN"])
 
 
+class TestRecordsTheModelRuledOut:
+    """Declaring an exclusion is not the same as forgetting one.
+
+    Every MODFLOW-NWT catchment closes on a lateral constant head, so a guard
+    that refuses on the mere presence of a ``CONSTANT HEAD`` record refuses the
+    normal case. What separates the two is whether the model LOOKED at the
+    package and gave a reason.
+    """
+
+    LATERAL_CHD = {
+        "CHD": "no cell of it carries the stream role",
+        "CONSTANT HEAD": "no cell of it carries the stream role",
+    }
+
+    def test_a_lateral_constant_head_the_model_ruled_out_is_not_refused(self) -> None:
+        _refuse_records_the_union_misses(
+            [DRN],
+            ["         DRN", "  CONSTANT HEAD"],
+            excluded_records=self.LATERAL_CHD,
+        )
+
+    def test_the_same_record_with_no_reason_is_still_refused(self) -> None:
+        with pytest.raises(KeyError, match="CONSTANT HEAD"):
+            _refuse_records_the_union_misses([DRN], ["         DRN", "  CONSTANT HEAD"])
+
+    def test_an_exclusion_does_not_cover_a_different_record(self) -> None:
+        with pytest.raises(KeyError, match="SFR"):
+            _refuse_records_the_union_misses(
+                [DRN],
+                ["         DRN", "  CONSTANT HEAD", "         SFR"],
+                excluded_records=self.LATERAL_CHD,
+            )
+
+    def test_the_exclusion_is_announced_with_its_reason(self, caplog) -> None:
+        with caplog.at_level("INFO"):
+            _refuse_records_the_union_misses(
+                [DRN],
+                ["         DRN", "  CONSTANT HEAD"],
+                excluded_records=self.LATERAL_CHD,
+            )
+        assert "CONSTANT HEAD" in caplog.text
+        assert "stream role" in caplog.text
+
+    def test_a_stream_constant_head_stays_in_the_union(self) -> None:
+        # The model declared it, so it is read rather than ruled out, and the
+        # guard has nothing to say either way.
+        stream_chd = ReleasePackage(name="CHD", record_aliases=("CHD", "CONSTANT HEAD"))
+        _refuse_records_the_union_misses(
+            [DRN, stream_chd], ["         DRN", "  CONSTANT HEAD"], excluded_records={}
+        )
+
+
+class TestTheModelDeclaresWhatItLeavesOut:
+    """The reason has to come from the model, not from the reader."""
+
+    def test_a_run_whose_constant_head_holds_no_stream_rules_it_out(self) -> None:
+        from types import SimpleNamespace
+
+        from hydromodpy.solver.modflow_common.observable_extraction import (
+            excluded_release_records_for_model,
+        )
+
+        model = SimpleNamespace(chd=object(), drn=object())
+        excluded = excluded_release_records_for_model(model)
+        assert set(excluded) == {"CHD", "CONSTANT HEAD"}
+        assert "stream role" in excluded["CHD"]
+
+    def test_a_backend_that_exposes_no_chd_attribute_still_rules_it_out(self) -> None:
+        # MODFLOW-NWT builds its lateral boundary without a `chd` attribute on
+        # the model. Keying the exclusion on that attribute ruled nothing out
+        # and refused every NWT catchment for closing on a boundary.
+        from types import SimpleNamespace
+
+        from hydromodpy.solver.modflow_common.observable_extraction import (
+            excluded_release_records_for_model,
+        )
+
+        assert set(excluded_release_records_for_model(SimpleNamespace(drn=object()))) == {
+            "CHD",
+            "CONSTANT HEAD",
+        }
+
+    def test_a_constant_head_carrying_the_stream_role_is_not_ruled_out(self) -> None:
+        from types import SimpleNamespace
+
+        from hydromodpy.solver.modflow_common.observable_extraction import (
+            excluded_release_records_for_model,
+        )
+
+        model = SimpleNamespace(
+            chd=object(),
+            drn=object(),
+            _stream_support_mask=np.array([False, True, False]),
+        )
+        assert excluded_release_records_for_model(model) == {}
+
+
 class TestSiblingBudgets:
     """A sibling package budget only matters when the model budget is silent.
 
