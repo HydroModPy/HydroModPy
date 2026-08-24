@@ -112,6 +112,12 @@ def _resolve_section_paths(
                     fallback_dirs=fallback_dirs,
                 )
             )
+    # A path declared in a sub-model is invisible to the walk above, so it needs
+    # its own descent. Done here rather than in one loader, because every entry
+    # point that builds this model has to anchor it the same way: the mesh
+    # launcher loads [geographic] through load_standard_section.
+    if "enforce_streams" in model_cls.model_fields:
+        _resolve_enforce_streams_paths(data, base, workspace_data_dir)
 
 
 def load_standard_section(
@@ -176,6 +182,40 @@ def _resolve_catchment_paths(
         catchment_payload, variant_cls, base, workspace_data_dir=workspace_data_dir
     )
     payload["catchment"] = catchment_payload
+
+
+def _resolve_enforce_streams_paths(
+    payload: dict[str, Any],
+    base: Path,
+    workspace_data_dir: Path | None,
+) -> None:
+    """Resolve the mapped network declared in ``enforce_streams`` (in-place).
+
+    ``_resolve_section_paths`` walks the Path fields of the model itself, and
+    this one lives in a sub-model, so it needs its own descent. A bare filename
+    falls back to ``<workspace>/data/hydrography/``, the family that holds a
+    mapped network, which is what the field documents.
+
+    A value matching nothing on disk stays anchored on the TOML directory rather
+    than raising here: a configuration must load on a machine holding none of
+    its data, and the burn names the file it could not read when it reads it.
+    """
+    enforce = payload.get("enforce_streams")
+    if not isinstance(enforce, Mapping):
+        return
+    declared = enforce.get("stream_geometry_path")
+    if not isinstance(declared, str | Path) or not str(declared):
+        return
+    fallback_dirs = (
+        None
+        if workspace_data_dir is None
+        else [workspace_data_dir / "hydrography", workspace_data_dir]
+    )
+    resolved = dict(enforce)
+    resolved["stream_geometry_path"] = str(
+        resolve_declared_path(declared, base_dir=base, fallback_dirs=fallback_dirs)
+    )
+    payload["enforce_streams"] = resolved
 
 
 def load_geographic_section(

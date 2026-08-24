@@ -30,7 +30,7 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -90,7 +90,7 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -139,7 +139,7 @@ def test_mesh_catchment_launcher_requires_mesh_section(monkeypatch, tmp_path: Pa
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -177,7 +177,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -225,7 +225,7 @@ def test_mesh_catchment_launcher_requires_constraints_mode(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -13,6 +14,7 @@ from shapely.geometry import LineString
 from hydromodpy.spatial.geographic.core.stream_enforcement import (
     burn_streams_into_routing_dem,
     check_catchment_area_drift,
+    streams_from_config,
 )
 
 _N = 20
@@ -139,9 +141,16 @@ def test_geometry_outside_the_dem_raises(tmp_path) -> None:
 
 
 class _Enforce:
-    def __init__(self, *, enabled: bool = True, max_catchment_area_drift: float = 0.05):
+    def __init__(
+        self,
+        *,
+        enabled: bool = True,
+        max_catchment_area_drift: float = 0.05,
+        stream_geometry_path: Path | str | None = None,
+    ) -> None:
         self.enabled = enabled
         self.max_catchment_area_drift = max_catchment_area_drift
+        self.stream_geometry_path = stream_geometry_path
 
 
 class _Config:
@@ -182,3 +191,145 @@ def test_an_empty_reference_catchment_raises() -> None:
             reference_area_km2=0.0,
             burned_area_km2=100.0,
         )
+
+
+# ---------------------------------------------------------------------------
+# Where the mapped network is read from
+# ---------------------------------------------------------------------------
+#
+# The trench is cut from the file this path names, so reading it from the
+# directory the run was launched from burns whatever file of that name happens
+# to sit there. The value is anchored once, when the configuration loads.
+
+# The two copies of "streams.gpkg" differ only by where they are: the geometry
+# says which one was opened.
+_PROJECT_LINE = LineString([(105.0, 195.0), (105.0, 5.0)])
+_DECOY_LINE = LineString([(15.0, 195.0), (15.0, 5.0)])
+
+_PROJECT_TOML = """\
+[workflow]
+mode = "simulation"
+
+[workspace]
+root = "{project}"
+project_root = "{project}"
+
+[geographic.catchment]
+catch_def = "dem"
+dem_init_path = "dem.tif"
+
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "{declared}"
+"""
+
+
+class _Setup:
+    """The run context ``streams_from_config`` reads the target CRS from."""
+
+    crs_project = "EPSG:2154"
+
+
+def _plant_network(path: Path, line: LineString) -> None:
+    """Write a one-feature network file whose geometry names the copy."""
+    import geopandas as gpd
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    gpd.GeoDataFrame(geometry=[line], crs="EPSG:2154").to_file(path, driver="GPKG")
+
+
+def _line_in(path: Path) -> LineString:
+    """The geometry the file on disk holds, read back from disk."""
+    import geopandas as gpd
+
+    return gpd.read_file(path).geometry.iloc[0]
+
+
+@pytest.fixture
+def project_and_decoy(tmp_path):
+    """A project holding its network where the field documents it, and a trap.
+
+    The trap is a directory holding a different file of the same name, both as a
+    bare name and under the same ``data/hydrography/`` sub-path.
+    """
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "dem.tif").touch()
+    _plant_network(project / "data" / "hydrography" / "streams.gpkg", _PROJECT_LINE)
+
+    decoy = tmp_path / "elsewhere"
+    _plant_network(decoy / "streams.gpkg", _DECOY_LINE)
+    _plant_network(decoy / "data" / "hydrography" / "streams.gpkg", _DECOY_LINE)
+    return project, decoy
+
+
+def _resolved_network(project: Path, declared: str) -> Path:
+    """Load the project config and return the network path it holds."""
+    from hydromodpy.config import HydroModPyConfig
+
+    cfg_path = project / "project.toml"
+    cfg_path.write_text(
+        _PROJECT_TOML.format(project=project.as_posix(), declared=declared),
+        encoding="utf-8",
+    )
+    cfg = HydroModPyConfig.from_toml(cfg_path)
+    return Path(cfg.geographic.enforce_streams.stream_geometry_path)
+
+
+@pytest.mark.parametrize("declared", ["streams.gpkg", "data/hydrography/streams.gpkg"])
+def test_the_network_is_the_same_file_from_any_working_directory(
+    project_and_decoy, monkeypatch, declared
+) -> None:
+    project, decoy = project_and_decoy
+
+    monkeypatch.chdir(decoy)
+    from_decoy = _resolved_network(project, declared)
+    seen_from_decoy = _line_in(from_decoy)
+    monkeypatch.chdir(project)
+    from_project = _resolved_network(project, declared)
+    seen_from_project = _line_in(from_project)
+
+    assert from_decoy == from_project
+    # Both copies exist under that name; only the project's holds this geometry.
+    assert seen_from_decoy.equals(_PROJECT_LINE)
+    assert seen_from_project.equals(_PROJECT_LINE)
+
+
+def test_the_burn_opens_the_resolved_file_not_the_one_underfoot(
+    project_and_decoy, monkeypatch
+) -> None:
+    project, decoy = project_and_decoy
+    enforce = _Enforce(stream_geometry_path=_resolved_network(project, "streams.gpkg"))
+    monkeypatch.chdir(decoy)
+
+    lines = streams_from_config(enforce, _Setup())
+
+    assert len(lines) == 1
+    assert lines[0].equals(_PROJECT_LINE)
+
+
+def test_a_network_that_points_to_nothing_names_the_field(tmp_path) -> None:
+    missing = tmp_path / "data" / "hydrography" / "streams.gpkg"
+
+    with pytest.raises(FileNotFoundError, match=r"enforce_streams\.stream_geometry_path"):
+        streams_from_config(_Enforce(stream_geometry_path=missing), _Setup())
+
+
+def test_an_unset_network_names_the_field() -> None:
+    with pytest.raises(ValueError, match=r"enforce_streams\.stream_geometry_path is unset"):
+        streams_from_config(_Enforce(), _Setup())
+
+
+def test_a_relative_network_says_it_depends_on_the_working_directory(
+    project_and_decoy, monkeypatch, caplog
+) -> None:
+    # A configuration built without the loader keeps the declared value. It is
+    # still read, but the working-directory read is announced, not silent.
+    _project, decoy = project_and_decoy
+    monkeypatch.chdir(decoy)
+
+    with caplog.at_level(logging.WARNING):
+        lines = streams_from_config(_Enforce(stream_geometry_path="streams.gpkg"), _Setup())
+
+    assert lines[0].equals(_DECOY_LINE)
+    assert "read from the working directory" in caplog.text

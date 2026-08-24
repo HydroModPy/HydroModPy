@@ -99,6 +99,7 @@ class MeshCatchmentLauncher:
             payload.get("geographic", {}),
             GeographicConfig,
             base_dir,
+            workspace_data_dir=getattr(workspace_cfg, "data_dir", None),
         )
         if "domain" in payload:
             domain_cfg = load_standard_section(

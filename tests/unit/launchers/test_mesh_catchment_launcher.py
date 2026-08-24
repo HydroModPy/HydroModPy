@@ -27,7 +27,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -86,7 +86,7 @@ def test_mesh_catchment_launcher_accepts_watershed_boundary_section(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -153,7 +153,7 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -236,7 +236,7 @@ def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else (
@@ -303,7 +303,7 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
@@ -369,7 +369,7 @@ def test_mesh_catchment_launcher_disables_figure_outputs_when_requested(
 
     monkeypatch.setattr(
         "hydromodpy.workflow.pipelines.mesh.load_standard_section",
-        lambda _, model_cls, __: (
+        lambda _, model_cls, __, **__kw: (
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else minimal_cfg.geographic
