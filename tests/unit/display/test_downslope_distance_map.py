@@ -30,6 +30,8 @@ from ._network_comparison_run import (
     column_cells,
     comparison_run,
     drawn_cells,
+    legend_labels,
+    legend_note,
 )
 
 WIDE_CELL_M = 600.0
@@ -60,10 +62,6 @@ def _has_layer(ax, label: str) -> bool:
 def _cells(ax, label: str, cell_m: float = CELL_M) -> list[int]:
     """The grid cells one drawn class covers."""
     return drawn_cells(_layer(ax, label), cell_m)
-
-
-def _legend_labels(ax) -> list[str]:
-    return [text.get_text() for text in ax.get_legend().get_texts()]
 
 
 def _face_color(collection) -> tuple[float, ...]:
@@ -125,7 +123,7 @@ def test_each_cell_of_the_support_lands_in_its_own_class(mpl) -> None:
         assert _cells(ax, "500-1000 m", WIDE_CELL_M) == [cell(1, 1), cell(3, 2)]
         assert _cells(ax, "> 1000 m", WIDE_CELL_M) == [cell(0, 1), cell(4, 2)]
         assert not _has_layer(ax, "75-500 m")
-        assert _legend_labels(ax)[:4] == [
+        assert legend_labels(ax)[:4] == [
             "0-75 m (3 cells)",
             "75-500 m (0 cells)",
             "500-1000 m (2 cells)",
@@ -210,6 +208,46 @@ def test_an_off_support_cell_stays_apart_from_the_shortest_distance() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# which of the two distances is on the page, in words
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("direction", "phrase"),
+    [
+        ("to_mapped", "the simulated cells down to the mapped network"),
+        ("to_simulated", "the mapped cells down to the simulated network"),
+    ],
+)
+def test_the_title_names_both_ends_without_the_symbol(mpl, direction, phrase) -> None:
+    # A reader asked which network the distance was based on and could not
+    # tell from the figure. Neither end may live in a subscript alone.
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceMap().render(_two_branch_run(), ax, direction=direction)
+
+    try:
+        assert phrase in ax.get_title()
+        assert phrase.split(" down to ")[0] in legend_note(ax)
+        assert phrase.split(" down to ")[1] in legend_note(ax)
+    finally:
+        mpl.close(fig)
+
+
+def test_the_note_names_the_support_the_mean_is_taken_over(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceMap().render(_two_branch_run(), ax)
+
+    try:
+        note = legend_note(ax)
+        assert "support: the simulated cells and no other" in note
+        assert "7 cells averaged here" in note
+    finally:
+        mpl.close(fig)
+
+
+# --------------------------------------------------------------------------- #
 # the support is the one the criterion averages over
 # --------------------------------------------------------------------------- #
 
@@ -230,7 +268,7 @@ def test_a_cell_off_the_support_is_out_of_the_scale_and_never_a_zero(mpl) -> Non
         assert _face_color(_layer(ax, "off support")) not in [
             _rgb(color) for color in class_colors(4)
         ]
-        assert "not on the measured support (13 cells)" in _legend_labels(ax)
+        assert "not on the measured support (13 cells)" in legend_labels(ax)
     finally:
         mpl.close(fig)
 
@@ -248,7 +286,8 @@ def test_the_direction_picks_the_network_the_descent_starts_from(mpl) -> None:
         assert _cells(ax, "0-75 m") == [cell(AXIS_COLUMN, 0)]
         assert _cells(ax, "75-500 m") == [cell(AXIS_COLUMN, 1), cell(AXIS_COLUMN, 2)]
         assert "D_os" in ax.get_title()
-        assert "descent of the mapped cells" in ax.texts[0].get_text()
+        assert "the mapped cells down to the simulated network" in ax.get_title()
+        assert "how far each of the mapped cells" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -259,6 +298,55 @@ def test_an_unknown_direction_is_refused(mpl) -> None:
     try:
         with pytest.raises(ValueError, match="direction must be one of"):
             DownslopeDistanceMap().render(comparison_run(), ax, direction="sideways")
+    finally:
+        mpl.close(fig)
+
+
+def test_the_support_is_cased_so_it_reads_before_any_class(mpl) -> None:
+    # The lightest class stands at a contrast of 1.3 against the ground it is
+    # drawn on. Which cells were measured at all has to read on its own, or
+    # the near class disappears into the cells that carry no value.
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceMap().render(_two_branch_run(), ax)
+
+    try:
+        casing = _layer(ax, "_support casing")
+        classes = [
+            _layer(ax, label)
+            for label in class_labels(DISTANCE_CLASS_EDGES_M)
+            if _has_layer(ax, label)
+        ]
+        drawn = sorted({index for item in classes for index in drawn_cells(item)})
+        assert drawn_cells(casing) == drawn, "the casing covers the support and nothing else"
+        for item in classes:
+            assert casing.get_zorder() < item.get_zorder()
+            assert float(casing.get_linewidth()[0]) > float(item.get_linewidth()[0]) > 0.0
+        assert float(_layer(ax, "off support").get_linewidth()[0]) == 0.0
+    finally:
+        mpl.close(fig)
+
+
+def test_the_map_opens_on_the_catchment_and_a_caller_may_widen_it(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceMap().render(_two_branch_run(), ax, extent="mesh")
+
+    try:
+        assert ax.get_xlim()[1] >= NX * CELL_M
+        assert "the whole mesh" in legend_note(ax)
+    finally:
+        mpl.close(fig)
+
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceMap().render(
+        comparison_run(seepage_cells=[cell(0, 1)], catchment_columns=[0, 1]), ax
+    )
+
+    try:
+        assert ax.get_xlim()[1] < 3 * CELL_M
+        assert "the delineated catchment" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -276,13 +364,13 @@ def test_a_support_that_never_arrives_is_annotated(mpl) -> None:
     DownslopeDistanceMap().render(comparison_run(), ax, direction="to_simulated")
 
     try:
-        note = ax.texts[0].get_text()
+        note = legend_note(ax)
         assert "no cell of the support reaches its target" in note
         assert _cells(ax, "unreachable") == column_cells(AXIS_COLUMN)
         assert _layer(ax, "unreachable").get_hatch(), (
             "the third state must not read as one more class"
         )
-        assert any("never reaches" in label for label in _legend_labels(ax))
+        assert any("never reaches" in label for label in legend_labels(ax))
     finally:
         mpl.close(fig)
 
@@ -293,7 +381,7 @@ def test_an_empty_support_is_annotated_rather_than_drawn_empty(mpl) -> None:
     DownslopeDistanceMap().render(comparison_run(), ax)
 
     try:
-        assert "no cell is on the measured support" in ax.texts[0].get_text()
+        assert "no cell is on the measured support" in legend_note(ax)
         assert not _has_layer(ax, "0-75 m")
         assert len(_cells(ax, "off support")) == NX * NY
     finally:
@@ -309,8 +397,8 @@ def test_the_note_names_the_measurement_and_its_threshold(mpl) -> None:
         # The classes must really be populated: an empty map carries the two
         # lines too, and this test may not pass on one.
         assert _cells(ax, "0-75 m") == column_cells(AXIS_COLUMN)
-        note = ax.texts[0].get_text()
-        assert note.startswith("D_so: descent of the simulated cells")
+        note = legend_note(ax)
+        assert note.startswith("D_so: how far each of the simulated cells")
         assert "seepage threshold: none (tau = 0)" in note
         assert "no cell" not in note
     finally:
@@ -323,7 +411,7 @@ def test_the_note_names_the_threshold_the_partition_was_cut_at(mpl) -> None:
     DownslopeDistanceMap().render(_two_branch_run(), ax, tau_specific_ratio=0.25)
 
     try:
-        assert "tau = 0.25 of the mean recharge" in ax.texts[0].get_text()
+        assert "tau = 0.25 of the mean recharge" in legend_note(ax)
     finally:
         mpl.close(fig)
 

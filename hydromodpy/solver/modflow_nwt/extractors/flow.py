@@ -15,7 +15,10 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
-from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
+from hydromodpy.solver.modflow_common.budget_components import (
+    canonical_budget_component,
+    is_scalar_budget_component,
+)
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
@@ -220,11 +223,23 @@ class ModflowNwtOutputAdapter:
         spatial_fields: bool = False,
         flux_scale_to_m3_s: float = 1.0,
     ) -> None:
-        """Extract cell budget data from .cbc file."""
+        """Extract the scalar stress and storage terms of the .cbc file.
+
+        FLOW RIGHT/FRONT/LOWER FACE are dropped here, as they already are on
+        the MODFLOW 6 path: they are antisymmetric intercell fluxes that net
+        to zero, so neither the scalar budget table nor a per-cell budget
+        field means anything on them. Kept, they also write one full
+        (n_steps, nlay, n_cells) array per direction that no field of the
+        registry names and that every walk of ``budget/`` picks up.
+        """
         import flopy.utils.binaryfile as bf
 
         cbb = bf.CellBudgetFile(str(cbc_path))
-        record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
+        record_names = [
+            name
+            for name in (record.decode().strip() for record in cbb.get_unique_record_names())
+            if is_scalar_budget_component(name)
+        ]
 
         n_cells = nrow * ncol
         n_timesteps = len(times)

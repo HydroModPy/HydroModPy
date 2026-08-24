@@ -7,6 +7,12 @@ missing where only the map did. A single scalar cannot say whether a residual
 near zero comes from a good fit or from a large excess cancelling a large gap,
 and this map can.
 
+Only if it can be read. The three classes are one cell wide and the mesh is
+not: on the Nancon they hold 1 681 cells out of 60 395, so the map opens on
+the delineated catchment, where every class of the criterion lives, and draws
+its cells with the weight a one-cell line needs to survive the page. The three
+counts sit in the key under the map, beside the colour each belongs to.
+
 The partition is rebuilt from what the run persisted, through the construction
 the criterion scores, so the map cannot disagree with the numbers a trial
 published. It moves with the seepage threshold, which the figure names on the
@@ -23,11 +29,18 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     AGREEMENT_COLORS,
-    annotate_note,
+    CASING_COLOR,
+    CELL_WEIGHT_PT,
+    MapExtent,
+    MapExtentName,
     cell_count,
     checked_cells,
     class_label,
     comparison_from_run,
+    draw_cells,
+    map_extent,
+    map_legend,
+    select_cells,
     threshold_note,
 )
 from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
@@ -47,13 +60,8 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.run import Run
 
-_DRAW_ORDER: tuple[int, ...] = (
-    AGREEMENT_NEITHER,
-    AGREEMENT_VALID,
-    AGREEMENT_EXCESS,
-    AGREEMENT_MISSING,
-)
-"""Background first, then the three classes, so the palette stacks predictably."""
+_CLASS_ORDER: tuple[int, ...] = (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
+"""The three classes, drawn over the casing in a stable order."""
 
 _LEGEND_ORDER: tuple[int, ...] = (
     AGREEMENT_VALID,
@@ -66,6 +74,16 @@ _LEGEND_ORDER: tuple[int, ...] = (
 _NEITHER_EDGE = "#c8c8c8"
 """A border on the legend swatch, which is otherwise white on white."""
 
+_FLAT_WEIGHT_PT = 0.0
+"""What everything but the casing is drawn at, so no class widens over another.
+
+The three classes interleave cell by cell along the same one-cell line. Given
+a stroke each, every class grew half that stroke into its neighbours and the
+one drawn first came out smaller than the count printed beside it: on the
+Nancon the valid class held the most cells of the three and the least ink of
+the three. The weight is carried once, by the casing under all of them.
+"""
+
 
 @register
 class SeepageNetworkConfusionMap(BaseFigure):
@@ -75,6 +93,9 @@ class SeepageNetworkConfusionMap(BaseFigure):
     the run: the release flux the solver wrote, the mapped network the project
     declares and the delineated watershed, put back through the construction
     the criterion scores. Any backend persisting those draws the same map.
+
+    ``extent`` picks the frame: ``catchment`` crops to the delineated
+    watershed, ``mesh`` keeps the whole modelled domain.
     """
 
     spec = FigureSpec(
@@ -82,7 +103,7 @@ class SeepageNetworkConfusionMap(BaseFigure):
         title="Seepage network confusion",
         kind="comparison",
         required_fields=("release_flux",),
-        default_figsize=(7.0, 5.5),
+        default_figsize=(7.0, 6.2),
     )
 
     def unavailable_reason(self, sim: Run) -> str | None:
@@ -97,6 +118,7 @@ class SeepageNetworkConfusionMap(BaseFigure):
         tau_specific_ratio: float | None = None,
         diagonal_neighbors: bool | None = None,
         timestep: int | None = None,
+        extent: MapExtentName = "catchment",
         **_,
     ) -> Axes:
         comparison = comparison_from_run(
@@ -108,74 +130,70 @@ class SeepageNetworkConfusionMap(BaseFigure):
         polygons = face_polygons(sim)
         agreement = checked_cells(comparison.agreement, len(polygons), "agreement map")
 
-        for zorder, value in enumerate(_DRAW_ORDER, start=1):
-            _add_class(
+        draw_cells(
+            ax,
+            select_cells(polygons, agreement == AGREEMENT_NEITHER),
+            color=AGREEMENT_COLORS[AGREEMENT_NEITHER],
+            label=agreement_label(AGREEMENT_NEITHER),
+            zorder=1,
+            weight_pt=_FLAT_WEIGHT_PT,
+        )
+        draw_cells(
+            ax,
+            select_cells(polygons, agreement != AGREEMENT_NEITHER),
+            color=CASING_COLOR,
+            label="_network casing",
+            zorder=2,
+            weight_pt=CELL_WEIGHT_PT,
+        )
+        for zorder, value in enumerate(_CLASS_ORDER, start=3):
+            draw_cells(
                 ax,
-                polygons,
-                agreement == value,
+                select_cells(polygons, agreement == value),
                 color=AGREEMENT_COLORS[value],
                 label=agreement_label(value),
                 zorder=zorder,
+                weight_pt=_FLAT_WEIGHT_PT,
             )
 
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
         ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}")
-        ax.legend(handles=_legend_handles(agreement), loc="best", fontsize=9, framealpha=0.9)
-        annotate_note(ax, threshold_note(comparison))
+
+        window = map_extent(sim, polygons, extent=extent)
+        notes = [threshold_note(comparison), f"frame: {window.name}"]
+        map_legend(ax, _legend_handles(agreement, window), note="\n".join(notes))
+        window.apply(ax)
         return ax
 
 
-def _legend_handles(agreement: np.ndarray) -> list[Patch]:
+def _legend_handles(agreement: np.ndarray, window: MapExtent) -> list[Patch]:
     """Return one legend patch per class, sized by the cells it holds.
 
     The three classes are always listed, an empty one included: a class the
     model produced nothing for is a result, and a legend that drops it reads
-    as a figure that was never asked the question.
+    as a figure that was never asked the question. They are counted over the
+    whole mesh, which is what the criterion averages; the ground is counted
+    over the frame instead, since it is not a published number and a reader
+    checking it counts the grey they can see.
     """
     from matplotlib.patches import Patch
 
     handles: list[Patch] = []
     for value in _LEGEND_ORDER:
         selected = agreement == value
-        if value == AGREEMENT_NEITHER and not selected.any():
-            continue
+        if value == AGREEMENT_NEITHER:
+            selected = selected & window.inside
+            if not selected.any():
+                continue
         handles.append(
             Patch(
                 facecolor=AGREEMENT_COLORS[value],
-                edgecolor=_NEITHER_EDGE if value == AGREEMENT_NEITHER else "none",
+                edgecolor=_NEITHER_EDGE if value == AGREEMENT_NEITHER else CASING_COLOR,
                 label=f"{class_label(value)} ({cell_count(selected)})",
             )
         )
     return handles
-
-
-def _add_class(
-    ax: Axes,
-    polygons: list[np.ndarray],
-    mask: np.ndarray,
-    *,
-    color: str,
-    label: str,
-    zorder: int,
-) -> None:
-    """Draw one class of cells as a flat colour, or nothing when it is empty."""
-    from matplotlib.collections import PolyCollection
-
-    selected = np.flatnonzero(mask)
-    if selected.size == 0:
-        return
-    ax.add_collection(
-        PolyCollection(
-            [polygons[index] for index in selected],
-            facecolors=color,
-            edgecolors="none",
-            label=label,
-            zorder=zorder,
-        )
-    )
-    ax.set_aspect("equal", adjustable="datalim")
-    ax.autoscale_view()
 
 
 __all__ = ["SeepageNetworkConfusionMap"]

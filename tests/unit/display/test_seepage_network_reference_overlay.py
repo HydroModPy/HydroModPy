@@ -15,7 +15,11 @@ import pytest
 
 from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures.seepage_network_reference_overlay import (
+    _SIMULATED_INSET,
+    HALO_WEIGHT_PT,
     NETWORK_COLORS,
+    NETWORK_HALO,
+    RELIEF_GREYS,
     SeepageNetworkReferenceOverlay,
 )
 
@@ -28,6 +32,8 @@ from ._network_comparison_run import (
     column_cells,
     comparison_run,
     drawn_cells,
+    legend_labels,
+    legend_note,
 )
 
 
@@ -63,9 +69,11 @@ def _relative_luminance(color: str) -> float:
     return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
-def _polygon_area(vertices: np.ndarray) -> float:
-    x, y = vertices[:, 0], vertices[:, 1]
-    return 0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+def _contrast_ratio(one: str, other: str) -> float:
+    """The WCAG contrast of two colours, which is what a print keeps or loses."""
+    first, second = _relative_luminance(one), _relative_luminance(other)
+    light, dark = max(first, second), min(first, second)
+    return (light + 0.05) / (dark + 0.05)
 
 
 def _collection(ax, label_prefix: str):
@@ -74,6 +82,15 @@ def _collection(ax, label_prefix: str):
         for collection in ax.collections
         if str(collection.get_label()).startswith(label_prefix)
     )
+
+
+def _drawn_width_px(ax, label_prefix: str) -> tuple[float, float]:
+    """Return the width of one drawn cell in pixels, without and with its stroke."""
+    collection = _collection(ax, label_prefix)
+    corners = ax.transData.transform(collection.get_paths()[0].vertices[:, :2])
+    path = float(corners[:, 0].max() - corners[:, 0].min())
+    stroke = float(collection.get_linewidth()[0]) * ax.figure.dpi / 72.0
+    return path, path + stroke
 
 
 def _shading(ax) -> np.ndarray:
@@ -95,7 +112,7 @@ def test_overlay_draws_the_two_networks_the_run_implies(mpl) -> None:
         assert drawn_cells(_collection(ax, "_simulated")) == sorted(
             [*column_cells(AXIS_COLUMN), cell(3, 2), cell(4, 2)]
         )
-        labels = [text.get_text() for text in ax.get_legend().get_texts()]
+        labels = legend_labels(ax)
         assert labels[:2] == ["mapped network (3 cells)", "simulated network (5 cells)"]
         assert ax.get_xlabel() == "x (m)"
         assert ax.get_ylabel() == "y (m)"
@@ -120,7 +137,7 @@ def test_overlay_stacks_the_networks_over_the_relief(mpl) -> None:
         mpl.close(fig)
 
 
-def test_overlay_frames_the_whole_mesh(mpl) -> None:
+def test_overlay_frames_everything_the_catchment_covers(mpl) -> None:
     fig, ax = mpl.subplots()
 
     SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
@@ -140,7 +157,7 @@ def test_overlay_draws_the_outlet_when_the_run_carries_one(mpl) -> None:
     SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
 
     try:
-        labels = [text.get_text() for text in ax.get_legend().get_texts()]
+        labels = legend_labels(ax)
         assert "Outlet" in labels
         assert _collection(ax, "Outlet").get_offsets().tolist() == [[250.0, 50.0]]
     finally:
@@ -153,7 +170,7 @@ def test_overlay_names_the_threshold_it_was_drawn_at(mpl) -> None:
     SeepageNetworkReferenceOverlay().render(_flank_run(), ax, tau_specific_ratio=0.25)
 
     try:
-        assert "tau = 0.25 of the mean recharge" in ax.texts[0].get_text()
+        assert "tau = 0.25 of the mean recharge" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -164,7 +181,7 @@ def test_a_threshold_above_every_release_leaves_no_simulated_network(mpl) -> Non
     SeepageNetworkReferenceOverlay().render(_flank_run(), ax, tau_specific_ratio=1.0e6)
 
     try:
-        labels = [text.get_text() for text in ax.get_legend().get_texts()]
+        labels = legend_labels(ax)
         assert "simulated network (0 cells)" in labels
         assert "mapped network (3 cells)" in labels
     finally:
@@ -174,6 +191,66 @@ def test_a_threshold_above_every_release_leaves_no_simulated_network(mpl) -> Non
 # --------------------------------------------------------------------------- #
 # the two networks stay apart without colour
 # --------------------------------------------------------------------------- #
+
+
+def test_the_casing_lifts_both_networks_off_the_darkest_relief() -> None:
+    # Drawn straight on the hillshade, the simulated network measured 1.32
+    # against its darkest shade: invisible on screen and gone in print. What
+    # a network sits on has to be the casing, and the casing has to separate
+    # from the relief in turn, or the fix has only moved the collision.
+    darkest = min(RELIEF_GREYS, key=_relative_luminance)
+
+    for name, color in NETWORK_COLORS.items():
+        assert _contrast_ratio(color, NETWORK_HALO) >= 3.0, (
+            f"the {name} network is unreadable on its own casing"
+        )
+        assert _contrast_ratio(color, darkest) < _contrast_ratio(color, NETWORK_HALO), (
+            f"the casing must be the better ground for the {name} network"
+        )
+    assert _contrast_ratio(NETWORK_HALO, darkest) >= 3.0, (
+        "the casing itself has to read against the relief, or it hides nothing"
+    )
+
+
+def test_both_networks_are_cased_before_they_are_drawn(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
+
+    try:
+        casing = _collection(ax, "_network casing")
+        observed = _collection(ax, "_observed")
+        simulated = _collection(ax, "_simulated")
+        assert drawn_cells(casing) == sorted(
+            set(drawn_cells(observed)) | set(drawn_cells(simulated))
+        ), "the casing covers the union of the two networks and nothing else"
+        assert casing.get_zorder() < observed.get_zorder() < simulated.get_zorder()
+        assert float(casing.get_linewidth()[0]) > float(observed.get_linewidth()[0]) > 0.0
+        assert float(casing.get_linewidth()[0]) == pytest.approx(HALO_WEIGHT_PT)
+    finally:
+        mpl.close(fig)
+
+
+def test_the_overlay_opens_on_the_catchment_and_a_caller_may_widen_it(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkReferenceOverlay().render(_flank_run(catchment_columns=[0, 1]), ax)
+
+    try:
+        assert ax.get_xlim()[1] < 3 * CELL_M
+        assert "the delineated catchment" in legend_note(ax)
+    finally:
+        mpl.close(fig)
+
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkReferenceOverlay().render(_flank_run(catchment_columns=[0, 1]), ax, extent="mesh")
+
+    try:
+        assert ax.get_xlim()[1] >= NX * CELL_M
+        assert "the whole mesh" in legend_note(ax)
+    finally:
+        mpl.close(fig)
 
 
 def test_the_two_networks_stay_apart_in_greyscale() -> None:
@@ -186,17 +263,29 @@ def test_the_two_networks_stay_apart_in_greyscale() -> None:
 
 
 def test_the_simulated_network_is_inset_so_shape_carries_the_distinction(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkReferenceOverlay().render(_flank_run(), ax)
+    # What a reader sees is the path plus the stroke around it, and the stroke
+    # is set in points: it does not shrink with the map. An inset patch given
+    # the weight of a cell grows back over the rim of mapped cell it is meant
+    # to sit inside, and on the Nancon at the shipped figsize it covered 8.99
+    # px of an 8.8 px cell, so the agreement read as a simulated network with
+    # nothing under it. The area of the path alone could not see that.
+    fig = SeepageNetworkReferenceOverlay().plot(_flank_run())
+    ax = fig.axes[0]
 
     try:
-        mapped = _polygon_area(_collection(ax, "_observed").get_paths()[0].vertices)
-        simulated = _polygon_area(_collection(ax, "_simulated").get_paths()[0].vertices)
-        assert mapped == pytest.approx(CELL_M**2), "the mapped network fills its cell"
-        assert simulated < 0.5 * mapped, (
-            "the simulated network must be drawn inset inside the cell, so the "
-            "two networks are told apart by shape and not only by colour"
+        fig.canvas.draw()
+        mapped_path, mapped_drawn = _drawn_width_px(ax, "_observed")
+        inset_path, inset_drawn = _drawn_width_px(ax, "_simulated")
+        assert inset_path == pytest.approx(_SIMULATED_INSET * mapped_path, rel=1e-3), (
+            "the simulated patch is drawn inset, so the two networks are told "
+            "apart by shape and not only by colour"
+        )
+        assert inset_drawn == pytest.approx(inset_path), (
+            "a stroke on the inset patch is the inset given back: the casing "
+            "already carries the weight both networks are drawn with"
+        )
+        assert mapped_drawn - inset_drawn > 0.25 * mapped_drawn, (
+            "a rim of mapped cell has to survive around the simulated patch"
         )
     finally:
         mpl.close(fig)
@@ -297,7 +386,7 @@ def test_overlay_says_when_the_run_persisted_no_topography(mpl) -> None:
             for collection in ax.collections
             if str(collection.get_label()).startswith("_relief")
         ]
-        assert "no per-cell topography" in ax.texts[0].get_text()
+        assert "no per-cell topography" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -310,7 +399,7 @@ def test_overlay_says_when_no_cell_carries_an_elevation(mpl) -> None:
     SeepageNetworkReferenceOverlay().render(_flank_run(relief=np.full(NX * NY, np.nan)), ax)
 
     try:
-        assert "relief background is missing" in ax.texts[0].get_text()
+        assert "relief background is missing" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -336,8 +425,8 @@ def test_overlay_says_when_the_simulated_network_is_empty(mpl) -> None:
     SeepageNetworkReferenceOverlay().render(comparison_run(), ax)
 
     try:
-        assert "simulated network is empty" in ax.texts[0].get_text()
-        labels = [text.get_text() for text in ax.get_legend().get_texts()]
+        assert "simulated network is empty" in legend_note(ax)
+        labels = legend_labels(ax)
         assert "simulated network (0 cells)" in labels
     finally:
         mpl.close(fig)
@@ -352,7 +441,7 @@ def test_overlay_says_when_the_mapped_network_leaves_the_catchment(mpl) -> None:
     SeepageNetworkReferenceOverlay().render(_flank_run(catchment_columns=[0, 1]), ax)
 
     try:
-        assert "mapped network is empty" in ax.texts[0].get_text()
+        assert "mapped network is empty" in legend_note(ax)
     finally:
         mpl.close(fig)
 

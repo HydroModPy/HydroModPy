@@ -20,7 +20,11 @@ import pandas as pd
 import pytest
 
 from hydromodpy.display.figure_registry import get as get_figure
-from hydromodpy.display.figures._stream_comparison import AGREEMENT_COLORS
+from hydromodpy.display.figures._stream_comparison import (
+    AGREEMENT_COLORS,
+    CASING_COLOR,
+    CELL_WEIGHT_PT,
+)
 from hydromodpy.display.figures.bisection_bracket_trace import BisectionBracketTraceFigure
 from hydromodpy.display.figures.downslope_distance_crossing import (
     DownslopeDistanceCrossingFigure,
@@ -36,12 +40,16 @@ from hydromodpy.results.derive.stream_network import (
 
 from ._network_comparison_run import (
     AXIS_COLUMN,
+    CELL_M,
     NX,
     NY,
     cell,
     column_cells,
     comparison_run,
     drawn_cells,
+    legend_labels,
+    legend_note,
+    map_key,
 )
 
 L_REF = 250.0
@@ -288,6 +296,12 @@ def _class_cells(ax, value: int) -> list[int]:
     return []
 
 
+def _class_collection(ax, value: int):
+    """The one collection drawn under an agreement class."""
+    label = agreement_label(value)
+    return next(item for item in ax.collections if str(item.get_label()) == label)
+
+
 def test_confusion_map_draws_the_partition_the_run_carries(mpl) -> None:
     fig, ax = mpl.subplots()
 
@@ -301,7 +315,7 @@ def test_confusion_map_draws_the_partition_the_run_carries(mpl) -> None:
         assert _class_cells(ax, AGREEMENT_EXCESS) == [cell(3, 0), cell(4, 0)]
         assert _class_cells(ax, AGREEMENT_MISSING) == [cell(AXIS_COLUMN, 2)]
         assert len(_class_cells(ax, AGREEMENT_NEITHER)) == NX * NY - 5
-        assert [text.get_text() for text in ax.get_legend().get_texts()] == [
+        assert legend_labels(ax) == [
             "valid: simulated and mapped (2 cells)",
             "excess: simulated only (2 cells)",
             "missing: mapped only (1 cell)",
@@ -359,7 +373,7 @@ def test_confusion_map_follows_the_seepage_threshold_it_is_asked_for(mpl) -> Non
         assert _class_cells(ax, AGREEMENT_MISSING) == column_cells(AXIS_COLUMN)
         assert _class_cells(ax, AGREEMENT_VALID) == []
         assert _class_cells(ax, AGREEMENT_EXCESS) == []
-        assert "tau = 1e+06" in ax.texts[0].get_text()
+        assert "tau = 1e+06" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -370,7 +384,172 @@ def test_confusion_map_names_the_threshold_it_was_drawn_at(mpl) -> None:
     SeepageNetworkConfusionMap().render(_partition_run(), ax, tau_specific_ratio=0.25)
 
     try:
-        assert "tau = 0.25 of the mean recharge" in ax.texts[0].get_text()
+        assert "tau = 0.25 of the mean recharge" in legend_note(ax)
+    finally:
+        mpl.close(fig)
+
+
+def test_the_key_and_the_note_sit_outside_the_map(mpl) -> None:
+    # They used to share the inside of the axes, the legend wherever
+    # matplotlib found room and the note pinned to the foot. On the Nancon
+    # they landed on each other and the third class was read through the note.
+    # Drawn the way the gallery draws it, through plot().
+    fig = SeepageNetworkConfusionMap().plot(_partition_run())
+    ax = fig.axes[0]
+
+    try:
+        fig.canvas.draw()
+        key = map_key(ax).get_window_extent()
+        frame = ax.get_window_extent()
+        assert key.y1 <= frame.y0 + 1.0, (
+            f"the key overlaps the map: key {key.y0}-{key.y1}, map {frame.y0}-{frame.y1}"
+        )
+        assert not ax.texts, "nothing may be left floating over the subject"
+    finally:
+        mpl.close(fig)
+
+
+def test_the_key_stays_off_the_map_on_an_axes_the_caller_built(mpl) -> None:
+    # Matplotlib reserves room for an outside figure legend only when the
+    # figure carries a layout engine, and render() is public: called on a
+    # plain subplots() the key was drawn over the map. Measured before the
+    # fix, on a figure with no engine, the key ran 6.6 px into the axes.
+    fig, ax = mpl.subplots(figsize=(7.0, 6.2), dpi=150)
+
+    SeepageNetworkConfusionMap().render(_partition_run(), ax)
+
+    try:
+        assert fig.get_layout_engine() is not None, (
+            "the map has to give the figure the engine that reserves the room"
+        )
+        fig.canvas.draw()
+        key = map_key(ax).get_window_extent()
+        frame = ax.get_window_extent()
+        assert key.y1 <= frame.y0 + 1.0, (
+            f"the key overlaps the map: key {key.y0}-{key.y1}, map {frame.y0}-{frame.y1}"
+        )
+    finally:
+        mpl.close(fig)
+
+
+def test_the_network_is_widened_once_and_not_class_by_class(mpl) -> None:
+    # A class of this map is a one-cell-wide line, so it needs weight to
+    # survive the page. Given a stroke each, the three classes interleave cell
+    # by cell along the same line and every one of them widens over the two
+    # beside it: rendered on the Nancon at the shipped figsize, valid held the
+    # most cells of the three (609 against 508) and printed the least ink of
+    # the three, 5.2 px a cell against 11.9 for missing, which was drawn last.
+    # The weight is carried once, by a casing over their union.
+    from matplotlib.colors import to_rgba
+
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkConfusionMap().render(_partition_run(), ax)
+
+    try:
+        casing = next(item for item in ax.collections if str(item.get_label()) == "_network casing")
+        assert float(casing.get_linewidth()[0]) == pytest.approx(CELL_WEIGHT_PT)
+        assert drawn_cells(casing) == sorted(
+            _class_cells(ax, AGREEMENT_VALID)
+            + _class_cells(ax, AGREEMENT_EXCESS)
+            + _class_cells(ax, AGREEMENT_MISSING)
+        ), "the casing covers the three classes and nothing else"
+        assert tuple(np.asarray(casing.get_facecolor()).reshape(-1)) == pytest.approx(
+            to_rgba(CASING_COLOR)
+        )
+        for value in (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING, AGREEMENT_NEITHER):
+            assert float(_class_collection(ax, value).get_linewidth()[0]) == 0.0, (
+                f"{agreement_label(value)} may not widen over the class beside it"
+            )
+    finally:
+        mpl.close(fig)
+
+
+def test_the_map_opens_on_the_catchment_and_says_so(mpl) -> None:
+    # The three classes only ever live inside the delineated catchment. A run
+    # whose catchment is the two western columns must frame those, not the
+    # five columns of mesh around them.
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[0, 1]), ax)
+
+    try:
+        assert ax.get_xlim()[1] < 3 * CELL_M
+        assert "the delineated catchment" in legend_note(ax)
+    finally:
+        mpl.close(fig)
+
+
+def test_the_ground_is_counted_on_what_the_frame_shows(mpl) -> None:
+    # The three classes are the numbers a trial publishes and stay whole; the
+    # ground is not, and a reader checks it by looking at the grey in front of
+    # them. Counted over the mesh it contradicted the page: on the Nancon the
+    # key said 58 714 cells of no stream in a window holding 53 703.
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[1, 2, 3]), ax)
+
+    try:
+        # The frame holds the three middle columns, nine cells, four of which
+        # the criterion classifies.
+        assert legend_labels(ax) == [
+            "valid: simulated and mapped (2 cells)",
+            "excess: simulated only (1 cell)",
+            "missing: mapped only (1 cell)",
+            "no stream (5 cells)",
+        ]
+        ground = _class_collection(ax, AGREEMENT_NEITHER)
+        assert len(ground.get_paths()) == NX * NY - 4, (
+            "the ground is still drawn over the whole mesh, only counted on the frame"
+        )
+    finally:
+        mpl.close(fig)
+
+
+def test_a_caller_may_ask_for_the_whole_mesh(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[0, 1]), ax, extent="mesh")
+
+    try:
+        assert ax.get_xlim()[1] >= NX * CELL_M
+        assert "the whole mesh" in legend_note(ax)
+    finally:
+        mpl.close(fig)
+
+
+def test_the_catchment_frame_hides_no_class(mpl) -> None:
+    # The criterion scores nothing outside the delineated catchment, so the
+    # default frame can drop no cell the legend counts. The note says nothing
+    # rather than warning about a loss that cannot happen here.
+    fig, ax = mpl.subplots()
+
+    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[0, 1]), ax)
+
+    try:
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        classified = [
+            collection
+            for value in (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
+            for collection in ax.collections
+            if str(collection.get_label()) == agreement_label(value)
+        ]
+        assert classified, "the run must classify something for this to say anything"
+        for collection in classified:
+            for path in collection.get_paths():
+                centre = path.vertices.mean(axis=0)
+                assert xmin <= centre[0] <= xmax and ymin <= centre[1] <= ymax
+    finally:
+        mpl.close(fig)
+
+
+def test_an_unknown_frame_is_refused(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    try:
+        with pytest.raises(ValueError, match="extent must be"):
+            SeepageNetworkConfusionMap().render(_partition_run(), ax, extent="everything")
     finally:
         mpl.close(fig)
 

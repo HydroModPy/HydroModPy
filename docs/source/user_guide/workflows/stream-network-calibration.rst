@@ -417,6 +417,17 @@ distance, without touching code:
    [display.overrides.downslope_distance_map]
    direction = "to_simulated"
 
+The three maps open on the delineated catchment, because that is where every
+class of the criterion lives: on the Nancon the partition holds 1 681 cells
+out of a mesh of 60 395, and a frame drawn around the mesh spends its page on
+ground that carries no answer. A reader checking what the model does outside
+the basin it was scored on asks for the whole domain instead:
+
+.. code-block:: toml
+
+   [display.overrides.seepage_network_reference_overlay]
+   extent = "mesh"
+
 A ninth figure, ``roptim_validity_chart``, compares the calibrated agreement of
 SEVERAL catchments, and a run holds one. It refuses a run-driven render by name
 rather than drawing one point, and it is fed per-site records directly.
