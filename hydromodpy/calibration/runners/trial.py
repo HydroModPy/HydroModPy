@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel
 
+from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     get_trial_pipeline_provider,
@@ -48,6 +49,7 @@ from hydromodpy.calibration.runners.contracts import (
 from hydromodpy.calibration.runners.sandbox import TrialSandbox
 from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
 
@@ -271,7 +273,9 @@ def prepare_trials(
         This is how a phase says what model it calibrates: a flow regime or a
         time step written after the prefix is prepared changes the baseline the
         forks copy, but not the time grid the prefix already built, so the
-        phase silently runs the discretisation of the one before it.
+        phase silently runs the discretisation of the one before it. A path
+        that names no field, at any segment, raises
+        :class:`~hydromodpy.core.exceptions.ConfigValidationError`.
 
         This is not ``override_paths``, which names what VARIES per trial and
         therefore decides how much of the pipeline re-runs. An entry there
@@ -288,7 +292,12 @@ def prepare_trials(
     cfg = get_root_config_provider().from_toml(cfg_path)
 
     for dotted, value in (config_overrides or {}).items():
-        _set_by_path(cfg, str(dotted), value)
+        try:
+            set_by_path(cfg, str(dotted), value)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                f"config override {dotted!r} cannot be written into the configuration: {exc}"
+            ) from exc
 
     if isinstance(override_paths, Mapping):
         path_map: dict[str, str] = {str(k): str(v) for k, v in override_paths.items()}

@@ -517,12 +517,16 @@ class Project:
         ------
         ConfigMissingError
             Raised when neither ``config_path`` nor ``parameters`` is supplied.
+        ConfigError
+            Raised when ``phase`` is given and ``config_path`` cannot be read,
+            because the answer is what the file says.
         CalibrationError
             Raised when ``[[calibration.phases]]`` cannot be run as declared,
             and when ``phase`` names a phase no configuration declares.
         """
         from hydromodpy.core.exceptions import CalibrationError, ConfigMissingError
         from hydromodpy.project.dispatch.workflow import (
+            calibration_phases_or_raise,
             declared_calibration_phases,
             in_memory_staged_refusal,
             no_such_phase,
@@ -532,7 +536,16 @@ class Project:
             from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
             target = Path(config_path).expanduser().resolve()
-            if declared_calibration_phases(target):
+            # Routing alone tolerates an unreadable file: the runner that reads
+            # it next reports the failure with its own context. Selecting a
+            # phase by name reaches no runner, so the failure has to surface
+            # here, or the user is sent looking at a phases block that is
+            # present and correct.
+            if phase is not None:
+                declared_phases = calibration_phases_or_raise(target)
+            else:
+                declared_phases = declared_calibration_phases(target)
+            if declared_phases:
                 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
                 return run_staged_calibration(target, phase=phase, **kwargs)
