@@ -224,8 +224,8 @@ def build_network_geometry(
         )
         surface = fill_report.surface
         logger.info(
-            "Network criterion: %d cell(s) raised to close the depressions of the "
-            "surface it measures on, up to %.2f m.",
+            "Network criterion: %d cell(s) raised so every cell reaches the sealed "
+            "outlet, up to %.2f m.",
             fill_report.n_filled,
             fill_report.max_fill,
         )

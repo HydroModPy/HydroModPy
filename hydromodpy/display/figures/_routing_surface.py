@@ -13,6 +13,15 @@ flood conditioning a surface over one neighbourhood while a descent walks the
 other leaves every filled cell spilling over a link the descent cannot take,
 which is a defect this repository has already paid for once.
 
+Water leaves this object through the edge of the active mesh, where the model
+itself ends, and that is the only escape the surface has of its own. The outlet
+is not one: it is the cell the stream criterion seals before measuring a
+distance to it, a choice made about the catchment rather than a property of the
+surface. A flood seeded on the mesh edge therefore raises the closed
+depressions and nothing else, the outlet included when the outlet sits in one;
+a flood seeded on the outlet alone must also raise every neighbouring basin,
+which drains perfectly well and simply not here.
+
 Nothing here decides anything a solver decided: the elevations come from the
 run, and the outlet is the low point of the delineated catchment, or of the
 active mesh when the run carries no catchment.
@@ -77,6 +86,14 @@ class RoutingSurface:
     catchment: np.ndarray | None
     """(n_cells,) bool: the delineated catchment, None when the run has none."""
 
+    domain_edge: np.ndarray
+    """(n_cells,) bool: active cells holding a face edge no active cell shares.
+
+    The geometric boundary of the modelled domain, where water leaves the mesh.
+    It does not move with ``diagonal_neighbors``: whichever links the descent
+    is allowed to take, it leaves through the same faces.
+    """
+
     outlet: int
     """The cell water leaves through: the low point of the support above."""
 
@@ -107,11 +124,32 @@ class RoutingSurface:
             f"lowest of {self.support_name}"
         )
 
+    @property
+    def escape_note(self) -> str:
+        """The line naming every cell water may leave the domain through."""
+        return (
+            f"seeded on every escape: {int(self.domain_edge.sum())} cells on the edge of "
+            "the active mesh, the outlet excluded"
+        )
+
     def outlet_mask(self) -> np.ndarray:
         """Return the seed mask holding the outlet alone."""
         mask = np.zeros(self.n_cells, dtype=bool)
         mask[self.outlet] = True
         return mask
+
+    def escape_mask(self) -> np.ndarray:
+        """Return the seed mask of every cell water can leave the domain through.
+
+        The edge of the active mesh, and nothing else. The outlet is left out
+        on purpose: sealing a cell does not make the surface drain through it,
+        and seeding it hides the depression the outlet may itself sit in.
+        Measured on nancon_diagnostic.v2, where the outlet is cell 49905 at
+        106.42 m and interior to the mesh: adding it as a seed dropped fifteen
+        cells from the answer, its own among them, and that one needs 4.07 m of
+        fill before it spills to the edge of the domain.
+        """
+        return self.domain_edge.copy()
 
     def downhill_graph(self) -> DownhillGraph:
         """Return the steepest-descent receiver graph over this surface.
@@ -188,6 +226,7 @@ def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> R
         vertices=vertices,
         active=active,
         catchment=catchment,
+        domain_edge=_domain_edge_cells(connectivity, active),
         outlet=_lowest_cell(topography, active if catchment is None else catchment),
         diagonal_neighbors=bool(diagonal_neighbors),
     )
@@ -196,6 +235,36 @@ def routing_surface_from_run(sim: Run, *, diagonal_neighbors: bool = False) -> R
 def _lowest_cell(topography: np.ndarray, within: np.ndarray) -> int:
     """Return the lowest cell of a support, the way the stream criterion does."""
     return int(np.argmin(np.where(within, topography, np.inf)))
+
+
+def _domain_edge_cells(connectivity: np.ndarray, active: np.ndarray) -> np.ndarray:
+    """Return the active cells holding a face edge no other active cell shares.
+
+    Read off the mesh rather than off the neighbour count: a degree below the
+    maximum means "on the edge" only on a structured grid, and a Voronoi dual
+    carries every degree from three upwards in its interior.
+    """
+    rows = np.asarray(connectivity, dtype=np.int64)
+    if rows.ndim == 1:
+        rows = rows.reshape(1, -1)
+    rows = rows[: active.size]
+    present = rows >= 0
+    # Compact the nodes of each face to the front, keeping the ring order, so
+    # the following node of slot j is slot (j + 1) modulo the face arity.
+    ring = np.take_along_axis(rows, np.argsort(~present, axis=1, kind="stable"), axis=1)
+    arity = present.sum(axis=1)
+    slots = np.arange(rows.shape[1])
+    following = np.take_along_axis(
+        ring, np.mod(slots[None, :] + 1, np.maximum(arity, 1)[:, None]), axis=1
+    )
+    low = np.minimum(ring, following)
+    high = np.maximum(ring, following)
+    drawn = (slots[None, :] < arity[:, None]) & active[:, None] & (low != high)
+    key = low * (int(rows.max(initial=0)) + 1) + high
+    _, inverse, counts = np.unique(key[drawn], return_inverse=True, return_counts=True)
+    shared = np.zeros(key.shape, dtype=bool)
+    shared[drawn] = counts[inverse] > 1
+    return active & (drawn & ~shared).any(axis=1)
 
 
 def _catchment_cells(
