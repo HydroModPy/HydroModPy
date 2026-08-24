@@ -244,27 +244,47 @@ etc.). Les premiers à regarder :
 
 ## Les figures
 
-```console
-$ python examples/projects/21_nancon_network_calibration/render_figures.py
+Elles sont **déclarées, pas scriptées**. La liste vit dans `[display].figures`
+du TOML, et le run promu par la calibration les écrit comme n'importe quelle
+autre figure de la galerie :
+
+```toml
+[display]
+figures = [
+    "downslope_distance_crossing",
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrograph_log_nse",
+    "abherve_two_stage_card",
+]
 ```
 
-Le script écrit dans `figures/calibration/` : le croisement des deux distances,
-la trace de la dichotomie, le profil de coût, la superposition du réseau simulé
-sur le linéaire cartographié, la carte de confusion à trois classes, la carte
-des distances, et l'hydrogramme observé contre simulé sur axe logarithmique.
+Les quatre premières lisent les essais de la session depuis le run. Les trois
+cartes de réseau reconstruisent la partition par maille que le critère a scorée,
+**par la même construction que lui** (`hydromodpy.core.stream_geometry`, atteinte
+par `results.derive.stream_network.network_comparison_from_run`), donc une carte
+ne peut pas être en désaccord avec les `n_valid` / `n_excess` / `n_missing` que
+l'essai a publiés.
 
-Les figures de session se lisent directement depuis le run. Les trois cartes de
-réseau, non : **le script reconstruit les supports par maille du critère**,
-parce que le critère les construit pendant un essai et que rien ne les persiste.
-Il rejoue la même chaîne depuis le run promu (seuil de suintement spécifique,
-fermeture aval, intersection avec le bassin délimité, descente sur une surface
-dont les cuvettes sont résolues sur le graphe du maillage). La reconstruction
-retombe **exactement** sur les comptes de l'essai, 602 / 550 / 517, ce qui est
-la vérification que c'est bien le même objet qui est dessiné.
+Il leur faut trois choses du run, et elles disent laquelle manque quand elle
+manque : un `release_flux` par maille (`[simulation.results.derived]`), un réseau
+hydrographique de rôle `reference` (`[[data.hydrography.sources]]`), et un bassin
+délimité. Leurs boutons passent par `[display.overrides]`, donc le seuil dont la
+partition dépend se déplace depuis le TOML :
+
+```toml
+[display.overrides.seepage_network_confusion_map]
+tau_specific_ratio = 0.0
+
+[display.overrides.downslope_distance_map]
+direction = "to_simulated"
+```
 
 `abherve_two_stage_card` est une grille de panneaux : elle se dessine par
-`plot()` et non par `render(sim, ax)`, donc le fichier que le script écrit
-aujourd'hui pour elle est le carton de repli et non la carte.
+`plot()` et non par `render(sim, ax)`.
 
 ## Ce que cet exemple ne dit pas
 
